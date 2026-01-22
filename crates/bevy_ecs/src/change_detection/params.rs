@@ -43,6 +43,34 @@ impl<'w> ComponentTicksRef<'w> {
     }
 }
 
+#[derive(Clone)]
+pub(crate) struct ContiguousComponentTicksRef<'w> {
+    pub(crate) added: &'w [Tick],
+    pub(crate) changed: &'w [Tick],
+    pub(crate) changed_by: MaybeLocation<&'w [&'static Location<'static>]>,
+    pub(crate) last_run: Tick,
+    pub(crate) this_run: Tick,
+}
+
+impl<'w> ContiguousComponentTicksRef<'w> {
+    pub(crate) unsafe fn from_slice_ptrs(
+        added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
+        len: usize,
+        this_run: Tick,
+        last_run: Tick,
+    ) -> Self {
+        Self {
+            added: unsafe { added.cast().as_slice_unchecked(len) },
+            changed: unsafe { changed.cast().as_slice_unchecked(len) },
+            changed_by: changed_by.map(|v| unsafe { v.cast().as_slice_unchecked(len) }),
+            last_run,
+            this_run,
+        }
+    }
+}
+
 /// Used by mutable query parameters (such as [`Mut`] and [`ResMut`])
 /// to store mutable access to the [`Tick`]s of a single component or resource.
 pub(crate) struct ComponentTicksMut<'w> {
@@ -83,6 +111,47 @@ impl<'w> From<ComponentTicksMut<'w>> for ComponentTicksRef<'w> {
             changed_by: ticks.changed_by.map(|changed_by| &*changed_by),
             last_run: ticks.last_run,
             this_run: ticks.this_run,
+        }
+    }
+}
+
+pub(crate) struct ContiguousComponentTicksMut<'w> {
+    pub(crate) added: &'w mut [Tick],
+    pub(crate) changed: &'w mut [Tick],
+    pub(crate) changed_by: MaybeLocation<&'w mut [&'static Location<'static>]>,
+    pub(crate) last_run: Tick,
+    pub(crate) this_run: Tick,
+}
+
+impl<'w> ContiguousComponentTicksMut<'w> {
+    pub(crate) unsafe fn from_slice_ptrs(
+        added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
+        len: usize,
+        this_run: Tick,
+        last_run: Tick,
+    ) -> Self {
+        Self {
+            added: unsafe { added.as_mut_slice_unchecked(len) },
+            changed: unsafe { changed.as_mut_slice_unchecked(len) },
+            changed_by: changed_by.map(|v| unsafe { v.as_mut_slice_unchecked(len) }),
+            last_run,
+            this_run,
+        }
+    }
+
+    pub fn mark_all_as_updated(&mut self) {
+        let this_run = self.this_run;
+
+        self.changed_by.mutate(|v| {
+            for v in v.iter_mut() {
+                *v = Location::caller();
+            }
+        });
+
+        for t in self.changed.iter_mut() {
+            *t = this_run;
         }
     }
 }
@@ -363,6 +432,44 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     }
 }
 
+/// Data type returned by [`ContiguousQueryData::fetch_contiguous`](crate::query::ContiguousQueryData::fetch_contiguous) for [`Ref<T>`].
+pub struct ContiguousRef<'w, T> {
+    pub(crate) value: &'w [T],
+    pub(crate) ticks: ContiguousComponentTicksRef<'w>,
+}
+
+impl<'w, T> ContiguousRef<'w, T> {
+    /// Returns the data slice.
+    #[inline]
+    pub fn data_slice(&self) -> &[T] {
+        self.value
+    }
+
+    /// Returns the added ticks.
+    #[inline]
+    pub fn added_ticks_slice(&self) -> &[Tick] {
+        self.ticks.added
+    }
+
+    /// Returns the changed ticks.
+    #[inline]
+    pub fn changed_ticks_slice(&self) -> &[Tick] {
+        self.ticks.changed
+    }
+
+    /// Returns the tick when the system last ran.
+    #[inline]
+    pub fn last_run_tick(&self) -> Tick {
+        self.ticks.last_run
+    }
+
+    /// Returns the tick of the system's current run.
+    #[inline]
+    pub fn this_run_tick(&self) -> Tick {
+        self.ticks.this_run
+    }
+}
+
 impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>
 where
     &'a T: IntoIterator,
@@ -464,81 +571,68 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     }
 }
 
-/// Used by [`Mut`] for [`crate::query::ContiguousQueryData`] to allow marking component's changes
-pub struct ContiguousComponentTicks<'w, const MUTABLE: bool> {
-    added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
-    changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
-    changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
-    count: usize,
-    last_run: Tick,
-    this_run: Tick,
+/// Data type returned by [`ContiguousQueryData::fetch_contiguous`](crate::query::ContiguousQueryData::fetch_contiguous)
+/// for [`Mut<T>`] and `&mut T`
+pub struct ContiguousMut<'w, T> {
+    pub(crate) value: &'w mut [T],
+    pub(crate) ticks: ContiguousComponentTicksMut<'w>,
 }
 
-impl<'w> ContiguousComponentTicks<'w, true> {
-    /// Returns mutable changed ticks slice
-    pub fn get_changed_ticks_mut(&mut self) -> &mut [Tick] {
-        // SAFETY: `changed` slice is `self.count` long, aliasing rules are uphold by `new`.
-        unsafe { self.changed.as_mut_slice_unchecked(self.count) }
+impl<'w, T> ContiguousMut<'w, T> {
+    /// Returns the mutable data slice.
+    #[inline]
+    pub fn data_slice_mut(&mut self) -> &mut [T] {
+        self.value
     }
 
-    /// Marks all components as updated
+    /// Returns the immutable data slice.
+    #[inline]
+    pub fn data_slice(&self) -> &[T] {
+        self.value
+    }
+
+    /// Returns the immutable added ticks' slice.
+    #[inline]
+    pub fn added_ticks_slice(&self) -> &[Tick] {
+        self.ticks.added
+    }
+
+    /// Returns the immutable changed ticks' slice.
+    #[inline]
+    pub fn changed_ticks_slice(&self) -> &[Tick] {
+        self.ticks.changed
+    }
+
+    /// Returns the tick when the system last ran.
+    #[inline]
+    pub fn last_run_tick(&self) -> Tick {
+        self.ticks.last_run
+    }
+
+    /// Returns the tick of the system's current run.
+    #[inline]
+    pub fn this_run_tick(&self) -> Tick {
+        self.ticks.this_run
+    }
+
+    /// Returns the mutable added ticks' slice.
+    #[inline]
+    pub fn added_ticks_slice_mut(&mut self) -> &mut [Tick] {
+        self.ticks.added
+    }
+
+    /// Returns the mutable changed ticks' slice.
+    #[inline]
+    pub fn changed_ticks_slice_mut(&mut self) -> &mut [Tick] {
+        self.ticks.changed
+    }
+
+    /// Marks all components as updated.
     ///
-    /// **Executes in O(n), where n is the amount of rows.**
+    /// **Runs in O(n), where n is the amount of rows**
+    #[inline]
     pub fn mark_all_as_updated(&mut self) {
-        let this_run = self.this_run;
-
-        self.changed_by.map(|v| {
-            for i in 0..self.count {
-                // SAFETY: `changed_by` slice is `self.count` long, aliasing rules are uphold by `new`
-                *unsafe { v.get_unchecked(i).deref_mut() } = Location::caller();
-            }
-        });
-
-        for t in self.get_changed_ticks_mut() {
-            *t = this_run;
-        }
-    }
-}
-
-impl<'w, const MUTABLE: bool> ContiguousComponentTicks<'w, MUTABLE> {
-    pub(crate) unsafe fn new(
-        added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
-        count: usize,
-        last_run: Tick,
-        this_run: Tick,
-    ) -> Self {
-        Self {
-            added,
-            changed,
-            count,
-            changed_by,
-            last_run,
-            this_run,
-        }
-    }
-
-    /// Returns immutable changed ticks slice
-    pub fn get_changed_ticks(&self) -> &[Tick] {
-        // SAFETY: `self.changed` is `self.count` long
-        unsafe { self.changed.cast().as_slice_unchecked(self.count) }
-    }
-
-    /// Returns immutable added ticks slice
-    pub fn get_added_ticks(&self) -> &[Tick] {
-        // SAFETY: `self.added` is `self.count` long
-        unsafe { self.added.cast().as_slice_unchecked(self.count) }
-    }
-
-    /// Returns the last tick system ran
-    pub fn last_run(&self) -> Tick {
-        self.last_run
-    }
-
-    /// Returns the current tick
-    pub fn this_run(&self) -> Tick {
-        self.this_run
+        self.ticks.mark_all_as_updated();
     }
 }
 

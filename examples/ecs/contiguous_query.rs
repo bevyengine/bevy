@@ -13,14 +13,14 @@ pub struct HealthDecay(pub f32);
 
 fn apply_health_decay(mut query: Query<(&mut Health, &HealthDecay)>) {
     // as_contiguous_iter() would return None if query couldn't be iterated contiguously
-    for ((health, _health_ticks), decay) in query.contiguous_iter_mut().unwrap() {
-        // all slices returned by component queries are the same size
-        assert!(health.len() == decay.len());
-        for i in 0..health.len() {
-            health[i].0 *= decay[i].0;
+    for (mut health, decay) in query.contiguous_iter_mut().unwrap() {
+        // all data slices returned by component queries are the same size
+        assert!(health.data_slice().len() == decay.data_slice().len());
+        for i in 0..health.data_slice().len() {
+            health.data_slice_mut()[i].0 *= decay.data_slice()[i].0;
         }
         // we could have updated health's ticks but it is unnecessary hence we can make less work
-        // _health_ticks.mark_all_as_updated();
+        // health.mark_all_as_updated();
     }
 }
 

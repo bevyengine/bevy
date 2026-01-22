@@ -2,7 +2,8 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
     change_detection::{
-        ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicks, MaybeLocation, Tick,
+        ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
+        ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, MaybeLocation, Tick,
     },
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -1817,15 +1818,15 @@ unsafe impl<T: Component> ContiguousQueryData for &T {
             |table| {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
-                // UnsafeCell<T> has the same alignment as T because of transparent representation
-                // (i.e. repr(transparent)) of UnsafeCell
-                let table = table.cast();
-                // SAFETY: Caller ensures `rows` is the amount of rows in the table
-                unsafe { table.as_slice_unchecked(entities.len()) }
+                // SAFETY:
+                // - `table` is `entities.len()` long
+                // - `UnsafeCell<T>` has the same layout as `T`
+                unsafe { table.cast().as_slice_unchecked(entities.len()) }
             },
             |_| {
                 #[cfg(debug_assertions)]
                 unreachable!();
+                // SAFETY: query is dense
                 #[cfg(not(debug_assertions))]
                 core::hint::unreachable_unchecked();
             },
@@ -2063,7 +2064,7 @@ impl<T: Component> ArchetypeQueryData for Ref<'_, T> {}
 
 /// SAFETY: Refer to [`&mut T`]'s implementation
 unsafe impl<T: Component> ContiguousQueryData for Ref<'_, T> {
-    type Contiguous<'w, 's> = (&'w [T], ContiguousComponentTicks<'w, false>);
+    type Contiguous<'w, 's> = ContiguousRef<'w, T>;
 
     unsafe fn fetch_contiguous<'w, 's>(
         _state: &'s Self::State,
@@ -2076,17 +2077,19 @@ unsafe impl<T: Component> ContiguousQueryData for Ref<'_, T> {
                 let (table_components, added_ticks, changed_ticks, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
-                (
-                    table_components.cast().as_slice_unchecked(entities.len()),
-                    ContiguousComponentTicks::<'w, false>::new(
-                        added_ticks,
-                        changed_ticks,
-                        callers,
-                        entities.len(),
-                        fetch.last_run,
-                        fetch.this_run,
-                    ),
-                )
+                ContiguousRef {
+                    value: unsafe { table_components.cast().as_slice_unchecked(entities.len()) },
+                    ticks: unsafe {
+                        ContiguousComponentTicksRef::from_slice_ptrs(
+                            added_ticks,
+                            changed_ticks,
+                            callers,
+                            entities.len(),
+                            fetch.this_run,
+                            fetch.last_run,
+                        )
+                    },
+                }
             },
             |_| {
                 #[cfg(debug_assertions)]
@@ -2317,7 +2320,7 @@ impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T {}
 /// - The first element of [`ContiguousQueryData::Contiguous`] tuple represents all components' values in the set table.
 /// - The second element of [`ContiguousQueryData::Contiguous`] tuple represents all components' ticks in the set table.
 unsafe impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
-    type Contiguous<'w, 's> = (&'w mut [T], ContiguousComponentTicks<'w, true>);
+    type Contiguous<'w, 's> = ContiguousMut<'w, T>;
 
     unsafe fn fetch_contiguous<'w, 's>(
         _state: &'s Self::State,
@@ -2330,17 +2333,19 @@ unsafe impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
                 let (table_components, added_ticks, changed_ticks, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
-                (
-                    table_components.as_mut_slice_unchecked(entities.len()),
-                    ContiguousComponentTicks::<'w, true>::new(
-                        added_ticks,
-                        changed_ticks,
-                        callers,
-                        entities.len(),
-                        fetch.last_run,
-                        fetch.this_run,
-                    ),
-                )
+                ContiguousMut {
+                    value: unsafe { table_components.as_mut_slice_unchecked(entities.len()) },
+                    ticks: unsafe {
+                        ContiguousComponentTicksMut::from_slice_ptrs(
+                            added_ticks,
+                            changed_ticks,
+                            callers,
+                            entities.len(),
+                            fetch.this_run,
+                            fetch.last_run,
+                        )
+                    },
+                }
             },
             |_| {
                 #[cfg(debug_assertions)]
@@ -2474,7 +2479,7 @@ impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for Mut<'_, T> {}
 
 /// SAFETY: Refer to soundness of `&mut T` implementation
 unsafe impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w, T> {
-    type Contiguous<'w, 's> = (&'w mut [T], ContiguousComponentTicks<'w, true>);
+    type Contiguous<'w, 's> = ContiguousMut<'w, T>;
 
     unsafe fn fetch_contiguous<'w, 's>(
         state: &'s Self::State,
@@ -3774,10 +3779,10 @@ mod tests {
         let mut iter = query.contiguous_iter_mut(&mut world).unwrap();
         for _ in 0..2 {
             let mut c = iter.next().unwrap();
-            for c in c.0 {
+            for c in c.data_slice_mut() {
                 c.0 *= 2;
             }
-            c.1.mark_all_as_updated();
+            c.mark_all_as_updated();
         }
         assert!(iter.next().is_none());
         let mut iter = query.contiguous_iter(&world).unwrap();
@@ -3833,8 +3838,8 @@ mod tests {
 
         for (c, d) in iter {
             assert!(c.is_some() || d.is_some());
-            let c = c.unwrap_or(&[]);
-            let d = d.unwrap_or(&[]);
+            let c = c.unwrap_or_default();
+            let d = d.unwrap_or_default();
             for i in 0..c.len().max(d.len()) {
                 let c = c.get(i).cloned();
                 let d = d.get(i).cloned();
@@ -3870,7 +3875,7 @@ mod tests {
         let mut present = [false; 3];
 
         for (c, d) in iter {
-            let c = c.unwrap_or(&[]);
+            let c = c.unwrap_or_default();
             for i in 0..d.len() {
                 let c = c.get(i).cloned();
                 let D(d) = d[i];

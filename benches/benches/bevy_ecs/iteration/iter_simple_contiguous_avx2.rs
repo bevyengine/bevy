@@ -47,19 +47,20 @@ impl<'w> Benchmark<'w> {
         /// avx2 must be supported
         #[target_feature(enable = "avx2")]
         unsafe fn exec(position: &mut [Position], velocity: &[Velocity]) {
+            assert!(position.len() == velocity.len());
             for i in 0..position.len() {
                 position[i].0 += velocity[i].0;
             }
         }
 
         let iter = self.1.contiguous_iter_mut(&mut self.0).unwrap();
-        for (velocity, (position, mut ticks)) in iter {
+        for (velocity, mut position) in iter {
             // SAFETY: checked in new
             unsafe {
-                exec(position, velocity);
+                exec(position.data_slice_mut(), velocity);
             }
             // to match the iter_simple benchmark
-            ticks.mark_all_as_updated();
+            position.mark_all_as_updated();
         }
     }
 }

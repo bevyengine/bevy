@@ -219,7 +219,7 @@ fn print_components_contiguous_iter(query: Query<CustomContiguousQuery<Component
         for i in 0..e.entity.len() {
             println!("Entity: {:?}", e.entity[i]);
             println!("A: {:?}", e.a[i]);
-            println!("B: {:?}", e.b.map(|b| &b[i]));
+            println!("B: {:?}", e.b.as_ref().map(|b| &b[i]));
             println!(
                 "Generic: {:?} {:?}",
                 e.generic.generic.0[i], e.generic.generic.1[i]

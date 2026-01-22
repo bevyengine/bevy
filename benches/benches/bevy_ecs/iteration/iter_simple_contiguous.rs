@@ -36,12 +36,13 @@ impl<'w> Benchmark<'w> {
     #[inline(never)]
     pub fn run(&mut self) {
         let iter = self.1.contiguous_iter_mut(&mut self.0).unwrap();
-        for (velocity, (position, mut ticks)) in iter {
-            for (v, p) in velocity.iter().zip(position.iter_mut()) {
+        for (velocity, mut position) in iter {
+            assert!(velocity.len() == position.data_slice().len());
+            for (v, p) in velocity.iter().zip(position.data_slice_mut().iter_mut()) {
                 p.0 += v.0;
             }
             // to match the iter_simple benchmark
-            ticks.mark_all_as_updated();
+            position.mark_all_as_updated();
         }
     }
 }
