@@ -31,7 +31,8 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
     let wo_unnormalized = view.world_position - surface.world_position;
-    let wo = normalize(wo_unnormalized);
+    let wo_length = length(wo_unnormalized);
+    let wo = wo_unnormalized / wo_length;
 
     var radiance: vec3<f32>;
     var wi: vec3<f32>;
@@ -51,7 +52,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
         let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, surface.material.roughness);
 
-        radiance = trace_glossy_path(global_id.xy, surface, length(wo_unnormalized), wi, pdf, &rng) / pdf;
+        radiance = trace_glossy_path(global_id.xy, surface, wo_length, wi, pdf, &rng) / pdf;
     }
 
     let brdf = evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
