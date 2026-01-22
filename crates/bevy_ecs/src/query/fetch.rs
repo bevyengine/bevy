@@ -2863,7 +2863,7 @@ macro_rules! impl_tuple_query_data {
                 let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
-                ($(unsafe { $name::fetch($state, $name, entity, table_row) },)*)
+                ($(unsafe { $name::fetch($state, &mut $name.fetch, entity, table_row) },)*)
             }
 
             #[inline(always)]
@@ -2876,7 +2876,7 @@ macro_rules! impl_tuple_query_data {
                 let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
-                Some(($(unsafe { $name::try_fetch($state, $name, entity, table_row) }?,)*))
+                Some(($(unsafe { $name::try_fetch($state, &mut $name.fetch, entity, table_row) }?,)*))
             }
 
             fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {

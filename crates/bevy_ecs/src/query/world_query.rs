@@ -310,6 +310,24 @@ impl RangeExt for Range<u32> {
     }
 }
 
+/// A wrapper `Fetch` type for tuple query terms that caches the last seen valid chunk.
+#[doc(hidden)]
+pub struct TupleFetch<'w, T: WorldQuery> {
+    /// the `Fetch` type of the query term
+    pub(crate) fetch: T::Fetch<'w>,
+    // the cached chunk last found in `find_table_chunk`/`find_archetype_chunk`
+    chunk: Range<u32>,
+}
+
+impl<'w, T: WorldQuery> Clone for TupleFetch<'w, T> {
+    fn clone(&self) -> Self {
+        Self {
+            fetch: self.fetch.clone(),
+            chunk: self.chunk.clone(),
+        }
+    }
+}
+
 macro_rules! impl_tuple_world_query {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
 
@@ -342,22 +360,30 @@ macro_rules! impl_tuple_world_query {
         /// `lookahead_table` and `lookahead_archetype` always return a subset of `rows`/`indices`
         /// This is sound because each `lookahead_table` and `lookahead_archetype` each
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
-            type Fetch<'w> = ($($name::Fetch<'w>,)*);
+            type Fetch<'w> = ($(TupleFetch<'w, $name>,)*);
             type State = ($($name::State,)*);
 
 
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
                 let ($($name,)*) = fetch;
                 ($(
-                    $name::shrink_fetch($name),
+                    TupleFetch {
+                        fetch: $name::shrink_fetch($name.fetch),
+                        chunk: $name.chunk
+                    },
                 )*)
             }
 
             #[inline]
             unsafe fn init_fetch<'w, 's>(world: UnsafeWorldCell<'w>, state: &'s Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                // SAFETY: The invariants are upheld by the caller.
-                ($(unsafe { $name::init_fetch(world, $name, last_run, this_run) },)*)
+                ($(
+                    TupleFetch {
+                        // SAFETY: The invariants are upheld by the caller.
+                        fetch: unsafe { $name::init_fetch(world, $name, last_run, this_run) },
+                        chunk: 0..0,
+                    },
+                )*)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -372,16 +398,22 @@ macro_rules! impl_tuple_world_query {
             ) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
-                // SAFETY: The invariants are upheld by the caller.
-                $(unsafe { $name::set_archetype($name, $state, archetype, table); })*
+                $({
+                    // SAFETY: The invariants are upheld by the caller.
+                    unsafe { $name::set_archetype(&mut $name.fetch, $state, archetype, table); };
+                    $name.chunk = 0..0;
+                })*
             }
 
             #[inline]
             unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
-                // SAFETY: The invariants are upheld by the caller.
-                $(unsafe { $name::set_table($name, $state, table); })*
+                $({
+                    // SAFETY: The invariants are upheld by the caller.
+                    unsafe { $name::set_table(&mut $name.fetch, $state, table); }
+                    $name.chunk = 0..0
+                })*
             }
 
 
@@ -408,16 +440,31 @@ macro_rules! impl_tuple_world_query {
                 table_entities: &[Entity],
                 mut rows: Range<u32>,
             ) -> Range<u32> {
-                if Self::IS_ARCHETYPAL {
+                if Self::IS_ARCHETYPAL || rows.is_empty() {
                     rows
                 } else {
+                    let mut chunk = rows.clone();
                     let ($($name,)*) = fetch;
                     let ($($state,)*) = state;
-                    // SAFETY: `rows` is only ever narrowed as we iterate subqueries, so it's
-                    // always valid to pass to the next term. Other invariants are upheld by
-                    // the caller.
-                    $(rows = unsafe { $name::find_table_chunk($state, $name, table_entities, rows) };)*
-                    rows
+                    loop {
+                        let mut any_valid_terms = false;
+                        $({
+                            let mut term_chunk = $name.chunk.start.max(chunk.start)..$name.chunk.end;
+                            if term_chunk.is_empty() {
+                                // SAFETY: chunk.start..rows.end is always a subset of `rows`
+                                term_chunk = unsafe { $name::find_table_chunk($state, &mut $name.fetch, table_entities, chunk.start..rows.end) };
+                            }
+                            any_valid_terms |= !term_chunk.is_empty();
+                            chunk.start = chunk.start.max(term_chunk.start);
+                            chunk.end = chunk.end.min(term_chunk.end).max(chunk.start);
+                            $name.chunk = term_chunk;
+                        })*
+
+                        if !chunk.is_empty() || !any_valid_terms {
+                            break;
+                        }
+                    }
+                    chunk
                 }
             }
 
@@ -428,15 +475,16 @@ macro_rules! impl_tuple_world_query {
                 archetype_entities: &[ArchetypeEntity],
                 mut indices: Range<u32>,
             ) -> Range<u32> {
-                if Self::IS_ARCHETYPAL {
+                if Self::IS_ARCHETYPAL || indices.is_empty() {
                     indices
                 } else {
+                    let mut chunk = indices.clone();
                     let ($($name,)*) = fetch;
                     let ($($state,)*) = state;
                     // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
                     // always valid to pass to the next term. Other invariants are upheld by
                     // the caller.
-                    $(indices = unsafe { $name::find_archetype_chunk($state, $name, archetype_entities, indices) };)*
+                    $(indices = unsafe { $name::find_archetype_chunk($state, &mut $name.fetch, archetype_entities, indices) };)*
                     indices
                 }
             }
@@ -454,7 +502,7 @@ macro_rules! impl_tuple_world_query {
                     let ($($name,)*) = fetch;
                     let ($($state,)*) = state;
                     // SAFETY: invariants are upheld by the caller.
-                    true $(&& unsafe { $name::matches($state, $name, entity, table_row) })*
+                    true $(&& unsafe { $name::matches($state, &mut $name.fetch, entity, table_row) })*
                 }
             }
         }
