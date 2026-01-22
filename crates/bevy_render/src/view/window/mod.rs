@@ -295,7 +295,7 @@ pub fn prepare_windows(
             }
             #[cfg(target_os = "linux")]
             Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
-                tracing::trace!(
+                bevy_log::trace!(
                     "Couldn't get swap chain texture. This is probably a quirk \
                         of your Linux GPU driver, so it can be safely ignored."
                 );
