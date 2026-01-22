@@ -1,7 +1,6 @@
 use crate::core_2d::Opaque2d;
 use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
@@ -21,7 +20,6 @@ use super::AlphaMask2d;
 pub struct MainOpaquePass2dNode;
 impl ViewNode for MainOpaquePass2dNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
         &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
@@ -31,7 +29,7 @@ impl ViewNode for MainOpaquePass2dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
+        (view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let (Some(opaque_phases), Some(alpha_mask_phases)) = (
@@ -73,10 +71,6 @@ impl ViewNode for MainOpaquePass2dNode {
             });
             let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_2d");
-
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(viewport);
-            }
 
             // Opaque draws
             if !opaque_phase.is_empty() {

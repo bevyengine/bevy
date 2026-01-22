@@ -26,7 +26,7 @@ use bevy_platform::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::{extract_cameras, ExtractedCamera},
+    camera::extract_cameras,
     diagnostic::RecordDiagnostics,
     extract_resource::ExtractResource,
     mesh::{
@@ -371,7 +371,6 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
 struct Wireframe3dNode;
 impl ViewNode for Wireframe3dNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
         &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
@@ -381,7 +380,7 @@ impl ViewNode for Wireframe3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
+        (view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Some(wireframe_phase) = world.get_resource::<ViewBinnedRenderPhases<Wireframe3d>>()
@@ -403,10 +402,6 @@ impl ViewNode for Wireframe3dNode {
             occlusion_query_set: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "wireframe_3d");
-
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
-        }
 
         if let Err(err) = wireframe_phase.render(&mut render_pass, world, graph.view_entity()) {
             error!("Error encountered while rendering the stencil phase {err:?}");

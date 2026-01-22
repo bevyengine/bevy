@@ -1,7 +1,6 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     occlusion_culling::OcclusionCulling,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -57,7 +56,6 @@ pub struct LatePrepassNode;
 impl ViewNode for LatePrepassNode {
     type ViewQuery = (
         (
-            &'static ExtractedCamera,
             &'static ExtractedView,
             &'static ViewDepthTexture,
             &'static ViewPrepassTextures,
@@ -108,7 +106,7 @@ fn run_prepass<'w>(
     graph: &mut RenderGraphContext,
     render_context: &mut RenderContext<'w>,
     (
-        (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
+        (extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
         (
             deferred_prepass,
             skybox_prepass_pipeline,
@@ -187,9 +185,7 @@ fn run_prepass<'w>(
         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
         let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
+        if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
             render_pass.set_camera_viewport(&viewport);
         }
 

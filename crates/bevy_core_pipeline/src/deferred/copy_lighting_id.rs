@@ -172,10 +172,10 @@ fn prepare_deferred_lighting_id_textures(
     views: Query<(Entity, &ExtractedCamera), With<DeferredPrepass>>,
 ) {
     for (entity, camera) in &views {
-        if let Some(physical_target_size) = camera.physical_target_size {
+        if let Some(physical_viewport_size) = camera.physical_viewport_size {
             let texture_descriptor = TextureDescriptor {
                 label: Some("deferred_lighting_id_depth_texture_a"),
-                size: physical_target_size.to_extents(),
+                size: physical_viewport_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,

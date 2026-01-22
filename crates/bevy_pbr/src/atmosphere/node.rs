@@ -2,7 +2,6 @@ use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{query::QueryItem, system::lifetimeless::Read, world::World};
 use bevy_math::{UVec2, Vec3Swizzles};
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     extract_component::DynamicUniformIndex,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
@@ -167,7 +166,6 @@ pub(super) struct RenderSkyNode;
 
 impl ViewNode for RenderSkyNode {
     type ViewQuery = (
-        Read<ExtractedCamera>,
         Read<AtmosphereBindGroups>,
         Read<ViewTarget>,
         Read<DynamicUniformIndex<GpuAtmosphere>>,
@@ -184,7 +182,6 @@ impl ViewNode for RenderSkyNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
-            camera,
             atmosphere_bind_groups,
             view_target,
             atmosphere_uniforms_offset,
@@ -215,9 +212,7 @@ impl ViewNode for RenderSkyNode {
         });
         let pass_span = diagnostics.pass_span(&mut render_sky_pass, "render_sky");
 
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
+        if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
             render_sky_pass.set_camera_viewport(&viewport);
         }
 

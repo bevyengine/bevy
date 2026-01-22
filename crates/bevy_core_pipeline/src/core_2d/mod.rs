@@ -13,7 +13,6 @@ pub mod graph {
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum Node2d {
-        MsaaWriteback,
         StartMainPass,
         MainOpaquePass,
         MainTransparentPass,
@@ -478,17 +477,17 @@ pub fn prepare_core_2d_depth_textures(
             continue;
         };
 
-        let Some(physical_target_size) = camera.physical_target_size else {
+        let Some(physical_viewport_size) = camera.physical_viewport_size else {
             continue;
         };
 
         let cached_texture = textures
-            .entry(camera.target.clone())
+            .entry((camera.target.clone(), physical_viewport_size, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: physical_target_size.to_extents(),
+                    size: physical_viewport_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,

@@ -143,7 +143,6 @@ pub struct TemporalAntiAliasNode;
 
 impl ViewNode for TemporalAntiAliasNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
         &'static ViewTarget,
         &'static TemporalAntiAliasHistoryTextures,
         &'static ViewPrepassTextures,
@@ -155,7 +154,7 @@ impl ViewNode for TemporalAntiAliasNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
+        (view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -221,9 +220,6 @@ impl ViewNode for TemporalAntiAliasNode {
 
             taa_pass.set_render_pipeline(taa_pipeline);
             taa_pass.set_bind_group(0, &taa_bind_group, &[]);
-            if let Some(viewport) = camera.viewport.as_ref() {
-                taa_pass.set_camera_viewport(viewport);
-            }
             taa_pass.draw(0..3, 0..1);
 
             pass_span.end(&mut taa_pass);
@@ -415,10 +411,10 @@ fn prepare_taa_history_textures(
     views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
 ) {
     for (entity, camera, view) in &views {
-        if let Some(physical_target_size) = camera.physical_target_size {
+        if let Some(physical_viewport_size) = camera.physical_viewport_size {
             let mut texture_descriptor = TextureDescriptor {
                 label: None,
-                size: physical_target_size.to_extents(),
+                size: physical_viewport_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,

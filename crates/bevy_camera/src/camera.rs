@@ -2,7 +2,7 @@ use crate::primitives::Frustum;
 
 use super::{
     visibility::{Visibility, VisibleEntities},
-    ClearColorConfig, MsaaWriteback,
+    ClearColorConfig,
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
@@ -80,17 +80,13 @@ impl Viewport {
         }
     }
 
-    pub fn from_viewport_and_override(
-        viewport: Option<&Self>,
+    pub fn from_main_pass_resolution_override(
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
     ) -> Option<Self> {
-        if let Some(override_size) = main_pass_resolution_override {
-            let mut vp = viewport.map_or_else(Self::default, Self::clone);
-            vp.physical_size = **override_size;
-            Some(vp)
-        } else {
-            viewport.cloned()
-        }
+        main_pass_resolution_override.map(|override_size| Viewport {
+            physical_size: **override_size,
+            ..Default::default()
+        })
     }
 }
 
@@ -107,6 +103,35 @@ impl Viewport {
 #[derive(Component, Reflect, Deref, Debug)]
 #[reflect(Component)]
 pub struct MainPassResolutionOverride(pub UVec2);
+
+/// Configures the size of the main texture of a camera.
+///
+/// Can be used to downscale the main texture for performance or pixel art games,
+/// or to upscale it for higher visual quality.
+#[derive(Component, Reflect, Debug, Clone, Copy)]
+#[reflect(Component)]
+pub enum CameraMainTextureSizeConfig {
+    /// The main texture size will be a factor of the physical viewport size.
+    Factor(Vec2),
+    /// The main texture size will be a fixed value.
+    Fixed(UVec2),
+}
+
+impl Default for CameraMainTextureSizeConfig {
+    fn default() -> Self {
+        Self::Factor(Vec2::ONE)
+    }
+}
+
+impl CameraMainTextureSizeConfig {
+    /// Applies the size configuration to the original viewport size.
+    pub fn apply_size(&self, original_size: UVec2) -> UVec2 {
+        match self {
+            Self::Factor(scale) => (scale * original_size.as_vec2()).round().as_uvec2(),
+            Self::Fixed(fixed) => *fixed,
+        }
+    }
+}
 
 /// Settings to define a camera sub view.
 ///
@@ -341,6 +366,7 @@ pub enum ViewportConversionError {
 #[require(
     Frustum,
     CameraMainTextureUsages,
+    CameraMainTextureSizeConfig,
     VisibleEntities,
     Transform,
     Visibility,
@@ -360,9 +386,6 @@ pub struct Camera {
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
     pub output_mode: CameraOutputMode,
-    /// Controls when MSAA writeback occurs for this camera.
-    /// See [`MsaaWriteback`] for available options.
-    pub msaa_writeback: MsaaWriteback,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
     /// Whether to switch culling mode so that materials that request backface
@@ -386,7 +409,6 @@ impl Default for Camera {
             viewport: None,
             computed: Default::default(),
             output_mode: Default::default(),
-            msaa_writeback: MsaaWriteback::default(),
             clear_color: Default::default(),
             invert_culling: false,
             sub_camera_view: None,

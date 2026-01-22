@@ -5,7 +5,6 @@ use bevy_render::render_graph::ViewNode;
 
 use bevy_render::view::{ExtractedView, NoIndirectDrawing};
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
@@ -64,7 +63,6 @@ pub struct LateDeferredGBufferPrepassNode;
 
 impl ViewNode for LateDeferredGBufferPrepassNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
         &'static ExtractedView,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
@@ -108,7 +106,7 @@ impl ViewNode for LateDeferredGBufferPrepassNode {
 fn run_deferred_prepass<'w>(
     graph: &mut RenderGraphContext,
     render_context: &mut RenderContext<'w>,
-    (camera, extracted_view, view_depth_texture, view_prepass_textures, resolution_override, _, _): QueryItem<
+    ( extracted_view, view_depth_texture, view_prepass_textures, resolution_override, _, _): QueryItem<
         'w,
         '_,
         <LateDeferredGBufferPrepassNode as ViewNode>::ViewQuery,
@@ -226,9 +224,8 @@ fn run_deferred_prepass<'w>(
         });
         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
         let pass_span = diagnostic.pass_span(&mut render_pass, label);
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
+
+        if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
             render_pass.set_camera_viewport(&viewport);
         }
 

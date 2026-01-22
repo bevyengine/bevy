@@ -2,8 +2,8 @@ pub mod visibility;
 pub mod window;
 
 use bevy_camera::{
-    primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure,
-    MainPassResolutionOverride, NormalizedRenderTarget,
+    primitives::Frustum, CameraMainTextureSizeConfig, CameraMainTextureUsages, ClearColor,
+    ClearColorConfig, Exposure, MainPassResolutionOverride, NormalizedRenderTarget,
 };
 use bevy_diagnostic::FrameCount;
 pub use visibility::*;
@@ -1068,14 +1068,15 @@ pub fn prepare_view_targets(
         &ExtractedCamera,
         &ExtractedView,
         &CameraMainTextureUsages,
+        &CameraMainTextureSizeConfig,
         &Msaa,
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
 ) {
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
-        let (Some(target_size), Some(out_attachment)) = (
-            camera.physical_target_size,
+    for (entity, camera, view, texture_usage, main_texture_size_config, msaa) in cameras.iter() {
+        let (Some(viewport_size), Some(out_attachment)) = (
+            camera.physical_viewport_size,
             camera
                 .target
                 .as_ref()
@@ -1095,6 +1096,7 @@ pub fn prepare_view_targets(
             TextureFormat::bevy_default()
         };
 
+        let main_texture_size = main_texture_size_config.apply_size(viewport_size);
         let clear_color = match camera.clear_color {
             ClearColorConfig::Custom(color) => Some(color),
             ClearColorConfig::None => None,
@@ -1102,11 +1104,17 @@ pub fn prepare_view_targets(
         };
 
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), texture_usage.0, view.hdr, msaa))
+            .entry((
+                camera.target.clone(),
+                main_texture_size,
+                texture_usage.0,
+                view.hdr,
+                msaa,
+            ))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
-                    size: target_size.to_extents(),
+                    size: main_texture_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: TextureDimension::D2,
@@ -1137,7 +1145,7 @@ pub fn prepare_view_targets(
                         &render_device,
                         TextureDescriptor {
                             label: Some("main_texture_sampled"),
-                            size: target_size.to_extents(),
+                            size: main_texture_size.to_extents(),
                             mip_level_count: 1,
                             sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
