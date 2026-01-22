@@ -164,8 +164,8 @@ impl Plugin for PipelinedRenderingPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let _sub_app_span = 
-                    	bevy_log::info_span!("sub app", name = ?RenderApp).entered();
+                    let _sub_app_span =
+                        bevy_log::info_span!("sub app", name = ?RenderApp).entered();
                     render_app.update();
                 }
 
