@@ -750,7 +750,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (11, &textures.aerial_view_lut.default_view),
                 (12, &**atmosphere_sampler),
                 // view depth texture
-                (13, view_depth_texture.view()),
+                (13, view_depth_texture.depth_only_view()),
             )),
         );
 

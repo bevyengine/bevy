@@ -161,10 +161,10 @@ impl ViewNode for SolariLightingNode {
             pipeline_cache.get_compute_pipeline(specular_gi_pipeline),
             &scene_bindings.bind_group,
             view_prepass_textures.deferred_view(),
-            view_prepass_textures.depth_view(),
+            view_prepass_textures.depth_only_view(),
             view_prepass_textures.motion_vectors_view(),
             view_prepass_textures.previous_deferred_view(),
-            view_prepass_textures.previous_depth_view(),
+            view_prepass_textures.previous_depth_only_view(),
             view_uniforms.uniforms.binding(),
             previous_view_uniforms.uniforms.binding(),
         )

@@ -260,7 +260,7 @@ fn run_deferred_prepass<'w>(
         // After rendering to the view depth texture, copy it to the prepass depth texture
         if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
             command_encoder.copy_texture_to_texture(
-                view_depth_texture.texture.as_image_copy(),
+                view_depth_texture.texture().as_image_copy(),
                 prepass_depth_texture.texture.texture.as_image_copy(),
                 view_prepass_textures.size,
             );
