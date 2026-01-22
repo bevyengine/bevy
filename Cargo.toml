@@ -4204,7 +4204,7 @@ doc-scrape-examples = false
 
 [package.metadata.example.image_node_resizing]
 name = "Image Node Resizing"
-description = "Demonstrates how to resizing a image node"
+description = "Demonstrates how to resize an image node"
 category = "UI (User Interface)"
 wasm = true
 

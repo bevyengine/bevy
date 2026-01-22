@@ -3,11 +3,16 @@
 
 use bevy::{color::palettes::tailwind, prelude::*};
 
-static MIN_RESIZE_VAL: f32 = 1.0;
-static IMAGE_GROUP_BOX_MIN_WIDTH: f32 = 50.0;
-static IMAGE_GROUP_BOX_MAX_WIDTH: f32 = 100.0;
-static IMAGE_GROUP_BOX_MIN_HEIGHT: f32 = 10.0;
-static IMAGE_GROUP_BOX_MAX_HEIGHT: f32 = 40.0;
+const MIN_RESIZE_VAL: f32 = 1.0;
+const IMAGE_GROUP_BOX_MIN_WIDTH: f32 = 50.0;
+const IMAGE_GROUP_BOX_MAX_WIDTH: f32 = 100.0;
+const IMAGE_GROUP_BOX_MIN_HEIGHT: f32 = 10.0;
+const IMAGE_GROUP_BOX_MAX_HEIGHT: f32 = 50.0;
+const IMAGE_GROUP_BOX_INIT_WIDTH: f32 =
+    (IMAGE_GROUP_BOX_MIN_WIDTH + IMAGE_GROUP_BOX_MAX_WIDTH) / 2.;
+const IMAGE_GROUP_BOX_INIT_HEIGHT: f32 =
+    (IMAGE_GROUP_BOX_MIN_HEIGHT + IMAGE_GROUP_BOX_MAX_HEIGHT) / 2.;
+const TEXT_PREFIX: &str = "Compare NodeImageMode(Auto, Stretch) press `Up`/`Down` to resize height, press `Left`/`Right` to resize width\n";
 
 fn main() {
     App::new()
@@ -56,36 +61,63 @@ struct TextUpdate {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image_handle = asset_server.load("branding/icon.png");
+    let full_text = format!(
+        "{}height : {}, width : {}",
+        TEXT_PREFIX, IMAGE_GROUP_BOX_INIT_WIDTH, IMAGE_GROUP_BOX_INIT_HEIGHT
+    );
+
     commands.spawn(Camera2d);
+
+    let container = commands
+        .spawn((
+            Node {
+                display: Display::Grid,
+                width: percent(100),
+                height: percent(100),
+                grid_template_rows: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
+                ..default()
+            },
+            BackgroundColor(Color::WHITE),
+        ))
+        .id();
+
     // Keyboard Text
     commands
         .spawn((
-            TextData { height: IMAGE_GROUP_BOX_MAX_HEIGHT,  width : IMAGE_GROUP_BOX_MAX_WIDTH },
-            Text::new(
-                "Compare NodeImageMode(Auto, Stretch) press `Upload`/`Down` to resize height, press `Left`/`Right` to resize width\nheight : 10%",
-            ),
-            TextColor::WHITE,
+            TextData {
+                height: IMAGE_GROUP_BOX_INIT_WIDTH,
+                width: IMAGE_GROUP_BOX_INIT_HEIGHT,
+            },
+            Text::new(full_text),
+            TextColor::BLACK,
             Node {
-                position_type: PositionType::Absolute,
-                top: px(4),
-                left: px(4),
+                grid_row: GridPlacement::span(1),
+                padding: UiRect::all(px(6)),
                 ..default()
             },
+            UiDebugOptions {
+                enabled: false,
+                ..default()
+            },
+            ChildOf(container),
         ))
         .observe(update_text);
 
     commands
-        .spawn((Node {
-            display: Display::Flex,
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::SpaceAround,
-            width: percent(100),
-            height: percent(100),
-            padding: UiRect::all(Val::Px(10.)),
-            ..default()
-        },))
+        .spawn((
+            Node {
+                display: Display::Flex,
+                grid_row: GridPlacement::span(1),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceAround,
+                padding: UiRect::all(Val::Px(10.)),
+                ..default()
+            },
+            BackgroundColor(Color::BLACK),
+            ChildOf(container),
+        ))
         .with_children(|builder| {
-            // `NodeImageMode::Auto` will be sized automatically by taking the size of the source image and applying any layout constraints.
+            // `NodeImageMode::Auto` will resize the image automatically by taking the size of the source image and applying any layout constraints.
             builder
                 .spawn((
                     ImageGroup,
@@ -111,7 +143,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ));
                     }
                 });
-            // `NodeImageMode::Stretch` will resized to match the size of the `Node` component
+            // `NodeImageMode::Stretch` will resize the image to match the size of the `Node` component
             builder
                 .spawn((
                     ImageGroup,
@@ -189,8 +221,7 @@ fn update_text(
     mut textmeta: Single<&mut TextData>,
     mut text: Single<&mut Text>,
 ) {
-    let str = "Compare NodeImageMode(Auto, Stretch) press `Upload`/`Down` to resize height, press `Left`/`Right` to resize width\n";
-    let mut new_text = Text::new(str);
+    let mut new_text = Text::new(TEXT_PREFIX);
     match event.direction {
         Direction::Height => {
             textmeta.height = (textmeta.height + event.change)
