@@ -19,15 +19,13 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
     let Some(state) = Q::get_state(components) else {
         return Err(QueryAccessError::ComponentNotRegistered);
     };
-    let size = Q::iter_access(&state)
-        .size_hint()
-        .1
-        .unwrap_or(USE_FILTER_THRESHOLD);
 
-    let result = if size > USE_FILTER_THRESHOLD {
-        has_conflicts_large::<Q>(&state)
-    } else {
+    let result = if let Some(size) = Q::iter_access(&state).size_hint().1
+        && size <= USE_FILTER_THRESHOLD
+    {
         has_conflicts_small::<Q>(&state)
+    } else {
+        has_conflicts_large::<Q>(&state)
     };
     if let Err(e) = result {
         panic!("{e}");
@@ -51,15 +49,7 @@ fn has_conflicts_small<'a, Q: QueryData>(
                 return Err(AccessConflictError(access, *access_other));
             }
         }
-        if i < USE_FILTER_THRESHOLD {
-            inner_access[i] = access;
-        } else {
-            for access_other in Q::iter_access(state).take(i) {
-                if access.is_compatible(access_other).is_err() {
-                    return Err(AccessConflictError(access, access_other));
-                }
-            }
-        }
+        inner_access[i] = access;
     }
 
     Ok(())
