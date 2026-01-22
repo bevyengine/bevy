@@ -15,9 +15,9 @@ fn apply_health_decay(mut query: Query<(&mut Health, &HealthDecay)>) {
     // as_contiguous_iter() would return None if query couldn't be iterated contiguously
     for (mut health, decay) in query.contiguous_iter_mut().unwrap() {
         // all data slices returned by component queries are the same size
-        assert!(health.data_slice().len() == decay.data_slice().len());
+        assert!(health.data_slice().len() == decay.len());
         for i in 0..health.data_slice().len() {
-            health.data_slice_mut()[i].0 *= decay.data_slice()[i].0;
+            health.data_slice_mut()[i].0 *= decay[i].0;
         }
         // we could have updated health's ticks but it is unnecessary hence we can make less work
         // health.mark_all_as_updated();
