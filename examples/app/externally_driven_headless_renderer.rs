@@ -82,6 +82,7 @@ impl BevyWrapper {
             TextureDimension::D2,
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD,
+            bevy_asset::RenderAssetTransferPriority::Immediate,
         );
         // We're going to render to this image, mark it as such
         target.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
