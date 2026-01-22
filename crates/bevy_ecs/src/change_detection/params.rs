@@ -486,6 +486,12 @@ impl<'w, T> ContiguousRef<'w, T> {
     }
 }
 
+impl<'w, T: core::fmt::Debug> core::fmt::Debug for ContiguousRef<'w, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("ContiguousRef").field(&self.value).finish()
+    }
+}
+
 impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>
 where
     &'a T: IntoIterator,
@@ -649,6 +655,12 @@ impl<'w, T> ContiguousMut<'w, T> {
     #[inline]
     pub fn mark_all_as_updated(&mut self) {
         self.ticks.mark_all_as_updated();
+    }
+}
+
+impl<'w, T: core::fmt::Debug> core::fmt::Debug for ContiguousMut<'w, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("ContiguousMut").field(&self.value).finish()
     }
 }
 

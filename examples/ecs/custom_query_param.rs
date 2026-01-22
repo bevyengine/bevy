@@ -207,7 +207,7 @@ fn print_components_tuple(
 #[query_data(derive(Debug), contiguous(all))]
 struct CustomContiguousQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
-    a: &'static ComponentA,
+    a: Ref<'static, ComponentA>,
     b: Option<&'static ComponentB>,
     generic: GenericQuery<T, P>,
 }
@@ -216,14 +216,12 @@ fn print_components_contiguous_iter(query: Query<CustomContiguousQuery<Component
     println!("Print components (contiguous_iter):");
     for e in query.contiguous_iter().unwrap() {
         let e: CustomContiguousQueryContiguousItem<'_, '_, _, _> = e;
-        for i in 0..e.entity.len() {
-            println!("Entity: {:?}", e.entity[i]);
-            println!("A: {:?}", e.a[i]);
-            println!("B: {:?}", e.b.as_ref().map(|b| &b[i]));
-            println!(
-                "Generic: {:?} {:?}",
-                e.generic.generic.0[i], e.generic.generic.1[i]
-            );
-        }
+        println!("Entity: {:?}", e.entity);
+        println!("A: {:?}", e.a);
+        println!("B: {:?}", e.b);
+        println!(
+            "Generic: {:?} {:?}",
+            e.generic.generic.0, e.generic.generic.1
+        );
     }
 }
