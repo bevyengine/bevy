@@ -322,9 +322,6 @@ pub unsafe trait QueryData: WorldQuery {
     /// [`WorldQuery::set_archetype`]  with an `entity` in the current archetype.
     /// Accesses components registered in [`WorldQuery::update_component_access`].
     ///
-    /// This method returns `None` if the entity does not match the query.
-    /// If `Self` implements [`ArchetypeQueryData`], this must always return `Some`.
-    ///
     /// # Safety
     ///
     /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
@@ -339,6 +336,36 @@ pub unsafe trait QueryData: WorldQuery {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w, 's>;
+
+    /// Attempt to fetch [`Self::Item`](`QueryData::Item`) for either the given `entity` in the current [`Table`],
+    /// or for the given `entity` in the current [`Archetype`]. This must always be called after
+    /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
+    /// [`WorldQuery::set_archetype`]  with an `entity` in the current archetype.
+    /// Accesses components registered in [`WorldQuery::update_component_access`].
+    ///
+    /// Unlike [`Self::fetch`](`QueryData::fetch`), this method is fallible, so it is not a requirement
+    /// to check that the passed row is valid for this query beforehand. This method returns `None` if
+    /// the entity does not match the query. This method must return `Some()` if and only if
+    /// [`Self::matches`](`WorldQuery::matches`) would return `true` for the given row, and in that
+    /// case must return the same item that [`Self::fetch`](`QueryData::fetch`) would return.
+    ///
+    /// # Safety
+    ///
+    /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
+    ///   `table_row` must be in the range of the current table and archetype.
+    /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
+    #[inline(always)]
+    unsafe fn try_fetch<'w, 's>(
+        state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Option<Self::Item<'w, 's>> {
+        Self::matches(state, fetch, entity, table_row).then(|| {
+            // SAFETY: this is only called if the given row is valid for this query
+            unsafe { Self::fetch(state, fetch, entity, table_row) }
+        })
+    }
 
     /// Returns an iterator over the access needed by [`QueryData::fetch`]. Access conflicts are usually
     /// checked in [`WorldQuery::update_component_access`], but in certain cases this method can be useful to implement
@@ -2839,6 +2866,19 @@ macro_rules! impl_tuple_query_data {
                 ($(unsafe { $name::fetch($state, $name, entity, table_row) },)*)
             }
 
+            #[inline(always)]
+            unsafe fn try_fetch<'w, 's>(
+                state: &'s Self::State,
+                fetch: &mut Self::Fetch<'w>,
+                entity: Entity,
+                table_row: TableRow
+            ) -> Option<Self::Item<'w, 's>> {
+                let ($($state,)*) = state;
+                let ($($name,)*) = fetch;
+                // SAFETY: The invariants are upheld by the caller.
+                Some(($(unsafe { $name::try_fetch($state, $name, entity, table_row) }?,)*))
+            }
+
             fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
                 let ($($name,)*) = state;
                 iter::empty()$(.chain($name::iter_access($name)))*
@@ -3130,6 +3170,32 @@ macro_rules! impl_anytuple_fetch {
                         ),
                     )*)
                 }
+            }
+
+            #[inline(always)]
+            unsafe fn try_fetch<'w, 's>(
+                _state: &'s Self::State,
+                _fetch: &mut Self::Fetch<'w>,
+                _entity: Entity,
+                _table_row: TableRow
+            ) -> Option<Self::Item<'w, 's>> {
+                let ($($name,)*) = &mut _fetch.fetch;
+                let ($($state,)*) = _state;
+                let result = ($(
+                    // SAFETY: The invariants are required to be upheld by the caller.
+                    $name.matches.then(|| unsafe { $name::try_fetch($state, &mut $name.fetch, _entity, _table_row) }).flatten(),
+                )*);
+                // If this is an archetypal query, then it is guaranteed to return `Some`,
+                // and we can help the compiler remove branches by checking the const `IS_ARCHETYPAL` first.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                (Self::IS_ARCHETYPAL || !_fetch.matches
+                    // We want to return `Some` if the query matches this entity,
+                    // which happens if at least one subquery returns `Some`.
+                    // So, fetch everything as usual, but if all the subqueries return `None` then return `None` instead.
+                    || !matches!(result, ($(Option::<QueryItem<$name>>::None,)*)))
+                .then_some(result)
             }
 
             fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
