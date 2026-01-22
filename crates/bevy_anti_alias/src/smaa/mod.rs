@@ -14,8 +14,7 @@
 //! To use SMAA, add [`Smaa`] to a [`bevy_camera::Camera`]. In a
 //! pinch, you can simply use the default settings (via the [`Default`] trait)
 //! for a high-quality, high-performance appearance. When using SMAA, you will
-//! likely want set [`bevy_render::view::Msaa`] to [`bevy_render::view::Msaa::Off`]
-//! for every camera using SMAA.
+//! likely want to disable MSAA for every camera using SMAA.
 //!
 //! Those who have used SMAA in other engines should be aware that Bevy doesn't
 //! yet support the following more advanced features of SMAA:

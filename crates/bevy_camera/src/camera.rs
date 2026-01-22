@@ -1,4 +1,4 @@
-use crate::primitives::Frustum;
+use crate::{color_target::MAIN_COLOR_TARGET_DEFAULT_USAGES, primitives::Frustum};
 
 use super::{
     visibility::{Visibility, VisibleEntities},
@@ -15,7 +15,7 @@ use bevy_window::{NormalizedWindowRef, WindowRef};
 use core::ops::Range;
 use derive_more::derive::From;
 use thiserror::Error;
-use wgpu_types::{BlendState, TextureUsages};
+use wgpu_types::{BlendState, TextureFormat, TextureUsages};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -935,25 +935,42 @@ impl Default for RenderTarget {
     }
 }
 
-/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
+/// If there is no [`NoAutoConfiguredMainColorTarget`](crate::color_target::NoAutoConfiguredMainColorTarget), controls the main color targets generated for the camera.
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(opaque)]
 #[reflect(Component, Default, Clone)]
-pub struct CameraMainTextureUsages(pub TextureUsages);
+pub struct CameraMainColorTargetConfig {
+    pub size: CameraMainColorTargetsSize,
+    pub sample_count: u32,
+    pub format: Option<TextureFormat>,
+    pub usage: TextureUsages,
+}
 
-impl Default for CameraMainTextureUsages {
+#[derive(Clone, Copy)]
+pub enum CameraMainColorTargetsSize {
+    Factor(Vec2),
+    Fixed(UVec2),
+}
+
+impl Default for CameraMainColorTargetConfig {
     fn default() -> Self {
-        Self(
-            TextureUsages::RENDER_ATTACHMENT
-                | TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_SRC,
-        )
+        Self {
+            size: CameraMainColorTargetsSize::Factor(Vec2::ONE),
+            sample_count: 4,
+            format: None,
+            usage: MAIN_COLOR_TARGET_DEFAULT_USAGES,
+        }
     }
 }
 
-impl CameraMainTextureUsages {
-    pub fn with(mut self, usages: TextureUsages) -> Self {
-        self.0 |= usages;
+impl CameraMainColorTargetConfig {
+    pub fn with_usage(mut self, usages: TextureUsages) -> Self {
+        self.usage |= usages;
+        self
+    }
+
+    pub fn with_msaa_off(mut self) -> Self {
+        self.sample_count = 1;
         self
     }
 }

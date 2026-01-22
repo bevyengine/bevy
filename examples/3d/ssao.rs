@@ -2,6 +2,7 @@
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
+    camera::CameraMainColorTargetConfig,
     math::ops,
     pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
@@ -30,7 +31,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
         ScreenSpaceAmbientOcclusion::default(),
         TemporalAntiAliasing::default(),
     ));

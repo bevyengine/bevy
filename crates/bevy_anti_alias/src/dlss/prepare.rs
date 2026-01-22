@@ -1,5 +1,5 @@
 use super::{Dlss, DlssFeature, DlssSdk};
-use bevy_camera::{Camera3d, CameraMainTextureUsages, MainPassResolutionOverride};
+use bevy_camera::{Camera3d, MainPassResolutionOverride};
 use bevy_core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{

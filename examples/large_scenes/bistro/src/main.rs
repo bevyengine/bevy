@@ -9,7 +9,6 @@ use std::{
 };
 
 use argh::FromArgs;
-use bevy::pbr::ContactShadows;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::visibility::{NoCpuCulling, NoFrustumCulling},
@@ -25,6 +24,7 @@ use bevy::{
     },
     scene::SceneInstanceReady,
 };
+use bevy::{camera::CameraMainColorTargetConfig, pbr::ContactShadows};
 use bevy::{
     camera::ScreenSpaceTransmissionQuality, light::CascadeShadowConfigBuilder, render::view::Hdr,
 };
@@ -261,7 +261,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
 
     // Camera
     let mut cam = commands.spawn((
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
         Camera3d {
             screen_space_specular_transmission_steps: 0,
             screen_space_specular_transmission_quality: ScreenSpaceTransmissionQuality::Low,

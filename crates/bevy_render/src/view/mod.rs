@@ -142,41 +142,6 @@ impl Plugin for ViewPlugin {
     }
 }
 
-/// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
-/// for a [`Camera`](bevy_camera::Camera).
-///
-/// Defaults to 4 samples. A higher number of samples results in smoother edges.
-///
-/// Some advanced rendering features may require that MSAA is disabled.
-///
-/// Note that the web currently only supports 1 or 4 samples.
-#[derive(Component, Default, Clone, Copy, Reflect, PartialEq, PartialOrd, Eq, Hash, Debug)]
-#[reflect(Component, Default, PartialEq, Hash, Debug)]
-pub enum Msaa {
-    Off = 1,
-    Sample2 = 2,
-    #[default]
-    Sample4 = 4,
-    Sample8 = 8,
-}
-
-impl Msaa {
-    #[inline]
-    pub fn samples(&self) -> u32 {
-        *self as u32
-    }
-
-    pub fn from_samples(samples: u32) -> Self {
-        match samples {
-            1 => Msaa::Off,
-            2 => Msaa::Sample2,
-            4 => Msaa::Sample4,
-            8 => Msaa::Sample8,
-            _ => panic!("Unsupported MSAA sample count: {samples}"),
-        }
-    }
-}
-
 /// If this component is added to a camera, the camera will use an intermediate "high dynamic range" render texture.
 /// This allows rendering with a wider range of lighting values. However, this does *not* affect
 /// whether the camera will render with hdr display output (which bevy does not support currently)

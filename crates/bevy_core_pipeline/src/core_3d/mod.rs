@@ -95,7 +95,6 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
-    prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphExt, ViewNodeRunner},
     render_phase::{
         sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
@@ -113,7 +112,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
-use tracing::warn;
 
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
@@ -962,15 +960,13 @@ fn configure_occlusion_culling_view_targets(
     }
 }
 
-// Disable MSAA and warn if using deferred rendering
-pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<DeferredPrepass>)>) {
-    for mut msaa in deferred_views.iter_mut() {
-        match *msaa {
-            Msaa::Off => (),
-            _ => {
-                warn!("MSAA is incompatible with deferred rendering and has been disabled.");
-                *msaa = Msaa::Off;
-            }
+// Check MSAA and panic if using deferred rendering
+pub fn check_msaa(
+    mut deferred_views: Query<&ExtractedView, (With<Camera>, With<DeferredPrepass>)>,
+) {
+    for view in deferred_views.iter_mut() {
+        if view.msaa_samples > 1 {
+            panic!("MSAA is incompatible with deferred rendering.");
         };
     }
 }

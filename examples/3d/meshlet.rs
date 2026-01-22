@@ -3,6 +3,7 @@
 // Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
 
 use bevy::{
+    camera::CameraMainColorTargetConfig,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     pbr::experimental::meshlet::{MeshletMesh3d, MeshletPlugin},
@@ -39,7 +40,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(Vec3::new(1.8, 0.4, -0.1)).looking_at(Vec3::ZERO, Vec3::Y),
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),

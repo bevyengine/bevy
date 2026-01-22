@@ -41,7 +41,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Extract,
 };
 use bevy_shader::Shader;
@@ -306,6 +306,7 @@ pub fn extract_volumetric_fog(
 
 impl ViewNode for VolumetricFogNode {
     type ViewQuery = (
+        Read<ExtractedView>,
         Read<ViewTarget>,
         Read<ViewDepthTexture>,
         Read<ViewVolumetricFogPipelines>,
@@ -317,7 +318,6 @@ impl ViewNode for VolumetricFogNode {
         Read<MeshViewBindGroup>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
         Read<ViewContactShadowsUniformOffset>,
-        Read<Msaa>,
         Read<ViewEnvironmentMapUniformOffset>,
     );
 
@@ -326,6 +326,7 @@ impl ViewNode for VolumetricFogNode {
         _: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
+            view,
             view_target,
             view_depth_texture,
             view_volumetric_lighting_pipelines,
@@ -337,7 +338,6 @@ impl ViewNode for VolumetricFogNode {
             view_bind_group,
             view_ssr_offset,
             view_contact_shadows_offset,
-            msaa,
             view_environment_map_offset,
         ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
@@ -412,7 +412,7 @@ impl ViewNode for VolumetricFogNode {
             let mut bind_group_layout_key = VolumetricFogBindGroupLayoutKey::empty();
             bind_group_layout_key.set(
                 VolumetricFogBindGroupLayoutKey::MULTISAMPLED,
-                !matches!(*msaa, Msaa::Off),
+                view.msaa_samples > 1,
             );
 
             // Create the bind group entries. The ones relating to the density

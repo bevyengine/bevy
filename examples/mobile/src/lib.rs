@@ -1,5 +1,7 @@
 //! A 3d Scene with a button and playing sound.
 
+#[cfg(target_os = "android")]
+use bevy::camera::CameraMainColorTargetConfig;
 use bevy::{
     color::palettes::basic::*,
     input::{gestures::RotationGesture, touch::TouchPhase},
@@ -134,7 +136,7 @@ fn setup_scene(
         // MSAA makes some Android devices panic, this is under investigation
         // https://github.com/bevyengine/bevy/issues/8229
         #[cfg(target_os = "android")]
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
     ));
 
     // Test ui

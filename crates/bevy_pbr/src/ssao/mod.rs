@@ -506,7 +506,7 @@ fn extract_ssao_settings(
     for (entity, camera, ssao_settings, view) in &cameras {
         if view.msaa_samples != 1 {
             error!(
-                "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaax{:?}",
+                "SSAO is being used which requires MSAA off, but the msaa samples is currently set to {:?}",
                 view.msaa_samples
             );
             return;

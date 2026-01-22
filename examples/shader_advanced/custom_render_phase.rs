@@ -12,7 +12,7 @@
 
 use std::ops::Range;
 
-use bevy::camera::Viewport;
+use bevy::camera::{CameraMainColorTargetConfig, Viewport};
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     camera::MainPassResolutionOverride,
@@ -106,7 +106,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.0, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         // disable msaa for simplicity
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
     ));
 }
 

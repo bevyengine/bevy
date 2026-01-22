@@ -1,6 +1,6 @@
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    extract_component::ExtractComponent,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
     render_graph::{CameraDriverNode, InternedRenderSubGraph, RenderGraph, RenderSubGraph},
@@ -8,7 +8,7 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Hdr, Msaa, NoIndirectDrawing,
+        ColorGrading, ExtractedView, ExtractedWindows, Hdr, NoIndirectDrawing,
         RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset,
     },
     Extract, ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
@@ -20,9 +20,10 @@ use bevy_camera::{
     color_target::{MainColorTarget, NoAutoConfiguredMainColorTarget, WithMainColorTarget},
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
-    Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, NormalizedRenderTarget,
-    Projection, RenderTarget, RenderTargetInfo, Viewport,
+    Camera, Camera2d, Camera3d, CameraMainColorTargetConfig, CameraMainColorTargetsSize,
+    CameraOutputMode, CameraUpdateSystems, ClearColor, ClearColorConfig, Exposure,
+    ManualTextureViewHandle, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo,
+    Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -47,7 +48,7 @@ use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
 use tracing::warn;
-use wgpu::TextureFormat;
+use wgpu::{TextureFormat, TextureUsages};
 
 #[derive(Default)]
 pub struct CameraPlugin;
@@ -57,17 +58,15 @@ impl Plugin for CameraPlugin {
         app.register_required_components::<Camera, SyncToRenderWorld>()
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
-            .add_plugins((
-                ExtractResourcePlugin::<ClearColor>::default(),
-                ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
-            ))
+            .add_plugins((ExtractResourcePlugin::<ClearColor>::default(),))
             .add_systems(
                 PostStartup,
                 (
                     (camera_system, configure_camera_color_target)
                         .chain()
                         .in_set(CameraUpdateSystems),
-                    insert_camera_components_if_auto_configured.in_set(CameraUpdateSystems),
+                    camera_insert_required_components_if_auto_configured
+                        .in_set(CameraUpdateSystems),
                 ),
             )
             .add_systems(
@@ -97,20 +96,17 @@ impl Plugin for CameraPlugin {
     }
 }
 
-fn insert_camera_components_if_auto_configured(
+fn camera_insert_required_components_if_auto_configured(
     mut commands: Commands,
     query: Query<
-        (Entity, Has<Msaa>, Has<CameraMainTextureUsages>),
+        (Entity, Has<CameraMainColorTargetConfig>),
         (With<Camera>, Without<NoAutoConfiguredMainColorTarget>),
     >,
 ) {
-    for (entity, has_msaa, has_texture_usages) in query.iter() {
+    for (entity, has_config) in query.iter() {
         let mut entity_commands = commands.entity(entity);
-        if !has_msaa {
-            entity_commands.insert(Msaa::default());
-        }
-        if !has_texture_usages {
-            entity_commands.insert(CameraMainTextureUsages::default());
+        if !has_config {
+            entity_commands.insert(CameraMainColorTargetConfig::default());
         }
     }
 }
@@ -122,8 +118,7 @@ fn configure_camera_color_target(
         (
             Entity,
             &Camera,
-            &Msaa,
-            &CameraMainTextureUsages,
+            &CameraMainColorTargetConfig,
             Has<Hdr>,
             Option<&WithMainColorTarget>,
         ),
@@ -131,22 +126,32 @@ fn configure_camera_color_target(
     >,
     mut main_color_targets: Query<&mut MainColorTarget>,
 ) {
-    for (entity, camera, msaa, texture_usages, hdr, with_main_color_target) in query.iter() {
+    for (entity, camera, config, hdr, with_main_color_target) in query.iter() {
         let Some(physical_size) = camera.physical_target_size() else {
             continue;
         };
+        let size = match config.size {
+            CameraMainColorTargetsSize::Factor(vec2) => {
+                (physical_size.as_vec2() * vec2).round().as_uvec2()
+            }
+            CameraMainColorTargetsSize::Fixed(uvec2) => uvec2,
+        }
+        .to_extents();
+        let format = if let Some(format) = config.format {
+            format
+        } else if hdr {
+            TextureFormat::Rgba16Float
+        } else {
+            TextureFormat::bevy_default()
+        };
         let mut image_desc = wgpu::TextureDescriptor {
             label: Some("main_texture_a"),
-            size: physical_size.to_extents(),
+            size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: if hdr {
-                TextureFormat::Rgba16Float
-            } else {
-                TextureFormat::Rgba8UnormSrgb
-            },
-            usage: texture_usages.0,
+            format,
+            usage: config.usage,
             view_formats: &[],
         };
         if let Some(with_main_color_target) = with_main_color_target {
@@ -154,10 +159,13 @@ fn configure_camera_color_target(
             else {
                 continue;
             };
-            if msaa.samples() > 1 {
+            if config.sample_count > 1 {
+                // If we already configured this camera but msaa is removed in `sync_camera_color_target_config`.
+                // We need to re-add it.
                 if main_color_target.multisampled.is_none() {
                     image_desc.label = Some("main_texture_multisampled");
-                    image_desc.sample_count = msaa.samples();
+                    image_desc.sample_count = config.sample_count;
+                    image_desc.usage = TextureUsages::RENDER_ATTACHMENT;
                     let image_texture_multisampled = Image {
                         texture_descriptor: image_desc,
                         copy_on_resize: false,
@@ -185,9 +193,10 @@ fn configure_camera_color_target(
                 ..Default::default()
             };
 
-            let msaa_texture = if msaa.samples() > 1 {
+            let msaa_texture = if config.sample_count > 1 {
                 image_desc.label = Some("main_texture_multisampled");
-                image_desc.sample_count = msaa.samples();
+                image_desc.sample_count = config.sample_count;
+                image_desc.usage = TextureUsages::RENDER_ATTACHMENT;
                 let image_texture_multisampled = Image {
                     texture_descriptor: image_desc,
                     copy_on_resize: false,
@@ -219,8 +228,7 @@ fn sync_camera_color_target_config(mut main_world: ResMut<MainWorld>) {
             (
                 Entity,
                 &Camera,
-                &Msaa,
-                &CameraMainTextureUsages,
+                &CameraMainColorTargetConfig,
                 Has<Hdr>,
                 &WithMainColorTarget,
             ),
@@ -232,16 +240,25 @@ fn sync_camera_color_target_config(mut main_world: ResMut<MainWorld>) {
     let (mut commands, query, mut query_main_color_targets, mut image_assets) =
         system_state.get_mut(&mut main_world);
 
-    for (entity, camera, msaa, texture_usages, hdr, color_target_of) in query.iter() {
+    for (entity, camera, config, hdr, with_color_target) in query.iter() {
         let Some(physical_size) = camera.physical_target_size() else {
             continue;
         };
-        let Ok(mut main_textures) = query_main_color_targets.get_mut(color_target_of.0) else {
+        let size = match config.size {
+            CameraMainColorTargetsSize::Factor(vec2) => {
+                (physical_size.as_vec2() * vec2).round().as_uvec2()
+            }
+            CameraMainColorTargetsSize::Fixed(uvec2) => uvec2,
+        }
+        .to_extents();
+        let Ok(mut main_textures) = query_main_color_targets.get_mut(with_color_target.0) else {
             continue;
         };
         let main_texture_a = main_textures.current_target();
         let main_texture_b = main_textures.other_target().unwrap();
-        let format = if hdr {
+        let format = if let Some(format) = config.format {
+            format
+        } else if hdr {
             TextureFormat::Rgba16Float
         } else {
             TextureFormat::bevy_default()
@@ -249,17 +266,17 @@ fn sync_camera_color_target_config(mut main_world: ResMut<MainWorld>) {
         let Some(main_texture_a) = image_assets.get_mut(main_texture_a) else {
             continue;
         };
-        main_texture_a.resize(physical_size.to_extents());
-        main_texture_a.texture_descriptor.usage = texture_usages.0;
+        main_texture_a.resize(size);
+        main_texture_a.texture_descriptor.usage = config.usage;
         main_texture_a.texture_descriptor.format = format;
         let Some(main_texture_b) = image_assets.get_mut(main_texture_b) else {
             continue;
         };
-        main_texture_b.resize(physical_size.to_extents());
-        main_texture_b.texture_descriptor.usage = texture_usages.0;
+        main_texture_b.resize(size);
+        main_texture_b.texture_descriptor.usage = config.usage;
         main_texture_b.texture_descriptor.format = format;
 
-        if msaa.samples() > 1 {
+        if config.sample_count > 1 {
             let Some(msaa_texture) = main_textures.multisampled.as_ref() else {
                 // Msaa is re-enabled after disabled. Reconfigure it.
                 commands.entity(entity).remove::<WithMainColorTarget>();
@@ -268,10 +285,9 @@ fn sync_camera_color_target_config(mut main_world: ResMut<MainWorld>) {
             let Some(msaa_texture) = image_assets.get_mut(msaa_texture) else {
                 continue;
             };
-            msaa_texture.resize(physical_size.to_extents());
-            msaa_texture.texture_descriptor.usage = texture_usages.0;
+            msaa_texture.resize(size);
             msaa_texture.texture_descriptor.format = format;
-            msaa_texture.texture_descriptor.sample_count = msaa.samples();
+            msaa_texture.texture_descriptor.sample_count = config.sample_count;
         } else {
             main_textures.multisampled = None;
         }
@@ -292,15 +308,6 @@ impl ExtractResource for ClearColor {
 
     fn extract_resource(source: &Self::Source) -> Self {
         source.clone()
-    }
-}
-impl ExtractComponent for CameraMainTextureUsages {
-    type QueryData = &'static Self;
-    type QueryFilter = ();
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
-        Some(*item)
     }
 }
 impl ExtractComponent for Camera2d {
@@ -710,10 +717,7 @@ pub fn extract_cameras(
 
         let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
-        if let (Some(viewport_size), Some(target_size)) = (
-            camera.physical_viewport_size(),
-            camera.physical_target_size(),
-        ) {
+        if let Some(target_size) = camera.physical_target_size() {
             if target_size.x == 0 || target_size.y == 0 {
                 commands
                     .entity(render_entity)
@@ -766,7 +770,7 @@ pub fn extract_cameras(
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
-                    viewport: UVec4::new(0, 0, viewport_size.x, viewport_size.y),
+                    viewport: UVec4::new(0, 0, main_color_target_size.x, main_color_target_size.y),
                     color_grading,
                     invert_culling: camera.invert_culling,
                     hdr,

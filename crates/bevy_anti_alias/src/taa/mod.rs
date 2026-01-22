@@ -106,7 +106,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// # Usage Notes
 ///
-/// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
+/// Any camera with this component must also disable MSAA.
 ///
 /// TAA also does not work well with alpha-blended meshes, as it requires depth writing to determine motion.
 ///

@@ -5,6 +5,14 @@ use bevy_ecs::{component::Component, entity::Entity};
 use bevy_image::Image;
 use bevy_reflect::Reflect;
 use core::sync::atomic::{AtomicUsize, Ordering};
+use wgpu_types::TextureUsages;
+
+/// The default texture usages of unsampled main textures required for rendering.
+pub const MAIN_COLOR_TARGET_DEFAULT_USAGES: TextureUsages = TextureUsages::from_bits_truncate(
+    TextureUsages::RENDER_ATTACHMENT.bits()
+        | TextureUsages::TEXTURE_BINDING.bits()
+        | TextureUsages::COPY_SRC.bits(),
+);
 
 /// The main color target used by camera in most render passes.
 ///
@@ -58,7 +66,9 @@ impl MainColorTarget {
 
 /// Add this component to camera to opt-out auto configuring [`WithMainColorTarget`].
 ///
-/// Specifically, opt-out spawning separate [`MainColorTarget`] for each camera and syncing it with [`Hdr`], [`Msaa`] and [`CameraMainTextureUsages`], otherwise these 3 componets have no effect.
+/// Specifically, opt-out spawning separate [`MainColorTarget`] for each camera and syncing it with [`CameraMainColorTargetConfig`], otherwise [`CameraMainColorTargetConfig`] has no effect.
+///
+/// [`CameraMainColorTargetConfig`]: crate::camera::CameraMainColorTargetConfig
 #[derive(Component, Reflect, Debug)]
 #[reflect(Component)]
 pub struct NoAutoConfiguredMainColorTarget;
