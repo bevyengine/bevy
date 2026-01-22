@@ -82,7 +82,7 @@ mod world_builder {
             entities.reserve_exact(self.max_expected_entities as usize);
             entities.extend(
                 self.world
-                    .entities_allocator()
+                    .entity_allocator()
                     .alloc_many(self.max_expected_entities),
             );
 
@@ -98,7 +98,7 @@ mod world_builder {
             entities.shuffle(&mut self.rng);
             entities
                 .drain(..)
-                .for_each(|e| self.world.entities_allocator_mut().free(e));
+                .for_each(|e| self.world.entity_allocator_mut().free(e));
 
             self
         }
