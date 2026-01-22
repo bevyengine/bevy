@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #define_import_path bevy_solari::realtime_bindings
 
 #import bevy_render::view::View

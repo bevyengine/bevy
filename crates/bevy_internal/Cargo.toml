@@ -256,7 +256,7 @@ bevy_sprite_render = [
   "bevy_gizmos_render?/bevy_sprite_render",
 ]
 bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
-bevy_solari = ["dep:bevy_solari", "bevy_pbr", "bevy_shader/solari"]
+bevy_solari = ["dep:bevy_solari", "bevy_pbr", "bevy_shader"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera"]
 bevy_gizmos_render = ["dep:bevy_gizmos_render", "bevy_gizmos"]
 bevy_gltf = ["dep:bevy_gltf", "bevy_scene", "bevy_pbr"]

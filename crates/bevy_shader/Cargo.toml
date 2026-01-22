@@ -29,19 +29,18 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 # naga_oil = { version = "0.20", default-features = false, features = [
 #   "test_shader",
 # ] }
-naga_oil = { git = "https://github.com/ChristopherBiscardi/naga_oil.git", branch = "naga-28", default-features = false, features = [
+naga_oil = { git = "https://github.com/robtfm/naga_oil", branch = "fix-directives", default-features = false, features = [
   "test_shader",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # naga_oil = { version = "0.20" }
-naga_oil = { git = "https://github.com/ChristopherBiscardi/naga_oil.git", branch = "naga-28" }
+naga_oil = { git = "https://github.com/robtfm/naga_oil", branch = "fix-directives" }
 
 [features]
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["naga/spv-in", "naga/spv-out"]
 shader_format_wesl = ["wesl"]
-solari = ["naga_oil/override_enable_ray_query"]
 
 # Bevy users should _never_ turn this feature on.
 #

@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #define_import_path bevy_solari::sampling
 
 #import bevy_pbr::lighting::D_GGX
