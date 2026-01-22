@@ -39,5 +39,6 @@ criterion_group!(
     query_get_components_mut_2,
     query_get_components_mut_5,
     query_get_components_mut_10,
+    query_get_components_mut_32,
     entity_set_build_and_lookup,
 );
