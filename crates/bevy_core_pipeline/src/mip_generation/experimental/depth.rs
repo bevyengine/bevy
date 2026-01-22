@@ -21,7 +21,7 @@ use bevy_ecs::{
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
-    experimental::occlusion_culling::{
+    occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
     },
     render_graph::{Node, NodeRunError, RenderGraphContext},

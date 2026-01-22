@@ -339,7 +339,7 @@ impl<'m> SceneEntityMapper<'m> {
     pub fn new(map: &'m mut EntityHashMap<Entity>, world: &World) -> Self {
         Self {
             map,
-            dead_start: world.allocator.alloc(),
+            dead_start: world.entity_allocator.alloc(),
             generations: 0,
         }
     }
@@ -354,7 +354,7 @@ impl<'m> SceneEntityMapper<'m> {
                 .entities
                 .mark_free(self.dead_start.index(), self.generations)
         };
-        world.allocator.free(reuse_row);
+        world.entity_allocator.free(reuse_row);
     }
 
     /// Creates an [`SceneEntityMapper`] from a provided [`World`] and [`EntityHashMap<Entity>`], then calls the

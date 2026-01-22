@@ -19,7 +19,7 @@ use bevy::{
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
-        experimental::occlusion_culling::OcclusionCulling,
+        occlusion_culling::OcclusionCulling,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
