@@ -273,9 +273,9 @@ pub struct Wireframe2dBinKey {
     pub asset_id: UntypedAssetId,
 }
 
-pub struct SetWireframe2dPushConstants;
+pub struct SetWireframe2dImmediates;
 
-impl<P: PhaseItem> RenderCommand<P> for SetWireframe2dPushConstants {
+impl<P: PhaseItem> RenderCommand<P> for SetWireframe2dImmediates {
     type Param = (
         SRes<RenderWireframeInstances>,
         SRes<RenderAssets<RenderWireframeMaterial>>,
@@ -298,11 +298,7 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe2dPushConstants {
             return RenderCommandResult::Failure("No wireframe material found for entity");
         };
 
-        pass.set_push_constants(
-            ShaderStages::FRAGMENT,
-            0,
-            bytemuck::bytes_of(&wireframe_material.color),
-        );
+        pass.set_immediates(0, bytemuck::bytes_of(&wireframe_material.color));
         RenderCommandResult::Success
     }
 }
@@ -311,7 +307,7 @@ pub type DrawWireframe2d = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
     SetMesh2dBindGroup<1>,
-    SetWireframe2dPushConstants,
+    SetWireframe2dImmediates,
     DrawMesh2d,
 );
 
@@ -342,10 +338,7 @@ impl SpecializedMeshPipeline for Wireframe2dPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.label = Some("wireframe_2d_pipeline".into());
-        descriptor.push_constant_ranges.push(PushConstantRange {
-            stages: ShaderStages::FRAGMENT,
-            range: 0..16,
-        });
+        descriptor.immediate_size = 16;
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader = self.shader.clone();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
@@ -388,6 +381,7 @@ impl ViewNode for Wireframe2dNode {
             depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "wireframe_2d");
 

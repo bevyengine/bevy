@@ -198,6 +198,7 @@ impl ViewNode for BloomNode {
                         depth_stencil_attachment: None,
                         timestamp_writes: None,
                         occlusion_query_set: None,
+                        multiview_mask: None,
                     });
                 downsampling_first_pass.set_pipeline(downsampling_first_pipeline);
                 downsampling_first_pass.set_bind_group(
@@ -223,6 +224,7 @@ impl ViewNode for BloomNode {
                         depth_stencil_attachment: None,
                         timestamp_writes: None,
                         occlusion_query_set: None,
+                        multiview_mask: None,
                     });
                 downsampling_pass.set_pipeline(downsampling_pipeline);
                 downsampling_pass.set_bind_group(
@@ -251,6 +253,7 @@ impl ViewNode for BloomNode {
                         depth_stencil_attachment: None,
                         timestamp_writes: None,
                         occlusion_query_set: None,
+                        multiview_mask: None,
                     });
                 upsampling_pass.set_pipeline(upsampling_pipeline);
                 upsampling_pass.set_bind_group(
@@ -279,6 +282,7 @@ impl ViewNode for BloomNode {
                         depth_stencil_attachment: None,
                         timestamp_writes: None,
                         occlusion_query_set: None,
+                        multiview_mask: None,
                     });
                 upsampling_final_pass.set_pipeline(upsampling_final_pipeline);
                 upsampling_final_pass.set_bind_group(

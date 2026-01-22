@@ -20,7 +20,7 @@ use bevy::{
     gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
-    render::experimental::occlusion_culling::OcclusionCulling,
+    render::occlusion_culling::OcclusionCulling,
 };
 
 #[cfg(feature = "gltf_animation")]

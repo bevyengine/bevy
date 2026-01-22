@@ -766,7 +766,7 @@ impl EntityAllocator {
     /// ```
     /// # use bevy_ecs::{prelude::*};
     /// let mut world = World::new();
-    /// let entity = world.entities_allocator().alloc();
+    /// let entity = world.entity_allocator().alloc();
     /// // wait as long as you like
     /// let entity_access = world.spawn_empty_at(entity).unwrap(); // or spawn_at(entity, my_bundle)
     /// // treat it as a normal entity

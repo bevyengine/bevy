@@ -25,7 +25,7 @@ use tracing::{error, info};
 use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
-    experimental::occlusion_culling::OcclusionCulling,
+    occlusion_culling::OcclusionCulling,
     render_phase::{
         BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSet,
         BinnedRenderPhaseBatchSets, CachedRenderPipelinePhaseItem, PhaseItem,
@@ -1112,7 +1112,7 @@ impl FromWorld for GpuPreprocessingSupport {
 
         let culling_feature_support = device
             .features()
-            .contains(Features::INDIRECT_FIRST_INSTANCE | Features::PUSH_CONSTANTS);
+            .contains(Features::INDIRECT_FIRST_INSTANCE | Features::IMMEDIATES);
         // Depth downsampling for occlusion culling requires 12 textures
         let limit_support = device.limits().max_storage_textures_per_shader_stage >= 12 &&
             // Even if the adapter supports compute, we might be simulating a lack of

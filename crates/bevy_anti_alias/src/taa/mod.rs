@@ -215,6 +215,7 @@ impl ViewNode for TemporalAntiAliasNode {
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
             let pass_span = diagnostics.pass_span(&mut taa_pass, "taa");
 

@@ -197,7 +197,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
                 layout,
-                push_constant_ranges: vec![],
+                immediate_size: 0,
                 vertex: VertexState {
                     shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                     shader_defs: shader_defs.clone(),

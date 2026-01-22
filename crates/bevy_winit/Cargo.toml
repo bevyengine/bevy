@@ -57,7 +57,7 @@ bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev", optional = true }
 ## used by custom_cursor
 bevy_image = { path = "../bevy_image", version = "0.19.0-dev", optional = true }
 ## used by custom_cursor
-wgpu-types = { version = "27", optional = true }
+wgpu-types = { version = "28", optional = true }
 ## used by custom_cursor
 bytemuck = { version = "1.5", optional = true }
 

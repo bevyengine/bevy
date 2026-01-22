@@ -355,7 +355,7 @@ fn clear_visibility_buffer_pass(
             timestamp_writes: None,
         });
     clear_visibility_buffer_pass.set_pipeline(clear_visibility_buffer_pipeline);
-    clear_visibility_buffer_pass.set_push_constants(0, bytemuck::bytes_of(&view_size));
+    clear_visibility_buffer_pass.set_immediates(0, bytemuck::bytes_of(&view_size));
     clear_visibility_buffer_pass.set_bind_group(0, clear_visibility_buffer_bind_group, &[]);
     clear_visibility_buffer_pass.dispatch_workgroups(
         view_size.x.div_ceil(16),
@@ -528,7 +528,7 @@ fn cull_pass<'a>(
     view_offset: &'a ViewUniformOffset,
     previous_view_offset: &'a PreviousViewUniformOffset,
     pipeline: &'a ComputePipeline,
-    push_constants: &[u32],
+    immediates: &[u32],
 ) -> ComputePass<'a> {
     let command_encoder = render_context.command_encoder();
     let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -541,7 +541,7 @@ fn cull_pass<'a>(
         bind_group,
         &[view_offset.offset, previous_view_offset.offset],
     );
-    pass.set_push_constants(0, bytemuck::cast_slice(push_constants));
+    pass.set_immediates(0, bytemuck::cast_slice(immediates));
     pass
 }
 
@@ -608,14 +608,11 @@ fn raster_pass(
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
 
     hardware_pass.set_render_pipeline(visibility_buffer_hardware_raster_pipeline);
-    hardware_pass.set_push_constants(
-        ShaderStages::VERTEX,
-        0,
-        &raster_cluster_rightmost_slot.to_le_bytes(),
-    );
+    hardware_pass.set_immediates(0, &raster_cluster_rightmost_slot.to_le_bytes());
     hardware_pass.set_bind_group(
         0,
         &meshlet_view_bind_groups.visibility_buffer_raster,
@@ -648,6 +645,7 @@ fn resolve_depth(
         depth_stencil_attachment: Some(depth_stencil_attachment),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
 
     resolve_pass.set_render_pipeline(resolve_depth_pipeline);
@@ -678,6 +676,7 @@ fn resolve_material_depth(
             }),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
 
         resolve_pass.set_render_pipeline(resolve_material_depth_pipeline);

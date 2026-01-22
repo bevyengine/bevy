@@ -22,7 +22,7 @@ fn fetch_point_shadow(
     surface_normal: vec3<f32>,
     frag_coord_xy: vec2<f32>,
 ) -> f32 {
-    let light = &view_bindings::clusterable_objects.data[light_id];
+    let light = &view_bindings::clustered_lights.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
@@ -75,7 +75,7 @@ fn fetch_spot_shadow(
     near_z: f32,
     frag_coord_xy: vec2<f32>,
 ) -> f32 {
-    let light = &view_bindings::clusterable_objects.data[light_id];
+    let light = &view_bindings::clustered_lights.data[light_id];
 
     let surface_to_light = (*light).position_radius.xyz - frag_position.xyz;
 

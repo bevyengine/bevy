@@ -937,6 +937,7 @@ fn perform_edge_detection(
         }),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     };
 
     // Run the actual render pass.
@@ -996,6 +997,7 @@ fn perform_blending_weight_calculation(
         }),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     };
 
     // Run the actual render pass.
@@ -1049,6 +1051,7 @@ fn perform_neighborhood_blending(
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     };
 
     let mut neighborhood_blending_render_pass = render_context
