@@ -752,7 +752,7 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.22"
+accesskit = "0.23"
 nonmax = "0.5"
 gltf = "1.4"
 
@@ -4192,7 +4192,7 @@ doc-scrape-examples = false
 
 [package.metadata.example.image_node]
 name = "Image Node"
-description = "Demonstrates how to create a image node"
+description = "Demonstrates how to create an image node"
 category = "UI (User Interface)"
 wasm = true
 

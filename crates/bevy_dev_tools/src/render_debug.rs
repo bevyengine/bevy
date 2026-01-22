@@ -122,7 +122,7 @@ pub fn update_overlay(
             Has<bevy_core_pipeline::prepass::NormalPrepass>,
             Has<bevy_core_pipeline::prepass::MotionVectorPrepass>,
             Has<bevy_core_pipeline::prepass::DeferredPrepass>,
-            Has<bevy_render::experimental::occlusion_culling::OcclusionCulling>,
+            Has<bevy_render::occlusion_culling::OcclusionCulling>,
             Has<bevy_pbr::ScreenSpaceReflections>,
         ),
         bevy_ecs::query::With<bevy_camera::Camera>,

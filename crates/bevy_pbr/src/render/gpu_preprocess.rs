@@ -37,7 +37,7 @@ use bevy_render::{
         UntypedPhaseIndirectParametersBuffers,
     },
     diagnostic::RecordDiagnostics,
-    experimental::occlusion_culling::OcclusionCulling,
+    occlusion_culling::OcclusionCulling,
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},

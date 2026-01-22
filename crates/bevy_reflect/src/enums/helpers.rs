@@ -103,8 +103,11 @@ pub fn enum_partial_cmp(a: &dyn Enum, b: &dyn PartialReflect) -> Option<::core::
 
     // Same variant name?
     if a.variant_name() != b.variant_name() {
-        // Different variant names, determining ordering by variant index
-        return Some(a.variant_index().cmp(&b.variant_index()));
+        // Different variant names.
+        // Ordering by variant index here can result in inconsistencies with
+        // partial_eq when comparing between two different concrete enums,
+        // so we simply return None here
+        return None;
     }
 
     // Same variant type?

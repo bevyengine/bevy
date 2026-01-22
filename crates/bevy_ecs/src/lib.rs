@@ -366,10 +366,10 @@ mod tests {
     #[test]
     fn spawning_with_manual_entity_allocation() {
         let mut world = World::new();
-        let e1 = world.entities_allocator_mut().alloc();
+        let e1 = world.entity_allocator_mut().alloc();
         world.spawn_at(e1, (TableStored("abc"), A(123))).unwrap();
 
-        let e2 = world.entities_allocator_mut().alloc();
+        let e2 = world.entity_allocator_mut().alloc();
         assert!(matches!(
             world.try_despawn_no_free(e2),
             Err(EntityDespawnError(
@@ -377,9 +377,9 @@ mod tests {
             ))
         ));
         assert!(!world.despawn(e2));
-        world.entities_allocator_mut().free(e2);
+        world.entity_allocator_mut().free(e2);
 
-        let e3 = world.entities_allocator_mut().alloc();
+        let e3 = world.entity_allocator_mut().alloc();
         let e3 = world
             .spawn_at(e3, (TableStored("junk"), A(0)))
             .unwrap()
