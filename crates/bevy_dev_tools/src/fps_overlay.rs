@@ -61,7 +61,7 @@ pub struct FpsOverlayPlugin {
 pub enum FpsOverlaySystems {
     /// Applies config changes to the overlay UI.
     Customize,
-    /// Updates the FPS text contents.
+    /// Updates the overlay contents.
     UpdateText,
 }
 
