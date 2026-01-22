@@ -39,7 +39,6 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var throughput = vec3(1.0);
     var p_bounce = 0.0;
     var bounce_was_perfect_reflection = true;
-    var previous_normal = vec3(0.0);
     loop {
         let ray = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind != RAY_QUERY_INTERSECTION_NONE {
@@ -75,7 +74,6 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             ray_t_min = RAY_T_MIN;
             p_bounce = next_bounce.pdf;
             bounce_was_perfect_reflection = next_bounce.perfectly_specular_bounce;
-            previous_normal = ray_hit.world_normal;
 
             // Update throughput for next bounce
             let brdf = evaluate_brdf(ray_hit.world_normal, wo, next_bounce.wi, ray_hit.material);
