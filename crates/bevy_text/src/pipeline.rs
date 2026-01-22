@@ -6,7 +6,7 @@ use bevy_ecs::{
     system::ResMut,
 };
 use bevy_image::prelude::*;
-use bevy_log::{once, warn};
+use bevy_log::warn_once;
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -166,9 +166,7 @@ impl TextPipeline {
         computed.needs_rerender = false;
 
         if scale_factor <= 0.0 {
-            once!(warn!(
-                "Text scale factor is <= 0.0. No text will be displayed.",
-            ));
+            warn_once!("Text scale factor is <= 0.0. No text will be displayed.",);
 
             return Err(TextError::DegenerateScaleFactor);
         }
@@ -212,11 +210,22 @@ impl TextPipeline {
 
                 // Save spans that aren't zero-sized.
                 if text_font.font_size <= 0.0 {
-                    once!(warn!(
+                    warn_once!(
                         "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
-                    ));
+                    );
 
                     continue;
+                }
+
+                const WARN_FONT_SIZE: f32 = 1000.0;
+                if text_font.font_size * scale_factor as f32 > WARN_FONT_SIZE {
+                    warn_once!(
+                        "Text span {entity} has an excessively large font size ({} with scale factor {}). \
+                        Extremely large font sizes will cause performance issues with font atlas \
+                        generation and high memory usage.",
+                        text_font.font_size,
+                        scale_factor,
+                    );
                 }
 
                 let attrs = get_attrs(span_index, text_font, line_height, family, scale_factor);
