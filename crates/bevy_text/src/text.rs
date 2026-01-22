@@ -794,15 +794,6 @@ pub enum LineHeight {
     RelativeToFont(f32),
 }
 
-impl LineHeight {
-    pub(crate) fn eval(self, font_size: f32) -> f32 {
-        match self {
-            LineHeight::Px(px) => px,
-            LineHeight::RelativeToFont(scale) => scale * font_size,
-        }
-    }
-}
-
 impl Default for LineHeight {
     fn default() -> Self {
         LineHeight::RelativeToFont(1.2)
