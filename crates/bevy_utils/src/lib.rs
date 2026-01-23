@@ -58,6 +58,8 @@ pub mod prelude {
 }
 
 mod atomic_id;
+mod bloom_filter;
+pub use bloom_filter::*;
 mod debug_info;
 mod default;
 mod once;

@@ -77,12 +77,13 @@ impl ViewNode for DlssNode<DlssSuperResolutionFeature> {
         command_encoder.push_debug_group("dlss_super_resolution");
         let time_span = diagnostics.time_span(command_encoder, "dlss_super_resolution");
 
-        dlss_context
+        let dlss_command_buffer = dlss_context
             .render(render_parameters, command_encoder, &adapter)
             .expect("Failed to render DLSS Super Resolution");
 
         time_span.end(command_encoder);
         command_encoder.pop_debug_group();
+        render_context.add_command_buffer(dlss_command_buffer);
 
         Ok(())
     }
@@ -153,12 +154,14 @@ impl ViewNode for DlssNode<DlssRayReconstructionFeature> {
         command_encoder.push_debug_group("dlss_ray_reconstruction");
         let time_span = diagnostics.time_span(command_encoder, "dlss_ray_reconstruction");
 
-        dlss_context
+        let dlss_command_buffer = dlss_context
             .render(render_parameters, command_encoder, &adapter)
             .expect("Failed to render DLSS Ray Reconstruction");
 
         time_span.end(command_encoder);
         command_encoder.pop_debug_group();
+
+        render_context.add_command_buffer(dlss_command_buffer);
 
         Ok(())
     }

@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.89.0"
+rust-version = "1.92.0"
 
 [workspace]
 resolver = "2"
@@ -4193,6 +4193,18 @@ doc-scrape-examples = false
 [package.metadata.example.image_node]
 name = "Image Node"
 description = "Demonstrates how to create an image node"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "image_node_resizing"
+path = "examples/ui/image_node_resizing.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.image_node_resizing]
+name = "Image Node Resizing"
+description = "Demonstrates how to resize an image node"
 category = "UI (User Interface)"
 wasm = true
 

@@ -68,6 +68,13 @@ fn query_light_probe(
         let light_probe_index = i32(clustered_forward::get_clusterable_object_id(
             light_probe_index_offset));
 
+        // FIXME: This happens when one or more images for the light probe
+        // aren't loaded yet. Really, though, we shouldn't be clustering such
+        // objects at all.
+        if (light_probe_index < 0) {
+            continue;
+        }
+
         var light_probe: LightProbe;
         if is_irradiance_volume {
             light_probe = light_probes.irradiance_volumes[light_probe_index];

@@ -10,7 +10,7 @@ use bevy_ecs::{
     query::{With, Without},
     reflect::ReflectResource,
     resource::Resource,
-    schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
+    schedule::{common_conditions::resource_changed, IntoScheduleConfigs, SystemSet},
     system::{Commands, Query, Res, ResMut, Single},
 };
 use bevy_picking::Pickable;
@@ -56,6 +56,15 @@ pub struct FpsOverlayPlugin {
     pub config: FpsOverlayConfig,
 }
 
+/// System sets for FPS overlay updates.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub enum FpsOverlaySystems {
+    /// Applies config changes to the overlay UI.
+    Customize,
+    /// Updates the overlay contents.
+    UpdateText,
+}
+
 impl Plugin for FpsOverlayPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69
@@ -76,13 +85,20 @@ impl Plugin for FpsOverlayPlugin {
         }
 
         app.insert_resource(self.config.clone())
+            .configure_sets(
+                Update,
+                FpsOverlaySystems::Customize.before(FpsOverlaySystems::UpdateText),
+            )
             .add_systems(Startup, setup)
             .add_systems(
                 Update,
                 (
                     (toggle_display, customize_overlay)
-                        .run_if(resource_changed::<FpsOverlayConfig>),
-                    update_text.run_if(on_timer(self.config.refresh_interval)),
+                        .run_if(resource_changed::<FpsOverlayConfig>)
+                        .in_set(FpsOverlaySystems::Customize),
+                    update_text
+                        .run_if(on_timer(self.config.refresh_interval))
+                        .in_set(FpsOverlaySystems::UpdateText),
                 ),
             );
     }

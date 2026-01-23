@@ -455,7 +455,7 @@ fn apply_pbr_lighting(
         // requested, to avoid double-counting light.
 #ifdef LIGHTMAP
         let enable_diffuse =
-            (view_bindings::clusterable_objects.data[light_id].flags &
+            (view_bindings::clustered_lights.data[light_id].flags &
                 mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) != 0u;
 #else   // LIGHTMAP
         let enable_diffuse = true;
@@ -463,15 +463,15 @@ fn apply_pbr_lighting(
 
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (view_bindings::clustered_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal, in.frag_coord.xy);
         }
 
 #ifdef DEPTH_PREPASS
         if contact_shadow_enabled && (in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && shadow > 0.0 &&
-                (view_bindings::clusterable_objects.data[light_id].flags &
+                (view_bindings::clustered_lights.data[light_id].flags &
                     mesh_view_types::POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT) != 0u {
-            let L = normalize(view_bindings::clusterable_objects.data[light_id].position_radius.xyz - in.world_position.xyz);
+            let L = normalize(view_bindings::clustered_lights.data[light_id].position_radius.xyz - in.world_position.xyz);
             shadow *= calculate_contact_shadow(in.world_position.xyz, in.frag_coord.xy, L, contact_shadow_steps);
         }
 #endif
@@ -491,7 +491,7 @@ fn apply_pbr_lighting(
         // F0 = vec3<f32>(0.0)
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
-                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (view_bindings::clustered_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             transmitted_shadow = shadows::fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal, in.frag_coord.xy);
         }
 
@@ -511,7 +511,7 @@ fn apply_pbr_lighting(
         // requested, to avoid double-counting light.
 #ifdef LIGHTMAP
         let enable_diffuse =
-            (view_bindings::clusterable_objects.data[light_id].flags &
+            (view_bindings::clustered_lights.data[light_id].flags &
                 mesh_view_types::POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT) != 0u;
 #else   // LIGHTMAP
         let enable_diffuse = true;
@@ -519,22 +519,22 @@ fn apply_pbr_lighting(
 
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (view_bindings::clusterable_objects.data[light_id].flags &
+                && (view_bindings::clustered_lights.data[light_id].flags &
                     mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_spot_shadow(
                 light_id,
                 in.world_position,
                 in.world_normal,
-                view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
+                view_bindings::clustered_lights.data[light_id].shadow_map_near_z,
                 in.frag_coord.xy,
             );
         }
 
 #ifdef DEPTH_PREPASS
         if contact_shadow_enabled && (in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && shadow > 0.0 &&
-                (view_bindings::clusterable_objects.data[light_id].flags &
+                (view_bindings::clustered_lights.data[light_id].flags &
                     mesh_view_types::POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT) != 0u {
-            let L = normalize(view_bindings::clusterable_objects.data[light_id].position_radius.xyz - in.world_position.xyz);
+            let L = normalize(view_bindings::clustered_lights.data[light_id].position_radius.xyz - in.world_position.xyz);
             shadow *= calculate_contact_shadow(in.world_position.xyz, in.frag_coord.xy, L, contact_shadow_steps);
         }
 #endif
@@ -554,12 +554,12 @@ fn apply_pbr_lighting(
         // F0 = vec3<f32>(0.0)
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
-                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (view_bindings::clustered_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             transmitted_shadow = shadows::fetch_spot_shadow(
                 light_id,
                 diffuse_transmissive_lobe_world_position,
                 -in.world_normal,
-                view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
+                view_bindings::clustered_lights.data[light_id].shadow_map_near_z,
                 in.frag_coord.xy,
             );
         }

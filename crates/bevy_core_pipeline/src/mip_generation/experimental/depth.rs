@@ -29,8 +29,8 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, texture_2d_multisampled, texture_storage_2d},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor, ComputePipeline,
-        ComputePipelineDescriptor, Extent3d, IntoBinding, PipelineCache, PushConstantRange,
-        Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedComputePipeline,
+        ComputePipelineDescriptor, Extent3d, IntoBinding, PipelineCache, Sampler,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedComputePipeline,
         SpecializedComputePipelines, StorageTextureAccess, TextureAspect, TextureDescriptor,
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
         TextureViewDescriptor, TextureViewDimension,
@@ -425,10 +425,7 @@ impl SpecializedComputePipeline for DownsampleDepthPipeline {
         ComputePipelineDescriptor {
             label: Some(label),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: vec![PushConstantRange {
-                stages: ShaderStages::COMPUTE,
-                range: 0..4,
-            }],
+            immediate_size: 4,
             shader: self.shader.clone(),
             shader_defs,
             entry_point: Some(if key.contains(DownsampleDepthPipelineKey::SECOND_PHASE) {
@@ -638,8 +635,8 @@ impl ViewDepthPyramid {
             timestamp_writes: None,
         });
         downsample_pass.set_pipeline(downsample_depth_first_pipeline);
-        // Pass the mip count as a push constant, for simplicity.
-        downsample_pass.set_push_constants(0, &self.mip_count.to_le_bytes());
+        // Pass the mip count as an immediate, for simplicity.
+        downsample_pass.set_immediates(0, &self.mip_count.to_le_bytes());
         downsample_pass.set_bind_group(0, downsample_depth_bind_group, &[]);
         downsample_pass.dispatch_workgroups(
             virtual_view_size.x.div_ceil(64),

@@ -3,7 +3,10 @@
 use bevy_app::{Plugin, Update};
 use bevy_asset::{load_internal_asset, uuid_handle, Asset, Assets, Handle};
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::{
+    schedule::IntoScheduleConfigs,
+    system::{Res, ResMut},
+};
 use bevy_math::ops::log2;
 use bevy_reflect::TypePath;
 use bevy_render::{
@@ -13,7 +16,7 @@ use bevy_render::{
 use bevy_shader::{Shader, ShaderRef};
 use bevy_ui_render::prelude::{UiMaterial, UiMaterialPlugin};
 
-use crate::fps_overlay::FpsOverlayConfig;
+use crate::fps_overlay::{FpsOverlayConfig, FpsOverlaySystems};
 
 const FRAME_TIME_GRAPH_SHADER_HANDLE: Handle<Shader> =
     uuid_handle!("4e38163a-5782-47a5-af52-d9161472ab59");
@@ -37,7 +40,10 @@ impl Plugin for FrameTimeGraphPlugin {
         }
 
         app.add_plugins(UiMaterialPlugin::<FrametimeGraphMaterial>::default())
-            .add_systems(Update, update_frame_time_values);
+            .add_systems(
+                Update,
+                update_frame_time_values.in_set(FpsOverlaySystems::UpdateText),
+            );
     }
 }
 
