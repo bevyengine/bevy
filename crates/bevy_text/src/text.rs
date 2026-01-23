@@ -368,8 +368,9 @@ pub struct TextFont {
     pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
-    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
-    /// transform or camera projection.
+    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity's
+    /// transform or camera projection. Then, the scaled font size is rounded to the nearest pixel
+    /// to produce the final font size used during glyph layout.
     ///
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
