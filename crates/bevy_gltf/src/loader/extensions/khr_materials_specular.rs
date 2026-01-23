@@ -6,7 +6,9 @@ use gltf::Material;
 use serde_json::Value;
 
 #[cfg(feature = "pbr_specular_textures")]
-use {crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_pbr::UvChannel};
+use {
+    crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_material::UvChannel,
+};
 
 /// Parsed data from the `KHR_materials_specular` extension.
 ///
@@ -19,7 +21,7 @@ use {crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_p
 /// `KHR_materials_specular` specification requirement that stems from the fact
 /// that glTF is specified in terms of a specular strength model, not the
 /// reflectance model that Filament and Bevy use. A workaround, which is noted
-/// in the [`StandardMaterial`](bevy_pbr::StandardMaterial) documentation, is to set the reflectance value
+/// in the Standard Material documentation, is to set the reflectance value
 /// to 2.0, which spreads the specular map range from [0.0, 1.0] as normal.
 ///
 /// See the specification:
