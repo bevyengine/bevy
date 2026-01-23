@@ -102,6 +102,7 @@ impl ViewNode for MsaaWritebackNode {
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         };
 
         let bind_group = blit_pipeline.create_bind_group(
