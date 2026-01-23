@@ -6,7 +6,7 @@ use bevy_utils::prelude::DebugName;
 use crate::{
     component::ComponentId,
     entity::{Entity, EntityNotSpawnedError},
-    schedule::InternedScheduleLabel,
+    schedule::{InternedScheduleLabel, InternedSystemSet},
 };
 
 /// The error type returned by [`World::try_run_schedule`] if the provided schedule does not exist.
@@ -15,6 +15,26 @@ use crate::{
 #[derive(thiserror::Error, Debug)]
 #[error("The schedule with the label {0:?} was not found.")]
 pub struct TryRunScheduleError(pub InternedScheduleLabel);
+
+/// The error type returned by [`World::try_run_system_set`] if the provided
+/// schedule or system set does not exist.
+///
+/// [`World::try_run_system_set`]: crate::world::World::try_run_system_set
+#[derive(thiserror::Error, Debug)]
+pub enum TryRunSystemSetError {
+    /// The schedule with the given label does not exist.
+    #[error("The schedule with the label {0:?} was not found.")]
+    ScheduleNotFound(TryRunScheduleError),
+    /// The system set with the given label does not exist in the specified schedule.
+    #[error("The system set with the label {1:?} in schedule {0:?} was not found.")]
+    SystemSetNotFound(InternedScheduleLabel, InternedSystemSet),
+}
+
+impl From<TryRunScheduleError> for TryRunSystemSetError {
+    fn from(err: TryRunScheduleError) -> Self {
+        TryRunSystemSetError::ScheduleNotFound(err)
+    }
+}
 
 /// The error type returned by [`World::try_insert_batch`] and [`World::try_insert_batch_if_new`]
 /// if any of the provided entities do not exist.
