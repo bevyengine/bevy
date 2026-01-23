@@ -3779,11 +3779,10 @@ mod tests {
         let mut query = world.query::<&mut C>();
         let mut iter = query.contiguous_iter_mut(&mut world).unwrap();
         for _ in 0..2 {
-            let mut c = iter.next().unwrap();
-            for c in c.data_slice_mut() {
+            let c = iter.next().unwrap();
+            for c in c {
                 c.0 *= 2;
             }
-            c.mark_all_as_updated();
         }
         assert!(iter.next().is_none());
         let mut iter = query.contiguous_iter(&world).unwrap();

@@ -468,12 +468,6 @@ pub struct ContiguousRef<'w, T> {
 }
 
 impl<'w, T> ContiguousRef<'w, T> {
-    /// Returns the data slice.
-    #[inline]
-    pub fn data_slice(&self) -> &'w [T] {
-        self.value
-    }
-
     /// Returns the added ticks.
     #[inline]
     pub fn added_ticks_slice(&self) -> &'w [Tick] {
@@ -502,6 +496,32 @@ impl<'w, T> ContiguousRef<'w, T> {
     #[inline]
     pub fn this_run_tick(&self) -> Tick {
         self.ticks.this_run
+    }
+}
+
+impl<'w, T> Deref for ContiguousRef<'w, T> {
+    type Target = [T];
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.value
+    }
+}
+
+impl<'w, T> AsRef<[T]> for ContiguousRef<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &[T] {
+        self.deref()
+    }
+}
+
+impl<'w, T> IntoIterator for ContiguousRef<'w, T> {
+    type Item = &'w T;
+
+    type IntoIter = core::slice::Iter<'w, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.iter()
     }
 }
 
@@ -614,21 +634,24 @@ impl<'w, T: ?Sized> Mut<'w, T> {
 
 /// Data type returned by [`ContiguousQueryData::fetch_contiguous`](crate::query::ContiguousQueryData::fetch_contiguous)
 /// for [`Mut<T>`] and `&mut T`
+///
+/// # Warning
+/// Implementations of [`DerefMut`], [`AsMut`] and [`IntoIterator`] update change ticks, which may effect performance.
 pub struct ContiguousMut<'w, T> {
     pub(crate) value: &'w mut [T],
     pub(crate) ticks: ContiguousComponentTicksMut<'w>,
 }
 
 impl<'w, T> ContiguousMut<'w, T> {
-    /// Returns the mutable data slice.
+    /// Manually bypasses change detection, allowing you to mutate the underlying values without updating the change tick,
+    /// which may be useful to reduce amount of work to be done.
+    ///
+    /// # Warning
+    /// This is a risky operation, that can have unexpected consequences on any system relying on this code.
+    /// However, it can be an essential escape hatch when, for example,
+    /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
     #[inline]
-    pub fn data_slice_mut(&mut self) -> &mut [T] {
-        self.value
-    }
-
-    /// Returns the immutable data slice.
-    #[inline]
-    pub fn data_slice(&self) -> &[T] {
+    pub fn bypass_change_detection(&mut self) -> &mut [T] {
         self.value
     }
 
@@ -702,6 +725,48 @@ impl<'w, T> ContiguousMut<'w, T> {
                 this_run: self.ticks.this_run,
             },
         }
+    }
+}
+
+impl<'w, T> Deref for ContiguousMut<'w, T> {
+    type Target = [T];
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.value
+    }
+}
+
+impl<'w, T> DerefMut for ContiguousMut<'w, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.mark_all_as_updated();
+        self.value
+    }
+}
+
+impl<'w, T> AsRef<[T]> for ContiguousMut<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &[T] {
+        self.deref()
+    }
+}
+
+impl<'w, T> AsMut<[T]> for ContiguousMut<'w, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut [T] {
+        self.deref_mut()
+    }
+}
+
+impl<'w, T> IntoIterator for ContiguousMut<'w, T> {
+    type Item = &'w mut T;
+
+    type IntoIter = core::slice::IterMut<'w, T>;
+
+    fn into_iter(mut self) -> Self::IntoIter {
+        self.mark_all_as_updated();
+        self.value.iter_mut()
     }
 }
 

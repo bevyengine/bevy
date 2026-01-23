@@ -57,10 +57,8 @@ impl<'w> Benchmark<'w> {
         for (velocity, mut position) in iter {
             // SAFETY: checked in new
             unsafe {
-                exec(position.data_slice_mut(), velocity);
+                exec(position.as_mut(), velocity);
             }
-            // to match the iter_simple benchmark
-            position.mark_all_as_updated();
         }
     }
 }

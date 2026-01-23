@@ -121,6 +121,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// The caveats of [`set_last_changed`](DetectChangesMut::set_last_changed) apply. This modifies both the added and changed ticks together.
     fn set_last_added(&mut self, last_added: Tick);
 
+    // NOTE: if you are changing the following comment also change the [`ContiguousMut::bypass_change_detection`] comment.
     /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
     ///
     /// # Warning
