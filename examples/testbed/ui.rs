@@ -1403,7 +1403,7 @@ mod debug_outlines {
             .spawn((
                 Node {
                     width: percent(100),
-                    height: percent(100),
+                    height: percent(50),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceAround,
                     ..default()
@@ -1460,6 +1460,59 @@ mod debug_outlines {
                             BackgroundColor(BLUE.into()),
                         ));
                     });
+            });
+
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(50),
+                    top: percent(50),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::DebugOutlines),
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Node {
+                        width: px(200),
+                        height: px(200),
+                        border: UiRect {
+                            top: px(10),
+                            bottom: px(20),
+                            left: px(30),
+                            right: px(40),
+                        },
+                        padding: UiRect {
+                            top: px(40),
+                            bottom: px(30),
+                            left: px(20),
+                            right: px(10),
+                        },
+
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        Text::new("test"),
+                        TextFont::default(),
+                        UiDebugOptions {
+                            enabled: false,
+                            ..default()
+                        }
+                    )],
+                    UiDebugOptions {
+                        outline_border_box: true,
+                        outline_padding_box: true,
+                        outline_content_box: true,
+                        ..*debug_options
+                    },
+                ));
             });
     }
 
