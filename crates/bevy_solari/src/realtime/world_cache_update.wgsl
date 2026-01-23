@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::utils::{rand_f, rand_range_u, sample_cosine_hemisphere}
 #import bevy_render::view::View
@@ -99,13 +101,14 @@ fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, w
         let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
         let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, world_position, world_normal);
 
-        let target_function = luminance(light_contribution.radiance * saturate(dot(light_contribution.wi, world_normal)));
+        let contribution = light_contribution.radiance * saturate(dot(light_contribution.wi, world_normal));
+        let target_function = luminance(contribution);
         let resampling_weight = mis_weight * (target_function * light_contribution.inverse_pdf);
 
         weight_sum += resampling_weight;
 
         if rand_f(rng) < resampling_weight / weight_sum {
-            selected_sample_radiance = light_contribution.radiance;
+            selected_sample_radiance = contribution;
             selected_sample_target_function = target_function;
             selected_sample_world_position = resolved_light_sample.world_position;
         }
