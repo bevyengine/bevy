@@ -205,6 +205,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             }),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "deferred_lighting");
 

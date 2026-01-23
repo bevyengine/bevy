@@ -40,13 +40,13 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
+use bevy_log::warn;
 use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
 use bevy_log::warn_once;
-use tracing::warn;
 use wgpu::TextureFormat;
 
 #[derive(Default)]

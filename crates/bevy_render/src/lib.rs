@@ -513,7 +513,7 @@ unsafe fn initialize_render_app(app: &mut App) {
 
         {
             #[cfg(feature = "trace")]
-            let _stage_span = tracing::info_span!("entity_sync").entered();
+            let _stage_span = bevy_log::info_span!("entity_sync").entered();
             entity_sync_system(main_world, render_world);
         }
 

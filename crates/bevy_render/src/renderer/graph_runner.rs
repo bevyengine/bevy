@@ -1,7 +1,7 @@
 use bevy_ecs::{prelude::Entity, world::World};
-use bevy_platform::collections::HashMap;
 #[cfg(feature = "trace")]
-use tracing::info_span;
+use bevy_log::info_span;
+use bevy_platform::collections::HashMap;
 
 use alloc::{borrow::Cow, collections::VecDeque};
 use smallvec::{smallvec, SmallVec};
