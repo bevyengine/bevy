@@ -442,6 +442,8 @@ debug = ["bevy_utils/debug", "bevy_ecs/debug"]
 
 screenrecording = ["bevy_dev_tools/screenrecording"]
 
+debug_tag = ["bevy_ecs/debug_tag"]
+
 [dependencies]
 # bevy (no_std)
 bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false, features = [

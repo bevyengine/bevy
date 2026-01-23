@@ -719,6 +719,9 @@ hotpatching = ["bevy_internal/hotpatching"]
 # Enable collecting debug information about systems and components to help with diagnostics
 debug = ["bevy_internal/debug"]
 
+# XXX TODO: Document.
+debug_tag = ["bevy_internal/debug_tag"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.19.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }

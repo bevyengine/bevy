@@ -52,6 +52,9 @@ bevy_debug_stepping = []
 ## This will often provide more detailed error messages.
 track_location = []
 
+## XXX TODO: Document.
+debug_tag = []
+
 # Executor Backend
 
 ## Uses `async-executor` as a task execution backend.
