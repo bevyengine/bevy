@@ -20,11 +20,11 @@ use alloc::sync::Arc;
 use bevy_camera::NormalizedRenderTarget;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_log::{debug, error, info, info_span, warn};
 use bevy_platform::time::Instant;
 use bevy_render::camera::ExtractedCamera;
 use bevy_time::TimeSender;
 use bevy_window::RawHandleWrapperHolder;
-use tracing::{debug, error, info, info_span, warn};
 use wgpu::{
     Adapter, AdapterInfo, Backends, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
     RequestAdapterOptions, Trace,
@@ -100,8 +100,8 @@ pub fn render_system(
         });
 
         #[cfg(feature = "tracing-tracy")]
-        tracing::event!(
-            tracing::Level::INFO,
+        bevy_log::event!(
+            bevy_log::Level::INFO,
             message = "finished frame",
             tracy.frame_mark = true
         );
@@ -160,7 +160,7 @@ async fn find_adapter_by_name(
         ))
         .await
     {
-        tracing::trace!("Checking adapter: {:?}", adapter.get_info());
+        bevy_log::trace!("Checking adapter: {:?}", adapter.get_info());
         let info = adapter.get_info();
         if let Some(surface) = compatible_surface
             && !adapter.is_surface_supported(surface)

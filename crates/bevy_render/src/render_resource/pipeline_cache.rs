@@ -15,6 +15,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
 };
+use bevy_log::error;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_shader::{
     CachedPipelineId, Shader, ShaderCache, ShaderCacheError, ShaderCacheSource, ShaderDefVal,
@@ -24,7 +25,6 @@ use bevy_tasks::Task;
 use bevy_utils::default;
 use core::{future::Future, mem};
 use std::sync::{Mutex, PoisonError};
-use tracing::error;
 use wgpu::{PipelineCompilationOptions, VertexBufferLayout as RawVertexBufferLayout};
 
 /// A pipeline defining the data layout and shader logic for a specific GPU task.
