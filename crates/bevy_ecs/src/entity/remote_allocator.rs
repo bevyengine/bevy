@@ -929,8 +929,9 @@ impl Allocator {
             unsafe {
                 self.shared.free.free(self.quick_free.as_slice());
             }
+            self.quick_free.clear();
         }
-        // SAFETY: The `ArrayVec` is not full.
+        // SAFETY: The `ArrayVec` is not full or has just been cleared.
         unsafe {
             self.quick_free.push_unchecked(entity);
         }

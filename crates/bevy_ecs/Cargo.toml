@@ -73,7 +73,7 @@ std = [
   "indexmap/std",
   "serde?/std",
   "nonmax/std",
-  "arrayvec?/std",
+  "arrayvec/std",
   "log/std",
   "bevy_platform/std",
 ]
