@@ -7,11 +7,10 @@
 //! both of which return an option which is only [`None`] when the query doesn't support contiguous
 //! iteration due to it not being dense (iteration happens on archetypes, not tables) or filters not being archetypal.
 //!
-//! Refer to
+//! For further documentation refer to:
 //! - [`Query::contiguous_iter`]
 //! - [`ContiguousQueryData`](`bevy::ecs::query::ContiguousQueryData`)
 //! - [`ArchetypeFilter`](`bevy::ecs::query::ArchetypeFilter`)
-//! for further documentation.
 
 use bevy::prelude::*;
 
