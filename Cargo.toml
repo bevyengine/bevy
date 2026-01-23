@@ -1656,6 +1656,14 @@ doc-scrape-examples = true
 [package.metadata.example.no_prepass]
 hidden = true
 
+[[example]]
+name = "test_mipmap_filter"
+path = "tests/3d/test_mipmap_filter.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.test_mipmap_filter]
+hidden = true
+
 # Animation
 [[example]]
 name = "animation_events"
