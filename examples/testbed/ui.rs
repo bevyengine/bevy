@@ -1485,6 +1485,7 @@ mod debug_outlines {
                             left: px(30),
                             right: px(40),
                         },
+                        border_radius: BorderRadius::bottom_right(px(10)),
                         padding: UiRect {
                             top: px(40),
                             bottom: px(30),
@@ -1505,6 +1506,7 @@ mod debug_outlines {
                         outline_border_box: true,
                         outline_padding_box: true,
                         outline_content_box: true,
+                        ignore_border_radius: false,
                         ..*debug_options
                     },
                 ));
