@@ -5,6 +5,7 @@
 //! values and automatically perform any necessary conversions and encoding
 //! into the texture's native pixel format.
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::asset::RenderAssetUsages;
 use bevy::color::{color_difference::EuclideanDistance, palettes::css};
 use bevy::prelude::*;
@@ -52,6 +53,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         // Use the same encoding as the color we set
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     );
 
     // To make it extra fancy, we can set the Alpha of each pixel,

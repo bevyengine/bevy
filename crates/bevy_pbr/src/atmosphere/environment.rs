@@ -5,7 +5,10 @@ use crate::{
     },
     ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
 };
-use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages};
+use bevy_asset::{
+    load_embedded_asset, AssetServer, Assets, Handle, RenderAssetTransferPriority,
+    RenderAssetUsages,
+};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -214,6 +217,7 @@ pub fn prepare_atmosphere_probe_components(
             &[0; 8],
             TextureFormat::Rgba16Float,
             RenderAssetUsages::all(),
+            RenderAssetTransferPriority::default(),
         );
 
         environment_image.texture_view_descriptor = Some(TextureViewDescriptor {

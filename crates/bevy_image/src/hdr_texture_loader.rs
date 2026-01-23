@@ -1,6 +1,6 @@
 use crate::{Image, TextureAccessError, TextureFormatPixelInfo};
-use bevy_asset::RenderAssetUsages;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
+use bevy_asset::{RenderAssetTransferPriority, RenderAssetUsages};
 use bevy_reflect::TypePath;
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,7 @@ pub struct HdrTextureLoader;
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct HdrTextureLoaderSettings {
     pub asset_usage: RenderAssetUsages,
+    pub transfer_priority: RenderAssetTransferPriority,
 }
 
 #[non_exhaustive]
@@ -70,6 +71,7 @@ impl AssetLoader for HdrTextureLoader {
             rgba_data,
             format,
             settings.asset_usage,
+            settings.transfer_priority,
         ))
     }
 

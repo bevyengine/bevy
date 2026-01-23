@@ -165,6 +165,7 @@ pub(crate) fn transform_hotspot(
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
+    use bevy_asset::RenderAssetTransferPriority;
     use bevy_asset::RenderAssetUsages;
     use bevy_image::Image;
     use bevy_math::Rect;
@@ -184,6 +185,7 @@ mod tests {
             data.to_vec(),
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
     }
 
@@ -311,6 +313,7 @@ mod tests {
             bytemuck::cast_slice(&float_data).to_vec(),
             TextureFormat::Rgba32Float,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
     }
 

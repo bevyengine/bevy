@@ -2,6 +2,7 @@
 
 use std::f32::consts::PI;
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::picking::PickingSystems;
 use bevy::{
     asset::{uuid::Uuid, RenderAssetUsages},
@@ -51,6 +52,7 @@ fn setup(
         &[0, 0, 0, 0],
         TextureFormat::Bgra8UnormSrgb,
         RenderAssetUsages::default(),
+        RenderAssetTransferPriority::Immediate,
     );
     // You need to set these texture usage flags in order to use the image as a render target
     image.texture_descriptor.usage =

@@ -6,6 +6,7 @@
 //!
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::{self, VisibilityClass},
@@ -56,6 +57,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     let mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
+        RenderAssetTransferPriority::default(),
     )
     .with_inserted_indices(Indices::U32(vec![0, 1, 2]))
     .with_inserted_attribute(

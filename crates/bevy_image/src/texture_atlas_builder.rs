@@ -1,4 +1,4 @@
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, RenderAssetTransferPriority, RenderAssetUsages};
 use bevy_math::{URect, UVec2};
 use bevy_platform::collections::HashMap;
 use rectangle_pack::{
@@ -250,6 +250,7 @@ impl<'a> TextureAtlasBuilder<'a> {
                         ],
                         self.format,
                         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+                        RenderAssetTransferPriority::default(),
                     );
                     Some(rect_placements)
                 }

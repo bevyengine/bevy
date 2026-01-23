@@ -12,6 +12,7 @@
 
 use std::array;
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     core_pipeline::mip_generation::{MipGenerationJobs, MipGenerationNode, MipGenerationPhaseId},
@@ -769,6 +770,7 @@ impl AppStatus {
             TextureDimension::D2,
             TextureFormat::Rgba8Unorm,
             RenderAssetUsages::all(),
+            RenderAssetTransferPriority::default(),
         );
         image.texture_descriptor.mip_level_count = self.image_mip_level_count();
         image.texture_descriptor.usage |= TextureUsages::STORAGE_BINDING;

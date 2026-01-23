@@ -2,7 +2,7 @@
 //! using both a storage buffer and texture.
 
 use bevy::{
-    asset::RenderAssetUsages,
+    asset::{RenderAssetTransferPriority, RenderAssetUsages},
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -92,6 +92,7 @@ fn setup(
         TextureDimension::D2,
         TextureFormat::R32Uint,
         RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::Immediate,
     );
     // We also need to enable the COPY_SRC, as well as STORAGE_BINDING so we can use it in the
     // compute shader

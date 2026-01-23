@@ -13,7 +13,10 @@ use crate::{
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle, RenderAssetUsages};
+use bevy_asset::{
+    embedded_asset, load_embedded_asset, AssetServer, Handle, RenderAssetTransferPriority,
+    RenderAssetUsages,
+};
 use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -688,6 +691,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     result,
                     texture_format,
                     RenderAssetUsages::RENDER_WORLD,
+                    RenderAssetTransferPriority::Immediate,
                 ),
             )) {
                 error!("Failed to send screenshot: {}", e);

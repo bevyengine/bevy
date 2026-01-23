@@ -50,3 +50,21 @@ impl Default for RenderAssetUsages {
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
 }
+
+/// Controls the order in which assets are uploaded from CPU to GPU.
+/// When used in conjunction with `RenderAssetBytesPerFrame::MaxBytesWithPriority`, specifies
+/// whether a given asset should be uploaded immediately, or queued in a designated priority bucket.
+#[derive(
+    Clone, Copy, Debug, Reflect, Serialize, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord,
+)]
+#[reflect(Serialize, Deserialize, Hash, Clone, PartialEq, Debug)]
+pub enum RenderAssetTransferPriority {
+    Priority(i16),
+    Immediate,
+}
+
+impl Default for RenderAssetTransferPriority {
+    fn default() -> Self {
+        Self::Priority(0)
+    }
+}

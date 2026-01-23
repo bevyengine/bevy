@@ -12,7 +12,7 @@ use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
 #[cfg(feature = "morph")]
 use bevy_asset::Handle;
-use bevy_asset::{Asset, RenderAssetUsages};
+use bevy_asset::{Asset, RenderAssetTransferPriority, RenderAssetUsages};
 #[cfg(feature = "morph")]
 use bevy_image::Image;
 use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
@@ -156,7 +156,7 @@ impl<T> From<Option<T>> for MeshExtractableData<T> {
 /// # use bevy_asset::RenderAssetUsages;
 /// fn create_simple_parallelogram() -> Mesh {
 ///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
-///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default(), bevy_asset::RenderAssetTransferPriority::default())
 ///         // Add 4 vertices, each with its own position attribute (coordinate in
 ///         // 3D space), for each of the corners of the parallelogram.
 ///         .with_inserted_attribute(
@@ -239,6 +239,8 @@ pub struct Mesh {
     #[cfg(feature = "morph")]
     morph_target_names: MeshExtractableData<Vec<String>>,
     pub asset_usage: RenderAssetUsages,
+    /// The priority to assign when transferring assets to the GPU. Only effective when used with `RenderAssetBytesPerFrame::MaxBytesWithPriority`
+    pub transfer_priority: RenderAssetTransferPriority,
     /// Whether or not to build a BLAS for use with `bevy_solari` raytracing.
     ///
     /// Note that this is _not_ whether the mesh is _compatible_ with `bevy_solari` raytracing.
@@ -337,7 +339,11 @@ impl Mesh {
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
-    pub fn new(primitive_topology: PrimitiveTopology, asset_usage: RenderAssetUsages) -> Self {
+    pub fn new(
+        primitive_topology: PrimitiveTopology,
+        asset_usage: RenderAssetUsages,
+        transfer_priority: RenderAssetTransferPriority,
+    ) -> Self {
         Mesh {
             primitive_topology,
             attributes: MeshExtractableData::Data(Default::default()),
@@ -347,6 +353,7 @@ impl Mesh {
             #[cfg(feature = "morph")]
             morph_target_names: MeshExtractableData::NoData,
             asset_usage,
+            transfer_priority,
             enable_raytracing: true,
             final_aabb: None,
         }
@@ -2489,7 +2496,11 @@ impl MeshDeserializer {
                 })
                 .collect()),
             indices: serialized_mesh.indices.into(),
-            ..Mesh::new(serialized_mesh.primitive_topology, RenderAssetUsages::default())
+            ..Mesh::new(
+                serialized_mesh.primitive_topology,
+                RenderAssetUsages::default(),
+                RenderAssetTransferPriority::default()
+            )
         }
     }
 }
@@ -2534,6 +2545,7 @@ mod tests {
         let _mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
     }
@@ -2543,6 +2555,7 @@ mod tests {
         let mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
         )
         .with_inserted_attribute(
             Mesh::ATTRIBUTE_POSITION,
@@ -2592,8 +2605,12 @@ mod tests {
 
     #[test]
     fn point_list_mesh_invert_winding() {
-        let mesh = Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::default())
-            .with_inserted_indices(Indices::U32(vec![]));
+        let mesh = Mesh::new(
+            PrimitiveTopology::PointList,
+            RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
+        )
+        .with_inserted_indices(Indices::U32(vec![]));
         assert!(matches!(
             mesh.with_inverted_winding(),
             Err(MeshWindingInvertError::WrongTopology)
@@ -2602,8 +2619,12 @@ mod tests {
 
     #[test]
     fn line_list_mesh_invert_winding() {
-        let mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
-            .with_inserted_indices(Indices::U32(vec![0, 1, 1, 2, 2, 3]));
+        let mesh = Mesh::new(
+            PrimitiveTopology::LineList,
+            RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
+        )
+        .with_inserted_indices(Indices::U32(vec![0, 1, 1, 2, 2, 3]));
         let mesh = mesh.with_inverted_winding().unwrap();
         assert_eq!(
             mesh.indices().unwrap().iter().collect::<Vec<usize>>(),
@@ -2613,8 +2634,12 @@ mod tests {
 
     #[test]
     fn line_list_mesh_invert_winding_fail() {
-        let mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
-            .with_inserted_indices(Indices::U32(vec![0, 1, 1]));
+        let mesh = Mesh::new(
+            PrimitiveTopology::LineList,
+            RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
+        )
+        .with_inserted_indices(Indices::U32(vec![0, 1, 1]));
         assert!(matches!(
             mesh.with_inverted_winding(),
             Err(MeshWindingInvertError::AbruptIndicesEnd)
@@ -2623,8 +2648,12 @@ mod tests {
 
     #[test]
     fn line_strip_mesh_invert_winding() {
-        let mesh = Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
-            .with_inserted_indices(Indices::U32(vec![0, 1, 2, 3]));
+        let mesh = Mesh::new(
+            PrimitiveTopology::LineStrip,
+            RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
+        )
+        .with_inserted_indices(Indices::U32(vec![0, 1, 2, 3]));
         let mesh = mesh.with_inverted_winding().unwrap();
         assert_eq!(
             mesh.indices().unwrap().iter().collect::<Vec<usize>>(),
@@ -2637,6 +2666,7 @@ mod tests {
         let mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
         )
         .with_inserted_indices(Indices::U32(vec![
             0, 3, 1, // First triangle
@@ -2657,6 +2687,7 @@ mod tests {
         let mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
         )
         .with_inserted_indices(Indices::U32(vec![0, 3, 1, 2]));
         assert!(matches!(
@@ -2670,6 +2701,7 @@ mod tests {
         let mesh = Mesh::new(
             PrimitiveTopology::TriangleStrip,
             RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
         )
         .with_inserted_indices(Indices::U32(vec![0, 1, 2, 3]));
         let mesh = mesh.with_inverted_winding().unwrap();
@@ -2684,6 +2716,7 @@ mod tests {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
         );
 
         //  z      y
@@ -2719,6 +2752,7 @@ mod tests {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
         );
 
         //  z      y
@@ -2781,6 +2815,7 @@ mod tests {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
         );
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, verts);
         mesh.insert_indices(indices);
@@ -2807,6 +2842,7 @@ mod tests {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
         );
         mesh.insert_attribute(
             Mesh::ATTRIBUTE_POSITION,
@@ -2839,6 +2875,7 @@ mod tests {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleStrip,
             RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
         );
         // Triangles: (0, 1, 2), (2, 1, 3), (2, 3, 4), (4, 3, 5)
         //
@@ -2884,6 +2921,7 @@ mod tests {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            bevy_asset::RenderAssetTransferPriority::default(),
         );
         mesh.insert_attribute(
             Mesh::ATTRIBUTE_POSITION,
@@ -2905,9 +2943,12 @@ mod tests {
     #[cfg(feature = "serialize")]
     #[test]
     fn serialize_deserialize_mesh() {
+        use bevy_asset::RenderAssetTransferPriority;
+
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         );
 
         mesh.insert_attribute(

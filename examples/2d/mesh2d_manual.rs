@@ -5,6 +5,7 @@
 //!
 //! [`Material2d`]: bevy::sprite::Material2d
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::YELLOW,
@@ -61,6 +62,7 @@ fn star(
     let mut star = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     );
 
     // Vertices need to have a position attribute. We will use the following

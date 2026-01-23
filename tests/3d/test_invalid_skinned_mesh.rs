@@ -1,5 +1,6 @@
 //! Test that the renderer can handle various invalid skinned meshes
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     camera::ScalingMode,
@@ -99,6 +100,7 @@ fn setup_meshes(
     let unskinned_mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
+        RenderAssetTransferPriority::default(),
     )
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,

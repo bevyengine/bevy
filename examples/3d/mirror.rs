@@ -3,6 +3,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use crate::widgets::{RadioButton, WidgetClickEvent, WidgetClickSender};
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::camera::RenderTarget;
 use bevy::{
     asset::RenderAssetUsages,
@@ -432,6 +433,7 @@ fn create_mirror_texture_image(images: &mut Assets<Image>, window_size: UVec2) -
         TextureDimension::D2,
         TextureFormat::Bgra8UnormSrgb,
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     );
     image.texture_descriptor.usage |=
         TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;

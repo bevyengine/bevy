@@ -6,6 +6,7 @@ use core::time::Duration;
 use std::str::FromStr;
 
 use argh::FromArgs;
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::*,
@@ -639,6 +640,7 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
             &pixel,
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD,
+            RenderAssetTransferPriority::default(),
         )));
     }
 }

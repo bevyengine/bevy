@@ -1181,6 +1181,18 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "gpu_transfer_limits"
+path = "examples/3d/gpu_transfer_limits.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.gpu_transfer_limits]
+name = "GPU Transfer Limits"
+description = "Demonstrates throttling GPU transfers"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "anti_aliasing"
 path = "examples/3d/anti_aliasing.rs"
 # Causes an ICE on docs.rs

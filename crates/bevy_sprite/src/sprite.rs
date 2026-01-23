@@ -292,7 +292,7 @@ impl From<Vec2> for Anchor {
 
 #[cfg(test)]
 mod tests {
-    use bevy_asset::{Assets, RenderAssetUsages};
+    use bevy_asset::{Assets, RenderAssetTransferPriority, RenderAssetUsages};
     use bevy_color::Color;
     use bevy_image::{Image, ToExtents};
     use bevy_image::{TextureAtlas, TextureAtlasLayout};
@@ -311,6 +311,7 @@ mod tests {
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
             RenderAssetUsages::all(),
+            RenderAssetTransferPriority::default(),
         )
     }
 

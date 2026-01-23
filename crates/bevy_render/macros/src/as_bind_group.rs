@@ -467,7 +467,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::Buffer({
                                 let handle: &#asset_path::Handle<#render_path::storage::ShaderBuffer> = (&self.#field_name);
-                                storage_buffers.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.buffer.clone()
+                                storage_buffers.get_latest(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.buffer.clone()
                             })
                         )
                         });
@@ -565,7 +565,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 {
                                     let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
                                     if let Some(handle) = handle {
-                                        images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
+                                        images.get_latest(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
                                     } else {
                                         #fallback_image.texture_view.clone()
                                     }
@@ -612,7 +612,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 {
                                     let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
                                     if let Some(handle) = handle {
-                                        images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
+                                        images.get_latest(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
                                     } else {
                                         #fallback_image.texture_view.clone()
                                     }
@@ -720,7 +720,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 {
                                 let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
                                 if let Some(handle) = handle {
-                                    let image = images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
+                                    let image = images.get_latest(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
 
                                     let Some(sample_type) = image.texture_descriptor.format.sample_type(None, Some(render_device.features())) else {
                                         return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(

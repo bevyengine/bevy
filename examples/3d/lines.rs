@@ -1,5 +1,6 @@
 //! Create a custom material to draw basic lines in 3D
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
@@ -101,6 +102,7 @@ impl From<LineList> for Mesh {
             // where every pair is a start and end point
             PrimitiveTopology::LineList,
             RenderAssetUsages::RENDER_WORLD,
+            RenderAssetTransferPriority::default(),
         )
         // Add the vertices positions as an attribute
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
@@ -120,6 +122,7 @@ impl From<LineStrip> for Mesh {
             // where a line will be drawn between each consecutive point
             PrimitiveTopology::LineStrip,
             RenderAssetUsages::RENDER_WORLD,
+            RenderAssetTransferPriority::default(),
         )
         // Add the point positions as an attribute
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)

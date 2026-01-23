@@ -3,7 +3,7 @@ use crate::{
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_asset::{AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, RenderAssetTransferPriority, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_image::{Image, ImageSampler};
 use bevy_log::warn;
@@ -55,8 +55,10 @@ impl RenderAsset for GpuImage {
     }
 
     #[inline]
-    fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
-        image.data.as_ref().map(Vec::len)
+    fn transfer_priority(
+        image: &Self::SourceAsset,
+    ) -> (RenderAssetTransferPriority, Option<usize>) {
+        (image.transfer_priority, image.data.as_ref().map(Vec::len))
     }
 
     /// Converts the extracted image into a [`GpuImage`].

@@ -1,6 +1,7 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.z
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     math::ops,
@@ -378,6 +379,7 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     );
     img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
         address_mode_u: ImageAddressMode::Repeat,

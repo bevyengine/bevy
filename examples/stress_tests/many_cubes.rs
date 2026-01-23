@@ -11,6 +11,7 @@
 use std::{f64::consts::PI, str::FromStr};
 
 use argh::FromArgs;
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::{NoCpuCulling, NoFrustumCulling},
@@ -319,6 +320,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
                 pixel,
                 TextureFormat::Rgba8UnormSrgb,
                 RenderAssetUsages::RENDER_WORLD,
+                RenderAssetTransferPriority::default(),
             ))
         })
         .collect()

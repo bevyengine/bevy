@@ -15,6 +15,7 @@
 
 use std::f32::consts::PI;
 
+use bevy::asset::RenderAssetTransferPriority;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::{
@@ -243,6 +244,7 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     )
 }
 

@@ -164,6 +164,7 @@ Example | Description
 [Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Fog volumes](../examples/3d/fog_volumes.rs) | Demonstrates fog volumes
+[GPU Transfer Limits](../examples/3d/gpu_transfer_limits.rs) | Demonstrates throttling GPU transfers
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes
 [Light Textures](../examples/3d/light_textures.rs) | Demonstrates light textures

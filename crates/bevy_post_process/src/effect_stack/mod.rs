@@ -143,6 +143,7 @@ impl Plugin for EffectStackPlugin {
             DEFAULT_CHROMATIC_ABERRATION_LUT_DATA.to_vec(),
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD,
+            bevy_asset::RenderAssetTransferPriority::Immediate,
         ));
 
         app.add_plugins(ExtractComponentPlugin::<ChromaticAberration>::default())

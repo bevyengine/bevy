@@ -2,6 +2,7 @@
 //! assign a custom UV mapping for a custom texture,
 //! and how to change the UV mapping at run-time.
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     mesh::{Indices, VertexAttributeValues},
@@ -105,7 +106,7 @@ fn input_handler(
 #[rustfmt::skip]
 fn create_cube_mesh() -> Mesh {
     // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD, RenderAssetTransferPriority::default())
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.

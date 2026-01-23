@@ -3,6 +3,7 @@
 
 use std::f32::consts::*;
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     math::ops,
@@ -57,6 +58,7 @@ fn setup(
     let mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::RENDER_WORLD,
+        RenderAssetTransferPriority::default(),
     )
     // Set mesh vertex positions
     .with_inserted_attribute(

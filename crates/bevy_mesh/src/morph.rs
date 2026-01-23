@@ -1,5 +1,5 @@
 use super::Mesh;
-use bevy_asset::{Handle, RenderAssetUsages};
+use bevy_asset::{Handle, RenderAssetTransferPriority, RenderAssetUsages};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::Vec3;
@@ -52,6 +52,7 @@ impl MorphTargetImage {
         targets: impl ExactSizeIterator<Item = impl Iterator<Item = MorphAttributes>>,
         vertex_count: usize,
         asset_usage: RenderAssetUsages,
+        transfer_priority: RenderAssetTransferPriority,
     ) -> Result<Self, MorphBuildError> {
         let max = MAX_TEXTURE_WIDTH;
         let target_count = targets.len();
@@ -92,6 +93,7 @@ impl MorphTargetImage {
             data,
             TextureFormat::R32Float,
             asset_usage,
+            transfer_priority,
         );
         Ok(MorphTargetImage(image))
     }

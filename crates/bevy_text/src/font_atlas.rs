@@ -44,6 +44,8 @@ impl FontAtlas {
             TextureFormat::Rgba8UnormSrgb,
             // Need to keep this image CPU persistent in order to add additional glyphs later on
             RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+            // force immediate transfer to avoid flickering text when the atlas is updated
+            bevy_asset::RenderAssetTransferPriority::Immediate,
         );
         if font_smoothing == FontSmoothing::None {
             image.sampler = ImageSampler::nearest();
@@ -242,6 +244,7 @@ pub fn get_outlined_glyph_texture(
             data,
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::MAIN_WORLD,
+            bevy_asset::RenderAssetTransferPriority::default(),
         ),
         IVec2::new(left, top),
     ))

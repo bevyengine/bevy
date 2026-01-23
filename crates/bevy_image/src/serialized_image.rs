@@ -1,5 +1,5 @@
 use crate::{Image, ImageSampler};
-use bevy_asset::RenderAssetUsages;
+use bevy_asset::{RenderAssetTransferPriority, RenderAssetUsages};
 use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use wgpu_types::{
@@ -23,6 +23,7 @@ use wgpu_types::{
 /// - This conversion is lossy. The following information is not preserved:
 ///   - texture descriptor and texture view descriptor labels
 ///   - texture descriptor view formats
+///   - transfer priority
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedImage {
     data: Option<Vec<u8>>,
@@ -143,6 +144,7 @@ impl SerializedImage {
                 .texture_view_descriptor
                 .map(SerializedTextureViewDescriptor::into_texture_view_descriptor),
             asset_usage: RenderAssetUsages::RENDER_WORLD,
+            transfer_priority: RenderAssetTransferPriority::default(),
             copy_on_resize: false,
         }
     }
@@ -166,6 +168,7 @@ mod tests {
             vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255],
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD,
+            RenderAssetTransferPriority::default(),
         );
 
         let serialized_image = SerializedImage::from_image(image.clone());

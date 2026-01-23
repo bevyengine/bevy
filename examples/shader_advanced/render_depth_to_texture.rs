@@ -17,6 +17,7 @@
 
 use std::f32::consts::{FRAC_PI_2, PI};
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     camera::RenderTarget,
@@ -359,6 +360,7 @@ impl FromWorld for DemoDepthTexture {
             TextureDimension::D2,
             TextureFormat::Depth32Float,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         );
 
         // Create a sampler. Note that this needs to specify a `compare`

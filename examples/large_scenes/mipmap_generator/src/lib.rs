@@ -11,7 +11,7 @@ use fast_image_resize::{ResizeAlg, ResizeOptions, Resizer};
 use tracing::warn;
 
 use bevy::{
-    asset::RenderAssetUsages,
+    asset::{RenderAssetTransferPriority, RenderAssetUsages},
     image::{ImageSampler, ImageSamplerDescriptor},
     pbr::{ExtendedMaterial, MaterialExtension},
     platform::collections::HashMap,
@@ -599,6 +599,7 @@ pub fn extract_mip_level(image: &Image, mip_level: u32) -> anyhow::Result<Image>
         sampler: image.sampler.clone(),
         texture_view_descriptor: image.texture_view_descriptor.clone(),
         asset_usage: RenderAssetUsages::default(),
+        transfer_priority: RenderAssetTransferPriority::default(),
         copy_on_resize: false,
     })
 }

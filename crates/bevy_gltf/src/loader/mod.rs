@@ -7,7 +7,7 @@ use async_lock::RwLock;
 use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, AssetPath, Handle, LoadContext, ParseAssetPathError,
-    ReadAssetBytesError, RenderAssetUsages,
+    ReadAssetBytesError, RenderAssetTransferPriority, RenderAssetUsages,
 };
 use bevy_camera::{
     primitives::Aabb, visibility::Visibility, Camera, Camera3d, OrthographicProjection,
@@ -185,6 +185,8 @@ pub struct GltfLoaderSettings {
     ///
     /// Otherwise, materials will be loaded and retained in RAM/VRAM according to the active flags.
     pub load_materials: RenderAssetUsages,
+    /// GPU Transfer priority to assign to images and meshes.
+    pub transfer_priority: RenderAssetTransferPriority,
     /// If true, the loader will spawn cameras for gltf camera nodes.
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
@@ -212,6 +214,7 @@ impl Default for GltfLoaderSettings {
         Self {
             load_meshes: RenderAssetUsages::default(),
             load_materials: RenderAssetUsages::default(),
+            transfer_priority: RenderAssetTransferPriority::default(),
             load_cameras: true,
             load_lights: true,
             load_animations: true,
@@ -699,7 +702,11 @@ impl GltfLoader {
                 };
                 let primitive_topology = primitive_topology(primitive.mode())?;
 
-                let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
+                let mut mesh = Mesh::new(
+                    primitive_topology,
+                    settings.load_meshes,
+                    settings.transfer_priority,
+                );
 
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
@@ -753,7 +760,8 @@ impl GltfLoader {
                                 tangents: i.2,
                             }),
                             mesh.count_vertices(),
-                            RenderAssetUsages::default(),
+                            settings.load_meshes,
+                            settings.transfer_priority,
                         )?;
                         let handle = load_context.add_labeled_asset(
                             morph_targets_label.to_string(),
@@ -809,6 +817,7 @@ impl GltfLoader {
                     });
                 }
 
+                mesh.transfer_priority = settings.transfer_priority;
                 let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
@@ -1140,6 +1149,7 @@ async fn load_image<'a, 'b>(
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
                 settings.load_materials,
+                settings.transfer_priority,
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -1162,6 +1172,7 @@ async fn load_image<'a, 'b>(
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
                         settings.load_materials,
+                        settings.transfer_priority,
                     )?,
                     label: GltfAssetLabel::Texture(gltf_texture.index()),
                 })
@@ -1174,6 +1185,7 @@ async fn load_image<'a, 'b>(
                     is_srgb,
                     sampler_descriptor,
                     render_asset_usages: settings.load_materials,
+                    transfer_priority: settings.transfer_priority,
                 })
             }
         }
@@ -1901,6 +1913,7 @@ enum ImageOrPath {
         is_srgb: bool,
         sampler_descriptor: ImageSamplerDescriptor,
         render_asset_usages: RenderAssetUsages,
+        transfer_priority: RenderAssetTransferPriority,
     },
 }
 
@@ -1924,12 +1937,14 @@ impl ImageOrPath {
                 is_srgb,
                 sampler_descriptor,
                 render_asset_usages,
+                transfer_priority,
             } => load_context
                 .loader()
                 .with_settings(move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
                     settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
                     settings.asset_usage = render_asset_usages;
+                    settings.transfer_priority = transfer_priority;
                 })
                 .load(path),
         };

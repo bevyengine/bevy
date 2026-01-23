@@ -6,6 +6,7 @@ use std::f32::consts::{PI, SQRT_2};
 #[cfg(not(target_family = "wasm"))]
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 
+use bevy::asset::RenderAssetTransferPriority;
 use bevy::{
     asset::RenderAssetUsages,
     camera::ScalingMode,
@@ -557,6 +558,7 @@ impl MeshBuilder for HeartMeshBuilder {
         Mesh::new(
             bevy::mesh::PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
+            RenderAssetTransferPriority::default(),
         )
         .with_inserted_indices(bevy::mesh::Indices::U32(indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)

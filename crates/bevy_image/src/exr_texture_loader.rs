@@ -1,5 +1,7 @@
 use crate::{Image, TextureAccessError, TextureFormatPixelInfo};
-use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
+use bevy_asset::{
+    io::Reader, AssetLoader, LoadContext, RenderAssetTransferPriority, RenderAssetUsages,
+};
 use bevy_reflect::TypePath;
 use image::ImageDecoder;
 use serde::{Deserialize, Serialize};
@@ -15,6 +17,7 @@ pub struct ExrTextureLoader;
 #[cfg(feature = "exr")]
 pub struct ExrTextureLoaderSettings {
     pub asset_usage: RenderAssetUsages,
+    pub transfer_priority: RenderAssetTransferPriority,
 }
 
 /// Possible errors that can be produced by [`ExrTextureLoader`]
@@ -71,6 +74,7 @@ impl AssetLoader for ExrTextureLoader {
             buf,
             format,
             settings.asset_usage,
+            settings.transfer_priority,
         ))
     }
 
