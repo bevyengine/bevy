@@ -500,7 +500,7 @@ mod tests {
     fn preserving_uniqueness() {
         let mut world = World::new();
 
-        let mut query = QueryState::<&mut Thing>::new(&mut world);
+        let mut query = QueryState::<&mut Thing>::new(&world);
 
         let spawn_batch: Vec<Entity> = world.spawn_batch(vec![Thing; 1000]).collect();
 
