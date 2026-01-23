@@ -243,7 +243,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             .component_info
             .type_id()
             .expect("Source component must have TypeId");
-        let component_type_id = component.type_id();
+        let component_type_id = (*component).type_id();
         if source_type_id != component_type_id {
             panic!("Passed component TypeId does not match source component TypeId")
         }
