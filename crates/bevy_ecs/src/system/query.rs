@@ -1375,10 +1375,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// fn despawn_all_dead_entities(mut commands: Commands, query: Query<(Entity, &Health)>) {
     ///     for (entities, health) in query.contiguous_iter().unwrap() {
     ///         // For each entity there is one component, hence it always holds true
-    ///         assert!(entities.size() == health.size());
+    ///         assert!(entities.len() == health.len());
     ///         for (entity, health) in entities.iter().zip(health.iter()) {
     ///             if health.0 < 0.0 {
-    ///                 commands.entity(entity).despawn();
+    ///                 commands.entity(*entity).despawn();
     ///             }
     ///         }
     ///     }
