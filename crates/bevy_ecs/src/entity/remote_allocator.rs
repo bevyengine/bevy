@@ -943,6 +943,15 @@ impl Allocator {
         // SAFETY: `free` takes `&mut self`, and this lifetime is captured by the iterator.
         unsafe { self.shared.alloc_many(count) }
     }
+
+    /// Frees the entities allowing them to be reused.
+    #[inline]
+    pub(super) fn free_many(&mut self, entities: &[Entity]) {
+        // SAFETY: We have `&mut self`.
+        unsafe {
+            self.shared.free.free(entities);
+        }
+    }
 }
 
 impl Drop for Allocator {
