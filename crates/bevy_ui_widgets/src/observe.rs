@@ -25,9 +25,9 @@ unsafe impl<
     > Bundle for AddObserver<E, B, M, I>
 {
     #[inline]
-    fn component_ids(
-        _components: &mut bevy_ecs::component::ComponentsRegistrator,
-    ) -> impl Iterator<Item = bevy_ecs::component::ComponentId> + use<E, B, M, I> {
+    fn component_ids<Components: bevy_ecs::component::ComponentIdDictator>(
+        _components: &mut Components,
+    ) -> impl Iterator<Item = bevy_ecs::component::ComponentId> + use<E, B, M, I, Components> {
         // SAFETY: Empty iterator
         core::iter::empty()
     }
