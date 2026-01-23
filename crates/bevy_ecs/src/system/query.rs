@@ -1373,7 +1373,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Health(pub f32);
     ///
     /// fn despawn_all_dead_entities(mut commands: Commands, query: Query<(Entity, &Health)>) {
-    ///     for (entities, health) in query.contiguous_iter() {
+    ///     for (entities, health) in query.contiguous_iter().unwrap() {
     ///         // For each entity there is one component, hence it always holds true
     ///         assert!(entities.size() == health.size());
     ///         for (entity, health) in entities.iter().zip(health.iter()) {
