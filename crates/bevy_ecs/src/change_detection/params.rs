@@ -47,10 +47,6 @@ impl<'w> ComponentTicksRef<'w> {
 pub(crate) struct ContiguousComponentTicksRef<'w> {
     pub(crate) added: &'w [Tick],
     pub(crate) changed: &'w [Tick],
-    #[expect(
-        unused,
-        reason = "ZST in release mode, for the back-portability with ComponentTicksRef"
-    )]
     pub(crate) changed_by: MaybeLocation<&'w [&'static Location<'static>]>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
@@ -474,20 +470,26 @@ pub struct ContiguousRef<'w, T> {
 impl<'w, T> ContiguousRef<'w, T> {
     /// Returns the data slice.
     #[inline]
-    pub fn data_slice(&self) -> &[T] {
+    pub fn data_slice(&self) -> &'w [T] {
         self.value
     }
 
     /// Returns the added ticks.
     #[inline]
-    pub fn added_ticks_slice(&self) -> &[Tick] {
+    pub fn added_ticks_slice(&self) -> &'w [Tick] {
         self.ticks.added
     }
 
     /// Returns the changed ticks.
     #[inline]
-    pub fn changed_ticks_slice(&self) -> &[Tick] {
+    pub fn changed_ticks_slice(&self) -> &'w [Tick] {
         self.ticks.changed
+    }
+
+    /// Returns the changed by ticks.
+    #[inline]
+    pub fn changed_by_ticks_slice(&self) -> MaybeLocation<&[&'static Location<'static>]> {
+        self.ticks.changed_by.as_deref()
     }
 
     /// Returns the tick when the system last ran.
@@ -642,6 +644,12 @@ impl<'w, T> ContiguousMut<'w, T> {
         self.ticks.changed
     }
 
+    /// Returns the mutable changed by ticks' slice
+    #[inline]
+    pub fn changed_by_ticks_mut(&self) -> MaybeLocation<&[&'static Location<'static>]> {
+        self.ticks.changed_by.as_deref()
+    }
+
     /// Returns the tick when the system last ran.
     #[inline]
     pub fn last_run_tick(&self) -> Tick {
@@ -664,6 +672,14 @@ impl<'w, T> ContiguousMut<'w, T> {
     #[inline]
     pub fn changed_ticks_slice_mut(&mut self) -> &mut [Tick] {
         self.ticks.changed
+    }
+
+    /// Returns the mutable changed by ticks' slice
+    #[inline]
+    pub fn changed_by_ticks_slice_mut(
+        &mut self,
+    ) -> MaybeLocation<&mut [&'static Location<'static>]> {
+        self.ticks.changed_by.as_deref_mut()
     }
 
     /// Marks all components as updated.

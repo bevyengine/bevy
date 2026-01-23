@@ -396,20 +396,14 @@ pub unsafe trait QueryData: WorldQuery {
 /// - [`Query::contiguous_iter`](crate::system::Query::contiguous_iter),
 /// - [`Query::contiguous_iter_mut`](crate::system::Query::contiguous_iter_mut),
 ///
-// NOTE: The safety rules might not be used to optimize the library, it still might be better to ensure
-// that contiguous query data methods match their non-contiguous versions
 // NOTE: Even though all component references (&T, &mut T) implement this trait, it won't be executed for
 // SparseSet components because in that case the query is not dense.
-/// # Safety
-///
-/// - The result of [`ContiguousQueryData::fetch_contiguous`] must represent the same result as if
-///   [`QueryData::fetch`] was executed for each entity of the set table
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot be iterated contiguously",
     label = "invalid contiguous `Query` data",
     note = "if `{Self}` is a custom query type, using `QueryData` derive macro, ensure that the `#[query_data(contiguous(target))]` attribute is added"
 )]
-pub unsafe trait ContiguousQueryData: ArchetypeQueryData {
+pub trait ContiguousQueryData: ArchetypeQueryData {
     /// Item returned by [`ContiguousQueryData::fetch_contiguous`].
     /// Represents a contiguous chunk of memory.
     type Contiguous<'w, 's>;
@@ -553,8 +547,7 @@ impl ReleaseStateQueryData for Entity {
 
 impl ArchetypeQueryData for Entity {}
 
-/// SAFETY: matches the [`QueryData::fetch`] implementation
-unsafe impl ContiguousQueryData for Entity {
+impl ContiguousQueryData for Entity {
     type Contiguous<'w, 's> = &'w [Entity];
 
     unsafe fn fetch_contiguous<'w, 's>(
@@ -1813,8 +1806,7 @@ unsafe impl<T: Component> QueryData for &T {
     }
 }
 
-/// SAFETY: The result represents all values of [`Self`] in the set table.
-unsafe impl<T: Component> ContiguousQueryData for &T {
+impl<T: Component> ContiguousQueryData for &T {
     type Contiguous<'w, 's> = &'w [T];
 
     unsafe fn fetch_contiguous<'w, 's>(
@@ -2070,8 +2062,7 @@ impl<T: Component> ReleaseStateQueryData for Ref<'_, T> {
 
 impl<T: Component> ArchetypeQueryData for Ref<'_, T> {}
 
-/// SAFETY: Refer to [`&mut T`]'s implementation
-unsafe impl<T: Component> ContiguousQueryData for Ref<'_, T> {
+impl<T: Component> ContiguousQueryData for Ref<'_, T> {
     type Contiguous<'w, 's> = ContiguousRef<'w, T>;
 
     unsafe fn fetch_contiguous<'w, 's>(
@@ -2329,10 +2320,7 @@ impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
 
 impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T {}
 
-/// SAFETY:
-/// - The first element of [`ContiguousQueryData::Contiguous`] tuple represents all components' values in the set table.
-/// - The second element of [`ContiguousQueryData::Contiguous`] tuple represents all components' ticks in the set table.
-unsafe impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
+impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
     type Contiguous<'w, 's> = ContiguousMut<'w, T>;
 
     unsafe fn fetch_contiguous<'w, 's>(
@@ -2495,8 +2483,7 @@ impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T> {
 
 impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for Mut<'_, T> {}
 
-/// SAFETY: Refer to soundness of `&mut T` implementation
-unsafe impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w, T> {
+impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w, T> {
     type Contiguous<'w, 's> = ContiguousMut<'w, T>;
 
     unsafe fn fetch_contiguous<'w, 's>(
@@ -2665,8 +2652,7 @@ impl<T: ReleaseStateQueryData> ReleaseStateQueryData for Option<T> {
 // so it's always an `ArchetypeQueryData`, even for non-archetypal `T`.
 impl<T: QueryData> ArchetypeQueryData for Option<T> {}
 
-// SAFETY: matches the [`QueryData::fetch`] impl
-unsafe impl<T: ContiguousQueryData> ContiguousQueryData for Option<T> {
+impl<T: ContiguousQueryData> ContiguousQueryData for Option<T> {
     type Contiguous<'w, 's> = Option<T::Contiguous<'w, 's>>;
 
     unsafe fn fetch_contiguous<'w, 's>(
@@ -2859,8 +2845,7 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
 
 impl<T: Component> ArchetypeQueryData for Has<T> {}
 
-/// SAFETY: matches [`QueryData::fetch`]
-unsafe impl<T: Component> ContiguousQueryData for Has<T> {
+impl<T: Component> ContiguousQueryData for Has<T> {
     type Contiguous<'w, 's> = bool;
 
     unsafe fn fetch_contiguous<'w, 's>(
@@ -2980,8 +2965,7 @@ macro_rules! impl_tuple_query_data {
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
         $(#[$meta])*
-        // SAFETY: The returned result represents the result of individual fetches.
-        unsafe impl<$($name: ContiguousQueryData),*> ContiguousQueryData for ($($name,)*) {
+        impl<$($name: ContiguousQueryData),*> ContiguousQueryData for ($($name,)*) {
             type Contiguous<'w, 's> = ($($name::Contiguous::<'w, 's>,)*);
 
             unsafe fn fetch_contiguous<'w, 's>(
@@ -3215,8 +3199,7 @@ macro_rules! impl_anytuple_fetch {
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
         $(#[$meta])*
-        // SAFETY: Matches the fetch implementation
-        unsafe impl<$($name: ContiguousQueryData),*> ContiguousQueryData for AnyOf<($($name,)*)> {
+        impl<$($name: ContiguousQueryData),*> ContiguousQueryData for AnyOf<($($name,)*)> {
             type Contiguous<'w, 's> = ($(Option<$name::Contiguous<'w,'s>>,)*);
 
             unsafe fn fetch_contiguous<'w, 's>(

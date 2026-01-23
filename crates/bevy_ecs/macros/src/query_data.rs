@@ -94,8 +94,7 @@ fn contiguous_query_data_impl(
     user_where_clauses: Option<&WhereClause>,
 ) -> proc_macro2::TokenStream {
     quote! {
-        // SAFETY: Individual `fetch_contiguous` are called.
-        unsafe impl #user_impl_generics #path::query::ContiguousQueryData for #struct_name #user_ty_generics #user_where_clauses {
+        impl #user_impl_generics #path::query::ContiguousQueryData for #struct_name #user_ty_generics #user_where_clauses {
             type Contiguous<'__w, '__s> = #contiguous_item_struct_name #user_ty_generics_with_world_and_state;
 
             unsafe fn fetch_contiguous<'__w, '__s>(
