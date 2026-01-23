@@ -2782,6 +2782,17 @@ category = "Games"
 wasm = true
 
 [[example]]
+name = "inventory_screen"
+path = "examples/games/inventory_screen.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.inventory_screen]
+name = "Inventory Screen"
+description = "A simple inventory screen with drag-and-droppable items."
+category = "Games"
+wasm = true
+
+[[example]]
 name = "loading_screen"
 path = "examples/games/loading_screen.rs"
 # Causes an ICE on docs.rs

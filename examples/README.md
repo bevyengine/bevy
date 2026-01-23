@@ -364,6 +364,7 @@ Example | Description
 [Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 [Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
 [Game Menu](../examples/games/game_menu.rs) | A simple game menu
+[Inventory Screen](../examples/games/inventory_screen.rs) | A simple inventory screen with drag-and-droppable items.
 [Loading Screen](../examples/games/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
 
 ### Gizmos
