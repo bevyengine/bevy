@@ -294,7 +294,12 @@ impl<'a> SavedAssetBuilder<'a> {
     /// Adds a labeled asset, creates a handle for it, and returns the handle (for use in creating
     /// an asset).
     ///
-    /// This is primarily used when **constructing** a new asset to be saved.
+    /// This is primarily used when **constructing** a new asset to be saved. Since assets commonly
+    /// store handles to their subassets, this function returns a handle that can be stored in your
+    /// root asset.
+    ///
+    /// If you already have a root asset instance (which already contains a subasset handle), use
+    /// [`Self::add_labeled_asset_with_existing_handle`] instead.
     #[must_use]
     pub fn add_labeled_asset_with_new_handle<'b: 'a, A: Asset>(
         &mut self,
@@ -320,8 +325,13 @@ impl<'a> SavedAssetBuilder<'a> {
 
     /// Adds a labeled asset with a pre-existing handle.
     ///
-    /// This is primarily used when attempting to save an existing asset (which already has its
-    /// handles populated).
+    /// This is primarily used when attempting to save a (root) asset that you already have an
+    /// instance of. Since this root asset instance already must have its fields populated
+    /// (including any subasset handles), this function allows you to record the subasset that
+    /// should be associated with that handle.
+    ///
+    /// If you do not have a root asset instance (you're creating one from scratch), use
+    /// [`Self::add_labeled_asset_with_new_handle`] instead.
     pub fn add_labeled_asset_with_existing_handle<'b: 'a, A: Asset>(
         &mut self,
         label: impl Into<CowArc<'b, str>>,
