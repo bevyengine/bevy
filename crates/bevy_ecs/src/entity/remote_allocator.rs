@@ -139,7 +139,7 @@ impl Chunk {
         let head = self.first.load(Ordering::Relaxed);
 
         // SAFETY: Caller ensures we are init, so the chunk was allocated via a `Vec` and the index is within the capacity.
-        unsafe { core::slice::from_raw_parts(head, len) }
+        unsafe { core::slice::from_raw_parts(head.add(index as usize), len) }
     }
 
     /// Sets this entity at this index.
@@ -339,7 +339,10 @@ impl<'a> Iterator for FreeBufferIterator<'a> {
         }
 
         let still_need = self.future_buffer_indices.len() as u32;
-        let next_index = self.future_buffer_indices.next()?;
+        if still_need == 0 {
+            return None;
+        }
+        let next_index = self.future_buffer_indices.start;
         let (chunk, index, chunk_capacity) = self.buffer.index_in_chunk(next_index);
 
         // SAFETY: Assured by `FreeBuffer::iter`
