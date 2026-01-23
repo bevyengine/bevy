@@ -803,6 +803,8 @@ pub enum RenderTarget {
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
+    /// [`MainColorTarget`](crate::color_target::MainColorTarget) to which the camera's view is rendered.
+    MainColorTarget(Entity),
     /// The camera won't render to any color target.
     ///
     /// This is useful when you want a camera that *only* renders prepasses, for
@@ -827,13 +829,23 @@ impl RenderTarget {
 
 impl RenderTarget {
     /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
-    pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
+    pub fn normalize(
+        &self,
+        primary_window: Option<Entity>,
+        main_color_target_render_entity: Option<Entity>,
+    ) -> Option<NormalizedRenderTarget> {
         match self {
             RenderTarget::Window(window_ref) => window_ref
                 .normalize(primary_window)
                 .map(NormalizedRenderTarget::Window),
             RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
             RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+            RenderTarget::MainColorTarget(entity) => {
+                Some(NormalizedRenderTarget::MainColorTarget {
+                    entity: *entity,
+                    render_entity: main_color_target_render_entity,
+                })
+            }
             RenderTarget::None { size } => Some(NormalizedRenderTarget::None {
                 width: size.x,
                 height: size.y,
@@ -855,6 +867,11 @@ pub enum NormalizedRenderTarget {
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
+    /// [`MainColorTarget`](crate::color_target::MainColorTarget) to which the camera's view is rendered.
+    MainColorTarget {
+        entity: Entity,
+        render_entity: Option<Entity>,
+    },
     /// The camera won't render to any color target.
     ///
     /// This is useful when you want a camera that *only* renders prepasses, for

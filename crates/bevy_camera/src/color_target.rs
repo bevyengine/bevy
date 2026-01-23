@@ -5,7 +5,7 @@ use bevy_ecs::{component::Component, entity::Entity};
 use bevy_image::Image;
 use bevy_reflect::Reflect;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use wgpu_types::TextureUsages;
+use wgpu_types::{BlendState, TextureUsages};
 
 /// The default texture usages of unsampled main textures required for rendering.
 pub const MAIN_COLOR_TARGET_DEFAULT_USAGES: TextureUsages = TextureUsages::from_bits_truncate(
@@ -15,11 +15,25 @@ pub const MAIN_COLOR_TARGET_DEFAULT_USAGES: TextureUsages = TextureUsages::from_
 );
 
 /// If this componet is present in a Camera, the current main texture and multisampled texture
-/// will read and be filled with the image, or the main color target, during `ColorTargetInput` pass.
+/// will read and be filled with the main color target, during `ColorTargetInput` pass.
 #[derive(Component, Debug, Clone)]
-pub enum MainColorTargetReadsFrom {
-    Image(Handle<Image>),
-    Target(Entity),
+#[relationship_target(relationship= MainColorTargetInput)]
+pub struct MainColorTargetReadsFrom(Vec<Entity>);
+
+/// If present in a [`MainColorTarget`], it will be used as a input to the relationship target.
+///
+/// TODO: Allow one input to target multiple cameras once we have many-to-many relationship.
+#[derive(Component, Debug, Clone)]
+#[relationship(relationship_target= MainColorTargetReadsFrom)]
+pub struct MainColorTargetInput(pub Entity);
+
+/// Add this to a [`MainColorTargetInput`] to configure blend state and order when inputting.
+///
+/// By default blend state is `None` and order is `0` if this isn't present.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct MainColorTargetInputConfig {
+    pub blend_state: Option<BlendState>,
+    pub order: isize,
 }
 
 /// The main color target used by camera in most render passes.
@@ -83,7 +97,7 @@ pub struct NoAutoConfiguredMainColorTarget;
 
 /// Link this camera to a [`MainColorTarget`] entity.
 #[derive(Component, Reflect, Debug)]
-#[relationship(relationship_target  = MainColorTargetCameras)]
+#[relationship(relationship_target  = MainColorTargetCameras, allow_self_referential)]
 #[reflect(Component)]
 pub struct WithMainColorTarget(pub Entity);
 

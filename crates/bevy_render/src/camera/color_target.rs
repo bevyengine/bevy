@@ -2,8 +2,8 @@ use alloc::sync::Arc;
 use bevy_asset::{AssetId, Assets, Handle};
 use bevy_camera::{
     color_target::{
-        MainColorTarget, MainColorTargetReadsFrom, NoAutoConfiguredMainColorTarget,
-        WithMainColorTarget,
+        MainColorTarget, MainColorTargetInputConfig, MainColorTargetReadsFrom,
+        NoAutoConfiguredMainColorTarget, WithMainColorTarget,
     },
     Camera, CameraMainColorTargetConfig, CameraMainColorTargetsSize,
 };
@@ -11,17 +11,19 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, QueryItem, With, Without},
-    system::{Commands, Query, ResMut, SystemState},
+    relationship::RelationshipTarget,
+    system::{Commands, Local, Query, ResMut, SystemState},
 };
 use bevy_image::{BevyDefault, Image, ToExtents};
 use core::sync::atomic::AtomicUsize;
+use core::sync::atomic::Ordering;
 use wgpu::{TextureFormat, TextureUsages};
 
 use crate::{
     extract_component::ExtractComponent, sync_world::RenderEntity, view::Hdr, Extract, MainWorld,
 };
 
-pub(super) fn camera_insert_required_components_if_auto_configured(
+pub(super) fn insert_camera_required_components_if_auto_configured(
     mut commands: Commands,
     query: Query<
         (Entity, Has<CameraMainColorTargetConfig>),
@@ -132,36 +134,46 @@ pub(super) fn configure_camera_color_target(
             } else {
                 None
             };
-            let main_textures = commands
-                .spawn(MainColorTarget::new(
+
+            commands.entity(entity).insert((
+                MainColorTarget::new(
                     image_assets.add(image_texture_a),
                     Some(image_assets.add(image_texture_b)),
                     msaa_texture,
-                ))
-                .id();
-            commands
-                .entity(entity)
-                .insert(WithMainColorTarget(main_textures));
+                ),
+                WithMainColorTarget(entity),
+            ));
         }
     }
 }
 
-pub(super) fn sync_camera_color_target_config(mut main_world: ResMut<MainWorld>) {
-    let mut system_state = SystemState::<(
-        Commands,
-        Query<
-            (
-                Entity,
-                &Camera,
-                &CameraMainColorTargetConfig,
-                Has<Hdr>,
-                &WithMainColorTarget,
-            ),
-            Without<NoAutoConfiguredMainColorTarget>,
+pub(super) fn sync_camera_color_target_config(
+    mut main_world: ResMut<MainWorld>,
+    mut system_state: Local<
+        Option<
+            SystemState<(
+                Commands,
+                Query<
+                    (
+                        Entity,
+                        &Camera,
+                        &CameraMainColorTargetConfig,
+                        Has<Hdr>,
+                        &WithMainColorTarget,
+                    ),
+                    Without<NoAutoConfiguredMainColorTarget>,
+                >,
+                Query<&mut MainColorTarget>,
+                ResMut<Assets<Image>>,
+            )>,
         >,
-        Query<&mut MainColorTarget>,
-        ResMut<Assets<Image>>,
-    )>::new(&mut main_world);
+    >,
+) {
+    if system_state.is_none() {
+        *system_state = Some(SystemState::new(&mut main_world));
+    }
+    let system_state = system_state.as_mut().unwrap();
+
     let (mut commands, query, mut query_main_color_targets, mut image_assets) =
         system_state.get_mut(&mut main_world);
 
@@ -229,6 +241,29 @@ pub struct ExtractedMainColorTarget {
     pub main_target_flag: Option<Arc<AtomicUsize>>,
 }
 
+impl ExtractedMainColorTarget {
+    pub fn current_target(&self) -> AssetId<Image> {
+        if let Some(main_target) = &self.main_target_flag
+            && main_target.load(Ordering::SeqCst) == 1
+        {
+            self.main_b.unwrap()
+        } else {
+            self.main_a
+        }
+    }
+
+    pub fn other_target(&self) -> Option<AssetId<Image>> {
+        let Some(main_target) = &self.main_target_flag else {
+            return None;
+        };
+        Some(if main_target.load(Ordering::SeqCst) == 1 {
+            self.main_a
+        } else {
+            self.main_b.unwrap()
+        })
+    }
+}
+
 impl ExtractComponent for MainColorTarget {
     type QueryData = &'static Self;
     type QueryFilter = ();
@@ -244,27 +279,34 @@ impl ExtractComponent for MainColorTarget {
     }
 }
 
-#[derive(Component)]
-pub struct ExtractedMainColorTargetReadsFrom(pub AssetId<Image>);
+#[derive(Component, Debug)]
+pub struct ExtractedMainColorTargetReadsFrom(pub Vec<(AssetId<Image>, MainColorTargetInputConfig)>);
 
 pub(super) fn extract_main_color_target_reads_from(
     mut commands: Commands,
     query: Extract<Query<(RenderEntity, &MainColorTargetReadsFrom), With<Camera>>>,
-    query_main_color_targets: Extract<Query<&MainColorTarget>>,
+    query_main_color_targets: Extract<
+        Query<(&MainColorTarget, Option<&MainColorTargetInputConfig>)>,
+    >,
 ) {
     for (entity, reads_from) in query.iter() {
-        let image = match reads_from {
-            MainColorTargetReadsFrom::Image(handle) => handle.id(),
-            MainColorTargetReadsFrom::Target(entity) => {
-                let Ok(t) = query_main_color_targets.get(*entity) else {
-                    continue;
-                };
-                t.current_target().id()
-            }
-        };
+        let mut images = reads_from
+            .iter()
+            .map(|entity| {
+                let (t, input_config) = query_main_color_targets.get(entity).unwrap();
+                (
+                    t.current_target().id(),
+                    input_config.cloned().unwrap_or(MainColorTargetInputConfig {
+                        blend_state: None,
+                        order: 0,
+                    }),
+                )
+            })
+            .collect::<Vec<_>>();
+        images.sort_by(|a, b| a.1.order.cmp(&b.1.order));
 
         commands
             .entity(entity)
-            .insert(ExtractedMainColorTargetReadsFrom(image));
+            .insert(ExtractedMainColorTargetReadsFrom(images));
     }
 }

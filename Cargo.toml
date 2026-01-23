@@ -4758,10 +4758,10 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
-name = "camera_color_target_io"
-path = "examples/3d/camera_color_target_io.rs"
+name = "camera_color_target_graph"
+path = "examples/3d/camera_color_target_graph.rs"
 
-[package.metadata.example.camera_color_target_io]
+[package.metadata.example.camera_color_target_graph]
 name = "Camera color target IO"
 description = "Demonstrates connecting color target input and output of multiple cameras"
 category = "3D Rendering"

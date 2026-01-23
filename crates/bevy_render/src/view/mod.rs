@@ -1000,6 +1000,7 @@ pub fn prepare_view_attachments(
     manual_texture_views: Res<ManualTextureViews>,
     cameras: Query<&ExtractedCamera>,
     mut view_target_attachments: ResMut<ViewOutputTargetAttachments>,
+    query_main_color_targets: Query<&ExtractedMainColorTarget>,
 ) {
     for camera in cameras.iter() {
         let Some(target) = &camera.output_color_target else {
@@ -1010,9 +1011,19 @@ pub fn prepare_view_attachments(
             Entry::Occupied(_) => {}
             Entry::Vacant(entry) => {
                 let Some(attachment) = target
-                    .get_texture_view(&windows, &images, &manual_texture_views)
+                    .get_texture_view(
+                        &windows,
+                        &images,
+                        &manual_texture_views,
+                        &query_main_color_targets,
+                    )
                     .cloned()
-                    .zip(target.get_texture_view_format(&windows, &images, &manual_texture_views))
+                    .zip(target.get_texture_view_format(
+                        &windows,
+                        &images,
+                        &manual_texture_views,
+                        &query_main_color_targets,
+                    ))
                     .map(|(view, format)| OutputColorAttachment::new(view.clone(), format))
                 else {
                     continue;
@@ -1063,7 +1074,6 @@ pub fn prepare_view_targets(
             // component to make sure the camera doesn't try rendering to an invalid
             // output attachment.
             commands.entity(entity).try_remove::<ViewTarget>();
-
             continue;
         };
 
@@ -1071,8 +1081,11 @@ pub fn prepare_view_targets(
             commands.entity(entity).try_remove::<ViewTarget>();
             continue;
         };
-
         if main_texture_a.view_format() != view.color_target_format {
+            commands.entity(entity).try_remove::<ViewTarget>();
+            continue;
+        }
+        if main_texture_a.size_2d() != camera.main_color_target_size {
             commands.entity(entity).try_remove::<ViewTarget>();
             continue;
         }

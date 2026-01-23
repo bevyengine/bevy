@@ -2,6 +2,7 @@
 
 use std::f32::consts::PI;
 
+use bevy::camera::color_target::MainColorTarget;
 use bevy::picking::PickingSystems;
 use bevy::{
     asset::{uuid::Uuid, RenderAssetUsages},
@@ -183,15 +184,21 @@ fn drive_diegetic_pointer(
     manual_texture_views: Res<ManualTextureViews>,
     mut window_events: MessageReader<WindowEvent>,
     mut pointer_inputs: MessageWriter<PointerInput>,
+    query_main_color_targets: Query<&MainColorTarget>,
 ) -> Result {
     // Get the size of the texture, so we can convert from dimensionless UV coordinates that span
     // from 0 to 1, to pixel coordinates.
     let target = ui_camera
         .single()?
-        .normalize(primary_window.single().ok())
+        .normalize(primary_window.single().ok(), None)
         .unwrap();
     let target_info = target
-        .get_render_target_info(windows, &images, &manual_texture_views)
+        .get_render_target_info(
+            windows,
+            &images,
+            &manual_texture_views,
+            &query_main_color_targets,
+        )
         .unwrap();
     let size = target_info.physical_size.as_vec2();
 
