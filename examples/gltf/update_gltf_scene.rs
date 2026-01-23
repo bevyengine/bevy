@@ -38,16 +38,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Transform::from_xyz(-1.0, 0.0, 0.0),
         SceneRoot(
-            asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+            asset_server.load(
+                GltfSubassetName::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+            ),
         ),
     ));
 
     // Spawn a second scene, and add a tag component to be able to target it later
     commands.spawn((
         SceneRoot(
-            asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+            asset_server.load(
+                GltfSubassetName::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+            ),
         ),
         MovedScene,
     ));

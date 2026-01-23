@@ -167,7 +167,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn(SceneRoot(
             asset_server.load(
-                GltfAssetLabel::Scene(0)
+                GltfSubassetName::Scene(0)
                     .from_asset("models/MixedLightingExample/MixedLightingExample.gltf"),
             ),
         ))

@@ -31,7 +31,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // FlightHelmet handle
     let flight_helmet = asset_server
-        .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+        .load(GltfSubassetName::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
     // This model will keep its original materials
     commands.spawn(SceneRoot(flight_helmet.clone()));
     // This model will be tinted red

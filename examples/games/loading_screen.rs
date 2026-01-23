@@ -141,7 +141,7 @@ fn load_level_1(
     ));
 
     // Save the asset into the `loading_assets` vector.
-    let fox = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
+    let fox = asset_server.load(GltfSubassetName::Scene(0).from_asset("models/animated/Fox.glb"));
     loading_data.loading_assets.push(fox.clone().into());
     // Spawn the fox.
     commands.spawn((
@@ -175,7 +175,7 @@ fn load_level_2(
 
     // Spawn the helmet.
     let helmet_scene = asset_server
-        .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+        .load(GltfSubassetName::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
     loading_data
         .loading_assets
         .push(helmet_scene.clone().into());

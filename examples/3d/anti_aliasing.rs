@@ -438,7 +438,7 @@ fn setup(
 
     // Flight Helmet
     commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+        GltfSubassetName::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
     )));
 
     // Light

@@ -31,7 +31,7 @@ fn setup(
     mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     let (graph, index) = AnimationGraph::from_clip(
-        asset_server.load(GltfAssetLabel::Animation(2).from_asset(GLTF_PATH)),
+        asset_server.load(GltfSubassetName::Animation(2).from_asset(GLTF_PATH)),
     );
 
     commands
@@ -40,7 +40,7 @@ fn setup(
                 graph_handle: graphs.add(graph),
                 index,
             },
-            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH))),
+            SceneRoot(asset_server.load(GltfSubassetName::Scene(0).from_asset(GLTF_PATH))),
         ))
         .observe(play_animation_when_ready);
 

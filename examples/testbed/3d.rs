@@ -255,7 +255,7 @@ mod gltf {
         ));
         commands.spawn((
             SceneRoot(asset_server.load(
-                GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+                GltfSubassetName::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
             )),
             DespawnOnExit(CURRENT_SCENE),
         ));
@@ -282,7 +282,7 @@ mod animation {
         mut graphs: ResMut<Assets<AnimationGraph>>,
     ) {
         let (graph, node) = AnimationGraph::from_clip(
-            asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
+            asset_server.load(GltfSubassetName::Animation(2).from_asset(FOX_PATH)),
         );
 
         let graph_handle = graphs.add(graph);
@@ -308,7 +308,7 @@ mod animation {
 
         commands
             .spawn((
-                SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))),
+                SceneRoot(asset_server.load(GltfSubassetName::Scene(0).from_asset(FOX_PATH))),
                 DespawnOnExit(CURRENT_SCENE),
             ))
             .observe(pause_animation_frame);
@@ -428,7 +428,7 @@ mod gltf_coordinate_conversion {
         commands
             .spawn((
                 SceneRoot(asset_server.load_with_settings(
-                    GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
+                    GltfSubassetName::Scene(0).from_asset("models/Faces/faces.glb"),
                     |s: &mut GltfLoaderSettings| {
                         s.convert_coordinates = Some(GltfConvertCoordinates {
                             rotate_scene_entity: true,

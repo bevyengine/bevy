@@ -35,9 +35,9 @@ fn setup(
 ) {
     // Build the animation graph
     let (graph, node_indices) = AnimationGraph::from_clips([
-        asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
-        asset_server.load(GltfAssetLabel::Animation(1).from_asset(FOX_PATH)),
-        asset_server.load(GltfAssetLabel::Animation(0).from_asset(FOX_PATH)),
+        asset_server.load(GltfSubassetName::Animation(2).from_asset(FOX_PATH)),
+        asset_server.load(GltfSubassetName::Animation(1).from_asset(FOX_PATH)),
+        asset_server.load(GltfSubassetName::Animation(0).from_asset(FOX_PATH)),
     ]);
 
     // Keep our animation graph in a Resource so that it can be inserted onto
@@ -77,7 +77,7 @@ fn setup(
 
     // Fox
     commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
+        asset_server.load(GltfSubassetName::Scene(0).from_asset(FOX_PATH)),
     ));
 
     // Instructions

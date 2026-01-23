@@ -45,7 +45,7 @@ fn setup_mesh_and_animation(mut commands: Commands, asset_server: Res<AssetServe
     // will trigger when the scene is loaded and spawned.
     commands
         .spawn(SceneRoot(
-            asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)),
+            asset_server.load(GltfSubassetName::Scene(0).from_asset(GLTF_PATH)),
         ))
         .observe(play_animation_when_ready);
 }
@@ -184,8 +184,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
         let (graph, index) = AnimationGraph::from_clip(self.clip.clone().unwrap());
         // Store the animation graph as an asset with an arbitrary label
         // We only have one graph, so this label will be unique
-        let graph_handle =
-            load_context.add_labeled_asset("MyAnimationGraphLabel".to_string(), graph);
+        let graph_handle = load_context.add_subasset("MyAnimationGraphLabel".to_string(), graph);
 
         // Create a component that stores a reference to our animation
         let animation_to_play = AnimationToPlay {

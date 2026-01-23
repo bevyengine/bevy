@@ -50,7 +50,7 @@ fn setup(
 ) {
     // Add a mesh loaded from a glTF file. This mesh has data for `ATTRIBUTE_BARYCENTRIC`.
     let mesh = asset_server.load(
-        GltfAssetLabel::Primitive {
+        GltfSubassetName::Primitive {
             mesh: 0,
             primitive: 0,
         }

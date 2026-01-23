@@ -27,9 +27,9 @@ fn setup(
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
 
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
-    ));
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfSubassetName::Scene(0).from_asset("models/animated/Fox.glb"),
+    )));
 
     // Light
     commands.spawn((

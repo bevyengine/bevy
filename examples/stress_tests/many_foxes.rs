@@ -114,9 +114,9 @@ fn setup(
 
     // Insert a resource with the current scene information
     let animation_clips = [
-        asset_server.load(GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb")),
-        asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
-        asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfSubassetName::Animation(2).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfSubassetName::Animation(1).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfSubassetName::Animation(0).from_asset("models/animated/Fox.glb")),
     ];
     let mut animation_graph = AnimationGraph::new();
     let node_indices = animation_graph
@@ -133,7 +133,7 @@ fn setup(
 
     // NOTE: This fox model faces +z
     let fox_handle =
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
+        asset_server.load(GltfSubassetName::Scene(0).from_asset("models/animated/Fox.glb"));
 
     let ring_directions = [
         (

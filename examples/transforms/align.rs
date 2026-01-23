@@ -83,7 +83,7 @@ fn setup(
     commands.spawn((
         SceneRoot(
             asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/ship/craft_speederD.gltf")),
+                .load(GltfSubassetName::Scene(0).from_asset("models/ship/craft_speederD.gltf")),
         ),
         Ship {
             target_transform: random_axes_target_alignment(&RandomAxes(first, second)),
