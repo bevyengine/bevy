@@ -56,8 +56,8 @@ use tracing::{error, info_span, warn};
 
 use crate::{
     convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
-    GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfMeshName,
-    GltfNode, GltfSceneExtras, GltfSkin,
+    GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode,
+    GltfSceneExtras, GltfSkin, GltfSubassetName,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -67,7 +67,7 @@ use self::{
     gltf_ext::{
         check_for_cycles, get_linear_textures,
         material::{
-            alpha_mode, material_label, needs_tangents, uv_channel,
+            alpha_mode, material_subasset_name, needs_tangents, uv_channel,
             warn_on_differing_texture_transforms,
         },
         mesh::{primitive_name, primitive_topology},
@@ -549,8 +549,8 @@ impl GltfLoader {
                     );
                     }
                 }
-                let handle = load_context.add_labeled_asset(
-                    GltfAssetLabel::Animation(animation.index()).to_string(),
+                let handle = load_context.add_subasset(
+                    GltfSubassetName::Animation(animation.index()).to_string(),
                     animation_clip,
                 );
                 if let Some(name) = animation.name() {
@@ -657,13 +657,13 @@ impl GltfLoader {
             // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
             for material in gltf.materials() {
                 let handle = {
-                    let (label, material) = load_material(
+                    let (subasset_name, material) = load_material(
                         &material,
                         &texture_handles,
                         false,
                         load_context.path().clone(),
                     );
-                    load_context.add_labeled_asset(label, material)
+                    load_context.add_subasset(subasset_name, material)
                 };
                 if let Some(name) = material.name() {
                     named_materials.insert(name.into(), handle.clone());
@@ -693,7 +693,7 @@ impl GltfLoader {
         for gltf_mesh in gltf.meshes() {
             let mut primitives = vec![];
             for primitive in gltf_mesh.primitives() {
-                let primitive_label = GltfAssetLabel::Primitive {
+                let primitive_subasset_name = GltfSubassetName::Primitive {
                     mesh: gltf_mesh.index(),
                     primitive: primitive.index(),
                 };
@@ -708,11 +708,11 @@ impl GltfLoader {
                             warn!(
                         "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
                         semantic,
-                        primitive_label
+                        primitive_subasset_name
                     );
                             continue;
                         } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
-                            error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+                            error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_subasset_name);
                         }
                     }
                     match convert_attribute(
@@ -741,7 +741,7 @@ impl GltfLoader {
                 {
                     let morph_target_reader = reader.read_morph_targets();
                     if morph_target_reader.len() != 0 {
-                        let morph_targets_label = GltfAssetLabel::MorphTarget {
+                        let morph_targets_subasset_name = GltfSubassetName::MorphTarget {
                             mesh: gltf_mesh.index(),
                             primitive: primitive.index(),
                         };
@@ -755,8 +755,8 @@ impl GltfLoader {
                             mesh.count_vertices(),
                             RenderAssetUsages::default(),
                         )?;
-                        let handle = load_context.add_labeled_asset(
-                            morph_targets_label.to_string(),
+                        let handle = load_context.add_subasset(
+                            morph_targets_subasset_name.to_string(),
                             morph_target_image.0,
                         );
 
@@ -809,7 +809,8 @@ impl GltfLoader {
                     });
                 }
 
-                let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
+                let mesh_handle =
+                    load_context.add_subasset(primitive_subasset_name.to_string(), mesh);
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
                     &primitive,
@@ -833,7 +834,7 @@ impl GltfLoader {
                 gltf_mesh.extras().as_deref().map(GltfExtras::from),
             );
 
-            let handle = load_context.add_labeled_asset(mesh.asset_label().to_string(), mesh);
+            let handle = load_context.add_subasset(mesh.subasset_name().to_string(), mesh);
             if let Some(name) = gltf_mesh.name() {
                 named_meshes.insert(name.into(), handle.clone());
             }
@@ -861,8 +862,8 @@ impl GltfLoader {
                         core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
                     });
 
-                load_context.add_labeled_asset(
-                    GltfAssetLabel::InverseBindMatrices(gltf_skin.index()).to_string(),
+                load_context.add_subasset(
+                    GltfSubassetName::InverseBindMatrices(gltf_skin.index()).to_string(),
                     SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
                 )
             })
@@ -875,9 +876,9 @@ impl GltfLoader {
 
         // First, create the node handles.
         for node in gltf.nodes() {
-            let label = GltfAssetLabel::Node(node.index());
-            let label_handle = load_context.get_label_handle(label.to_string());
-            nodes.insert(node.index(), label_handle);
+            let subasset_name = GltfSubassetName::Node(node.index());
+            let subasset_handle = load_context.get_subasset_handle(subasset_name.to_string());
+            nodes.insert(node.index(), subasset_handle);
         }
 
         // Then check for cycles.
@@ -913,7 +914,7 @@ impl GltfLoader {
                         );
 
                         let handle = load_context
-                            .add_labeled_asset(gltf_skin.asset_label().to_string(), gltf_skin);
+                            .add_subasset(gltf_skin.subasset_name().to_string(), gltf_skin);
 
                         if let Some(name) = skin.name() {
                             named_skins.insert(name.into(), handle.clone());
@@ -947,7 +948,7 @@ impl GltfLoader {
             let gltf_node = gltf_node.with_animation_root(animation_roots.contains(&node.index()));
 
             let handle =
-                load_context.add_labeled_asset(gltf_node.asset_label().to_string(), gltf_node);
+                load_context.add_subasset(gltf_node.subasset_name().to_string(), gltf_node);
             nodes.insert(node.index(), handle.clone());
             if let Some(name) = node.name() {
                 named_nodes.insert(name.into(), handle);
@@ -969,7 +970,7 @@ impl GltfLoader {
             let mut world = World::default();
             let mut node_index_to_entity_map = <HashMap<_, _>>::default();
             let mut entity_to_skin_index_map = EntityHashMap::default();
-            let mut scene_load_context = load_context.begin_labeled_asset();
+            let mut scene_load_context = load_context.begin_subasset();
 
             let world_root_transform = convert_coordinates.scene_conversion_transform();
 
@@ -1051,8 +1052,8 @@ impl GltfLoader {
             }
 
             let loaded_scene = scene_load_context.finish(Scene::new(world));
-            let scene_handle = load_context.add_loaded_labeled_asset(
-                GltfAssetLabel::Scene(scene.index()).to_string(),
+            let scene_handle = load_context.add_loaded_subasset(
+                GltfSubassetName::Scene(scene.index()).to_string(),
                 loaded_scene,
             );
 
@@ -1111,7 +1112,7 @@ impl AssetLoader for GltfLoader {
     }
 }
 
-/// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
+/// Loads a glTF texture as a bevy [`Image`] and returns it together with its subasset name.
 async fn load_image<'a, 'b>(
     gltf_texture: gltf::Texture<'a>,
     buffer_data: &[Vec<u8>],
@@ -1143,7 +1144,7 @@ async fn load_image<'a, 'b>(
             )?;
             Ok(ImageOrPath::Image {
                 image,
-                label: GltfAssetLabel::Texture(gltf_texture.index()),
+                subasset: GltfSubassetName::Texture(gltf_texture.index()),
             })
         }
         Source::Uri { uri, mime_type } => {
@@ -1163,7 +1164,7 @@ async fn load_image<'a, 'b>(
                         ImageSampler::Descriptor(sampler_descriptor),
                         settings.load_materials,
                     )?,
-                    label: GltfAssetLabel::Texture(gltf_texture.index()),
+                    subasset: GltfSubassetName::Texture(gltf_texture.index()),
                 })
             } else {
                 let image_path = gltf_path
@@ -1180,10 +1181,10 @@ async fn load_image<'a, 'b>(
     }
 }
 
-/// Loads a glTF material as a bevy [`StandardMaterial`] and returns the label and material.
+/// Loads a glTF material as a bevy [`StandardMaterial`] and returns the subasset name and material.
 // Note: this function intentionally **does not** take a `LoadContext` and insert the asset here,
 // since we don't use the `LoadContext` otherwise, and this prevents accidentally using the context
-// without `labeled_asset_scope`.
+// without `subasset_scope`.
 fn load_material(
     material: &Material,
     textures: &[Handle<Image>],
@@ -1192,7 +1193,7 @@ fn load_material(
 ) -> (String, StandardMaterial) {
     let pbr = material.pbr_metallic_roughness();
 
-    // TODO: handle missing label handle errors here?
+    // TODO: handle missing subasset handle errors here?
     let color = pbr.base_color_factor();
     let base_color_channel = pbr
         .base_color_texture()
@@ -1431,7 +1432,7 @@ fn load_material(
     };
 
     (
-        material_label(material, is_scale_inverted).to_string(),
+        material_subasset_name(material, is_scale_inverted).to_string(),
         standard_material,
     )
 }
@@ -1559,25 +1560,26 @@ fn load_node(
             // append primitives
             for primitive in mesh.primitives() {
                 let material = primitive.material();
-                let material_label = material_label(&material, is_scale_inverted).to_string();
+                let material_subasset_name =
+                    material_subasset_name(&material, is_scale_inverted).to_string();
 
                 // This will make sure we load the default material now since it would not have been
                 // added when iterating over all the gltf materials (since the default material is
                 // not explicitly listed in the gltf).
                 // It also ensures an inverted scale copy is instantiated if required.
-                if !root_load_context.has_labeled_asset(&material_label)
-                    && !load_context.has_labeled_asset(&material_label)
+                if !root_load_context.has_subasset(&material_subasset_name)
+                    && !load_context.has_subasset(&material_subasset_name)
                 {
-                    let (label, material) = load_material(
+                    let (subasset_name, material) = load_material(
                         &material,
                         textures,
                         is_scale_inverted,
                         load_context.path().clone(),
                     );
-                    load_context.add_labeled_asset(label, material);
+                    load_context.add_subasset(subasset_name, material);
                 }
 
-                let primitive_label = GltfAssetLabel::Primitive {
+                let primitive_subasset_name = GltfSubassetName::Primitive {
                     mesh: mesh.index(),
                     primitive: primitive.index(),
                 };
@@ -1589,10 +1591,10 @@ fn load_node(
                 let mesh_entity_transform = convert_coordinates.mesh_conversion_transform_inverse();
 
                 let mut mesh_entity = parent.spawn((
-                    // TODO: handle missing label handle errors here?
-                    Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
+                    // TODO: handle missing subasset handle errors here?
+                    Mesh3d(load_context.get_subasset_handle(primitive_subasset_name.to_string())),
                     MeshMaterial3d::<StandardMaterial>(
-                        load_context.get_label_handle(&material_label),
+                        load_context.get_subasset_handle(&material_subasset_name),
                     ),
                     mesh_entity_transform,
                 ));
@@ -1785,12 +1787,15 @@ fn load_node(
     if !settings.load_meshes.is_empty()
         && let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights)
     {
-        let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
-            mesh: mesh.index(),
-            primitive: p.index(),
-        });
-        let first_mesh =
-            primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
+        let primitive_subasset_name =
+            mesh.primitives()
+                .next()
+                .map(|p| GltfSubassetName::Primitive {
+                    mesh: mesh.index(),
+                    primitive: p.index(),
+                });
+        let first_mesh = primitive_subasset_name
+            .map(|subasset_name| load_context.get_subasset_handle(subasset_name.to_string()));
         node.insert(MorphWeights::new(weights, first_mesh)?);
     }
 
@@ -1894,7 +1899,7 @@ impl<'a> DataUri<'a> {
 enum ImageOrPath {
     Image {
         image: Image,
-        label: GltfAssetLabel,
+        subasset: GltfSubassetName,
     },
     Path {
         path: AssetPath<'static>,
@@ -1916,8 +1921,8 @@ impl ImageOrPath {
         handles: &mut Vec<Handle<Image>>,
     ) {
         let handle = match self {
-            ImageOrPath::Image { label, image } => {
-                load_context.add_labeled_asset(label.to_string(), image)
+            ImageOrPath::Image { subasset, image } => {
+                load_context.add_subasset(subasset.to_string(), image)
             }
             ImageOrPath::Path {
                 path,
@@ -1995,7 +2000,7 @@ struct MorphTargetNames {
 mod test {
     use std::path::Path;
 
-    use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
+    use crate::{Gltf, GltfNode, GltfSkin, GltfSubassetName};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
@@ -2112,7 +2117,7 @@ mod test {
         assert_eq!(gltf_node.name, "TestSingleNode", "Correct name");
         assert_eq!(gltf_node.index, 0, "Correct index");
         assert_eq!(gltf_node.children.len(), 0, "No children");
-        assert_eq!(gltf_node.asset_label(), GltfAssetLabel::Node(0));
+        assert_eq!(gltf_node.subasset_name(), GltfSubassetName::Node(0));
     }
 
     #[test]
