@@ -10,7 +10,7 @@ Enables accessing slices from tables directly via Queries.
 
 `Query` and `QueryState` have new methods `contiguous_iter`, `contiguous_iter_mut` and `contiguous_iter_inner`, which allows querying contiguously (i.e., over tables). For it to work the query data must implement `ContiguousQueryData` and the query filter `ArchetypeFilter`. When a contiguous iterator is used, the iterator will jump over whole tables, returning corresponding data. Some notable implementors of `ContiguousQueryData` are `&T` and `&mut T`, returning `&[T]` and `ContiguousMut<T>` correspondingly, where the latter structure lets you get a mutable slice of components as well as corresponding ticks. Some notable implementors of `ArchetypeFilter` are `With<T>` and `Without<T>` and notable types **not implementing** it are `Changed<T>` and `Added<T>`.
 
-This is for example useful, when an operation must be applied on a big amount of entities lying in the same tables, which allows for the compiler to auto-vectorize the code, thus speeding it up.
+For example, this is useful, when an operation must be applied on a big amount of entities lying in the same tables, which allows for the compiler to auto-vectorize the code, thus speeding it up.
 
 ### Usage
 

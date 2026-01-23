@@ -69,11 +69,13 @@ impl<'w> ContiguousComponentTicksRef<'w> {
         last_run: Tick,
     ) -> Self {
         Self {
-            // SAFETY: The invariants are upheld by the caller.
+            // SAFETY:
+            // - The caller ensures that `len` is the length of the slice.
+            // - The caller ensures we have permission to read the data.
             added: unsafe { added.cast().as_slice_unchecked(len) },
-            // SAFETY: The invariants are upheld by the caller.
+            // SAFETY: see above.
             changed: unsafe { changed.cast().as_slice_unchecked(len) },
-            // SAFETY: The invariants are upheld by the caller.
+            // SAFETY: see above.
             changed_by: changed_by.map(|v| unsafe { v.cast().as_slice_unchecked(len) }),
             last_run,
             this_run,
@@ -146,11 +148,13 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         last_run: Tick,
     ) -> Self {
         Self {
-            // SAFETY: The invariants are upheld by the caller.
+            // SAFETY:
+            // - The caller ensures that `len` is the length of the slice.
+            // - The caller ensures we have permission to mutate the data.
             added: unsafe { added.as_mut_slice_unchecked(len) },
-            // SAFETY: The invariants are upheld by the caller.
+            // SAFETY: see above.
             changed: unsafe { changed.as_mut_slice_unchecked(len) },
-            // SAFETY: The invariants are upheld by the caller.
+            // SAFETY: see above.
             changed_by: changed_by.map(|v| unsafe { v.as_mut_slice_unchecked(len) }),
             last_run,
             this_run,

@@ -1,4 +1,17 @@
-//! Demonstrates how contiguous queries work
+//! Demonstrates how contiguous queries work.
+//!
+//! Contiguous iteration enables getting slices of contiguously lying components (which lie in the same table), which for example
+//! may be used for simd-operations, which may accelerate an algorithm.
+//!
+//! Contiguous iteration may be used for example via [`Query::contiguous_iter`], [`Query::contiguous_iter_mut`],
+//! both of which return an option which is only [`None`] when the query doesn't support contiguous
+//! iteration due to it not being dense (iteration happens on archetypes, not tables) or filters not being archetypal.
+//!
+//! Refer to
+//! - [`Query::contiguous_iter`]
+//! - [`ContiguousQueryData`](`bevy::ecs::query::ContiguousQueryData`)
+//! - [`ArchetypeFilter`](`bevy::ecs::query::ArchetypeFilter`)
+//! for further documentation.
 
 use bevy::prelude::*;
 
@@ -12,7 +25,7 @@ pub struct Health(pub f32);
 pub struct HealthDecay(pub f32);
 
 fn apply_health_decay(mut query: Query<(&mut Health, &HealthDecay)>) {
-    // as_contiguous_iter() would return None if query couldn't be iterated contiguously
+    // contiguous_iter_mut() would return None if query couldn't be iterated contiguously
     for (mut health, decay) in query.contiguous_iter_mut().unwrap() {
         // all data slices returned by component queries are the same size
         assert!(health.data_slice().len() == decay.len());

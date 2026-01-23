@@ -1359,6 +1359,33 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
     /// iterable.
     ///
+    /// Contiguous iteration enables getting slices of contiguously lying components (which lie in the same table), which for example
+    /// may be used for simd-operations, which may accelerate an algorithm.
+    ///
+    /// # Example
+    ///
+    /// The following system despawns all entities which health is negative.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Health(pub f32);
+    ///
+    /// fn despawn_all_dead_entities(mut commands: Commands, query: Query<(Entity, &Health)>) {
+    ///     for (entities, health) in query.contiguous_iter() {
+    ///         // For each entity there is one component, hence it always holds true
+    ///         assert!(entities.size() == health.size());
+    ///         for (entity, health) in entities.iter().zip(health.iter()) {
+    ///             if health.0 < 0.0 {
+    ///                 commands.entity(entity).despawn();
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// ```
+    ///
     /// A mutable version: [`Self::contiguous_iter_mut`]
     pub fn contiguous_iter(&self) -> Option<QueryContiguousIter<'_, 's, D::ReadOnly, F>>
     where
@@ -1372,6 +1399,35 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
     /// iterable.
     ///
+    /// Contiguous iteration enables getting slices of contiguously lying components (which lie in the same table), which for example
+    /// may be used for simd-operations, which may accelerate an algorithm.
+    ///
+    /// # Example
+    ///
+    /// The following system applies a "health decay" effect on all entities, which reduces their
+    /// health by some fraction.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Health(pub f32);
+    /// #
+    /// # #[derive(Component)]
+    /// # struct HealthDecay(pub f32);
+    ///
+    /// fn apply_health_decay(mut query: Query<(&mut Health, &HealthDecay)>) {
+    ///     for (mut health, decay) in query.contiguous_iter_mut().unwrap() {
+    ///         // all data slices returned by component queries are the same size
+    ///         assert!(health.data_slice().len() == decay.len());
+    ///         for (health, decay) in health.data_slice_mut().iter_mut().zip(decay) {
+    ///             health.0 *= decay.0;
+    ///         }
+    ///         // we could have updated health's ticks but it is unnecessary hence we can make less work
+    ///         // health.mark_all_as_updated();
+    ///     }
+    /// }
+    /// ```
     /// An immutable version: [`Self::contiguous_iter`]
     pub fn contiguous_iter_mut(&mut self) -> Option<QueryContiguousIter<'_, 's, D, F>>
     where

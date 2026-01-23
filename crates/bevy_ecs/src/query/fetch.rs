@@ -147,12 +147,12 @@ use variadics_please::all_tuples;
 /// }
 /// ```
 ///
-/// ## Adding contiguous items
+/// ## Supporting contiguous iteration
 ///
-/// To create contiguous items additionally, the struct must be marked with the `#[query_data(contiguous(target))]` attribute,
+/// To create contiguous items additionally (to support contiguous iteration), the struct must be marked with the `#[query_data(contiguous(target))]` attribute,
 /// where the target may be `all`, `mutable` or `immutable` (see the table above).
 ///
-/// For mutable queries it may be done like that:
+/// For mutable queries it may be done like this:
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::query::QueryData;
@@ -172,6 +172,9 @@ use variadics_please::all_tuples;
 ///
 /// For immutable queries `contiguous(immutable)` attribute will be **ignored**, meanwhile `contiguous(mutable)` and `contiguous(all)`
 /// will only generate a contiguous item for the (original) read only version.
+///
+/// To understand contiguous iteration refer to
+/// [`Query::contiguous_iter`](`crate::system::Query::contiguous_iter`)
 ///
 /// ## Adding methods to query items
 ///
@@ -386,7 +389,12 @@ pub unsafe trait QueryData: WorldQuery {
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>>;
 }
 
-/// A [`QueryData`] which allows getting a direct access to contiguous chunks of components' values
+/// A [`QueryData`] which allows getting a direct access to contiguous chunks of components'
+/// values, which may be used to apply simd-operations.
+///
+/// Contiguous iteration may be done via:
+/// - [`Query::contiguous_iter`](crate::system::Query::contiguous_iter),
+/// - [`Query::contiguous_iter_mut`](crate::system::Query::contiguous_iter_mut),
 ///
 // NOTE: The safety rules might not be used to optimize the library, it still might be better to ensure
 // that contiguous query data methods match their non-contiguous versions
@@ -1816,7 +1824,7 @@ unsafe impl<T: Component> ContiguousQueryData for &T {
     ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
-                // SAFETY: set_table was previously called
+                // SAFETY: The caller ensures `set_table` was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY:
                 // - `table` is `entities.len()` long
@@ -1826,7 +1834,7 @@ unsafe impl<T: Component> ContiguousQueryData for &T {
             |_| {
                 #[cfg(debug_assertions)]
                 unreachable!();
-                // SAFETY: query is dense
+                // SAFETY: The caller ensures query is dense
                 #[cfg(not(debug_assertions))]
                 core::hint::unreachable_unchecked();
             },
