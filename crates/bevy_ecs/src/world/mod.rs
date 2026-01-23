@@ -60,7 +60,7 @@ use crate::{
     resource::Resource,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::Commands,
+    system::{Commands, Query},
     world::{
         command_queue::RawCommandQueue,
         error::{
@@ -1671,7 +1671,7 @@ impl World {
     /// ]);
     /// ```
     #[inline]
-    pub fn query<D: QueryData>(&mut self) -> QueryState<D, ()> {
+    pub fn query<D: QueryData>(&self) -> QueryState<D, ()> {
         self.query_filtered::<D, ()>()
     }
 
@@ -1695,7 +1695,7 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
+    pub fn query_filtered<D: QueryData, F: QueryFilter>(&self) -> QueryState<D, F> {
         QueryState::new(self)
     }
 
@@ -1775,6 +1775,24 @@ impl World {
     #[inline]
     pub fn try_query_filtered<D: QueryData, F: QueryFilter>(&self) -> Option<QueryState<D, F>> {
         QueryState::try_new(self)
+    }
+
+    /// Creates a readonly [`Query`] for `D` and `F` and runs `scope`.
+    pub fn query_filtered_readonly_scope<'a, D: QueryData, F: QueryFilter, O>(
+        &'a self,
+        scope: impl FnOnce(Query<'a, '_, D::ReadOnly, F>, &'a Self) -> O,
+    ) -> O {
+        let query = self.query_filtered::<D, F>();
+        let query = query.as_readonly().query_manual(self);
+        scope(query, self)
+    }
+
+    /// Creates a readonly [`Query`] for `D` and runs `scope`.
+    pub fn query_readonly_scope<'a, D: QueryData, O>(
+        &'a self,
+        scope: impl FnOnce(Query<'a, '_, D::ReadOnly>, &'a Self) -> O,
+    ) -> O {
+        self.query_filtered_readonly_scope::<'a, D, (), O>(scope)
     }
 
     /// Returns an iterator of entities that had components of type `T` removed

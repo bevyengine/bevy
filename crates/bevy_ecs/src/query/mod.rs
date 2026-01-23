@@ -524,7 +524,7 @@ mod tests {
             b: &'static mut A,
         }
 
-        let mut world = World::new();
+        let world = World::new();
         world.query::<SelfConflicting>();
     }
 

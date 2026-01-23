@@ -1807,7 +1807,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn right_world_get() {
-        let mut world_1 = World::new();
+        let world_1 = World::new();
         let world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
@@ -1817,7 +1817,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn right_world_get_many() {
-        let mut world_1 = World::new();
+        let world_1 = World::new();
         let world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
@@ -1827,7 +1827,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn right_world_get_many_mut() {
-        let mut world_1 = World::new();
+        let world_1 = World::new();
         let mut world_2 = World::new();
 
         let mut query_state = world_1.query::<Entity>();
