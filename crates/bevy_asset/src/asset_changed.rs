@@ -105,6 +105,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
 ///
 /// - Asset changes are registered in the [`AssetEventSystems`] system set.
 /// - Removed assets are not detected.
+/// - The asset must be initialized ([`App::init_asset`](crate::AssetApp::init_asset)).
 ///
 /// The list of changed assets only gets updated in the [`AssetEventSystems`] system set,
 /// which runs in `PostUpdate`. Therefore, `AssetChanged` will only pick up asset changes in schedules
