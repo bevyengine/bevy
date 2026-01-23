@@ -1420,7 +1420,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     for (mut health, decay) in query.contiguous_iter_mut().unwrap() {
     ///         // all data slices returned by component queries are the same size
     ///         assert!(health.len() == decay.len());
-    ///         // we could have use health.bypass_change_detection() to do less work.
+    ///         // we could have used health.bypass_change_detection() to do less work.
     ///         for (health, decay) in health.iter_mut().zip(decay) {
     ///             health.0 *= decay.0;
     ///         }

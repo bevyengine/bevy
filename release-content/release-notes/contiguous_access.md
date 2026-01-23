@@ -21,7 +21,7 @@ fn apply_velocity(query: Query<(&Velocity, &mut Position)>) {
     // `contiguous_iter_mut()` cannot ensure all invariants on the compilation stage, thus
     // when a component uses a sparse set storage, the method will return `None`
     for (velocity, mut position) in query.contiguous_iter_mut().unwrap() {
-        // we could also have use position.bypass_change_detection() to do even less work.
+        // we could also have used position.bypass_change_detection() to do even less work.
         for (v, p) in velocity.iter().zip(position.iter_mut()) {
             p.0 += v.0;
         }
