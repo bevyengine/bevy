@@ -468,6 +468,11 @@ pub struct ContiguousRef<'w, T> {
 }
 
 impl<'w, T> ContiguousRef<'w, T> {
+    /// Returns the reference wrapped by this type. The reference is allowed to outlive `self`, which makes this method more flexible than simply borrowing `self`.
+    pub fn into_inner(self) -> &'w [T] {
+        self.value
+    }
+
     /// Returns the added ticks.
     #[inline]
     pub fn added_ticks_slice(&self) -> &'w [Tick] {
