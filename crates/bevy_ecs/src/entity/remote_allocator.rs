@@ -1118,4 +1118,32 @@ mod tests {
         entities.dedup();
         assert_eq!(pre_len, entities.len());
     }
+
+    /// Bevy's allocator doesn't make guarantees about what order entities will be allocated in.
+    /// This test just exists to make sure allocations don't step on each other's toes.
+    #[test]
+    fn allocation_order_correctness() {
+        let mut allocator = Allocator::new();
+        let e0 = allocator.alloc();
+        let e1 = allocator.alloc();
+        let e2 = allocator.alloc();
+        let e3 = allocator.alloc();
+        allocator.free(e0);
+        allocator.free(e1);
+        allocator.free(e2);
+        allocator.free(e3);
+
+        let r0 = allocator.alloc();
+        let mut many = allocator.alloc_many(2);
+        let r1 = many.next().unwrap();
+        let r2 = many.next().unwrap();
+        assert!(many.next().is_none());
+        drop(many);
+        let r3 = allocator.alloc();
+
+        assert_eq!(r0, e3);
+        assert_eq!(r1, e1);
+        assert_eq!(r2, e2);
+        assert_eq!(r3, e0);
+    }
 }
