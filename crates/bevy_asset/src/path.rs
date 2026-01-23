@@ -20,8 +20,8 @@ use thiserror::Error;
 /// * [`AssetPath::source`]: The name of the [`AssetSource`](crate::io::AssetSource) to load the asset from.
 ///   This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
 /// * [`AssetPath::path`]: The "virtual filesystem path" pointing to an asset source file.
-/// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are
-///   allowed to load "sub assets" of any type, which are identified by a named "label".
+/// * [`AssetPath::subasset_name`]: An optional "named sub asset". When assets are loaded, they are
+///   allowed to load subassets of any type, which are identified by their name.
 ///
 /// Asset paths are generally constructed (and visualized) as strings:
 ///
@@ -39,7 +39,7 @@ use thiserror::Error;
 /// // This loads the `my_scene.scn` base asset from the default asset source.
 /// let scene: Handle<Scene> = asset_server.load("my_scene.scn");
 ///
-/// // This loads the `PlayerMesh` labeled asset from the `my_scene.scn` base asset in the default asset source.
+/// // This loads the `PlayerMesh` subasset from the `my_scene.scn` base asset in the default asset source.
 /// let mesh: Handle<Mesh> = asset_server.load("my_scene.scn#PlayerMesh");
 ///
 /// // This loads the `my_scene.scn` base asset from a custom 'remote' asset source.
@@ -57,7 +57,7 @@ use thiserror::Error;
 pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,
-    label: Option<CowArc<'a, str>>,
+    subasset_name: Option<CowArc<'a, str>>,
 }
 
 impl<'a> Debug for AssetPath<'a> {
@@ -72,8 +72,8 @@ impl<'a> Display for AssetPath<'a> {
             write!(f, "{name}://")?;
         }
         write!(f, "{}", self.path.display())?;
-        if let Some(label) = &self.label {
-            write!(f, "#{label}")?;
+        if let Some(subasset_name) = &self.subasset_name {
+            write!(f, "#{subasset_name}")?;
         }
         Ok(())
     }
@@ -82,25 +82,25 @@ impl<'a> Display for AssetPath<'a> {
 /// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`].
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseAssetPathError {
-    /// Error that occurs when the [`AssetPath::source`] section of a path string contains the [`AssetPath::label`] delimiter `#`. E.g. `bad#source://file.test`.
+    /// Error that occurs when the [`AssetPath::source`] section of a path string contains the [`AssetPath::subasset_name`] delimiter `#`. E.g. `bad#source://file.test`.
     #[error("Asset source must not contain a `#` character")]
     InvalidSourceSyntax,
-    /// Error that occurs when the [`AssetPath::label`] section of a path string contains the [`AssetPath::source`] delimiter `://`. E.g. `source://file.test#bad://label`.
-    #[error("Asset label must not contain a `://` substring")]
-    InvalidLabelSyntax,
+    /// Error that occurs when the [`AssetPath::subasset_name`] section of a path string contains the [`AssetPath::source`] delimiter `://`. E.g. `source://file.test#bad://subasset_name`.
+    #[error("Subasset name must not contain a `://` substring")]
+    InvalidSubassetSyntax,
     /// Error that occurs when a path string has an [`AssetPath::source`] delimiter `://` with no characters preceding it. E.g. `://file.test`.
     #[error("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
     MissingSource,
-    /// Error that occurs when a path string has an [`AssetPath::label`] delimiter `#` with no characters succeeding it. E.g. `file.test#`
-    #[error("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
-    MissingLabel,
+    /// Error that occurs when a path string has an [`AssetPath::subasset_name`] delimiter `#` with no characters succeeding it. E.g. `file.test#`
+    #[error("Subasset name must be at least one character. Either specify the name after the '#' or remove the '#'")]
+    MissingSubassetName,
 }
 
 impl<'a> AssetPath<'a> {
     /// Creates a new [`AssetPath`] from a string in the asset path format:
     /// * An asset at the root: `"scene.gltf"`
     /// * An asset nested in some folders: `"some/path/scene.gltf"`
-    /// * An asset with a "label": `"some/path/scene.gltf#Mesh0"`
+    /// * An asset with a "subasset name": `"some/path/scene.gltf#Mesh0"`
     /// * An asset with a custom "source": `"custom://some/path/scene.gltf#Mesh0"`
     ///
     /// Prefer [`From<'static str>`] for static strings, as this will prevent allocations
@@ -115,7 +115,7 @@ impl<'a> AssetPath<'a> {
     /// Creates a new [`AssetPath`] from a string in the asset path format:
     /// * An asset at the root: `"scene.gltf"`
     /// * An asset nested in some folders: `"some/path/scene.gltf"`
-    /// * An asset with a "label": `"some/path/scene.gltf#Mesh0"`
+    /// * An asset with a "subasset name": `"some/path/scene.gltf#Mesh0"`
     /// * An asset with a custom "source": `"custom://some/path/scene.gltf#Mesh0"`
     ///
     /// Prefer [`From<'static str>`] for static strings, as this will prevent allocations
@@ -123,34 +123,35 @@ impl<'a> AssetPath<'a> {
     ///
     /// This will return a [`ParseAssetPathError`] if `asset_path` is in an invalid format.
     pub fn try_parse(asset_path: &'a str) -> Result<AssetPath<'a>, ParseAssetPathError> {
-        let (source, path, label) = Self::parse_internal(asset_path)?;
+        let (source, path, subasset_name) = Self::parse_internal(asset_path)?;
         Ok(Self {
             source: match source {
                 Some(source) => AssetSourceId::Name(CowArc::Borrowed(source)),
                 None => AssetSourceId::Default,
             },
             path: CowArc::Borrowed(path),
-            label: label.map(CowArc::Borrowed),
+            subasset_name: subasset_name.map(CowArc::Borrowed),
         })
     }
 
-    // Attempts to Parse a &str into an `AssetPath`'s `AssetPath::source`, `AssetPath::path`, and `AssetPath::label` components.
+    /// Attempts to Parse a &str into an [`AssetPath`]'s [`AssetPath::source`], [`AssetPath::path`],
+    /// and [`AssetPath::subasset_name`] components.
     fn parse_internal(
         asset_path: &str,
     ) -> Result<(Option<&str>, &Path, Option<&str>), ParseAssetPathError> {
         let chars = asset_path.char_indices();
         let mut source_range = None;
         let mut path_range = 0..asset_path.len();
-        let mut label_range = None;
+        let mut subasset_name_range = None;
 
         // Loop through the characters of the passed in &str to accomplish the following:
         // 1. Search for the first instance of the `://` substring. If the `://` substring is found,
         //  store the range of indices representing everything before the `://` substring as the `source_range`.
         // 2. Search for the last instance of the `#` character. If the `#` character is found,
-        //  store the range of indices representing everything after the `#` character as the `label_range`
-        // 3. Set the `path_range` to be everything in between the `source_range` and `label_range`,
+        //  store the range of indices representing everything after the `#` character as the `subasset_name_range`
+        // 3. Set the `path_range` to be everything in between the `source_range` and `subasset_name_range`,
         //  excluding the `://` substring and `#` character.
-        // 4. Verify that there are no `#` characters in the `AssetPath::source` and no `://` substrings in the `AssetPath::label`
+        // 4. Verify that there are no `#` characters in the `AssetPath::source` and no `://` substrings in the `AssetPath::subasset_name`
         let mut source_delimiter_chars_matched = 0;
         let mut last_found_source_index = 0;
         for (index, char) in chars {
@@ -167,7 +168,7 @@ impl<'a> AssetPath<'a> {
                             // If we haven't found our first `AssetPath::source` yet, check to make sure it is valid and then store it.
                             if source_range.is_none() {
                                 // If the `AssetPath::source` contains a `#` character, it is invalid.
-                                if label_range.is_some() {
+                                if subasset_name_range.is_some() {
                                     return Err(ParseAssetPathError::InvalidSourceSyntax);
                                 }
                                 source_range = Some(0..index - 2);
@@ -181,7 +182,7 @@ impl<'a> AssetPath<'a> {
                 }
                 '#' => {
                     path_range.end = index;
-                    label_range = Some(index + 1..asset_path.len());
+                    subasset_name_range = Some(index + 1..asset_path.len());
                     source_delimiter_chars_matched = 0;
                 }
                 _ => {
@@ -189,11 +190,11 @@ impl<'a> AssetPath<'a> {
                 }
             }
         }
-        // If we found an `AssetPath::label`
-        if let Some(range) = label_range.clone() {
-            // If the `AssetPath::label` contained a `://` substring, it is invalid.
+        // If we found an `AssetPath::subasset_name`
+        if let Some(range) = subasset_name_range.clone() {
+            // If the `AssetPath::subasset_name` contained a `://` substring, it is invalid.
             if range.start <= last_found_source_index {
-                return Err(ParseAssetPathError::InvalidLabelSyntax);
+                return Err(ParseAssetPathError::InvalidSubassetSyntax);
             }
         }
         // Try to parse the range of indices that represents the `AssetPath::source` portion of the `AssetPath` to make sure it is not empty.
@@ -207,20 +208,20 @@ impl<'a> AssetPath<'a> {
             }
             None => None,
         };
-        // Try to parse the range of indices that represents the `AssetPath::label` portion of the `AssetPath` to make sure it is not empty.
+        // Try to parse the range of indices that represents the `AssetPath::subasset_name` portion of the `AssetPath` to make sure it is not empty.
         // This would be the case if the input &str was something like `some/file.test#`.
-        let label = match label_range {
-            Some(label_range) => {
-                if label_range.is_empty() {
-                    return Err(ParseAssetPathError::MissingLabel);
+        let subasset_name = match subasset_name_range {
+            Some(subasset_name_range) => {
+                if subasset_name_range.is_empty() {
+                    return Err(ParseAssetPathError::MissingSubassetName);
                 }
-                Some(&asset_path[label_range])
+                Some(&asset_path[subasset_name_range])
             }
             None => None,
         };
 
         let path = Path::new(&asset_path[path_range]);
-        Ok((source, path, label))
+        Ok((source, path, subasset_name))
     }
 
     /// Creates a new [`AssetPath`] from a [`PathBuf`].
@@ -229,7 +230,7 @@ impl<'a> AssetPath<'a> {
         AssetPath {
             path: CowArc::Owned(path_buf.into()),
             source: AssetSourceId::Default,
-            label: None,
+            subasset_name: None,
         }
     }
 
@@ -239,7 +240,7 @@ impl<'a> AssetPath<'a> {
         AssetPath {
             path: CowArc::Borrowed(path),
             source: AssetSourceId::Default,
-            label: None,
+            subasset_name: None,
         }
     }
 
@@ -250,16 +251,16 @@ impl<'a> AssetPath<'a> {
         &self.source
     }
 
-    /// Gets the "sub-asset label".
+    /// Gets the sub-asset's name.
     #[inline]
-    pub fn label(&self) -> Option<&str> {
-        self.label.as_deref()
+    pub fn subasset_name(&self) -> Option<&str> {
+        self.subasset_name.as_deref()
     }
 
-    /// Gets the "sub-asset label".
+    /// Gets the sub-asset's name.
     #[inline]
-    pub fn label_cow(&self) -> Option<CowArc<'a, str>> {
-        self.label.clone()
+    pub fn subasset_name_cow(&self) -> Option<CowArc<'a, str>> {
+        self.subasset_name.clone()
     }
 
     /// Gets the path to the asset in the "virtual filesystem".
@@ -268,36 +269,36 @@ impl<'a> AssetPath<'a> {
         self.path.deref()
     }
 
-    /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is currently set).
+    /// Gets the path to the asset in the "virtual filesystem" without a subasset name (if a subasset name is currently set).
     #[inline]
-    pub fn without_label(&self) -> AssetPath<'_> {
+    pub fn without_subasset_name(&self) -> AssetPath<'_> {
         Self {
             source: self.source.clone(),
             path: self.path.clone(),
-            label: None,
+            subasset_name: None,
         }
     }
 
-    /// Removes a "sub-asset label" from this [`AssetPath`], if one was set.
+    /// Removes a sub-asset name from this [`AssetPath`], if one was set.
     #[inline]
-    pub fn remove_label(&mut self) {
-        self.label = None;
+    pub fn remove_subasset_name(&mut self) {
+        self.subasset_name = None;
     }
 
-    /// Takes the "sub-asset label" from this [`AssetPath`], if one was set.
+    /// Takes the sub-asset name from this [`AssetPath`], if one was set.
     #[inline]
-    pub fn take_label(&mut self) -> Option<CowArc<'a, str>> {
-        self.label.take()
+    pub fn take_subasset_name(&mut self) -> Option<CowArc<'a, str>> {
+        self.subasset_name.take()
     }
 
-    /// Returns this asset path with the given label. This will replace the previous
-    /// label if it exists.
+    /// Returns this asset path with the given subasset name. This will replace the previous
+    /// subasset name if it exists.
     #[inline]
-    pub fn with_label(self, label: impl Into<CowArc<'a, str>>) -> AssetPath<'a> {
+    pub fn with_subasset_name(self, subasset_name: impl Into<CowArc<'a, str>>) -> AssetPath<'a> {
         AssetPath {
             source: self.source,
             path: self.path,
-            label: Some(label.into()),
+            subasset_name: Some(subasset_name.into()),
         }
     }
 
@@ -308,7 +309,7 @@ impl<'a> AssetPath<'a> {
         AssetPath {
             source: source.into(),
             path: self.path,
-            label: self.label,
+            subasset_name: self.subasset_name,
         }
     }
 
@@ -321,7 +322,7 @@ impl<'a> AssetPath<'a> {
         };
         Some(AssetPath {
             source: self.source.clone(),
-            label: None,
+            subasset_name: None,
             path,
         })
     }
@@ -335,7 +336,7 @@ impl<'a> AssetPath<'a> {
         AssetPath {
             source: self.source.into_owned(),
             path: self.path.into_owned(),
-            label: self.label.map(CowArc::into_owned),
+            subasset_name: self.subasset_name.map(CowArc::into_owned),
         }
     }
 
@@ -352,7 +353,7 @@ impl<'a> AssetPath<'a> {
     /// Resolves an [`AssetPath`] relative to `self`.
     ///
     /// Semantics:
-    /// - If `path` is label-only (default source, empty path, label set), replace `self`'s label.
+    /// - If `path` is subasset-name-only (default source, empty path, subasset name set), replace `self`'s subasset name.
     /// - If `path` begins with `/`, treat it as rooted at the asset-source root (not the filesystem).
     /// - If `path` has an explicit source (`name://...`), it replaces the base source.
     /// - Relative segments are concatenated and normalized (`.`/`..` removal), preserving extra `..` if the base underflows.
@@ -371,20 +372,20 @@ impl<'a> AssetPath<'a> {
     ///
     /// See also [`AssetPath::resolve_str`].
     pub fn resolve(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
-        let is_label_only = matches!(path.source(), AssetSourceId::Default)
+        let is_subasset_name_only = matches!(path.source(), AssetSourceId::Default)
             && path.path().as_os_str().is_empty()
-            && path.label().is_some();
+            && path.subasset_name().is_some();
 
-        if is_label_only {
+        if is_subasset_name_only {
             self.clone_owned()
-                .with_label(path.label().unwrap().to_owned())
+                .with_subasset_name(path.subasset_name().unwrap().to_owned())
         } else {
             let explicit_source = match path.source() {
                 AssetSourceId::Default => None,
                 AssetSourceId::Name(name) => Some(name.as_ref()),
             };
 
-            self.resolve_from_parts(false, explicit_source, path.path(), path.label())
+            self.resolve_from_parts(false, explicit_source, path.path(), path.subasset_name())
         }
     }
 
@@ -408,20 +409,20 @@ impl<'a> AssetPath<'a> {
     ///
     /// See also [`AssetPath::resolve_embed_str`].
     pub fn resolve_embed(&self, path: &AssetPath<'_>) -> AssetPath<'static> {
-        let is_label_only = matches!(path.source(), AssetSourceId::Default)
+        let is_subasset_name_only = matches!(path.source(), AssetSourceId::Default)
             && path.path().as_os_str().is_empty()
-            && path.label().is_some();
+            && path.subasset_name().is_some();
 
-        if is_label_only {
+        if is_subasset_name_only {
             self.clone_owned()
-                .with_label(path.label().unwrap().to_owned())
+                .with_subasset_name(path.subasset_name().unwrap().to_owned())
         } else {
             let explicit_source = match path.source() {
                 AssetSourceId::Default => None,
                 AssetSourceId::Name(name) => Some(name.as_ref()),
             };
 
-            self.resolve_from_parts(true, explicit_source, path.path(), path.label())
+            self.resolve_from_parts(true, explicit_source, path.path(), path.subasset_name())
         }
     }
 
@@ -449,7 +450,7 @@ impl<'a> AssetPath<'a> {
         replace: bool,
         source: Option<&str>,
         rpath: &Path,
-        rlabel: Option<&str>,
+        rsubasset_name: Option<&str>,
     ) -> AssetPath<'static> {
         let mut base_path = PathBuf::from(self.path());
         if replace && !self.path.to_str().unwrap().ends_with('/') {
@@ -481,7 +482,7 @@ impl<'a> AssetPath<'a> {
                 None => self.source.clone_owned(),
             },
             path: CowArc::Owned(result_path.into()),
-            label: rlabel.map(|l| CowArc::Owned(l.into())),
+            subasset_name: rsubasset_name.map(|l| CowArc::Owned(l.into())),
         }
     }
 
@@ -490,12 +491,14 @@ impl<'a> AssetPath<'a> {
         path: &str,
         replace: bool,
     ) -> Result<AssetPath<'static>, ParseAssetPathError> {
-        if let Some(label) = path.strip_prefix('#') {
-            // It's a label only
-            Ok(self.clone_owned().with_label(label.to_owned()))
+        if let Some(subasset_name) = path.strip_prefix('#') {
+            // It's a subasset_name only
+            Ok(self
+                .clone_owned()
+                .with_subasset_name(subasset_name.to_owned()))
         } else {
-            let (source, rpath, rlabel) = AssetPath::parse_internal(path)?;
-            Ok(self.resolve_from_parts(replace, source, rpath, rlabel))
+            let (source, rpath, rsubasset_name) = AssetPath::parse_internal(path)?;
+            Ok(self.resolve_from_parts(replace, source, rpath, rsubasset_name))
         }
     }
 
@@ -579,11 +582,11 @@ impl<'a> AssetPath<'a> {
 impl From<&'static str> for AssetPath<'static> {
     #[inline]
     fn from(asset_path: &'static str) -> Self {
-        let (source, path, label) = Self::parse_internal(asset_path).unwrap();
+        let (source, path, subasset_name) = Self::parse_internal(asset_path).unwrap();
         AssetPath {
             source: source.into(),
             path: CowArc::Static(path),
-            label: label.map(CowArc::Static),
+            subasset_name: subasset_name.map(CowArc::Static),
         }
     }
 }
@@ -608,7 +611,7 @@ impl From<&'static Path> for AssetPath<'static> {
         Self {
             source: AssetSourceId::Default,
             path: CowArc::Static(path),
-            label: None,
+            subasset_name: None,
         }
     }
 }
@@ -619,7 +622,7 @@ impl From<PathBuf> for AssetPath<'static> {
         Self {
             source: AssetSourceId::Default,
             path: path.into(),
-            label: None,
+            subasset_name: None,
         }
     }
 }
@@ -741,13 +744,16 @@ mod tests {
         let result = AssetPath::parse_internal("#insource://a/b.test");
         assert_eq!(result, Err(crate::ParseAssetPathError::InvalidSourceSyntax));
 
-        let result = AssetPath::parse_internal("source://a/b.test#://inlabel");
-        assert_eq!(result, Err(crate::ParseAssetPathError::InvalidLabelSyntax));
+        let result = AssetPath::parse_internal("source://a/b.test#://insubasset");
+        assert_eq!(
+            result,
+            Err(crate::ParseAssetPathError::InvalidSubassetSyntax)
+        );
 
-        let result = AssetPath::parse_internal("#insource://a/b.test#://inlabel");
+        let result = AssetPath::parse_internal("#insource://a/b.test#://insubasset");
         assert!(
             result == Err(crate::ParseAssetPathError::InvalidSourceSyntax)
-                || result == Err(crate::ParseAssetPathError::InvalidLabelSyntax)
+                || result == Err(crate::ParseAssetPathError::InvalidSubassetSyntax)
         );
 
         let result = AssetPath::parse_internal("http://");
@@ -757,7 +763,7 @@ mod tests {
         assert_eq!(result, Err(crate::ParseAssetPathError::MissingSource));
 
         let result = AssetPath::parse_internal("a/b.test#");
-        assert_eq!(result, Err(crate::ParseAssetPathError::MissingLabel));
+        assert_eq!(result, Err(crate::ParseAssetPathError::MissingSubassetName));
     }
 
     #[test]
@@ -773,7 +779,7 @@ mod tests {
         assert_eq!(result.parent(), Some(AssetPath::from("http://")));
         assert_eq!(result.parent().unwrap().parent(), None);
 
-        // Parent consumes labels
+        // Parent consumes subasset_names
         let result = AssetPath::from("http://a#Foo");
         assert_eq!(result.parent(), Some(AssetPath::from("http://")));
     }
@@ -785,9 +791,9 @@ mod tests {
     }
 
     #[test]
-    fn test_without_label() {
+    fn test_without_subasset_name() {
         let result = AssetPath::from("http://a#Foo");
-        assert_eq!(result.without_label(), AssetPath::from("http://a"));
+        assert_eq!(result.without_subasset_name(), AssetPath::from("http://a"));
     }
 
     #[test]
@@ -1182,8 +1188,8 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_label() {
-        // A relative path with only a label should replace the label portion
+    fn test_resolve_subasset_name() {
+        // A relative path with only a subasset_name should replace the subasset_name portion
         let base = AssetPath::from("alice/bob#carol");
         assert_eq!(
             base.resolve_str("#dave").unwrap(),

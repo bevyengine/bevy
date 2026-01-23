@@ -1,4 +1,4 @@
-use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
+use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LoadedSubAsset, UntypedHandle};
 use alloc::boxed::Box;
 use atomicow::CowArc;
 use bevy_platform::collections::HashMap;
@@ -27,7 +27,7 @@ pub trait AssetTransformer: TypePath + Send + Sync + 'static {
     type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
 
     /// Transforms the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].
-    /// The [`TransformedAsset`]'s `labeled_assets` can be altered to add new Labeled Sub-Assets
+    /// The [`TransformedAsset`]'s `subassets` can be altered to add new Sub-Assets
     /// The passed in `settings` can influence how the `asset` is transformed
     fn transform<'a>(
         &'a self,
@@ -39,7 +39,7 @@ pub trait AssetTransformer: TypePath + Send + Sync + 'static {
 /// An [`Asset`] (and any "sub assets") intended to be transformed
 pub struct TransformedAsset<A: Asset> {
     pub(crate) value: A,
-    pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
+    pub(crate) subassets: HashMap<CowArc<'static, str>, LoadedSubAsset>,
 }
 
 impl<A: Asset> Deref for TransformedAsset<A> {
@@ -61,21 +61,21 @@ impl<A: Asset> TransformedAsset<A> {
         if let Ok(value) = asset.value.downcast::<A>() {
             return Some(TransformedAsset {
                 value: *value,
-                labeled_assets: asset.labeled_assets,
+                subassets: asset.subassets,
             });
         }
         None
     }
-    /// Creates a new [`TransformedAsset`] from `asset`, transferring the `labeled_assets` from this [`TransformedAsset`] to the new one
+    /// Creates a new [`TransformedAsset`] from `asset`, transferring the `subassets` from this [`TransformedAsset`] to the new one
     pub fn replace_asset<B: Asset>(self, asset: B) -> TransformedAsset<B> {
         TransformedAsset {
             value: asset,
-            labeled_assets: self.labeled_assets,
+            subassets: self.subassets,
         }
     }
-    /// Takes the labeled assets from `labeled_source` and places them in this [`TransformedAsset`]
-    pub fn take_labeled_assets<B: Asset>(&mut self, labeled_source: TransformedAsset<B>) {
-        self.labeled_assets = labeled_source.labeled_assets;
+    /// Takes the subassets from `subasset_source` and places them in this [`TransformedAsset`]
+    pub fn take_subassets<B: Asset>(&mut self, subasset_source: TransformedAsset<B>) {
+        self.subassets = subasset_source.subassets;
     }
     /// Retrieves the value of this asset.
     #[inline]
@@ -87,72 +87,75 @@ impl<A: Asset> TransformedAsset<A> {
     pub fn get_mut(&mut self) -> &mut A {
         &mut self.value
     }
-    /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset, Q>(&mut self, label: &Q) -> Option<TransformedSubAsset<'_, B>>
+    /// Returns the subasset, if it exists and matches this type.
+    pub fn get_subasset<B: Asset, Q>(
+        &mut self,
+        subasset_name: &Q,
+    ) -> Option<TransformedSubAsset<'_, B>>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get_mut(label)?;
-        let value = labeled.asset.value.downcast_mut::<B>()?;
+        let subasset = self.subassets.get_mut(subasset_name)?;
+        let value = subasset.asset.value.downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
-            labeled_assets: &mut labeled.asset.labeled_assets,
+            subassets: &mut subasset.asset.subassets,
         })
     }
-    /// Returns the type-erased labeled asset, if it exists and matches this type.
-    pub fn get_erased_labeled<Q>(&self, label: &Q) -> Option<&ErasedLoadedAsset>
+    /// Returns the type-erased subasset, if it exists and matches this type.
+    pub fn get_erased_subasset<Q>(&self, subasset_name: &Q) -> Option<&ErasedLoadedAsset>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
-        Some(&labeled.asset)
+        let subasset = self.subassets.get(subasset_name)?;
+        Some(&subasset.asset)
     }
-    /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
-    pub fn get_untyped_handle<Q>(&self, label: &Q) -> Option<UntypedHandle>
+    /// Returns the [`UntypedHandle`] of the subasset with the provided `subasset_name`, if it exists.
+    pub fn get_untyped_handle<Q>(&self, subasset_name: &Q) -> Option<UntypedHandle>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
-        Some(labeled.handle.clone())
+        let subasset = self.subassets.get(subasset_name)?;
+        Some(subasset.handle.clone())
     }
-    /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
-    pub fn get_handle<Q, B: Asset>(&self, label: &Q) -> Option<Handle<B>>
+    /// Returns the [`Handle`] of the subasset with the provided `subasset_name`, if it exists and is an asset of type `B`
+    pub fn get_handle<Q, B: Asset>(&self, subasset_name: &Q) -> Option<Handle<B>>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
-        if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
+        let subasset = self.subassets.get(subasset_name)?;
+        if let Ok(handle) = subasset.handle.clone().try_typed::<B>() {
             return Some(handle);
         }
         None
     }
-    /// Adds `asset` as a labeled sub asset using `label` and `handle`
-    pub fn insert_labeled(
+    /// Adds `asset` as a sub asset using `subasset_name` and `handle`
+    pub fn insert_subasset(
         &mut self,
-        label: impl Into<CowArc<'static, str>>,
+        subasset_name: impl Into<CowArc<'static, str>>,
         handle: impl Into<UntypedHandle>,
         asset: impl Into<ErasedLoadedAsset>,
     ) {
-        let labeled = LabeledAsset {
+        let subasset = LoadedSubAsset {
             asset: asset.into(),
             handle: handle.into(),
         };
-        self.labeled_assets.insert(label.into(), labeled);
+        self.subassets.insert(subasset_name.into(), subasset);
     }
-    /// Iterate over all labels for "labeled assets" in the loaded asset
-    pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
-        self.labeled_assets.keys().map(|s| &**s)
+    /// Iterate over all subasset names in this loaded asset.
+    pub fn iter_subasset_names(&self) -> impl Iterator<Item = &str> {
+        self.subassets.keys().map(|s| &**s)
     }
 }
 
-/// A labeled sub-asset of [`TransformedAsset`]
+/// A sub-asset of [`TransformedAsset`]
 pub struct TransformedSubAsset<'a, A: Asset> {
     value: &'a mut A,
-    labeled_assets: &'a mut HashMap<CowArc<'static, str>, LabeledAsset>,
+    subassets: &'a mut HashMap<CowArc<'static, str>, LoadedSubAsset>,
 }
 
 impl<'a, A: Asset> Deref for TransformedSubAsset<'a, A> {
@@ -174,7 +177,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         let value = asset.value.downcast_mut::<A>()?;
         Some(TransformedSubAsset {
             value,
-            labeled_assets: &mut asset.labeled_assets,
+            subassets: &mut asset.subassets,
         })
     }
     /// Retrieves the value of this asset.
@@ -187,65 +190,68 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
     pub fn get_mut(&mut self) -> &mut A {
         self.value
     }
-    /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset, Q>(&mut self, label: &Q) -> Option<TransformedSubAsset<'_, B>>
+    /// Returns the subasset, if it exists and matches this type.
+    pub fn get_subasset<B: Asset, Q>(
+        &mut self,
+        subasset_name: &Q,
+    ) -> Option<TransformedSubAsset<'_, B>>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get_mut(label)?;
-        let value = labeled.asset.value.downcast_mut::<B>()?;
+        let subasset = self.subassets.get_mut(subasset_name)?;
+        let value = subasset.asset.value.downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
-            labeled_assets: &mut labeled.asset.labeled_assets,
+            subassets: &mut subasset.asset.subassets,
         })
     }
-    /// Returns the type-erased labeled asset, if it exists and matches this type.
-    pub fn get_erased_labeled<Q>(&self, label: &Q) -> Option<&ErasedLoadedAsset>
+    /// Returns the type-erased subasset, if it exists and matches this type.
+    pub fn get_erased_subasset<Q>(&self, subasset_name: &Q) -> Option<&ErasedLoadedAsset>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
-        Some(&labeled.asset)
+        let subasset = self.subassets.get(subasset_name)?;
+        Some(&subasset.asset)
     }
-    /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
-    pub fn get_untyped_handle<Q>(&self, label: &Q) -> Option<UntypedHandle>
+    /// Returns the [`UntypedHandle`] of the subasset with the provided `subasset_name`, if it exists.
+    pub fn get_untyped_handle<Q>(&self, subasset_name: &Q) -> Option<UntypedHandle>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
-        Some(labeled.handle.clone())
+        let subasset = self.subassets.get(subasset_name)?;
+        Some(subasset.handle.clone())
     }
-    /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
-    pub fn get_handle<Q, B: Asset>(&self, label: &Q) -> Option<Handle<B>>
+    /// Returns the [`Handle`] of the subasset with the provided `subasset_name`, if it exists and is an asset of type `B`
+    pub fn get_handle<Q, B: Asset>(&self, subasset_name: &Q) -> Option<Handle<B>>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
-        if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
+        let subasset = self.subassets.get(subasset_name)?;
+        if let Ok(handle) = subasset.handle.clone().try_typed::<B>() {
             return Some(handle);
         }
         None
     }
-    /// Adds `asset` as a labeled sub asset using `label` and `handle`
-    pub fn insert_labeled(
+    /// Adds `asset` as a sub asset using `subasset_name` and `handle`
+    pub fn insert_subasset(
         &mut self,
-        label: impl Into<CowArc<'static, str>>,
+        subasset_name: impl Into<CowArc<'static, str>>,
         handle: impl Into<UntypedHandle>,
         asset: impl Into<ErasedLoadedAsset>,
     ) {
-        let labeled = LabeledAsset {
+        let subasset = LoadedSubAsset {
             asset: asset.into(),
             handle: handle.into(),
         };
-        self.labeled_assets.insert(label.into(), labeled);
+        self.subassets.insert(subasset_name.into(), subasset);
     }
-    /// Iterate over all labels for "labeled assets" in the loaded asset
-    pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
-        self.labeled_assets.keys().map(|s| &**s)
+    /// Iterate over all subasset names in this loaded asset.
+    pub fn iter_subasset_names(&self) -> impl Iterator<Item = &str> {
+        self.subassets.keys().map(|s| &**s)
     }
 }
 

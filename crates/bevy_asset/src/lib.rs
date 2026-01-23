@@ -820,7 +820,7 @@ mod tests {
                 sub_texts: ron
                     .sub_texts
                     .drain(..)
-                    .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
+                    .map(|text| load_context.add_subasset(text.clone(), SubText { text }))
                     .collect(),
             })
         }
@@ -2574,8 +2574,8 @@ mod tests {
                 _settings: &Self::Settings,
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
-                load_context.add_labeled_asset("A".into(), TestAsset);
-                load_context.add_labeled_asset("B".into(), TestAsset);
+                load_context.add_subasset("A".into(), TestAsset);
+                load_context.add_subasset("B".into(), TestAsset);
                 Ok(TestAsset)
             }
 
@@ -2852,7 +2852,7 @@ mod tests {
                 // Load the asset in the root context, but then put the handle in the subasset. So
                 // the subasset's (internal) load context never loaded `dep`.
                 let dep = load_context.load::<TestAsset>("abc.ron");
-                load_context.add_labeled_asset("subasset".into(), AssetWithDep { dep });
+                load_context.add_subasset("subasset".into(), AssetWithDep { dep });
                 Ok(TestAsset)
             }
 
