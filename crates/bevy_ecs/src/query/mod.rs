@@ -867,8 +867,8 @@ mod tests {
             access.add_resource_read(component_id);
         }
 
-        fn init_state(world: &mut World) -> Self::State {
-            world.components_registrator().register_resource::<R>()
+        fn init_state(world: &World) -> Self::State {
+            world.components_queue().queue_register_resource::<R>()
         }
 
         fn get_state(components: &Components) -> Option<Self::State> {

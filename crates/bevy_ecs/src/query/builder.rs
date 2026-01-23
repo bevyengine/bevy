@@ -37,7 +37,7 @@ use super::{FilteredAccess, QueryData, QueryFilter};
 /// ```
 pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
     access: FilteredAccess,
-    world: &'w mut World,
+    world: &'w World,
     or: bool,
     first: bool,
     _marker: PhantomData<(D, F)>,
@@ -45,7 +45,7 @@ pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
 
 impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     /// Creates a new builder with the accesses required for `Q` and `F`
-    pub fn new(world: &'w mut World) -> Self {
+    pub fn new(world: &'w World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
 
@@ -98,11 +98,6 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
     /// Returns a reference to the world passed to [`Self::new`].
     pub fn world(&self) -> &World {
-        self.world
-    }
-
-    /// Returns a mutable reference to the world passed to [`Self::new`].
-    pub fn world_mut(&mut self) -> &mut World {
         self.world
     }
 

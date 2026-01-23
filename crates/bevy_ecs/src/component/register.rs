@@ -698,3 +698,24 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         })
     }
 }
+
+/// Represents a way to get the id of component types.
+pub trait ComponentIdDictator {
+    /// Determines the [`ComponentId`] of `T`.
+    /// This makes no promises of whether or not `T` will be full registered; it just gets its id.
+    fn determine_component_id_of<T: Component>(&mut self) -> ComponentId;
+}
+
+impl ComponentIdDictator for ComponentsRegistrator<'_> {
+    #[inline]
+    fn determine_component_id_of<T: Component>(&mut self) -> ComponentId {
+        self.register_component::<T>()
+    }
+}
+
+impl ComponentIdDictator for ComponentsQueuedRegistrator<'_> {
+    #[inline]
+    fn determine_component_id_of<T: Component>(&mut self) -> ComponentId {
+        self.queue_register_component::<T>()
+    }
+}

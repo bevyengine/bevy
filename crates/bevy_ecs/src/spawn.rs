@@ -298,9 +298,9 @@ pub struct SpawnRelatedBundle<R: Relationship, L: SpawnableList<R>> {
 unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     for SpawnRelatedBundle<R, L>
 {
-    fn component_ids(
-        components: &mut crate::component::ComponentsRegistrator,
-    ) -> impl Iterator<Item = crate::component::ComponentId> + use<R, L> {
+    fn component_ids<Components: crate::component::ComponentIdDictator>(
+        components: &mut Components,
+    ) -> impl Iterator<Item = crate::component::ComponentId> + use<R, L, Components> {
         <R::RelationshipTarget as Bundle>::component_ids(components)
     }
 
@@ -388,9 +388,9 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
-    fn component_ids(
-        components: &mut crate::component::ComponentsRegistrator,
-    ) -> impl Iterator<Item = crate::component::ComponentId> + use<R, B> {
+    fn component_ids<Components: crate::component::ComponentIdDictator>(
+        components: &mut Components,
+    ) -> impl Iterator<Item = crate::component::ComponentId> + use<R, B, Components> {
         <R::RelationshipTarget as Bundle>::component_ids(components)
     }
 

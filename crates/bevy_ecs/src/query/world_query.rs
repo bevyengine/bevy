@@ -116,7 +116,7 @@ pub unsafe trait WorldQuery {
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess);
 
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
-    fn init_state(world: &mut World) -> Self::State;
+    fn init_state(world: &World) -> Self::State;
 
     /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
     /// access to [`Components`].
@@ -205,7 +205,7 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = state;
                 $($name::update_component_access($name, access);)*
             }
-            fn init_state(world: &mut World) -> Self::State {
+            fn init_state(world: &World) -> Self::State {
                 ($($name::init_state(world),)*)
             }
             fn get_state(components: &Components) -> Option<Self::State> {

@@ -343,7 +343,7 @@ mod render_entities_world_query_impls {
             <&RenderEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 
-        fn init_state(world: &mut World) -> ComponentId {
+        fn init_state(world: &World) -> ComponentId {
             <&RenderEntity as WorldQuery>::init_state(world)
         }
 
@@ -458,7 +458,7 @@ mod render_entities_world_query_impls {
             <&MainEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 
-        fn init_state(world: &mut World) -> ComponentId {
+        fn init_state(world: &World) -> ComponentId {
             <&MainEntity as WorldQuery>::init_state(world)
         }
 

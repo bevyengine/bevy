@@ -181,7 +181,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
-    fn new_uninitialized(world: &mut World) -> Self {
+    fn new_uninitialized(world: &World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
         Self::from_states_uninitialized(world, fetch_state, filter_state)
@@ -253,8 +253,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits its [`FilteredAccess`].
     pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self {
-        let mut fetch_state = D::init_state(builder.world_mut());
-        let filter_state = F::init_state(builder.world_mut());
+        let mut fetch_state = D::init_state(builder.world());
+        let filter_state = F::init_state(builder.world());
 
         let mut component_access = FilteredAccess::default();
         D::update_component_access(&fetch_state, &mut component_access);
