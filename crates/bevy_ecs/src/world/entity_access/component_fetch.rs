@@ -51,11 +51,11 @@ pub unsafe trait DynamicComponentFetch {
     /// # Errors
     ///
     /// - Returns [`EntityComponentError::MissingComponent`] if a component is missing from the entity.
-    unsafe fn fetch_ref<'w>(
+    unsafe fn fetch_ref(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Ref<'w>, EntityComponentError>;
+    ) -> Result<Self::Ref<'_>, EntityComponentError>;
 
     /// Returns untyped mutable reference(s) to the component(s) with the
     /// given [`ComponentId`]s, as determined by `self`.
@@ -70,11 +70,11 @@ pub unsafe trait DynamicComponentFetch {
     ///
     /// - Returns [`EntityComponentError::MissingComponent`] if a component is missing from the entity.
     /// - Returns [`EntityComponentError::AliasedMutability`] if a component is requested multiple times.
-    unsafe fn fetch_mut<'w>(
+    unsafe fn fetch_mut(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError>;
+    ) -> Result<Self::Mut<'_>, EntityComponentError>;
 
     /// Returns untyped mutable reference(s) to the component(s) with the
     /// given [`ComponentId`]s, as determined by `self`.
@@ -92,11 +92,11 @@ pub unsafe trait DynamicComponentFetch {
     ///
     /// - Returns [`EntityComponentError::MissingComponent`] if a component is missing from the entity.
     /// - Returns [`EntityComponentError::AliasedMutability`] if a component is requested multiple times.
-    unsafe fn fetch_mut_assume_mutable<'w>(
+    unsafe fn fetch_mut_assume_mutable(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError>;
+    ) -> Result<Self::Mut<'_>, EntityComponentError>;
 }
 
 // SAFETY:
@@ -106,30 +106,30 @@ unsafe impl DynamicComponentFetch for ComponentId {
     type Ref<'w> = Ptr<'w>;
     type Mut<'w> = MutUntyped<'w>;
 
-    unsafe fn fetch_ref<'w>(
+    unsafe fn fetch_ref(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Ref<'w>, EntityComponentError> {
+    ) -> Result<Self::Ref<'_>, EntityComponentError> {
         // SAFETY: caller ensures that the cell has read access to the component.
         unsafe { cell.get_by_id(access, self) }.ok_or(EntityComponentError::MissingComponent(self))
     }
 
-    unsafe fn fetch_mut<'w>(
+    unsafe fn fetch_mut(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
         // SAFETY: caller ensures that the cell has mutable access to the component.
         unsafe { cell.get_mut_by_id(access, self) }
             .map_err(|_| EntityComponentError::MissingComponent(self))
     }
 
-    unsafe fn fetch_mut_assume_mutable<'w>(
+    unsafe fn fetch_mut_assume_mutable(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
         // SAFETY: caller ensures that the cell has mutable access to the component.
         unsafe { cell.get_mut_assume_mutable_by_id(access, self) }
             .map_err(|_| EntityComponentError::MissingComponent(self))
@@ -143,27 +143,27 @@ unsafe impl<const N: usize> DynamicComponentFetch for [ComponentId; N] {
     type Ref<'w> = [Ptr<'w>; N];
     type Mut<'w> = [MutUntyped<'w>; N];
 
-    unsafe fn fetch_ref<'w>(
+    unsafe fn fetch_ref(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Ref<'w>, EntityComponentError> {
+    ) -> Result<Self::Ref<'_>, EntityComponentError> {
         <&Self>::fetch_ref(&self, cell, access)
     }
 
-    unsafe fn fetch_mut<'w>(
+    unsafe fn fetch_mut(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
         <&Self>::fetch_mut(&self, cell, access)
     }
 
-    unsafe fn fetch_mut_assume_mutable<'w>(
+    unsafe fn fetch_mut_assume_mutable(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
         <&Self>::fetch_mut_assume_mutable(&self, cell, access)
     }
 }
@@ -175,11 +175,11 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
     type Ref<'w> = [Ptr<'w>; N];
     type Mut<'w> = [MutUntyped<'w>; N];
 
-    unsafe fn fetch_ref<'w>(
+    unsafe fn fetch_ref(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Ref<'w>, EntityComponentError> {
+    ) -> Result<Self::Ref<'_>, EntityComponentError> {
         let mut ptrs = [const { MaybeUninit::uninit() }; N];
         for (ptr, &id) in core::iter::zip(&mut ptrs, self) {
             *ptr = MaybeUninit::new(
@@ -195,11 +195,11 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut<'w>(
+    unsafe fn fetch_mut(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
         // Check for duplicate component IDs.
         for i in 0..self.len() {
             for j in 0..i {
@@ -224,11 +224,11 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut_assume_mutable<'w>(
+    unsafe fn fetch_mut_assume_mutable(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
         // Check for duplicate component IDs.
         for i in 0..self.len() {
             for j in 0..i {
@@ -261,11 +261,11 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
     type Ref<'w> = Vec<Ptr<'w>>;
     type Mut<'w> = Vec<MutUntyped<'w>>;
 
-    unsafe fn fetch_ref<'w>(
+    unsafe fn fetch_ref(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Ref<'w>, EntityComponentError> {
+    ) -> Result<Self::Ref<'_>, EntityComponentError> {
         let mut ptrs = Vec::with_capacity(self.len());
         for &id in self {
             ptrs.push(
@@ -277,11 +277,11 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut<'w>(
+    unsafe fn fetch_mut(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
         // Check for duplicate component IDs.
         for i in 0..self.len() {
             for j in 0..i {
@@ -302,11 +302,11 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut_assume_mutable<'w>(
+    unsafe fn fetch_mut_assume_mutable(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
         // Check for duplicate component IDs.
         for i in 0..self.len() {
             for j in 0..i {
@@ -335,11 +335,11 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
     type Ref<'w> = HashMap<ComponentId, Ptr<'w>>;
     type Mut<'w> = HashMap<ComponentId, MutUntyped<'w>>;
 
-    unsafe fn fetch_ref<'w>(
+    unsafe fn fetch_ref(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Ref<'w>, EntityComponentError> {
+    ) -> Result<Self::Ref<'_>, EntityComponentError> {
         let mut ptrs = HashMap::with_capacity_and_hasher(self.len(), Default::default());
         for &id in self {
             ptrs.insert(
@@ -352,11 +352,11 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut<'w>(
+    unsafe fn fetch_mut(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
         let mut ptrs = HashMap::with_capacity_and_hasher(self.len(), Default::default());
         for &id in self {
             ptrs.insert(
@@ -369,11 +369,11 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
         Ok(ptrs)
     }
 
-    unsafe fn fetch_mut_assume_mutable<'w>(
+    unsafe fn fetch_mut_assume_mutable(
         self,
-        cell: UnsafeEntityCell<'w>,
+        cell: UnsafeEntityCell<'_>,
         access: impl AsAccess,
-    ) -> Result<Self::Mut<'w>, EntityComponentError> {
+    ) -> Result<Self::Mut<'_>, EntityComponentError> {
         let mut ptrs = HashMap::with_capacity_and_hasher(self.len(), Default::default());
         for &id in self {
             ptrs.insert(
