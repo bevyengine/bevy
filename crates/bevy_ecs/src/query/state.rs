@@ -172,7 +172,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This function may fail if, for example,
     /// the components that make up this query have not been registered into the world.
     pub fn try_new(world: &World) -> Option<Self> {
-        Some(Self::new(world))
+        let mut state = Self::try_new_uninitialized(world)?;
+        state.update_archetypes(world);
+        Some(state)
     }
 
     /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
@@ -183,6 +185,20 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
         Self::from_states_uninitialized(world, fetch_state, filter_state)
+    }
+
+    /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
+    ///
+    /// `new_archetype` and its variants must be called on all of the World's archetypes before the
+    /// state can return valid query results.
+    fn try_new_uninitialized(world: &World) -> Option<Self> {
+        let fetch_state = D::get_state(world.components())?;
+        let filter_state = F::get_state(world.components())?;
+        Some(Self::from_states_uninitialized(
+            world,
+            fetch_state,
+            filter_state,
+        ))
     }
 
     /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
