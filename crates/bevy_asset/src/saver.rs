@@ -295,6 +295,7 @@ impl<'a> SavedAssetBuilder<'a> {
     /// an asset).
     ///
     /// This is primarily used when **constructing** a new asset to be saved.
+    #[must_use]
     pub fn add_labeled_asset_with_new_handle<'b: 'a, A: Asset>(
         &mut self,
         label: impl Into<CowArc<'b, str>>,
@@ -336,6 +337,7 @@ impl<'a> SavedAssetBuilder<'a> {
 
     /// Same as [`Self::add_labeled_asset_with_new_handle`], but type-erased to allow for dynamic
     /// types.
+    #[must_use]
     pub fn add_labeled_asset_with_new_handle_erased<'b: 'a>(
         &mut self,
         label: impl Into<CowArc<'b, str>>,
