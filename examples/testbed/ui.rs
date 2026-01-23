@@ -1515,12 +1515,13 @@ mod debug_outlines {
                 parent.spawn((
                     Node {
                         flex_direction: FlexDirection::Column,
-                        width: px(100),
-                        height: px(100),
+                        width: px(90),
+                        height: px(230),
                         overflow: Overflow::scroll_y(),
                         scrollbar_width: 20.,
                         ..default()
                     },
+                    ScrollPosition(Vec2::new(180., 180.)),
                     UiDebugOptions {
                         line_width: 3.,
                         outline_scrollbars: true,
@@ -1528,7 +1529,7 @@ mod debug_outlines {
                         show_clipped: false,
                         ..*debug_options
                     },
-                    Children::spawn(SpawnIter((0..6).map(move |i| {
+                    Children::spawn(SpawnIter((0..20).map(move |i| {
                         (
                             Node::default(),
                             children![(
@@ -1550,10 +1551,10 @@ mod debug_outlines {
                 parent.spawn((
                     Node {
                         flex_direction: FlexDirection::Row,
-                        width: px(100),
-                        height: px(100),
+                        width: px(156),
+                        height: px(70),
                         overflow: Overflow::scroll_x(),
-                        scrollbar_width: 20.,
+                        scrollbar_width: 10.,
                         ..default()
                     },
                     UiDebugOptions {
@@ -1563,7 +1564,7 @@ mod debug_outlines {
                         show_clipped: false,
                         ..*debug_options
                     },
-                    Children::spawn(SpawnIter((0..6).map(move |i| {
+                    Children::spawn(SpawnIter((0..20).map(move |i| {
                         (
                             Node::default(),
                             children![(
@@ -1585,12 +1586,13 @@ mod debug_outlines {
                 parent.spawn((
                     Node {
                         flex_direction: FlexDirection::Column,
-                        width: px(100),
-                        height: px(100),
+                        width: px(230),
+                        height: px(125),
                         overflow: Overflow::scroll(),
                         scrollbar_width: 20.,
                         ..default()
                     },
+                    ScrollPosition(Vec2::new(300., 0.)),
                     UiDebugOptions {
                         line_width: 3.,
                         outline_scrollbars: true,
