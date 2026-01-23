@@ -502,6 +502,40 @@ impl<'w, T> ContiguousRef<'w, T> {
     pub fn this_run_tick(&self) -> Tick {
         self.ticks.this_run
     }
+
+    /// Creates a new `ContiguousRef` using provided values.
+    ///
+    /// This is an advanced feature, `ContiguousRef`s are designed to be _created_ by
+    /// engine-internal code and _consumed_ by end-user code.
+    ///
+    /// - `value` - The values wrapped by `ContiguousRef`.
+    /// - `added` - [`Tick`]s that store the tick when the wrapped value was created.
+    /// - `changed` - [`Tick`]s that store the last time the wrapped value was changed.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
+    ///   as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
+    /// - `caller` - [`Location`]s that store the location when the wrapper value was changed.
+    ///
+    /// See also: [`Ref::new`]
+    pub fn new(
+        value: &'w [T],
+        added: &'w [Tick],
+        changed: &'w [Tick],
+        last_run: Tick,
+        this_run: Tick,
+        caller: MaybeLocation<&'w [&'static Location<'static>]>,
+    ) -> Self {
+        Self {
+            value,
+            ticks: ContiguousComponentTicksRef {
+                added,
+                changed,
+                changed_by: caller,
+                last_run,
+                this_run,
+            },
+        }
+    }
 }
 
 impl<'w, T> Deref for ContiguousRef<'w, T> {
