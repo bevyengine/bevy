@@ -43,8 +43,14 @@ impl<'w> ComponentTicksRef<'w> {
     }
 }
 
+/// Data type storing contiguously lying ticks.
+///
+/// Retrievable via [`ContiguousRef::split`] and probably only useful if you want to use the following
+/// methods:
+/// - [ContiguousComponentTicksRef::is_changed_iter],
+/// - [ContiguousComponentTicksRef::is_added_iter]
 #[derive(Clone)]
-pub(crate) struct ContiguousComponentTicksRef<'w> {
+pub struct ContiguousComponentTicksRef<'w> {
     pub(crate) added: &'w [Tick],
     pub(crate) changed: &'w [Tick],
     pub(crate) changed_by: MaybeLocation<&'w [&'static Location<'static>]>,
@@ -76,6 +82,60 @@ impl<'w> ContiguousComponentTicksRef<'w> {
             last_run,
             this_run,
         }
+    }
+
+    /// Returns an iterator where the i-th item corresponds to whether the i-th component was
+    /// marked as changed. If the value equals [`prim@true`], then the component was changed.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct A(pub i32);
+    ///
+    /// fn some_system(mut query: Query<Ref<A>>) {
+    ///     for a in query.contiguous_iter().unwrap() {
+    ///         let (a_values, a_ticks) = ContiguousRef::split(a);
+    ///         for (value, is_changed) in a_values.iter().zip(a_ticks.is_changed_iter()) {
+    ///             if is_changed {
+    ///                 // do something
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn is_changed_iter(&self) -> impl Iterator<Item = bool> {
+        self.changed
+            .iter()
+            .map(|v| v.is_newer_than(self.last_run, self.this_run))
+    }
+
+    /// Returns an iterator where the i-th item corresponds to whether the i-th component was
+    /// marked as added. If the value equals [`prim@true`], then the component was added.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct A(pub i32);
+    ///
+    /// fn some_system(mut query: Query<Ref<A>>) {
+    ///     for a in query.contiguous_iter().unwrap() {
+    ///         let (a_values, a_ticks) = ContiguousRef::split(a);
+    ///         for (value, is_added) in a_values.iter().zip(a_ticks.is_added_iter()) {
+    ///             if is_added {
+    ///                 // do something
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn is_added_iter(&self) -> impl Iterator<Item = bool> {
+        self.added
+            .iter()
+            .map(|v| v.is_newer_than(self.last_run, self.this_run))
     }
 }
 
@@ -123,7 +183,13 @@ impl<'w> From<ComponentTicksMut<'w>> for ComponentTicksRef<'w> {
     }
 }
 
-pub(crate) struct ContiguousComponentTicksMut<'w> {
+/// Data type storing contiguously lying ticks, which may be accessed to mutate.
+///
+/// Retrievable via [`ContiguousMut::split`] and probably only useful if you want to use the following
+/// methods:
+/// - [ContiguousComponentTicksMut::is_changed_iter],
+/// - [ContiguousComponentTicksMut::is_added_iter]
+pub struct ContiguousComponentTicksMut<'w> {
     pub(crate) added: &'w mut [Tick],
     pub(crate) changed: &'w mut [Tick],
     pub(crate) changed_by: MaybeLocation<&'w mut [&'static Location<'static>]>,
@@ -157,7 +223,62 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         }
     }
 
-    pub fn mark_all_as_updated(&mut self) {
+    /// Returns an iterator where the i-th item corresponds to whether the i-th component was
+    /// marked as changed. If the value equals [`prim@true`], then the component was changed.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct A(pub i32);
+    ///
+    /// fn some_system(mut query: Query<&mut A>) {
+    ///     for a in query.contiguous_iter_mut().unwrap() {
+    ///         let (a_values, a_ticks) = ContiguousMut::split(a);
+    ///         for (value, is_changed) in a_values.iter_mut().zip(a_ticks.is_changed_iter()) {
+    ///             if is_changed {
+    ///                 value.0 *= 10;
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn is_changed_iter(&self) -> impl Iterator<Item = bool> {
+        self.changed
+            .iter()
+            .map(|v| v.is_newer_than(self.last_run, self.this_run))
+    }
+
+    /// Returns an iterator where the i-th item corresponds to whether the i-th component was
+    /// marked as added. If the value equals [`prim@true`], then the component was added.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct A(pub i32);
+    ///
+    /// fn some_system(mut query: Query<&mut A>) {
+    ///     for a in query.contiguous_iter_mut().unwrap() {
+    ///         let (a_values, a_ticks) = ContiguousMut::split(a);
+    ///         for (value, is_added) in a_values.iter_mut().zip(a_ticks.is_added_iter()) {
+    ///             if is_added {
+    ///                 value.0 = 10;
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn is_added_iter(&self) -> impl Iterator<Item = bool> {
+        self.added
+            .iter()
+            .map(|v| v.is_newer_than(self.last_run, self.this_run))
+    }
+
+    /// Marks every tick as changed.
+    pub fn mark_all_as_changed(&mut self) {
         let this_run = self.this_run;
 
         self.changed_by.as_mut().map(|v| {
@@ -460,6 +581,8 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     }
 }
 
+/// Contiguous equivalent of [`Ref<T>`].
+///
 /// Data type returned by [`ContiguousQueryData::fetch_contiguous`](crate::query::ContiguousQueryData::fetch_contiguous) for [`Ref<T>`].
 #[derive(Clone)]
 pub struct ContiguousRef<'w, T> {
@@ -535,6 +658,11 @@ impl<'w, T> ContiguousRef<'w, T> {
                 this_run,
             },
         }
+    }
+
+    /// Splits [`ContiguousRef`] into it's inner data types.
+    pub fn split(this: Self) -> (&'w [T], ContiguousComponentTicksRef<'w>) {
+        (this.value, this.ticks)
     }
 }
 
@@ -744,12 +872,12 @@ impl<'w, T> ContiguousMut<'w, T> {
         self.ticks.changed_by.as_deref_mut()
     }
 
-    /// Marks all components as updated.
+    /// Marks all components as changed.
     ///
     /// **Runs in O(n), where n is the amount of rows**
     #[inline]
-    pub fn mark_all_as_updated(&mut self) {
-        self.ticks.mark_all_as_updated();
+    pub fn mark_all_as_changed(&mut self) {
+        self.ticks.mark_all_as_changed();
     }
 
     /// Returns a `ContiguousMut<T>` with a smaller lifetime.
@@ -765,6 +893,15 @@ impl<'w, T> ContiguousMut<'w, T> {
             },
         }
     }
+
+    /// Splits [`ContiguousMut`] into it's inner data types. It may be useful, when you want to
+    /// have an iterator over component values and check ticks simultaneously.
+    ///
+    /// # Warning
+    /// **Bypasses change detection**
+    pub fn split(this: Self) -> (&'w mut [T], ContiguousComponentTicksMut<'w>) {
+        (this.value, this.ticks)
+    }
 }
 
 impl<'w, T> Deref for ContiguousMut<'w, T> {
@@ -779,7 +916,7 @@ impl<'w, T> Deref for ContiguousMut<'w, T> {
 impl<'w, T> DerefMut for ContiguousMut<'w, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.mark_all_as_updated();
+        self.mark_all_as_changed();
         self.value
     }
 }
@@ -804,7 +941,7 @@ impl<'w, T> IntoIterator for ContiguousMut<'w, T> {
     type IntoIter = core::slice::IterMut<'w, T>;
 
     fn into_iter(mut self) -> Self::IntoIter {
-        self.mark_all_as_updated();
+        self.mark_all_as_changed();
         self.value.iter_mut()
     }
 }
@@ -812,6 +949,15 @@ impl<'w, T> IntoIterator for ContiguousMut<'w, T> {
 impl<'w, T: core::fmt::Debug> core::fmt::Debug for ContiguousMut<'w, T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("ContiguousMut").field(&self.value).finish()
+    }
+}
+
+impl<'w, T> From<ContiguousMut<'w, T>> for ContiguousRef<'w, T> {
+    fn from(value: ContiguousMut<'w, T>) -> Self {
+        Self {
+            value: value.value,
+            ticks: value.ticks.into(),
+        }
     }
 }
 
