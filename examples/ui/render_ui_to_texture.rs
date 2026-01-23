@@ -123,7 +123,7 @@ fn setup(
                     parent.spawn((
                         Text::new("Drag Me!"),
                         TextFont {
-                            font_size: 40.0,
+                            font_size: FontSize::Px(40.0),
                             ..default()
                         },
                         TextColor::WHITE,

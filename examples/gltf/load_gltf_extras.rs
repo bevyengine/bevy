@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text::default(),
         TextFont {
-            font_size: 15.,
+            font_size: FontSize::Px(15.),
             ..default()
         },
         Node {

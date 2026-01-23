@@ -10,7 +10,7 @@ use bevy::{
     winit::WinitSettings,
 };
 
-const FONT_SIZE: f32 = 7.0;
+const FONT_SIZE: FontSize = FontSize::Px(7.0);
 
 #[derive(FromArgs, Resource)]
 /// `many_buttons` general UI benchmark that stress tests layouting, text, interaction and rendering

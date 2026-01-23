@@ -194,7 +194,7 @@ fn build_stepping_hint(mut commands: Commands) {
     commands.spawn((
         Text::new(hint_text),
         TextFont {
-            font_size: 15.0,
+            font_size: FontSize::Px(15.0),
             ..default()
         },
         TextColor(FONT_COLOR),

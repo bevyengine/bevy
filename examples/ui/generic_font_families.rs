@@ -35,7 +35,7 @@ fn main() {
     app.run();
 }
 
-const FONT_SIZE: f32 = 25.;
+const FONT_SIZE: FontSize = FontSize::Px(25.);
 
 fn setup(mut commands: Commands, font_system: Res<CosmicFontSystem>) {
     // UI camera

@@ -42,7 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Button 1"),
                         TextFont {
                             font: font_handle.clone(),
-                            font_size: 33.0,
+                            font_size: FontSize::Px(33.0),
                             ..default()
                         },
                         // Alpha channel of the color controls transparency.
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Button 2"),
                         TextFont {
                             font: font_handle.clone(),
-                            font_size: 33.0,
+                            font_size: FontSize::Px(33.0),
                             ..default()
                         },
                         // Alpha channel of the color controls transparency.

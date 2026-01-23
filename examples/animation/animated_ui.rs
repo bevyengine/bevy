@@ -1,9 +1,7 @@
 //! Shows how to use animation clips to animate UI properties.
 
 use bevy::{
-    animation::{
-        animated_field, AnimatedBy, AnimationEntityMut, AnimationEvaluationError, AnimationTargetId,
-    },
+    animation::{AnimatedBy, AnimationEntityMut, AnimationEvaluationError, AnimationTargetId},
     prelude::*,
 };
 use std::any::TypeId;
@@ -47,7 +45,7 @@ impl AnimationInfo {
         animation_clip.add_curve_to_target(
             animation_target_id,
             AnimatableCurve::new(
-                animated_field!(TextFont::font_size),
+                TextFontSizeProperty,
                 AnimatableKeyframeCurve::new(
                     [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
                         .into_iter()
@@ -143,7 +141,7 @@ fn setup(
         Text::new("Bevy"),
         TextFont {
             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-            font_size: 24.0,
+            font_size: FontSize::Px(24.0),
             ..default()
         },
         TextColor(Color::Srgba(Srgba::RED)),
@@ -182,6 +180,38 @@ impl AnimatableProperty for TextColorProperty {
             Color::Srgba(ref mut color) => Ok(color),
             _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
                 Srgba,
+            >(
+            ))),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct TextFontSizeProperty;
+
+impl AnimatableProperty for TextFontSizeProperty {
+    type Property = f32;
+
+    fn evaluator_id(&self) -> EvaluatorId<'_> {
+        EvaluatorId::Type(TypeId::of::<Self>())
+    }
+
+    fn get_mut<'a>(
+        &self,
+        entity: &'a mut AnimationEntityMut,
+    ) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
+        let text_font = entity
+            .get_mut::<TextFont>()
+            .ok_or(AnimationEvaluationError::ComponentNotPresent(TypeId::of::<
+                TextFont,
+            >(
+            )))?
+            .into_inner();
+
+        match &mut text_font.font_size {
+            FontSize::Px(size) => Ok(size),
+            _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
+                FontSize,
             >(
             ))),
         }

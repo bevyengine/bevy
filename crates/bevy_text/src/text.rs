@@ -3,6 +3,7 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
@@ -373,7 +374,7 @@ pub struct TextFont {
     ///
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
-    pub font_size: f32,
+    pub font_size: FontSize,
     /// How thick or bold the strokes of a font appear.
     ///
     /// Font weights can be any value between 1 and 1000, inclusive.
@@ -392,7 +393,7 @@ pub struct TextFont {
 
 impl TextFont {
     /// Returns a new [`TextFont`] with the specified font size.
-    pub fn from_font_size(font_size: f32) -> Self {
+    pub fn from_font_size(font_size: impl Into<FontSize>) -> Self {
         Self::default().with_font_size(font_size)
     }
 
@@ -409,8 +410,8 @@ impl TextFont {
     }
 
     /// Returns this [`TextFont`] with the specified font size.
-    pub const fn with_font_size(mut self, font_size: f32) -> Self {
-        self.font_size = font_size;
+    pub fn with_font_size(mut self, font_size: impl Into<FontSize>) -> Self {
+        self.font_size = font_size.into();
         self
     }
 
@@ -434,13 +435,117 @@ impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            font_size: 20.0,
+            font_size: FontSize::from(20.),
             style: FontStyle::Normal,
             weight: FontWeight::NORMAL,
             width: FontWidth::NORMAL,
             font_features: FontFeatures::default(),
             font_smoothing: Default::default(),
         }
+    }
+}
+
+/// The vertical height of rasterized glyphs in the font atlas in pixels.
+///
+/// This is multiplied by the scale factor, but not the text entity
+/// transform or camera projection.
+///
+/// The viewport variants are not supported by `Text2d`.
+///
+/// A new font atlas is generated for every combination of font handle and scaled font size
+/// which can have a strong performance impact.
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+pub enum FontSize {
+    /// Font Size in logical pixels.
+    Px(f32),
+    /// Font size as a percentage of the viewport width.
+    Vw(f32),
+    /// Font size as a percentage of the viewport height.
+    Vh(f32),
+    /// Font size as a percentage of the smaller of the viewport width and height.
+    VMin(f32),
+    /// Font size as a percentage of the larger of the viewport width and height.
+    VMax(f32),
+    /// Font Size relative to the value of the `RemSize` resource.
+    Rem(f32),
+}
+
+impl FontSize {
+    /// Evaluate the font size to a value in logical pixels
+    pub fn eval(
+        self,
+        // Viewport size in logical pixels
+        logical_viewport_size: Vec2,
+        // Base Rem size in logical pixels
+        rem_size: f32,
+    ) -> f32 {
+        match self {
+            FontSize::Px(s) => s,
+            FontSize::Vw(s) => logical_viewport_size.x * s / 100.,
+            FontSize::Vh(s) => logical_viewport_size.y * s / 100.,
+            FontSize::VMin(s) => logical_viewport_size.min_element() * s / 100.,
+            FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
+            FontSize::Rem(s) => rem_size * s,
+        }
+    }
+}
+
+impl PartialEq for FontSize {
+    fn eq(&self, other: &Self) -> bool {
+        match (*self, *other) {
+            (Self::Px(l), Self::Px(r))
+            | (Self::Vw(l), Self::Vw(r))
+            | (Self::Vh(l), Self::Vh(r))
+            | (Self::VMin(l), Self::VMin(r))
+            | (Self::VMax(l), Self::VMax(r))
+            | (Self::Rem(l), Self::Rem(r)) => l == r,
+            _ => false,
+        }
+    }
+}
+
+impl core::ops::Mul<f32> for FontSize {
+    type Output = FontSize;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        match self {
+            FontSize::Px(v) => FontSize::Px(v * rhs),
+            FontSize::Vw(v) => FontSize::Vw(v * rhs),
+            FontSize::Vh(v) => FontSize::Vh(v * rhs),
+            FontSize::VMin(v) => FontSize::VMin(v * rhs),
+            FontSize::VMax(v) => FontSize::VMax(v * rhs),
+            FontSize::Rem(v) => FontSize::Rem(v * rhs),
+        }
+    }
+}
+
+impl core::ops::Mul<FontSize> for f32 {
+    type Output = FontSize;
+
+    fn mul(self, rhs: FontSize) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl Default for FontSize {
+    fn default() -> Self {
+        Self::Px(20.)
+    }
+}
+
+impl From<f32> for FontSize {
+    fn from(value: f32) -> Self {
+        Self::Px(value)
+    }
+}
+
+/// Base value used to resolve `Rem` units for font sizes.
+#[derive(Resource, Copy, Clone, Debug, PartialEq, Deref, DerefMut)]
+pub struct RemSize(pub f32);
+
+impl Default for RemSize {
+    fn default() -> Self {
+        Self(20.)
     }
 }
 

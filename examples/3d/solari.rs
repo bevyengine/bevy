@@ -190,7 +190,7 @@ fn setup_pica_pica(
             PerformanceText,
             Text::default(),
             TextFont {
-                font_size: 8.0,
+                font_size: FontSize::Px(8.0),
                 ..default()
             },
         )],
@@ -360,7 +360,7 @@ fn setup_many_lights(
             PerformanceText,
             Text::default(),
             TextFont {
-                font_size: 8.0,
+                font_size: FontSize::Px(8.0),
                 ..default()
             },
         )],

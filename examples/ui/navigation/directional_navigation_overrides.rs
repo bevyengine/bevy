@@ -216,7 +216,7 @@ fn setup_paged_ui(
         },
         BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8)),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
     ));
@@ -236,7 +236,7 @@ fn setup_paged_ui(
         },
         BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8)),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
     ));
@@ -475,7 +475,7 @@ fn setup_buttons_for_grid_page(
                     ..default()
                 },
                 TextFont {
-                    font_size: 20.0,
+                    font_size: FontSize::Px(20.0),
                     ..default()
                 },
             ))
@@ -614,7 +614,7 @@ fn spawn_small_text_node(
                 ..default()
             },
             TextFont {
-                font_size: 20.0,
+                font_size: FontSize::Px(20.0),
                 ..default()
             },
             TextLayout {

@@ -20,7 +20,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Strikethrough,
         TextFont {
             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-            font_size: 67.0,
+            font_size: FontSize::Px(67.0),
             ..default()
         },
         TextLayout::new_with_justify(Justify::Center),
@@ -64,7 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Text::new("struck struck"),
                 Strikethrough,
                 TextFont {
-                    font_size: 67.0,
+                    font_size: FontSize::Px(67.0),
                     ..default()
                 },
             ),
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Strikethrough,
                 TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                    font_size: 67.0,
+                    font_size: FontSize::Px(67.0),
                     ..default()
                 },
                 BackgroundColor(NAVY.into())
@@ -85,7 +85,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextSpan::new("struck"),
                         Strikethrough,
                         TextFont {
-                            font_size: 15.,
+                            font_size: FontSize::Px(15.),
                             ..default()
                         },
                         TextColor(RED.into()),
@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Underline,
                         UnderlineColor(YELLOW.into()),
                         TextFont {
-                            font_size: 30.,
+                            font_size: FontSize::Px(30.),
                             ..default()
                         },
                         TextColor(RED.into()),
@@ -105,7 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     (
                         TextSpan::new("\nstruck"),
                         TextFont {
-                            font_size: 50.,
+                            font_size: FontSize::Px(50.),
                             ..default()
                         },
                         Strikethrough,
@@ -115,7 +115,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     (
                         TextSpan::new("underlined and struck"),
                         TextFont {
-                            font_size: 70.,
+                            font_size: FontSize::Px(70.),
                             ..default()
                         },
                         Strikethrough,

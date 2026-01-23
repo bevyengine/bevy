@@ -22,7 +22,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     let text_font = TextFont {
-        font_size: 10.0,
+        font_size: FontSize::Px(10.0),
         ..default()
     };
 

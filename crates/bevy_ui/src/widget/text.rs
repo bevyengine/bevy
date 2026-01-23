@@ -20,7 +20,7 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, FontHinting, LineBreak, LineHeight,
-    SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    RemSize, SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
     TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
@@ -62,7 +62,7 @@ impl Default for TextNodeFlags {
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, FontSize, Justify, TextLayout, TextFont, TextColor, TextSpan};
 /// # use bevy_ui::prelude::Text;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
@@ -76,7 +76,7 @@ impl Default for TextNodeFlags {
 ///     Text::new("hello world!"),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
-///         font_size: 60.0,
+///         font_size: FontSize::Px(60.0),
 ///         ..Default::default()
 ///     },
 ///     TextColor(BLUE.into()),
@@ -255,6 +255,7 @@ pub fn measure_text_system(
     mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
+    rem_size: Res<RemSize>,
 ) {
     for (
         entity,
@@ -288,6 +289,8 @@ pub fn measure_text_system(
             computed.as_mut(),
             &mut font_system,
             *hinting,
+            computed_target.logical_size(),
+            rem_size.0,
         ) {
             Ok(measure) => {
                 if block.linebreak == LineBreak::NoWrap {

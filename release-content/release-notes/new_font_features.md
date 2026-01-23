@@ -9,7 +9,7 @@ pull_requests: [22156]
 ```rust
 pub struct TextFont {
     pub font: FontSource,
-    pub font_size: f32,
+    pub font_size: FontSize,
     pub weight: FontWeight,
     pub width: FontWidth,
     pub style: FontStyle,
@@ -31,3 +31,28 @@ font_system.db_mut().load_system_fonts()
 ```
 
 Then they are available to be selected by family name using `FontSource::Family`.
+
+The `font_size` field is now a `FontSize`, enabling responsive font sizing.
+
+`FontSize` is an enum with variants:
+
+```rust
+pub enum FontSize {
+    /// Font Size in logical pixels.
+    Px(f32),
+    /// Font size as a percentage of the viewport width.
+    Vw(f32),
+    /// Font size as a percentage of the viewport height.
+    Vh(f32),
+    /// Font size as a percentage of the smaller of the viewport width and height.
+    VMin(f32),
+    /// Font size as a percentage of the larger of the viewport width and height.
+    VMax(f32),
+    /// Font Size relative to the value of the `RemSize` resource.
+    Rem(f32),
+}
+```
+
+`Rem` units are currently resolved using `RemSize`, which is a new `Resource`. `RemSize` just newtypes an `f32` currently.
+
+`Text2d`'s support for viewport coords is limited. A `Text2d` entity's resolved font size is always based on the size of the primary window, not on the size of its render target(s).

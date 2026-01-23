@@ -58,7 +58,7 @@ const MIP_SLICES_MARGIN_RIGHT: f32 = 12.0;
 const MIP_SLICES_WIDTH: f32 = 1.0 / 6.0;
 
 /// The size of the mipmap level label font.
-const FONT_SIZE: f32 = 16.0;
+const FONT_SIZE: FontSize = FontSize::Px(16.0);
 
 /// All settings that the user can change via the UI.
 #[derive(Resource)]

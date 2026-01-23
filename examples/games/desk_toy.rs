@@ -109,7 +109,7 @@ fn setup(
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextFont {
         font: font.clone().into(),
-        font_size: 25.0,
+        font_size: FontSize::Px(25.0),
         ..default()
     };
     commands.spawn((

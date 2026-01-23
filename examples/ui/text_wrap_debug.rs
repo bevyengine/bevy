@@ -46,7 +46,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let text_font = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-        font_size: 12.0,
+        font_size: FontSize::Px(12.0),
         ..default()
     };
 
