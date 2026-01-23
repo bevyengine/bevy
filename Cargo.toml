@@ -4760,6 +4760,8 @@ wasm = false
 [[example]]
 name = "camera_color_target_graph"
 path = "examples/3d/camera_color_target_graph.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
 
 [package.metadata.example.camera_color_target_graph]
 name = "Camera color target IO"

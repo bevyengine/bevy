@@ -458,9 +458,8 @@ pub fn camera_system(
                         }
                     ) {
                         continue;
-                    } else {
-                        return Err(err.into());
                     }
+                    return Err(err.into());
                 }
             };
             // Check for the scale factor changing, and resize the viewport if needed.

@@ -18,7 +18,7 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 
-/// This enables [`MainColorTargetReadsFrom`] support for the `core_2d` and `core_3d` pipelines.
+/// This enables [`MainColorTargetReadsFrom`](bevy_camera::color_target::MainColorTargetReadsFrom) support for the `core_2d` and `core_3d` pipelines.
 #[derive(Default)]
 pub struct ColorTargetInputPlugin;
 

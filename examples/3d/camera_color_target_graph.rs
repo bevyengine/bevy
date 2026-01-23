@@ -1,6 +1,13 @@
 //! Demonstrates connecting color target input and output of multiple cameras.
 //!
 
+use bevy::image::ToExtents;
+use bevy::render::{
+    render_resource::{
+        BlendState, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    },
+    view::Hdr,
+};
 use bevy::{
     camera::{
         color_target::{
@@ -16,13 +23,6 @@ use bevy::{
         effect_stack::Vignette,
     },
     prelude::*,
-};
-use bevy_image::ToExtents;
-use bevy_render::{
-    render_resource::{
-        BlendState, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    },
-    view::Hdr,
 };
 
 fn main() {

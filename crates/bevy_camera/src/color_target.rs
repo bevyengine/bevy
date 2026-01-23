@@ -14,7 +14,7 @@ pub const MAIN_COLOR_TARGET_DEFAULT_USAGES: TextureUsages = TextureUsages::from_
         | TextureUsages::COPY_SRC.bits(),
 );
 
-/// If this componet is present in a Camera, the current main texture and multisampled texture
+/// If this component is present in a Camera, the current main texture and multisampled texture
 /// will read and be filled with the main color target, during `ColorTargetInput` pass.
 #[derive(Component, Debug, Clone)]
 #[relationship_target(relationship= MainColorTargetInput)]
