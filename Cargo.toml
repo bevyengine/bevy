@@ -4196,6 +4196,18 @@ description = "Demonstrates how to create an image node"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "image_node_resizing"
+path = "examples/ui/image_node_resizing.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.image_node_resizing]
+name = "Image Node Resizing"
+description = "Demonstrates how to resize an image node"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"

@@ -63,6 +63,7 @@ bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.19.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
 bevy_material = { path = "../bevy_material", version = "0.19.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.19.0-dev" }
 bevy_material_macros = { path = "../bevy_material/macros", version = "0.19.0-dev" }
 bevy_render_macros = { path = "../bevy_render/macros", version = "0.19.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.19.0-dev" }
@@ -115,7 +116,6 @@ nonmax = "0.5"
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 offset-allocator = "0.2"
 variadics_please = "1.1"
-tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracy-client = { version = "0.18.3", optional = true }
 indexmap = { version = "2" }
 fixedbitset = { version = "0.5" }

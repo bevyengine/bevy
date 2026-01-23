@@ -12,7 +12,7 @@ use core::ops::Range;
 use wgpu::{IndexFormat, QuerySet, RenderPass};
 
 #[cfg(feature = "detailed_trace")]
-use tracing::trace;
+use bevy_log::trace;
 
 type BufferSliceKey = (BufferId, wgpu::BufferAddress, wgpu::BufferSize);
 
