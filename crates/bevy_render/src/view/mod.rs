@@ -16,7 +16,7 @@ use crate::{
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
@@ -147,11 +147,13 @@ impl Plugin for ViewPlugin {
 /// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
 /// for a [`Camera`](bevy_camera::Camera).
 ///
-/// Defaults to 4 samples. A higher number of samples results in smoother edges.
+/// Defaults to 4 samples, as it's the common baseline for web and native. A higher number of samples results in
+/// smoother edges.
+///
+/// Actual support for given sample counts varies by platform and GPU. Use [`Msaa::list_supported`] to get a list of
+/// actually supported sample counts on the current rendering device.
 ///
 /// Some advanced rendering features may require that MSAA is disabled.
-///
-/// Note that the web currently only supports 1 or 4 samples.
 #[derive(
     Component,
     Default,
@@ -180,6 +182,12 @@ impl Msaa {
         *self as u32
     }
 
+    /// Creates `Msaa` with the given sample count.
+    ///
+    /// `samples` must be 1, 2, 4 or 8.
+    ///
+    /// Use [`Self::list_supported`] to get a list of actually supported sample counts on the current rendering
+    /// device.
     pub fn from_samples(samples: u32) -> Self {
         match samples {
             1 => Msaa::Off,
@@ -188,6 +196,24 @@ impl Msaa {
             8 => Msaa::Sample8,
             _ => panic!("Unsupported MSAA sample count: {samples}"),
         }
+    }
+
+    /// Creates `Msaa` with the highest sample count supported by `render_adapter`.
+    pub fn max_supported(render_adapter: &RenderAdapter) -> Self {
+        *Self::list_supported(render_adapter).last().unwrap()
+    }
+
+    /// Returns a non-empty list of supported `Msaa` modes by `render_adapter`, in increasing order of sample counts.
+    pub fn list_supported(render_adapter: &RenderAdapter) -> Vec<Self> {
+        // While max. sample count is defined on the device level in the underlying graphics APIs, for some reason
+        // WebGPU ties it to texture formats, so we pass the default one here for the query.
+        render_adapter
+            .get_texture_format_features(TextureFormat::bevy_default())
+            .flags
+            .supported_sample_counts()
+            .into_iter()
+            .map(Self::from_samples)
+            .collect()
     }
 }
 

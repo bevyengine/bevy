@@ -17,6 +17,7 @@ use bevy::{
     render::{
         camera::{MipBias, TemporalJitter},
         render_resource::{Extent3d, TextureDimension, TextureFormat},
+        renderer::RenderAdapter,
         view::Hdr,
     },
 };
@@ -65,6 +66,7 @@ type DlssComponents = ();
 
 fn modify_aa(
     keys: Res<ButtonInput<KeyCode>>,
+    supported_msaa_list: Res<SupportedMsaaList>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] camera: Single<
         (
             Entity,
@@ -115,18 +117,18 @@ fn modify_aa(
             .remove::<TaaComponents>()
             .remove::<DlssComponents>();
 
-        *msaa = Msaa::Sample4;
+        *msaa = Msaa::default();
     }
 
     // MSAA Sample Count
     if *msaa != Msaa::Off {
-        if keys.just_pressed(KeyCode::KeyQ) {
+        if keys.just_pressed(KeyCode::KeyQ) && supported_msaa_list.0.contains(&Msaa::Sample2) {
             *msaa = Msaa::Sample2;
         }
-        if keys.just_pressed(KeyCode::KeyW) {
+        if keys.just_pressed(KeyCode::KeyW) && supported_msaa_list.0.contains(&Msaa::Sample4) {
             *msaa = Msaa::Sample4;
         }
-        if keys.just_pressed(KeyCode::KeyE) {
+        if keys.just_pressed(KeyCode::KeyE) && supported_msaa_list.0.contains(&Msaa::Sample8) {
             *msaa = Msaa::Sample8;
         }
     }
@@ -303,6 +305,7 @@ fn update_ui(
         With<Camera>,
     >,
     mut ui: Single<&mut Text>,
+    supported_msaa_list: Res<SupportedMsaaList>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_supported: Option<
         Res<DlssSuperResolutionSupported>,
     >,
@@ -337,9 +340,20 @@ fn update_ui(
 
     if *msaa != Msaa::Off {
         ui.push_str("\n----------\n\nSample Count\n");
-        draw_selectable_menu_item(ui, "2", 'Q', *msaa == Msaa::Sample2);
-        draw_selectable_menu_item(ui, "4", 'W', *msaa == Msaa::Sample4);
-        draw_selectable_menu_item(ui, "8", 'E', *msaa == Msaa::Sample8);
+
+        for (supported_msaa, shortcut) in supported_msaa_list
+            .0
+            .iter()
+            .skip(1) // First supported sample count is always '1' (no multisampling), skip it
+            .zip(['Q', 'W', 'E'].into_iter())
+        {
+            draw_selectable_menu_item(
+                ui,
+                supported_msaa.samples().to_string().as_str(),
+                shortcut,
+                msaa == supported_msaa,
+            );
+        }
     }
 
     if let Some(fxaa) = fxaa {
@@ -408,6 +422,9 @@ fn update_ui(
     );
 }
 
+#[derive(Resource)]
+struct SupportedMsaaList(Vec<Msaa>);
+
 /// Set up a simple 3D scene
 fn setup(
     mut commands: Commands,
@@ -415,6 +432,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
     asset_server: Res<AssetServer>,
+    render_adapter: Res<RenderAdapter>,
 ) {
     // Plane
     commands.spawn((
@@ -481,6 +499,14 @@ fn setup(
             ..default()
         },
     ));
+
+    // Check for supported MSAA modes
+    let supported_msaa_list = Msaa::list_supported(&render_adapter);
+    info!(
+        "Supported MSAA modes on this device: {:?}",
+        supported_msaa_list
+    );
+    commands.insert_resource(SupportedMsaaList(supported_msaa_list));
 
     // example instructions
     commands.spawn((
