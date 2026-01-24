@@ -20,12 +20,12 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Hdr,
     color::palettes::css::{BLUE, GOLD, WHITE},
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
     image::ImageLoaderSettings,
     math::vec3,
     prelude::*,
-    render::view::Hdr,
 };
 
 /// The size of each sphere.

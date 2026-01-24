@@ -26,7 +26,8 @@ use bevy::{
     scene::SceneInstanceReady,
 };
 use bevy::{
-    camera::ScreenSpaceTransmissionQuality, light::CascadeShadowConfigBuilder, render::view::Hdr,
+    camera::{Hdr, ScreenSpaceTransmissionQuality},
+    light::CascadeShadowConfigBuilder,
 };
 use bevy::{
     diagnostic::FrameTimeDiagnosticsPlugin,

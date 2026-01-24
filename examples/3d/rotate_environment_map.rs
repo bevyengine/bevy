@@ -3,11 +3,11 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Hdr,
     color::palettes::css::{GOLD, WHITE},
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
     image::ImageLoaderSettings,
     prelude::*,
-    render::view::Hdr,
 };
 
 /// Entry point.

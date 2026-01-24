@@ -5,6 +5,7 @@ use std::ops::Range;
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
+    camera::Hdr,
     color::palettes::css::{BLACK, WHITE},
     core_pipeline::Skybox,
     image::{
@@ -18,10 +19,7 @@ use bevy::{
         ScreenSpaceAmbientOcclusion, ScreenSpaceReflections,
     },
     prelude::*,
-    render::{
-        render_resource::{AsBindGroup, ShaderType},
-        view::Hdr,
-    },
+    render::render_resource::{AsBindGroup, ShaderType},
     shader::ShaderRef,
 };
 

@@ -8,8 +8,8 @@ use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::post_process::motion_blur::MotionBlur;
 use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 use bevy::{
-    ecs::message::MessageReader, light::NotShadowReceiver, pbr::ContactShadows,
-    post_process::bloom::Bloom, prelude::*, render::view::Hdr,
+    camera::Hdr, ecs::message::MessageReader, light::NotShadowReceiver, pbr::ContactShadows,
+    post_process::bloom::Bloom, prelude::*,
 };
 
 #[path = "../helpers/widgets.rs"]
