@@ -27,7 +27,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// It includes all the points from the bisecting plane towards `NEG_Z`, and the distance
 /// from the plane to the origin is `-8.0` along `NEG_Z`.
 ///
-/// It is used to define a [`ViewFrustum`], but is also a useful mathematical primitive for rendering tasks such as  light computation.
+/// It is used to define a [`ViewFrustum`](crate::primitives::ViewFrustum),
+/// but is also a useful mathematical primitive for rendering tasks such as  light computation.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
