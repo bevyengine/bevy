@@ -29,6 +29,7 @@ bevy_render = { path = "../bevy_render", version = "0.19.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.19.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev" }
 
 # other
 bytemuck = "1.0"

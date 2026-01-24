@@ -22,33 +22,9 @@ struct MyRoundGizmos;
 
 fn setup(
     mut commands: Commands,
-    mut gizmo_assets: ResMut<Assets<GizmoAsset>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mut gizmo = GizmoAsset::new();
-
-    // When drawing a lot of static lines a Gizmo component can have
-    // far better performance than the Gizmos system parameter,
-    // but the system parameter will perform better for smaller lines that update often.
-
-    // A sphere made out of 30_000 lines!
-    gizmo
-        .sphere(Isometry3d::IDENTITY, 0.5, CRIMSON)
-        .resolution(30_000 / 3);
-
-    commands.spawn((
-        Gizmo {
-            handle: gizmo_assets.add(gizmo),
-            line_config: GizmoLineConfig {
-                width: 5.,
-                ..default()
-            },
-            ..default()
-        },
-        Transform::from_xyz(4., 1., 0.),
-    ));
-
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),

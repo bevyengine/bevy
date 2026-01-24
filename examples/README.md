@@ -374,6 +374,7 @@ Example | Description
 [3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
+[Retained Gizmos](../examples/gizmos/retained_gizmos.rs) | A scene showcasing retained gizmos
 
 ### Helpers
 
