@@ -2705,9 +2705,9 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
-    /// 
+    ///
     /// # Note
-    /// 
+    ///
     /// If the world's resource metadata is cleared within the scope, such as by calling
     /// [`World::clear_resources`] or [`World::clear_all`], the resource will *not* be re-inserted
     /// at the end of the scope.
@@ -2724,9 +2724,9 @@ impl World {
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
     ///
     /// See also [`resource_scope`](Self::resource_scope).
-    /// 
+    ///
     /// # Note
-    /// 
+    ///
     /// If the world's resource metadata is cleared within the scope, such as by calling
     /// [`World::clear_resources`] or [`World::clear_all`], the resource will *not* be re-inserted
     /// at the end of the scope.
