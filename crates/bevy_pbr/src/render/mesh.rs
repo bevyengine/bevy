@@ -8,7 +8,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
 use bevy_camera::{
     primitives::Aabb,
     visibility::{NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange},
-    Camera, Camera3d, Projection,
+    Camera, Projection,
 };
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
@@ -325,7 +325,7 @@ pub fn check_views_need_specialization(
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
         ),
-        Option<&Camera3d>,
+        Option<&ScreenSpaceTransmission>,
         Has<TemporalJitter>,
         Option<&Projection>,
         Has<DistanceFog>,
@@ -347,7 +347,7 @@ pub fn check_views_need_specialization(
         shadow_filter_method,
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-        camera_3d,
+        transmission,
         temporal_jitter,
         projection,
         distance_fog,
@@ -439,9 +439,9 @@ pub fn check_views_need_specialization(
         if distance_fog {
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
-        if let Some(camera_3d) = camera_3d {
+        if let Some(transmission) = transmission {
             view_key |= screen_space_specular_transmission_pipeline_key(
-                camera_3d.screen_space_specular_transmission_quality,
+                transmission.screen_space_specular_transmission_quality,
             );
         }
         if !view_key_cache

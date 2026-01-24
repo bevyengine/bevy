@@ -1,5 +1,4 @@
 mod main_opaque_pass_3d_node;
-mod main_transmissive_pass_3d_node;
 mod main_transparent_pass_3d_node;
 
 pub mod graph {
@@ -90,7 +89,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
-use bevy_image::{BevyDefault, ToExtents};
+use bevy_image::ToExtents;
 use bevy_math::FloatOrd;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
@@ -104,20 +103,18 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::{
-        CachedRenderPipelineId, FilterMode, Sampler, SamplerDescriptor, Texture, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureUsages, TextureView,
+        CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
 use tracing::warn;
 
 use crate::{
-    core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
     deferred::{
         copy_lighting_id::CopyDeferredLightingIdNode,
         node::{EarlyDeferredGBufferPrepassNode, LateDeferredGBufferPrepassNode},
@@ -181,7 +178,6 @@ impl Plugin for Core3dPlugin {
                         .after(prepare_view_targets)
                         .in_set(RenderSystems::ManageViews),
                     prepare_core_3d_depth_textures.in_set(RenderSystems::PrepareResources),
-                    prepare_core_3d_transmission_textures.in_set(RenderSystems::PrepareResources),
                     prepare_prepass_textures.in_set(RenderSystems::PrepareResources),
                 ),
             );
@@ -208,10 +204,6 @@ impl Plugin for Core3dPlugin {
                 Core3d,
                 Node3d::MainOpaquePass,
             )
-            .add_render_graph_node::<ViewNodeRunner<MainTransmissivePass3dNode>>(
-                Core3d,
-                Node3d::MainTransmissivePass,
-            )
             .add_render_graph_node::<ViewNodeRunner<MainTransparentPass3dNode>>(
                 Core3d,
                 Node3d::MainTransparentPass,
@@ -232,7 +224,6 @@ impl Plugin for Core3dPlugin {
                     Node3d::EndPrepasses,
                     Node3d::StartMainPass,
                     Node3d::MainOpaquePass,
-                    Node3d::MainTransmissivePass,
                     Node3d::MainTransparentPass,
                     Node3d::EndMainPass,
                     Node3d::StartMainPassPostProcessing,
@@ -471,7 +462,7 @@ pub struct Transmissive3d {
 
 impl PhaseItem for Transmissive3d {
     /// For now, automatic batching is disabled for transmissive items because their rendering is
-    /// split into multiple steps depending on [`Camera3d::screen_space_specular_transmission_steps`],
+    /// split into multiple steps depending on [`ScreenSpaceTransmission::screen_space_specular_transmission_steps`],
     /// which the batching system doesn't currently know about.
     ///
     /// Having batching enabled would cause the same item to be drawn multiple times across different
@@ -863,93 +854,6 @@ pub fn prepare_core_3d_depth_textures(
                 Camera3dDepthLoadOp::Load => None,
             },
         ));
-    }
-}
-
-#[derive(Component)]
-pub struct ViewTransmissionTexture {
-    pub texture: Texture,
-    pub view: TextureView,
-    pub sampler: Sampler,
-}
-
-pub fn prepare_core_3d_transmission_textures(
-    mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
-    opaque_3d_phases: Res<ViewBinnedRenderPhases<Opaque3d>>,
-    alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
-    transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
-    transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
-    views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
-) {
-    let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, camera_3d, view) in &views_3d {
-        if !opaque_3d_phases.contains_key(&view.retained_view_entity)
-            || !alpha_mask_3d_phases.contains_key(&view.retained_view_entity)
-            || !transparent_3d_phases.contains_key(&view.retained_view_entity)
-        {
-            continue;
-        };
-
-        let Some(transmissive_3d_phase) = transmissive_3d_phases.get(&view.retained_view_entity)
-        else {
-            continue;
-        };
-
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
-        // Don't prepare a transmission texture if the number of steps is set to 0
-        if camera_3d.screen_space_specular_transmission_steps == 0 {
-            continue;
-        }
-
-        // Don't prepare a transmission texture if there are no transmissive items to render
-        if transmissive_3d_phase.items.is_empty() {
-            continue;
-        }
-
-        let cached_texture = textures
-            .entry(camera.target.clone())
-            .or_insert_with(|| {
-                let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
-
-                let format = if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                };
-
-                let descriptor = TextureDescriptor {
-                    label: Some("view_transmission_texture"),
-                    // The size of the transmission texture
-                    size: physical_target_size.to_extents(),
-                    mip_level_count: 1,
-                    sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
-                    dimension: TextureDimension::D2,
-                    format,
-                    usage,
-                    view_formats: &[],
-                };
-
-                texture_cache.get(&render_device, descriptor)
-            })
-            .clone();
-
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("view_transmission_sampler"),
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            ..Default::default()
-        });
-
-        commands.entity(entity).insert(ViewTransmissionTexture {
-            texture: cached_texture.texture,
-            view: cached_texture.default_view,
-            sampler,
-        });
     }
 }
 
