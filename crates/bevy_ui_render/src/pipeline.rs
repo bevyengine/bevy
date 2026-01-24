@@ -49,6 +49,7 @@ pub fn init_ui_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
     pub hdr: bool,
+    pub hdr_output: bool,
     pub anti_alias: bool,
 }
 

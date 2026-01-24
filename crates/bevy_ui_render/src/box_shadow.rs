@@ -127,7 +127,7 @@ pub fn init_box_shadow_pipeline(mut commands: Commands, asset_server: Res<AssetS
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct BoxShadowPipelineKey {
     pub hdr: bool,
-    /// Number of samples, a higher value results in better quality shadows.
+    pub hdr_output: bool,
     pub samples: u32,
 }
 
@@ -334,6 +334,7 @@ pub fn queue_shadows(
             &box_shadow_pipeline,
             BoxShadowPipelineKey {
                 hdr: view.hdr,
+                hdr_output: view.hdr_output,
                 samples: shadow_samples.copied().unwrap_or_default().0,
             },
         );

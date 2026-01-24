@@ -11,6 +11,8 @@ struct ColorGrading {
     exposure: f32,
     hue: f32,
     post_saturation: f32,
+    max_luminance: f32,
+    paper_white: f32,
 }
 
 struct View {

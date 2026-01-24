@@ -133,7 +133,8 @@ pub fn check_views_need_specialization(
 ) {
     for (view_entity, view, msaa, tonemapping, dither) in &views {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_hdr(view.hdr)
+            | Mesh2dPipelineKey::from_hdr_output(view.hdr_output);
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
@@ -425,10 +426,11 @@ bitflags::bitflags! {
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                              = 0;
         const HDR                               = 1 << 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
-        const BLEND_ALPHA                       = 1 << 3;
-        const MAY_DISCARD                       = 1 << 4;
+        const HDR_OUTPUT                        = 1 << 1;
+        const TONEMAP_IN_SHADER                 = 1 << 2;
+        const DEBAND_DITHER                     = 1 << 3;
+        const BLEND_ALPHA                       = 1 << 4;
+        const MAY_DISCARD                       = 1 << 5;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -440,6 +442,7 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_PQ                 = 8 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
 
@@ -448,7 +451,7 @@ impl Mesh2dPipelineKey {
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
-    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
+    const TONEMAP_METHOD_MASK_BITS: u32 = 0b1111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
@@ -461,6 +464,14 @@ impl Mesh2dPipelineKey {
     pub fn from_hdr(hdr: bool) -> Self {
         if hdr {
             Mesh2dPipelineKey::HDR
+        } else {
+            Mesh2dPipelineKey::NONE
+        }
+    }
+
+    pub fn from_hdr_output(hdr_output: bool) -> Self {
+        if hdr_output {
+            Mesh2dPipelineKey::HDR_OUTPUT
         } else {
             Mesh2dPipelineKey::NONE
         }
@@ -537,6 +548,10 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
                 3,
             ));
+
+            if key.contains(Mesh2dPipelineKey::HDR_OUTPUT) {
+                shader_defs.push("HDR_OUTPUT".into());
+            }
 
             let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 

@@ -69,6 +69,7 @@ pub struct ExtractedWindow {
     /// On Wayland, windows must present at least once before they are shown.
     /// See <https://wayland.app/protocols/xdg-shell#xdg_surface>
     pub needs_initial_present: bool,
+    pub hdr_output: bool,
 }
 
 impl ExtractedWindow {
@@ -151,6 +152,7 @@ fn extract_windows(
             present_mode_changed: false,
             alpha_mode: window.composite_alpha_mode,
             needs_initial_present: true,
+            hdr_output: window.hdr_output,
         });
 
         if extracted_window.swap_chain_texture.is_none() {
@@ -184,6 +186,8 @@ fn extract_windows(
             );
             extracted_window.present_mode = window.present_mode;
         }
+
+        extracted_window.hdr_output = window.hdr_output;
     }
 
     for closing_window in closing.read() {
@@ -251,7 +255,13 @@ pub fn prepare_windows(
         };
 
         // We didn't present the previous frame, so we can keep using our existing swapchain texture.
-        if window.has_swapchain_texture() && !window.size_changed && !window.present_mode_changed {
+        if window.has_swapchain_texture()
+            && !window.size_changed
+            && !window.present_mode_changed
+            && window.hdr_output
+                == (surface_data.configuration.format == TextureFormat::Rgba16Float)
+            && window.swap_chain_texture_format == Some(surface_data.configuration.format)
+        {
             continue;
         }
 
@@ -321,6 +331,11 @@ pub fn need_surface_configuration(
         if !window_surfaces.configured_windows.contains(&window.entity)
             || window.size_changed
             || window.present_mode_changed
+            || window.hdr_output
+                != (window_surfaces
+                    .surfaces
+                    .get(&window.entity)
+                    .is_some_and(|data| data.configuration.format == TextureFormat::Rgba16Float))
         {
             return true;
         }
@@ -365,17 +380,25 @@ pub fn create_surfaces(
                 let caps = surface.get_capabilities(&render_adapter);
                 let present_mode = present_mode(window, &caps);
                 let formats = caps.formats;
-                // For future HDR output support, we'll need to request a format that supports HDR,
-                // but as of wgpu 0.15 that is not yet supported.
                 // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
                 let mut format = *formats.first().expect("No supported formats for surface");
-                for available_format in formats {
-                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
-                    if available_format == TextureFormat::Rgba8UnormSrgb
-                        || available_format == TextureFormat::Bgra8UnormSrgb
-                    {
-                        format = available_format;
-                        break;
+
+                if window.hdr_output {
+                    for available_format in &formats {
+                        if *available_format == TextureFormat::Rgba16Float {
+                            format = *available_format;
+                            break;
+                        }
+                    }
+                } else {
+                    for available_format in formats {
+                        // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
+                        if available_format == TextureFormat::Rgba8UnormSrgb
+                            || available_format == TextureFormat::Bgra8UnormSrgb
+                        {
+                            format = available_format;
+                            break;
+                        }
                     }
                 }
 
@@ -420,7 +443,10 @@ pub fn create_surfaces(
                 }
             });
 
-        if window.size_changed || window.present_mode_changed {
+        if window.size_changed
+            || window.present_mode_changed
+            || window.hdr_output != (data.configuration.format == TextureFormat::Rgba16Float)
+        {
             // normally this is dropped on present but we double check here to be safe as failure to
             // drop it will cause validation errors in wgpu
             drop(window.swap_chain_texture.take());
@@ -434,6 +460,42 @@ pub fn create_surfaces(
             data.configuration.height = window.physical_height;
             let caps = data.surface.get_capabilities(&render_adapter);
             data.configuration.present_mode = present_mode(window, &caps);
+
+            let formats = caps.formats;
+            let mut format = *formats.first().expect("No supported formats for surface");
+
+            if window.hdr_output {
+                for available_format in &formats {
+                    if *available_format == TextureFormat::Rgba16Float {
+                        format = *available_format;
+                        break;
+                    }
+                }
+            } else {
+                for available_format in formats {
+                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
+                    if available_format == TextureFormat::Rgba8UnormSrgb
+                        || available_format == TextureFormat::Bgra8UnormSrgb
+                    {
+                        format = available_format;
+                        break;
+                    }
+                }
+            }
+
+            if data.configuration.format != format {
+                data.configuration.format = format;
+                data.texture_view_format = if !format.is_srgb() {
+                    Some(format.add_srgb_suffix())
+                } else {
+                    None
+                };
+                data.configuration.view_formats = match data.texture_view_format {
+                    Some(format) => vec![format],
+                    None => vec![],
+                };
+            }
+
             render_device.configure_surface(&data.surface, &data.configuration);
         }
 

@@ -51,7 +51,7 @@ fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
 fn tonemap_curve(v: f32) -> f32 {
 #ifdef 0
     // Large linear part in the lows, but compresses highs.
-    float c = v + v * v + 0.5 * v * v * v;
+    let c = v + v * v + 0.5 * v * v * v;
     return c / (1.0 + c);
 #else
     return 1.0 - exp(-v);
@@ -251,6 +251,31 @@ fn tonemapping_reinhard_luminance(color: vec3<f32>) -> vec3<f32> {
     return tonemapping_change_luminance(color, l_new);
 }
 
+fn tonemapping_pq(color: vec3<f32>, color_grading: ColorGrading) -> vec3<f32> {
+    // PQ (Perceptual Quantizer) / Rec. 2100 HDR.
+    // We assume the input is linear Rec. 709 (sRGB primaries) and we want to output scRGB.
+    // scRGB is linear, but it uses sRGB primaries and is scaled such that 1.0 is 80 nits.
+    // However, modern HDR displays often expect 1.0 to be "paper white" or a specific nit value.
+    // scRGB is often defined as 1.0 = 80 nits, but Bevy's PBR expects 1.0 = 1 lux (or similar physically based unit).
+    // The `paper_white` parameter allows us to calibrate what 1.0 in the shader means in nits.
+
+    // For now, let's implement a simple HDR pass-through that scales the linear color.
+    // If we want actual PQ encoding, we would need to convert to Rec.2020 and apply the PQ curve.
+    // But many HDR APIs (like Windows scRGB or macOS HDR) accept linear values.
+
+    // We scale the color based on the ratio between the calibrated paper white and the 80 nits
+    // that scRGB defines as 1.0.
+    let paper_white_nits = color_grading.paper_white;
+    let max_luminance_nits = color_grading.max_luminance;
+
+    var out_color = color * (paper_white_nits / 80.0);
+
+    // Hard clip at max luminance
+    out_color = min(out_color, vec3(max_luminance_nits / 80.0));
+
+    return out_color;
+}
+
 fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
     return pow(color, vec3<f32>(1.0 / 2.2));
 }
@@ -357,6 +382,8 @@ fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
     // tone_mapping
 #ifdef TONEMAP_METHOD_NONE
     color = color;
+#else ifdef TONEMAP_METHOD_PQ
+    color = tonemapping_pq(color, color_grading);
 #else ifdef TONEMAP_METHOD_REINHARD
     color = tonemapping_reinhard(color.rgb);
 #else ifdef TONEMAP_METHOD_REINHARD_LUMINANCE

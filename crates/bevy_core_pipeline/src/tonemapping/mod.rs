@@ -4,7 +4,7 @@ use bevy_asset::{
 };
 use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
-use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_image::{BevyDefault, CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -160,6 +160,11 @@ pub enum Tonemapping {
     /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
     /// NOTE: Requires the `tonemapping_luts` cargo feature.
     BlenderFilmic,
+    /// Tonemapping for HDR displays in the scRGB color space.
+    ///
+    /// This is typically used for HDR displays that support a wide color gamut and high dynamic range.
+    /// The output is in linear scRGB (which uses the sRGB primaries but allows values outside [0, 1]).
+    Pq,
 }
 
 impl Tonemapping {
@@ -189,6 +194,8 @@ pub struct TonemappingPipelineKey {
     deband_dither: DebandDither,
     tonemapping: Tonemapping,
     flags: TonemappingPipelineKeyFlags,
+    hdr: bool,
+    hdr_output: bool,
 }
 
 impl SpecializedRenderPipeline for TonemappingPipeline {
@@ -208,6 +215,10 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
 
         if let DebandDither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
+        }
+
+        if key.hdr_output {
+            shader_defs.push("HDR_OUTPUT".into());
         }
 
         // Define shader flags depending on the color grading options in use.
@@ -264,6 +275,9 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
+            Tonemapping::Pq => {
+                shader_defs.push("TONEMAP_METHOD_PQ".into());
+            }
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
@@ -273,7 +287,11 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: ViewTarget::TEXTURE_FORMAT_HDR,
+                    format: if key.hdr {
+                        ViewTarget::TEXTURE_FORMAT_HDR
+                    } else {
+                        TextureFormat::bevy_default()
+                    },
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -357,6 +375,8 @@ pub fn prepare_view_tonemapping_pipelines(
             deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
             tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
             flags,
+            hdr: view.hdr,
+            hdr_output: view.hdr_output,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
@@ -390,7 +410,8 @@ pub fn get_lut_bindings<'a>(
         | Tonemapping::ReinhardLuminance
         | Tonemapping::AcesFitted
         | Tonemapping::AgX
-        | Tonemapping::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
+        | Tonemapping::SomewhatBoringDisplayTransform
+        | Tonemapping::Pq => &tonemapping_luts.agx,
         Tonemapping::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
         Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
     };

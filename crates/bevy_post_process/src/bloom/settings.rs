@@ -256,6 +256,7 @@ impl ExtractComponent for Bloom {
                         .expect("Valid screen size values for Bloom settings")
                         .ratio(),
                     scale: bloom.scale,
+                    hdr_output: 0,
                 };
 
                 Some((bloom.clone(), uniform))
