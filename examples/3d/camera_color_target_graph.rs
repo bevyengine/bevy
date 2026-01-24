@@ -122,7 +122,7 @@ fn setup(
                 r#"
     pass0 --> pass1 --+
                       |
-    pass3 --> pass2 --+--> pass3 --> screen
+    pass3 --> pass2 --+--> pass4 --> screen
 
 "#,
             ),
