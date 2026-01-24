@@ -27,6 +27,8 @@ const ROW_COLUMN_GAP: Val = Val::Px(4.);
 const DEFAULT_PADDING: UiRect = UiRect::all(Val::Px(4.));
 /// Initial Z-index for the [`DiagnosticsOverlayPlane`]
 pub const INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX: GlobalZIndex = GlobalZIndex(1_000_000);
+/// Alias to shorten the name
+type StandardMaterialAllocator = MaterialAllocatorDiagnosticPlugin<StandardMaterial>;
 
 /// Diagnostics overlay displays on a draggable and collapsible window
 /// statistics stored on the [`DiagnosticsStore`]. Spawning an entity
@@ -34,7 +36,7 @@ pub const INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX: GlobalZIndex = GlobalZIndex
 /// are also provided.
 ///
 /// ```
-/// # use bevy_dev_tools::diagnostics_overlay::{DiagnosticsOverlay, DiagnosticOverlayItem, DiagnosticOverlayStatistic};
+/// # use bevy_dev_tools::diagnostics_overlay::{DiagnosticsOverlay, DiagnosticsOverlayItem, DiagnosticsOverlayStatistic};
 /// # use bevy_ecs::prelude::{Commands, World};
 /// # use bevy_diagnostic::DiagnosticPath;
 /// # let mut world = World::new();
@@ -50,11 +52,13 @@ pub const INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX: GlobalZIndex = GlobalZIndex
 ///     vec![DiagnosticPath::new("fps").into()]
 /// ));
 /// // Spawning an overlay window from the `new` method using a different statistic
+/// // and float precision
 /// commands.spawn(DiagnosticsOverlay::new(
 ///     "Fps",
-///     vec![DiagnosticOverlayItem {
+///     vec![DiagnosticsOverlayItem {
 ///         path: DiagnosticPath::new("fps"),
-///         statistic: DiagnosticOverlayStatistic::Value
+///         statistic: DiagnosticsOverlayStatistic::Value,
+///         precision: 4
 ///     }]
 /// ));
 /// // Spawning an overlay window from the `fps` preset
@@ -71,14 +75,14 @@ pub struct DiagnosticsOverlay {
     /// Title that will appear on the overlay window
     pub title: Cow<'static, str>,
     /// Items that will appear on this overlay window
-    pub diagnostic_overlay_items: Vec<DiagnosticOverlayItem>,
+    pub diagnostic_overlay_items: Vec<DiagnosticsOverlayItem>,
 }
 
 impl DiagnosticsOverlay {
     /// Creates a new instance of a [`DiagnosticsOverlay`]
     pub fn new(
         title: impl Into<Cow<'static, str>>,
-        diagnostic_paths: Vec<DiagnosticOverlayItem>,
+        diagnostic_paths: Vec<DiagnosticsOverlayItem>,
     ) -> Self {
         Self {
             title: title.into(),
@@ -93,7 +97,11 @@ impl DiagnosticsOverlay {
             diagnostic_overlay_items: vec![
                 FrameTimeDiagnosticsPlugin::FPS.into(),
                 FrameTimeDiagnosticsPlugin::FRAME_TIME.into(),
-                FrameTimeDiagnosticsPlugin::FRAME_COUNT.into(),
+                DiagnosticsOverlayItem {
+                    path: FrameTimeDiagnosticsPlugin::FRAME_COUNT,
+                    statistic: DiagnosticsOverlayStatistic::Smoothed,
+                    precision: 0,
+                },
             ],
         }
     }
@@ -105,22 +113,36 @@ impl DiagnosticsOverlay {
         Self {
             title: Cow::Owned("Mesh and standard materials".to_owned()),
             diagnostic_overlay_items: vec![
-                MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::slabs_diagnostic_path()
-                    .into(),
-                MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::slabs_size_diagnostic_path()
-                    .into(),
-                MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::allocations_diagnostic_path(
-                )
-                .into(),
-                MeshAllocatorDiagnosticPlugin::slabs_diagnostic_path()
-                    .clone()
-                    .into(),
-                MeshAllocatorDiagnosticPlugin::slabs_size_diagnostic_path()
-                    .clone()
-                    .into(),
-                MeshAllocatorDiagnosticPlugin::allocations_diagnostic_path()
-                    .clone()
-                    .into(),
+                DiagnosticsOverlayItem {
+                    path: StandardMaterialAllocator::slabs_diagnostic_path(),
+                    statistic: DiagnosticsOverlayStatistic::Smoothed,
+                    precision: 0,
+                },
+                DiagnosticsOverlayItem {
+                    path: StandardMaterialAllocator::slabs_size_diagnostic_path(),
+                    statistic: DiagnosticsOverlayStatistic::Smoothed,
+                    precision: 0,
+                },
+                DiagnosticsOverlayItem {
+                    path: StandardMaterialAllocator::allocations_diagnostic_path(),
+                    statistic: DiagnosticsOverlayStatistic::Smoothed,
+                    precision: 0,
+                },
+                DiagnosticsOverlayItem {
+                    path: MeshAllocatorDiagnosticPlugin::slabs_diagnostic_path().clone(),
+                    statistic: DiagnosticsOverlayStatistic::Smoothed,
+                    precision: 0,
+                },
+                DiagnosticsOverlayItem {
+                    path: MeshAllocatorDiagnosticPlugin::slabs_size_diagnostic_path().clone(),
+                    statistic: DiagnosticsOverlayStatistic::Smoothed,
+                    precision: 0,
+                },
+                DiagnosticsOverlayItem {
+                    path: MeshAllocatorDiagnosticPlugin::allocations_diagnostic_path().clone(),
+                    statistic: DiagnosticsOverlayStatistic::Smoothed,
+                    precision: 0,
+                },
             ],
         }
     }
@@ -139,28 +161,31 @@ pub struct DiagnosticsOverlayPlane;
 /// An item to be displayed on the overlay.
 ///
 /// Items built using `From<DiagnosticPath>` will use
-/// [`DiagnosticOverlayStatistic::Smoothed`].
-pub struct DiagnosticOverlayItem {
+/// [`DiagnosticsOverlayStatistic::Smoothed`].
+pub struct DiagnosticsOverlayItem {
     /// The statistic of the diagnostic to display
-    pub statistic: DiagnosticOverlayStatistic,
+    pub statistic: DiagnosticsOverlayStatistic,
     /// The diagnostic to display
     pub path: DiagnosticPath,
+    /// How many decimal places to show, default is 4
+    pub precision: usize,
 }
 
-impl From<DiagnosticPath> for DiagnosticOverlayItem {
-    /// Creates an instance of [`DiagnosticOverlayItem`]
-    /// from a [`DiagnosticPath`] using [`DiagnosticOverlayStatistic::Smoothed`].
+impl From<DiagnosticPath> for DiagnosticsOverlayItem {
+    /// Creates an instance of [`DiagnosticsOverlayItem`]
+    /// from a [`DiagnosticPath`] using [`DiagnosticsOverlayStatistic::Smoothed`].
     fn from(value: DiagnosticPath) -> Self {
         Self {
             path: value,
             statistic: Default::default(),
+            precision: 4,
         }
     }
 }
 
 /// The statistic to use when displaying a diagnostic
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum DiagnosticOverlayStatistic {
+pub enum DiagnosticsOverlayStatistic {
     /// The most recent value of on the diagnostic store
     Value,
     /// The average of a window of values in the diagnostic store.
@@ -171,7 +196,7 @@ pub enum DiagnosticOverlayStatistic {
     Smoothed,
 }
 
-impl DiagnosticOverlayStatistic {
+impl DiagnosticsOverlayStatistic {
     /// Fetch the appropriate statistic from a [`Diagnostic`]
     pub fn fetch(&self, diagnostic: &Diagnostic) -> Option<f64> {
         match self {
@@ -228,7 +253,7 @@ fn build_plane(mut commands: Commands) {
 
 /// Header of the overlay
 #[derive(Component)]
-struct DiagnosticOverlayHeader;
+struct DiagnosticsOverlayHeader;
 
 /// Section of the overlay that will have the diagnostics
 #[derive(Component)]
@@ -260,8 +285,11 @@ fn rebuild_diagnostics_list(
                         diagnostic_overlay_item
                             .statistic
                             .fetch(diagnostic)
-                            .as_ref()
-                            .map(ToString::to_string)
+                            .map(|sample| format!(
+                                "{:.prec$}",
+                                sample,
+                                prec = diagnostic_overlay_item.precision
+                            ))
                             .unwrap_or("No sample".to_owned()),
                         diagnostic.suffix
                     )
@@ -332,7 +360,7 @@ fn build_overlay(
                     padding: DEFAULT_PADDING,
                     ..Default::default()
                 },
-                DiagnosticOverlayHeader,
+                DiagnosticsOverlayHeader,
                 BackgroundColor(
                     palettes::tailwind::GRAY_900
                         .with_alpha(BACKGROUND_COLOR_ALPHA)
@@ -369,7 +397,7 @@ fn build_overlay(
 fn drag_by_header(
     mut event: On<Pointer<Drag>>,
     mut diagnostics_overlays: Query<&mut Node, With<DiagnosticsOverlay>>,
-    diagnostics_overlay_headers: Query<&ChildOf, With<DiagnosticOverlayHeader>>,
+    diagnostics_overlay_headers: Query<&ChildOf, With<DiagnosticsOverlayHeader>>,
 ) {
     let entity = event.entity;
     if let Ok(child_of) = diagnostics_overlay_headers.get(entity) {
@@ -397,7 +425,7 @@ fn collapse_on_click_to_header(
     mut event: On<Pointer<Click>>,
     mut diagnostics_overlays: Query<&Children, With<DiagnosticsOverlay>>,
     mut diagnostics_overlay_contents: Query<&mut Node, With<DiagnosticsOverlayContents>>,
-    diagnostics_overlay_header: Query<&ChildOf, With<DiagnosticOverlayHeader>>,
+    diagnostics_overlay_header: Query<&ChildOf, With<DiagnosticsOverlayHeader>>,
 ) {
     if event.duration > Duration::from_millis(250) {
         return;

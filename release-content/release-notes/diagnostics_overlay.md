@@ -17,12 +17,14 @@ commands.spawn(DiagnosticsOverlay::mesh_and_standard_materials());
 
 By default the overlay will display the smoothed moving average for the diagnostic, but
 you can also visualize the latest value or the moving average by passing
-[`DiagnosticOverlayStatistic`]
+[`DiagnosticsOverlayStatistic`]. The floating point precision can also be configured
+through the [`DiagnosticsOverlayItem::precision`] field.
 
 ```rust
-commands.spawn(DiagnosticsOverlay::new("MyDiagnostics", vec![DiagnosticOverlayItem {
+commands.spawn(DiagnosticsOverlay::new("MyDiagnostics", vec![DiagnosticsOverlayItem {
     path: MyDiagnostics::COUNTER,
-    statistic: DiagnosticOverlayStatistic::Value
+    statistic: DiagnosticsOverlayStatistic::Value,
+    precisiom: 4,
 }]));
 ```
 
