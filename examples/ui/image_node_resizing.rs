@@ -99,10 +99,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 enabled: false,
                 ..default()
             },
-            UiDebugOptions {
-                enabled: false,
-                ..default()
-            },
             ChildOf(container),
         ))
         .observe(update_text);
