@@ -918,6 +918,11 @@ impl<'w, T> ContiguousMut<'w, T> {
     /// Variant of [`Self::split`] which bypasses change detection: [`Self::bypass_change_detection_split`].
     ///
     /// Reverse of [`Self::split`] is [`Self::from_parts`].
+    ///
+    /// # Warning
+    /// This version updates changed ticks **before** returning, hence
+    /// [`ContiguousComponentTicksMut::is_changed_iter`] will be useless (the iterator will be filled with
+    /// [`prim@true`]s).
     pub fn split(mut this: Self) -> (&'w mut [T], ContiguousComponentTicksMut<'w>) {
         this.mark_all_as_changed();
         (this.value, this.ticks)
