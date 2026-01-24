@@ -358,6 +358,7 @@ fn build_overlay(
             (
                 Node {
                     padding: DEFAULT_PADDING,
+                    border_radius: BorderRadius::bottom(Val::Px(4.)),
                     ..Default::default()
                 },
                 DiagnosticsOverlayHeader,
@@ -381,6 +382,7 @@ fn build_overlay(
                     row_gap: ROW_COLUMN_GAP,
                     column_gap: ROW_COLUMN_GAP,
                     padding: DEFAULT_PADDING,
+                    border_radius: BorderRadius::bottom(Val::Px(4.)),
                     ..Default::default()
                 },
                 DiagnosticsOverlayContents,
