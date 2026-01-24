@@ -67,7 +67,7 @@ pub struct ScreenSpaceTransmission {
     ///   regardless of this setting.
     /// - Setting this to `0` disables the screen-space refraction effect entirely, and falls
     ///   back to refracting only the environment map light's texture.
-    /// - If set to more than `0`, any opaque [`clear_color`](Camera::clear_color) will obscure the environment
+    /// - If set to more than `0`, any opaque [`clear_color`](bevy_camera::Camera::clear_color) will obscure the environment
     ///   map light's texture, preventing it from being visible through transmissive materials. If you'd like
     ///   to still have the environment map show up in your refractions, you can set the clear color's alpha to `0.0`.
     ///   Keep in mind that depending on the platform and your window settings, this may cause the window to become
