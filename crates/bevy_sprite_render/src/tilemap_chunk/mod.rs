@@ -14,7 +14,7 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{primitives::Rectangle, UVec2};
+use bevy_math::{primitives::Rectangle, IVec2, UVec2, Vec2};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
@@ -81,6 +81,29 @@ impl TilemapChunk {
             // to place the 0 at bottom of tilemapchunk
             - self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.,
             0.,
+        )
+    }
+
+    pub fn calculate_tile_pos(&self, t: Vec2) -> IVec2 {
+        IVec2::new(
+            (
+                // display position
+                t.x
+            // divided by display size for a tile
+            / self.tile_display_size.x as f32
+            // minus 3/2 to reverse the center correction
+            - 3. / 2.
+            // plus 1/2 the tilechunk size
+            + self.chunk_size.x as f32 / 2.
+            )
+            .floor() as i32,
+            // display position
+            (t.y
+             // divided by display size for a tile, negated to reverse the y-flip
+             / -(self.tile_display_size.y as f32)
+             // plus 1/2 the tilechunk size
+             + self.chunk_size.y as f32 / 2.)
+                .floor() as i32,
         )
     }
 }
