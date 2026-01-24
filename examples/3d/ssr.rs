@@ -5,6 +5,7 @@ use std::ops::Range;
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
+    camera::CameraMainColorTargetConfig,
     color::palettes::css::{BLACK, WHITE},
     core_pipeline::Skybox,
     image::{
@@ -418,7 +419,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_setting
         Camera3d::default(),
         Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
         TemporalAntiAliasing::default(),
         ScreenSpaceReflections {
             min_perceptual_roughness: app_settings.min_perceptual_roughness.clone(),

@@ -38,7 +38,7 @@ use bevy::{
 // it _greatly enhances_ the look of the resulting blur effects.
 // Sadly, it's not available under WebGL.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-use bevy::anti_alias::taa::TemporalAntiAliasing;
+use bevy::{anti_alias::taa::TemporalAntiAliasing, camera::CameraMainColorTargetConfig};
 
 use rand::random;
 
@@ -309,7 +309,7 @@ fn setup(
         Tonemapping::TonyMcMapface,
         Exposure { ev100: 6.0 },
         #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
         #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
         TemporalAntiAliasing::default(),
         EnvironmentMapLight {

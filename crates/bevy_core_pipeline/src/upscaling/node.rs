@@ -57,10 +57,12 @@ impl ViewNode for UpscalingNode {
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if main_texture_view.id() == *id => bind_group,
             cached_bind_group => {
+                // Use linear filtering for better quality when upsampling.
                 let bind_group = blit_pipeline.create_bind_group(
                     render_context.render_device(),
                     main_texture_view,
                     pipeline_cache,
+                    true,
                 );
 
                 let (_, bind_group) =
@@ -94,7 +96,14 @@ impl ViewNode for UpscalingNode {
         {
             let size = viewport.physical_size;
             let position = viewport.physical_position;
-            render_pass.set_scissor_rect(position.x, position.y, size.x, size.y);
+            render_pass.set_viewport(
+                position.x as f32,
+                position.y as f32,
+                size.x as f32,
+                size.y as f32,
+                viewport.depth.start,
+                viewport.depth.end,
+            );
         }
 
         render_pass.set_pipeline(pipeline);

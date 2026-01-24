@@ -81,7 +81,7 @@ use bevy_render::{
     render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
     settings::WgpuFeatures,
-    view::{prepare_view_targets, Msaa},
+    view::{prepare_view_targets, ExtractedView},
     ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
@@ -109,8 +109,8 @@ use tracing::error;
 ///
 /// This plugin currently works only on the Vulkan and Metal backends.
 ///
-/// This plugin is not compatible with [`Msaa`]. Any camera rendering a [`MeshletMesh`] must have
-/// [`Msaa`] set to [`Msaa::Off`].
+/// This plugin is not compatible with MSAA. Any camera rendering a [`MeshletMesh`] must have
+/// main color target not be multisampled.
 ///
 /// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported when using this plugin.
 /// You must use one or the other by setting [`crate::DefaultOpaqueRendererMethod`].
@@ -278,16 +278,16 @@ impl From<&MeshletMesh3d> for AssetId<MeshletMesh> {
 fn configure_meshlet_views(
     mut views_3d: Query<(
         Entity,
-        &Msaa,
+        &ExtractedView,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
         Has<DeferredPrepass>,
     )>,
     mut commands: Commands,
 ) {
-    for (entity, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
-        if *msaa != Msaa::Off {
-            error!("MeshletPlugin can't be used with MSAA. Add Msaa::Off to your camera to use this plugin.");
+    for (entity, view, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
+        if view.msaa_samples != 1 {
+            error!("MeshletPlugin can't be used with MSAA. Make sure your camera main color target isn't multisampled to use this plugin.");
             std::process::exit(1);
         }
 

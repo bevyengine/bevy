@@ -2,6 +2,7 @@
 
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
 use bevy::anti_alias::taa::TemporalAntiAliasing;
+use bevy::camera::CameraMainColorTargetConfig;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::core_pipeline::Skybox;
 use bevy::pbr::ScreenSpaceAmbientOcclusion;
@@ -127,7 +128,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         ScreenSpaceAmbientOcclusion::default(),
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
         Tonemapping::AcesFitted,
         MotionBlur {
             shutter_angle: 2.0, // This is really just for fun when spinning the model

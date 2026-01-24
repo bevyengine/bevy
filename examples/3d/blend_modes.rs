@@ -10,6 +10,8 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
+#[cfg(target_arch = "wasm32")]
+use bevy::camera::CameraMainColorTargetConfig;
 use bevy::{color::palettes::css::ORANGE, prelude::*, render::view::Hdr};
 use rand::random;
 
@@ -154,7 +156,7 @@ fn setup(
         // Since this example uses HDR, we must disable MSAA for Wasm builds, at least
         // until WebGPU is ready and no longer behind a feature flag in Web browsers.
         #[cfg(target_arch = "wasm32")]
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
     ));
 
     // Controls Text

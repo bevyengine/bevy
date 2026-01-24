@@ -1,5 +1,6 @@
 use super::ExtractedWindows;
 use crate::{
+    camera::ExtractedMainColorTarget,
     gpu_readback,
     render_asset::RenderAssets,
     render_resource::{
@@ -7,8 +8,11 @@ use crate::{
         SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
+    sync_world::RenderEntity,
     texture::{GpuImage, ManualTextureViews, OutputColorAttachment},
-    view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
+    view::{
+        prepare_view_attachments, prepare_view_targets, ViewOutputTargetAttachments, WindowSurfaces,
+    },
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use alloc::{borrow::Cow, sync::Arc};
@@ -220,6 +224,7 @@ fn extract_screenshots(
                 Commands,
                 Query<Entity, With<PrimaryWindow>>,
                 Query<(Entity, &Screenshot), Without<Capturing>>,
+                Query<RenderEntity, With<ExtractedMainColorTarget>>,
             )>,
         >,
     >,
@@ -229,7 +234,8 @@ fn extract_screenshots(
         *system_state = Some(SystemState::new(&mut main_world));
     }
     let system_state = system_state.as_mut().unwrap();
-    let (mut commands, primary_window, screenshots) = system_state.get_mut(&mut main_world);
+    let (mut commands, primary_window, screenshots, query_main_color_targets) =
+        system_state.get_mut(&mut main_world);
 
     targets.clear();
     seen_targets.clear();
@@ -238,7 +244,13 @@ fn extract_screenshots(
 
     for (entity, screenshot) in screenshots.iter() {
         let render_target = screenshot.0.clone();
-        let Some(render_target) = render_target.normalize(primary_window) else {
+        let main_color_target_render_entity = match render_target {
+            RenderTarget::MainColorTarget(entity) => query_main_color_targets.get(entity).ok(),
+            _ => None,
+        };
+        let Some(render_target) =
+            render_target.normalize(primary_window, main_color_target_render_entity)
+        else {
             warn!(
                 "Unknown render target for screenshot, skipping: {:?}",
                 render_target
@@ -272,7 +284,8 @@ fn prepare_screenshots(
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
     images: Res<RenderAssets<GpuImage>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut view_target_attachments: ResMut<ViewTargetAttachments>,
+    mut view_target_attachments: ResMut<ViewOutputTargetAttachments>,
+    query_main_color_targets: Query<&ExtractedMainColorTarget>,
 ) {
     prepared.clear();
     for (entity, target) in targets.iter() {
@@ -337,6 +350,41 @@ fn prepare_screenshots(
                 let size = manual_texture_view.size.to_extents();
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
+                    view_format,
+                    &render_device,
+                    &screenshot_pipeline,
+                    &pipeline_cache,
+                    &mut pipelines,
+                );
+                prepared.insert(*entity, state);
+                view_target_attachments.insert(
+                    target.clone(),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
+                );
+            }
+            NormalizedRenderTarget::MainColorTarget { render_entity, .. } => {
+                let Some(render_entity) = *render_entity else {
+                    warn!("Unknown main color target for screenshot whose render entity is None, skipping");
+                    continue;
+                };
+                let Ok(main_color_target) = query_main_color_targets.get(render_entity) else {
+                    warn!(
+                        "Unknown main color target for screenshot, skipping: {:?}",
+                        render_entity
+                    );
+                    continue;
+                };
+                let image_id = main_color_target.current_target();
+                let Some(gpu_image) = images.get(image_id) else {
+                    warn!(
+                        "Unknown image of main color target for screenshot, skipping: {:?}",
+                        image_id
+                    );
+                    continue;
+                };
+                let view_format = gpu_image.view_format();
+                let (texture_view, state) = prepare_screenshot_state(
+                    gpu_image.texture_descriptor.size,
                     view_format,
                     &render_device,
                     &screenshot_pipeline,
@@ -558,6 +606,45 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 let height = texture_view.size.y;
                 let texture_format = texture_view.view_format;
                 let texture_view = texture_view.texture_view.deref();
+                render_screenshot(
+                    encoder,
+                    prepared,
+                    pipelines,
+                    entity,
+                    width,
+                    height,
+                    texture_format,
+                    texture_view,
+                );
+            }
+            NormalizedRenderTarget::MainColorTarget { render_entity, .. } => {
+                let Some(render_entity) = *render_entity else {
+                    warn!("Unknown main color target for screenshot whose render entity is None, skipping");
+                    continue;
+                };
+                let Some(main_color_target) = world
+                    .entity(render_entity)
+                    .get::<ExtractedMainColorTarget>()
+                else {
+                    warn!(
+                        "Unknown main color target for screenshot, skipping: {:?}",
+                        render_entity
+                    );
+                    continue;
+                };
+                let image_id = main_color_target.current_target();
+                let Some(gpu_image) = gpu_images.get(image_id) else {
+                    warn!(
+                        "Unknown image of main color target for screenshot, skipping: {:?}",
+                        image_id
+                    );
+                    continue;
+                };
+
+                let width = gpu_image.texture_descriptor.size.width;
+                let height = gpu_image.texture_descriptor.size.height;
+                let texture_format = gpu_image.texture_descriptor.format;
+                let texture_view = gpu_image.texture_view.deref();
                 render_screenshot(
                     encoder,
                     prepared,

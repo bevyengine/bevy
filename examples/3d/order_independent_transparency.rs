@@ -4,7 +4,7 @@
 //!
 //! [`OrderIndependentTransparencyPlugin`]: bevy::core_pipeline::oit::OrderIndependentTransparencyPlugin
 use bevy::{
-    camera::visibility::RenderLayers,
+    camera::{visibility::RenderLayers, CameraMainColorTargetConfig},
     color::palettes::css::{BLUE, GREEN, RED},
     core_pipeline::oit::OrderIndependentTransparencySettings,
     prelude::*,
@@ -32,7 +32,7 @@ fn setup(
         OrderIndependentTransparencySettings::default(),
         RenderLayers::layer(1),
         // Msaa currently doesn't work with OIT
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
     ));
 
     // light

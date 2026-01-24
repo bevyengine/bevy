@@ -762,6 +762,7 @@ pub fn extract_ui_camera_view(
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
     >,
+    query_extracted_view: Query<&ExtractedView>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
@@ -775,6 +776,9 @@ pub fn extract_ui_camera_view(
                 .remove::<(UiCameraView, UiAntiAlias, BoxShadowSamples)>();
             continue;
         }
+        let Ok(view) = query_extracted_view.get(render_entity) else {
+            continue;
+        };
 
         if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
@@ -809,6 +813,8 @@ pub fn extract_ui_camera_view(
                         )),
                         color_grading: Default::default(),
                         invert_culling: false,
+                        msaa_samples: 1,
+                        color_target_format: view.color_target_format,
                     },
                     // Link to the main camera view.
                     UiViewTarget(render_entity),
@@ -1417,7 +1423,7 @@ pub fn queue_uinodes(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey {
-                hdr: view.hdr,
+                texture_format: view.color_target_format,
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
             },
         );

@@ -39,7 +39,7 @@ use bevy_render::{
         TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice},
-    view::ViewTarget,
+    view::{ExtractedView, ViewTarget},
     ExtractSchedule, MainWorld, RenderApp, RenderStartup,
 };
 use bevy_shader::ShaderRef;
@@ -251,7 +251,7 @@ fn init_pipeline<T: FullscreenMaterial>(
     desc.fragment.as_mut().unwrap().targets[0]
         .as_mut()
         .unwrap()
-        .format = ViewTarget::TEXTURE_FORMAT_HDR;
+        .format = TextureFormat::Rgba16Float;
     let pipeline_id_hdr = pipeline_cache.queue_render_pipeline(desc);
     commands.insert_resource(FullscreenMaterialPipeline {
         layout,
@@ -268,19 +268,23 @@ struct FullscreenMaterialNode<T: FullscreenMaterial> {
 
 impl<T: FullscreenMaterial> ViewNode for FullscreenMaterialNode<T> {
     // TODO we should expose the depth buffer and the gbuffer if using deferred
-    type ViewQuery = (&'static ViewTarget, &'static DynamicUniformIndex<T>);
+    type ViewQuery = (
+        &'static ExtractedView,
+        &'static ViewTarget,
+        &'static DynamicUniformIndex<T>,
+    );
 
     fn run<'w>(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, settings_index): QueryItem<Self::ViewQuery>,
+        (view, view_target, settings_index): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let fullscreen_pipeline = world.resource::<FullscreenMaterialPipeline>();
 
         let pipeline_cache = world.resource::<PipelineCache>();
-        let pipeline_id = if view_target.is_hdr() {
+        let pipeline_id = if view.hdr {
             fullscreen_pipeline.pipeline_id_hdr
         } else {
             fullscreen_pipeline.pipeline_id

@@ -15,7 +15,6 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::prelude::*;
 use bevy_math::{
     ops::{cos, sin},
     FloatOrd, Rect, Vec2,
@@ -138,7 +137,7 @@ pub fn compute_gradient_line_length(angle: f32, size: Vec2) -> f32 {
 pub struct UiGradientPipelineKey {
     anti_alias: bool,
     color_space: InterpolationColorSpace,
-    pub hdr: bool,
+    pub color_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for GradientPipeline {
@@ -207,11 +206,7 @@ impl SpecializedRenderPipeline for GradientPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.color_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -612,7 +607,7 @@ pub fn queue_gradient(
             UiGradientPipelineKey {
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
                 color_space: gradient.color_space,
-                hdr: view.hdr,
+                color_format: view.color_target_format,
             },
         );
 

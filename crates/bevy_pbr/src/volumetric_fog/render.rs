@@ -17,7 +17,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
     world::World,
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::Image;
 use bevy_light::{FogVolume, VolumetricFog, VolumetricLight};
 use bevy_math::{vec4, Affine3A, Mat4, Vec3, Vec3A, Vec4};
 use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
@@ -41,7 +41,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Extract,
 };
 use bevy_shader::Shader;
@@ -143,6 +143,7 @@ pub struct VolumetricFogPipelineKey {
 
     /// Flags that specify features on the pipeline key.
     flags: VolumetricFogPipelineKeyFlags,
+    texture_format: TextureFormat,
 }
 
 /// The same as [`VolumetricFog`] and [`FogVolume`], but formatted for
@@ -305,6 +306,7 @@ pub fn extract_volumetric_fog(
 
 impl ViewNode for VolumetricFogNode {
     type ViewQuery = (
+        Read<ExtractedView>,
         Read<ViewTarget>,
         Read<ViewDepthTexture>,
         Read<ViewVolumetricFogPipelines>,
@@ -316,7 +318,6 @@ impl ViewNode for VolumetricFogNode {
         Read<MeshViewBindGroup>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
         Read<ViewContactShadowsUniformOffset>,
-        Read<Msaa>,
         Read<ViewEnvironmentMapUniformOffset>,
     );
 
@@ -325,6 +326,7 @@ impl ViewNode for VolumetricFogNode {
         _: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
+            view,
             view_target,
             view_depth_texture,
             view_volumetric_lighting_pipelines,
@@ -336,7 +338,6 @@ impl ViewNode for VolumetricFogNode {
             view_bind_group,
             view_ssr_offset,
             view_contact_shadows_offset,
-            msaa,
             view_environment_map_offset,
         ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
@@ -411,7 +412,7 @@ impl ViewNode for VolumetricFogNode {
             let mut bind_group_layout_key = VolumetricFogBindGroupLayoutKey::empty();
             bind_group_layout_key.set(
                 VolumetricFogBindGroupLayoutKey::MULTISAMPLED,
-                !matches!(*msaa, Msaa::Off),
+                view.msaa_samples > 1,
             );
 
             // Create the bind group entries. The ones relating to the density
@@ -592,11 +593,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.flags.contains(VolumetricFogPipelineKeyFlags::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.texture_format,
                     // Blend on top of what's already in the framebuffer. Doing
                     // the alpha blending with the hardware blender allows us to
                     // avoid having to use intermediate render targets.
@@ -632,7 +629,6 @@ pub fn prepare_volumetric_fog_pipelines(
         (
             Entity,
             &ExtractedView,
-            &Msaa,
             Has<NormalPrepass>,
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
@@ -651,7 +647,6 @@ pub fn prepare_volumetric_fog_pipelines(
     for (
         entity,
         view,
-        msaa,
         normal_prepass,
         depth_prepass,
         motion_vector_prepass,
@@ -660,7 +655,8 @@ pub fn prepare_volumetric_fog_pipelines(
     ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
-        let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(*msaa);
+        let mut mesh_pipeline_view_key =
+            MeshPipelineViewLayoutKey::from_msaa_samples(view.msaa_samples);
         mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::NORMAL_PREPASS, normal_prepass);
         mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::DEPTH_PREPASS, depth_prepass);
         mesh_pipeline_view_key.set(
@@ -684,6 +680,7 @@ pub fn prepare_volumetric_fog_pipelines(
             mesh_pipeline_view_key,
             vertex_buffer_layout: plane_mesh.layout.clone(),
             flags: textureless_flags,
+            texture_format: view.color_target_format,
         };
         let textureless_pipeline_id = pipelines.specialize(
             &pipeline_cache,

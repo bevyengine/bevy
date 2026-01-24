@@ -68,8 +68,7 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews, view::Msaa,
-        ExtractSchedule,
+        camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews, ExtractSchedule,
     };
 }
 

@@ -1,5 +1,7 @@
 //! Test that the renderer can handle various invalid skinned meshes
 
+#[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+use bevy::camera::CameraMainColorTargetConfig;
 use bevy::{
     asset::RenderAssetUsages,
     camera::ScalingMode,
@@ -65,7 +67,7 @@ fn setup_environment(
         },
         // MSAA and MotionBlur together are not compatible on WebGL.
         #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
     ));
 
     // Add a directional light to make sure we exercise the renderer's shadow path.

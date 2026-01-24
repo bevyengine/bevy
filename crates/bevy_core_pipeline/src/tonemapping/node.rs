@@ -13,7 +13,7 @@ use bevy_render::{
     },
     renderer::RenderContext,
     texture::{FallbackImage, GpuImage},
-    view::{ViewTarget, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 
 use super::{get_lut_bindings, Tonemapping};
@@ -28,6 +28,7 @@ impl ViewNode for TonemappingNode {
     type ViewQuery = (
         &'static ViewUniformOffset,
         &'static ViewTarget,
+        &'static ExtractedView,
         &'static ViewTonemappingPipeline,
         &'static Tonemapping,
     );
@@ -36,7 +37,7 @@ impl ViewNode for TonemappingNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): QueryItem<
+        (view_uniform_offset, target, view, view_tonemapping_pipeline, tonemapping): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -53,7 +54,7 @@ impl ViewNode for TonemappingNode {
             return Ok(());
         }
 
-        if !target.is_hdr() {
+        if !view.hdr {
             return Ok(());
         }
 

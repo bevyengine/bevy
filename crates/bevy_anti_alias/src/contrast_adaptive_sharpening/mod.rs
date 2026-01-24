@@ -7,7 +7,6 @@ use bevy_core_pipeline::{
     FullscreenShader,
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
@@ -17,7 +16,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, ViewTarget},
+    view::ExtractedView,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -260,11 +259,7 @@ fn prepare_cas_pipelines(
             &pipeline_cache,
             CasPipelineKey {
                 denoise: denoise_cas.0,
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                texture_format: view.color_target_format,
             },
         )?;
 

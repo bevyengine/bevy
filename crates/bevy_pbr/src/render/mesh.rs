@@ -25,7 +25,7 @@ use bevy_ecs::{
     relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{ImageSampler, TextureFormatPixelInfo};
 use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
@@ -56,8 +56,7 @@ use bevy_render::{
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
     view::{
-        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewTarget,
-        ViewUniformOffset,
+        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewUniformOffset,
     },
     Extract,
 };
@@ -86,7 +85,6 @@ use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::change_detection::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_render::camera::TemporalJitter;
-use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
 use bevy_render::RenderSystems::PrepareAssets;
@@ -314,7 +312,6 @@ pub fn check_views_need_specialization(
     mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
     mut views: Query<(
         &ExtractedView,
-        &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&ShadowFilteringMethod>,
@@ -341,7 +338,6 @@ pub fn check_views_need_specialization(
 ) {
     for (
         view,
-        msaa,
         tonemapping,
         dither,
         shadow_filter_method,
@@ -357,8 +353,8 @@ pub fn check_views_need_specialization(
         has_ssr,
     ) in views.iter_mut()
     {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(view.msaa_samples)
+            | MeshPipelineKey::from_color_target_format(view.color_target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -2334,6 +2330,19 @@ bitflags::bitflags! {
             Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
             Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
             Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits();
+
+        const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_R8UNORM = 0 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RG8UNORM = 1  << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RGBA8UNORM = 2 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RGBA8UNORMSRGB = 3 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_BGRA8UNORM = 4 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_BGRA8UNORMSRGB = 5 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_R16FLOAT = 6 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RG16FLOAT = 7 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RGBA16FLOAT = 8 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RB11B10FLOAT = 9 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RGB10A2UNORM = 10 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
     }
 }
 
@@ -2361,18 +2370,15 @@ impl MeshPipelineKey {
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u64 =
         Self::VIEW_PROJECTION_MASK_BITS.count_ones() as u64 + Self::VIEW_PROJECTION_SHIFT_BITS;
 
+    const COLOR_TARGET_FORMAT_MASK_BITS: u64 = 0b1111;
+    const COLOR_TARGET_FORMAT_SHIFT_BITS: u64 = Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS
+        .count_ones() as u64
+        + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() as u64 & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         Self::from_bits_retain(msaa_bits)
-    }
-
-    pub fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            MeshPipelineKey::HDR
-        } else {
-            MeshPipelineKey::NONE
-        }
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -2397,6 +2403,57 @@ impl MeshPipelineKey {
             x if x == PrimitiveTopology::TriangleList as u64 => PrimitiveTopology::TriangleList,
             x if x == PrimitiveTopology::TriangleStrip as u64 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
+        }
+    }
+
+    /// Create a pipeline key from view target format.
+    #[inline]
+    pub fn from_color_target_format(format: TextureFormat) -> Self {
+        match format {
+            TextureFormat::R8Unorm => Self::COLOR_TARGET_FORMAT_R8UNORM,
+            TextureFormat::Rg8Unorm => Self::COLOR_TARGET_FORMAT_RG8UNORM,
+            TextureFormat::Rgba8Unorm => Self::COLOR_TARGET_FORMAT_RGBA8UNORM,
+            TextureFormat::Rgba8UnormSrgb => Self::COLOR_TARGET_FORMAT_RGBA8UNORMSRGB,
+            TextureFormat::Bgra8Unorm => Self::COLOR_TARGET_FORMAT_BGRA8UNORM,
+            TextureFormat::Bgra8UnormSrgb => Self::COLOR_TARGET_FORMAT_BGRA8UNORMSRGB,
+            TextureFormat::R16Float => Self::COLOR_TARGET_FORMAT_R16FLOAT,
+            TextureFormat::Rg16Float => Self::COLOR_TARGET_FORMAT_RG16FLOAT,
+            TextureFormat::Rgba16Float => Self::COLOR_TARGET_FORMAT_RGBA16FLOAT,
+            TextureFormat::Rg11b10Ufloat => Self::COLOR_TARGET_FORMAT_RB11B10FLOAT,
+            TextureFormat::Rgb10a2Unorm => Self::COLOR_TARGET_FORMAT_RGB10A2UNORM,
+            _ => unreachable!("Unsupported view target format"),
+        }
+    }
+
+    /// Get the view target format of this pipeline key.
+    #[inline]
+    pub fn color_target_format(&self) -> TextureFormat {
+        let target_format = *self & Self::COLOR_TARGET_FORMAT_RESERVED_BITS;
+
+        if target_format == Self::COLOR_TARGET_FORMAT_R8UNORM {
+            TextureFormat::R8Unorm
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RG8UNORM {
+            TextureFormat::Rg8Unorm
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RGBA8UNORM {
+            TextureFormat::Rgba8Unorm
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RGBA8UNORMSRGB {
+            TextureFormat::Rgba8UnormSrgb
+        } else if target_format == Self::COLOR_TARGET_FORMAT_BGRA8UNORM {
+            TextureFormat::Bgra8Unorm
+        } else if target_format == Self::COLOR_TARGET_FORMAT_BGRA8UNORMSRGB {
+            TextureFormat::Bgra8UnormSrgb
+        } else if target_format == Self::COLOR_TARGET_FORMAT_R16FLOAT {
+            TextureFormat::R16Float
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RG16FLOAT {
+            TextureFormat::Rg16Float
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RGBA16FLOAT {
+            TextureFormat::Rgba16Float
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RB11B10FLOAT {
+            TextureFormat::Rg11b10Ufloat
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RGB10A2UNORM {
+            TextureFormat::Rgb10a2Unorm
+        } else {
+            unreachable!("Unsupported view target format")
         }
     }
 }
@@ -2799,12 +2856,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        let format = if key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
-
         // This is defined here so that custom shaders that use something other than
         // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this
         // in their own shaders.
@@ -2826,7 +2877,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.color_target_format(),
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],

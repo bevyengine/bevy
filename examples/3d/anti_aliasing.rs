@@ -2,6 +2,8 @@
 
 use std::{f32::consts::PI, fmt::Write};
 
+#[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+use bevy::camera::CameraMainColorTargetConfig;
 use bevy::{
     anti_alias::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
@@ -71,7 +73,7 @@ fn modify_aa(
             Option<&mut Fxaa>,
             Option<&mut Smaa>,
             Option<&TemporalAntiAliasing>,
-            &mut Msaa,
+            &mut CameraMainColorTargetConfig,
             Option<&mut Dlss>,
         ),
         With<Camera>,
@@ -82,7 +84,7 @@ fn modify_aa(
             Option<&mut Fxaa>,
             Option<&mut Smaa>,
             Option<&TemporalAntiAliasing>,
-            &mut Msaa,
+            &mut CameraMainColorTargetConfig,
         ),
         With<Camera>,
     >,
@@ -92,14 +94,14 @@ fn modify_aa(
     mut commands: Commands,
 ) {
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let (camera_entity, fxaa, smaa, taa, mut msaa, dlss) = camera.into_inner();
+    let (camera_entity, fxaa, smaa, taa, mut color_target_config, dlss) = camera.into_inner();
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-    let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.into_inner();
+    let (camera_entity, fxaa, smaa, taa, mut color_target_config) = camera.into_inner();
     let mut camera = commands.entity(camera_entity);
 
     // No AA
     if keys.just_pressed(KeyCode::Digit1) {
-        *msaa = Msaa::Off;
+        color_target_config.sample_count = 1;
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
@@ -108,32 +110,32 @@ fn modify_aa(
     }
 
     // MSAA
-    if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
+    if keys.just_pressed(KeyCode::Digit2) && color_target_config.sample_count == 1 {
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
             .remove::<TaaComponents>()
             .remove::<DlssComponents>();
 
-        *msaa = Msaa::Sample4;
+        color_target_config.sample_count = 4;
     }
 
     // MSAA Sample Count
-    if *msaa != Msaa::Off {
+    if color_target_config.sample_count != 1 {
         if keys.just_pressed(KeyCode::KeyQ) {
-            *msaa = Msaa::Sample2;
+            color_target_config.sample_count = 2;
         }
         if keys.just_pressed(KeyCode::KeyW) {
-            *msaa = Msaa::Sample4;
+            color_target_config.sample_count = 4;
         }
         if keys.just_pressed(KeyCode::KeyE) {
-            *msaa = Msaa::Sample8;
+            color_target_config.sample_count = 8;
         }
     }
 
     // FXAA
     if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
-        *msaa = Msaa::Off;
+        color_target_config.sample_count = 1;
         camera
             .remove::<Smaa>()
             .remove::<TaaComponents>()
@@ -167,7 +169,7 @@ fn modify_aa(
 
     // SMAA
     if keys.just_pressed(KeyCode::Digit4) && smaa.is_none() {
-        *msaa = Msaa::Off;
+        color_target_config.sample_count = 1;
         camera
             .remove::<Fxaa>()
             .remove::<TaaComponents>()
@@ -193,7 +195,7 @@ fn modify_aa(
 
     // TAA
     if keys.just_pressed(KeyCode::Digit5) && taa.is_none() {
-        *msaa = Msaa::Off;
+        color_target_config.sample_count = 1;
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
@@ -204,7 +206,7 @@ fn modify_aa(
     // DLSS
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if keys.just_pressed(KeyCode::Digit6) && dlss.is_none() && dlss_supported.is_some() {
-        *msaa = Msaa::Off;
+        color_target_config.sample_count = 1;
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
@@ -286,7 +288,7 @@ fn update_ui(
             Option<&Smaa>,
             Option<&TemporalAntiAliasing>,
             &ContrastAdaptiveSharpening,
-            &Msaa,
+            &CameraMainColorTargetConfig,
             Option<&Dlss>,
         ),
         With<Camera>,
@@ -298,7 +300,7 @@ fn update_ui(
             Option<&Smaa>,
             Option<&TemporalAntiAliasing>,
             &ContrastAdaptiveSharpening,
-            &Msaa,
+            &CameraMainColorTargetConfig,
         ),
         With<Camera>,
     >,
@@ -308,9 +310,9 @@ fn update_ui(
     >,
 ) {
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let (projection, fxaa, smaa, taa, cas, msaa, dlss) = *camera;
+    let (projection, fxaa, smaa, taa, cas, color_target_config, dlss) = *camera;
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-    let (projection, fxaa, smaa, taa, cas, msaa) = *camera;
+    let (projection, fxaa, smaa, taa, cas, color_target_config) = *camera;
 
     let ui = &mut ui.0;
     *ui = "Antialias Method\n".to_string();
@@ -324,9 +326,13 @@ fn update_ui(
         ui,
         "No AA",
         '1',
-        *msaa == Msaa::Off && fxaa.is_none() && taa.is_none() && smaa.is_none() && dlss_none,
+        color_target_config.sample_count == 1
+            && fxaa.is_none()
+            && taa.is_none()
+            && smaa.is_none()
+            && dlss_none,
     );
-    draw_selectable_menu_item(ui, "MSAA", '2', *msaa != Msaa::Off);
+    draw_selectable_menu_item(ui, "MSAA", '2', color_target_config.sample_count > 1);
     draw_selectable_menu_item(ui, "FXAA", '3', fxaa.is_some());
     draw_selectable_menu_item(ui, "SMAA", '4', smaa.is_some());
     draw_selectable_menu_item(ui, "TAA", '5', taa.is_some());
@@ -335,11 +341,11 @@ fn update_ui(
         draw_selectable_menu_item(ui, "DLSS", '6', dlss.is_some());
     }
 
-    if *msaa != Msaa::Off {
+    if color_target_config.sample_count != 1 {
         ui.push_str("\n----------\n\nSample Count\n");
-        draw_selectable_menu_item(ui, "2", 'Q', *msaa == Msaa::Sample2);
-        draw_selectable_menu_item(ui, "4", 'W', *msaa == Msaa::Sample4);
-        draw_selectable_menu_item(ui, "8", 'E', *msaa == Msaa::Sample8);
+        draw_selectable_menu_item(ui, "2", 'Q', color_target_config.sample_count == 2);
+        draw_selectable_menu_item(ui, "4", 'W', color_target_config.sample_count == 4);
+        draw_selectable_menu_item(ui, "8", 'E', color_target_config.sample_count == 8);
     }
 
     if let Some(fxaa) = fxaa {
