@@ -32,7 +32,11 @@ use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     MaterialProperties,
 };
-use bevy_math::{ops, primitives::HalfSpace, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{
+    ops,
+    primitives::{HalfSpace, ViewFrustum},
+    Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
+};
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
@@ -1591,8 +1595,8 @@ pub fn prepare_lights(
 
                 let mut frustum = *frustum;
                 // Push the near clip plane out to infinity for directional lights
-                frustum.half_spaces[Frustum::NEAR_PLANE_IDX] = HalfSpace::new(
-                    frustum.half_spaces[Frustum::NEAR_PLANE_IDX]
+                frustum.half_spaces[ViewFrustum::NEAR_PLANE_IDX] = HalfSpace::new(
+                    frustum.half_spaces[ViewFrustum::NEAR_PLANE_IDX]
                         .normal()
                         .extend(f32::INFINITY),
                 );
