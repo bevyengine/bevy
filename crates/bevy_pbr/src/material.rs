@@ -177,7 +177,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     }
 
     #[inline]
-    /// Returns whether the material would like to read from [`ViewTransmissionTexture`](crate::ViewTransmissionTexture).
+    /// Returns whether the material would like to read from [`ViewTransmissionTexture`].
     ///
     /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
     /// rendering to take place in a separate [`Transmissive3d`] pass.
