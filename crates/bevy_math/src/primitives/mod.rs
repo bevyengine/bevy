@@ -8,7 +8,9 @@ mod dim3;
 pub use dim3::*;
 mod inset;
 pub use inset::*;
+mod half_space;
 mod polygon;
+pub use half_space::*;
 
 /// A marker trait for 2D primitives
 pub trait Primitive2d {}
