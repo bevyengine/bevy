@@ -12,8 +12,8 @@
 
 use bevy::{
     camera::Exposure,
-    core_pipeline::{tonemapping::Tonemapping, Skybox},
-    light::NoParallaxCorrection,
+    core_pipeline::tonemapping::Tonemapping,
+    light::{NoParallaxCorrection, Skybox},
     pbr::generate::generate_environment_map_light,
     prelude::*,
     render::{render_resource::TextureUsages, view::Hdr},

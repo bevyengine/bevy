@@ -21,8 +21,9 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::{BLUE, GOLD, WHITE},
-    core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
+    core_pipeline::tonemapping::Tonemapping::AcesFitted,
     image::ImageLoaderSettings,
+    light::Skybox,
     math::vec3,
     prelude::*,
     render::view::Hdr,
