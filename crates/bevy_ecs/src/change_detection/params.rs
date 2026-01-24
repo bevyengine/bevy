@@ -626,7 +626,8 @@ impl<'w, T> ContiguousRef<'w, T> {
         self.ticks.this_run
     }
 
-    /// Creates a new `ContiguousRef` using provided values.
+    /// Creates a new `ContiguousRef` using provided values or returns [`None`] if lengths of
+    /// `value`, `added`, `changed` and `changed_by` do not match    
     ///
     /// This is an advanced feature, `ContiguousRef`s are designed to be _created_ by
     /// engine-internal code and _consumed_ by end-user code.
@@ -647,8 +648,14 @@ impl<'w, T> ContiguousRef<'w, T> {
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w [&'static Location<'static>]>,
-    ) -> Self {
-        Self {
+    ) -> Option<Self> {
+        let eq = value.len() == added.len()
+            && value.len() == changed.len()
+            && caller
+                .map(|v| v.len() == value.len())
+                .into_option()
+                .unwrap_or(true);
+        eq.then_some(Self {
             value,
             ticks: ContiguousComponentTicksRef {
                 added,
@@ -657,12 +664,21 @@ impl<'w, T> ContiguousRef<'w, T> {
                 last_run,
                 this_run,
             },
-        }
+        })
     }
 
     /// Splits [`ContiguousRef`] into it's inner data types.
     pub fn split(this: Self) -> (&'w [T], ContiguousComponentTicksRef<'w>) {
         (this.value, this.ticks)
+    }
+
+    /// Reverse of [`ContiguousRef::split`], constructing a [`ContiguousRef`] using components'
+    /// values and ticks.
+    ///
+    /// Returns [`None`] if lengths of `value` and `ticks` do not match, which doesn't happen if
+    /// `ticks` and `value` come from the same [`Self::split`] call.
+    pub fn from_parts(value: &'w [T], ticks: ContiguousComponentTicksRef<'w>) -> Option<Self> {
+        (value.len() == ticks.changed.len()).then_some(Self { value, ticks })
     }
 }
 
@@ -899,10 +915,40 @@ impl<'w, T> ContiguousMut<'w, T> {
     /// [`ContiguousComponentTicksMut::is_changed_iter`] and
     /// [`ContiguousComponentTicksMut::is_added_iter`]).
     ///
-    /// # Warning
-    /// **Bypasses change detection**
-    pub fn split(this: Self) -> (&'w mut [T], ContiguousComponentTicksMut<'w>) {
+    /// Variant of [`Self::split`] which bypasses change detection: [`Self::bypass_change_detection_split`].
+    ///
+    /// Reverse of [`Self::split`] is [`Self::from_parts`].
+    pub fn split(mut this: Self) -> (&'w mut [T], ContiguousComponentTicksMut<'w>) {
+        this.mark_all_as_changed();
         (this.value, this.ticks)
+    }
+
+    /// Splits [`ContiguousMut`] into it's inner data types. It may be useful, when you want to
+    /// have an iterator over component values and check ticks simultaneously (using
+    /// [`ContiguousComponentTicksMut::is_changed_iter`] and
+    /// [`ContiguousComponentTicksMut::is_added_iter`]).
+    ///
+    /// Variant of [`Self::bypass_change_detection_split`] which **does not** bypass change detection: [`Self::split`].
+    ///
+    /// Reverse of [`Self::bypass_change_detection_split`] is [`Self::from_parts`].
+    ///
+    /// # Warning
+    /// **Bypasses change detection**, call [`Self::split`] if you don't want to bypass it.
+    ///
+    /// See [`Self::bypass_change_detection`] for further explanations.
+    pub fn bypass_change_detection_split(
+        this: Self,
+    ) -> (&'w mut [T], ContiguousComponentTicksMut<'w>) {
+        (this.value, this.ticks)
+    }
+
+    /// Reverse of [`ContiguousMut::split`] and [`ContiguousMut::bypass_change_detection_split`],
+    /// constructing a [`ContiguousMut`] using components' values and ticks.
+    ///
+    /// Returns [`None`] if lengths of `value` and `ticks` do not match, which doesn't happen if
+    /// `ticks` and `value` come from the same [`Self::split`] or [`Self::bypass_change_detection_split`] call.
+    pub fn from_parts(value: &'w mut [T], ticks: ContiguousComponentTicksMut<'w>) -> Option<Self> {
+        (value.len() == ticks.changed.len()).then_some(Self { value, ticks })
     }
 }
 
