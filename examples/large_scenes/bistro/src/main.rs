@@ -17,7 +17,10 @@ use bevy::{
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     diagnostic::DiagnosticsStore,
     light::TransmittedShadowReceiver,
-    pbr::{DefaultOpaqueRendererMethod, ScreenSpaceAmbientOcclusion},
+    pbr::{
+        DefaultOpaqueRendererMethod, ScreenSpaceAmbientOcclusion, ScreenSpaceTransmission,
+        ScreenSpaceTransmissionQuality,
+    },
     post_process::bloom::Bloom,
     render::{
         batching::NoAutomaticBatching, occlusion_culling::OcclusionCulling, render_resource::Face,
@@ -26,14 +29,12 @@ use bevy::{
     scene::SceneInstanceReady,
 };
 use bevy::{
-    camera::ScreenSpaceTransmissionQuality, light::CascadeShadowConfigBuilder, render::view::Hdr,
-};
-use bevy::{
     diagnostic::FrameTimeDiagnosticsPlugin,
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
+use bevy::{light::CascadeShadowConfigBuilder, render::view::Hdr};
 use mipmap_generator::{
     generate_mipmaps, MipmapGeneratorDebugTextPlugin, MipmapGeneratorPlugin,
     MipmapGeneratorSettings,
