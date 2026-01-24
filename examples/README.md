@@ -60,7 +60,6 @@ git checkout v0.4.0
   - [Reflection](#reflection)
   - [Remote Protocol](#remote-protocol)
   - [Scene](#scene)
-  - [Shader Advanced](#shader-advanced)
   - [Shaders](#shaders)
   - [Shaders Advanced](#shaders-advanced)
   - [State](#state)
@@ -450,12 +449,6 @@ Example | Description
 --- | ---
 [Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
 
-### Shader Advanced
-
-Example | Description
---- | ---
-[Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
-
 ### Shaders
 
 These examples demonstrate how to implement different shaders in user code.
@@ -496,6 +489,7 @@ Example | Description
 Example | Description
 --- | ---
 [Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
+[Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
 
 ### State
 
