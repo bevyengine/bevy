@@ -30,7 +30,7 @@ pub struct ViewFrustum {
 impl ViewFrustum {
     /// The index for the near plane in `half_spaces`
     pub const NEAR_PLANE_IDX: usize = 4;
-    /// The index for the near plane in `half_spaces`
+    /// The index for the far plane in `half_spaces`
     pub const FAR_PLANE_IDX: usize = 5;
     /// Vec4 representing an inactive half space.
     /// The bisecting plane's unit normal is set to (0, 0, 0).
