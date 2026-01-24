@@ -12,8 +12,7 @@ use thiserror::Error;
 /// with an [`AsAccess`] of [`Filtered`].
 ///
 /// To define the access when used as a [`QueryData`], use a [`QueryBuilder`] or
-/// [`QueryParamBuilder`]. The [`FilteredEntityRef`] must be the entire
-/// [`QueryData`], and not nested inside a tuple with other data.
+/// [`QueryParamBuilder`].
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, world::FilteredEntityRef};
@@ -138,8 +137,7 @@ impl<'w, 's> UnsafeFilteredEntityMut<'w, 's> {
 /// with an [`AsAccess`] of [`Filtered`].
 ///
 /// To define the access when used as a [`QueryData`], use a [`QueryBuilder`] or
-/// [`QueryParamBuilder`]. The `FilteredEntityMut` must be the entire
-/// `QueryData`, and not nested inside a tuple with other data.
+/// [`QueryParamBuilder`].
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, world::FilteredEntityMut};

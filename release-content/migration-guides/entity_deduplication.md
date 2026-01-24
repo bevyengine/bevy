@@ -1,5 +1,5 @@
 ---
-title: "`UnsafeEntityCell` functions now have an `AccessKind` parameter"
+title: "`UnsafeEntityCell` functions now have an `AsAccess` parameter"
 pull_requests: [22538]
 ---
 
@@ -14,9 +14,9 @@ The following functions now return a `Result` with a proper error, instead of an
 - `EntityMutExcept::get_by_id`
 - `EntityMutExcept::get_mut_by_id`
 
-The following functions now take an `AccessKind` as an additional argument.
-You should pass a scope that most closely matches your access patterns, and
-ensure it abides by Rust aliasing rules.
+The following functions now take an `AsAccess` as an additional argument.
+You should pass an access type that most closely matches your access patterns,
+and ensure it abides by Rust aliasing rules.
 
 - `UnsafeEntityCell::get`
 - `UnsafeEntityCell::get_ref`
@@ -29,7 +29,7 @@ ensure it abides by Rust aliasing rules.
 - `UnsafeEntityCell::get_mut_assume_mutable_by_id`
 
 For example, if your cell can access all components without violating aliasing
-rules, use the `All` scope. If your cell can only access a specific set of
-components without violating aliasing rules, consider using `Filtered` or `Except`
-scopes. If you are able to validate externally that you won't violate aliasing
+rules, use `All`. If your cell can only access a specific set of
+components without violating aliasing rules, consider using `Filtered` or `Except`.
+If you are able to validate externally that you won't violate aliasing
 rules by accessing a particular component, you may use `All`.

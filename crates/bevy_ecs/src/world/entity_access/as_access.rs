@@ -35,8 +35,7 @@ impl Deref for All {
     type Target = Access;
 
     fn deref(&self) -> &Access {
-        static WRITE_ALL: Access = Access::new_write_all();
-        &WRITE_ALL
+        const { &Access::new_write_all() }
     }
 }
 
