@@ -47,8 +47,8 @@ impl<'w> ComponentTicksRef<'w> {
 ///
 /// Retrievable via [`ContiguousRef::split`] and probably only useful if you want to use the following
 /// methods:
-/// - [ContiguousComponentTicksRef::is_changed_iter],
-/// - [ContiguousComponentTicksRef::is_added_iter]
+/// - [`ContiguousComponentTicksRef::is_changed_iter`],
+/// - [`ContiguousComponentTicksRef::is_added_iter`]
 #[derive(Clone)]
 pub struct ContiguousComponentTicksRef<'w> {
     pub(crate) added: &'w [Tick],
@@ -187,8 +187,8 @@ impl<'w> From<ComponentTicksMut<'w>> for ComponentTicksRef<'w> {
 ///
 /// Retrievable via [`ContiguousMut::split`] and probably only useful if you want to use the following
 /// methods:
-/// - [ContiguousComponentTicksMut::is_changed_iter],
-/// - [ContiguousComponentTicksMut::is_added_iter]
+/// - [`ContiguousComponentTicksMut::is_changed_iter`],
+/// - [`ContiguousComponentTicksMut::is_added_iter`]
 pub struct ContiguousComponentTicksMut<'w> {
     pub(crate) added: &'w mut [Tick],
     pub(crate) changed: &'w mut [Tick],
@@ -895,7 +895,9 @@ impl<'w, T> ContiguousMut<'w, T> {
     }
 
     /// Splits [`ContiguousMut`] into it's inner data types. It may be useful, when you want to
-    /// have an iterator over component values and check ticks simultaneously.
+    /// have an iterator over component values and check ticks simultaneously (using
+    /// [`ContiguousComponentTicksMut::is_changed_iter`] and
+    /// [`ContiguousComponentTicksMut::is_added_iter`]).
     ///
     /// # Warning
     /// **Bypasses change detection**
