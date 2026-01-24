@@ -2810,30 +2810,26 @@ impl World {
             }
         }
 
-        let result = {
-            let mut guard = ReinsertGuard {
-                world: self,
-                component_id,
-                value: ManuallyDrop::new(value),
-                ticks,
-                caller,
-            };
-
-            let value_mut = Mut {
-                value: &mut *guard.value,
-                ticks: ComponentTicksMut {
-                    added: &mut guard.ticks.added,
-                    changed: &mut guard.ticks.changed,
-                    changed_by: guard.caller.as_mut(),
-                    last_run: last_change_tick,
-                    this_run: change_tick,
-                },
-            };
-
-            f(guard.world, value_mut)
-
-            // guard's drop impl runs here
+        let mut guard = ReinsertGuard {
+            world: self,
+            component_id,
+            value: ManuallyDrop::new(value),
+            ticks,
+            caller,
         };
+
+        let value_mut = Mut {
+            value: &mut *guard.value,
+            ticks: ComponentTicksMut {
+                added: &mut guard.ticks.added,
+                changed: &mut guard.ticks.changed,
+                changed_by: guard.caller.as_mut(),
+                last_run: last_change_tick,
+                this_run: change_tick,
+            },
+        };
+
+        let result = f(guard.world, value_mut);
 
         Some(result)
     }
