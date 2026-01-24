@@ -924,15 +924,21 @@ impl Allocator {
         self.shared.free.num_free()
     }
 
+    /// Flushes the [`quick_free`](Self::quick_free) list to the shared allocator.
+    #[inline]
+    fn flush_freed(&mut self) {
+        // SAFETY: We have `&mut self`.
+        unsafe {
+            self.shared.free.free(self.quick_free.as_slice());
+        }
+        self.quick_free.clear();
+    }
+
     /// Frees the entity allowing it to be reused.
     #[inline]
     pub(super) fn free(&mut self, entity: Entity) {
         if self.quick_free.is_full() {
-            // SAFETY: We have `&mut self`.
-            unsafe {
-                self.shared.free.free(self.quick_free.as_slice());
-            }
-            self.quick_free.clear();
+            self.flush_freed();
         }
         // SAFETY: The `ArrayVec` is not full or has just been cleared.
         unsafe {
@@ -1154,6 +1160,7 @@ mod tests {
         allocator.free(e1);
         allocator.free(e2);
         allocator.free(e3);
+        allocator.flush_freed();
 
         let r0 = allocator.alloc();
         let mut many = allocator.alloc_many(2);
