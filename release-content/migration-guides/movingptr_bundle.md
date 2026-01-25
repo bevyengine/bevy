@@ -1,5 +1,5 @@
 ---
-title: Implement `Bundle` for `MovingPtr<'_, B: Bundle>`
+title: Implement `Bundle` for `MovingPtr`
 pull_requests: [21454]
 ---
 
