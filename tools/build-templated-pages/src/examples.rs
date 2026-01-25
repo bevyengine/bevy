@@ -130,6 +130,16 @@ pub(crate) fn check(what_to_run: Command) {
 
         let mut context = Context::new();
         context.insert("all_examples", &examples_by_category);
+
+        let manifest = std::fs::read_to_string("Cargo.toml")
+            .unwrap()
+            .parse::<DocumentMut>()
+            .unwrap();
+
+        let bevy_version = manifest["package"]["version"].as_str();
+
+        context.insert("bevy_version", &bevy_version);
+
         Tera::new("docs-template/*.md.tpl")
             .expect("error parsing template")
             .render_to(
