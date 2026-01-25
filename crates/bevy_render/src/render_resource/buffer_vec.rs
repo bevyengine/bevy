@@ -625,7 +625,7 @@ pub enum WriteBufferRangeError {
 pub(crate) fn make_buffer_label<'a, T>(label: &'a Option<String>) -> Option<&'a str> {
     #[cfg(feature = "type_label_buffers")]
     if label.is_none() {
-        return Some(std::any::type_name::<T>());
+        return Some(core::any::type_name::<T>());
     }
     label.as_deref()
 }
