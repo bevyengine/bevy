@@ -79,3 +79,11 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
         }
     }
 }
+
+/// If this component is added to a camera, the camera will use an intermediate "high dynamic range" render texture.
+/// This allows rendering with a wider range of lighting values. However, this does *not* affect
+/// whether the camera will render with hdr display output (which bevy does not support currently)
+/// and only affects the intermediate render texture.
+#[derive(Component, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash, Debug)]
+#[reflect(Component, Default, PartialEq, Hash, Debug)]
+pub struct Hdr;

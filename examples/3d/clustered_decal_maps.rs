@@ -5,11 +5,11 @@ use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
     asset::io::web::WebAssetPlugin,
+    camera::Hdr,
     color::palettes::css::{CRIMSON, GOLD},
     image::ImageLoaderSettings,
     light::ClusteredDecal,
     prelude::*,
-    render::view::Hdr,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;

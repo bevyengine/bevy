@@ -29,7 +29,9 @@ use bevy::{
     scene::SceneInstanceReady,
 };
 use bevy::{
+    camera::Hdr,
     diagnostic::FrameTimeDiagnosticsPlugin,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,

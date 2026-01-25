@@ -21,7 +21,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    camera::Exposure,
+    camera::{Exposure, Hdr},
     color::palettes::css::*,
     core_pipeline::{prepass::DepthPrepass, tonemapping::Tonemapping},
     light::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
@@ -31,7 +31,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::TemporalJitter,
-        view::{ColorGrading, ColorGradingGlobal, Hdr},
+        view::{ColorGrading, ColorGradingGlobal},
     },
 };
 

@@ -29,14 +29,14 @@ use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{reflect_remote, Reflect};
 use bevy_render::{
-    camera::{MipBias, TemporalJitter},
+    camera::{Hdr, MipBias, TemporalJitter},
     render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::{
         raw_vulkan_init::{AdditionalVulkanFeatures, RawVulkanInitSettings},
         RenderDevice, RenderQueue,
     },
     texture::CachedTexture,
-    view::{prepare_view_targets, Hdr},
+    view::prepare_view_targets,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use dlss_wgpu::{
