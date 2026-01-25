@@ -158,7 +158,7 @@ impl<T: NoUninit> RawBufferVec<T> {
         if capacity > self.capacity || (self.changed && size > 0) {
             self.capacity = capacity;
             self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 size: size as BufferAddress,
                 usage: BufferUsages::COPY_DST | self.buffer_usage,
                 mapped_at_creation: false,
@@ -406,7 +406,7 @@ where
         self.capacity = capacity;
         let size = u64::from(T::min_size()) as usize * capacity;
         self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
-            label: self.label.as_deref(),
+            label: make_buffer_label::<Self>(&self.label),
             size: size as BufferAddress,
             usage: BufferUsages::COPY_DST | self.buffer_usage,
             mapped_at_creation: false,
@@ -590,7 +590,7 @@ where
         self.capacity = capacity;
         let size = self.item_size * capacity;
         self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
-            label: self.label.as_deref(),
+            label: make_buffer_label::<Self>(&self.label),
             size: size as BufferAddress,
             usage: BufferUsages::COPY_DST | self.buffer_usage,
             mapped_at_creation: false,
@@ -619,4 +619,13 @@ pub enum WriteBufferRangeError {
     BufferNotInitialized,
     #[error("there are no values to upload")]
     NoValuesToUpload,
+}
+
+#[inline]
+pub(crate) fn make_buffer_label<'a, T>(label: &'a Option<String>) -> Option<&'a str> {
+    #[cfg(feature = "type_label_buffers")]
+    if label.is_none() {
+        return Some(std::any::type_name::<T>());
+    }
+    label.as_deref()
 }

@@ -45,6 +45,10 @@ webgpu = ["wgpu/webgpu"]
 vulkan-portability = ["wgpu/vulkan-portability"]
 gles = ["wgpu/gles"]
 detailed_trace = []
+# Pre-populate buffer labels with buffer types for debugging.
+type_label_buffers = []
+# Enables collecting extra information for debugging.
+debug = ["type_label_buffers"]
 ## Adds serialization support through `serde`.
 serialize = ["bevy_mesh/serialize"]
 
