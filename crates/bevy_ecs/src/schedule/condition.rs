@@ -151,7 +151,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// See also [`and_then`], which short-circuits if `self` returns `false`.
     ///
-    /// [`run_if`]: crate::schedule::IntoSystemConfigs
+    /// [`run_if`]: crate::schedule::IntoScheduleConfigs::run_if
     /// [`and_then`]: SystemCondition::and_then
     ///
     /// # Examples
@@ -1896,12 +1896,12 @@ mod tests {
             (
                 increment_counter.run_if(every_other_time.and_then(|| true)), // Run every odd cycle.
                 increment_counter.run_if(every_other_time.nand_then(|| false)), // Always run.
-                double_counter.run_if(every_other_time.nor_else(|| false)), // Run every even cycle.
+                double_counter.run_if(every_other_time.nor_else(|| false)),  // Run every even cycle.
                 increment_counter.run_if(every_other_time.or_else(|| true)), // Always run.
-                increment_counter.run_if(every_other_time.xnor(|| true)),   // Run every odd cycle.
-                double_counter.run_if(every_other_time.xnor(|| false)),     // Run every even cycle.
-                increment_counter.run_if(every_other_time.xor(|| false)),   // Run every odd cycle.
-                double_counter.run_if(every_other_time.xor(|| true)),       // Run every even cycle.
+                increment_counter.run_if(every_other_time.xnor(|| true)), // Run every odd cycle.
+                double_counter.run_if(every_other_time.xnor(|| false)),  // Run every even cycle.
+                increment_counter.run_if(every_other_time.xor(|| false)), // Run every odd cycle.
+                double_counter.run_if(every_other_time.xor(|| true)),    // Run every even cycle.
             )
                 .chain(),
         );
