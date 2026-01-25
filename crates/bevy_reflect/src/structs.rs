@@ -796,129 +796,129 @@ mod tests {
         c: (),
     }
 
+    #[derive(Reflect, Default)]
+    struct OtherStruct {
+        a: u32,
+        b: u64,
+        c: MyStruct,
+    }
+
     #[test]
     fn dynamic_struct_remove_at() {
-        let mut my_struct = MyStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct();
 
-        assert_eq!(my_struct.field_len(), 3);
+        assert_eq!(s.field_len(), 3);
 
-        let field_2 = my_struct
+        let field_2 = s
             .remove_at(1)
-            .expect("Invalid index for `my_struct.remove_at(index)`");
+            .expect("Invalid index for `s.remove_at(index)`");
 
-        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(s.field_len(), 2);
         assert_eq!(field_2.0, "b");
 
-        let field_3 = my_struct
+        let field_3 = s
             .remove_at(0)
-            .expect("Invalid index for `my_struct.remove_at(index)`");
+            .expect("Invalid index for `s.remove_at(index)`");
 
-        assert_eq!(my_struct.field_len(), 1);
+        assert_eq!(s.field_len(), 1);
         assert_eq!(field_3.0, "a");
 
-        let field_1 = my_struct
+        let field_1 = s
             .remove_at(0)
-            .expect("Invalid index for `my_struct.remove_at(index)`");
+            .expect("Invalid index for `s.remove_at(index)`");
 
-        assert_eq!(my_struct.field_len(), 0);
+        assert_eq!(s.field_len(), 0);
         assert_eq!(field_1.0, "c");
     }
 
     #[test]
     fn dynamic_struct_remove_by_name() {
-        let mut my_struct = MyStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct();
 
-        assert_eq!(my_struct.field_len(), 3);
+        assert_eq!(s.field_len(), 3);
 
-        let field_3 = my_struct
+        let field_3 = s
             .remove_by_name("b")
-            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+            .expect("Invalid name for `s.remove_by_name(name)`");
 
-        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(s.field_len(), 2);
         assert_eq!(field_3.0, "b");
 
-        let field_2 = my_struct
+        let field_2 = s
             .remove_by_name("c")
-            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+            .expect("Invalid name for `s.remove_by_name(name)`");
 
-        assert_eq!(my_struct.field_len(), 1);
+        assert_eq!(s.field_len(), 1);
         assert_eq!(field_2.0, "c");
 
-        let field_1 = my_struct
+        let field_1 = s
             .remove_by_name("a")
-            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+            .expect("Invalid name for `s.remove_by_name(name)`");
 
-        assert_eq!(my_struct.field_len(), 0);
+        assert_eq!(s.field_len(), 0);
         assert_eq!(field_1.0, "a");
     }
 
     #[test]
     fn dynamic_struct_remove_if() {
-        let mut my_struct = MyStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct();
 
-        assert_eq!(my_struct.field_len(), 3);
+        assert_eq!(s.field_len(), 3);
 
-        let field_3_name = my_struct
+        let field_3_name = s
             .name_of(
-                my_struct
-                    .field_at(2)
-                    .expect("Invalid index for `my_struct.field_at(index)`"),
+                s.field_at(2)
+                    .expect("Invalid index for `s.field_at(index)`"),
             )
-            .expect("Invalid field for `my_struct.name_of(field)")
+            .expect("Invalid field for `s.name_of(field)")
             .to_owned();
-        let field_3 = my_struct
+        let field_3 = s
             .remove_if(|(name, _field)| name == field_3_name)
-            .expect("No valid name/field found for `my_struct.remove_with(|(name, field)|{})");
+            .expect("No valid name/field found for `s.remove_with(|(name, field)|{})");
 
-        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(s.field_len(), 2);
         assert_eq!(field_3.0, "c");
     }
 
     #[test]
     fn dynamic_struct_remove_combo() {
-        let mut my_struct = MyStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct();
 
-        assert_eq!(my_struct.field_len(), 3);
+        assert_eq!(s.field_len(), 3);
 
-        let field_2 = my_struct
+        let field_2 = s
             .remove_at(
-                my_struct
-                    .index_of(
-                        my_struct
-                            .field("b")
-                            .expect("Invalid name for `my_struct.field(name)`"),
-                    )
-                    .expect("Invalid field for `my_struct.index_of(field)`"),
+                s.index_of(s.field("b").expect("Invalid name for `s.field(name)`"))
+                    .expect("Invalid field for `s.index_of(field)`"),
             )
-            .expect("Invalid index for `my_struct.remove_at(index)`");
+            .expect("Invalid index for `s.remove_at(index)`");
 
-        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(s.field_len(), 2);
         assert_eq!(field_2.0, "b");
 
-        let field_3_name = my_struct
+        let field_3_name = s
             .name_of(
-                my_struct
-                    .field_at(1)
-                    .expect("Invalid index for `my_struct.field_at(index)`"),
+                s.field_at(1)
+                    .expect("Invalid index for `s.field_at(index)`"),
             )
-            .expect("Invalid field for `my_struct.name_of(field)`")
+            .expect("Invalid field for `s.name_of(field)`")
             .to_owned();
-        let field_3 = my_struct
+        let field_3 = s
             .remove_by_name(field_3_name.as_ref())
-            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+            .expect("Invalid name for `s.remove_by_name(name)`");
 
-        assert_eq!(my_struct.field_len(), 1);
+        assert_eq!(s.field_len(), 1);
         assert_eq!(field_3.0, "c");
 
-        let field_1_name = my_struct
+        let field_1_name = s
             .name_at(0)
-            .expect("Invalid name for `my_struct.name_at(name)`")
+            .expect("Invalid name for `s.name_at(name)`")
             .to_owned();
-        let field_1 = my_struct
+        let field_1 = s
             .remove_if(|(name, _field)| name == field_1_name)
-            .expect("No valid name/field found for `my_struct.remove_with(|(name, field)|{})`");
+            .expect("No valid name/field found for `s.remove_with(|(name, field)|{})`");
 
-        assert_eq!(my_struct.field_len(), 0);
+        assert_eq!(s.field_len(), 0);
         assert_eq!(field_1.0, "a");
     }
 
