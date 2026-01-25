@@ -204,7 +204,7 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
                                     mapper,
                                     relationship_hook_mode,
                                 );
-                            })
+                            });
                         }
                         ReflectRef::Tuple(bundle) => bundle.iter_fields().for_each(|field| {
                             apply_or_insert_field_mapped(
