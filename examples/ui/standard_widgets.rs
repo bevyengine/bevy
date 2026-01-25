@@ -224,7 +224,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle + use<> + 'static {
     )
 }
 
-fn menu_button(asset_server: &AssetServer) -> impl Bundle {
+fn menu_button(asset_server: &AssetServer) -> impl Bundle + use<> + 'static {
     (
         Node { ..default() },
         DemoMenuAnchor,
@@ -879,7 +879,7 @@ fn spawn_menu(anchor: Entity, assets: Res<AssetServer>, mut commands: Commands) 
     commands.entity(anchor).add_child(menu);
 }
 
-fn menu_item(asset_server: &AssetServer) -> impl Bundle {
+fn menu_item(asset_server: &AssetServer) -> impl Bundle + use<> + 'static {
     (
         Node {
             padding: UiRect::axes(px(8), px(2)),
