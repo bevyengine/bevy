@@ -11,13 +11,15 @@ use crate::{
 };
 
 // SAFETY: `MovingPtr` forwards its implementation of `Bundle` to another `Bundle`, so it is correct if that impl is correct
-unsafe impl<B: Bundle> Bundle for MovingPtr<'_, B> {
-    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
-        B::component_ids(components, ids);
+unsafe impl<'a, B: Bundle> Bundle for MovingPtr<'a, B> {
+    fn component_ids(
+        components: &mut ComponentsRegistrator,
+    ) -> impl Iterator<Item = ComponentId> + use<'a, B> {
+        B::component_ids(components)
     }
 
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
-        B::get_component_ids(components, ids);
+    fn get_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
+        B::get_component_ids(components)
     }
 }
 
