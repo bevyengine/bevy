@@ -33,7 +33,7 @@ pub struct Transmissive3d {
 
 impl PhaseItem for Transmissive3d {
     /// For now, automatic batching is disabled for transmissive items because their rendering is
-    /// split into multiple steps depending on [`ScreenSpaceTransmission::screen_space_specular_transmission_steps`],
+    /// split into multiple steps depending on [`crate::ScreenSpaceTransmission::screen_space_specular_transmission_steps`],
     /// which the batching system doesn't currently know about.
     ///
     /// Having batching enabled would cause the same item to be drawn multiple times across different
