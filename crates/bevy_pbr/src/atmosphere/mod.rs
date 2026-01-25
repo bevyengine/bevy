@@ -39,7 +39,7 @@ pub mod resources;
 
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{embedded_asset, AssetId, Handle};
-use bevy_camera::Camera3d;
+use bevy_camera::{Camera3d, Hdr};
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
@@ -52,7 +52,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
-    view::Hdr,
     RenderStartup,
 };
 use bevy_render::{

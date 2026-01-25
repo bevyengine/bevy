@@ -11,12 +11,12 @@
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
 use bevy::{
-    camera::Exposure,
-    core_pipeline::{tonemapping::Tonemapping, Skybox},
-    light::NoParallaxCorrection,
+    camera::{Exposure, Hdr},
+    core_pipeline::tonemapping::Tonemapping,
+    light::{NoParallaxCorrection, Skybox},
     pbr::generate::generate_environment_map_light,
     prelude::*,
-    render::{render_resource::TextureUsages, view::Hdr},
+    render::render_resource::TextureUsages,
 };
 
 use std::{
