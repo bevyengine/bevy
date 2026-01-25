@@ -388,7 +388,7 @@ impl DynamicStruct {
         Some((name, self.fields.remove(index)))
     }
 
-    /// Removes a field with the predicate `f`, that short-circuits.
+    /// Removes the first field that satisfies the given predicate, `f`.
     pub fn remove_if<F>(&mut self, mut f: F) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)>
     where
         F: FnMut((&str, &dyn PartialReflect)) -> bool,
