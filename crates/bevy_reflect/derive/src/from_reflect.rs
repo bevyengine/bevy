@@ -148,6 +148,7 @@ fn impl_struct_internal(
 
     // Workaround for rustfmt issue: https://github.com/rust-lang/rustfmt/issues/6779
     // `quote!(Self(#__this))` causes rustfmt to panic in Rust 1.93.0+
+    // TODO: not needed after Rust 1.94
     let self_ty = quote!(Self);
 
     // The reflected type: either `Self` or a remote type
