@@ -1,6 +1,6 @@
 use core::borrow::Borrow;
-use core::ops::{Deref, DerefMut};
 
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{
     bounding::{Aabb3d, BoundingVolume},
@@ -216,23 +216,9 @@ impl Sphere {
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
 /// [`Camera2d`]: crate::Camera2d
 /// [`Camera3d`]: crate::Camera3d
-#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+#[derive(Component, Clone, Copy, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct Frustum(pub ViewFrustum);
-
-impl Deref for Frustum {
-    type Target = ViewFrustum;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Frustum {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 
 impl Frustum {
     /// Checks if a sphere intersects the frustum.
