@@ -17,7 +17,10 @@ use bevy::{
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     diagnostic::DiagnosticsStore,
     light::TransmittedShadowReceiver,
-    pbr::{DefaultOpaqueRendererMethod, ScreenSpaceAmbientOcclusion},
+    pbr::{
+        DefaultOpaqueRendererMethod, ScreenSpaceAmbientOcclusion, ScreenSpaceTransmission,
+        ScreenSpaceTransmissionQuality,
+    },
     post_process::bloom::Bloom,
     render::{
         batching::NoAutomaticBatching, occlusion_culling::OcclusionCulling, render_resource::Face,
@@ -26,11 +29,9 @@ use bevy::{
     scene::SceneInstanceReady,
 };
 use bevy::{
-    camera::{Hdr, ScreenSpaceTransmissionQuality},
-    light::CascadeShadowConfigBuilder,
-};
-use bevy::{
+    camera::Hdr,
     diagnostic::FrameTimeDiagnosticsPlugin,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
@@ -260,10 +261,10 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
     // Camera
     let mut cam = commands.spawn((
         Msaa::Off,
-        Camera3d {
+        Camera3d::default(),
+        ScreenSpaceTransmission {
             screen_space_specular_transmission_steps: 0,
             screen_space_specular_transmission_quality: ScreenSpaceTransmissionQuality::Low,
-            ..default()
         },
         Hdr,
         Transform::from_xyz(-10.5, 1.7, -1.0).looking_at(Vec3::new(0.0, 3.5, 0.0), Vec3::Y),
