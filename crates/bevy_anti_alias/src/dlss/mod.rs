@@ -21,6 +21,7 @@ mod prepare;
 pub use dlss_wgpu::DlssPerfQualityMode;
 
 use bevy_app::{App, Plugin};
+use bevy_camera::Hdr;
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, MotionVectorPrepass},
@@ -29,7 +30,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{reflect_remote, Reflect};
 use bevy_render::{
-    camera::{Hdr, MipBias, TemporalJitter},
+    camera::{MipBias, TemporalJitter},
     render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::{
         raw_vulkan_init::{AdditionalVulkanFeatures, RawVulkanInitSettings},
