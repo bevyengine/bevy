@@ -15,7 +15,7 @@
 
 use bevy::{
     color::palettes::css::*,
-    core_pipeline::Skybox,
+    light::Skybox,
     light::{IrradianceVolume, NotShadowCaster},
     math::{uvec3, vec3},
     pbr::{ExtendedMaterial, MaterialExtension},

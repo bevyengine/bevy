@@ -31,7 +31,7 @@ use bevy_camera::visibility::SetViewVisibility;
 mod probe;
 pub use probe::{
     AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
-    IrradianceVolume, LightProbe, NoParallaxCorrection,
+    IrradianceVolume, LightProbe, NoParallaxCorrection, Skybox,
 };
 mod volumetric;
 pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
