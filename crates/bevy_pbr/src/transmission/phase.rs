@@ -1,4 +1,4 @@
-use std::ops::Range;
+use core::ops::Range;
 
 use bevy_camera::{Camera, Camera3d};
 use bevy_ecs::{
