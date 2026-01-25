@@ -116,12 +116,12 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             }
 
             fn name_of(&self, field: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<&str> {
-               #(if core::ptr::addr_eq(#fields_ref, field) { return #fqoption::Some(#field_names) })*
+               #(if ::core::ptr::addr_eq(#fields_ref, field) { return #fqoption::Some(#field_names) })*
                 #FQOption::None
             }
 
             fn index_of(&self, field: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<usize> {
-                #(if core::ptr::addr_eq(#fields_ref, field) { return #fqoption::Some(#field_indices) })*
+                #(if ::core::ptr::addr_eq(#fields_ref, field) { return #fqoption::Some(#field_indices) })*
                 #FQOption::None
             }
 

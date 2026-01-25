@@ -389,10 +389,7 @@ impl DynamicStruct {
     }
 
     /// Removes a field with the predicate `f`, that short-circuits.
-    pub fn remove_with<F>(
-        &mut self,
-        mut f: F,
-    ) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)>
+    pub fn remove_if<F>(&mut self, mut f: F) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)>
     where
         F: FnMut((&str, &dyn PartialReflect)) -> bool,
     {
@@ -856,7 +853,7 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_struct_remove_with() {
+    fn dynamic_struct_remove_if() {
         let mut my_struct = MyStruct::default().to_dynamic_struct();
 
         assert_eq!(my_struct.field_len(), 3);
@@ -870,7 +867,7 @@ mod tests {
             .expect("Invalid field for `my_struct.name_of(field)")
             .to_owned();
         let field_3 = my_struct
-            .remove_with(|(name, _field)| name == field_3_name)
+            .remove_if(|(name, _field)| name == field_3_name)
             .expect("No valid name/field found for `my_struct.remove_with(|(name, field)|{})");
 
         assert_eq!(my_struct.field_len(), 2);
@@ -918,7 +915,7 @@ mod tests {
             .expect("Invalid name for `my_struct.name_at(name)`")
             .to_owned();
         let field_1 = my_struct
-            .remove_with(|(name, _field)| name == field_1_name)
+            .remove_if(|(name, _field)| name == field_1_name)
             .expect("No valid name/field found for `my_struct.remove_with(|(name, field)|{})`");
 
         assert_eq!(my_struct.field_len(), 0);
