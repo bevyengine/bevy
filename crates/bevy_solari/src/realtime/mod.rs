@@ -5,6 +5,7 @@ mod prepare;
 use crate::SolariPlugins;
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
+use bevy_camera::Hdr;
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{
@@ -18,7 +19,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
-    view::Hdr,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::load_shader_library;
