@@ -193,6 +193,8 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
+    /// Returns a new run condition that only returns `true`
+    /// if both this one and the passed `then_run` return `true`.
     #[deprecated = "use `.and_then(...)` instead, or `.and_eager(...)` to evaluate the conditions eagerly"]
     fn and<M, C: SystemCondition<M, In>>(self, then_run: C) -> AndThen<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
@@ -330,6 +332,8 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
+    /// Returns a new run condition that only returns `false`
+    /// if both this one and the passed `then_run` return `true`.
     #[deprecated = "use `.nand_then(...) instead, or `.nand_eager(...)` to evaluate the conditions eagerly"]
     fn nand<M, C: SystemCondition<M, In>>(self, nand: C) -> NandThen<Self::System, C::System> {
         self.nand_then(nand)
@@ -417,6 +421,8 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
+    /// Returns a new run condition that only returns `true`
+    /// if both this one and the passed `else_run` return `false`.
     #[deprecated = "use `.nor_else(...)` instead, or `.nor_eager(...)` to evaluate the conditions eagerly"]
     fn nor<M, C: SystemCondition<M, In>>(self, else_run: C) -> NorElse<Self::System, C::System> {
         self.nor_else(else_run)
@@ -493,6 +499,8 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
+    /// Returns a new run condition that returns `true`
+    /// if either this one or the passed `or` return `true`.
     #[deprecated = "use `.or_else(...)` instead, or `.or_eager(...)` to eagerly evaluate both conditions"]
     fn or<M, C: SystemCondition<M, In>>(self, else_run: C) -> OrElse<Self::System, C::System> {
         self.or_else(else_run)
@@ -1714,7 +1722,7 @@ mod tests {
         // ensure there are no `Vacant` entities
         assert!(world.query::<&Vacant>().iter(&world).next().is_none());
         assert!(matches!(
-            world.run_system_once((|| true).or(vacant)),
+            world.run_system_once((|| true).or_else(vacant)),
             Ok(true)
         ));
 
@@ -1756,10 +1764,10 @@ mod tests {
             );
         }
 
-        assert_system(&mut world, is_true_inc.or(vacant), |c| {
+        assert_system(&mut world, is_true_inc.or_else(vacant), |c| {
             test_true(c) || false
         });
-        assert_system(&mut world, is_true_inc.nor(vacant), |c| {
+        assert_system(&mut world, is_true_inc.nor_else(vacant), |c| {
             !(test_true(c) || false)
         });
         assert_system(&mut world, is_true_inc.xor(vacant), |c| {
@@ -1768,20 +1776,20 @@ mod tests {
         assert_system(&mut world, is_true_inc.xnor(vacant), |c| {
             !(test_true(c) ^ false)
         });
-        assert_system(&mut world, is_true_inc.and(vacant), |c| {
+        assert_system(&mut world, is_true_inc.and_then(vacant), |c| {
             test_true(c) && false
         });
-        assert_system(&mut world, is_true_inc.nand(vacant), |c| {
+        assert_system(&mut world, is_true_inc.nand_then(vacant), |c| {
             !(test_true(c) && false)
         });
 
         // even if `vacant` fails as the first condition, where applicable (or,
         // xor), `is_true_inc` should still be called. `and` and `nand` short
         // circuit on an initial `false`.
-        assert_system(&mut world, vacant.or(is_true_inc), |c| {
+        assert_system(&mut world, vacant.or_else(is_true_inc), |c| {
             false || test_true(c)
         });
-        assert_system(&mut world, vacant.nor(is_true_inc), |c| {
+        assert_system(&mut world, vacant.nor_else(is_true_inc), |c| {
             !(false || test_true(c))
         });
         assert_system(&mut world, vacant.xor(is_true_inc), |c| {
@@ -1790,18 +1798,18 @@ mod tests {
         assert_system(&mut world, vacant.xnor(is_true_inc), |c| {
             !(false ^ test_true(c))
         });
-        assert_system(&mut world, vacant.and(is_true_inc), |c| {
+        assert_system(&mut world, vacant.and_then(is_true_inc), |c| {
             false && test_true(c)
         });
-        assert_system(&mut world, vacant.nand(is_true_inc), |c| {
+        assert_system(&mut world, vacant.nand_then(is_true_inc), |c| {
             !(false && test_true(c))
         });
 
         // the same logic ought to be the case with a condition that runs, but yields `false`:
-        assert_system(&mut world, is_true_inc.or(is_false_inc), |c| {
+        assert_system(&mut world, is_true_inc.or_else(is_false_inc), |c| {
             test_true(c) || test_false(c)
         });
-        assert_system(&mut world, is_true_inc.nor(is_false_inc), |c| {
+        assert_system(&mut world, is_true_inc.nor_else(is_false_inc), |c| {
             !(test_true(c) || test_false(c))
         });
         assert_system(&mut world, is_true_inc.xor(is_false_inc), |c| {
@@ -1810,18 +1818,18 @@ mod tests {
         assert_system(&mut world, is_true_inc.xnor(is_false_inc), |c| {
             !(test_true(c) ^ test_false(c))
         });
-        assert_system(&mut world, is_true_inc.and(is_false_inc), |c| {
+        assert_system(&mut world, is_true_inc.and_then(is_false_inc), |c| {
             test_true(c) && test_false(c)
         });
-        assert_system(&mut world, is_true_inc.nand(is_false_inc), |c| {
+        assert_system(&mut world, is_true_inc.nand_then(is_false_inc), |c| {
             !(test_true(c) && test_false(c))
         });
 
         // and where one condition yields `false` and the other fails:
-        assert_system(&mut world, is_false_inc.or(vacant), |c| {
+        assert_system(&mut world, is_false_inc.or_else(vacant), |c| {
             test_false(c) || false
         });
-        assert_system(&mut world, is_false_inc.nor(vacant), |c| {
+        assert_system(&mut world, is_false_inc.nor_else(vacant), |c| {
             !(test_false(c) || false)
         });
         assert_system(&mut world, is_false_inc.xor(vacant), |c| {
@@ -1830,18 +1838,18 @@ mod tests {
         assert_system(&mut world, is_false_inc.xnor(vacant), |c| {
             !(test_false(c) ^ false)
         });
-        assert_system(&mut world, is_false_inc.and(vacant), |c| {
+        assert_system(&mut world, is_false_inc.and_then(vacant), |c| {
             test_false(c) && false
         });
-        assert_system(&mut world, is_false_inc.nand(vacant), |c| {
+        assert_system(&mut world, is_false_inc.nand_then(vacant), |c| {
             !(test_false(c) && false)
         });
 
         // and where both conditions yield `true`:
-        assert_system(&mut world, is_true_inc.or(is_true_inc), |c| {
+        assert_system(&mut world, is_true_inc.or_else(is_true_inc), |c| {
             test_true(c) || test_true(c)
         });
-        assert_system(&mut world, is_true_inc.nor(is_true_inc), |c| {
+        assert_system(&mut world, is_true_inc.nor_else(is_true_inc), |c| {
             !(test_true(c) || test_true(c))
         });
         assert_system(&mut world, is_true_inc.xor(is_true_inc), |c| {
@@ -1850,18 +1858,18 @@ mod tests {
         assert_system(&mut world, is_true_inc.xnor(is_true_inc), |c| {
             !(test_true(c) ^ test_true(c))
         });
-        assert_system(&mut world, is_true_inc.and(is_true_inc), |c| {
+        assert_system(&mut world, is_true_inc.and_then(is_true_inc), |c| {
             test_true(c) && test_true(c)
         });
-        assert_system(&mut world, is_true_inc.nand(is_true_inc), |c| {
+        assert_system(&mut world, is_true_inc.nand_then(is_true_inc), |c| {
             !(test_true(c) && test_true(c))
         });
 
         // and where both conditions yield `false`:
-        assert_system(&mut world, is_false_inc.or(is_false_inc), |c| {
+        assert_system(&mut world, is_false_inc.or_else(is_false_inc), |c| {
             test_false(c) || test_false(c)
         });
-        assert_system(&mut world, is_false_inc.nor(is_false_inc), |c| {
+        assert_system(&mut world, is_false_inc.nor_else(is_false_inc), |c| {
             !(test_false(c) || test_false(c))
         });
         assert_system(&mut world, is_false_inc.xor(is_false_inc), |c| {
@@ -1870,10 +1878,10 @@ mod tests {
         assert_system(&mut world, is_false_inc.xnor(is_false_inc), |c| {
             !(test_false(c) ^ test_false(c))
         });
-        assert_system(&mut world, is_false_inc.and(is_false_inc), |c| {
+        assert_system(&mut world, is_false_inc.and_then(is_false_inc), |c| {
             test_false(c) && test_false(c)
         });
-        assert_system(&mut world, is_false_inc.nand(is_false_inc), |c| {
+        assert_system(&mut world, is_false_inc.nand_then(is_false_inc), |c| {
             !(test_false(c) && test_false(c))
         });
     }
@@ -1886,14 +1894,14 @@ mod tests {
 
         schedule.add_systems(
             (
-                increment_counter.run_if(every_other_time.and(|| true)), // Run every odd cycle.
-                increment_counter.run_if(every_other_time.nand(|| false)), // Always run.
-                double_counter.run_if(every_other_time.nor(|| false)),   // Run every even cycle.
-                increment_counter.run_if(every_other_time.or(|| true)),  // Always run.
-                increment_counter.run_if(every_other_time.xnor(|| true)), // Run every odd cycle.
-                double_counter.run_if(every_other_time.xnor(|| false)),  // Run every even cycle.
-                increment_counter.run_if(every_other_time.xor(|| false)), // Run every odd cycle.
-                double_counter.run_if(every_other_time.xor(|| true)),    // Run every even cycle.
+                increment_counter.run_if(every_other_time.and_then(|| true)), // Run every odd cycle.
+                increment_counter.run_if(every_other_time.nand_then(|| false)), // Always run.
+                double_counter.run_if(every_other_time.nor_else(|| false)), // Run every even cycle.
+                increment_counter.run_if(every_other_time.or_else(|| true)), // Always run.
+                increment_counter.run_if(every_other_time.xnor(|| true)),   // Run every odd cycle.
+                double_counter.run_if(every_other_time.xnor(|| false)),     // Run every even cycle.
+                increment_counter.run_if(every_other_time.xor(|| false)),   // Run every odd cycle.
+                double_counter.run_if(every_other_time.xor(|| true)),       // Run every even cycle.
             )
                 .chain(),
         );
