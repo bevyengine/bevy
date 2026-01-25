@@ -4,7 +4,7 @@ pull_requests: [22684]
 ---
 
 `bevy_camera::primitives::HalfSpace` has moved to `bevy_math::primitives::HalfSpace`.
-Some parts of `bevy_camera::primitives::Frustum` has moved to `bevy_math::primitives::ViewFrustum`.
+Some parts of `bevy_camera::primitives::Frustum` have moved to `bevy_math::primitives::ViewFrustum`.
 
 `bevy_camera` has some rendering primitives that can be extracted to be more generally useful.
 To expose them for others to use, some of these primitives and/or functionality have moved to `bevy_math`.
