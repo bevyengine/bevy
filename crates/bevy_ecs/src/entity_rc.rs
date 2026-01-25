@@ -199,3 +199,136 @@ impl EntityRcSource {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        entity_rc::{EntityRc, EntityRcSource},
+        world::World,
+    };
+
+    /// Handles any dropped entities, and flushes the world.
+    fn handle_drops(world: &mut World, source: &EntityRcSource) {
+        source.handle_dropped_rcs(&mut world.commands());
+        world.flush();
+    }
+
+    #[test]
+    fn simple_counting() {
+        let mut world = World::new();
+        let source = EntityRcSource::new();
+
+        let entity_1 = world.spawn_empty().id();
+        let rc_1_1 = source.create_rc(entity_1, ());
+
+        let entity_2 = world.spawn_empty().id();
+        let rc_2_1 = source.create_rc(entity_2, ());
+
+        let entity_3 = world.spawn_empty().id();
+        let rc_3_1 = source.create_rc(entity_3, ());
+
+        handle_drops(&mut world, &source);
+
+        assert!(world.get_entity(entity_1).is_ok());
+        assert!(world.get_entity(entity_2).is_ok());
+        assert!(world.get_entity(entity_3).is_ok());
+
+        drop(rc_2_1);
+
+        // Dropping the rc doesn't do anything until we handle the drops.
+        assert!(world.get_entity(entity_1).is_ok());
+        assert!(world.get_entity(entity_2).is_ok());
+        assert!(world.get_entity(entity_3).is_ok());
+
+        handle_drops(&mut world, &source);
+
+        // entity_2 is despawned.
+        assert!(world.get_entity(entity_1).is_ok());
+        assert!(world.get_entity(entity_2).is_err());
+        assert!(world.get_entity(entity_3).is_ok());
+
+        // Cloning the rc and then dropping the original doesn't drop the entity.
+        let rc_1_2 = rc_1_1.clone();
+        drop(rc_1_1);
+        handle_drops(&mut world, &source);
+
+        assert!(world.get_entity(entity_1).is_ok());
+        assert!(world.get_entity(entity_3).is_ok());
+
+        // Dropping all handles will.
+        drop(rc_1_2);
+        handle_drops(&mut world, &source);
+
+        assert!(world.get_entity(entity_1).is_err());
+        assert!(world.get_entity(entity_3).is_ok());
+
+        // Cloning the handle many times doesn't do anything.
+        let rc_3_2 = rc_3_1.clone();
+        let rc_3_3 = rc_3_1.clone();
+        let rc_3_4 = rc_3_1.clone();
+        let rc_3_5 = rc_3_1.clone();
+        handle_drops(&mut world, &source);
+
+        assert!(world.get_entity(entity_3).is_ok());
+
+        // Dropping the rc fewer times than clones still does nothing.
+        for rc in [rc_3_1, rc_3_2, rc_3_3, rc_3_4] {
+            drop(rc);
+            handle_drops(&mut world, &source);
+            assert!(world.get_entity(entity_3).is_ok());
+        }
+
+        // Dropping the last rc finally drops the entity.
+        drop(rc_3_5);
+        handle_drops(&mut world, &source);
+        assert!(world.get_entity(entity_3).is_err());
+    }
+
+    #[test]
+    fn weak_handles_dont_keep_entity_alive() {
+        let mut world = World::new();
+        let source = EntityRcSource::new();
+
+        let entity = world.spawn_empty().id();
+        let rc = source.create_rc(entity, ());
+
+        let weak_1 = EntityRc::downgrade(&rc);
+        let _weak_2 = EntityRc::downgrade(&rc);
+        let _weak_3 = EntityRc::downgrade(&rc);
+        handle_drops(&mut world, &source);
+        assert!(world.get_entity(entity).is_ok());
+
+        // Dropping the one rc is enough to despawn the entity.
+        drop(rc);
+
+        // Bonus: trying to get an rc out of an expired weak doesn't work.
+        assert!(weak_1.upgrade().is_none());
+
+        handle_drops(&mut world, &source);
+        assert!(world.get_entity(entity).is_err());
+    }
+
+    #[test]
+    fn weak_handles_can_upgrade() {
+        let mut world = World::new();
+        let source = EntityRcSource::new();
+
+        let entity = world.spawn_empty().id();
+        let rc = source.create_rc(entity, ());
+
+        let weak = EntityRc::downgrade(&rc);
+
+        let upgraded_weak = weak.upgrade();
+        assert!(upgraded_weak.is_some());
+
+        // Dropping the original rc does nothing, since we upgraded the weak.
+        drop(rc);
+        handle_drops(&mut world, &source);
+        assert!(world.get_entity(entity).is_ok());
+
+        // Also dropping the upgraded weak (now just an rc) will drop the entity.
+        drop(upgraded_weak);
+        handle_drops(&mut world, &source);
+        assert!(world.get_entity(entity).is_err());
+    }
+}
