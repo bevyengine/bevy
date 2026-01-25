@@ -36,7 +36,6 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
-use bevy::{light::CascadeShadowConfigBuilder, render::view::Hdr};
 use mipmap_generator::{
     generate_mipmaps, MipmapGeneratorDebugTextPlugin, MipmapGeneratorPlugin,
     MipmapGeneratorSettings,
