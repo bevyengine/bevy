@@ -312,44 +312,12 @@ impl Plugin for RenderPlugin {
             .cloned()
             .unwrap_or_default();
 
-        let render_resources = match &self.render_creation {
-            RenderCreation::Manual(resources) => Some(FutureRenderResources(Arc::new(Mutex::new(
-                Some(resources.clone()),
-            )))),
-            RenderCreation::Automatic(render_creation) => {
-                if let Some(backends) = render_creation.backends {
-                    let future_render_resources_wrapper = Arc::new(Mutex::new(None));
-                    let render_resources = future_render_resources_wrapper.clone();
-
-                    let settings = render_creation.clone();
-
-                    let async_renderer = async move {
-                        let render_resources = renderer::initialize_renderer(
-                            backends,
-                            primary_window,
-                            &settings,
-                            #[cfg(feature = "raw_vulkan_init")]
-                            raw_vulkan_init_settings,
-                        )
-                        .await;
-
-                        *future_render_resources_wrapper.lock().unwrap() = Some(render_resources);
-                    };
-
-                    // In wasm, spawn a task and detach it for execution
-                    #[cfg(target_arch = "wasm32")]
-                    bevy_tasks::IoTaskPool::get()
-                        .spawn_local(async_renderer)
-                        .detach();
-                    // Otherwise, just block for it to complete
-                    #[cfg(not(target_arch = "wasm32"))]
-                    bevy_tasks::block_on(async_renderer);
-                    Some(FutureRenderResources(render_resources))
-                } else {
-                    None
-                }
-            }
-        };
+        let render_resources = create_render(
+            &self.render_creation,
+            primary_window,
+            #[cfg(feature = "raw_vulkan_init")]
+            raw_vulkan_init_settings,
+        );
 
         if let Some(render_resources) = render_resources {
             app.insert_resource(render_resources);
@@ -439,6 +407,52 @@ impl Plugin for RenderPlugin {
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
                 .insert_resource(adapter_info);
+        }
+    }
+}
+
+fn create_render(
+    render_creation: &RenderCreation,
+    primary_window: Option<RawHandleWrapperHolder>,
+    #[cfg(feature = "raw_vulkan_init")]
+    raw_vulkan_init_settings: renderer::raw_vulkan_init::RawVulkanInitSettings,
+) -> Option<FutureRenderResources> {
+    match render_creation {
+        RenderCreation::Manual(resources) => Some(FutureRenderResources(Arc::new(Mutex::new(
+            Some(resources.clone()),
+        )))),
+        RenderCreation::Automatic(render_creation) => {
+            if let Some(backends) = render_creation.backends {
+                let future_render_resources_wrapper = Arc::new(Mutex::new(None));
+                let render_resources = future_render_resources_wrapper.clone();
+
+                let settings = render_creation.clone();
+
+                let async_renderer = async move {
+                    let render_resources = renderer::initialize_renderer(
+                        backends,
+                        primary_window,
+                        &settings,
+                        #[cfg(feature = "raw_vulkan_init")]
+                        raw_vulkan_init_settings,
+                    )
+                    .await;
+
+                    *future_render_resources_wrapper.lock().unwrap() = Some(render_resources);
+                };
+
+                // In wasm, spawn a task and detach it for execution
+                #[cfg(target_arch = "wasm32")]
+                bevy_tasks::IoTaskPool::get()
+                    .spawn_local(async_renderer)
+                    .detach();
+                // Otherwise, just block for it to complete
+                #[cfg(not(target_arch = "wasm32"))]
+                bevy_tasks::block_on(async_renderer);
+                Some(FutureRenderResources(render_resources))
+            } else {
+                None
+            }
         }
     }
 }
