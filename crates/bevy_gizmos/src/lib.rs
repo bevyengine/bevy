@@ -38,6 +38,7 @@ pub mod rounded_box;
 
 #[cfg(feature = "bevy_mesh")]
 pub mod skinned_mesh_bounds;
+pub mod text;
 
 /// The gizmos prelude.
 ///
