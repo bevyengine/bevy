@@ -1746,6 +1746,8 @@ impl World {
     /// assert!(some_query.is_some());
     /// ```
     #[inline]
+    #[deprecated(since = "0.19.0", note = "Use `init_state` instead.")]
+    #[expect(deprecated, reason = "also deprecated")]
     pub fn try_query<D: QueryData>(&self) -> Option<QueryState<D, ()>> {
         self.try_query_filtered::<D, ()>()
     }
@@ -1773,6 +1775,8 @@ impl World {
     /// Requires only an immutable world reference, but may fail if, for example,
     /// the components that make up this query have not been registered into the world.
     #[inline]
+    #[deprecated(since = "0.19.0", note = "Use `init_state` instead.")]
+    #[expect(deprecated, reason = "also deprecated")]
     pub fn try_query_filtered<D: QueryData, F: QueryFilter>(&self) -> Option<QueryState<D, F>> {
         QueryState::try_new(self)
     }
