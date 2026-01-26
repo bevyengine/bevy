@@ -418,9 +418,7 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // Fetch the UI view.
-        let Some(mut render_views) = world.try_query::<&UiCameraView>() else {
-            return Ok(());
-        };
+        let mut render_views = world.query::<&UiCameraView>();
         let Ok(ui_camera_view) = render_views.get(world, graph.view_entity()) else {
             return Ok(());
         };
