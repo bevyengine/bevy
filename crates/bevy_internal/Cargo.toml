@@ -225,7 +225,7 @@ bevy_text = [
   "bevy_sprite_render?/bevy_text",
 ]
 bevy_ui = ["dep:bevy_ui", "bevy_text", "bevy_sprite"]
-bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
+bevy_mesh = ["dep:bevy_mesh", "bevy_image", "bevy_gizmos?/bevy_mesh"]
 bevy_animation = ["dep:bevy_animation", "bevy_mesh"]
 bevy_mikktspace = ["bevy_mesh?/bevy_mikktspace"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y", "bevy_image"]
