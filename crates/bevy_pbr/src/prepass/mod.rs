@@ -595,6 +595,7 @@ impl PrepassPipeline {
             layout: bind_group_layouts,
             primitive: PrimitiveState {
                 topology: mesh_key.primitive_topology(),
+                strip_index_format: mesh_key.strip_index_format(),
                 unclipped_depth,
                 ..default()
             },

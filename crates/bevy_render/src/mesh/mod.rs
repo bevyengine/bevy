@@ -109,6 +109,14 @@ impl RenderMesh {
     pub fn indexed(&self) -> bool {
         matches!(self.buffer_info, RenderMeshBufferInfo::Indexed { .. })
     }
+
+    #[inline]
+    pub fn index_format(&self) -> Option<IndexFormat> {
+        match self.buffer_info {
+            RenderMeshBufferInfo::Indexed { index_format, .. } => Some(index_format),
+            RenderMeshBufferInfo::NonIndexed => None,
+        }
+    }
 }
 
 /// The index/vertex buffer info of a [`RenderMesh`].
@@ -172,18 +180,24 @@ impl RenderAsset for RenderMesh {
             None => None,
         };
 
-        let buffer_info = match mesh.indices() {
-            Some(indices) => RenderMeshBufferInfo::Indexed {
-                count: indices.len() as u32,
-                index_format: indices.into(),
-            },
-            None => RenderMeshBufferInfo::NonIndexed,
+        let (buffer_info, index_format) = match mesh.indices() {
+            Some(indices) => (
+                RenderMeshBufferInfo::Indexed {
+                    count: indices.len() as u32,
+                    index_format: indices.into(),
+                },
+                Some(indices.into()),
+            ),
+            None => (RenderMeshBufferInfo::NonIndexed, None),
         };
 
         let mesh_vertex_buffer_layout =
             mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
 
-        let key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+        let key_bits = BaseMeshPipelineKey::from_primitive_topology_and_index(
+            mesh.primitive_topology(),
+            index_format,
+        );
         #[cfg(feature = "morph")]
         let key_bits = if mesh.morph_targets().is_some() {
             key_bits | BaseMeshPipelineKey::MORPH_TARGETS
