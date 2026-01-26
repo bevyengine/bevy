@@ -156,7 +156,8 @@ Add a `flake.nix` file to the root of your GitHub repository containing:
                 xorg.libXi
                 xorg.libXrandr
                 libxkbcommon
-                wayland
+                # Only uncomment if using wayland
+                # wayland
               ];
             RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
             LD_LIBRARY_PATH = lib.makeLibraryPath [
@@ -165,6 +166,8 @@ Add a `flake.nix` file to the root of your GitHub repository containing:
               xorg.libXi
               xorg.libXcursor
               libxkbcommon
+              # Only uncomment if using wayland
+              # wayland
             ];
           };
       }
