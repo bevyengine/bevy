@@ -69,7 +69,7 @@ use wgpu_types::{
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Transform, Visibility)]
 pub struct LightProbe {
-    /// The distance over which the effect of the light probe becomes weaker, in
+    /// The distance over which the effect of the light probe becomes weaker, on
     /// each axis.
     ///
     /// This is specified as a ratio of the total distance on each axis. So, for

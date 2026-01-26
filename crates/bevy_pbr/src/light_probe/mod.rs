@@ -302,6 +302,10 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
         view_component: Option<&Self>,
         image_assets: &RenderAssets<GpuImage>,
     ) -> RenderViewLightProbes<Self>;
+
+    fn get_world_from_light_matrix(&self, original_world_from_light: &Affine3A) -> Affine3A {
+        *original_world_from_light
+    }
 }
 
 /// The uniform struct extracted from [`EnvironmentMapLight`].
@@ -626,11 +630,12 @@ where
         ),
         image_assets: &RenderAssets<GpuImage>,
     ) -> Option<LightProbeInfo<C>> {
-        let light_from_world_transposed =
-            Mat4::from(light_probe_transform.affine().inverse()).transpose();
+        let world_from_light =
+            environment_map.get_world_from_light_matrix(&light_probe_transform.affine());
+        let light_from_world_transposed = Mat4::from(world_from_light.inverse()).transpose();
         environment_map.id(image_assets).map(|id| LightProbeInfo {
             main_entity: main_entity.into(),
-            world_from_light: light_probe_transform.affine(),
+            world_from_light,
             light_from_world: [
                 light_from_world_transposed.x_axis,
                 light_from_world_transposed.y_axis,

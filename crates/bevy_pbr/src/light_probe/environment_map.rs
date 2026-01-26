@@ -51,6 +51,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_light::{EnvironmentMapLight, NoParallaxCorrection};
+use bevy_math::Affine3A;
 use bevy_render::{
     extract_instances::ExtractInstance,
     render_asset::RenderAssets,
@@ -315,6 +316,10 @@ impl LightProbeComponent for EnvironmentMapLight {
         };
 
         render_view_light_probes
+    }
+
+    fn get_world_from_light_matrix(&self, original_transform: &Affine3A) -> Affine3A {
+        *original_transform * Affine3A::from_quat(self.rotation)
     }
 }
 
