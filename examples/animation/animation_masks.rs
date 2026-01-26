@@ -141,7 +141,7 @@ fn setup_scene(
     // Spawn the fox.
     commands.spawn((
         SceneRoot(
-            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+            asset_server.load(GltfSubassetName::Scene(0).from_asset("models/animated/Fox.glb")),
         ),
         Transform::from_scale(Vec3::splat(0.07)),
     ));
@@ -352,7 +352,7 @@ fn setup_animation_graph_once_loaded(
         let animation_graph_nodes: [AnimationNodeIndex; 3] =
             std::array::from_fn(|animation_index| {
                 let handle = asset_server.load(
-                    GltfAssetLabel::Animation(animation_index)
+                    GltfSubassetName::Animation(animation_index)
                         .from_asset("models/animated/Fox.glb"),
                 );
                 let mask = if animation_index == 0 { 0 } else { 0x3f };

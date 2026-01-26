@@ -49,7 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SceneRoot(
             asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/barycentric/barycentric.gltf")),
+                .load(GltfSubassetName::Scene(0).from_asset("models/barycentric/barycentric.gltf")),
         ),
         Transform::from_scale(150. * Vec3::ONE),
     ));
@@ -100,7 +100,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
             && let Some(_) = entity.get::<MeshMaterial3d<StandardMaterial>>()
         {
             let material_handle =
-                load_context.add_labeled_asset("AColorMaterial".to_string(), CustomMaterial {});
+                load_context.add_subasset("AColorMaterial".to_string(), CustomMaterial {});
             let mesh_handle = mesh3d.0.clone();
             entity
                 .remove::<(Mesh3d, MeshMaterial3d<StandardMaterial>)>()

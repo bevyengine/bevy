@@ -12,7 +12,7 @@ use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_scene::Scene;
 
-use crate::GltfAssetLabel;
+use crate::GltfSubassetName;
 
 /// Representation of a loaded glTF file.
 #[derive(Asset, Debug, TypePath)]
@@ -84,9 +84,9 @@ impl GltfMesh {
         }
     }
 
-    /// Subasset label for this mesh within the gLTF parent asset.
-    pub fn asset_label(&self) -> GltfAssetLabel {
-        GltfAssetLabel::Mesh(self.index)
+    /// Subasset name for this mesh within the gLTF parent asset.
+    pub fn subasset_name(&self) -> GltfSubassetName {
+        GltfSubassetName::Mesh(self.index)
     }
 }
 
@@ -152,9 +152,9 @@ impl GltfNode {
         }
     }
 
-    /// Subasset label for this node within the gLTF parent asset.
-    pub fn asset_label(&self) -> GltfAssetLabel {
-        GltfAssetLabel::Node(self.index)
+    /// Subasset name for this node within the gLTF parent asset.
+    pub fn subasset_name(&self) -> GltfSubassetName {
+        GltfSubassetName::Node(self.index)
     }
 }
 
@@ -207,9 +207,9 @@ impl GltfPrimitive {
         }
     }
 
-    /// Subasset label for this primitive within its parent [`GltfMesh`] within the gLTF parent asset.
-    pub fn asset_label(&self) -> GltfAssetLabel {
-        GltfAssetLabel::Primitive {
+    /// Subasset name for this primitive within its parent [`GltfMesh`] within the gLTF parent asset.
+    pub fn subasset_name(&self) -> GltfSubassetName {
+        GltfSubassetName::Primitive {
             mesh: self.parent_mesh_index,
             primitive: self.index,
         }
@@ -255,9 +255,9 @@ impl GltfSkin {
         }
     }
 
-    /// Subasset label for this skin within the gLTF parent asset.
-    pub fn asset_label(&self) -> GltfAssetLabel {
-        GltfAssetLabel::Skin(self.index)
+    /// Subasset name for this skin within the gLTF parent asset.
+    pub fn subasset_name(&self) -> GltfSubassetName {
+        GltfSubassetName::Skin(self.index)
     }
 }
 

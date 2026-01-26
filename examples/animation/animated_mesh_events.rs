@@ -87,7 +87,7 @@ fn setup(
     // Build the animation graph
     let (graph, index) = AnimationGraph::from_clip(
         // We specifically want the "run" animation, which is the third one.
-        asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
+        asset_server.load(GltfSubassetName::Animation(2).from_asset(FOX_PATH)),
     );
 
     // Insert a resource with the current scene information
@@ -126,7 +126,7 @@ fn setup(
 
     // Fox
     commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
+        asset_server.load(GltfSubassetName::Scene(0).from_asset(FOX_PATH)),
     ));
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.

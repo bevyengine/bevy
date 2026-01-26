@@ -282,7 +282,7 @@ fn spawn_mirror_camera(
 /// [`play_fox_animation`].
 fn spawn_fox(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_ASSET_PATH))),
+        SceneRoot(asset_server.load(GltfSubassetName::Scene(0).from_asset(FOX_ASSET_PATH))),
         Transform::from_xyz(-50.0, 0.0, -100.0),
     ));
 }
@@ -630,7 +630,8 @@ fn play_fox_animation(
         return;
     }
 
-    let fox_animation = asset_server.load(GltfAssetLabel::Animation(0).from_asset(FOX_ASSET_PATH));
+    let fox_animation =
+        asset_server.load(GltfSubassetName::Animation(0).from_asset(FOX_ASSET_PATH));
     let (fox_animation_graph, fox_animation_node) =
         AnimationGraph::from_clip(fox_animation.clone());
     let fox_animation_graph = animation_graphs.add(fox_animation_graph);

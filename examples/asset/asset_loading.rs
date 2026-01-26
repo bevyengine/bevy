@@ -16,19 +16,19 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // By default AssetServer will load assets from inside the "assets" folder.
-    // For example, the next line will load GltfAssetLabel::Primitive{mesh:0,primitive:0}.from_asset("ROOT/assets/models/cube/cube.gltf"),
+    // For example, the next line will load GltfSubassetName::Primitive{mesh:0,primitive:0}.from_asset("ROOT/assets/models/cube/cube.gltf"),
     // where "ROOT" is the directory of the Application.
     //
     // This can be overridden by setting [`AssetPlugin.file_path`].
     let cube_handle = asset_server.load(
-        GltfAssetLabel::Primitive {
+        GltfSubassetName::Primitive {
             mesh: 0,
             primitive: 0,
         }
         .from_asset("models/cube/cube.gltf"),
     );
     let sphere_handle = asset_server.load(
-        GltfAssetLabel::Primitive {
+        GltfSubassetName::Primitive {
             mesh: 0,
             primitive: 0,
         }
@@ -59,7 +59,7 @@ fn setup(
     // The LoadedFolder asset will ultimately also hold handles to the assets, but waiting for it to load
     // and finding the right handle is more work!
     let torus_handle = asset_server.load(
-        GltfAssetLabel::Primitive {
+        GltfSubassetName::Primitive {
             mesh: 0,
             primitive: 0,
         }

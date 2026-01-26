@@ -254,7 +254,7 @@ fn spawn_light_textures(
         Selection::PointLight,
         children![
             SceneRoot(
-                asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb")),
+                asset_server.load(GltfSubassetName::Scene(0).from_asset("models/Faces/faces.glb")),
             ),
             (
                 Mesh3d(meshes.add(Sphere::new(1.0))),

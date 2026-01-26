@@ -399,7 +399,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
         path: &AssetPath<'static>,
         asset_type_id: Option<TypeId>,
     ) -> Result<(Arc<dyn ErasedAssetLoader>, ErasedLoadedAsset), LoadDirectError> {
-        if path.label().is_some() {
+        if path.subasset_name().is_some() {
             return Err(LoadDirectError::RequestedSubasset(path.clone()));
         }
         self.load_context

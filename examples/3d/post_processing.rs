@@ -102,14 +102,15 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
     commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+        GltfSubassetName::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
     )));
 
     // Spawn the flight helmet.
     commands.spawn((
         SceneRoot(
-            asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+            asset_server.load(
+                GltfSubassetName::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+            ),
         ),
         Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
     ));

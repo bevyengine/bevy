@@ -56,7 +56,7 @@ fn setup(
     // In normal use, you can call `asset_server.load`, however see below for an explanation of
     // `RenderAssetUsages`.
     let left_shape_model = asset_server.load_with_settings(
-        GltfAssetLabel::Primitive {
+        GltfSubassetName::Primitive {
             mesh: 0,
             // This field stores an index to this primitive in its parent mesh. In this case, we
             // want the first one. You might also have seen the syntax:
@@ -86,7 +86,7 @@ fn setup(
 
     // Here, we rely on the default loader settings to achieve a similar result to the above.
     let right_shape_model = asset_server.load(
-        GltfAssetLabel::Primitive {
+        GltfSubassetName::Primitive {
             mesh: 0,
             primitive: 0,
         }
@@ -160,7 +160,7 @@ fn alter_handle(
     // have to load the same path from storage media once: repeated attempts will re-use the
     // asset.
     mesh.0 = asset_server.load(
-        GltfAssetLabel::Primitive {
+        GltfSubassetName::Primitive {
             mesh: 0,
             primitive: 0,
         }

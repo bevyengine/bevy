@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(SceneRoot(
         asset_server.load(
             // This seems to be the correct path but bevy doesn't resolve it.
-            GltfAssetLabel::Scene(0)
+            GltfSubassetName::Scene(0)
                 .from_asset("../../../../assets/models/FlightHelmet/FlightHelmet.gltf"),
         ),
     ));

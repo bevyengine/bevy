@@ -101,7 +101,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Main scene
     commands.spawn((
         SceneRoot(asset_server.load(
-            GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+            GltfSubassetName::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
         )),
         SceneNumber(1),
     ));
@@ -109,8 +109,9 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Flight Helmet
     commands.spawn((
         SceneRoot(
-            asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+            asset_server.load(
+                GltfSubassetName::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+            ),
         ),
         Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
         SceneNumber(1),

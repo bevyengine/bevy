@@ -24,9 +24,9 @@
 //! fn spawn_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
 //!     commands.spawn((
 //!         // This is equivalent to "models/FlightHelmet/FlightHelmet.gltf#Scene0"
-//!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
+//!         // The `#Scene0` subasset name here is very important because it tells bevy to load the first scene in the glTF file.
 //!         // If this isn't specified bevy doesn't know which part of the glTF file to load.
-//!         SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
+//!         SceneRoot(asset_server.load(GltfSubassetName::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
 //!         // You can use the transform to give it a position
 //!         Transform::from_xyz(2.0, 0.0, -5.0),
 //!     ));
@@ -82,13 +82,13 @@
 //! }
 //! ```
 //!
-//! ## Asset Labels
+//! ## Subasset names
 //!
-//! The glTF loader let's you specify labels that let you target specific parts of the glTF.
+//! The glTF loader let's you specify subasset names that let you target specific parts of the glTF.
 //!
-//! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
+//! Be careful when using this feature, if you misspell a subasset name it will simply ignore it without warning.
 //!
-//! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
+//! You can use [`GltfSubassetName`] to ensure you are using the correct subasset name.
 //!
 //! # Supported KHR Extensions
 //!
@@ -129,8 +129,8 @@
 
 mod assets;
 pub mod convert_coordinates;
-mod label;
 mod loader;
+mod subasset_name;
 mod vertex_attributes;
 
 extern crate alloc;
@@ -152,12 +152,12 @@ use bevy_mesh::MeshVertexAttribute;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{assets::Gltf, assets::GltfExtras, label::GltfAssetLabel};
+    pub use crate::{assets::Gltf, assets::GltfExtras, subasset_name::GltfSubassetName};
 }
 
 use crate::{convert_coordinates::GltfConvertCoordinates, extensions::GltfExtensionHandlers};
 
-pub use {assets::*, label::GltfAssetLabel, loader::*};
+pub use {assets::*, loader::*, subasset_name::GltfSubassetName};
 
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
 /// Stores default [`ImageSamplerDescriptor`] in main world.

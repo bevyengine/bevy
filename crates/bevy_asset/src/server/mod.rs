@@ -322,13 +322,13 @@ impl AssetServer {
     ///
     /// In case the file path contains a hashtag (`#`), the `path` must be specified using [`Path`]
     /// or [`AssetPath`] because otherwise the hashtag would be interpreted as separator between
-    /// the file path and the label. For example:
+    /// the file path and the subasset name. For example:
     ///
     /// ```no_run
     /// # use bevy_asset::{AssetServer, Handle, LoadedUntypedAsset};
     /// # use bevy_ecs::prelude::Res;
     /// # use std::path::Path;
-    /// // `#path` is a label.
+    /// // `#path` is a subasset name.
     /// # fn setup(asset_server: Res<AssetServer>) {
     /// # let handle: Handle<LoadedUntypedAsset> =
     /// asset_server.load("some/file#path");
@@ -339,8 +339,8 @@ impl AssetServer {
     /// # }
     /// ```
     ///
-    /// Furthermore, if you need to load a file with a hashtag in its name _and_ a label, you can
-    /// manually construct an [`AssetPath`].
+    /// Furthermore, if you need to load a file with a hashtag in its name _and_ a subasset name,
+    /// you can manually construct an [`AssetPath`].
     ///
     /// ```no_run
     /// # use bevy_asset::{AssetPath, AssetServer, Handle, LoadedUntypedAsset};
@@ -348,7 +348,7 @@ impl AssetServer {
     /// # use std::path::Path;
     /// # fn setup(asset_server: Res<AssetServer>) {
     /// # let handle: Handle<LoadedUntypedAsset> =
-    /// asset_server.load(AssetPath::from_path(Path::new("some/file#path")).with_label("subasset"));
+    /// asset_server.load(AssetPath::from_path(Path::new("some/file#path")).with_subasset_name("subasset"));
     /// # }
     /// ```
     ///
@@ -751,7 +751,9 @@ impl AssetServer {
             let mut infos = self.write_infos();
             let result = infos.get_or_create_path_handle_internal(
                 path.clone(),
-                path.label().is_none().then(|| loader.asset_type_id()),
+                path.subasset_name()
+                    .is_none()
+                    .then(|| loader.asset_type_id()),
                 HandleLoadingMode::Request,
                 meta_transform,
             );
@@ -780,7 +782,7 @@ impl AssetServer {
         if let Some(asset_type_id) = asset_id.map(|id| id.type_id) {
             // If we are loading a subasset, then the subasset's type almost certainly doesn't match
             // the loader's type - and that's ok.
-            if path.label().is_none() && asset_type_id != loader.asset_type_id() {
+            if path.subasset_name().is_none() && asset_type_id != loader.asset_type_id() {
                 error!(
                     "Expected {:?}, got {:?}",
                     asset_type_id,
@@ -802,9 +804,9 @@ impl AssetServer {
         // We don't actually need to use _base_handle, but we do need to keep the handle alive.
         // Dropping it would cancel the load of the base asset, which would make the load of this
         // subasset never complete.
-        let (base_asset_id, _base_handle, base_path) = if path.label().is_some() {
+        let (base_asset_id, _base_handle, base_path) = if path.subasset_name().is_some() {
             let mut infos = self.write_infos();
-            let base_path = path.without_label().into_owned();
+            let base_path = path.without_subasset_name().into_owned();
             let base_handle = infos
                 .get_or_create_path_handle_erased(
                     base_path.clone(),
@@ -837,20 +839,20 @@ impl AssetServer {
             .await
         {
             Ok(loaded_asset) => {
-                let final_handle = if let Some(label) = path.label_cow() {
-                    match loaded_asset.labeled_assets.get(&label) {
-                        Some(labeled_asset) => Some(labeled_asset.handle.clone()),
+                let final_handle = if let Some(subasset_name) = path.subasset_name_cow() {
+                    match loaded_asset.subassets.get(&subasset_name) {
+                        Some(subasset) => Some(subasset.handle.clone()),
                         None => {
-                            let mut all_labels: Vec<String> = loaded_asset
-                                .labeled_assets
+                            let mut all_subasset_names: Vec<String> = loaded_asset
+                                .subassets
                                 .keys()
                                 .map(|s| (**s).to_owned())
                                 .collect();
-                            all_labels.sort_unstable();
-                            return Err(AssetLoadError::MissingLabel {
+                            all_subasset_names.sort_unstable();
+                            return Err(AssetLoadError::MissingSubasset {
                                 base_path,
-                                label: label.to_string(),
-                                all_labels,
+                                subasset_name: subasset_name.to_string(),
+                                all_subasset_names,
                             });
                         }
                     }
@@ -2090,15 +2092,15 @@ pub enum AssetLoadError {
     AssetLoaderError(#[from] AssetLoaderError),
     #[error(transparent)]
     AddAsyncError(#[from] AddAsyncError),
-    #[error("The file at '{}' does not contain the labeled asset '{}'; it contains the following {} assets: {}",
+    #[error("The file at '{}' does not contain the subasset '{}'; it contains the following {} subassets: {}",
             base_path,
-            label,
-            all_labels.len(),
-            all_labels.iter().map(|l| format!("'{l}'")).collect::<Vec<_>>().join(", "))]
-    MissingLabel {
+            subasset_name,
+            all_subasset_names.len(),
+            all_subasset_names.iter().map(|l| format!("'{l}'")).collect::<Vec<_>>().join(", "))]
+    MissingSubasset {
         base_path: AssetPath<'static>,
-        label: String,
-        all_labels: Vec<String>,
+        subasset_name: String,
+        all_subasset_names: Vec<String>,
     },
 }
 

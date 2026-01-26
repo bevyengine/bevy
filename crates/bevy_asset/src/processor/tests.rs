@@ -444,8 +444,14 @@ impl AssetSaver for CoolTextSaver {
         let ron = CoolTextRon {
             text: asset.text.clone(),
             sub_texts: asset
-                .iter_labels()
-                .map(|label| asset.get_labeled::<SubText, _>(label).unwrap().text.clone())
+                .iter_subasset_names()
+                .map(|subasset_name| {
+                    asset
+                        .get_subasset::<SubText, _>(subasset_name)
+                        .unwrap()
+                        .text
+                        .clone()
+                })
                 .collect(),
             dependencies: asset
                 .dependencies

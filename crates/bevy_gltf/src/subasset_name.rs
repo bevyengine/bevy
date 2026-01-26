@@ -1,10 +1,10 @@
-//! Labels that can be used to load part of a glTF
+//! Subasset names that can be used to load part of a glTF
 
 use bevy_asset::AssetPath;
 
-/// Labels that can be used to load part of a glTF
+/// Subasset names that can be used to load part of a glTF
 ///
-/// You can use [`GltfAssetLabel::from_asset`] to add it to an asset path
+/// You can use [`GltfSubassetName::from_asset`] to add it to an asset path
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -13,7 +13,7 @@ use bevy_asset::AssetPath;
 /// # use bevy_gltf::prelude::*;
 ///
 /// fn load_gltf_scene(asset_server: Res<AssetServer>) {
-///     let gltf_scene: Handle<Scene> = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+///     let gltf_scene: Handle<Scene> = asset_server.load(GltfSubassetName::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 /// }
 /// ```
 ///
@@ -26,11 +26,11 @@ use bevy_asset::AssetPath;
 /// # use bevy_gltf::prelude::*;
 ///
 /// fn load_gltf_scene(asset_server: Res<AssetServer>) {
-///     let gltf_scene: Handle<Scene> = asset_server.load(format!("models/FlightHelmet/FlightHelmet.gltf#{}", GltfAssetLabel::Scene(0)));
+///     let gltf_scene: Handle<Scene> = asset_server.load(format!("models/FlightHelmet/FlightHelmet.gltf#{}", GltfSubassetName::Scene(0)));
 /// }
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GltfAssetLabel {
+pub enum GltfSubassetName {
     /// `Scene{}`: glTF Scene as a Bevy [`Scene`](bevy_scene::Scene)
     Scene(usize),
     /// `Node{}`: glTF Node as a [`GltfNode`](crate::GltfNode)
@@ -74,20 +74,20 @@ pub enum GltfAssetLabel {
     InverseBindMatrices(usize),
 }
 
-impl core::fmt::Display for GltfAssetLabel {
+impl core::fmt::Display for GltfSubassetName {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            GltfAssetLabel::Scene(index) => f.write_str(&format!("Scene{index}")),
-            GltfAssetLabel::Node(index) => f.write_str(&format!("Node{index}")),
-            GltfAssetLabel::Mesh(index) => f.write_str(&format!("Mesh{index}")),
-            GltfAssetLabel::Primitive { mesh, primitive } => {
+            GltfSubassetName::Scene(index) => f.write_str(&format!("Scene{index}")),
+            GltfSubassetName::Node(index) => f.write_str(&format!("Node{index}")),
+            GltfSubassetName::Mesh(index) => f.write_str(&format!("Mesh{index}")),
+            GltfSubassetName::Primitive { mesh, primitive } => {
                 f.write_str(&format!("Mesh{mesh}/Primitive{primitive}"))
             }
-            GltfAssetLabel::MorphTarget { mesh, primitive } => {
+            GltfSubassetName::MorphTarget { mesh, primitive } => {
                 f.write_str(&format!("Mesh{mesh}/Primitive{primitive}/MorphTargets"))
             }
-            GltfAssetLabel::Texture(index) => f.write_str(&format!("Texture{index}")),
-            GltfAssetLabel::Material {
+            GltfSubassetName::Texture(index) => f.write_str(&format!("Texture{index}")),
+            GltfSubassetName::Material {
                 index,
                 is_scale_inverted,
             } => f.write_str(&format!(
@@ -98,18 +98,18 @@ impl core::fmt::Display for GltfAssetLabel {
                     ""
                 }
             )),
-            GltfAssetLabel::DefaultMaterial => f.write_str("DefaultMaterial"),
-            GltfAssetLabel::Animation(index) => f.write_str(&format!("Animation{index}")),
-            GltfAssetLabel::Skin(index) => f.write_str(&format!("Skin{index}")),
-            GltfAssetLabel::InverseBindMatrices(index) => {
+            GltfSubassetName::DefaultMaterial => f.write_str("DefaultMaterial"),
+            GltfSubassetName::Animation(index) => f.write_str(&format!("Animation{index}")),
+            GltfSubassetName::Skin(index) => f.write_str(&format!("Skin{index}")),
+            GltfSubassetName::InverseBindMatrices(index) => {
                 f.write_str(&format!("Skin{index}/InverseBindMatrices"))
             }
         }
     }
 }
 
-impl GltfAssetLabel {
-    /// Add this label to an asset path
+impl GltfSubassetName {
+    /// Add this subasset name to an asset path.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -118,10 +118,10 @@ impl GltfAssetLabel {
     /// # use bevy_gltf::prelude::*;
     ///
     /// fn load_gltf_scene(asset_server: Res<AssetServer>) {
-    ///     let gltf_scene: Handle<Scene> = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+    ///     let gltf_scene: Handle<Scene> = asset_server.load(GltfSubassetName::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
     /// }
     /// ```
     pub fn from_asset(&self, path: impl Into<AssetPath<'static>>) -> AssetPath<'static> {
-        path.into().with_label(self.to_string())
+        path.into().with_subasset_name(self.to_string())
     }
 }

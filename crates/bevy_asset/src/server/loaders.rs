@@ -164,12 +164,12 @@ impl AssetLoaders {
             return self.get_by_name(type_name);
         }
 
-        // The presence of a label will affect loader choice
-        let label = asset_path.as_ref().and_then(|path| path.label());
+        // The presence of a subasset name will affect loader choice
+        let subasset_name = asset_path.as_ref().and_then(|path| path.subasset_name());
 
         // Try by asset type
         let candidates = if let Some(type_id) = asset_type_id {
-            if label.is_none() {
+            if subasset_name.is_none() {
                 Some(self.type_id_to_loaders.get(&type_id)?)
             } else {
                 None

@@ -41,7 +41,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
     commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
+        GltfSubassetName::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
     )));
 
     let mut camera = commands.spawn((

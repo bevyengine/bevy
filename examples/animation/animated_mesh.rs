@@ -37,7 +37,7 @@ fn setup_mesh_and_animation(
     // Create an animation graph containing a single animation. We want the "run"
     // animation from our example asset, which has an index of two.
     let (graph, index) = AnimationGraph::from_clip(
-        asset_server.load(GltfAssetLabel::Animation(2).from_asset(GLTF_PATH)),
+        asset_server.load(GltfSubassetName::Animation(2).from_asset(GLTF_PATH)),
     );
 
     // Store the animation graph as an asset.
@@ -52,7 +52,7 @@ fn setup_mesh_and_animation(
     // Start loading the asset as a scene and store a reference to it in a
     // SceneRoot component. This component will automatically spawn a scene
     // containing our mesh once it has loaded.
-    let mesh_scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)));
+    let mesh_scene = SceneRoot(asset_server.load(GltfSubassetName::Scene(0).from_asset(GLTF_PATH)));
 
     // Spawn an entity with our components, and connect it to an observer that
     // will trigger when the scene is loaded and spawned.

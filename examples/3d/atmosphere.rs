@@ -236,7 +236,7 @@ fn setup_terrain_scene(
     commands.spawn((
         Terrain,
         SceneRoot(
-            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
+            asset_server.load(GltfSubassetName::Scene(0).from_asset("models/terrain/terrain.glb")),
         ),
         Transform::from_xyz(-1.0, 0.0, -0.5)
             .with_scale(Vec3::splat(0.5))

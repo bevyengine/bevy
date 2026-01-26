@@ -26,7 +26,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
     commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/SimpleSkin/SimpleSkin.gltf"),
+        GltfSubassetName::Scene(0).from_asset("models/SimpleSkin/SimpleSkin.gltf"),
     )));
 }
 
