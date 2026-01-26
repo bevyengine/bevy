@@ -5092,6 +5092,14 @@ doc-scrape-examples = false
 [package.metadata.example.test_invalid_skinned_mesh]
 hidden = true
 
+[[example]]
+name = "test_skinned_mesh_bounds"
+path = "tests/3d/test_skinned_mesh_bounds.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.test_skinned_mesh_bounds]
+hidden = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
