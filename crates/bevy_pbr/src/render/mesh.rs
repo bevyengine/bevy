@@ -30,7 +30,7 @@ use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
 };
-use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_math::{Affine3, Affine3Ext, Rect, UVec2, Vec3, Vec4};
 use bevy_mesh::{
     skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshTag, MeshVertexBufferLayoutRef,
     VertexAttributeDescriptor,
@@ -1455,11 +1455,11 @@ pub fn extract_meshes_for_cpu_building(
                 entity,
                 RenderMeshInstanceCpu {
                     transforms: MeshTransforms {
-                        world_from_local: (&world_from_local).into(),
-                        previous_world_from_local: (&previous_transform
+                        world_from_local: world_from_local.into(),
+                        previous_world_from_local: (previous_transform
                             .map(|t| t.0)
                             .unwrap_or(world_from_local))
-                            .into(),
+                        .into(),
                         flags: mesh_flags.bits(),
                     },
                     shared,
@@ -1719,7 +1719,7 @@ fn extract_mesh_for_gpu_building(
 
     let gpu_mesh_instance_builder = RenderMeshInstanceGpuBuilder {
         shared,
-        world_from_local: (&transform.affine()).into(),
+        world_from_local: (transform.affine()).into(),
         lightmap_uv_rect,
         mesh_flags,
         previous_input_index,
