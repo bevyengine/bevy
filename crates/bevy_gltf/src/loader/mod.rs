@@ -10,8 +10,9 @@ use bevy_asset::{
     ReadAssetBytesError, RenderAssetUsages,
 };
 use bevy_camera::{
-    primitives::Aabb, visibility::Visibility, Camera, Camera3d, OrthographicProjection,
-    PerspectiveProjection, Projection, ScalingMode,
+    primitives::Aabb,
+    visibility::{DynamicSkinnedMeshBounds, NoFrustumCulling, Visibility},
+    Camera, Camera3d, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode,
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
@@ -57,7 +58,7 @@ use tracing::{error, info_span, warn};
 use crate::{
     convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
     GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfMeshName,
-    GltfNode, GltfSceneExtras, GltfSkin,
+    GltfNode, GltfSceneExtras, GltfSkin, GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -156,6 +157,9 @@ pub struct GltfLoader {
     /// These are Bevy-side processors designed to access glTF
     /// extension data during the loading process.
     pub extensions: Arc<RwLock<Vec<Box<dyn extensions::GltfExtensionHandler>>>>,
+    /// The default policy for skinned mesh bounds. Can be overridden by
+    /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
+    pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -205,6 +209,8 @@ pub struct GltfLoaderSettings {
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
     pub convert_coordinates: Option<GltfConvertCoordinates>,
+    /// Optionally overrides [`GltfPlugin::skinned_mesh_bounds_policy`](crate::GltfPlugin).
+    pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -219,6 +225,7 @@ impl Default for GltfLoaderSettings {
             default_sampler: None,
             override_sampler: false,
             convert_coordinates: None,
+            skinned_mesh_bounds_policy: None,
         }
     }
 }
@@ -274,6 +281,10 @@ impl GltfLoader {
             Some(convert_coordinates) => convert_coordinates,
             None => loader.default_convert_coordinates,
         };
+
+        let skinned_mesh_bounds_policy = settings
+            .skinned_mesh_bounds_policy
+            .unwrap_or(loader.default_skinned_mesh_bounds_policy);
 
         #[cfg(feature = "bevy_animation")]
         let (animations, named_animations, animation_roots) = if settings.load_animations {
@@ -809,6 +820,13 @@ impl GltfLoader {
                     });
                 }
 
+                if (skinned_mesh_bounds_policy == GltfSkinnedMeshBoundsPolicy::Dynamic)
+                    && meshes_on_skinned_nodes.contains(&gltf_mesh.index())
+                    && let Err(err) = mesh.generate_skinned_mesh_bounds()
+                {
+                    warn!("Failed to generate skinned mesh bounds: {err}");
+                }
+
                 let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
@@ -994,6 +1012,7 @@ impl GltfLoader {
                             &texture_handles,
                             &convert_coordinates,
                             &mut extensions,
+                            skinned_mesh_bounds_policy,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -1459,6 +1478,7 @@ fn load_node(
     textures: &[Handle<Image>],
     convert_coordinates: &GltfConvertCoordinates,
     extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
+    skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
@@ -1596,6 +1616,18 @@ fn load_node(
                     ),
                     mesh_entity_transform,
                 ));
+
+                if gltf_node.skin().is_some() {
+                    match skinned_mesh_bounds_policy {
+                        GltfSkinnedMeshBoundsPolicy::Dynamic => {
+                            mesh_entity.insert(DynamicSkinnedMeshBounds);
+                        }
+                        GltfSkinnedMeshBoundsPolicy::NoFrustumCulling => {
+                            mesh_entity.insert(NoFrustumCulling);
+                        }
+                        _ => {}
+                    }
+                }
 
                 let target_count = primitive.morph_targets().len();
                 if target_count != 0 {
@@ -1774,6 +1806,7 @@ fn load_node(
                 textures,
                 convert_coordinates,
                 extensions,
+                skinned_mesh_bounds_policy,
             ) {
                 gltf_error = Some(err);
                 return;
