@@ -6,11 +6,12 @@ pull_requests: [18173, 22670]
 
 It has long been an annoyance in Bevy that getting immutable data from a world through a query often required mutable world access.
 Previously, `QueryState` required `&mut World` to be created.
-This meant you had to either make a `QueryState` using `&mut World` and keep track of it somewhere, later making a readonly query, 
-or use the fallible `QueryState::try_new`/`World::try_query` functions after manually registering components and other information.
+This meant you had to either make a `QueryState` using `&mut World` and keep track of it somewhere, 
+or use the fallible `QueryState::try_new`/`World::try_query` functions after manually registering components.
 
 This pain point is now resolved!
 Today, `QueryState::new`, `World::query`, and the like all only require `&World`.
+This will cause some breaking changes (see the migration guide for those), but it is well worth it for the possibilities it opens up.
 For example, it is now possible to do the following:
 
 ```rust
