@@ -1,7 +1,9 @@
 use crate::renderer::{
-    RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
+    self, RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
 };
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, sync::Arc};
+use bevy_window::RawHandleWrapperHolder;
+use std::sync::Mutex;
 
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
@@ -188,6 +190,49 @@ impl RenderCreation {
             additional_vulkan_features,
         )
         .into()
+    }
+
+    /// Creates [`RenderResources`] from this [`RenderCreation`] and an optional primary window.
+    /// Note: [`RenderCreation::Manual`] will ignore the provided primary window.
+    pub fn create_render(
+        &self,
+        primary_window: Option<RawHandleWrapperHolder>,
+        #[cfg(feature = "raw_vulkan_init")]
+        raw_vulkan_init_settings: renderer::raw_vulkan_init::RawVulkanInitSettings,
+    ) -> Option<RenderResources> {
+        match self {
+            RenderCreation::Manual(resources) => Some(resources.clone()),
+            RenderCreation::Automatic(render_creation) => {
+                let backends = render_creation.backends?;
+                let future_render_resources_wrapper = Arc::new(Mutex::new(None));
+                let render_resources = future_render_resources_wrapper.clone();
+
+                let settings = render_creation.clone();
+
+                let async_renderer = async move {
+                    let render_resources = renderer::initialize_renderer(
+                        backends,
+                        primary_window,
+                        &settings,
+                        #[cfg(feature = "raw_vulkan_init")]
+                        raw_vulkan_init_settings,
+                    )
+                    .await;
+
+                    *future_render_resources_wrapper.lock().unwrap() = Some(render_resources);
+                };
+
+                // In wasm, spawn a task and detach it for execution
+                #[cfg(target_arch = "wasm32")]
+                bevy_tasks::IoTaskPool::get()
+                    .spawn_local(async_renderer)
+                    .detach();
+                // Otherwise, just block for it to complete
+                #[cfg(not(target_arch = "wasm32"))]
+                bevy_tasks::block_on(async_renderer);
+                render_resources.lock().unwrap().clone()
+            }
+        }
     }
 }
 
