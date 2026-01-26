@@ -26,12 +26,6 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
-        EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 5000.0,
-            ..default()
-        },
     ));
 
     commands.spawn((

@@ -8,7 +8,7 @@ use bevy::{
     color::palettes::css::DEEP_PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
-    pbr::{ExtractedPointLight, GlobalClusteredLightMeta},
+    pbr::{ExtractedPointLight, GlobalClusterableObjectMeta},
     prelude::*,
     render::{Render, RenderApp, RenderSystems},
     window::{PresentMode, WindowResolution},

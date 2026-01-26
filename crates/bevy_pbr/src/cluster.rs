@@ -396,7 +396,7 @@ pub fn prepare_clusters(
             match record {
                 ExtractedClusterableObjectElement::ClusterHeader(counts) => {
                     let offset = view_clusters_bindings.n_indices();
-                    view_clusters_bindings.push_offset_and_counts(offset, &counts);
+                    view_clusters_bindings.push_offset_and_counts(offset, counts);
                 }
 
                 ExtractedClusterableObjectElement::Light(entity)

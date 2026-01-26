@@ -447,11 +447,6 @@ fn gather_light_probes<C>(
             light_probe_info.camera_distance_sort_key(view_transform)
         });
 
-        let debug_str: Vec<_> = view_light_probe_info
-            .iter()
-            .map(|lpi| lpi.main_entity.to_string())
-            .collect();
-
         // Create the light probes list.
         let mut render_view_light_probes =
             C::create_render_view_light_probes(view_component, &image_assets);
