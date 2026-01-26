@@ -219,18 +219,16 @@ pub(crate) fn assign_objects_to_clusters(
     // wouldn't be supported anyhow.
     if global_cluster_settings.supports_storage_buffers {
         clusterable_objects.extend(light_probes_query.iter().map(
-            |(entity, transform, is_reflection_probe)| {
-                ClusterableObjectAssignmentData {
-                    entity,
-                    transform: *transform,
-                    range: transform.radius_vec3a(Vec3A::ONE),
-                    object_type: if is_reflection_probe {
-                        ClusterableObjectType::ReflectionProbe
-                    } else {
-                        ClusterableObjectType::IrradianceVolume
-                    },
-                    render_layers: RenderLayers::default(),
-                }
+            |(entity, transform, is_reflection_probe)| ClusterableObjectAssignmentData {
+                entity,
+                transform: *transform,
+                range: transform.radius_vec3a(Vec3A::ONE),
+                object_type: if is_reflection_probe {
+                    ClusterableObjectType::ReflectionProbe
+                } else {
+                    ClusterableObjectType::IrradianceVolume
+                },
+                render_layers: RenderLayers::default(),
             },
         ));
     }

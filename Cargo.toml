@@ -5451,6 +5451,6 @@ required-features = []
 
 [package.metadata.example.light_probe_blending]
 name = "Light Probe Blending"
-description = "Demonstrates light probe falloff and blending"
+description = "Demonstrates blending between multiple reflection probes"
 category = "3D Rendering"
 wasm = false

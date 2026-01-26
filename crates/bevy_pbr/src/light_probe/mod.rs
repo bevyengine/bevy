@@ -303,6 +303,12 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
         image_assets: &RenderAssets<GpuImage>,
     ) -> RenderViewLightProbes<Self>;
 
+    /// Given the matrix value of the `GlobalTransform` of the light probe,
+    /// returns the matrix that transforms world positions into light probe
+    /// space.
+    ///
+    /// The default implementation simply returns the matrix unchanged, but some
+    /// light probes may want to perform other transforms.
     fn get_world_from_light_matrix(&self, original_world_from_light: &Affine3A) -> Affine3A {
         *original_world_from_light
     }

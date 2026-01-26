@@ -86,7 +86,11 @@ fn light_probe_iterator_new(
     );
 }
 
-// Searches for a light probe that contains the fragment.
+// Searches for a light probe that contains the fragment and returns the next
+// such probe.
+//
+// Note that multiple light probes can affect a fragment. The caller is
+// generally expected to blend their influences together in a weighted sum.
 fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
     let world_position = (*iterator).world_position;
 
@@ -156,9 +160,14 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
 // sufficient SSBO bindings typically lack bindless shaders, there will usually
 // only be one of each type of light probe present anyway.
 struct LightProbeIterator {
+    // The current index in the list of light probes for this cluster.
     current_index: u32,
+    // The last index in the list.
     end_index: u32,
+    // The position of the current fragment.
     world_position: vec3<f32>,
+    // True if we're searching for irradiance volumes; false if we're searching
+    // for reflection probes.
     is_irradiance_volume: bool,
 }
 
@@ -180,7 +189,14 @@ fn light_probe_iterator_new(
     );
 }
 
-// Searches for a light probe that contains the fragment.
+// Searches for a light probe that contains the fragment and returns the next
+// such probe.
+//
+// Note that, theoretically, multiple light probes can affect a fragment, and
+// the caller is generally expected to blend their influences together in a
+// weighted sum. In practice, this version of `light_probe_iterator_next` is
+// used on platforms that lack bindless shaders, so there will only be at most
+// one light probe that affects the current fragment in the first place.
 fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
     var result: LightProbeQueryResult;
     result.texture_index = -1;

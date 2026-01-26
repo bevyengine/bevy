@@ -93,7 +93,8 @@ fn compute_radiances(
 
     var radiances: EnvironmentMapRadiances;
 
-    // Search for all reflection probes that contain the fragment.
+    // Find all reflection probes that contain the fragment. We're going to
+    // accumulate all the radiance and irradiance from them in a weighted sum.
     var iterator = light_probe_iterator_new(
         world_position,
         /*is_irradiance_volume=*/ false,

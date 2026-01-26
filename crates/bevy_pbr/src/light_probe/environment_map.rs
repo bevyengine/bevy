@@ -319,6 +319,7 @@ impl LightProbeComponent for EnvironmentMapLight {
     }
 
     fn get_world_from_light_matrix(&self, original_transform: &Affine3A) -> Affine3A {
+        // Take the `rotation` field into account.
         *original_transform * Affine3A::from_quat(self.rotation)
     }
 }
