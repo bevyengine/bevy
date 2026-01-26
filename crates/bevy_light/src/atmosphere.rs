@@ -73,7 +73,7 @@ impl Atmosphere {
 ///
 /// A [`ScatteringMedium`] is represented on the GPU by a set of two LUTs, which
 /// are re-created every time the asset is modified. See the docs on
-/// [`GpuScatteringMedium`] for more info.
+/// `bevy_pbr::GpuScatteringMedium` for more info.
 ///
 /// [optical density]: https://en.wikipedia.org/wiki/Optical_Density
 /// [phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions
