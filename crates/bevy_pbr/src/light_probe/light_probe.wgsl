@@ -106,13 +106,6 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
             continue;
         }
 
-        // FIXME: This happens when one or more images for the light probe
-        // aren't loaded yet. Really, though, we shouldn't be clustering such
-        // objects at all.
-        if (light_probe_index < 0) {
-            continue;
-        }
-
         var light_probe: LightProbe;
         if (*iterator).is_irradiance_volume {
             light_probe = light_probes.irradiance_volumes[light_probe_index];
