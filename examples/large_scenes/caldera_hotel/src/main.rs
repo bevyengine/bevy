@@ -8,7 +8,10 @@ use argh::FromArgs;
 use bevy::pbr::ContactShadows;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera::visibility::{NoCpuCulling, NoFrustumCulling},
+    camera::{
+        visibility::{NoCpuCulling, NoFrustumCulling},
+        Hdr,
+    },
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
@@ -23,11 +26,11 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::{Hdr, NoIndirectDrawing},
+        view::NoIndirectDrawing,
     },
     scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 #[derive(FromArgs, Resource, Clone)]
@@ -94,10 +97,7 @@ pub fn main() {
     app.init_resource::<CameraPositions>()
         .init_resource::<FrameLowHigh>()
         .insert_resource(args.clone())
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::Immediate,

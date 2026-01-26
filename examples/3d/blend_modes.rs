@@ -10,7 +10,7 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
-use bevy::{color::palettes::css::ORANGE, prelude::*, render::view::Hdr};
+use bevy::{camera::Hdr, color::palettes::css::ORANGE, prelude::*};
 use rand::random;
 
 fn main() {

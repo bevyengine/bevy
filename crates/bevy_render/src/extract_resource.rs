@@ -35,7 +35,7 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_resource::<R>);
         } else {
-            once!(tracing::error!(
+            once!(bevy_log::error!(
                 "Render app did not exist when trying to add `extract_resource` for <{}>.",
                 core::any::type_name::<R>()
             ));
@@ -57,7 +57,7 @@ pub fn extract_resource<R: ExtractResource>(
         } else {
             #[cfg(debug_assertions)]
             if !main_resource.is_added() {
-                once!(tracing::warn!(
+                once!(bevy_log::warn!(
                     "Removing resource {} from render world not expected, adding using `Commands`.
                 This may decrease performance",
                     core::any::type_name::<R>()

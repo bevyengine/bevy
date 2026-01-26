@@ -43,9 +43,9 @@ use bevy_render::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindingResource, Buffer,
         BufferBinding, CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
-        DynamicBindGroupLayoutEntries, PipelineCache, PushConstantRange, RawBufferVec,
-        ShaderStages, ShaderType, SpecializedComputePipeline, SpecializedComputePipelines,
-        TextureSampleType, UninitBufferVec,
+        DynamicBindGroupLayoutEntries, PipelineCache, RawBufferVec, ShaderStages, ShaderType,
+        SpecializedComputePipeline, SpecializedComputePipelines, TextureSampleType,
+        UninitBufferVec,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
@@ -728,7 +728,7 @@ impl Node for EarlyGpuPreprocessNode {
                                 ..
                             } = *work_item_buffers
                             {
-                                compute_pass.set_push_constants(
+                                compute_pass.set_immediates(
                                     0,
                                     bytemuck::bytes_of(&late_indirect_parameters_indexed_offset),
                                 );
@@ -752,7 +752,7 @@ impl Node for EarlyGpuPreprocessNode {
                                 ..
                             } = *work_item_buffers
                             {
-                                compute_pass.set_push_constants(
+                                compute_pass.set_immediates(
                                     0,
                                     bytemuck::bytes_of(
                                         &late_indirect_parameters_non_indexed_offset,
@@ -919,7 +919,7 @@ impl Node for LateGpuPreprocessNode {
 
                 // Transform and cull indexed meshes if there are any.
                 if let Some(late_indexed_bind_group) = maybe_late_indexed_bind_group {
-                    compute_pass.set_push_constants(
+                    compute_pass.set_immediates(
                         0,
                         bytemuck::bytes_of(late_indirect_parameters_indexed_offset),
                     );
@@ -934,7 +934,7 @@ impl Node for LateGpuPreprocessNode {
 
                 // Transform and cull non-indexed meshes if there are any.
                 if let Some(late_non_indexed_bind_group) = maybe_late_non_indexed_bind_group {
-                    compute_pass.set_push_constants(
+                    compute_pass.set_immediates(
                         0,
                         bytemuck::bytes_of(late_indirect_parameters_non_indexed_offset),
                     );
@@ -1283,13 +1283,10 @@ impl SpecializedComputePipeline for PreprocessPipeline {
                 .into(),
             ),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: if key.contains(PreprocessPipelineKey::OCCLUSION_CULLING) {
-                vec![PushConstantRange {
-                    stages: ShaderStages::COMPUTE,
-                    range: 0..4,
-                }]
+            immediate_size: if key.contains(PreprocessPipelineKey::OCCLUSION_CULLING) {
+                4
             } else {
-                vec![]
+                0
             },
             shader: self.shader.clone(),
             shader_defs,
@@ -1305,12 +1302,25 @@ impl FromWorld for PreprocessPipelines {
         let direct_bind_group_layout_entries = preprocess_direct_bind_group_layout_entries();
         let gpu_frustum_culling_bind_group_layout_entries = gpu_culling_bind_group_layout_entries();
         let gpu_early_occlusion_culling_bind_group_layout_entries =
-            gpu_occlusion_culling_bind_group_layout_entries().extend_with_indices(((
-                11,
-                storage_buffer::<PreprocessWorkItem>(/*has_dynamic_offset=*/ false),
-            ),));
+            gpu_occlusion_culling_bind_group_layout_entries().extend_with_indices((
+                (
+                    11,
+                    storage_buffer::<PreprocessWorkItem>(/*has_dynamic_offset=*/ false),
+                ),
+                (
+                    12,
+                    storage_buffer::<LatePreprocessWorkItemIndirectParameters>(
+                        /*has_dynamic_offset=*/ false,
+                    ),
+                ),
+            ));
         let gpu_late_occlusion_culling_bind_group_layout_entries =
-            gpu_occlusion_culling_bind_group_layout_entries();
+            gpu_occlusion_culling_bind_group_layout_entries().extend_with_indices(((
+                12,
+                storage_buffer_read_only::<LatePreprocessWorkItemIndirectParameters>(
+                    /*has_dynamic_offset=*/ false,
+                ),
+            ),));
 
         let reset_indirect_batch_sets_bind_group_layout_entries =
             DynamicBindGroupLayoutEntries::sequential(
@@ -1497,12 +1507,6 @@ fn gpu_occlusion_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEn
         (
             10,
             texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
-        (
-            12,
-            storage_buffer::<LatePreprocessWorkItemIndirectParameters>(
-                /*has_dynamic_offset=*/ false,
-            ),
         ),
     ))
 }

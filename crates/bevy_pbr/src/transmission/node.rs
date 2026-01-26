@@ -1,6 +1,7 @@
-use super::ViewTransmissionTexture;
-use crate::core_3d::Transmissive3d;
-use bevy_camera::{Camera3d, MainPassResolutionOverride, Viewport};
+use crate::{ScreenSpaceTransmission, ViewTransmissionTexture};
+
+use bevy_camera::{MainPassResolutionOverride, Viewport};
+use bevy_core_pipeline::core_3d::Transmissive3d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::ToExtents;
 use bevy_render::{
@@ -26,7 +27,7 @@ impl ViewNode for MainTransmissivePass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static ExtractedView,
-        &'static Camera3d,
+        &'static ScreenSpaceTransmission,
         &'static ViewTarget,
         Option<&'static ViewTransmissionTexture>,
         &'static ViewDepthTexture,
@@ -37,7 +38,7 @@ impl ViewNode for MainTransmissivePass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view, camera_3d, target, transmission, depth, resolution_override): QueryItem<
+        (camera, view, transmission, target, texture, depth, resolution_override): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -64,6 +65,7 @@ impl ViewNode for MainTransmissivePass3dNode {
             depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         };
 
         // Run the transmissive pass, sorted back-to-front
@@ -73,10 +75,10 @@ impl ViewNode for MainTransmissivePass3dNode {
 
         if !transmissive_phase.items.is_empty() {
             let screen_space_specular_transmission_steps =
-                camera_3d.screen_space_specular_transmission_steps;
+                transmission.screen_space_specular_transmission_steps;
             if screen_space_specular_transmission_steps > 0 {
-                let transmission =
-                    transmission.expect("`ViewTransmissionTexture` should exist at this point");
+                let texture =
+                    texture.expect("`ViewTransmissionTexture` should exist at this point");
 
                 // `transmissive_phase.items` are depth sorted, so we split them into N = `screen_space_specular_transmission_steps`
                 // ranges, rendering them back-to-front in multiple steps, allowing multiple levels of transparency.
@@ -92,7 +94,7 @@ impl ViewNode for MainTransmissivePass3dNode {
                     // previous step (or of the `Opaque3d` phase, for the first step) as a transmissive color input
                     render_context.command_encoder().copy_texture_to_texture(
                         target.main_texture().as_image_copy(),
-                        transmission.texture.as_image_copy(),
+                        texture.texture.as_image_copy(),
                         physical_target_size.to_extents(),
                     );
 

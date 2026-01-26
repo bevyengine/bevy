@@ -91,7 +91,7 @@ impl AssetReader for FileAssetReader {
                 #[cfg(not(target_os = "windows"))]
                 _guard,
                 #[cfg(target_os = "windows")]
-                _lifetime: PhantomData::default(),
+                _lifetime: PhantomData,
             })
     }
 
@@ -115,7 +115,7 @@ impl AssetReader for FileAssetReader {
                 #[cfg(not(target_os = "windows"))]
                 _guard,
                 #[cfg(target_os = "windows")]
-                _lifetime: PhantomData::default(),
+                _lifetime: PhantomData,
             })
     }
 
