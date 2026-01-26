@@ -841,6 +841,7 @@ mod tests {
         }
 
         const IS_DENSE: bool = true;
+        const IS_ARCHETYPAL: bool = true;
 
         #[inline]
         unsafe fn set_archetype<'w, 's>(
@@ -881,12 +882,21 @@ mod tests {
         ) -> bool {
             true
         }
+
+        #[inline]
+        unsafe fn matches(
+            _state: &Self::State,
+            _fetch: &mut Self::Fetch<'_>,
+            _entity: Entity,
+            _table_row: TableRow,
+        ) -> bool {
+            true
+        }
     }
 
     /// SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl QueryData for ReadsRData {
         const IS_READ_ONLY: bool = true;
-        const IS_ARCHETYPAL: bool = true;
         type ReadOnly = Self;
         type Item<'w, 's> = ();
 
@@ -901,8 +911,7 @@ mod tests {
             _fetch: &mut Self::Fetch<'w>,
             _entity: Entity,
             _table_row: TableRow,
-        ) -> Option<Self::Item<'w, 's>> {
-            Some(())
+        ) -> Self::Item<'w, 's> {
         }
 
         fn iter_access(

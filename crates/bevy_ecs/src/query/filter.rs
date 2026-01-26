@@ -1,15 +1,15 @@
 use crate::{
-    archetype::Archetype,
+    archetype::{Archetype, ArchetypeEntity},
     change_detection::Tick,
     component::{Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity},
-    query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
+    query::{DebugCheckedUnwrap, FilteredAccess, RangeExt, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, marker::PhantomData};
+use core::{cell::UnsafeCell, marker::PhantomData, ops::Range};
 use variadics_please::all_tuples;
 
 /// Types that filter the results of a [`Query`].
@@ -71,46 +71,12 @@ use variadics_please::all_tuples;
 /// ```
 ///
 /// [`Query`]: crate::system::Query
-///
-/// # Safety
-///
-/// The [`WorldQuery`] implementation must not take any mutable access.
-/// This is the same safety requirement as [`ReadOnlyQueryData`](crate::query::ReadOnlyQueryData).
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid `Query` filter",
     label = "invalid `Query` filter",
     note = "a `QueryFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
 )]
-pub unsafe trait QueryFilter: WorldQuery {
-    /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
-    /// components are accessed by the Query.
-    ///
-    /// This enables optimizations for [`QueryIter`](`crate::query::QueryIter`) that rely on knowing exactly how
-    /// many elements are being iterated (such as `Iterator::collect()`).
-    ///
-    /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
-    const IS_ARCHETYPAL: bool;
-
-    /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
-    /// If false, the entity will be skipped.
-    ///
-    /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
-    /// ones that are compatible with the Filter's access.
-    ///
-    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
-    /// or access the necessary data within this function to make the final decision on filter inclusion.
-    ///
-    /// # Safety
-    ///
-    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
-    /// `table_row` must be in the range of the current table and archetype.
-    unsafe fn filter_fetch(
-        state: &Self::State,
-        fetch: &mut Self::Fetch<'_>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> bool;
-}
+pub trait QueryFilter: WorldQuery {}
 
 /// Filter that selects entities with a component `T`.
 ///
@@ -143,7 +109,7 @@ pub struct With<T>(PhantomData<T>);
 
 /// SAFETY:
 /// `update_component_access` does not add any accesses.
-/// This is sound because [`QueryFilter::filter_fetch`] does not access any components.
+/// This is sound because [`WorldQuery::matches`] does not access any components.
 /// `update_component_access` adds a `With` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set contains the component.
 unsafe impl<T: Component> WorldQuery for With<T> {
@@ -167,6 +133,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype(
@@ -199,14 +166,9 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     ) -> bool {
         set_contains_id(id)
     }
-}
 
-// SAFETY: WorldQuery impl performs no access at all
-unsafe impl<T: Component> QueryFilter for With<T> {
-    const IS_ARCHETYPAL: bool = true;
-
-    #[inline(always)]
-    unsafe fn filter_fetch(
+    #[inline]
+    unsafe fn matches(
         _state: &Self::State,
         _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
@@ -215,6 +177,8 @@ unsafe impl<T: Component> QueryFilter for With<T> {
         true
     }
 }
+
+impl<T: Component> QueryFilter for With<T> {}
 
 /// Filter that selects entities without a component `T`.
 ///
@@ -244,7 +208,7 @@ pub struct Without<T>(PhantomData<T>);
 
 /// SAFETY:
 /// `update_component_access` does not add any accesses.
-/// This is sound because [`QueryFilter::filter_fetch`] does not access any components.
+/// This is sound because [`WorldQuery::matches`] does not access any components.
 /// `update_component_access` adds a `Without` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set does not contain the component.
 unsafe impl<T: Component> WorldQuery for Without<T> {
@@ -268,6 +232,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype(
@@ -300,14 +265,9 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     ) -> bool {
         !set_contains_id(id)
     }
-}
 
-// SAFETY: WorldQuery impl performs no access at all
-unsafe impl<T: Component> QueryFilter for Without<T> {
-    const IS_ARCHETYPAL: bool = true;
-
-    #[inline(always)]
-    unsafe fn filter_fetch(
+    #[inline]
+    unsafe fn matches(
         _state: &Self::State,
         _fetch: &mut Self::Fetch<'_>,
         _entity: Entity,
@@ -316,6 +276,8 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
         true
     }
 }
+
+impl<T: Component> QueryFilter for Without<T> {}
 
 /// A filter that tests if any of the given filters apply.
 ///
@@ -350,18 +312,10 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 pub struct Or<T>(PhantomData<T>);
 
 #[doc(hidden)]
-pub struct OrFetch<'w, T: WorldQuery> {
-    fetch: T::Fetch<'w>,
+#[derive(Clone)]
+pub struct OrFetch<T> {
+    fetch: T,
     matches: bool,
-}
-
-impl<T: WorldQuery> Clone for OrFetch<'_, T> {
-    fn clone(&self) -> Self {
-        Self {
-            fetch: self.fetch.clone(),
-            matches: self.matches,
-        }
-    }
 }
 
 macro_rules! impl_or_query_filter {
@@ -383,35 +337,50 @@ macro_rules! impl_or_query_filter {
             clippy::unused_unit,
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
+        #[allow(
+            unused_mut,
+            reason = "Zero-length tuples won't mutate any of the parameters."
+        )]
         /// SAFETY:
-        /// [`QueryFilter::filter_fetch`] accesses are a subset of the subqueries' accesses
+        /// [`WorldQuery::matches`], [`WorldQuery::find_table_chunk`], and [`WorldQuery::find_archetype_chunk`] only
+        /// call their respective methods on subqueries, so they can't perform mutable access unless subqueries are invalid.
+        /// [`WorldQuery::matches`] accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($filter: QueryFilter),*> WorldQuery for Or<($($filter,)*)> {
-            type Fetch<'w> = ($(OrFetch<'w, $filter>,)*);
+            type Fetch<'w> = OrFetch<($(OrFetch<$filter::Fetch<'w>>,)*)>;
             type State = ($($filter::State,)*);
 
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-                let ($($filter,)*) = fetch;
-                ($(
-                    OrFetch {
-                        fetch: $filter::shrink_fetch($filter.fetch),
-                        matches: $filter.matches
-                    },
-                )*)
+                let ($($filter,)*) = fetch.fetch;
+                OrFetch {
+                    fetch:
+                        ($(
+                            OrFetch {
+                                fetch: $filter::shrink_fetch($filter.fetch),
+                                matches: $filter.matches
+                            },
+                        )*),
+                    matches: fetch.matches,
+                }
             }
 
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
+            const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline]
             unsafe fn init_fetch<'w, 's>(world: UnsafeWorldCell<'w>, state: &'s Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
-                ($(OrFetch {
-                    // SAFETY: The invariants are upheld by the caller.
-                    fetch: unsafe { $filter::init_fetch(world, $filter, last_run, this_run) },
-                    matches: false,
-                },)*)
+                OrFetch {
+                    fetch:
+                        ($(OrFetch {
+                            // SAFETY: The invariants are upheld by the caller.
+                            fetch: unsafe { $filter::init_fetch(world, $filter, last_run, this_run) },
+                            matches: false,
+                        },)*),
+                    matches: false
+                }
             }
 
             #[inline]
@@ -421,10 +390,12 @@ macro_rules! impl_or_query_filter {
                 if Self::IS_ARCHETYPAL {
                     return;
                 }
-                let ($($filter,)*) = fetch;
+                let ($($filter,)*) = &mut fetch.fetch;
                 let ($($state,)*) = state;
+                fetch.matches = false;
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| table.has_column(id));
+                    fetch.matches = fetch.matches || $filter.matches;
                     if $filter.matches {
                         // SAFETY: The invariants are upheld by the caller.
                         unsafe { $filter::set_table(&mut $filter.fetch, $state, table); }
@@ -444,10 +415,12 @@ macro_rules! impl_or_query_filter {
                 if Self::IS_ARCHETYPAL {
                     return;
                 }
-                let ($($filter,)*) = fetch;
+                let ($($filter,)*) = &mut fetch.fetch;
                 let ($($state,)*) = &state;
+                fetch.matches = false;
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| archetype.contains(id));
+                    fetch.matches = fetch.matches || $filter.matches;
                     if $filter.matches {
                         // SAFETY: The invariants are upheld by the caller.
                        unsafe { $filter::set_archetype(&mut $filter.fetch, $state, archetype, table); }
@@ -489,81 +462,92 @@ macro_rules! impl_or_query_filter {
                 let ($($filter,)*) = state;
                 false $(|| $filter::matches_component_set($filter, set_contains_id))*
             }
-        }
 
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is a tuple-related macro; as such the lints below may not always apply."
-        )]
-        #[allow(
-            non_snake_case,
-            reason = "The names of some variables are provided by the macro's caller, not by us."
-        )]
-        #[allow(
-            unused_variables,
-            reason = "Zero-length tuples won't use any of the parameters."
-        )]
-        $(#[$meta])*
-        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
-        unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
-            const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
+            #[inline]
+            unsafe fn find_table_chunk(
+                state: &Self::State,
+                fetch: &mut Self::Fetch<'_>,
+                table_entities: &[Entity],
+                rows: Range<u32>,
+            ) -> Range<u32> {
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
+                    rows
+                } else {
+                    let ($($filter,)*) = &mut fetch.fetch;
+                    let ($($state,)*) = state;
+                    let mut new_rows = rows.end..rows.end;
+                    $(
+                        if $filter.matches {
+                            // SAFETY: invariants are upheld by the caller.
+                            new_rows = new_rows.union_or_first(unsafe { $filter::find_table_chunk($state, &mut $filter.fetch, table_entities, rows.clone()) });
+                        }
+                    )*
+                    new_rows
+                }
+            }
 
-            #[inline(always)]
-            unsafe fn filter_fetch(
+            #[inline]
+            unsafe fn find_archetype_chunk(
+                state: &Self::State,
+                fetch: &mut Self::Fetch<'_>,
+                archetype_entities: &[ArchetypeEntity],
+                mut indices: Range<u32>,
+            ) -> Range<u32> {
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
+                    indices
+                } else {
+                    let ($($filter,)*) = &mut fetch.fetch;
+                    let ($($state,)*) = state;
+                    let mut new_indices = indices.end..indices.end;
+                    $(
+                        if $filter.matches {
+                            // SAFETY: invariants are upheld by the caller.
+                            new_indices = new_indices.union_or_first(unsafe { $filter::find_archetype_chunk($state, &mut $filter.fetch, archetype_entities, indices.clone()) });
+                        }
+                    )*
+                    new_indices
+                }
+            }
+
+            #[inline]
+            unsafe fn matches(
                 state: &Self::State,
                 fetch: &mut Self::Fetch<'_>,
                 entity: Entity,
-                table_row: TableRow
+                table_row: TableRow,
             ) -> bool {
-                let ($($state,)*) = state;
-                let ($($filter,)*) = fetch;
-                // If this is an archetypal query, then it is guaranteed to return true,
-                // and we can help the compiler remove branches by checking the const `IS_ARCHETYPAL` first.
-                (Self::IS_ARCHETYPAL
-                    // SAFETY: The invariants are upheld by the caller.
-                    $(|| ($filter.matches && unsafe { $filter::filter_fetch($state, &mut $filter.fetch, entity, table_row) }))*
-                    // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
-                    // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
-                    // so we treat them as matching for non-archetypal queries, as well.
-                    || !(false $(|| $filter.matches)*))
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
+                    true
+                } else {
+                    let ($($filter,)*) = &mut fetch.fetch;
+                    let ($($state,)*) = state;
+                    // SAFETY: invariants are upheld by the caller.
+                    false $(|| ($filter.matches && unsafe { $filter::matches(&$state, &mut $filter.fetch, entity, table_row) }))*
+                }
             }
         }
+
+        $(#[$meta])*
+        impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {}
     };
 }
 
 macro_rules! impl_tuple_query_filter {
-    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is a tuple-related macro; as such the lints below may not always apply."
-        )]
-        #[allow(
-            non_snake_case,
-            reason = "The names of some variables are provided by the macro's caller, not by us."
-        )]
-        #[allow(
-            unused_variables,
-            reason = "Zero-length tuples won't use any of the parameters."
-        )]
+    ($(#[$meta:meta])* $($name: ident),*) => {
         $(#[$meta])*
-        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
-        unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
-            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
-
-            #[inline(always)]
-            unsafe fn filter_fetch(
-                state: &Self::State,
-                fetch: &mut Self::Fetch<'_>,
-                entity: Entity,
-                table_row: TableRow
-            ) -> bool {
-                let ($($state,)*) = state;
-                let ($($name,)*) = fetch;
-                // SAFETY: The invariants are upheld by the caller.
-                true $(&& unsafe { $name::filter_fetch($state, $name, entity, table_row) })*
-            }
-        }
-
+        impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {}
     };
 }
 
@@ -572,8 +556,7 @@ all_tuples!(
     impl_tuple_query_filter,
     0,
     15,
-    F,
-    S
+    F
 );
 all_tuples!(
     #[doc(fake_variadic)]
@@ -591,7 +574,7 @@ pub struct Allow<T>(PhantomData<T>);
 
 /// SAFETY:
 /// `update_component_access` does not add any accesses.
-/// This is sound because [`QueryFilter::filter_fetch`] does not access any components.
+/// This is sound because [`WorldQuery::matches`] does not access any components.
 /// `update_component_access` adds an archetypal filter for `T`.
 /// This is sound because it doesn't affect the query
 unsafe impl<T: Component> WorldQuery for Allow<T> {
@@ -605,6 +588,7 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
 
     // Even if the component is sparse, this implementation doesn't do anything with it
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype(_: &mut (), _: &ComponentId, _: &Archetype, _: &Table) {}
@@ -629,22 +613,19 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
         // Allow<T> always matches
         true
     }
-}
 
-// SAFETY: WorldQuery impl performs no access at all
-unsafe impl<T: Component> QueryFilter for Allow<T> {
-    const IS_ARCHETYPAL: bool = true;
-
-    #[inline(always)]
-    unsafe fn filter_fetch(
-        _: &Self::State,
-        _: &mut Self::Fetch<'_>,
-        _: Entity,
-        _: TableRow,
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> bool {
         true
     }
 }
+
+impl<T: Component> QueryFilter for Allow<T> {}
 
 /// A filter on a component that only retains results the first time after they have been added.
 ///
@@ -737,7 +718,7 @@ impl<T: Component> Clone for AddedFetch<'_, T> {
 }
 
 /// SAFETY:
-/// [`QueryFilter::filter_fetch`] accesses a single component in a readonly way.
+/// [`WorldQuery::matches`] accesses a single component in a readonly way.
 /// This is sound because `update_component_access` adds read access for that component and panics when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
@@ -778,6 +759,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -832,13 +814,9 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     ) -> bool {
         set_contains_id(id)
     }
-}
 
-// SAFETY: WorldQuery impl performs only read access on ticks
-unsafe impl<T: Component> QueryFilter for Added<T> {
-    const IS_ARCHETYPAL: bool = false;
-    #[inline(always)]
-    unsafe fn filter_fetch(
+    #[inline]
+    unsafe fn matches(
         _state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
@@ -868,6 +846,8 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
         )
     }
 }
+
+impl<T: Component> QueryFilter for Added<T> {}
 
 /// A filter on a component that only retains results the first time after they have been added or mutably dereferenced.
 ///
@@ -964,7 +944,7 @@ impl<T: Component> Clone for ChangedFetch<'_, T> {
 }
 
 /// SAFETY:
-/// `fetch` accesses a single component in a readonly way.
+/// `matches` accesses a single component in a readonly way.
 /// This is sound because `update_component_access` add read access for that component and panics when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
@@ -1005,6 +985,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -1059,14 +1040,9 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     ) -> bool {
         set_contains_id(id)
     }
-}
 
-// SAFETY: WorldQuery impl performs only read access on ticks
-unsafe impl<T: Component> QueryFilter for Changed<T> {
-    const IS_ARCHETYPAL: bool = false;
-
-    #[inline(always)]
-    unsafe fn filter_fetch(
+    #[inline]
+    unsafe fn matches(
         _state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
@@ -1097,6 +1073,8 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
     }
 }
 
+impl<T: Component> QueryFilter for Changed<T> {}
+
 /// A filter that only retains results the first time after the entity has been spawned.
 ///
 /// A common use for this filter is one-time initialization.
@@ -1126,7 +1104,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
 /// # use bevy_ecs::query::SpawnDetails;
 ///
 /// fn system1(query: Query<Entity, Spawned>) {
-///     for entity in &query { /* entity spawned */ }
+///     for entity in &query { /* entity spawned*/ }
 /// }
 ///
 /// fn system2(query: Query<(Entity, SpawnDetails)>) {
@@ -1189,6 +1167,7 @@ unsafe impl WorldQuery for Spawned {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = false;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -1214,14 +1193,9 @@ unsafe impl WorldQuery for Spawned {
     fn matches_component_set(_state: &(), _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
-}
 
-// SAFETY: WorldQuery impl accesses no components or component ticks
-unsafe impl QueryFilter for Spawned {
-    const IS_ARCHETYPAL: bool = false;
-
-    #[inline(always)]
-    unsafe fn filter_fetch(
+    #[inline]
+    unsafe fn matches(
         _state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
@@ -1238,12 +1212,14 @@ unsafe impl QueryFilter for Spawned {
     }
 }
 
+impl QueryFilter for Spawned {}
+
 /// A marker trait to indicate that the filter works at an archetype level.
 ///
 /// This is needed to implement [`ExactSizeIterator`] for
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
-/// The trait must only be implemented for filters where its corresponding [`QueryFilter::IS_ARCHETYPAL`]
+/// The trait must only be implemented for filters where its corresponding [`WorldQuery::IS_ARCHETYPAL`]
 /// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.
 /// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
 /// also implement the same trait.

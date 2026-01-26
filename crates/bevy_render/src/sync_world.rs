@@ -315,6 +315,7 @@ mod render_entities_world_query_impls {
         }
 
         const IS_DENSE: bool = <&'static RenderEntity as WorldQuery>::IS_DENSE;
+        const IS_ARCHETYPAL: bool = <&'static RenderEntity as WorldQuery>::IS_ARCHETYPAL;
 
         #[inline]
         unsafe fn set_archetype<'w, 's>(
@@ -357,13 +358,23 @@ mod render_entities_world_query_impls {
         ) -> bool {
             <&RenderEntity as WorldQuery>::matches_component_set(&state, set_contains_id)
         }
+
+        #[inline]
+        unsafe fn matches(
+            state: &Self::State,
+            fetch: &mut Self::Fetch<'_>,
+            entity: Entity,
+            table_row: TableRow,
+        ) -> bool {
+            // SAFETY: invariants are upheld by caller
+            unsafe { <&RenderEntity as WorldQuery>::matches(state, fetch, entity, table_row) }
+        }
     }
 
     // SAFETY: Component access of Self::ReadOnly is a subset of Self.
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for RenderEntity {
         const IS_READ_ONLY: bool = true;
-        const IS_ARCHETYPAL: bool = <&MainEntity as QueryData>::IS_ARCHETYPAL;
         type ReadOnly = RenderEntity;
         type Item<'w, 's> = Entity;
 
@@ -379,11 +390,9 @@ mod render_entities_world_query_impls {
             fetch: &mut Self::Fetch<'w>,
             entity: Entity,
             table_row: TableRow,
-        ) -> Option<Self::Item<'w, 's>> {
+        ) -> Self::Item<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
-            let component =
-                unsafe { <&RenderEntity as QueryData>::fetch(state, fetch, entity, table_row) };
-            component.map(RenderEntity::id)
+            unsafe { <&RenderEntity as QueryData>::fetch(state, fetch, entity, table_row).id() }
         }
 
         fn iter_access(
@@ -430,6 +439,7 @@ mod render_entities_world_query_impls {
         }
 
         const IS_DENSE: bool = <&'static MainEntity as WorldQuery>::IS_DENSE;
+        const IS_ARCHETYPAL: bool = <&'static MainEntity as WorldQuery>::IS_ARCHETYPAL;
 
         #[inline]
         unsafe fn set_archetype<'w, 's>(
@@ -472,13 +482,23 @@ mod render_entities_world_query_impls {
         ) -> bool {
             <&MainEntity as WorldQuery>::matches_component_set(&state, set_contains_id)
         }
+
+        #[inline]
+        unsafe fn matches(
+            state: &Self::State,
+            fetch: &mut Self::Fetch<'_>,
+            entity: Entity,
+            table_row: TableRow,
+        ) -> bool {
+            // SAFETY: invariants are upheld by caller
+            unsafe { <&MainEntity as WorldQuery>::matches(state, fetch, entity, table_row) }
+        }
     }
 
     // SAFETY: Component access of Self::ReadOnly is a subset of Self.
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for MainEntity {
         const IS_READ_ONLY: bool = true;
-        const IS_ARCHETYPAL: bool = <&MainEntity as QueryData>::IS_ARCHETYPAL;
         type ReadOnly = MainEntity;
         type Item<'w, 's> = Entity;
 
@@ -494,11 +514,9 @@ mod render_entities_world_query_impls {
             fetch: &mut Self::Fetch<'w>,
             entity: Entity,
             table_row: TableRow,
-        ) -> Option<Self::Item<'w, 's>> {
+        ) -> Self::Item<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
-            let component =
-                unsafe { <&MainEntity as QueryData>::fetch(state, fetch, entity, table_row) };
-            component.map(MainEntity::id)
+            unsafe { <&MainEntity as QueryData>::fetch(state, fetch, entity, table_row).id() }
         }
 
         fn iter_access(

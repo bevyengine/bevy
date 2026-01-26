@@ -130,6 +130,7 @@ pub(crate) fn world_query_impl(
             }
 
             const IS_DENSE: bool = true #(&& <#field_types>::IS_DENSE)*;
+            const IS_ARCHETYPAL: bool = true #(&& <#field_types>::IS_ARCHETYPAL)*;
 
             /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
             #[inline]
@@ -170,6 +171,57 @@ pub(crate) fn world_query_impl(
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
                 true #(&& <#field_types>::matches_component_set(&state.#field_aliases, _set_contains_id))*
+            }
+
+            #[inline]
+            unsafe fn find_table_chunk(
+                state: &Self::State,
+                fetch: &mut Self::Fetch<'_>,
+                table_entities: &[#path::entity::Entity],
+                mut rows: core::ops::Range<u32>,
+            ) -> core::ops::Range<u32> {
+                if Self::IS_ARCHETYPAL {
+                    rows
+                } else {
+                    // SAFETY: `rows` is only ever narrowed as we iterate subqueries, so it's
+                    // always valid to pass to the next term. Other invariants are upheld by
+                    // the caller.
+                    #(rows = unsafe { <#field_types>::find_table_chunk(&state.#field_aliases, &mut fetch.#field_aliases, table_entities, rows) };)*
+                    rows
+                }
+            }
+
+            #[inline]
+            unsafe fn find_archetype_chunk(
+                state: &Self::State,
+                fetch: &mut Self::Fetch<'_>,
+                archetype_entities: &[#path::archetype::ArchetypeEntity],
+                mut indices: core::ops::Range<u32>,
+            ) -> core::ops::Range<u32> {
+                if Self::IS_ARCHETYPAL {
+                    indices
+                } else {
+                    // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
+                    // always valid to pass to the next term. Other invariants are upheld by
+                    // the caller.
+                    #(indices = unsafe { <#field_types>::find_archetype_chunk(&state.#field_aliases, &mut fetch.#field_aliases, archetype_entities, indices) };)*
+                    indices
+                }
+            }
+
+            #[inline]
+            unsafe fn matches(
+                state: &Self::State,
+                fetch: &mut Self::Fetch<'_>,
+                entity: #path::entity::Entity,
+                table_row: #path::storage::TableRow,
+            ) -> bool {
+                if Self::IS_ARCHETYPAL {
+                    true
+                } else {
+                    // SAFETY: invariants are upheld by the caller.
+                    true #(&& unsafe { <#field_types>::matches(&state.#field_aliases, &mut fetch.#field_aliases, entity, table_row) })*
+                }
             }
         }
     }

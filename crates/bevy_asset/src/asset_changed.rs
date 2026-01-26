@@ -201,6 +201,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 
     const IS_DENSE: bool = <&A>::IS_DENSE;
+    const IS_ARCHETYPAL: bool = false;
 
     unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
@@ -261,29 +262,26 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     ) -> bool {
         set_contains_id(state.asset_id)
     }
-}
-
-#[expect(unsafe_code, reason = "QueryFilter is an unsafe trait.")]
-/// SAFETY: read-only access
-unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
-    const IS_ARCHETYPAL: bool = false;
 
     #[inline]
-    unsafe fn filter_fetch(
+    unsafe fn matches(
         state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
         fetch.inner.as_mut().is_some_and(|inner| {
-            // SAFETY: We delegate to the inner `fetch` for `A`
+            // SAFETY: We delegate to the inner `fetch` for `A`.
+            // Component accesses are archetypal, so we don't need to check if it `matches`.
             unsafe {
                 let handle = <&A>::fetch(&state.asset_id, inner, entity, table_row);
-                handle.is_some_and(|handle| fetch.check.has_changed(handle))
+                fetch.check.has_changed(handle)
             }
         })
     }
 }
+
+impl<A: AsAssetId> QueryFilter for AssetChanged<A> {}
 
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
