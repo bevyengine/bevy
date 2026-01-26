@@ -29,6 +29,8 @@ use wgpu::{
     Adapter, AdapterInfo, Backends, DeviceType, Instance, Queue, RequestAdapterOptions, Trace,
 };
 
+/// Schedule label for the root render graph schedule. This schedule runs once per frame
+/// in the [`render_system`] system and is responsible for driving the entire rendering process.
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct RenderGraph;
 
@@ -38,6 +40,9 @@ impl RenderGraph {
     }
 }
 
+/// The main render system that drives the rendering process. This system runs the [`RenderGraph`]
+/// schedule, runs any finalization commands like screenshot captures and GPU readbacks, and
+/// calls present on swap chains that need to be presented.
 pub fn render_system(
     world: &mut World,
     state: &mut SystemState<Query<(&ViewTarget, &ExtractedCamera)>>,

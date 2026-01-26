@@ -1,7 +1,8 @@
-use super::WgpuWrapper;
+use super::{RenderGraph, WgpuWrapper};
 use crate::diagnostic::internal::DiagnosticsRecorder;
 use crate::render_phase::TrackedRenderPass;
 use crate::render_resource::{CommandEncoder, RenderPassDescriptor};
+use crate::render_system;
 use crate::renderer::RenderDevice;
 use bevy_ecs::change_detection::Tick;
 use bevy_ecs::component::ComponentId;
@@ -22,6 +23,7 @@ struct PendingCommandBuffersInner {
     encoders: Vec<CommandEncoder>,
 }
 
+/// A resource that holds command buffers and encoders that are pending submission to the render queue.
 #[derive(Resource)]
 pub struct PendingCommandBuffers(WgpuWrapper<PendingCommandBuffersInner>);
 
@@ -64,6 +66,9 @@ struct RenderContextStateInner {
     render_device: Option<RenderDevice>,
 }
 
+/// A resource that holds the current render context state, including command encoder and command buffers.
+/// This is used internally by the [`RenderContext`] system parameter. Implements [`SystemBuffer`] to flush
+/// command buffers at the end of each render system in topological system order.
 pub struct RenderContextState(WgpuWrapper<RenderContextStateInner>);
 
 impl Default for RenderContextState {
@@ -122,6 +127,9 @@ impl SystemBuffer for RenderContextState {
     fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
 }
 
+/// A system parameter that provides access to a command encoder and render device for issuing
+/// rendering commands inside any system running beneath the root [`RenderGraph`] schedule in the
+/// [`render_system`] system.
 #[derive(SystemParam)]
 pub struct RenderContext<'w, 's> {
     state: Deferred<'s, RenderContextState>,
@@ -136,19 +144,23 @@ impl<'w, 's> RenderContext<'w, 's> {
         }
     }
 
+    /// Returns the render device associated with this render context.
     pub fn render_device(&self) -> &RenderDevice {
         &self.render_device
     }
 
+    /// Returns the diagnostics recorder, if available.
     pub fn diagnostic_recorder(&self) -> Option<Res<'w, DiagnosticsRecorder>> {
         self.diagnostics_recorder.as_ref().map(Res::clone)
     }
 
+    /// Returns the current command encoder, creating one if it does not already exist.
     pub fn command_encoder(&mut self) -> &mut CommandEncoder {
         self.ensure_device();
         self.state.command_encoder()
     }
 
+    /// Begins a tracked render pass with the given descriptor.
     pub fn begin_tracked_render_pass<'a>(
         &'a mut self,
         descriptor: RenderPassDescriptor<'_>,
@@ -164,12 +176,16 @@ impl<'w, 's> RenderContext<'w, 's> {
         TrackedRenderPass::new(&self.render_device, render_pass)
     }
 
+    /// Adds a finished command buffer to be submitted later.
     pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
         self.state.flush_encoder();
         self.state.0.command_buffers.push(command_buffer);
     }
 }
 
+/// A system parameter that can be used to explicitly flush pending command buffers to the render queue.
+/// This is typically not necessary, as command buffers are automatically flushed at the end of each
+/// render system. However, in some cases it may be useful to flush command buffers earlier.
 #[derive(SystemParam)]
 pub struct FlushCommands<'w> {
     pending: ResMut<'w, PendingCommandBuffers>,
@@ -177,6 +193,7 @@ pub struct FlushCommands<'w> {
 }
 
 impl<'w> FlushCommands<'w> {
+    /// Flushes all pending command buffers to the render queue.
     pub fn flush(&mut self) {
         let buffers = self.pending.take();
         if !buffers.is_empty() {
@@ -185,6 +202,7 @@ impl<'w> FlushCommands<'w> {
     }
 }
 
+/// The entity corresponding to the current view being rendered.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CurrentViewEntity(pub Entity);
 
@@ -199,6 +217,7 @@ impl CurrentViewEntity {
     }
 }
 
+/// A system parameter that provides access to the entity corresponding to the current view being rendered.
 #[derive(SystemParam)]
 pub struct CurrentView<'w> {
     entity: Res<'w, CurrentViewEntity>,
@@ -220,6 +239,8 @@ impl<'w> core::ops::Deref for CurrentView<'w> {
     }
 }
 
+/// A query that fetches components for the entity corresponding to the current view being rendered,
+/// as defined by the [`CurrentViewEntity`] resource, equivalent to `query.get(current_view.entity())`.
 pub struct ViewQuery<'w, 's, D: QueryData, F: QueryFilter = ()> {
     entity: Entity,
     item: D::Item<'w, 's>,
