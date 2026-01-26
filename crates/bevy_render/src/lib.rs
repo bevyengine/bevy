@@ -298,6 +298,20 @@ impl Plugin for RenderPlugin {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
 
+        let primary_window = app
+            .world_mut()
+            .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
+            .single(app.world())
+            .ok()
+            .cloned();
+
+        #[cfg(feature = "raw_vulkan_init")]
+        let raw_vulkan_init_settings = app
+            .world_mut()
+            .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
+            .cloned()
+            .unwrap_or_default();
+
         let render_resources = match &self.render_creation {
             RenderCreation::Manual(resources) => Some(FutureRenderResources(Arc::new(Mutex::new(
                 Some(resources.clone()),
@@ -307,21 +321,7 @@ impl Plugin for RenderPlugin {
                     let future_render_resources_wrapper = Arc::new(Mutex::new(None));
                     let render_resources = future_render_resources_wrapper.clone();
 
-                    let primary_window = app
-                        .world_mut()
-                        .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
-                        .single(app.world())
-                        .ok()
-                        .cloned();
-
                     let settings = render_creation.clone();
-
-                    #[cfg(feature = "raw_vulkan_init")]
-                    let raw_vulkan_init_settings = app
-                        .world_mut()
-                        .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
-                        .cloned()
-                        .unwrap_or_default();
 
                     let async_renderer = async move {
                         let render_resources = renderer::initialize_renderer(
