@@ -77,7 +77,7 @@ pub use info::*;
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
-    component::{ComponentId, ComponentIdDictator, Components, StorageType},
+    component::{ComponentId, Components, DetermineComponentIds, StorageType},
     world::EntityWorldMut,
 };
 use bevy_ptr::OwningPtr;
@@ -204,9 +204,9 @@ use bevy_ptr::OwningPtr;
 )]
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
-    /// This may register the component if it doesn't exist, depending on which [`ComponentIdDictator`] is used.
+    /// This may register the component if it doesn't exist, depending on which [`DetermineComponentIds`] is used.
     #[doc(hidden)]
-    fn component_ids<Components: ComponentIdDictator>(
+    fn component_ids<Components: DetermineComponentIds>(
         components: &mut Components,
     ) -> impl Iterator<Item = ComponentId> + use<Self, Components>;
 

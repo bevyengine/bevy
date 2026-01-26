@@ -6,7 +6,7 @@ use variadics_please::all_tuples_enumerated;
 
 use crate::{
     bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
-    component::{Component, ComponentId, ComponentIdDictator, Components, StorageType},
+    component::{Component, ComponentId, Components, DetermineComponentIds, StorageType},
     world::EntityWorldMut,
 };
 
@@ -14,7 +14,7 @@ use crate::{
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 unsafe impl<C: Component> Bundle for C {
-    fn component_ids<Components: ComponentIdDictator>(
+    fn component_ids<Components: DetermineComponentIds>(
         components: &mut Components,
     ) -> impl Iterator<Item = ComponentId> + use<C, Components> {
         iter::once(components.determine_component_id_of::<C>())
@@ -73,7 +73,7 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            fn component_ids<'a, Components: ComponentIdDictator>(components: &'a mut Components) -> impl Iterator<Item = ComponentId> + use<$($name,)* Components> {
+            fn component_ids<'a, Components: DetermineComponentIds>(components: &'a mut Components) -> impl Iterator<Item = ComponentId> + use<$($name,)* Components> {
                 iter::empty()$(.chain(<$name as Bundle>::component_ids(components)))*
             }
 
