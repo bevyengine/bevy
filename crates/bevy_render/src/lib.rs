@@ -320,7 +320,9 @@ impl Plugin for RenderPlugin {
         );
 
         if let Some(render_resources) = render_resources {
-            app.insert_resource(render_resources);
+            app.insert_resource(FutureRenderResources(Arc::new(Mutex::new(Some(
+                render_resources,
+            )))));
             // SAFETY: Plugins should be set up on the main thread.
             unsafe { initialize_render_app(app) };
         } else {
@@ -416,11 +418,9 @@ fn create_render(
     primary_window: Option<RawHandleWrapperHolder>,
     #[cfg(feature = "raw_vulkan_init")]
     raw_vulkan_init_settings: renderer::raw_vulkan_init::RawVulkanInitSettings,
-) -> Option<FutureRenderResources> {
+) -> Option<RenderResources> {
     match render_creation {
-        RenderCreation::Manual(resources) => Some(FutureRenderResources(Arc::new(Mutex::new(
-            Some(resources.clone()),
-        )))),
+        RenderCreation::Manual(resources) => Some(resources.clone()),
         RenderCreation::Automatic(render_creation) => {
             let backends = render_creation.backends?;
             let future_render_resources_wrapper = Arc::new(Mutex::new(None));
@@ -449,7 +449,7 @@ fn create_render(
             // Otherwise, just block for it to complete
             #[cfg(not(target_arch = "wasm32"))]
             bevy_tasks::block_on(async_renderer);
-            Some(FutureRenderResources(render_resources))
+            render_resources.lock().unwrap().clone()
         }
     }
 }
