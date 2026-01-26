@@ -502,6 +502,16 @@ impl World {
 
     /// Runs a cached system, registering it if necessary.
     ///
+    /// # Type Inference Note
+    /// If the system returns `()`, you may need to explicitly constrain the output
+    /// type for error handling:
+    ///
+    /// ```rust
+    /// () = world.run_system_cached(my_system)?;
+    /// ```
+    ///
+    /// Without this, Rust may fail to infer the system’s output type and produce
+    /// a `IntoResult<!>` inference error.
     /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached<O: 'static, M, S: IntoSystem<(), O, M> + 'static>(
         &mut self,
@@ -511,7 +521,18 @@ impl World {
     }
 
     /// Runs a cached system with an input, registering it if necessary.
+    /// Runs a cached system, registering it if necessary.
     ///
+    /// # Type Inference Note
+    /// If the system returns `()`, you may need to explicitly constrain the output
+    /// type for error handling:
+    ///
+    /// ```rust
+    /// () = world.run_system_cached(my_system)?;
+    /// ```
+    ///
+    /// Without this, Rust may fail to infer the system’s output type and produce
+    /// a `IntoResult<!>` inference error.
     /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached_with<I, O, M, S>(
         &mut self,
