@@ -171,7 +171,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This function may fail if, for example,
     /// the components that make up this query have not been registered into the world.
-    #[deprecated(since = "0.19.0", note = "Use `init_state` instead.")]
+    #[deprecated(since = "0.19.0", note = "Use `new` instead.")]
     pub fn try_new(world: &World) -> Option<Self> {
         let mut state = Self::try_new_uninitialized(world)?;
         state.update_archetypes(world);

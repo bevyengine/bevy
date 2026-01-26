@@ -29,6 +29,6 @@ fn read_sub_world(sub_world: Res<MySubWorld>) {
 
 ```
 
-Note that using `World::query` or `QueryState::new` each time results in an uncached query.
+Note that using `World::query` or `QueryState::new` initializes a new query cache each time.
 The query state and matching tables must be recalculated each time.
 As a result, for queries that are running very frequently, caching the `QueryState` (through system parameters, for example) is still a good idea.
