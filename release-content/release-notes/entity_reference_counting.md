@@ -15,13 +15,13 @@ To do this, first create an `EntityRcSource`, and store it somewhere (like a res
 
 ```rust
 #[derive(Resource)]
-struct MyReferenceCountingThingy {
+struct OrderedReferenceCount {
     order: u32,
     rc_source: EntityRcSource,
 }
 
 fn setup(mut commands: Commands) {
-    commands.insert_resource(MyReferenceCountingThingy {
+    commands.insert_resource(OrderedReferenceCount {
         order: 0,
         rc_source: EntityRcSource::new(),
     });
@@ -31,8 +31,8 @@ fn setup(mut commands: Commands) {
 Next, create a system to regularly handle any drops:
 
 ```rust
-fn handle_drops(rc_thingy: Res<MyReferenceCountingThingy>, mut commands: Commands) {
-    rc_thingy.handle_dropped_rcs(&mut commands);
+fn handle_drops(ordered_internal: Res<OrderedReferenceCount>, mut commands: Commands) {
+    ordered_internal.handle_dropped_rcs(&mut commands);
 }
 ```
 
@@ -41,7 +41,7 @@ Lastly, provide an interface for users to create `EntityRc`s:
 ```rust
 #[derive(SystemParam)]
 pub struct CreateReferences<'w, 's> {
-    rc_thingy: ResMut<'w, MyReferenceCountingThingy>,
+    ordered_internal: ResMut<'w, OrderedReferenceCount>,
     commands: Commands<'w, 's>,
 }
 
@@ -58,10 +58,10 @@ impl CreateReferences {
     pub fn create_reference(&mut self) -> MyHandle {
         // Spawn an entity to be reference-counted.
         let entity = self.commands.spawn((Transform::from_xyz(10.0, 20.0, 30.0))).id();
-        self.rc_thingy.order += 1;
+        self.ordered_internal.order += 1;
         // Store the order number in the `EntityRc` so it can be accessed from any handle. This can
         // store whatever you want!
-        self.rc_thingy.rc_source.create_rc(entity, self.rc_thingy.order);
+        self.ordered_internal.rc_source.create_rc(entity, self.ordered_internal.order);
     }
 }
 ```
