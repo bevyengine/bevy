@@ -1302,12 +1302,25 @@ impl FromWorld for PreprocessPipelines {
         let direct_bind_group_layout_entries = preprocess_direct_bind_group_layout_entries();
         let gpu_frustum_culling_bind_group_layout_entries = gpu_culling_bind_group_layout_entries();
         let gpu_early_occlusion_culling_bind_group_layout_entries =
-            gpu_occlusion_culling_bind_group_layout_entries().extend_with_indices(((
-                11,
-                storage_buffer::<PreprocessWorkItem>(/*has_dynamic_offset=*/ false),
-            ),));
+            gpu_occlusion_culling_bind_group_layout_entries().extend_with_indices((
+                (
+                    11,
+                    storage_buffer::<PreprocessWorkItem>(/*has_dynamic_offset=*/ false),
+                ),
+                (
+                    12,
+                    storage_buffer::<LatePreprocessWorkItemIndirectParameters>(
+                        /*has_dynamic_offset=*/ false,
+                    ),
+                ),
+            ));
         let gpu_late_occlusion_culling_bind_group_layout_entries =
-            gpu_occlusion_culling_bind_group_layout_entries();
+            gpu_occlusion_culling_bind_group_layout_entries().extend_with_indices(((
+                12,
+                storage_buffer_read_only::<LatePreprocessWorkItemIndirectParameters>(
+                    /*has_dynamic_offset=*/ false,
+                ),
+            ),));
 
         let reset_indirect_batch_sets_bind_group_layout_entries =
             DynamicBindGroupLayoutEntries::sequential(
@@ -1494,12 +1507,6 @@ fn gpu_occlusion_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEn
         (
             10,
             texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
-        (
-            12,
-            storage_buffer::<LatePreprocessWorkItemIndirectParameters>(
-                /*has_dynamic_offset=*/ false,
-            ),
         ),
     ))
 }

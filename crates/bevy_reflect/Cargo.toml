@@ -116,7 +116,7 @@ derive_more = { version = "2", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1", default-features = false, optional = true }
-glam = { version = "0.30.7", default-features = false, features = [
+glam = { version = "0.31.0", default-features = false, features = [
   "serde",
 ], optional = true }
 indexmap = { version = "2.5.0", default-features = false, optional = true }
