@@ -298,21 +298,14 @@ impl Plugin for RenderPlugin {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
 
-        match &self.render_creation {
-            RenderCreation::Manual(resources) => {
-                let future_render_resources_wrapper = Arc::new(Mutex::new(Some(resources.clone())));
-                app.insert_resource(FutureRenderResources(
-                    future_render_resources_wrapper.clone(),
-                ));
-                // SAFETY: Plugins should be set up on the main thread.
-                unsafe { initialize_render_app(app) };
-            }
+        let render_resources = match &self.render_creation {
+            RenderCreation::Manual(resources) => Some(FutureRenderResources(Arc::new(Mutex::new(
+                Some(resources.clone()),
+            )))),
             RenderCreation::Automatic(render_creation) => {
                 if let Some(backends) = render_creation.backends {
                     let future_render_resources_wrapper = Arc::new(Mutex::new(None));
-                    app.insert_resource(FutureRenderResources(
-                        future_render_resources_wrapper.clone(),
-                    ));
+                    let render_resources = future_render_resources_wrapper.clone();
 
                     let primary_window = app
                         .world_mut()
@@ -351,11 +344,19 @@ impl Plugin for RenderPlugin {
                     // Otherwise, just block for it to complete
                     #[cfg(not(target_arch = "wasm32"))]
                     bevy_tasks::block_on(async_renderer);
-
-                    // SAFETY: Plugins should be set up on the main thread.
-                    unsafe { initialize_render_app(app) };
+                    Some(FutureRenderResources(render_resources))
+                } else {
+                    None
                 }
             }
+        };
+
+        if let Some(render_resources) = render_resources {
+            app.insert_resource(render_resources);
+            // SAFETY: Plugins should be set up on the main thread.
+            unsafe { initialize_render_app(app) };
+        } else {
+            bevy_log::error!("No backends found, failed to initialize the renderer");
         };
 
         app.add_plugins((
