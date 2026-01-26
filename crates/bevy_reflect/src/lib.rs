@@ -1117,7 +1117,7 @@ mod tests {
 
         let values: Vec<u32> = foo
             .iter_fields()
-            .map(|(_, value)| *value.try_downcast_ref::<u32>().unwrap())
+            .map(|value| *value.try_downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
     }

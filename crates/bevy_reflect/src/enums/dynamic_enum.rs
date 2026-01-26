@@ -246,7 +246,7 @@ impl Enum for DynamicEnum {
 
     fn index_of(&self, name: &str) -> Option<usize> {
         if let DynamicVariant::Struct(data) = &self.variant {
-            data.index_of_name(name)
+            data.index_of(name)
         } else {
             None
         }
