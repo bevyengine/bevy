@@ -211,6 +211,37 @@ impl Default for EnvironmentMapLight {
     }
 }
 
+/// Adds a skybox to a 3D camera, based on a cubemap texture.
+///
+/// Note that this component does not (currently) affect the scene's lighting.
+/// To do so, use `EnvironmentMapLight` alongside this component.
+///
+/// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
+#[derive(Component, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct Skybox {
+    pub image: Handle<Image>,
+    /// Scale factor applied to the skybox image.
+    /// After applying this multiplier to the image samples, the resulting values should
+    /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
+    pub brightness: f32,
+
+    /// View space rotation applied to the skybox cubemap.
+    /// This is useful for users who require a different axis, such as the Z-axis, to serve
+    /// as the vertical axis.
+    pub rotation: Quat,
+}
+
+impl Default for Skybox {
+    fn default() -> Self {
+        Skybox {
+            image: Handle::default(),
+            brightness: 0.0,
+            rotation: Quat::IDENTITY,
+        }
+    }
+}
+
 /// A generated environment map that is filtered at runtime.
 ///
 /// See `bevy_pbr::light_probe::generate` for detailed information.

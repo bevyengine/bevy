@@ -2,10 +2,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
-use bevy_camera::{
-    primitives::{Aabb, Frustum},
-    Camera3d,
-};
+use bevy_camera::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -19,7 +16,7 @@ use bevy_image::Image;
 use bevy_light::{
     cluster::VisibleClusterableObjects, EnvironmentMapLight, IrradianceVolume, LightProbe,
 };
-use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3, Vec3A, Vec4};
+use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
@@ -37,8 +34,7 @@ use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use bitflags::bitflags;
 use tracing::error;
 
-use core::{hash::Hash, ops::Deref};
-use std::any::TypeId;
+use core::{any::TypeId, hash::Hash, ops::Deref};
 
 use crate::{
     extract_clusters, generate::EnvironmentMapGenerationPlugin,
@@ -236,7 +232,8 @@ where
     /// array.
     render_light_probes: Vec<RenderLightProbe>,
 
-    /// A mapping from the main world entity to the index in [`Self::render_light_probes`].
+    /// A mapping from the main world entity to the index in
+    /// `render_light_probes`.
     pub main_entity_to_render_light_probe_index: MainEntityHashMap<u32>,
 
     /// Information needed to render the light probe attached directly to the
@@ -425,6 +422,9 @@ fn gather_light_probes<C>(
         {
             for &main_entity in visible_light_probes {
                 let Ok(query_row) = light_probe_query.get(main_entity) else {
+                    // This should never happen. `assign_objects_to_clusters`
+                    // should use a light probe query that matches exactly the
+                    // same set of entities as our `light_probe_query`.
                     error!(
                         "Clustering shouldn't have clustered light probe {:?}",
                         main_entity
@@ -451,12 +451,6 @@ fn gather_light_probes<C>(
             .iter()
             .map(|lpi| lpi.main_entity.to_string())
             .collect();
-        println!(
-            "view_light_probe_info for view {:?} has {:?} elements: {:?}",
-            view_entity,
-            view_light_probe_info.len(),
-            debug_str
-        );
 
         // Create the light probes list.
         let mut render_view_light_probes =

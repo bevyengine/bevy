@@ -164,8 +164,18 @@ impl RenderAsset for GpuShaderBuffer {
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let had_data = source_asset.data.is_some();
 
+        // when cpu data is provided, the actual buffer size is determined by the vec length,
+        // not the descriptor size
+        let actual_size = source_asset
+            .data
+            .as_ref()
+            .map(|d| d.len() as u64)
+            .unwrap_or(source_asset.buffer_description.size);
+
         let buffer = if let Some(prev) = previous_asset
-            && prev.buffer_descriptor == source_asset.buffer_description
+            && prev.buffer_descriptor.size == actual_size
+            && prev.buffer_descriptor.usage == source_asset.buffer_description.usage
+            && prev.buffer_descriptor.label == source_asset.buffer_description.label
             && source_asset
                 .buffer_description
                 .usage
@@ -210,7 +220,10 @@ impl RenderAsset for GpuShaderBuffer {
 
         Ok(GpuShaderBuffer {
             buffer,
-            buffer_descriptor: source_asset.buffer_description,
+            buffer_descriptor: wgpu::BufferDescriptor {
+                size: actual_size,
+                ..source_asset.buffer_description
+            },
             had_data,
         })
     }

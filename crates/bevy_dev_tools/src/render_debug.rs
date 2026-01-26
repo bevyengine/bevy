@@ -122,7 +122,7 @@ pub fn update_overlay(
             Has<bevy_core_pipeline::prepass::NormalPrepass>,
             Has<bevy_core_pipeline::prepass::MotionVectorPrepass>,
             Has<bevy_core_pipeline::prepass::DeferredPrepass>,
-            Has<bevy_render::experimental::occlusion_culling::OcclusionCulling>,
+            Has<bevy_render::occlusion_culling::OcclusionCulling>,
             Has<bevy_pbr::ScreenSpaceReflections>,
         ),
         bevy_ecs::query::With<bevy_camera::Camera>,
@@ -491,7 +491,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
             primitive: bevy_render::render_resource::PrimitiveState::default(),
             depth_stencil: None,
             multisample: bevy_render::render_resource::MultisampleState::default(),
-            push_constant_ranges: vec![],
+            immediate_size: 0,
             zero_initialize_workgroup_memory: false,
         }
     }
@@ -689,6 +689,7 @@ impl ViewNode for RenderDebugOverlayNode {
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         };
 
         let mut render_pass = render_context

@@ -1,8 +1,6 @@
 //! Light probe blending example.
 
-use bevy::{
-    color::palettes::css::WHITE, light::NoParallaxCorrection, prelude::*, render::view::Hdr,
-};
+use bevy::{camera::Hdr, color::palettes::css::WHITE, prelude::*};
 
 #[derive(Clone, Copy, Component, Debug)]
 struct ReflectiveSphere;

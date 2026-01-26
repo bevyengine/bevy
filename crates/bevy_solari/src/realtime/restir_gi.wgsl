@@ -1,4 +1,5 @@
 // https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
+enable wgpu_ray_query;
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
@@ -11,6 +12,7 @@
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
 #import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gi_reservoirs_b, gbuffer, depth_buffer, motion_vectors, previous_gbuffer, previous_depth_buffer, view, previous_view, constants, Reservoir}
+#import bevy_solari::specular_gi::DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD
 
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 8.0;
@@ -28,6 +30,10 @@ fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
+    if surface.material.metallic > 0.9999 && surface.material.roughness <= DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD {
+        gi_reservoirs_b[pixel_index] = empty_reservoir();
+        return;
+    }
 
     let initial_reservoir = generate_initial_reservoir(surface.world_position, surface.world_normal, &rng);
     let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
@@ -50,6 +56,10 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
+    if surface.material.metallic > 0.9999 && surface.material.roughness <= DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD {
+        gi_reservoirs_a[pixel_index] = empty_reservoir();
+        return;
+    }
 
     let input_reservoir = gi_reservoirs_b[pixel_index];
     let spatial = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
@@ -150,13 +160,15 @@ fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world
 }
 
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> NeighborInfo {
+    var search_radius = SPATIAL_REUSE_RADIUS_PIXELS;
     for (var i = 0u; i < 5u; i++) {
-        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, rng);
+        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, search_radius, rng);
 
         let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
         let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
         let spatial_diffuse_brdf = spatial_surface.material.base_color / PI;
         if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
+            search_radius /= 2.0;
             continue;
         }
 
@@ -168,8 +180,8 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     return NeighborInfo(empty_reservoir(), world_position, world_normal, vec3(0.0));
 }
 
-fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) -> vec2<u32> {
-    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng);
+fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, search_radius: f32, rng: ptr<function, u32>) -> vec2<u32> {
+    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(search_radius, rng);
     spatial_id = clamp(spatial_id, vec2(0.0), view.main_pass_viewport.zw - 1.0);
     return vec2<u32>(spatial_id);
 }

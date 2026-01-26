@@ -52,7 +52,7 @@ use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use crate::{binding_arrays_are_usable, prepare_lights, GlobalClusteredLightMeta};
+use crate::{binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta};
 
 /// The number of textures that can be associated with each clustered decal.
 const IMAGES_PER_DECAL: usize = 4;
@@ -384,7 +384,7 @@ fn extract_directional_light_textures(
 /// Adds all decals in the scene to the [`GlobalClusterableObjectMeta`] table.
 fn prepare_decals(
     decals: Query<Entity, With<ClusteredDecal>>,
-    mut global_clusterable_object_meta: ResMut<GlobalClusteredLightMeta>,
+    mut global_clusterable_object_meta: ResMut<GlobalClusterableObjectMeta>,
     render_decals: Res<RenderClusteredDecals>,
 ) {
     for decal_entity in &decals {

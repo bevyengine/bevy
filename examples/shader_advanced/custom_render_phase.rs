@@ -13,6 +13,7 @@
 use std::ops::Range;
 
 use bevy::camera::Viewport;
+use bevy::math::Affine3Ext;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     camera::MainPassResolutionOverride,
@@ -612,6 +613,7 @@ impl ViewNode for CustomDrawNode {
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
 
         if let Some(viewport) =

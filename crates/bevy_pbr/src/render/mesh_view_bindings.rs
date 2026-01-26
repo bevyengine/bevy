@@ -1,6 +1,5 @@
 use alloc::sync::Arc;
 use bevy_core_pipeline::{
-    core_3d::ViewTransmissionTexture,
     oit::{resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings},
     prepass::ViewPrepassTextures,
     tonemapping::{
@@ -49,11 +48,11 @@ use crate::{
     prepass,
     resources::{AtmosphereBuffer, AtmosphereData, AtmosphereSampler, AtmosphereTextures},
     Bluenoise, EnvironmentMapUniformBuffer, ExtractedAtmosphere, FogMeta,
-    GlobalClusteredLightMeta, GpuClusteredLights, GpuFog, GpuLights, LightMeta,
+    GlobalClusterableObjectMeta, GpuClusteredLights, GpuFog, GpuLights, LightMeta,
     LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
     ScreenSpaceAmbientOcclusionResources, ScreenSpaceReflectionsBuffer,
     ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    ViewTransmissionTexture, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -525,7 +524,7 @@ impl MeshPipelineViewLayouts {
         layout_key: MeshPipelineViewLayoutKey,
     ) -> &MeshPipelineViewLayout {
         let index = layout_key.bits() as usize;
-        let layout = &self[index];
+        let layout = &(***self)[index];
 
         #[cfg(debug_assertions)]
         if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES {
@@ -593,7 +592,10 @@ pub fn prepare_mesh_view_bind_groups(
     ),
     mesh_pipeline: Res<MeshPipeline>,
     shadow_samplers: Res<ShadowSamplers>,
-    (light_meta, global_light_meta): (Res<LightMeta>, Res<GlobalClusteredLightMeta>),
+    (light_meta, global_clusterable_object_meta): (
+        Res<LightMeta>,
+        Res<GlobalClusterableObjectMeta>,
+    ),
     fog_meta: Res<FogMeta>,
     (view_uniforms, environment_map_uniform): (Res<ViewUniforms>, Res<EnvironmentMapUniformBuffer>),
     views: Query<(
@@ -649,7 +651,9 @@ pub fn prepare_mesh_view_bind_groups(
     ) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
-        global_light_meta.gpu_clustered_lights.binding(),
+        global_clusterable_object_meta
+            .gpu_clustered_lights
+            .binding(),
         globals_buffer.buffer.binding(),
         fog_meta.gpu_fogs.binding(),
         light_probes_buffer.binding(),

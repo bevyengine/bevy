@@ -220,10 +220,6 @@ pub(crate) fn assign_objects_to_clusters(
     if global_cluster_settings.supports_storage_buffers {
         clusterable_objects.extend(light_probes_query.iter().map(
             |(entity, transform, is_reflection_probe)| {
-                println!(
-                    "Clustering light probe: {:?} (is reflection probe? {:?})",
-                    entity, is_reflection_probe
-                );
                 ClusterableObjectAssignmentData {
                     entity,
                     transform: *transform,
@@ -836,9 +832,9 @@ pub(crate) fn assign_objects_to_clusters(
             };
 
         // reuse existing visible clusterable objects Vec, if it exists
-        if let Some(mut visible_clusterable_objects) = visible_clusterable_objects.as_mut() {
+        if let Some(visible_clusterable_objects) = visible_clusterable_objects.as_mut() {
             visible_clusterable_objects.clear();
-            update_from_object_intersections(&mut visible_clusterable_objects);
+            update_from_object_intersections(visible_clusterable_objects);
         } else {
             let mut visible_clusterable_objects = VisibleClusterableObjects::new();
             update_from_object_intersections(&mut visible_clusterable_objects);

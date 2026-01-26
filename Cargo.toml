@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.89.0"
+rust-version = "1.92.0"
 
 [workspace]
 resolver = "2"
@@ -423,6 +423,9 @@ statically-linked-dxc = ["bevy_internal/statically-linked-dxc"]
 # Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
 raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
 
+# Pre-populate buffer labels with buffer types for debugging.
+type_label_buffers = ["bevy_internal/type_label_buffers"]
+
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 
@@ -752,7 +755,7 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.22"
+accesskit = "0.23"
 nonmax = "0.5"
 gltf = "1.4"
 
@@ -3307,7 +3310,7 @@ doc-scrape-examples = false
 [package.metadata.example.manual_material]
 name = "Manual Material Implementation"
 description = "Demonstrates how to implement a material manually using the mid-level render APIs"
-category = "Shader Advanced"
+category = "Shaders Advanced"
 wasm = true
 
 [[example]]
@@ -4192,7 +4195,19 @@ doc-scrape-examples = false
 
 [package.metadata.example.image_node]
 name = "Image Node"
-description = "Demonstrates how to create a image node"
+description = "Demonstrates how to create an image node"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "image_node_resizing"
+path = "examples/ui/image_node_resizing.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.image_node_resizing]
+name = "Image Node Resizing"
+description = "Demonstrates how to resize an image node"
 category = "UI (User Interface)"
 wasm = true
 

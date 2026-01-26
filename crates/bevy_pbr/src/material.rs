@@ -6,7 +6,6 @@ use alloc::sync::Arc;
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{Asset, AssetEventSystems, AssetId, AssetServer, UntypedAssetId};
 use bevy_camera::visibility::ViewVisibility;
-use bevy_camera::ScreenSpaceTransmissionQuality;
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
 use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
 use bevy_core_pipeline::{
@@ -178,7 +177,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     }
 
     #[inline]
-    /// Returns whether the material would like to read from [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
+    /// Returns whether the material would like to read from [`ViewTransmissionTexture`].
     ///
     /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
     /// rendering to take place in a separate [`Transmissive3d`] pass.
@@ -1454,7 +1453,7 @@ pub struct PreparedMaterial {
     pub properties: Arc<MaterialProperties>,
 }
 
-fn base_specialize(
+pub fn base_specialize(
     world: &mut World,
     key: ErasedMaterialPipelineKey,
     layout: &MeshVertexBufferLayoutRef,

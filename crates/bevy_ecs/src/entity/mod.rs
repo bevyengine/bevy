@@ -94,6 +94,9 @@ use derive_more::derive::Display;
 pub use entity_set::*;
 pub use map_entities::*;
 
+mod remote_allocator;
+pub use remote_allocator::RemoteAllocator;
+
 mod hash;
 pub use hash::*;
 
@@ -124,7 +127,6 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
@@ -702,25 +704,25 @@ impl SparseSetIndex for Entity {
 /// See the module docs for how these ids and this allocator participate in the life cycle of an entity.
 #[derive(Default, Debug)]
 pub struct EntityAllocator {
-    /// All the entities to reuse.
-    /// This is a buffer, which contains an array of [`Entity`] ids to hand out.
-    /// The next id to hand out is tracked by `free_len`.
-    free: Vec<Entity>,
-    /// This is continually subtracted from.
-    /// If it wraps to a very large number, it will be outside the bounds of `free`,
-    /// and a new index will be needed.
-    free_len: AtomicUsize,
-    /// This is the next "fresh" index to hand out.
-    /// If there are no indices to reuse, this index, which has a generation of 0, is the next to return.
-    next_index: AtomicU32,
+    inner: remote_allocator::Allocator,
 }
 
 impl EntityAllocator {
     /// Restarts the allocator.
     pub(crate) fn restart(&mut self) {
-        self.free.clear();
-        *self.free_len.get_mut() = 0;
-        *self.next_index.get_mut() = 0;
+        self.inner = remote_allocator::Allocator::new();
+    }
+
+    /// Builds a new remote allocator that hooks into this [`EntityAllocator`].
+    /// This is useful when you need to allocate entities without holding a reference to the world (like in async).
+    pub fn build_remote_allocator(&mut self) -> RemoteAllocator {
+        RemoteAllocator::new(&self.inner)
+    }
+
+    /// Returns `true` when the `allocator` is connected to this [`EntityAllocator`]
+    /// and its allocated [`Entity`] values can still be used in this world.
+    pub fn has_remote_allocator(&self, allocator: &RemoteAllocator) -> bool {
+        allocator.is_connected_to(&self.inner)
     }
 
     /// This allows `freed` to be retrieved from [`alloc`](Self::alloc), etc.
@@ -728,14 +730,7 @@ impl EntityAllocator {
     /// Additionally, to differentiate versions of an [`Entity`], updating the [`EntityGeneration`] before freeing is a good idea
     /// (but not strictly necessary if you don't mind [`Entity`] id aliasing.)
     pub fn free(&mut self, freed: Entity) {
-        let expected_len = *self.free_len.get_mut();
-        if expected_len > self.free.len() {
-            self.free.clear();
-        } else {
-            self.free.truncate(expected_len);
-        }
-        self.free.push(freed);
-        *self.free_len.get_mut() = self.free.len();
+        self.inner.free(freed);
     }
 
     /// Allocates some [`Entity`].
@@ -766,7 +761,7 @@ impl EntityAllocator {
     /// ```
     /// # use bevy_ecs::{prelude::*};
     /// let mut world = World::new();
-    /// let entity = world.entities_allocator().alloc();
+    /// let entity = world.entity_allocator().alloc();
     /// // wait as long as you like
     /// let entity_access = world.spawn_empty_at(entity).unwrap(); // or spawn_at(entity, my_bundle)
     /// // treat it as a normal entity
@@ -776,15 +771,7 @@ impl EntityAllocator {
     /// More generally, manually spawning and [`despawn_no_free`](crate::world::World::despawn_no_free)ing entities allows you to skip Bevy's default entity allocator.
     /// This is useful if you want to enforce properties about the [`EntityIndex`]s of a group of entities, make a custom allocator, etc.
     pub fn alloc(&self) -> Entity {
-        let index = self
-            .free_len
-            .fetch_sub(1, Ordering::Relaxed)
-            .wrapping_sub(1);
-        self.free.get(index).copied().unwrap_or_else(|| {
-            let index = self.next_index.fetch_add(1, Ordering::Relaxed);
-            let index = NonMaxU32::new(index).expect("too many entities");
-            Entity::from_index(EntityIndex::new(index))
-        })
+        self.inner.alloc()
     }
 
     /// A more efficient way of calling [`alloc`](Self::alloc) repeatedly `count` times.
@@ -794,27 +781,8 @@ impl EntityAllocator {
     /// If the iterator is not exhausted, its remaining entities are forgotten.
     /// See [`AllocEntitiesIterator`] docs for more.
     pub fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
-        let current_len = self.free_len.fetch_sub(count as usize, Ordering::Relaxed);
-        let current_len = if current_len < self.free.len() {
-            current_len
-        } else {
-            0
-        };
-        let start = current_len.saturating_sub(count as usize);
-        let reuse = start..current_len;
-        let still_need = (count as usize - reuse.len()) as u32;
-        let new = if still_need > 0 {
-            let start_new = self.next_index.fetch_add(still_need, Ordering::Relaxed);
-            let end_new = start_new
-                .checked_add(still_need)
-                .expect("too many entities");
-            start_new..end_new
-        } else {
-            0..0
-        };
         AllocEntitiesIterator {
-            reuse: self.free[reuse].iter(),
-            new,
+            inner: self.inner.alloc_many(count),
         }
     }
 }
@@ -823,26 +791,18 @@ impl EntityAllocator {
 /// Dropping this will still retain the entities as allocated; this is effectively a leak.
 /// To prevent this, ensure the iterator is exhausted before dropping it.
 pub struct AllocEntitiesIterator<'a> {
-    reuse: core::slice::Iter<'a, Entity>,
-    new: core::ops::Range<u32>,
+    inner: remote_allocator::AllocEntitiesIterator<'a>,
 }
 
 impl<'a> Iterator for AllocEntitiesIterator<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.reuse.next().copied().or_else(|| {
-            self.new.next().map(|index| {
-                // SAFETY: This came from an exclusive range so the max can't be hit.
-                let index = unsafe { EntityIndex::new(NonMaxU32::new_unchecked(index)) };
-                Entity::from_index(index)
-            })
-        })
+        self.inner.next()
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.reuse.len() + self.new.len();
-        (len, Some(len))
+        self.inner.size_hint()
     }
 }
 

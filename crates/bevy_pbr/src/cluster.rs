@@ -4,7 +4,7 @@ use bevy_camera::Camera;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_light::{
     cluster::{ClusterableObjectCounts, Clusters, GlobalClusterSettings},
-    EnvironmentMapLight, IrradianceVolume, LightProbe,
+    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, LightProbe, PointLight, SpotLight,
 };
 use bevy_math::{uvec4, UVec3, UVec4, Vec4};
 use bevy_render::{
@@ -15,7 +15,7 @@ use bevy_render::{
     sync_world::{MainEntity, RenderEntity},
     Extract,
 };
-use tracing::{error, warn};
+use tracing::{error, trace, warn};
 
 use crate::{MeshPipeline, RenderViewLightProbes};
 
@@ -80,12 +80,31 @@ pub struct GpuClusteredLight {
     pub(crate) pad: f32,
 }
 
+/// Contains information about clusterable objects in the scene that's global:
+/// i.e. not specific to any view.
 #[derive(Resource)]
-pub struct GlobalClusteredLightMeta {
+pub struct GlobalClusterableObjectMeta {
+    /// GPU buffers that hold data about the clustered lights.
+    ///
+    /// This is only for lights. Data about other clusterable objects are stored
+    /// in other buffers.
     pub gpu_clustered_lights: GpuClusteredLights,
+
+    /// Maps a *render-world* entity to the index in the appropriate list.
+    ///
+    /// Only clusterable objects that have render-world entities are in this
+    /// list! In particular, light probes (reflection probes and irradiance
+    /// volumes) are not.
     pub entity_to_index: EntityHashMap<usize>,
 }
 
+/// GPU buffers that hold data about the clustered lights.
+///
+/// This is only for lights. Data about other clusterable objects are stored in
+/// other buffers.
+///
+/// This has two variants in order to handle platforms in which storage buffers
+/// aren't available.
 pub enum GpuClusteredLights {
     Uniform(UniformBuffer<GpuClusteredLightsUniform>),
     Storage(StorageBuffer<GpuClusteredLightsStorage>),
@@ -129,6 +148,10 @@ enum ExtractedClusterableObjectElement {
     /// The given entity is the main-world entity of the light probe, as light
     /// probes don't have render world entities.
     IrradianceVolume(MainEntity),
+    /// Represents a clustered decal.
+    ///
+    /// The given entity is the render-world entity.
+    Decal(Entity),
 }
 
 #[derive(Component)]
@@ -180,12 +203,12 @@ pub fn init_global_clusterable_object_meta(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
 ) {
-    commands.insert_resource(GlobalClusteredLightMeta::new(
+    commands.insert_resource(GlobalClusterableObjectMeta::new(
         render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
     ));
 }
 
-impl GlobalClusteredLightMeta {
+impl GlobalClusterableObjectMeta {
     pub fn new(buffer_binding_type: BufferBindingType) -> Self {
         Self {
             gpu_clustered_lights: GpuClusteredLights::new(buffer_binding_type),
@@ -270,11 +293,20 @@ pub fn extract_clusters(
     mut commands: Commands,
     views: Extract<Query<(RenderEntity, &Clusters, &Camera)>>,
     mapper: Extract<
-        Query<(
-            Option<&RenderEntity>,
-            Has<EnvironmentMapLight>,
-            Has<IrradianceVolume>,
-        )>,
+        Query<
+            (
+                Option<&RenderEntity>,
+                Has<EnvironmentMapLight>,
+                Has<IrradianceVolume>,
+                Has<ClusteredDecal>,
+            ),
+            Or<(
+                With<PointLight>,
+                With<SpotLight>,
+                With<LightProbe>,
+                With<ClusteredDecal>,
+            )>,
+        >,
     >,
 ) {
     for (entity, clusters, camera) in &views {
@@ -292,8 +324,12 @@ pub fn extract_clusters(
                 cluster_objects.counts,
             ));
             for clusterable_entity in cluster_objects.iter() {
-                let Ok((maybe_render_entity, is_reflection_probe, is_irradiance_volume)) =
-                    mapper.get(*clusterable_entity)
+                let Ok((
+                    maybe_render_entity,
+                    is_reflection_probe,
+                    is_irradiance_volume,
+                    is_clustered_decal,
+                )) = mapper.get(*clusterable_entity)
                 else {
                     error!(
                         "Couldn't find clustered object {:?} in the main world",
@@ -302,10 +338,12 @@ pub fn extract_clusters(
                     continue;
                 };
 
-                // Of all the clusterable objects, only lights have render
-                // entities, so in this case we know it's a light.
                 if let Some(render_entity) = maybe_render_entity {
-                    data.push(ExtractedClusterableObjectElement::Light(**render_entity));
+                    if is_clustered_decal {
+                        data.push(ExtractedClusterableObjectElement::Decal(**render_entity));
+                    } else {
+                        data.push(ExtractedClusterableObjectElement::Light(**render_entity));
+                    }
                 }
                 if is_reflection_probe {
                     data.push(ExtractedClusterableObjectElement::ReflectionProbe(
@@ -336,7 +374,7 @@ pub fn prepare_clusters(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mesh_pipeline: Res<MeshPipeline>,
-    global_clustered_light_meta: Res<GlobalClusteredLightMeta>,
+    global_clusterable_object_meta: Res<GlobalClusterableObjectMeta>,
     views: Query<(
         Entity,
         &ExtractedClusterableObjects,
@@ -358,17 +396,14 @@ pub fn prepare_clusters(
             match record {
                 ExtractedClusterableObjectElement::ClusterHeader(counts) => {
                     let offset = view_clusters_bindings.n_indices();
-                    view_clusters_bindings.push_offset_and_counts(offset, counts);
+                    view_clusters_bindings.push_offset_and_counts(offset, &counts);
                 }
 
-                ExtractedClusterableObjectElement::Light(entity) => {
+                ExtractedClusterableObjectElement::Light(entity)
+                | ExtractedClusterableObjectElement::Decal(entity) => {
                     if let Some(clusterable_object_index) =
-                        global_clustered_light_meta.entity_to_index.get(entity)
+                        global_clusterable_object_meta.entity_to_index.get(entity)
                     {
-                        /*println!(
-                            "entity {:?} -> index {:?}",
-                            entity, clusterable_object_index
-                        );*/
                         if view_clusters_bindings.n_indices() >= ViewClusterBindings::MAX_INDICES
                             && !supports_storage_buffers
                         {
@@ -380,7 +415,13 @@ pub fn prepare_clusters(
                         }
                         view_clusters_bindings.push_index(*clusterable_object_index);
                     } else {
-                        error!("Clustered light {:?} had no assigned index!", entity);
+                        // This should never happen. The appropriate systems
+                        // should have populated
+                        // `global_clusterable_object_meta` by now.
+                        error!(
+                            "Clustered light or decal {:?} had no assigned index!",
+                            entity
+                        );
                         view_clusters_bindings.push_dummy_index();
                     }
                 }
@@ -395,10 +436,10 @@ pub fn prepare_clusters(
                             view_clusters_bindings.push_index(*render_light_probe_index as usize);
                         }
                         None => {
-                            error!(
-                                "Clustered reflection probe {:?} had no assigned index for view {:?}!",
+                            // This can happen while the reflection probe is loading.
+                            trace!(
+                                "Clustered reflection probe {:?} had no assigned index",
                                 main_entity,
-                                entity
                             );
                             view_clusters_bindings.push_dummy_index();
                         }
@@ -415,8 +456,8 @@ pub fn prepare_clusters(
                             view_clusters_bindings.push_index(*render_light_probe_index as usize);
                         }
                         None => {
-                            error!(
-                                "Clustered irradiance volume {:?} had no assigned index!",
+                            trace!(
+                                "Clustered irradiance volume {:?} had no assigned index",
                                 main_entity
                             );
                             view_clusters_bindings.push_dummy_index();
@@ -506,6 +547,8 @@ impl ViewClusterBindings {
         self.n_indices
     }
 
+    // An internal helper method that pushes a raw clustered object index to the
+    // GPU buffer.
     fn push_raw_index(&mut self, index: u32) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform {
@@ -515,7 +558,6 @@ impl ViewClusterBindings {
                 let array_index = self.n_indices >> 4; // >> 4 is equivalent to / 16
                 let component = (self.n_indices >> 2) & ((1 << 2) - 1);
                 let sub_index = self.n_indices & ((1 << 2) - 1);
-                let index = index as u32;
 
                 clusterable_object_index_lists.get_mut().data[array_index][component] |=
                     index << (8 * sub_index);
@@ -524,23 +566,24 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists,
                 ..
             } => {
-                clusterable_object_index_lists
-                    .get_mut()
-                    .data
-                    .push(index as u32);
+                clusterable_object_index_lists.get_mut().data.push(index);
             }
         }
 
         self.n_indices += 1;
-
     }
 
+    /// Pushes the index of a clustered object to the GPU buffer.
     pub fn push_index(&mut self, index: usize) {
-        self.push_raw_index(index as u32)
+        self.push_raw_index(index as u32);
     }
 
+    /// Pushes a placeholder -1 index to the GPU buffer.
+    ///
+    /// This is used when processing reflection probes and irradiance volumes
+    /// that haven't loaded yet.
     pub fn push_dummy_index(&mut self) {
-        self.push_raw_index(!0)
+        self.push_raw_index(!0);
     }
 
     pub fn write_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
