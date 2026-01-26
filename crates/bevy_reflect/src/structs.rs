@@ -336,10 +336,6 @@ impl DynamicStruct {
         index: usize,
     ) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)> {
         let mut i: usize = 0;
-        #[expect(
-            clippy::incompatible_msrv,
-            reason = "MSRV is 1.85 and `extract_if` is Stable in 1.87"
-        )]
         let mut extract = self.field_names.extract_if(0..self.field_names.len(), |n| {
             let mut result = false;
             if i == index {
