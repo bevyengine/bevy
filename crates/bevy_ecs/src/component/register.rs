@@ -700,6 +700,9 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
 }
 
 /// Represents a way to get the id of component types.
+///
+/// This exists to encapsulate shared behavior of [`ComponentsRegistrator`] and [`ComponentsQueuedRegistrator`].
+/// If you know which one you are working with, prefer their direct methods.
 pub trait ComponentIdDictator {
     /// Determines the [`ComponentId`] of `T`.
     /// This makes no promises of whether or not `T` will be full registered; it just gets its id.
