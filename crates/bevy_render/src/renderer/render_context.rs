@@ -128,8 +128,8 @@ impl SystemBuffer for RenderContextState {
 }
 
 /// A system parameter that provides access to a command encoder and render device for issuing
-/// rendering commands inside any system running beneath the root [`RenderGraph`] schedule in the
-/// [`render_system`] system.
+/// rendering commands inside any system running beneath the root [`super::RenderGraph`] schedule in the
+/// [`super::render_system`] system.
 #[derive(SystemParam)]
 pub struct RenderContext<'w, 's> {
     state: Deferred<'s, RenderContextState>,

@@ -4,6 +4,7 @@ use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
     schedule::{AntiAliasing, Core3d, Core3dSystems},
+    tonemapping::tonemapping,
     FullscreenShader,
 };
 use bevy_diagnostic::FrameCount;
@@ -70,6 +71,7 @@ impl Plugin for TemporalAntiAliasPlugin {
         render_app.add_systems(
             Core3d,
             temporal_anti_alias
+                .before(tonemapping)
                 .in_set(Core3dSystems::PostProcess)
                 .in_set(AntiAliasing),
         );

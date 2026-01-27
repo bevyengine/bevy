@@ -13,7 +13,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_color::{Gray, LinearRgba};
 use bevy_core_pipeline::{
-    schedule::{AntiAliasing, Core2d, Core2dSystems, Core3d, Core3dSystems},
+    schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems},
     tonemapping::tonemapping,
 };
 use bevy_ecs::prelude::*;
@@ -76,10 +76,7 @@ impl Plugin for BloomPlugin {
             )
             .add_systems(
                 Core3d,
-                bloom
-                    .after(AntiAliasing)
-                    .before(tonemapping)
-                    .in_set(Core3dSystems::PostProcess),
+                bloom.before(tonemapping).in_set(Core3dSystems::PostProcess),
             )
             .add_systems(
                 Core2d,

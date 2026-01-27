@@ -25,6 +25,7 @@ use bevy_camera::Hdr;
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass},
     schedule::{AntiAliasing, Core3d, Core3dSystems},
+    tonemapping::tonemapping,
 };
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
@@ -193,6 +194,7 @@ impl Plugin for DlssPlugin {
             Core3d,
             (node::dlss_super_resolution, node::dlss_ray_reconstruction)
                 .chain()
+                .before(tonemapping)
                 .in_set(Core3dSystems::PostProcess)
                 .in_set(AntiAliasing),
         );

@@ -102,9 +102,9 @@ impl Core2d {
     }
 }
 
-/// The default entry point for camera driven rendering added to the root [`RenderGraph`]
+/// The default entry point for camera driven rendering added to the root [`bevy_render::renderer::RenderGraph`]
 /// schedule. This system iterates over all cameras in the world, executing their associated
-/// rendering schedules defined by the [`CameraRenderGraph`] component.
+/// rendering schedules defined by the [`bevy_render::camera::CameraRenderGraph`] component.
 ///
 /// After executing all camera schedules, it submits any pending command buffers to the GPU
 /// and clears any swap chains that were not covered by a camera. Users can order any additional
