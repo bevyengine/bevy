@@ -18,8 +18,6 @@ pub mod fxaa;
 pub mod smaa;
 pub mod taa;
 
-pub use bevy_core_pipeline::schedule::AntiAliasing;
-
 /// Adds fxaa, smaa, taa, contrast aware sharpening, and optional dlss support.
 #[derive(Default)]
 pub struct AntiAliasPlugin;

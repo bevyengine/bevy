@@ -3,7 +3,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
-    schedule::{AntiAliasing, Core3d, Core3dSystems},
+    schedule::{Core3d, Core3dSystems},
     tonemapping::tonemapping,
     FullscreenShader,
 };
@@ -72,8 +72,7 @@ impl Plugin for TemporalAntiAliasPlugin {
             Core3d,
             temporal_anti_alias
                 .before(tonemapping)
-                .in_set(Core3dSystems::PostProcess)
-                .in_set(AntiAliasing),
+                .in_set(Core3dSystems::PostProcess),
         );
     }
 }

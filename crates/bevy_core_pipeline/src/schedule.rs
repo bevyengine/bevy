@@ -80,10 +80,6 @@ pub enum Core2dSystems {
     PostProcess,
 }
 
-/// System set for ordering render graph systems relative to any anti-aliasing implementation.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct AntiAliasing;
-
 impl Core2d {
     pub fn base_schedule() -> Schedule {
         use bevy_ecs::schedule::ScheduleBuildSettings;
