@@ -691,7 +691,7 @@ pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
 /// [deriving `Reflect`]: Reflect
 #[proc_macro]
 pub fn impl_reflect_opaque(input: TokenStream) -> TokenStream {
-    maybe_early_out!(input);
+    maybe_early_out!();
     let def = parse_macro_input!(input with ReflectOpaqueDef::parse_reflect);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
@@ -756,7 +756,7 @@ pub fn impl_reflect_opaque(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro]
 pub fn impl_reflect(input: TokenStream) -> TokenStream {
-    maybe_early_out!(input);
+    maybe_early_out!();
     let ast = parse_macro_input!(input as DeriveInput);
     match_reflect_impls(ast, ReflectImplSource::ImplRemoteType)
 }
@@ -783,7 +783,7 @@ pub fn impl_reflect(input: TokenStream) -> TokenStream {
 /// [derives `Reflect`]: Reflect
 #[proc_macro]
 pub fn impl_from_reflect_opaque(input: TokenStream) -> TokenStream {
-    maybe_early_out!(input);
+    maybe_early_out!();
     let def = parse_macro_input!(input with ReflectOpaqueDef::parse_from_reflect);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
@@ -849,7 +849,7 @@ pub fn impl_from_reflect_opaque(input: TokenStream) -> TokenStream {
 /// [deriving `TypePath`]: TypePath
 #[proc_macro]
 pub fn impl_type_path(input: TokenStream) -> TokenStream {
-    maybe_early_out!(input);
+    maybe_early_out!();
     let def = parse_macro_input!(input as NamedTypePathDef);
 
     let type_path = match def {
@@ -894,7 +894,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 /// If you're experiencing linking issues try running `cargo clean` before rebuilding.
 #[proc_macro]
 pub fn load_type_registrations(_input: TokenStream) -> TokenStream {
-    maybe_early_out!(input);
+    maybe_early_out!();
     if !cfg!(feature = "auto_register_static") {
         return TokenStream::new();
     }
