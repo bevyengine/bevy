@@ -39,6 +39,23 @@ use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 /// See also [`EntityMut`], which allows disjoint mutable access to multiple
 /// entities at once.  Unlike `EntityMut`, this type allows adding and
 /// removing components, and despawning the entity.
+///
+/// # Invariants and Risk
+///
+/// An [`EntityWorldMut`] may point to a despawned entity.
+/// You can check this via [`is_despawned`](Self::is_despawned).
+/// Using an [`EntityWorldMut`] of a despawned entity may panic in some contexts, so read method documentation carefully.
+///
+/// If this points to a not spawned entity (see [`EntityNotSpawnedError`](crate::entity::EntityNotSpawnedError)),
+/// this has no way of knowing why it is not spawned or its "unspawned state".
+/// For example, it the entity is not spawned, this will not know if that is because the entity is not yet spawned or if it was spawned and was later despawned.
+/// If it was despawned, this can not know who was responsible to free the [`Entity`].
+/// Keep these limitations in mind when use this type in the context of unkown code.
+///
+/// Unless you have strong reason to assume these invariants, you should generally avoid keeping an [`EntityWorldMut`] to an entity that is potentially not spawned.
+/// For example, when inserting a component, that component insert may trigger an observer that despawns the entity.
+/// So, when you don't have full knowledge of what commands may interact with this entity,
+/// do not further use this value without first checking [`is_despawned`](Self::is_despawned).
 pub struct EntityWorldMut<'w> {
     world: &'w mut World,
     entity: Entity,
@@ -1539,6 +1556,11 @@ impl<'w> EntityWorldMut<'w> {
     /// Despawns the entity without freeing it to the allocator.
     /// This returns the new [`Entity`], which you must manage.
     /// Note that this still increases the generation to differentiate different spawns of the same row.
+    ///
+    /// Additionally, keep in mind the limitations documented in the type-level docs.
+    /// Unless you have full knowledge of this [`EntityWorldMut`]'s lifetime,
+    /// you may not assume that nothing else has taken responsibility of this [`Entity`].
+    /// If you are not careful, this could cause a double free.
     ///
     /// This may be later [`spawn_at`](World::spawn_at).
     /// See [`World::despawn_no_free`] for details and usage examples.
