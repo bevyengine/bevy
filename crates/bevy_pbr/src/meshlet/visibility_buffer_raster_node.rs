@@ -9,6 +9,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_resource::*,
     renderer::{RenderContext, ViewQuery},
     view::{ViewDepthTexture, ViewUniformOffset},
@@ -77,8 +78,15 @@ pub fn meshlet_visibility_buffer_raster(
         return;
     };
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
     ctx.command_encoder()
         .push_debug_group("meshlet_visibility_buffer_raster");
+    let time_span = diagnostics.time_span(
+        ctx.command_encoder(),
+        "meshlet_visibility_buffer_raster",
+    );
 
     ctx.command_encoder().clear_buffer(
         &resource_manager.visibility_buffer_raster_cluster_prev_counts,
@@ -186,6 +194,7 @@ pub fn meshlet_visibility_buffer_raster(
             downsample_depth_second_pipeline,
         );
     ctx.command_encoder().pop_debug_group();
+    time_span.end(ctx.command_encoder());
 
     for light_entity in &lights.lights {
         let Ok((
@@ -211,6 +220,10 @@ pub fn meshlet_visibility_buffer_raster(
             "meshlet_visibility_buffer_raster: {}",
             shadow_view.pass_name
         ));
+        let time_span_shadow = diagnostics.time_span(
+            ctx.command_encoder(),
+            &format!("meshlet_visibility_buffer_raster: {}", shadow_view.pass_name),
+        );
 
         clear_visibility_buffer_pass(
             &mut ctx,
@@ -305,6 +318,7 @@ pub fn meshlet_visibility_buffer_raster(
                 downsample_depth_second_shadow_view_pipeline,
             );
         ctx.command_encoder().pop_debug_group();
+        time_span_shadow.end(ctx.command_encoder());
     }
 }
 
