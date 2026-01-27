@@ -153,7 +153,6 @@ impl Plugin for Core3dPlugin {
         render_app
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
-            .init_resource::<DrawFunctions<Transmissive3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
@@ -165,14 +164,12 @@ impl Plugin for Core3dPlugin {
             .init_resource::<ViewBinnedRenderPhases<AlphaMask3dPrepass>>()
             .init_resource::<ViewBinnedRenderPhases<Opaque3dDeferred>>()
             .init_resource::<ViewBinnedRenderPhases<AlphaMask3dDeferred>>()
-            .init_resource::<ViewSortedRenderPhases<Transmissive3d>>()
             .init_resource::<ViewSortedRenderPhases<Transparent3d>>()
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(ExtractSchedule, extract_camera_prepass_phase)
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<Transmissive3d>.in_set(RenderSystems::PhaseSort),
                     sort_phase_system::<Transparent3d>.in_set(RenderSystems::PhaseSort),
                     configure_occlusion_culling_view_targets
                         .after(prepare_view_targets)
@@ -448,93 +445,6 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3d {
     }
 }
 
-pub struct Transmissive3d {
-    pub distance: f32,
-    pub pipeline: CachedRenderPipelineId,
-    pub entity: (Entity, MainEntity),
-    pub draw_function: DrawFunctionId,
-    pub batch_range: Range<u32>,
-    pub extra_index: PhaseItemExtraIndex,
-    /// Whether the mesh in question is indexed (uses an index buffer in
-    /// addition to its vertex buffer).
-    pub indexed: bool,
-}
-
-impl PhaseItem for Transmissive3d {
-    /// For now, automatic batching is disabled for transmissive items because their rendering is
-    /// split into multiple steps depending on `ScreenSpaceTransmission::screen_space_specular_transmission_steps`,
-    /// which the batching system doesn't currently know about.
-    ///
-    /// Having batching enabled would cause the same item to be drawn multiple times across different
-    /// steps, whenever the batching range crossed a step boundary.
-    ///
-    /// Eventually, we could add support for this by having the batching system break up the batch ranges
-    /// using the same logic as the transmissive pass, but for now it's simpler to just disable batching.
-    const AUTOMATIC_BATCHING: bool = false;
-
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity.0
-    }
-
-    #[inline]
-    fn main_entity(&self) -> MainEntity {
-        self.entity.1
-    }
-
-    #[inline]
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
-    }
-
-    #[inline]
-    fn batch_range(&self) -> &Range<u32> {
-        &self.batch_range
-    }
-
-    #[inline]
-    fn batch_range_mut(&mut self) -> &mut Range<u32> {
-        &mut self.batch_range
-    }
-
-    #[inline]
-    fn extra_index(&self) -> PhaseItemExtraIndex {
-        self.extra_index.clone()
-    }
-
-    #[inline]
-    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
-        (&mut self.batch_range, &mut self.extra_index)
-    }
-}
-
-impl SortedPhaseItem for Transmissive3d {
-    // NOTE: Values increase towards the camera. Back-to-front ordering for transmissive means we need an ascending sort.
-    type SortKey = FloatOrd;
-
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
-    }
-
-    #[inline]
-    fn indexed(&self) -> bool {
-        self.indexed
-    }
-}
-
-impl CachedRenderPipelinePhaseItem for Transmissive3d {
-    #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
-    }
-}
-
 pub struct Transparent3d {
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
@@ -613,7 +523,6 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 pub fn extract_core_3d_camera_phases(
     mut opaque_3d_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
-    mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     cameras_3d: Extract<Query<(Entity, &Camera, Has<NoIndirectDrawing>), With<Camera3d>>>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
@@ -639,7 +548,6 @@ pub fn extract_core_3d_camera_phases(
 
         opaque_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
         alpha_mask_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
-        transmissive_3d_phases.insert_or_clear(retained_view_entity);
         transparent_3d_phases.insert_or_clear(retained_view_entity);
 
         live_entities.insert(retained_view_entity);
@@ -647,7 +555,6 @@ pub fn extract_core_3d_camera_phases(
 
     opaque_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
     alpha_mask_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
-    transmissive_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
     transparent_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
 }
 
@@ -783,29 +690,16 @@ pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    opaque_3d_phases: Res<ViewBinnedRenderPhases<Opaque3d>>,
-    alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
-    transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
-    transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
     views_3d: Query<(
         Entity,
         &ExtractedCamera,
-        &ExtractedView,
         Option<&DepthPrepass>,
         &Camera3d,
         &Msaa,
     )>,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
-    for (_, camera, extracted_view, depth_prepass, camera_3d, _msaa) in &views_3d {
-        if !opaque_3d_phases.contains_key(&extracted_view.retained_view_entity)
-            || !alpha_mask_3d_phases.contains_key(&extracted_view.retained_view_entity)
-            || !transmissive_3d_phases.contains_key(&extracted_view.retained_view_entity)
-            || !transparent_3d_phases.contains_key(&extracted_view.retained_view_entity)
-        {
-            continue;
-        };
-
+    for (_, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
         // Default usage required to write to the depth texture
         let mut usage: TextureUsages = camera_3d.depth_texture_usages.into();
         if depth_prepass.is_some() {
@@ -819,7 +713,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, _, _, camera_3d, msaa) in &views_3d {
+    for (entity, camera, _, camera_3d, msaa) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
