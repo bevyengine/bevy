@@ -54,215 +54,6 @@ pub struct SolariLightingPipelines {
     resolve_dlss_rr_textures_pipeline: CachedComputePipelineId,
 }
 
-/// Initializes the Solari lighting pipelines at render startup.
-pub fn init_solari_lighting_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    scene_bindings: Res<RaytracingSceneBindings>,
-    asset_server: Res<AssetServer>,
-) {
-    let bind_group_layout = BindGroupLayoutDescriptor::new(
-        "solari_lighting_bind_group_layout",
-        &BindGroupLayoutEntries::sequential(
-            ShaderStages::COMPUTE,
-            (
-                texture_storage_2d(
-                    ViewTarget::TEXTURE_FORMAT_HDR,
-                    StorageTextureAccess::ReadWrite,
-                ),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
-                texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                texture_2d(TextureSampleType::Uint),
-                texture_depth_2d(),
-                texture_2d(TextureSampleType::Float { filterable: true }),
-                texture_2d(TextureSampleType::Uint),
-                texture_depth_2d(),
-                uniform_buffer::<ViewUniform>(true),
-                uniform_buffer::<PreviousViewData>(true),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-            ),
-        ),
-    );
-
-    let bind_group_layout_world_cache_active_cells_dispatch = BindGroupLayoutDescriptor::new(
-        "solari_lighting_bind_group_layout_world_cache_active_cells_dispatch",
-        &BindGroupLayoutEntries::single(ShaderStages::COMPUTE, storage_buffer_sized(false, None)),
-    );
-
-    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let bind_group_layout_resolve_dlss_rr_textures = BindGroupLayoutDescriptor::new(
-        "solari_lighting_bind_group_layout_resolve_dlss_rr_textures",
-        &BindGroupLayoutEntries::sequential(
-            ShaderStages::COMPUTE,
-            (
-                texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
-                texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
-                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
-                texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::WriteOnly),
-            ),
-        ),
-    );
-
-    let create_pipeline = |label: &'static str,
-                           entry_point: &'static str,
-                           shader: Handle<Shader>,
-                           extra_bind_group_layout: Option<&BindGroupLayoutDescriptor>,
-                           extra_shader_defs: Vec<ShaderDefVal>| {
-        let mut layout = vec![
-            scene_bindings.bind_group_layout.clone(),
-            bind_group_layout.clone(),
-        ];
-        if let Some(extra_bind_group_layout) = extra_bind_group_layout {
-            layout.push(extra_bind_group_layout.clone());
-        }
-
-        let mut shader_defs = vec![ShaderDefVal::UInt(
-            "WORLD_CACHE_SIZE".into(),
-            WORLD_CACHE_SIZE as u32,
-        )];
-        shader_defs.extend_from_slice(&extra_shader_defs);
-
-        pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some(label.into()),
-            layout,
-            immediate_size: 8,
-            shader,
-            shader_defs,
-            entry_point: Some(entry_point.into()),
-            ..default()
-        })
-    };
-
-    commands.insert_resource(SolariLightingPipelines {
-        bind_group_layout: bind_group_layout.clone(),
-        bind_group_layout_world_cache_active_cells_dispatch:
-            bind_group_layout_world_cache_active_cells_dispatch.clone(),
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        bind_group_layout_resolve_dlss_rr_textures: bind_group_layout_resolve_dlss_rr_textures
-            .clone(),
-        decay_world_cache_pipeline: create_pipeline(
-            "solari_lighting_decay_world_cache_pipeline",
-            "decay_world_cache",
-            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wgsl"),
-            Some(&bind_group_layout_world_cache_active_cells_dispatch),
-            vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
-        ),
-        compact_world_cache_single_block_pipeline: create_pipeline(
-            "solari_lighting_compact_world_cache_single_block_pipeline",
-            "compact_world_cache_single_block",
-            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wgsl"),
-            Some(&bind_group_layout_world_cache_active_cells_dispatch),
-            vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
-        ),
-        compact_world_cache_blocks_pipeline: create_pipeline(
-            "solari_lighting_compact_world_cache_blocks_pipeline",
-            "compact_world_cache_blocks",
-            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wgsl"),
-            Some(&bind_group_layout_world_cache_active_cells_dispatch),
-            vec![],
-        ),
-        compact_world_cache_write_active_cells_pipeline: create_pipeline(
-            "solari_lighting_compact_world_cache_write_active_cells_pipeline",
-            "compact_world_cache_write_active_cells",
-            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wgsl"),
-            Some(&bind_group_layout_world_cache_active_cells_dispatch),
-            vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
-        ),
-        sample_di_for_world_cache_pipeline: create_pipeline(
-            "solari_lighting_sample_di_for_world_cache_pipeline",
-            "sample_di",
-            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wgsl"),
-            None,
-            vec![],
-        ),
-        sample_gi_for_world_cache_pipeline: create_pipeline(
-            "solari_lighting_sample_gi_for_world_cache_pipeline",
-            "sample_gi",
-            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wgsl"),
-            None,
-            vec!["WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into()],
-        ),
-        blend_new_world_cache_samples_pipeline: create_pipeline(
-            "solari_lighting_blend_new_world_cache_samples_pipeline",
-            "blend_new_samples",
-            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wgsl"),
-            None,
-            vec![],
-        ),
-        presample_light_tiles_pipeline: create_pipeline(
-            "solari_lighting_presample_light_tiles_pipeline",
-            "presample_light_tiles",
-            load_embedded_asset!(asset_server.as_ref(), "presample_light_tiles.wgsl"),
-            None,
-            vec![],
-        ),
-        di_initial_and_temporal_pipeline: create_pipeline(
-            "solari_lighting_di_initial_and_temporal_pipeline",
-            "initial_and_temporal",
-            load_embedded_asset!(asset_server.as_ref(), "restir_di.wgsl"),
-            None,
-            vec![],
-        ),
-        di_spatial_and_shade_pipeline: create_pipeline(
-            "solari_lighting_di_spatial_and_shade_pipeline",
-            "spatial_and_shade",
-            load_embedded_asset!(asset_server.as_ref(), "restir_di.wgsl"),
-            None,
-            vec![],
-        ),
-        gi_initial_and_temporal_pipeline: create_pipeline(
-            "solari_lighting_gi_initial_and_temporal_pipeline",
-            "initial_and_temporal",
-            load_embedded_asset!(asset_server.as_ref(), "restir_gi.wgsl"),
-            None,
-            vec!["WORLD_CACHE_FIRST_BOUNCE_LIGHT_LEAK_PREVENTION".into()],
-        ),
-        gi_spatial_and_shade_pipeline: create_pipeline(
-            "solari_lighting_gi_spatial_and_shade_pipeline",
-            "spatial_and_shade",
-            load_embedded_asset!(asset_server.as_ref(), "restir_gi.wgsl"),
-            None,
-            vec![],
-        ),
-        specular_gi_pipeline: create_pipeline(
-            "solari_lighting_specular_gi_pipeline",
-            "specular_gi",
-            load_embedded_asset!(asset_server.as_ref(), "specular_gi.wgsl"),
-            None,
-            vec![],
-        ),
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        specular_gi_with_psr_pipeline: create_pipeline(
-            "solari_lighting_specular_gi_with_psr_pipeline",
-            "specular_gi",
-            load_embedded_asset!(asset_server.as_ref(), "specular_gi.wgsl"),
-            Some(&bind_group_layout_resolve_dlss_rr_textures),
-            vec!["DLSS_RR_GUIDE_BUFFERS".into()],
-        ),
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        resolve_dlss_rr_textures_pipeline: create_pipeline(
-            "solari_lighting_resolve_dlss_rr_textures_pipeline",
-            "resolve_dlss_rr_textures",
-            load_embedded_asset!(asset_server.as_ref(), "resolve_dlss_rr_textures.wgsl"),
-            Some(&bind_group_layout_resolve_dlss_rr_textures),
-            vec!["DLSS_RR_GUIDE_BUFFERS".into()],
-        ),
-    });
-}
-
 #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
 type SolariLightingViewQuery = (
     &'static SolariLighting,
@@ -597,4 +388,213 @@ pub fn solari_lighting(
         &s.world_cache_active_cells_count.slice(..),
         "solari_lighting/world_cache_active_cells_count",
     );
+}
+
+/// Initializes the Solari lighting pipelines at render startup.
+pub fn init_solari_lighting_pipelines(
+    mut commands: Commands,
+    pipeline_cache: Res<PipelineCache>,
+    scene_bindings: Res<RaytracingSceneBindings>,
+    asset_server: Res<AssetServer>,
+) {
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
+        "solari_lighting_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::COMPUTE,
+            (
+                texture_storage_2d(
+                    ViewTarget::TEXTURE_FORMAT_HDR,
+                    StorageTextureAccess::ReadWrite,
+                ),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
+                texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                texture_2d(TextureSampleType::Uint),
+                texture_depth_2d(),
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                texture_2d(TextureSampleType::Uint),
+                texture_depth_2d(),
+                uniform_buffer::<ViewUniform>(true),
+                uniform_buffer::<PreviousViewData>(true),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+            ),
+        ),
+    );
+
+    let bind_group_layout_world_cache_active_cells_dispatch = BindGroupLayoutDescriptor::new(
+        "solari_lighting_bind_group_layout_world_cache_active_cells_dispatch",
+        &BindGroupLayoutEntries::single(ShaderStages::COMPUTE, storage_buffer_sized(false, None)),
+    );
+
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    let bind_group_layout_resolve_dlss_rr_textures = BindGroupLayoutDescriptor::new(
+        "solari_lighting_bind_group_layout_resolve_dlss_rr_textures",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::COMPUTE,
+            (
+                texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
+                texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
+                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
+                texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::WriteOnly),
+            ),
+        ),
+    );
+
+    let create_pipeline = |label: &'static str,
+                           entry_point: &'static str,
+                           shader: Handle<Shader>,
+                           extra_bind_group_layout: Option<&BindGroupLayoutDescriptor>,
+                           extra_shader_defs: Vec<ShaderDefVal>| {
+        let mut layout = vec![
+            scene_bindings.bind_group_layout.clone(),
+            bind_group_layout.clone(),
+        ];
+        if let Some(extra_bind_group_layout) = extra_bind_group_layout {
+            layout.push(extra_bind_group_layout.clone());
+        }
+
+        let mut shader_defs = vec![ShaderDefVal::UInt(
+            "WORLD_CACHE_SIZE".into(),
+            WORLD_CACHE_SIZE as u32,
+        )];
+        shader_defs.extend_from_slice(&extra_shader_defs);
+
+        pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some(label.into()),
+            layout,
+            immediate_size: 8,
+            shader,
+            shader_defs,
+            entry_point: Some(entry_point.into()),
+            ..default()
+        })
+    };
+
+    commands.insert_resource(SolariLightingPipelines {
+        bind_group_layout: bind_group_layout.clone(),
+        bind_group_layout_world_cache_active_cells_dispatch:
+            bind_group_layout_world_cache_active_cells_dispatch.clone(),
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        bind_group_layout_resolve_dlss_rr_textures: bind_group_layout_resolve_dlss_rr_textures
+            .clone(),
+        decay_world_cache_pipeline: create_pipeline(
+            "solari_lighting_decay_world_cache_pipeline",
+            "decay_world_cache",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wgsl"),
+            Some(&bind_group_layout_world_cache_active_cells_dispatch),
+            vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
+        ),
+        compact_world_cache_single_block_pipeline: create_pipeline(
+            "solari_lighting_compact_world_cache_single_block_pipeline",
+            "compact_world_cache_single_block",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wgsl"),
+            Some(&bind_group_layout_world_cache_active_cells_dispatch),
+            vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
+        ),
+        compact_world_cache_blocks_pipeline: create_pipeline(
+            "solari_lighting_compact_world_cache_blocks_pipeline",
+            "compact_world_cache_blocks",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wgsl"),
+            Some(&bind_group_layout_world_cache_active_cells_dispatch),
+            vec![],
+        ),
+        compact_world_cache_write_active_cells_pipeline: create_pipeline(
+            "solari_lighting_compact_world_cache_write_active_cells_pipeline",
+            "compact_world_cache_write_active_cells",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wgsl"),
+            Some(&bind_group_layout_world_cache_active_cells_dispatch),
+            vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
+        ),
+        sample_di_for_world_cache_pipeline: create_pipeline(
+            "solari_lighting_sample_di_for_world_cache_pipeline",
+            "sample_di",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wgsl"),
+            None,
+            vec![],
+        ),
+        sample_gi_for_world_cache_pipeline: create_pipeline(
+            "solari_lighting_sample_gi_for_world_cache_pipeline",
+            "sample_gi",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wgsl"),
+            None,
+            vec!["WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into()],
+        ),
+        blend_new_world_cache_samples_pipeline: create_pipeline(
+            "solari_lighting_blend_new_world_cache_samples_pipeline",
+            "blend_new_samples",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wgsl"),
+            None,
+            vec![],
+        ),
+        presample_light_tiles_pipeline: create_pipeline(
+            "solari_lighting_presample_light_tiles_pipeline",
+            "presample_light_tiles",
+            load_embedded_asset!(asset_server.as_ref(), "presample_light_tiles.wgsl"),
+            None,
+            vec![],
+        ),
+        di_initial_and_temporal_pipeline: create_pipeline(
+            "solari_lighting_di_initial_and_temporal_pipeline",
+            "initial_and_temporal",
+            load_embedded_asset!(asset_server.as_ref(), "restir_di.wgsl"),
+            None,
+            vec![],
+        ),
+        di_spatial_and_shade_pipeline: create_pipeline(
+            "solari_lighting_di_spatial_and_shade_pipeline",
+            "spatial_and_shade",
+            load_embedded_asset!(asset_server.as_ref(), "restir_di.wgsl"),
+            None,
+            vec![],
+        ),
+        gi_initial_and_temporal_pipeline: create_pipeline(
+            "solari_lighting_gi_initial_and_temporal_pipeline",
+            "initial_and_temporal",
+            load_embedded_asset!(asset_server.as_ref(), "restir_gi.wgsl"),
+            None,
+            vec!["WORLD_CACHE_FIRST_BOUNCE_LIGHT_LEAK_PREVENTION".into()],
+        ),
+        gi_spatial_and_shade_pipeline: create_pipeline(
+            "solari_lighting_gi_spatial_and_shade_pipeline",
+            "spatial_and_shade",
+            load_embedded_asset!(asset_server.as_ref(), "restir_gi.wgsl"),
+            None,
+            vec![],
+        ),
+        specular_gi_pipeline: create_pipeline(
+            "solari_lighting_specular_gi_pipeline",
+            "specular_gi",
+            load_embedded_asset!(asset_server.as_ref(), "specular_gi.wgsl"),
+            None,
+            vec![],
+        ),
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        specular_gi_with_psr_pipeline: create_pipeline(
+            "solari_lighting_specular_gi_with_psr_pipeline",
+            "specular_gi",
+            load_embedded_asset!(asset_server.as_ref(), "specular_gi.wgsl"),
+            Some(&bind_group_layout_resolve_dlss_rr_textures),
+            vec!["DLSS_RR_GUIDE_BUFFERS".into()],
+        ),
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        resolve_dlss_rr_textures_pipeline: create_pipeline(
+            "solari_lighting_resolve_dlss_rr_textures_pipeline",
+            "resolve_dlss_rr_textures",
+            load_embedded_asset!(asset_server.as_ref(), "resolve_dlss_rr_textures.wgsl"),
+            Some(&bind_group_layout_resolve_dlss_rr_textures),
+            vec!["DLSS_RR_GUIDE_BUFFERS".into()],
+        ),
+    });
 }
