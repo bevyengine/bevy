@@ -42,7 +42,7 @@ pub struct FilmGrain {
     /// The recommended range is 0.0 to 0.20.
     ///
     /// Range: `0.0` to `1.0`
-    /// The default value is 0.15.
+    /// The default value is 0.05.
     pub intensity: f32,
 
     /// The intensity of the film grain in shadow areas.
