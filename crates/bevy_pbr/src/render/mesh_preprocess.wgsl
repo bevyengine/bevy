@@ -112,10 +112,15 @@ struct Immediates {
 #ifdef EARLY_PHASE
 @group(0) @binding(11) var<storage, read_write> late_preprocess_work_items:
     array<PreprocessWorkItem>;
-#endif  // EARLY_PHASE
 
 @group(0) @binding(12) var<storage, read_write> late_preprocess_work_item_indirect_parameters:
     array<LatePreprocessWorkItemIndirectParameters>;
+#endif  // EARLY_PHASE
+
+#ifdef LATE_PHASE
+@group(0) @binding(12) var<storage, read> late_preprocess_work_item_indirect_parameters:
+    array<LatePreprocessWorkItemIndirectParameters>;
+#endif  // LATE_PHASE
 
 var<immediate> immediates: Immediates;
 #endif  // OCCLUSION_CULLING

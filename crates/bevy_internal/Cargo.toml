@@ -65,6 +65,9 @@ statically-linked-dxc = ["bevy_render/statically-linked-dxc"]
 # Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
 raw_vulkan_init = ["bevy_render/raw_vulkan_init"]
 
+# Pre-populate buffer labels with buffer types for debugging.
+type_label_buffers = ["bevy_render/type_label_buffers"]
+
 # Include tonemapping LUT KTX2 files.
 tonemapping_luts = [
   "bevy_core_pipeline?/tonemapping_luts",
@@ -222,7 +225,7 @@ bevy_text = [
   "bevy_sprite_render?/bevy_text",
 ]
 bevy_ui = ["dep:bevy_ui", "bevy_text", "bevy_sprite"]
-bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
+bevy_mesh = ["dep:bevy_mesh", "bevy_image", "bevy_gizmos?/bevy_mesh"]
 bevy_animation = ["dep:bevy_animation", "bevy_mesh"]
 bevy_mikktspace = ["bevy_mesh?/bevy_mikktspace"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y", "bevy_image"]
@@ -438,7 +441,7 @@ gestures = ["bevy_input/gestures"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-debug = ["bevy_utils/debug", "bevy_ecs/debug"]
+debug = ["bevy_utils/debug", "bevy_ecs/debug", "bevy_render/debug"]
 
 screenrecording = ["bevy_dev_tools/screenrecording"]
 

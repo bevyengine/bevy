@@ -8,7 +8,7 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Hdr, Msaa, NoIndirectDrawing,
+        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
         RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -20,7 +20,7 @@ use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, MsaaWriteback,
+    ClearColor, ClearColorConfig, Exposure, Hdr, ManualTextureViewHandle, MsaaWriteback,
     NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};

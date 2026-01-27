@@ -46,7 +46,7 @@ use crate::renderer::{RenderDevice, RenderQueue};
 ///     ```ignore
 ///     let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
 ///     ```
-///  3. End the span, providing the same encoder.
+///  3. End the span, providing the encoder (or the same render/compute pass).
 ///     ```ignore
 ///     time_span.end(render_context.command_encoder());
 ///     ```
@@ -151,7 +151,7 @@ pub struct TimeSpanGuard<'a, R: ?Sized, E> {
 }
 
 impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanGuard<'_, R, E> {
-    /// End the span. You have to provide the same encoder which was used to begin the span.
+    /// End the span.
     pub fn end(self, encoder: &mut E) {
         self.recorder.end_time_span(encoder);
         core::mem::forget(self);

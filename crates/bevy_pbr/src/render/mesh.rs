@@ -8,7 +8,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
 use bevy_camera::{
     primitives::Aabb,
     visibility::{NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange},
-    Camera, Camera3d, Projection,
+    Camera, Projection,
 };
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
@@ -30,7 +30,7 @@ use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
 };
-use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_math::{Affine3, Affine3Ext, Rect, UVec2, Vec3, Vec4};
 use bevy_mesh::{
     skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshTag, MeshVertexBufferLayoutRef,
     VertexAttributeDescriptor,
@@ -325,7 +325,7 @@ pub fn check_views_need_specialization(
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
         ),
-        Option<&Camera3d>,
+        Option<&ScreenSpaceTransmission>,
         Has<TemporalJitter>,
         Option<&Projection>,
         Has<DistanceFog>,
@@ -347,7 +347,7 @@ pub fn check_views_need_specialization(
         shadow_filter_method,
         ssao,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-        camera_3d,
+        transmission,
         temporal_jitter,
         projection,
         distance_fog,
@@ -439,9 +439,9 @@ pub fn check_views_need_specialization(
         if distance_fog {
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
-        if let Some(camera_3d) = camera_3d {
+        if let Some(transmission) = transmission {
             view_key |= screen_space_specular_transmission_pipeline_key(
-                camera_3d.screen_space_specular_transmission_quality,
+                transmission.screen_space_specular_transmission_quality,
             );
         }
         if !view_key_cache
@@ -1455,11 +1455,11 @@ pub fn extract_meshes_for_cpu_building(
                 entity,
                 RenderMeshInstanceCpu {
                     transforms: MeshTransforms {
-                        world_from_local: (&world_from_local).into(),
-                        previous_world_from_local: (&previous_transform
+                        world_from_local: world_from_local.into(),
+                        previous_world_from_local: (previous_transform
                             .map(|t| t.0)
                             .unwrap_or(world_from_local))
-                            .into(),
+                        .into(),
                         flags: mesh_flags.bits(),
                     },
                     shared,
@@ -1719,7 +1719,7 @@ fn extract_mesh_for_gpu_building(
 
     let gpu_mesh_instance_builder = RenderMeshInstanceGpuBuilder {
         shared,
-        world_from_local: (&transform.affine()).into(),
+        world_from_local: (transform.affine()).into(),
         lightmap_uv_rect,
         mesh_flags,
         previous_input_index,

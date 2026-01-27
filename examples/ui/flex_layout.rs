@@ -29,7 +29,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: percent(100),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
-                padding: UiRect::all(MARGIN),
+                padding: MARGIN.all(),
                 row_gap: MARGIN,
                 ..Default::default()
             },
@@ -47,7 +47,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         builder,
                         font.clone(),
                         ALIGN_ITEMS_COLOR,
-                        UiRect::right(MARGIN),
+                        MARGIN.right(),
                         "AlignItems",
                     );
                     spawn_nested_text_bundle(
@@ -133,13 +133,7 @@ fn spawn_child_node(
             ];
             for (text, color, top_margin) in labels {
                 // We nest the text within a parent node because margins and padding can't be directly applied to text nodes currently.
-                spawn_nested_text_bundle(
-                    builder,
-                    font.clone(),
-                    color,
-                    UiRect::top(px(top_margin)),
-                    &text,
-                );
+                spawn_nested_text_bundle(builder, font.clone(), color, px(top_margin).top(), &text);
             }
         });
 }
