@@ -5,13 +5,12 @@ mod prepare;
 use crate::SolariPlugins;
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
+use bevy_camera::Hdr;
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_camera::Hdr;
 use bevy_render::{
-    renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup,
-    RenderSystems,
+    renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use extract::extract_pathtracer;
 use node::{init_pathtracer_pipelines, pathtracer};

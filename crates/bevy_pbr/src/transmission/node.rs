@@ -33,8 +33,15 @@ pub fn main_transmissive_pass_3d(
 ) {
     let view_entity = view.entity();
 
-    let (camera, extracted_view, transmission_settings, target, transmission, depth, resolution_override) =
-        view.into_inner();
+    let (
+        camera,
+        extracted_view,
+        transmission_settings,
+        target,
+        transmission,
+        depth,
+        resolution_override,
+    ) = view.into_inner();
 
     let Some(transmissive_phase) = transmissive_phases.get(&extracted_view.retained_view_entity)
     else {
