@@ -191,6 +191,7 @@ webgl = [
   "bevy_gizmos_render?/webgl",
   "bevy_sprite_render?/webgl",
   "bevy_dev_tools?/webgl",
+  "bevy_feathers?/webgl",
 ]
 
 webgpu = [
@@ -201,6 +202,7 @@ webgpu = [
   "bevy_gizmos_render?/webgpu",
   "bevy_sprite_render?/webgpu",
   "bevy_dev_tools?/webgpu",
+  "bevy_feathers?/webgpu",
 ]
 
 # Enable systems that allow for automated testing on CI
