@@ -64,11 +64,12 @@ pub fn dlss_super_resolution(
 
     command_encoder.push_debug_group("dlss_super_resolution");
 
-    dlss_context
+    let dlss_command_buffer = dlss_context
         .render(render_parameters, command_encoder, &adapter)
         .expect("Failed to render DLSS Super Resolution");
 
     command_encoder.pop_debug_group();
+    ctx.add_command_buffer(dlss_command_buffer);
     time_span.end(ctx.command_encoder());
 }
 
@@ -135,10 +136,11 @@ pub fn dlss_ray_reconstruction(
 
     command_encoder.push_debug_group("dlss_ray_reconstruction");
 
-    dlss_context
+    let dlss_command_buffer = dlss_context
         .render(render_parameters, command_encoder, &adapter)
         .expect("Failed to render DLSS Ray Reconstruction");
 
     command_encoder.pop_debug_group();
+    ctx.add_command_buffer(dlss_command_buffer);
     time_span.end(ctx.command_encoder());
 }

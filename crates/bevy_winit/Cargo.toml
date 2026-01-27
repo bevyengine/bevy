@@ -57,19 +57,19 @@ bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev", optional = true }
 ## used by custom_cursor
 bevy_image = { path = "../bevy_image", version = "0.19.0-dev", optional = true }
 ## used by custom_cursor
-wgpu-types = { version = "27", optional = true }
+wgpu-types = { version = "28", optional = true }
 ## used by custom_cursor
 bytemuck = { version = "1.5", optional = true }
 
 # other
 # feature rwh_06 refers to window_raw_handle@v0.6
 winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
-accesskit_winit = { version = "0.30", default-features = false, features = [
+accesskit_winit = { version = "0.31", default-features = false, features = [
   "rwh_06",
 ] }
 approx = { version = "0.5", default-features = false }
 cfg-if = "1.0"
-accesskit = "0.22"
+accesskit = "0.23"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "android")'.dependencies]

@@ -1,6 +1,7 @@
-use super::ViewTransmissionTexture;
-use crate::core_3d::Transmissive3d;
-use bevy_camera::{Camera3d, MainPassResolutionOverride, Viewport};
+use crate::transmission::ScreenSpaceTransmission;
+use crate::ViewTransmissionTexture;
+use bevy_camera::{MainPassResolutionOverride, Viewport};
+use bevy_core_pipeline::core_3d::Transmissive3d;
 use bevy_ecs::prelude::*;
 use bevy_image::ToExtents;
 use bevy_render::{
@@ -21,7 +22,7 @@ pub fn main_transmissive_pass_3d(
     view: ViewQuery<(
         &ExtractedCamera,
         &ExtractedView,
-        &Camera3d,
+        &ScreenSpaceTransmission,
         &ViewTarget,
         Option<&ViewTransmissionTexture>,
         &ViewDepthTexture,
@@ -32,7 +33,7 @@ pub fn main_transmissive_pass_3d(
 ) {
     let view_entity = view.entity();
 
-    let (camera, extracted_view, camera_3d, target, transmission, depth, resolution_override) =
+    let (camera, extracted_view, transmission_settings, target, transmission, depth, resolution_override) =
         view.into_inner();
 
     let Some(transmissive_phase) = transmissive_phases.get(&extracted_view.retained_view_entity)
@@ -56,11 +57,12 @@ pub fn main_transmissive_pass_3d(
         depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     };
 
     if !transmissive_phase.items.is_empty() {
         let screen_space_specular_transmission_steps =
-            camera_3d.screen_space_specular_transmission_steps;
+            transmission_settings.screen_space_specular_transmission_steps;
         if screen_space_specular_transmission_steps > 0 {
             let transmission =
                 transmission.expect("`ViewTransmissionTexture` should exist at this point");

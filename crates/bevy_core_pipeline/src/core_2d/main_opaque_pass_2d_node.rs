@@ -55,6 +55,7 @@ pub fn main_opaque_pass_2d(
         depth_stencil_attachment,
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_2d");
 

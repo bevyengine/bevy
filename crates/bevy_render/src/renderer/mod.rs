@@ -20,11 +20,11 @@ use bevy_camera::NormalizedRenderTarget;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_log::{debug, info, info_span, warn};
 use bevy_platform::time::Instant;
 use bevy_render::camera::ExtractedCamera;
 use bevy_time::TimeSender;
 use bevy_window::RawHandleWrapperHolder;
-use tracing::{debug, info, info_span, warn};
 use wgpu::{
     Adapter, AdapterInfo, Backends, DeviceType, Instance, Queue, RequestAdapterOptions, Trace,
 };
@@ -86,8 +86,8 @@ pub fn render_system(
         });
 
         #[cfg(feature = "tracing-tracy")]
-        tracing::event!(
-            tracing::Level::INFO,
+        bevy_log::event!(
+            bevy_log::Level::INFO,
             message = "finished frame",
             tracy.frame_mark = true
         );
@@ -134,18 +134,19 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 };
 
 #[cfg(not(target_family = "wasm"))]
-fn find_adapter_by_name(
+async fn find_adapter_by_name(
     instance: &Instance,
     options: &WgpuSettings,
     compatible_surface: Option<&wgpu::Surface<'_>>,
     adapter_name: &str,
 ) -> Option<Adapter> {
-    for adapter in
-        instance.enumerate_adapters(options.backends.expect(
+    for adapter in instance
+        .enumerate_adapters(options.backends.expect(
             "The `backends` field of `WgpuSettings` must be set to use a specific adapter.",
         ))
+        .await
     {
-        tracing::trace!("Checking adapter: {:?}", adapter.get_info());
+        bevy_log::trace!("Checking adapter: {:?}", adapter.get_info());
         let info = adapter.get_info();
         if let Some(surface) = compatible_surface
             && !adapter.is_surface_supported(surface)
@@ -237,14 +238,17 @@ pub async fn initialize_renderer(
     };
 
     #[cfg(not(target_family = "wasm"))]
-    let mut selected_adapter = desired_adapter_name.and_then(|adapter_name| {
+    let mut selected_adapter = if let Some(adapter_name) = desired_adapter_name {
         find_adapter_by_name(
             &instance,
             options,
             request_adapter_options.compatible_surface,
             &adapter_name,
         )
-    });
+        .await
+    } else {
+        None
+    };
     #[cfg(target_family = "wasm")]
     let mut selected_adapter = None;
 
@@ -363,9 +367,9 @@ pub async fn initialize_renderer(
             max_vertex_buffer_array_stride: limits
                 .max_vertex_buffer_array_stride
                 .min(constrained_limits.max_vertex_buffer_array_stride),
-            max_push_constant_size: limits
-                .max_push_constant_size
-                .min(constrained_limits.max_push_constant_size),
+            max_immediate_size: limits
+                .max_immediate_size
+                .min(constrained_limits.max_immediate_size),
             min_uniform_buffer_offset_alignment: limits
                 .min_uniform_buffer_offset_alignment
                 .max(constrained_limits.min_uniform_buffer_offset_alignment),
@@ -417,27 +421,45 @@ pub async fn initialize_renderer(
             max_color_attachment_bytes_per_sample: limits
                 .max_color_attachment_bytes_per_sample
                 .min(constrained_limits.max_color_attachment_bytes_per_sample),
-            min_subgroup_size: limits
-                .min_subgroup_size
-                .max(constrained_limits.min_subgroup_size),
-            max_subgroup_size: limits
-                .max_subgroup_size
-                .min(constrained_limits.max_subgroup_size),
-            max_acceleration_structures_per_shader_stage: limits
-                .max_acceleration_structures_per_shader_stage
-                .min(constrained_limits.max_acceleration_structures_per_shader_stage),
-            max_task_workgroup_total_count: limits
-                .max_task_workgroup_total_count
-                .min(constrained_limits.max_task_workgroup_total_count),
-            max_task_workgroups_per_dimension: limits
-                .max_task_workgroups_per_dimension
-                .min(constrained_limits.max_task_workgroups_per_dimension),
+            max_task_mesh_workgroup_total_count: limits
+                .max_task_mesh_workgroup_total_count
+                .min(constrained_limits.max_task_mesh_workgroup_total_count),
+            max_task_mesh_workgroups_per_dimension: limits
+                .max_task_mesh_workgroups_per_dimension
+                .min(constrained_limits.max_task_mesh_workgroups_per_dimension),
+            max_task_invocations_per_workgroup: limits
+                .max_task_invocations_per_workgroup
+                .min(constrained_limits.max_task_invocations_per_workgroup),
+            max_task_invocations_per_dimension: limits
+                .max_task_invocations_per_dimension
+                .min(constrained_limits.max_task_invocations_per_dimension),
+            max_mesh_invocations_per_workgroup: limits
+                .max_mesh_invocations_per_workgroup
+                .min(constrained_limits.max_mesh_invocations_per_workgroup),
+            max_mesh_invocations_per_dimension: limits
+                .max_mesh_invocations_per_dimension
+                .min(constrained_limits.max_mesh_invocations_per_dimension),
+            max_task_payload_size: limits
+                .max_task_payload_size
+                .min(constrained_limits.max_task_payload_size),
+            max_mesh_output_vertices: limits
+                .max_mesh_output_vertices
+                .min(constrained_limits.max_mesh_output_vertices),
+            max_mesh_output_primitives: limits
+                .max_mesh_output_primitives
+                .min(constrained_limits.max_mesh_output_primitives),
             max_mesh_output_layers: limits
                 .max_mesh_output_layers
                 .min(constrained_limits.max_mesh_output_layers),
-            max_mesh_multiview_count: limits
-                .max_mesh_multiview_count
-                .min(constrained_limits.max_mesh_multiview_count),
+            max_mesh_multiview_view_count: limits
+                .max_mesh_multiview_view_count
+                .min(constrained_limits.max_mesh_multiview_view_count),
+            max_acceleration_structures_per_shader_stage: limits
+                .max_acceleration_structures_per_shader_stage
+                .min(constrained_limits.max_acceleration_structures_per_shader_stage),
+            max_multiview_view_count: limits
+                .max_multiview_view_count
+                .min(constrained_limits.max_multiview_view_count),
         };
     }
 

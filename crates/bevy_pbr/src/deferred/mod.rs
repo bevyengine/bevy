@@ -185,6 +185,7 @@ pub fn deferred_lighting(
         }),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
 
     render_pass.set_render_pipeline(pipeline);

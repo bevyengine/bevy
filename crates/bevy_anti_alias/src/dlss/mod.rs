@@ -22,6 +22,7 @@ pub use dlss_wgpu::DlssPerfQualityMode;
 
 use crate::AntiAliasing;
 use bevy_app::{App, Plugin};
+use bevy_camera::Hdr;
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass},
     schedule::{Core3d, Core3dSystems},
@@ -37,7 +38,7 @@ use bevy_render::{
         RenderDevice, RenderQueue,
     },
     texture::CachedTexture,
-    view::{prepare_view_targets, Hdr},
+    view::prepare_view_targets,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use dlss_wgpu::{

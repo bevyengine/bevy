@@ -112,7 +112,7 @@ impl Plugin for WireframePlugin {
             return;
         };
 
-        let required_features = WgpuFeatures::POLYGON_MODE_LINE | WgpuFeatures::PUSH_CONSTANTS;
+        let required_features = WgpuFeatures::POLYGON_MODE_LINE | WgpuFeatures::IMMEDIATES;
         let render_device = render_app.world().resource::<RenderDevice>();
         if !render_device.features().contains(required_features) {
             warn!(
@@ -279,9 +279,9 @@ pub struct Wireframe3dBinKey {
     pub asset_id: UntypedAssetId,
 }
 
-pub struct SetWireframe3dPushConstants;
+pub struct SetWireframe3dImmediates;
 
-impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
+impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dImmediates {
     type Param = (
         SRes<RenderWireframeInstances>,
         SRes<RenderAssets<RenderWireframeMaterial>>,
@@ -304,11 +304,7 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
             return RenderCommandResult::Failure("No wireframe material found for entity");
         };
 
-        pass.set_push_constants(
-            ShaderStages::FRAGMENT,
-            0,
-            bytemuck::bytes_of(&wireframe_material.color),
-        );
+        pass.set_immediates(0, bytemuck::bytes_of(&wireframe_material.color));
         RenderCommandResult::Success
     }
 }
@@ -318,7 +314,7 @@ pub type DrawWireframe3d = (
     SetMeshViewBindGroup<0>,
     SetMeshViewBindingArrayBindGroup<1>,
     SetMeshBindGroup<2>,
-    SetWireframe3dPushConstants,
+    SetWireframe3dImmediates,
     DrawMesh,
 );
 
@@ -349,10 +345,7 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.label = Some("wireframe_3d_pipeline".into());
-        descriptor.push_constant_ranges.push(PushConstantRange {
-            stages: ShaderStages::FRAGMENT,
-            range: 0..16,
-        });
+        descriptor.immediate_size = 16;
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader = self.shader.clone();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
@@ -390,6 +383,7 @@ pub fn wireframe_3d(
         depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
 
     if let Some(viewport) = camera.viewport.as_ref() {

@@ -53,6 +53,7 @@ pub fn main_transparent_pass_3d(
             depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
 
@@ -81,6 +82,7 @@ pub fn main_transparent_pass_3d(
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         };
 
         ctx.command_encoder().begin_render_pass(&pass_descriptor);

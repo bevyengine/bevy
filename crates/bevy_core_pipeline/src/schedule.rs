@@ -216,6 +216,7 @@ fn handle_uncovered_swap_chains(world: &mut World, camera_windows: &HashSet<Enti
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         };
 
         encoder.begin_render_pass(&pass_descriptor);

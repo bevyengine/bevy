@@ -122,7 +122,7 @@ impl MeshletPlugin {
             | WgpuFeatures::SHADER_INT64
             | WgpuFeatures::SUBGROUP
             | WgpuFeatures::DEPTH_CLIP_CONTROL
-            | WgpuFeatures::PUSH_CONSTANTS
+            | WgpuFeatures::IMMEDIATES
     }
 }
 

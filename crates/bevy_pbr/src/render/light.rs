@@ -38,7 +38,7 @@ use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_render::erased_render_asset::ErasedRenderAssets;
-use bevy_render::experimental::occlusion_culling::{
+use bevy_render::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
 use bevy_render::sync_world::MainEntityHashMap;
@@ -218,7 +218,7 @@ pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDev
         address_mode_w: AddressMode::ClampToEdge,
         mag_filter: FilterMode::Linear,
         min_filter: FilterMode::Linear,
-        mipmap_filter: FilterMode::Nearest,
+        mipmap_filter: MipmapFilterMode::Nearest,
         ..default()
     };
 
@@ -718,7 +718,7 @@ pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     (render_device, render_queue): (Res<RenderDevice>, Res<RenderQueue>),
-    mut global_light_meta: ResMut<GlobalClusterableObjectMeta>,
+    mut global_clusterable_object_meta: ResMut<GlobalClusterableObjectMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
         (
@@ -771,7 +771,7 @@ pub fn prepare_lights(
         .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
         .collect::<Vec<_>>();
 
-    global_light_meta.entity_to_index.clear();
+    global_clusterable_object_meta.entity_to_index.clear();
 
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
     let mut directional_lights: Vec<_> = directional_lights.iter().collect::<Vec<_>>();
@@ -890,13 +890,13 @@ pub fn prepare_lights(
         (light.volumetric, light.shadow_maps_enabled, *entity)
     });
 
-    if global_light_meta.entity_to_index.capacity() < point_lights.len() {
-        global_light_meta
+    if global_clusterable_object_meta.entity_to_index.capacity() < point_lights.len() {
+        global_clusterable_object_meta
             .entity_to_index
             .reserve(point_lights.len());
     }
 
-    let mut gpu_point_lights = Vec::new();
+    let mut gpu_clustered_lights = Vec::new();
     for (index, &(entity, _, light, _)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
 
@@ -963,7 +963,7 @@ pub fn prepare_lights(
             }
         };
 
-        gpu_point_lights.push(GpuClusterableObject {
+        gpu_clustered_lights.push(GpuClusteredLight {
             light_custom_data,
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
@@ -989,7 +989,13 @@ pub fn prepare_lights(
                 0.0
             },
         });
-        global_light_meta.entity_to_index.insert(entity, index);
+        global_clusterable_object_meta
+            .entity_to_index
+            .insert(entity, index);
+        debug_assert_eq!(
+            global_clusterable_object_meta.entity_to_index.len(),
+            gpu_clustered_lights.len()
+        );
     }
 
     // iterate the views once to find the maximum number of cascade shadowmaps we will need
@@ -1025,11 +1031,11 @@ pub fn prepare_lights(
             .min(max_texture_array_layers);
     }
 
-    global_light_meta
-        .gpu_clusterable_objects
-        .set(gpu_point_lights);
-    global_light_meta
-        .gpu_clusterable_objects
+    global_clusterable_object_meta
+        .gpu_clustered_lights
+        .set(gpu_clustered_lights);
+    global_clusterable_object_meta
+        .gpu_clustered_lights
         .write_buffer(&render_device, &render_queue);
 
     live_shadow_mapping_lights.clear();
@@ -1283,7 +1289,7 @@ pub fn prepare_lights(
                 continue;
             }
 
-            let light_index = *global_light_meta
+            let light_index = *global_clusterable_object_meta
                 .entity_to_index
                 .get(&light_entity)
                 .unwrap();
@@ -2304,6 +2310,7 @@ pub fn shadow_pass<const IS_LATE: bool>(
             depth_stencil_attachment,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
 
         if let Err(err) = shadow_phase.render(&mut render_pass, world, view_light_entity) {

@@ -55,6 +55,7 @@ pub(crate) fn fxaa(
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     };
 
     let diagnostics = ctx.diagnostic_recorder();
@@ -63,10 +64,13 @@ pub(crate) fn fxaa(
 
     {
         let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
+        let pass_span = diagnostics.pass_span(&mut render_pass, "fxaa");
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
     }
 
     time_span.end(ctx.command_encoder());

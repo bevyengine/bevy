@@ -432,6 +432,7 @@ pub fn volumetric_fog(
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         };
 
         let command_encoder = ctx.command_encoder();

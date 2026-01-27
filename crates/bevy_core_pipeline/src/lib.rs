@@ -20,7 +20,7 @@ pub mod upscaling;
 
 pub use fullscreen_vertex_shader::FullscreenShader;
 pub use schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
-pub use skybox::Skybox;
+pub use bevy_light::Skybox;
 
 mod fullscreen_vertex_shader;
 mod skybox;

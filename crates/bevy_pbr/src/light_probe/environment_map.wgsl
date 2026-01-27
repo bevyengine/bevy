@@ -104,6 +104,12 @@ fn compute_radiances(
     if (query_result.texture_index < 0) {
         query_result.texture_index = light_probes.view_cubemap_index;
         query_result.intensity = light_probes.intensity_for_view;
+        query_result.light_from_world = mat4x4(
+            vec4(1.0, 0.0, 0.0, 0.0),
+            vec4(0.0, 1.0, 0.0, 0.0),
+            vec4(0.0, 0.0, 1.0, 0.0),
+            vec4(0.0, 0.0, 0.0, 1.0)
+        );
         if light_probes.view_environment_map_affects_lightmapped_mesh_diffuse != 0u {
             query_result.flags = LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
         } else {

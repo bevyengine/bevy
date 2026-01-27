@@ -924,6 +924,7 @@ fn perform_edge_detection(
         }),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     };
 
     let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
@@ -974,6 +975,7 @@ fn perform_blending_weight_calculation(
         }),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     };
 
     let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
@@ -1021,6 +1023,7 @@ fn perform_neighborhood_blending(
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     };
 
     let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);

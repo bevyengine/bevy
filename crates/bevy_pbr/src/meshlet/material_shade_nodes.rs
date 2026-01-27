@@ -91,6 +91,7 @@ pub fn meshlet_main_opaque_pass(
         }),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
 
     if let Some(viewport) =
@@ -198,6 +199,7 @@ pub fn meshlet_prepass(
         }),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
 
     if let Some(viewport) =
@@ -313,6 +315,7 @@ pub fn meshlet_deferred_gbuffer_prepass(
         }),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
 
     if let Some(viewport) =

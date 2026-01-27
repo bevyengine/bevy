@@ -316,7 +316,7 @@ impl FromWorld for SsaoPipelines {
         let point_clamp_sampler = render_device.create_sampler(&SamplerDescriptor {
             min_filter: FilterMode::Nearest,
             mag_filter: FilterMode::Nearest,
-            mipmap_filter: FilterMode::Nearest,
+            mipmap_filter: MipmapFilterMode::Nearest,
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,
             ..Default::default()
@@ -324,7 +324,7 @@ impl FromWorld for SsaoPipelines {
         let linear_clamp_sampler = render_device.create_sampler(&SamplerDescriptor {
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Nearest,
+            mipmap_filter: MipmapFilterMode::Nearest,
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,
             ..Default::default()

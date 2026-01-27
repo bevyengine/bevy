@@ -1,6 +1,8 @@
 // https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
 // https://d1qx31qr3h6wln.cloudfront.net/publications/ReSTIR%20GI.pdf
 
+enable wgpu_ray_query;
+
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_pbr::utils::{rand_f, rand_range_u, sample_disk}
@@ -184,13 +186,15 @@ fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world
 }
 
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> NeighborInfo {
+    var search_radius = SPATIAL_REUSE_RADIUS_PIXELS;
     for (var i = 0u; i < 5u; i++) {
-        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, rng);
+        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, search_radius, rng);
 
         let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
         let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
         let spatial_diffuse_brdf = spatial_surface.material.base_color / PI;
         if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
+            search_radius /= 2.0;
             continue;
         }
 
@@ -201,8 +205,8 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     return NeighborInfo(empty_reservoir(), world_position, world_normal, vec3(0.0));
 }
 
-fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) -> vec2<u32> {
-    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng);
+fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, search_radius: f32, rng: ptr<function, u32>) -> vec2<u32> {
+    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(search_radius, rng);
     spatial_id = clamp(spatial_id, vec2(0.0), view.main_pass_viewport.zw - 1.0);
     return vec2<u32>(spatial_id);
 }

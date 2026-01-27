@@ -76,6 +76,7 @@ pub(crate) fn copy_deferred_lighting_id(
         }),
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
 
     render_pass.set_render_pipeline(pipeline);

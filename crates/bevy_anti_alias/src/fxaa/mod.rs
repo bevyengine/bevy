@@ -141,7 +141,7 @@ pub fn init_fxaa_pipeline(
     );
 
     let sampler = render_device.create_sampler(&SamplerDescriptor {
-        mipmap_filter: FilterMode::Linear,
+        mipmap_filter: MipmapFilterMode::Linear,
         mag_filter: FilterMode::Linear,
         min_filter: FilterMode::Linear,
         ..default()

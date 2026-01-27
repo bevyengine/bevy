@@ -1,6 +1,6 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
-use bevy_render::experimental::occlusion_culling::OcclusionCulling;
+use bevy_render::occlusion_culling::OcclusionCulling;
 
 use bevy_render::view::{ExtractedView, NoIndirectDrawing};
 use bevy_render::{
@@ -212,6 +212,7 @@ fn run_deferred_prepass_system(
         depth_stencil_attachment,
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, label);
 

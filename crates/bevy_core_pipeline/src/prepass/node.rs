@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
-    experimental::occlusion_culling::OcclusionCulling,
+    occlusion_culling::OcclusionCulling,
     render_phase::ViewBinnedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
@@ -205,6 +205,7 @@ fn run_prepass_system(
         depth_stencil_attachment,
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, label);
 

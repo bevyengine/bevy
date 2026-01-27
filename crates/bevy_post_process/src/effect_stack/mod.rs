@@ -38,7 +38,7 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
-        FilterMode, FragmentState, Operations, PipelineCache, RenderPassColorAttachment,
+        FilterMode, FragmentState, MipmapFilterMode, Operations, PipelineCache, RenderPassColorAttachment,
         RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
         SamplerDescriptor, ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines,
         TextureDimension, TextureFormat, TextureSampleType,
@@ -198,14 +198,14 @@ pub fn init_post_processing_pipeline(
     // bilinearly.
 
     let source_sampler = render_device.create_sampler(&SamplerDescriptor {
-        mipmap_filter: FilterMode::Linear,
+        mipmap_filter: MipmapFilterMode::Linear,
         min_filter: FilterMode::Linear,
         mag_filter: FilterMode::Linear,
         ..default()
     });
 
     let chromatic_aberration_lut_sampler = render_device.create_sampler(&SamplerDescriptor {
-        mipmap_filter: FilterMode::Linear,
+        mipmap_filter: MipmapFilterMode::Linear,
         min_filter: FilterMode::Linear,
         mag_filter: FilterMode::Linear,
         ..default()
@@ -306,6 +306,7 @@ pub(crate) fn post_processing(
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
+        multiview_mask: None,
     };
 
     let bind_group = ctx.render_device().create_bind_group(

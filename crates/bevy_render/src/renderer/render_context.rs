@@ -1,8 +1,7 @@
-use super::{RenderGraph, WgpuWrapper};
+use super::WgpuWrapper;
 use crate::diagnostic::internal::DiagnosticsRecorder;
 use crate::render_phase::TrackedRenderPass;
 use crate::render_resource::{CommandEncoder, RenderPassDescriptor};
-use crate::render_system;
 use crate::renderer::RenderDevice;
 use bevy_ecs::change_detection::Tick;
 use bevy_ecs::component::ComponentId;
@@ -14,7 +13,7 @@ use bevy_ecs::system::{
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
 use core::marker::PhantomData;
-use tracing::info_span;
+use bevy_log::info_span;
 use wgpu::CommandBuffer;
 
 #[derive(Default)]
