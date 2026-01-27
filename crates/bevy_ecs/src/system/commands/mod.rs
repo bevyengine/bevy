@@ -24,7 +24,7 @@ use crate::{
         InvalidEntityError, OptIn, OptOut,
     },
     error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::{Event, TargetEvent, IntoTargetEvent},
+    event::{Event, IntoTargetEvent, TargetEvent},
     message::Message,
     observer::Observer,
     resource::Resource,
