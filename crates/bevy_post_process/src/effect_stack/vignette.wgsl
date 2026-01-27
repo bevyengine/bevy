@@ -2,25 +2,7 @@
 
 #define_import_path bevy_post_process::effect_stack::vignette
 
-#import bevy_post_process::effect_stack::chromatic_aberration::source_texture
-
-// See `bevy_post_process::effect_stack::Vignette` for more
-// information on these fields.
-struct VignetteSettings {
-    intensity: f32,
-    radius: f32,
-    smoothness: f32,
-    roundness: f32,
-    center: vec2<f32>,
-    edge_compensation: f32,
-    unused: u32,
-    color: vec4<f32>
-}
-
-const EPSILON: f32 = 1.19209290e-07;
-
-// The settings supplied by the developer.
-@group(0) @binding(5) var<uniform> vignette_settings: VignetteSettings;
+#import bevy_post_process::effect_stack::bindings::{source_texture, vignette_settings, VignetteSettings, EPSILON}
 
 fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {
     if (vignette_settings.intensity < EPSILON) {
