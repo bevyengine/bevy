@@ -108,7 +108,7 @@ impl SystemBuffer for RenderContextState {
 
         let inner = &mut *self.0;
 
-        // flush to ensure corrent submission order 
+        // flush to ensure corrent submission order
         if let Some(encoder) = inner.command_encoder.take() {
             inner.command_buffers.push(encoder.finish());
         }
