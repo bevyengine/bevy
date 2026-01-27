@@ -1,7 +1,6 @@
-use crate::{ScreenSpaceTransmission, ViewTransmissionTexture};
+use crate::{ScreenSpaceTransmission, Transmissive3d, ViewTransmissionTexture};
 
 use bevy_camera::{MainPassResolutionOverride, Viewport};
-use bevy_core_pipeline::core_3d::Transmissive3d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::ToExtents;
 use bevy_render::{
