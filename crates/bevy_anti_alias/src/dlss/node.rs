@@ -4,7 +4,7 @@ use super::{
 };
 use bevy_camera::MainPassResolutionOverride;
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
-use bevy_ecs::system::{Query, Res};
+use bevy_ecs::system::Res;
 use bevy_render::{
     camera::TemporalJitter,
     diagnostic::RecordDiagnostics,
@@ -59,16 +59,11 @@ pub fn dlss_super_resolution(
     let diagnostics = diagnostics.as_deref();
     let time_span = diagnostics.time_span(ctx.command_encoder(), "dlss_super_resolution");
 
-    let command_encoder = ctx.command_encoder();
     let mut dlss_context = dlss_context.context.lock().unwrap();
-
-    command_encoder.push_debug_group("dlss_super_resolution");
-
     let dlss_command_buffer = dlss_context
-        .render(render_parameters, command_encoder, &adapter)
+        .render(render_parameters, ctx.command_encoder(), &adapter)
         .expect("Failed to render DLSS Super Resolution");
 
-    command_encoder.pop_debug_group();
     ctx.add_command_buffer(dlss_command_buffer);
     time_span.end(ctx.command_encoder());
 }
@@ -131,16 +126,11 @@ pub fn dlss_ray_reconstruction(
     let diagnostics = diagnostics.as_deref();
     let time_span = diagnostics.time_span(ctx.command_encoder(), "dlss_ray_reconstruction");
 
-    let command_encoder = ctx.command_encoder();
     let mut dlss_context = dlss_context.context.lock().unwrap();
-
-    command_encoder.push_debug_group("dlss_ray_reconstruction");
-
     let dlss_command_buffer = dlss_context
-        .render(render_parameters, command_encoder, &adapter)
+        .render(render_parameters, ctx.command_encoder(), &adapter)
         .expect("Failed to render DLSS Ray Reconstruction");
 
-    command_encoder.pop_debug_group();
     ctx.add_command_buffer(dlss_command_buffer);
     time_span.end(ctx.command_encoder());
 }
