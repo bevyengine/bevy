@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(not(feature = "enable_codegen"), allow(unused))]
 
 //! This crate contains macros used by Bevy's `Reflect` API.
 //!

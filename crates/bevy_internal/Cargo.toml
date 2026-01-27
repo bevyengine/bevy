@@ -366,9 +366,7 @@ reflect_auto_register_static = [
   "bevy_ecs/reflect_auto_register",
 ]
 
-reflection = [
-  "bevy_reflect/enable_codegen",
-]
+reflection = ["bevy_reflect/enable_codegen"]
 
 # Enables bevy_reflect to access documentation comments of rust code at runtime
 reflect_documentation = ["bevy_reflect/reflect_documentation"]

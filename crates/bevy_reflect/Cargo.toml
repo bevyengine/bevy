@@ -10,7 +10,14 @@ keywords = ["bevy"]
 rust-version = "1.87.0"
 
 [features]
-default = ["std", "enable_codegen", "smallvec", "indexmap", "debug", "auto_register_inventory"]
+default = [
+  "std",
+  "enable_codegen",
+  "smallvec",
+  "indexmap",
+  "debug",
+  "auto_register_inventory",
+]
 
 # Enables reflection functionality
 enable_codegen = ["bevy_reflect_derive/enable_codegen"]
