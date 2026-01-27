@@ -690,27 +690,16 @@ pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    opaque_3d_phases: Res<ViewBinnedRenderPhases<Opaque3d>>,
-    alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
-    transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
     views_3d: Query<(
         Entity,
         &ExtractedCamera,
-        &ExtractedView,
         Option<&DepthPrepass>,
         &Camera3d,
         &Msaa,
     )>,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
-    for (_, camera, extracted_view, depth_prepass, camera_3d, _msaa) in &views_3d {
-        if !opaque_3d_phases.contains_key(&extracted_view.retained_view_entity)
-            || !alpha_mask_3d_phases.contains_key(&extracted_view.retained_view_entity)
-            || !transparent_3d_phases.contains_key(&extracted_view.retained_view_entity)
-        {
-            continue;
-        };
-
+    for (_, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
         // Default usage required to write to the depth texture
         let mut usage: TextureUsages = camera_3d.depth_texture_usages.into();
         if depth_prepass.is_some() {
@@ -724,7 +713,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, _, _, camera_3d, msaa) in &views_3d {
+    for (entity, camera, _, camera_3d, msaa) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
