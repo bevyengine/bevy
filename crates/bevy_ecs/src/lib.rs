@@ -1604,8 +1604,6 @@ mod tests {
         assert!(world.contains_resource::<ResA>());
     }
 
-    // NOTE: this test is meant to validate the current behavior of `{try_}resource_scope` when resource metadata is cleared
-    // within the scope. future contributors who wish to change this behavior should feel free to delete this test.
     #[test]
     fn resource_scope_resources_cleared() {
         let mut world = World::default();
@@ -1615,7 +1613,7 @@ mod tests {
             assert!(!world.contains_resource::<ResA>());
             world.clear_resources();
         });
-        assert_eq!(r, None);
+        assert_eq!(r, Some(()));
         assert!(!world.contains_resource::<ResA>());
     }
 

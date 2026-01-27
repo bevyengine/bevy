@@ -93,8 +93,8 @@ pub trait Set: PartialReflect {
 
     /// Removes a value from the set.
     ///
-    /// If the set did not have this value present, `true` is returned.
-    /// If the set did have this value present, `false` is returned.
+    /// If the set did have this value present, `true` is returned.
+    /// If the set did not have this value present, `false` is returned.
     fn remove(&mut self, value: &dyn PartialReflect) -> bool;
 
     /// Checks if the given value is contained in the set

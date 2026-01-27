@@ -18,7 +18,6 @@ pub mod tonemapping;
 pub mod upscaling;
 
 pub use fullscreen_vertex_shader::FullscreenShader;
-pub use skybox::Skybox;
 
 mod fullscreen_vertex_shader;
 mod skybox;

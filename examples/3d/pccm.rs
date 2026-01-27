@@ -3,10 +3,10 @@
 use core::f32;
 
 use bevy::{
+    camera::Hdr,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     light::NoParallaxCorrection,
     prelude::*,
-    render::view::Hdr,
 };
 
 use crate::widgets::{WidgetClickEvent, WidgetClickSender};

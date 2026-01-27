@@ -218,7 +218,7 @@ impl Sphere {
 /// from the plane to the origin is `-8.0` along `NEG_Z`.
 ///
 /// It is used to define a [`Frustum`], but is also a useful mathematical primitive for rendering tasks such as  light computation.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Reflect, Debug, Default)]
 pub struct HalfSpace {
     normal_d: Vec4,
 }
@@ -285,7 +285,6 @@ impl HalfSpace {
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct Frustum {
-    #[reflect(ignore, clone)]
     pub half_spaces: [HalfSpace; 6],
 }
 
@@ -484,7 +483,6 @@ pub fn face_index_to_name(face_index: usize) -> &'static str {
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct CubemapFrusta {
-    #[reflect(ignore, clone)]
     pub frusta: [Frustum; 6],
 }
 
@@ -536,7 +534,6 @@ pub enum CubemapLayout {
 #[derive(Component, Debug, Default, Reflect, Clone)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct CascadesFrusta {
-    #[reflect(ignore, clone)]
     pub frusta: EntityHashMap<Vec<Frustum>>,
 }
 

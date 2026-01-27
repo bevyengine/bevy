@@ -1,7 +1,7 @@
 use core::{marker::PhantomData, num::NonZero};
 
 use crate::{
-    render_resource::Buffer,
+    render_resource::{make_buffer_label, Buffer},
     renderer::{RenderDevice, RenderQueue},
 };
 use encase::{
@@ -131,7 +131,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 
         if self.changed || self.buffer.is_none() {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 usage: self.buffer_usage,
                 contents: self.scratch.as_ref(),
             }));
@@ -296,7 +296,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
 
         if capacity < size || (self.changed && size > 0) {
             let buffer = device.create_buffer(&BufferDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 usage: self.buffer_usage,
                 size,
                 mapped_at_creation: false,

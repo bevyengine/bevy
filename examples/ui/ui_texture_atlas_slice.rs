@@ -94,7 +94,7 @@ fn setup(
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            margin: UiRect::all(px(20)),
+                            margin: px(20).all(),
                             ..default()
                         },
                     ))

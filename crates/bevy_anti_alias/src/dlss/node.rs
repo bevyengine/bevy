@@ -72,18 +72,15 @@ impl ViewNode for DlssNode<DlssSuperResolutionFeature> {
 
         let diagnostics = render_context.diagnostic_recorder();
         let command_encoder = render_context.command_encoder();
-        let mut dlss_context = dlss_context.context.lock().unwrap();
-
-        command_encoder.push_debug_group("dlss_super_resolution");
         let time_span = diagnostics.time_span(command_encoder, "dlss_super_resolution");
 
+        let mut dlss_context = dlss_context.context.lock().unwrap();
         let dlss_command_buffer = dlss_context
             .render(render_parameters, command_encoder, &adapter)
             .expect("Failed to render DLSS Super Resolution");
 
-        time_span.end(command_encoder);
-        command_encoder.pop_debug_group();
         render_context.add_command_buffer(dlss_command_buffer);
+        time_span.end(render_context.command_encoder());
 
         Ok(())
     }
@@ -149,19 +146,15 @@ impl ViewNode for DlssNode<DlssRayReconstructionFeature> {
 
         let diagnostics = render_context.diagnostic_recorder();
         let command_encoder = render_context.command_encoder();
-        let mut dlss_context = dlss_context.context.lock().unwrap();
-
-        command_encoder.push_debug_group("dlss_ray_reconstruction");
         let time_span = diagnostics.time_span(command_encoder, "dlss_ray_reconstruction");
 
+        let mut dlss_context = dlss_context.context.lock().unwrap();
         let dlss_command_buffer = dlss_context
             .render(render_parameters, command_encoder, &adapter)
             .expect("Failed to render DLSS Ray Reconstruction");
 
-        time_span.end(command_encoder);
-        command_encoder.pop_debug_group();
-
         render_context.add_command_buffer(dlss_command_buffer);
+        time_span.end(render_context.command_encoder());
 
         Ok(())
     }
