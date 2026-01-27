@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "Dynamically interact with rust types"
 homepage = "https://bevy.org"
@@ -93,10 +93,10 @@ web = ["bevy_platform/web", "uuid?/js"]
 
 [dependencies]
 # bevy
-bevy_reflect_derive = { path = "derive", version = "0.18.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev", default-features = false }
-bevy_ptr = { path = "../bevy_ptr", version = "0.18.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+bevy_reflect_derive = { path = "derive", version = "0.19.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev", default-features = false }
+bevy_ptr = { path = "../bevy_ptr", version = "0.19.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "alloc",
   "serialize",
 ] }
@@ -116,7 +116,7 @@ derive_more = { version = "2", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1", default-features = false, optional = true }
-glam = { version = "0.30.7", default-features = false, features = [
+glam = { version = "0.31.0", default-features = false, features = [
   "serde",
 ], optional = true }
 indexmap = { version = "2.5.0", default-features = false, optional = true }
@@ -129,7 +129,7 @@ uuid = { version = "1.13.1", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "27", features = [
+wgpu-types = { version = "28", features = [
   "serde",
 ], optional = true, default-features = false }
 

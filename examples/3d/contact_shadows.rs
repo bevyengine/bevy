@@ -3,13 +3,13 @@
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::core_pipeline::Skybox;
+use bevy::light::Skybox;
 use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::post_process::motion_blur::MotionBlur;
 use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 use bevy::{
-    ecs::message::MessageReader, light::NotShadowReceiver, pbr::ContactShadows,
-    post_process::bloom::Bloom, prelude::*, render::view::Hdr,
+    camera::Hdr, ecs::message::MessageReader, light::NotShadowReceiver, pbr::ContactShadows,
+    post_process::bloom::Bloom, prelude::*,
 };
 
 #[path = "../helpers/widgets.rs"]
@@ -116,7 +116,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Bloom::default(),
         Hdr,
         Skybox {
-            brightness: 500.0,
+            brightness: 1000.0,
             image: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             ..default()
         },

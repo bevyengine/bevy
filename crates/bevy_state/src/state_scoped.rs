@@ -160,3 +160,75 @@ pub fn despawn_entities_on_enter_state<S: States>(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use bevy_app::App;
+
+    use crate::{
+        app::{AppExtStates, StatesPlugin},
+        prelude::CommandsStatesExt,
+    };
+
+    #[test]
+    fn despawn_on_exit_from_computed_state() {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States)]
+        enum State {
+            On,
+            Off,
+        }
+
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct ComputedState;
+        impl bevy_state::state::ComputedStates for ComputedState {
+            type SourceStates = State;
+
+            fn compute(sources: Self::SourceStates) -> Option<Self> {
+                match sources {
+                    State::On => Some(ComputedState),
+                    State::Off => None,
+                }
+            }
+        }
+
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+
+        app.insert_state(State::On);
+        app.add_computed_state::<ComputedState>();
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<State>>()
+                .get(),
+            &State::On
+        );
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<ComputedState>>()
+                .get(),
+            &ComputedState
+        );
+
+        let entity = app.world_mut().spawn(DespawnOnExit(ComputedState)).id();
+        assert!(app.world().get_entity(entity).is_ok());
+
+        app.world_mut().commands().set_state(State::Off);
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<bevy_state::state::State<State>>()
+                .get(),
+            &State::Off
+        );
+        assert!(app
+            .world()
+            .get_resource::<bevy_state::state::State<ComputedState>>()
+            .is_none());
+        assert!(app.world().get_entity(entity).is_err());
+    }
+}

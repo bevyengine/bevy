@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.89.0"
+rust-version = "1.92.0"
 
 [workspace]
 resolver = "2"
@@ -178,7 +178,7 @@ audio = ["bevy_audio", "vorbis"]
 # COLLECTION: Features used to compose Bevy scenes.
 scene = ["bevy_scene"]
 
-# COLLECTION: Enables picking functionality
+# COLLECTION: Enables picking functionality.
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
 
 # COLLECTION: The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc).
@@ -273,7 +273,7 @@ ui_bevy_render = [
   "bevy_ui_render",
 ]
 
-# COLLECTION: Recommended defaults for no_std applications
+# COLLECTION: Recommended defaults for no_std applications.
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
@@ -422,6 +422,9 @@ statically-linked-dxc = ["bevy_internal/statically-linked-dxc"]
 
 # Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
 raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
+
+# Pre-populate buffer labels with buffer types for debugging.
+type_label_buffers = ["bevy_internal/type_label_buffers"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -720,12 +723,12 @@ hotpatching = ["bevy_internal/hotpatching"]
 debug = ["bevy_internal/debug"]
 
 [dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.18.0-dev", default-features = false }
+bevy_internal = { path = "crates/bevy_internal", version = "0.19.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.18.0-dev", default-features = false, optional = true }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.19.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.9.0"
@@ -736,14 +739,14 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 bytemuck = "1"
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
-bevy_animation = { path = "crates/bevy_animation", version = "0.18.0-dev", default-features = false }
-bevy_asset = { path = "crates/bevy_asset", version = "0.18.0-dev", default-features = false }
-bevy_ecs = { path = "crates/bevy_ecs", version = "0.18.0-dev", default-features = false }
-bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.18.0-dev", default-features = false }
-bevy_image = { path = "crates/bevy_image", version = "0.18.0-dev", default-features = false }
-bevy_reflect = { path = "crates/bevy_reflect", version = "0.18.0-dev", default-features = false }
-bevy_render = { path = "crates/bevy_render", version = "0.18.0-dev", default-features = false }
-bevy_state = { path = "crates/bevy_state", version = "0.18.0-dev", default-features = false }
+bevy_animation = { path = "crates/bevy_animation", version = "0.19.0-dev", default-features = false }
+bevy_asset = { path = "crates/bevy_asset", version = "0.19.0-dev", default-features = false }
+bevy_ecs = { path = "crates/bevy_ecs", version = "0.19.0-dev", default-features = false }
+bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.19.0-dev", default-features = false }
+bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-features = false }
+bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
+bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
+bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -752,7 +755,7 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.21"
+accesskit = "0.23"
 nonmax = "0.5"
 gltf = "1.4"
 
@@ -1940,6 +1943,17 @@ doc-scrape-examples = true
 [package.metadata.example.no_renderer]
 name = "No Renderer"
 description = "An application that runs with default plugins and displays an empty window, but without an actual renderer"
+category = "Application"
+wasm = false
+
+[[example]]
+name = "externally_driven_headless_renderer"
+path = "examples/app/externally_driven_headless_renderer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.externally_driven_headless_renderer]
+name = "Externally Driven Headless Renderer"
+description = "Using bevy with manually driven update to render images"
 category = "Application"
 wasm = false
 
@@ -3198,6 +3212,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "compute_mesh"
+path = "examples/shader_advanced/compute_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.compute_mesh]
+name = "Compute Shader Mesh"
+description = "A compute shader that generates a mesh that is controlled by a Handle"
+category = "Shaders"
+wasm = false
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 # Causes an ICE on docs.rs
@@ -3285,7 +3310,7 @@ doc-scrape-examples = false
 [package.metadata.example.manual_material]
 name = "Manual Material Implementation"
 description = "Demonstrates how to implement a material manually using the mid-level render APIs"
-category = "Shader Advanced"
+category = "Shaders Advanced"
 wasm = true
 
 [[example]]
@@ -3371,6 +3396,18 @@ name = "Many Animated Sprites"
 description = "Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
 category = "Stress Tests"
 wasm = true
+
+[[example]]
+name = "many_animated_sprite_meshes"
+path = "examples/stress_tests/many_animated_sprite_meshes.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.many_animated_sprite_meshes]
+name = "Many Animated Sprite Meshes"
+description = "Displays many animated sprite meshes in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
+category = "Stress Tests"
+wasm = false
 
 [[example]]
 name = "many_buttons"
@@ -3491,6 +3528,18 @@ name = "Many Sprites"
 description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
+
+[[example]]
+name = "many_sprite_meshes"
+path = "examples/stress_tests/many_sprite_meshes.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.many_sprite_meshes]
+name = "Many Sprite Meshes"
+description = "Displays many sprite meshes in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
+category = "Stress Tests"
+wasm = false
 
 [[example]]
 name = "many_text2d"
@@ -3878,6 +3927,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "generic_font_families"
+path = "examples/ui/generic_font_families.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.generic_font_families]
+name = "Generic Font Families"
+description = "Demonstrates how to use generic font families"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 # Causes an ICE on docs.rs
@@ -4123,6 +4184,30 @@ doc-scrape-examples = false
 [package.metadata.example.viewport_node]
 name = "Viewport Node"
 description = "Demonstrates how to create a viewport node with picking support"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "image_node"
+path = "examples/ui/image_node.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.image_node]
+name = "Image Node"
+description = "Demonstrates how to create an image node"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "image_node_resizing"
+path = "examples/ui/image_node_resizing.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.image_node_resizing]
+name = "Image Node Resizing"
+description = "Demonstrates how to resize an image node"
 category = "UI (User Interface)"
 wasm = true
 
@@ -4516,7 +4601,7 @@ doc-scrape-examples = false
 name = "glTF extension AnimationGraph"
 description = "Uses glTF data to build an AnimationGraph via extension processing"
 category = "glTF"
-wasm = false
+wasm = true
 
 [[example]]
 name = "gltf_extension_mesh_2d"
@@ -4528,7 +4613,7 @@ doc-scrape-examples = false
 name = "glTF extension processing to build Mesh2ds from glTF data"
 description = "Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d"
 category = "glTF"
-wasm = false
+wasm = true
 
 [[example]]
 name = "query_gltf_primitives"
@@ -4679,6 +4764,7 @@ name = "ssr"
 path = "examples/3d/ssr.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
+required-features = ["bluenoise_texture"]
 
 [package.metadata.example.ssr]
 name = "Screen Space Reflections"
@@ -5006,6 +5092,14 @@ doc-scrape-examples = false
 [package.metadata.example.test_invalid_skinned_mesh]
 hidden = true
 
+[[example]]
+name = "test_skinned_mesh_bounds"
+path = "tests/3d/test_skinned_mesh_bounds.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.test_skinned_mesh_bounds]
+hidden = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -5098,25 +5192,25 @@ wasm = true
 
 [[example]]
 name = "directional_navigation"
-path = "examples/ui/directional_navigation.rs"
+path = "examples/ui/navigation/directional_navigation.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
 [package.metadata.example.directional_navigation]
 name = "Directional Navigation"
-description = "Demonstration of Directional Navigation between UI elements"
+description = "Demonstration of automatic directional navigation based on UI element positions"
 category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "auto_directional_navigation"
-path = "examples/ui/auto_directional_navigation.rs"
+name = "directional_navigation_overrides"
+path = "examples/ui/navigation/directional_navigation_overrides.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
-[package.metadata.example.auto_directional_navigation]
-name = "Automatic Directional Navigation"
-description = "Demonstration of automatic directional navigation graph generation based on UI element positions"
+[package.metadata.example.directional_navigation_overrides]
+name = "Directional Navigation Overrides"
+description = "Demonstration of automatic directional navigation between UI elements with manual overrides"
 category = "UI (User Interface)"
 wasm = true
 
@@ -5344,3 +5438,15 @@ name = "Dynamic Mipmap Generation"
 description = "Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture"
 category = "2D Rendering"
 wasm = false
+
+[[example]]
+name = "pccm"
+path = "examples/3d/pccm.rs"
+doc-scrape-examples = true
+required-features = ["free_camera", "https"]
+
+[package.metadata.example.pccm]
+name = "Parallax-Corrected Cubemaps"
+description = "Demonstrates parallax-corrected cubemap reflections"
+category = "3D Rendering"
+wasm = true

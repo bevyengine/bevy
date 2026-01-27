@@ -2,8 +2,9 @@
 
 use core::f32::consts::PI;
 
-use crate::primitives::dim3::GizmoPrimitive3d;
+use bevy_gizmos::primitives::dim3::GizmoPrimitive3d;
 
+use crate::{DirectionalLight, PointLight, SpotLight};
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{
     palettes::basic::{BLUE, GREEN, RED},
@@ -17,7 +18,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
-use bevy_light::{DirectionalLight, PointLight, SpotLight};
 use bevy_math::{
     ops,
     primitives::{Cone, Sphere},
@@ -26,7 +26,7 @@ use bevy_math::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 
-use crate::{
+use bevy_gizmos::{
     config::{GizmoConfigGroup, GizmoConfigStore},
     gizmos::Gizmos,
     AppGizmoBuilder,

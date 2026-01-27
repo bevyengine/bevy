@@ -165,6 +165,7 @@ Add a `flake.nix` file to the root of your GitHub repository containing:
               xorg.libXi
               xorg.libXcursor
               libxkbcommon
+              wayland
             ];
           };
       }
