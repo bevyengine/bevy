@@ -83,10 +83,8 @@ pub fn meshlet_visibility_buffer_raster(
 
     ctx.command_encoder()
         .push_debug_group("meshlet_visibility_buffer_raster");
-    let time_span = diagnostics.time_span(
-        ctx.command_encoder(),
-        "meshlet_visibility_buffer_raster",
-    );
+    let time_span =
+        diagnostics.time_span(ctx.command_encoder(), "meshlet_visibility_buffer_raster");
 
     ctx.command_encoder().clear_buffer(
         &resource_manager.visibility_buffer_raster_cluster_prev_counts,
@@ -222,7 +220,10 @@ pub fn meshlet_visibility_buffer_raster(
         ));
         let time_span_shadow = diagnostics.time_span(
             ctx.command_encoder(),
-            &format!("meshlet_visibility_buffer_raster: {}", shadow_view.pass_name),
+            &format!(
+                "meshlet_visibility_buffer_raster: {}",
+                shadow_view.pass_name
+            ),
         );
 
         clear_visibility_buffer_pass(

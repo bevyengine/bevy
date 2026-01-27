@@ -6,7 +6,6 @@
 )]
 
 use bevy_app::Plugin;
-use bevy_ecs::schedule::SystemSet;
 use contrast_adaptive_sharpening::CasPlugin;
 use fxaa::FxaaPlugin;
 use smaa::SmaaPlugin;
@@ -19,9 +18,7 @@ pub mod fxaa;
 pub mod smaa;
 pub mod taa;
 
-/// System set for ordering render graph systems relative to any anti-aliasing implementation.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct AntiAliasing;
+pub use bevy_core_pipeline::schedule::AntiAliasing;
 
 /// Adds fxaa, smaa, taa, contrast aware sharpening, and optional dlss support.
 #[derive(Default)]

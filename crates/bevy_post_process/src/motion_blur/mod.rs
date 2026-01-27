@@ -8,7 +8,7 @@ use bevy_asset::embedded_asset;
 use bevy_camera::Camera;
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass},
-    schedule::{Core3d, Core3dSystems},
+    schedule::{AntiAliasing, Core3d, Core3dSystems},
 };
 use bevy_ecs::{
     component::Component,
@@ -154,6 +154,7 @@ impl Plugin for MotionBlurPlugin {
         render_app.add_systems(
             Core3d,
             node::motion_blur
+                .before(AntiAliasing)
                 .before(bloom)
                 .in_set(Core3dSystems::PostProcess),
         );

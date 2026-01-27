@@ -1,10 +1,9 @@
-use crate::AntiAliasing;
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
-    schedule::{Core3d, Core3dSystems},
+    schedule::{AntiAliasing, Core3d, Core3dSystems},
     FullscreenShader,
 };
 use bevy_diagnostic::FrameCount;
@@ -18,7 +17,6 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault as _, ToExtents};
 use bevy_math::vec2;
-use bevy_post_process::{bloom::bloom, motion_blur::node::motion_blur};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
@@ -72,8 +70,6 @@ impl Plugin for TemporalAntiAliasPlugin {
         render_app.add_systems(
             Core3d,
             temporal_anti_alias
-                .after(motion_blur)
-                .before(bloom)
                 .in_set(Core3dSystems::PostProcess)
                 .in_set(AntiAliasing),
         );
