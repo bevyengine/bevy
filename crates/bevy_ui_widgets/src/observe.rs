@@ -6,19 +6,19 @@ use core::marker::PhantomData;
 
 use bevy_ecs::{
     bundle::{Bundle, DynamicBundle},
-    event::EventFromEntity,
+    event::TargetEvent,
     system::IntoObserverSystem,
 };
 
 /// Helper struct that adds an observer when inserted as a [`Bundle`].
-pub struct AddObserver<E: EventFromEntity, B: Bundle, M, I: IntoObserverSystem<E, B, M>> {
+pub struct AddObserver<E: TargetEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> {
     observer: I,
     marker: PhantomData<(E, B, M)>,
 }
 
 // SAFETY: Empty method bodies.
 unsafe impl<
-        E: EventFromEntity,
+        E: TargetEvent,
         B: Bundle,
         M: Send + Sync + 'static,
         I: IntoObserverSystem<E, B, M> + Send + Sync,
@@ -41,7 +41,7 @@ unsafe impl<
     }
 }
 
-impl<E: EventFromEntity, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
+impl<E: TargetEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
     for AddObserver<E, B, M, I>
 {
     type Effect = Self;
@@ -67,7 +67,7 @@ impl<E: EventFromEntity, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBu
 }
 
 /// Adds an observer as a bundle effect.
-pub fn observe<E: EventFromEntity, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(
+pub fn observe<E: TargetEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(
     observer: I,
 ) -> AddObserver<E, B, M, I> {
     AddObserver {

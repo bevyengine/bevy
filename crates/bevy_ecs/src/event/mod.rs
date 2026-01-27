@@ -296,7 +296,7 @@ pub trait EntityEvent: Event {
 /// This trait is implemented by [`EntityEvent`] by default, but can be extended by third parties
 /// to support custom entity event types that don't implement [`EntityEvent`].
 ///
-/// Methods like [`EntityWorldMut::observe`](crate::world::EntityWorldMut::observe) constrain events to `EventFromEntity`
+/// Methods like [`EntityWorldMut::observe`](crate::world::EntityWorldMut::observe) constrain events to `TargetEvent`
 /// to avoid accidentally adding a global observer to an entity.
 ///
 /// # Example
@@ -306,16 +306,16 @@ pub trait EntityEvent: Event {
 /// #[derive(Event)]
 /// struct MyCustomEvent;
 ///
-/// impl EventFromEntity for MyCustomEvent {}
+/// impl TargetEvent for MyCustomEvent {}
 ///
 /// // Now can be used with entity.observe()
 /// entity.observe(|event: On<MyCustomEvent>| {
 ///     // observer logic
 /// });
 /// ```
-pub trait EventFromEntity: Event {}
+pub trait TargetEvent: Event {}
 
-impl<E: EntityEvent> EventFromEntity for E {}
+impl<E: EntityEvent> TargetEvent for E {}
 
 /// A trait for converting values into entity-targeted events with their triggers.
 ///
@@ -359,7 +359,7 @@ impl<E: EntityEvent> EventFromEntity for E {}
 ///     commands.spawn_empty().trigger(|entity| Explode(entity));
 /// }
 /// ```
-pub trait IntoEventFromEntity<M> {
+pub trait IntoTargetEvent<M> {
     /// The event type.
     type Event: for<'a> Event<Trigger<'a> = Self::Trigger>;
     /// The trigger type for this event.
@@ -369,10 +369,10 @@ pub trait IntoEventFromEntity<M> {
     fn into_event_from_entity(self, entity: Entity) -> (Self::Event, Self::Trigger);
 }
 
-/// Marker type for the `FnOnce(Entity) -> E` implementation of [`IntoEventFromEntity`].
-pub struct FnOnceIntoEventFromEntity;
+/// Marker type for the `FnOnce(Entity) -> E` implementation of [`IntoTargetEvent`].
+pub struct FnOnceIntoTargetEvent;
 
-impl<F, E, T> IntoEventFromEntity<(E, T, FnOnceIntoEventFromEntity)> for F
+impl<F, E, T> IntoTargetEvent<(E, T, FnOnceIntoTargetEvent)> for F
 where
     F: FnOnce(Entity) -> E,
     E: for<'a> Event<Trigger<'a> = T>,

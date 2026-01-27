@@ -6,7 +6,7 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
-    event::{EntityComponentsTrigger, EventFromEntity, IntoEventFromEntity},
+    event::{EntityComponentsTrigger, TargetEvent, IntoTargetEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
@@ -1759,7 +1759,7 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
-    /// Creates an [`Observer`] watching for an [`EventFromEntity`] of type `E` that targets this entity.
+    /// Creates an [`Observer`] watching for an [`TargetEvent`] of type `E` that targets this entity.
     ///
     /// # Panics
     ///
@@ -1767,14 +1767,14 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the given system is an exclusive system.
     #[track_caller]
-    pub fn observe<E: EventFromEntity, B: Bundle, M>(
+    pub fn observe<E: TargetEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.observe_with_caller(observer, MaybeLocation::caller())
     }
 
-    pub(crate) fn observe_with_caller<E: EventFromEntity, B: Bundle, M>(
+    pub(crate) fn observe_with_caller<E: TargetEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
         caller: MaybeLocation,
@@ -2074,9 +2074,9 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Passes the current entity into the given function, and triggers the event returned by that function.
-    /// See [`IntoEventFromEntity`] for usage examples.
+    /// See [`IntoTargetEvent`] for usage examples.
     #[track_caller]
-    pub fn trigger<M, T: IntoEventFromEntity<M>>(&mut self, event_fn: T) -> &mut Self {
+    pub fn trigger<M, T: IntoTargetEvent<M>>(&mut self, event_fn: T) -> &mut Self {
         let (mut event, mut trigger) = event_fn.into_event_from_entity(self.entity);
         let caller = MaybeLocation::caller();
         self.world_scope(|world| {

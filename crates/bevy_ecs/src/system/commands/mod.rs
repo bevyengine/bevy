@@ -24,7 +24,7 @@ use crate::{
         InvalidEntityError, OptIn, OptOut,
     },
     error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::{Event, EventFromEntity, IntoEventFromEntity},
+    event::{Event, TargetEvent, IntoTargetEvent},
     message::Message,
     observer::Observer,
     resource::Resource,
@@ -2022,8 +2022,8 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Creates an [`Observer`] watching for an [`EventFromEntity`] of type `E` whose event targets this entity.
-    pub fn observe<E: EventFromEntity, B: Bundle, M>(
+    /// Creates an [`Observer`] watching for an [`TargetEvent`] of type `E` whose event targets this entity.
+    pub fn observe<E: TargetEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
@@ -2276,9 +2276,9 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Passes the current entity into the given function, and triggers the event returned by that function.
-    /// See [`IntoEventFromEntity`] for usage examples.
+    /// See [`IntoTargetEvent`] for usage examples.
     #[track_caller]
-    pub fn trigger<M, T: IntoEventFromEntity<M>>(&mut self, event_fn: T) -> &mut Self
+    pub fn trigger<M, T: IntoTargetEvent<M>>(&mut self, event_fn: T) -> &mut Self
     where
         T::Event: Send + 'static,
         T::Trigger: Send + 'static,
