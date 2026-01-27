@@ -6,6 +6,7 @@ use bevy_core_pipeline::{
     mip_generation::experimental::depth::ViewDepthPyramid,
     oit::OrderIndependentTransparencySettingsOffset,
     schedule::{Core3d, Core3dSystems},
+    tonemapping::tonemapping,
     FullscreenShader,
 };
 use bevy_ecs::{
@@ -83,7 +84,9 @@ impl Plugin for RenderDebugOverlayPlugin {
             )
             .add_systems(
                 Core3d,
-                render_debug_overlay.in_set(Core3dSystems::PostProcess),
+                render_debug_overlay
+                    .after(tonemapping)
+                    .in_set(Core3dSystems::PostProcess),
             );
     }
 }
