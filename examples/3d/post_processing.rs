@@ -224,7 +224,7 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
         }
         7 => {
             app_settings.film_grain_grain_size =
-                (app_settings.film_grain_grain_size + delta).max(0.01)
+                (app_settings.film_grain_grain_size + delta).max(0.01);
         }
         _ => {}
     }
