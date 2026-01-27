@@ -69,12 +69,7 @@ impl Plugin for SolariLightingPlugin {
                 Render,
                 prepare_solari_lighting_resources.in_set(RenderSystems::PrepareResources),
             )
-            .add_systems(
-                Core3d,
-                solari_lighting
-                    .after(Core3dSystems::Prepass)
-                    .in_set(Core3dSystems::MainPass),
-            );
+            .add_systems(Core3d, solari_lighting.in_set(Core3dSystems::MainPass));
     }
 }
 

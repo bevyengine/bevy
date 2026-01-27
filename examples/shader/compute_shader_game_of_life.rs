@@ -5,6 +5,7 @@
 
 use bevy::{
     asset::RenderAssetUsages,
+    core_pipeline::schedule::camera_driver,
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -106,7 +107,7 @@ impl Plugin for GameOfLifeComputePlugin {
                 prepare_bind_group.in_set(RenderSystems::PrepareBindGroups),
             )
             .add_systems(Render, update.in_set(RenderSystems::Prepare))
-            .add_systems(RenderGraph, game_of_life);
+            .add_systems(RenderGraph, game_of_life.before(camera_driver));
     }
 }
 

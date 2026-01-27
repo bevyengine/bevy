@@ -14,6 +14,7 @@ use std::ops::Not;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::tailwind::{RED_400, SKY_400},
+    core_pipeline::schedule::camera_driver,
     mesh::Indices,
     platform::collections::HashSet,
     prelude::*,
@@ -56,7 +57,7 @@ impl Plugin for ComputeShaderMeshGeneratorPlugin {
             .init_resource::<ChunksToProcess>()
             .add_systems(RenderStartup, init_compute_pipeline)
             .add_systems(Render, prepare_chunks)
-            .add_systems(RenderGraph, compute_mesh);
+            .add_systems(RenderGraph, compute_mesh.before(camera_driver));
     }
     fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
