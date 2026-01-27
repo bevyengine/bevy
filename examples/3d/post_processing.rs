@@ -22,7 +22,7 @@ const ADJUSTMENT_SPEED: f32 = 0.002;
 /// The maximum supported chromatic aberration intensity level.
 const MAX_CHROMATIC_ABERRATION_INTENSITY: f32 = 0.4;
 
-/// The maximun supported film grain intensity level.
+/// The maximum supported film grain intensity level.
 const MAX_FILM_GRAIN_INTENSITY: f32 = 0.2;
 
 /// The settings that the user can control.
