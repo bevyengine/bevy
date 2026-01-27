@@ -218,13 +218,8 @@ pub fn meshlet_visibility_buffer_raster(
             "meshlet_visibility_buffer_raster: {}",
             shadow_view.pass_name
         ));
-        let time_span_shadow = diagnostics.time_span(
-            ctx.command_encoder(),
-            &format!(
-                "meshlet_visibility_buffer_raster: {}",
-                shadow_view.pass_name
-            ),
-        );
+        let time_span_shadow =
+            diagnostics.time_span(ctx.command_encoder(), shadow_view.pass_name.clone());
 
         clear_visibility_buffer_pass(
             &mut ctx,

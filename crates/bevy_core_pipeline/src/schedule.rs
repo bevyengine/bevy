@@ -32,9 +32,9 @@ pub struct Core3d;
 
 /// System sets for the Core 3D rendering pipeline, defining the main stages of rendering.
 /// These stages include and run in the following order:
-/// - Prepass: Initial rendering operations, such as depth pre-pass.
-/// - MainPass: The primary rendering operations, including drawing opaque and transparent objects.
-/// - PostProcess: Final rendering operations, such as post-processing effects.
+/// - `Prepass`: Initial rendering operations, such as depth pre-pass.
+/// - `MainPass`: The primary rendering operations, including drawing opaque and transparent objects.
+/// - `PostProcess`: Final rendering operations, such as post-processing effects.
 ///
 /// Additional systems can be added to these sets to customize the rendering pipeline, or additional
 /// sets can be created relative to these core sets.
@@ -69,8 +69,8 @@ pub struct Core2d;
 
 /// System sets for the Core 2D rendering pipeline, defining the main stages of rendering.
 /// These stages include and run in the following order:
-/// - MainPass: The primary rendering operations, including drawing 2D sprites and meshes.
-/// - PostProcess: Final rendering operations, such as post-processing effects.
+/// - `MainPass`: The primary rendering operations, including drawing 2D sprites and meshes.
+/// - `PostProcess`: Final rendering operations, such as post-processing effects.
 ///
 /// Additional systems can be added to these sets to customize the rendering pipeline, or additional
 /// sets can be created relative to these core sets.
