@@ -38,8 +38,8 @@ mod node;
 pub mod resources;
 
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{embedded_asset, AssetId, Handle};
-use bevy_camera::{Camera3d, Hdr};
+use bevy_asset::{embedded_asset, AssetId};
+use bevy_camera::Camera3d;
 use bevy_core_pipeline::{
     core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
     schedule::{Core3d, Core3dSystems},
@@ -48,14 +48,16 @@ use bevy_ecs::{
     component::Component,
     query::{Changed, QueryItem, With},
     schedule::IntoScheduleConfigs,
-    system::{lifetimeless::Read, Query},
+    system::{lifetimeless::Read, Commands, Local, Query},
 };
+use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
-    RenderStartup,
+    sync_world::RenderEntity,
+    Extract, ExtractSchedule, RenderStartup,
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -77,10 +79,7 @@ use resources::{
 };
 use tracing::warn;
 
-use crate::{
-    medium::ScatteringMedium,
-    resources::{init_atmosphere_buffer, write_atmosphere_buffer},
-};
+use crate::resources::{init_atmosphere_buffer, write_atmosphere_buffer};
 
 use self::resources::{
     prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
@@ -105,13 +104,17 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "environment.wgsl");
 
         app.add_plugins((
-            ExtractComponentPlugin::<Atmosphere>::default(),
             ExtractComponentPlugin::<GpuAtmosphereSettings>::default(),
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))
+        .register_required_components::<Atmosphere, AtmosphereSettings>()
         .add_systems(Update, prepare_atmosphere_probe_components);
+
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_systems(ExtractSchedule, extract_atmosphere);
+        }
     }
 
     fn finish(&self, app: &mut App) {
@@ -188,61 +191,27 @@ impl Plugin for AtmospherePlugin {
     }
 }
 
-/// Enables atmospheric scattering for an HDR camera.
-#[derive(Clone, Component)]
-#[require(AtmosphereSettings, Hdr)]
-pub struct Atmosphere {
-    /// Radius of the planet
-    ///
-    /// units: m
-    pub bottom_radius: f32,
-
-    /// Radius at which we consider the atmosphere to 'end' for our
-    /// calculations (from center of planet)
-    ///
-    /// units: m
-    pub top_radius: f32,
-
-    /// An approximation of the average albedo (or color, roughly) of the
-    /// planet's surface. This is used when calculating multiscattering.
-    ///
-    /// units: N/A
-    pub ground_albedo: Vec3,
-
-    /// A handle to a [`ScatteringMedium`], which describes the substance
-    /// of the atmosphere and how it scatters light.
-    pub medium: Handle<ScatteringMedium>,
-}
-
-impl Atmosphere {
-    pub fn earthlike(medium: Handle<ScatteringMedium>) -> Self {
-        const EARTH_BOTTOM_RADIUS: f32 = 6_360_000.0;
-        const EARTH_TOP_RADIUS: f32 = 6_460_000.0;
-        const EARTH_ALBEDO: Vec3 = Vec3::splat(0.3);
-        Self {
-            bottom_radius: EARTH_BOTTOM_RADIUS,
-            top_radius: EARTH_TOP_RADIUS,
-            ground_albedo: EARTH_ALBEDO,
-            medium,
-        }
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type Atmosphere
+pub fn extract_atmosphere(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &Atmosphere), With<Camera3d>>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, item) in &query {
+        values.push((
+            entity,
+            ExtractedAtmosphere {
+                bottom_radius: item.bottom_radius,
+                top_radius: item.top_radius,
+                ground_albedo: item.ground_albedo,
+                medium: item.medium.id(),
+            },
+        ));
     }
-}
-
-impl ExtractComponent for Atmosphere {
-    type QueryData = Read<Atmosphere>;
-
-    type QueryFilter = With<Camera3d>;
-
-    type Out = ExtractedAtmosphere;
-
-    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        Some(ExtractedAtmosphere {
-            bottom_radius: item.bottom_radius,
-            top_radius: item.top_radius,
-            ground_albedo: item.ground_albedo,
-            medium: item.medium.id(),
-        })
-    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
 }
 
 /// The render-world representation of an `Atmosphere`, but which
