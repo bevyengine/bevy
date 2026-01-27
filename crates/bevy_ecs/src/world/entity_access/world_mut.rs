@@ -50,7 +50,7 @@ use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 /// this has no way of knowing why it is not spawned or its "unspawned state".
 /// For example, it the entity is not spawned, this will not know if that is because the entity is not yet spawned or if it was spawned and was later despawned.
 /// If it was despawned, this can not know who was responsible to free the [`Entity`].
-/// Keep these limitations in mind when use this type in the context of unkown code.
+/// Keep these limitations in mind when use this type in the context of unknown code.
 ///
 /// Unless you have strong reason to assume these invariants, you should generally avoid keeping an [`EntityWorldMut`] to an entity that is potentially not spawned.
 /// For example, when inserting a component, that component insert may trigger an observer that despawns the entity.
