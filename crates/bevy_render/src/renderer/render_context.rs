@@ -106,22 +106,19 @@ impl SystemBuffer for RenderContextState {
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
         let _span = info_span!("RenderContextState::apply", system = %system_meta.name()).entered();
 
-        let has_buffers = !self.0.command_buffers.is_empty();
-        let has_encoder = self.0.command_encoder.is_some();
+        let inner = &mut *self.0;
 
-        if has_buffers || has_encoder {
-            let mut pending = world.resource_mut::<PendingCommandBuffers>();
-
-            if has_buffers {
-                pending.push(core::mem::take(&mut self.0.command_buffers));
-            }
-
-            if let Some(encoder) = self.0.command_encoder.take() {
-                pending.push_encoder(encoder);
-            }
+        // flush to ensure corrent submission order 
+        if let Some(encoder) = inner.command_encoder.take() {
+            inner.command_buffers.push(encoder.finish());
         }
 
-        self.0.render_device = None;
+        if !inner.command_buffers.is_empty() {
+            let mut pending = world.resource_mut::<PendingCommandBuffers>();
+            pending.push(core::mem::take(&mut inner.command_buffers));
+        }
+
+        inner.render_device = None;
     }
 
     fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
