@@ -1,4 +1,5 @@
 use super::WgpuWrapper;
+use bevy_derive::{Deref, DerefMut};
 use crate::diagnostic::internal::DiagnosticsRecorder;
 use crate::render_phase::TrackedRenderPass;
 use crate::render_resource::{CommandEncoder, RenderPassDescriptor};
@@ -202,44 +203,11 @@ impl<'w> FlushCommands<'w> {
 }
 
 /// The entity corresponding to the current view being rendered.
-#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CurrentViewEntity(pub Entity);
-
-impl CurrentViewEntity {
-    pub fn new(entity: Entity) -> Self {
-        Self(entity)
-    }
-
-    #[inline]
-    pub fn entity(&self) -> Entity {
-        self.0
-    }
-}
-
-/// A system parameter that provides access to the entity corresponding to the current view being rendered.
-#[derive(SystemParam)]
-pub struct CurrentView<'w> {
-    entity: Res<'w, CurrentViewEntity>,
-}
-
-impl<'w> CurrentView<'w> {
-    #[inline]
-    pub fn entity(&self) -> Entity {
-        self.entity.0
-    }
-}
-
-impl<'w> core::ops::Deref for CurrentView<'w> {
-    type Target = Entity;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.entity.0
-    }
-}
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Deref, DerefMut)]
+pub struct CurrentView(pub Entity);
 
 /// A query that fetches components for the entity corresponding to the current view being rendered,
-/// as defined by the [`CurrentViewEntity`] resource, equivalent to `query.get(current_view.entity())`.
+/// as defined by the [`CurrentView`] resource, equivalent to `query.get(current_view.entity())`.
 pub struct ViewQuery<'w, 's, D: QueryData, F: QueryFilter = ()> {
     entity: Entity,
     item: D::Item<'w, 's>,
@@ -263,7 +231,7 @@ pub struct ViewQueryState<D: QueryData, F: QueryFilter> {
     query_state: QueryState<D, F>,
 }
 
-// SAFETY: ViewQuery accesses the CurrentViewEntity resource (read) and query components.
+// SAFETY: ViewQuery accesses the CurrentView resource (read) and query components.
 // Access is properly registered in init_access.
 unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for ViewQuery<'a, '_, D, F>
@@ -275,7 +243,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         ViewQueryState {
             resource_id: world
                 .components_registrator()
-                .register_resource::<CurrentViewEntity>(),
+                .register_resource::<CurrentView>(),
             query_state: QueryState::new(world),
         }
     }
@@ -303,11 +271,11 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: We have registered resource read access in init_access
-        let current_view = unsafe { world.get_resource::<CurrentViewEntity>() };
+        let current_view = unsafe { world.get_resource::<CurrentView>() };
 
         let Some(current_view) = current_view else {
             return Err(SystemParamValidationError::skipped::<Self>(
-                "CurrentViewEntity resource not present",
+                "CurrentView resource not present",
             ));
         };
 
@@ -336,8 +304,8 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         // SAFETY: We have registered resource read access and validate_param succeeded
         let current_view = unsafe {
             world
-                .get_resource::<CurrentViewEntity>()
-                .expect("CurrentViewEntity must exist")
+                .get_resource::<CurrentView>()
+                .expect("CurrentView must exist")
         };
 
         let entity = current_view.entity();

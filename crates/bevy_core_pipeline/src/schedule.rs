@@ -21,7 +21,7 @@ use bevy_render::{
         CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
         RenderPassDescriptor, StoreOp,
     },
-    renderer::{CurrentViewEntity, PendingCommandBuffers, RenderDevice, RenderQueue},
+    renderer::{CurrentView, PendingCommandBuffers, RenderDevice, RenderQueue},
     view::ExtractedWindows,
 };
 use tracing::info_span;
@@ -142,7 +142,7 @@ pub fn camera_driver(world: &mut World) {
         }
 
         if run_schedule {
-            world.insert_resource(CurrentViewEntity::new(camera_entity));
+            world.insert_resource(CurrentView(camera_entity));
 
             #[cfg(feature = "trace")]
             let _span = tracing::info_span!(
@@ -156,7 +156,7 @@ pub fn camera_driver(world: &mut World) {
     }
 
     submit_pending_command_buffers(world);
-    world.remove_resource::<CurrentViewEntity>();
+    world.remove_resource::<CurrentView>();
     handle_uncovered_swap_chains(world, &camera_windows);
 }
 
