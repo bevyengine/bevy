@@ -4,25 +4,7 @@
 
 #define_import_path bevy_post_process::effect_stack::chromatic_aberration
 
-// See `bevy_post_process::effect_stack::ChromaticAberration` for more
-// information on these fields.
-struct ChromaticAberrationSettings {
-    intensity: f32,
-    max_samples: u32,
-    unused_a: u32,
-    unused_b: u32,
-}
-
-// The source framebuffer texture.
-@group(0) @binding(0) var source_texture: texture_2d<f32>;
-// The sampler used to sample the source framebuffer texture.
-@group(0) @binding(1) var source_sampler: sampler;
-// The 1D lookup table for chromatic aberration.
-@group(0) @binding(2) var chromatic_aberration_lut_texture: texture_2d<f32>;
-// The sampler used to sample that lookup table.
-@group(0) @binding(3) var chromatic_aberration_lut_sampler: sampler;
-// The settings supplied by the developer.
-@group(0) @binding(4) var<uniform> chromatic_aberration_settings: ChromaticAberrationSettings;
+#import bevy_post_process::effect_stack::bindings::{source_texture, source_sampler, chromatic_aberration_lut_texture, chromatic_aberration_lut_sampler, chromatic_aberration_settings, ChromaticAberrationSettings}
 
 fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
     // Radial chromatic aberration implemented using the *Inside* technique:
