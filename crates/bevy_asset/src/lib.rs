@@ -205,6 +205,7 @@ pub use server::*;
 pub use uuid;
 
 use crate::{
+    asset_changed::AssetChanges,
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
 };
@@ -650,6 +651,7 @@ impl AssetApp for App {
                 ));
         }
         self.insert_resource(assets)
+            .init_resource::<AssetChanges<A>>()
             .allow_ambiguous_resource::<Assets<A>>()
             .add_message::<AssetEvent<A>>()
             .add_message::<AssetLoadFailedEvent<A>>()

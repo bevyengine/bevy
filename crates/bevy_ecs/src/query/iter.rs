@@ -2839,7 +2839,7 @@ mod tests {
 
     #[test]
     fn empty_query_iter_sort_after_next_does_not_panic() {
-        let mut world = World::new();
+        let world = World::new();
         {
             let mut query = world.query::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);

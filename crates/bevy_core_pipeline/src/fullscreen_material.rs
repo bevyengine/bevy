@@ -99,7 +99,7 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
 }
 
 fn extract_on_add<T: FullscreenMaterial>(world: &mut World) {
-    world.resource_scope::<MainWorld, ()>(|world, mut main_world| {
+    world.resource_scope::<MainWorld, ()>(|world, main_world| {
         // Extract the material from the main world
         let mut query =
             main_world.query_filtered::<(Entity, Has<Camera3d>, Has<Camera2d>), Added<T>>();

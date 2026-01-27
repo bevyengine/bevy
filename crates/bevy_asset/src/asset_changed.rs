@@ -105,6 +105,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
 ///
 /// - Asset changes are registered in the [`AssetEventSystems`] system set.
 /// - Removed assets are not detected.
+/// - The asset must be initialized ([`App::init_asset`](crate::AssetApp::init_asset)).
 ///
 /// The list of changed assets only gets updated in the [`AssetEventSystems`] system set,
 /// which runs in `PostUpdate`. Therefore, `AssetChanged` will only pick up asset changes in schedules
@@ -235,9 +236,10 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         access.add_resource_read(state.resource_id);
     }
 
-    fn init_state(world: &mut World) -> AssetChangedState<A> {
-        let resource_id = world.init_resource::<AssetChanges<A::Asset>>();
-        let asset_id = world.register_component::<A>();
+    fn init_state(world: &World) -> AssetChangedState<A> {
+        let components = world.components_queue();
+        let resource_id = components.queue_register_resource::<AssetChanges<A::Asset>>();
+        let asset_id = components.queue_register_component::<A>();
         AssetChangedState {
             asset_id,
             resource_id,
