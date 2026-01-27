@@ -2,6 +2,7 @@
 
 use bevy::{
     asset::UnapprovedPathMode,
+    camera::Hdr,
     core_pipeline::tonemapping::Tonemapping,
     light::CascadeShadowConfigBuilder,
     platform::collections::HashMap,
@@ -9,7 +10,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         render_resource::AsBindGroup,
-        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
+        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
     },
     shader::ShaderRef,
 };
@@ -119,7 +120,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         DirectionalLight {
             illuminance: 15_000.,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),

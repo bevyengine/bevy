@@ -19,7 +19,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Just add the `Strikethrough` component to any `Text`, `Text2d` or `TextSpan` and its text will be struck through
         Strikethrough,
         TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
             font_size: 67.0,
             ..default()
         },
@@ -36,8 +36,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Node {
             flex_direction: FlexDirection::Column,
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..Default::default()
@@ -72,7 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Text::new("2struck\nstruck"),
                 Strikethrough,
                 TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                     font_size: 67.0,
                     ..default()
                 },

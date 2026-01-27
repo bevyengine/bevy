@@ -18,7 +18,7 @@ use bevy::{
         texture::GpuImage,
         Render, RenderApp, RenderStartup, RenderSystems,
     },
-    shader::PipelineCacheError,
+    shader::ShaderCacheError,
 };
 use std::borrow::Cow;
 
@@ -52,7 +52,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let mut image = Image::new_target_texture(SIZE.x, SIZE.y, TextureFormat::Rgba32Float);
+    let mut image = Image::new_target_texture(SIZE.x, SIZE.y, TextureFormat::Rgba32Float, None);
     image.asset_usage = RenderAssetUsages::RENDER_WORLD;
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
@@ -243,7 +243,7 @@ impl render_graph::Node for GameOfLifeNode {
                         self.state = GameOfLifeState::Init;
                     }
                     // If the shader hasn't loaded yet, just wait.
-                    CachedPipelineState::Err(PipelineCacheError::ShaderNotLoaded(_)) => {}
+                    CachedPipelineState::Err(ShaderCacheError::ShaderNotLoaded(_)) => {}
                     CachedPipelineState::Err(err) => {
                         panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
                     }

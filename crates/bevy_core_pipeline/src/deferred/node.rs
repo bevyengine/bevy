@@ -1,6 +1,6 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_render::experimental::occlusion_culling::OcclusionCulling;
+use bevy_render::occlusion_culling::OcclusionCulling;
 use bevy_render::render_graph::ViewNode;
 
 use bevy_render::view::{ExtractedView, NoIndirectDrawing};
@@ -223,6 +223,7 @@ fn run_deferred_prepass<'w>(
             depth_stencil_attachment,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
         let pass_span = diagnostic.pass_span(&mut render_pass, label);

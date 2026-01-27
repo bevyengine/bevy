@@ -35,12 +35,10 @@ extern crate core;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_render;
 
-pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
 pub mod erased_render_asset;
-pub mod experimental;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -49,6 +47,7 @@ pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod gpu_readback;
 pub mod mesh;
+pub mod occlusion_culling;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
 pub mod render_asset;
@@ -69,8 +68,8 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        alpha::AlphaMode, camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews,
-        view::Msaa, ExtractSchedule,
+        camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews, view::Msaa,
+        ExtractSchedule,
     };
 }
 
@@ -102,8 +101,8 @@ use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
-use experimental::occlusion_culling::OcclusionCullingPlugin;
 use globals::GlobalsPlugin;
+use occlusion_culling::OcclusionCullingPlugin;
 use render_asset::{
     extract_render_asset_bytes_per_frame, reset_render_asset_bytes_per_frame,
     RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
@@ -514,7 +513,7 @@ unsafe fn initialize_render_app(app: &mut App) {
 
         {
             #[cfg(feature = "trace")]
-            let _stage_span = tracing::info_span!("entity_sync").entered();
+            let _stage_span = bevy_log::info_span!("entity_sync").entered();
             entity_sync_system(main_world, render_world);
         }
 

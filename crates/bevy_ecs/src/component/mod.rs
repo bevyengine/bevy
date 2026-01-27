@@ -433,7 +433,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// You can specify how the [`Component`] is cloned when deriving it.
 ///
 /// Your options are the functions and variants of [`ComponentCloneBehavior`]
-/// See [Handlers section of `EntityClonerBuilder`](crate::entity::EntityClonerBuilder#handlers) to understand how this affects handler priority.
+/// See [Clone Behaviors section of `EntityCloner`](crate::entity::EntityCloner#clone-behaviors) to understand how this affects handler priority.
 /// ```
 /// # use bevy_ecs::prelude::*;
 ///
@@ -556,7 +556,7 @@ pub trait Component: Send + Sync + 'static {
 
     /// Called when registering this component, allowing to override clone function (or disable cloning altogether) for this component.
     ///
-    /// See [Handlers section of `EntityClonerBuilder`](crate::entity::EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    /// See [Clone Behaviors section of `EntityCloner`](crate::entity::EntityCloner#clone-behaviors) to understand how this affects handler priority.
     #[inline]
     fn clone_behavior() -> ComponentCloneBehavior {
         ComponentCloneBehavior::Default

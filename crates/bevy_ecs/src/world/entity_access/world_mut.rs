@@ -10,7 +10,7 @@ use crate::{
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{
-        has_conflicts, Access, DebugCheckedUnwrap, QueryAccessError, ReadOnlyQueryData,
+        has_conflicts, DebugCheckedUnwrap, QueryAccessError, ReadOnlyQueryData,
         ReleaseStateQueryData,
     },
     relationship::RelationshipHookMode,
@@ -132,25 +132,37 @@ impl<'w> EntityWorldMut<'w> {
     /// Consumes `self` and returns read-only access to all of the entity's
     /// components, with the world `'w` lifetime.
     pub fn into_readonly(self) -> EntityRef<'w> {
-        EntityRef::from(self)
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - Consuming `self` ensures no mutable accesses are active.
+        unsafe { EntityRef::new(self.into_unsafe_entity_cell()) }
     }
 
     /// Gets read-only access to all of the entity's components.
     #[inline]
     pub fn as_readonly(&self) -> EntityRef<'_> {
-        EntityRef::from(self)
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - `&self` ensures no mutable accesses are active.
+        unsafe { EntityRef::new(self.as_unsafe_entity_cell_readonly()) }
     }
 
     /// Consumes `self` and returns non-structural mutable access to all of the
     /// entity's components, with the world `'w` lifetime.
     pub fn into_mutable(self) -> EntityMut<'w> {
-        EntityMut::from(self)
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - Consuming `self` ensures there are no other accesses.
+        unsafe { EntityMut::new(self.into_unsafe_entity_cell()) }
     }
 
     /// Gets non-structural mutable access to all of the entity's components.
     #[inline]
     pub fn as_mutable(&mut self) -> EntityMut<'_> {
-        EntityMut::from(self)
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - `&mut self` ensures there are no other accesses.
+        unsafe { EntityMut::new(self.as_unsafe_entity_cell()) }
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -859,8 +871,11 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
-        self.as_mutable()
-            .into_mut_assume_mutable_by_id(component_ids)
+        // SAFETY: Upheld by caller
+        unsafe {
+            self.as_mutable()
+                .into_mut_assume_mutable_by_id(component_ids)
+        }
     }
 
     /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
@@ -929,8 +944,11 @@ impl<'w> EntityWorldMut<'w> {
         self,
         component_ids: F,
     ) -> Result<F::Mut<'w>, EntityComponentError> {
-        self.into_mutable()
-            .into_mut_assume_mutable_by_id(component_ids)
+        // SAFETY: Upheld by caller
+        unsafe {
+            self.into_mutable()
+                .into_mut_assume_mutable_by_id(component_ids)
+        }
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -1060,13 +1078,16 @@ impl<'w> EntityWorldMut<'w> {
         component_id: ComponentId,
         component: OwningPtr<'_>,
     ) -> &mut Self {
-        self.insert_by_id_with_caller(
-            component_id,
-            component,
-            InsertMode::Replace,
-            MaybeLocation::caller(),
-            RelationshipHookMode::Run,
-        )
+        // SAFETY: Upheld by caller
+        unsafe {
+            self.insert_by_id_with_caller(
+                component_id,
+                component,
+                InsertMode::Replace,
+                MaybeLocation::caller(),
+                RelationshipHookMode::Run,
+            )
+        }
     }
 
     /// # Safety
@@ -1705,7 +1726,7 @@ impl<'w> EntityWorldMut<'w> {
     pub(crate) fn despawn_with_caller(mut self, caller: MaybeLocation) {
         self.despawn_no_free_with_caller(caller);
         if let Ok(None) = self.world.entities.get(self.entity) {
-            self.world.allocator.free(self.entity);
+            self.world.entity_allocator.free(self.entity);
         }
 
         // Otherwise:
@@ -2186,86 +2207,58 @@ impl<'w> EntityWorldMut<'w> {
 }
 
 impl<'w> From<EntityWorldMut<'w>> for EntityRef<'w> {
+    #[inline]
     fn from(entity: EntityWorldMut<'w>) -> EntityRef<'w> {
-        // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe { EntityRef::new(entity.into_unsafe_entity_cell()) }
+        entity.into_readonly()
     }
 }
 
 impl<'a> From<&'a EntityWorldMut<'_>> for EntityRef<'a> {
+    #[inline]
     fn from(entity: &'a EntityWorldMut<'_>) -> Self {
-        // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        // - `&entity` ensures no mutable accesses are active.
-        unsafe { EntityRef::new(entity.as_unsafe_entity_cell_readonly()) }
+        entity.as_readonly()
     }
 }
 
 impl<'w> From<EntityWorldMut<'w>> for EntityMut<'w> {
+    #[inline]
     fn from(entity: EntityWorldMut<'w>) -> Self {
-        // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe { EntityMut::new(entity.into_unsafe_entity_cell()) }
+        entity.into_mutable()
     }
 }
 
 impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityMut<'a> {
     #[inline]
     fn from(entity: &'a mut EntityWorldMut<'_>) -> Self {
-        // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe { EntityMut::new(entity.as_unsafe_entity_cell()) }
+        entity.as_mutable()
     }
 }
 
 impl<'a> From<EntityWorldMut<'a>> for FilteredEntityRef<'a, 'static> {
+    #[inline]
     fn from(entity: EntityWorldMut<'a>) -> Self {
-        // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe {
-            FilteredEntityRef::new(
-                entity.into_unsafe_entity_cell(),
-                const { &Access::new_read_all() },
-            )
-        }
+        entity.into_readonly().into_filtered()
     }
 }
 
 impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a, 'static> {
+    #[inline]
     fn from(entity: &'a EntityWorldMut<'_>) -> Self {
-        // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe {
-            FilteredEntityRef::new(
-                entity.as_unsafe_entity_cell_readonly(),
-                const { &Access::new_read_all() },
-            )
-        }
+        entity.as_readonly().into_filtered()
     }
 }
 
 impl<'a> From<EntityWorldMut<'a>> for FilteredEntityMut<'a, 'static> {
+    #[inline]
     fn from(entity: EntityWorldMut<'a>) -> Self {
-        // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe {
-            FilteredEntityMut::new(
-                entity.into_unsafe_entity_cell(),
-                const { &Access::new_write_all() },
-            )
-        }
+        entity.into_mutable().into_filtered()
     }
 }
 
 impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a, 'static> {
+    #[inline]
     fn from(entity: &'a mut EntityWorldMut<'_>) -> Self {
-        // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe {
-            FilteredEntityMut::new(
-                entity.as_unsafe_entity_cell(),
-                const { &Access::new_write_all() },
-            )
-        }
+        entity.as_mutable().into_filtered()
     }
 }
 

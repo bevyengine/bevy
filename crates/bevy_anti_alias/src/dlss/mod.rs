@@ -21,6 +21,7 @@ mod prepare;
 pub use dlss_wgpu::DlssPerfQualityMode;
 
 use bevy_app::{App, Plugin};
+use bevy_camera::Hdr;
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, MotionVectorPrepass},
@@ -36,7 +37,7 @@ use bevy_render::{
         RenderDevice, RenderQueue,
     },
     texture::CachedTexture,
-    view::{prepare_view_targets, Hdr},
+    view::prepare_view_targets,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use dlss_wgpu::{

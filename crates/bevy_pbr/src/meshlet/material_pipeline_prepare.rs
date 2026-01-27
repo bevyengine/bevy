@@ -10,6 +10,10 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
+use bevy_material::{
+    key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
+    OpaqueRendererMethod,
+};
 use bevy_mesh::VertexBufferLayout;
 use bevy_mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -159,7 +163,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
 
             let erased_key = ErasedMaterialPipelineKey {
-                mesh_key: view_key,
+                mesh_key: ErasedMeshPipelineKey::new(view_key),
                 material_key: material.properties.material_key.clone(),
                 type_id: material_id.type_id(),
             };
@@ -193,7 +197,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
                 layout,
-                push_constant_ranges: vec![],
+                immediate_size: 0,
                 vertex: VertexState {
                     shader: meshlet_pipelines.meshlet_mesh_material.clone(),
                     shader_defs: shader_defs.clone(),
@@ -331,7 +335,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
             }
 
             let erased_key = ErasedMaterialPipelineKey {
-                mesh_key: view_key,
+                mesh_key: ErasedMeshPipelineKey::new(view_key),
                 material_key: material.properties.material_key.clone(),
                 type_id: material_id.type_id(),
             };

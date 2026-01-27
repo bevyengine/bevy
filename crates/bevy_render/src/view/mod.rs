@@ -11,8 +11,8 @@ pub use window::*;
 
 use crate::{
     camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
-    experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
+    occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -103,7 +103,6 @@ impl Plugin for ViewPlugin {
         app
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
-                ExtractComponentPlugin::<Hdr>::default(),
                 ExtractComponentPlugin::<Msaa>::default(),
                 ExtractComponentPlugin::<OcclusionCulling>::default(),
                 RenderVisibilityRangePlugin,
@@ -115,6 +114,9 @@ impl Plugin for ViewPlugin {
                 (
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
+                        .in_set(RenderSystems::ManageViews)
+                        .before(create_surfaces),
+                    cleanup_view_targets_for_resize
                         .in_set(RenderSystems::ManageViews)
                         .before(create_surfaces),
                     prepare_view_attachments
@@ -187,16 +189,6 @@ impl Msaa {
         }
     }
 }
-
-/// If this component is added to a camera, the camera will use an intermediate "high dynamic range" render texture.
-/// This allows rendering with a wider range of lighting values. However, this does *not* affect
-/// whether the camera will render with hdr display output (which bevy does not support currently)
-/// and only affects the intermediate render texture.
-#[derive(
-    Component, Default, Copy, Clone, ExtractComponent, Reflect, PartialEq, Eq, Hash, Debug,
-)]
-#[reflect(Component, Default, PartialEq, Hash, Debug)]
-pub struct Hdr;
 
 /// An identifier for a view that is stable across frames.
 ///
@@ -302,6 +294,16 @@ pub struct ExtractedView {
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
+
+    /// Whether to switch culling mode so that materials that request backface
+    /// culling cull front faces, and vice versa.
+    ///
+    /// This is typically used for cameras that mirror the world that they
+    /// render across a plane, because doing that flips the winding of each
+    /// polygon.
+    ///
+    /// This setting doesn't affect materials that disable backface culling.
+    pub invert_culling: bool,
 }
 
 impl ExtractedView {
@@ -837,8 +839,8 @@ impl ViewTarget {
 
     /// The format of the final texture this view will render to
     #[inline]
-    pub fn out_texture_format(&self) -> TextureFormat {
-        self.out_texture.view.texture().format()
+    pub fn out_texture_view_format(&self) -> TextureFormat {
+        self.out_texture.view_format
     }
 
     /// This will start a new "post process write", which assumes that the caller
@@ -1014,7 +1016,8 @@ pub fn prepare_view_attachments(
                 let Some(attachment) = target
                     .get_texture_view(&windows, &images, &manual_texture_views)
                     .cloned()
-                    .map(OutputColorAttachment::new)
+                    .zip(target.get_texture_view_format(&windows, &images, &manual_texture_views))
+                    .map(|(view, format)| OutputColorAttachment::new(view.clone(), format))
                 else {
                     continue;
                 };
@@ -1027,6 +1030,21 @@ pub fn prepare_view_attachments(
 /// Clears the view target [`OutputColorAttachment`]s.
 pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAttachments>) {
     view_target_attachments.clear();
+}
+
+pub fn cleanup_view_targets_for_resize(
+    mut commands: Commands,
+    windows: Res<ExtractedWindows>,
+    cameras: Query<(Entity, &ExtractedCamera), With<ViewTarget>>,
+) {
+    for (entity, camera) in &cameras {
+        if let Some(NormalizedRenderTarget::Window(window_ref)) = &camera.target
+            && let Some(window) = windows.get(&window_ref.entity())
+            && (window.size_changed || window.present_mode_changed)
+        {
+            commands.entity(entity).remove::<ViewTarget>();
+        }
+    }
 }
 
 pub fn prepare_view_targets(
@@ -1083,7 +1101,11 @@ pub fn prepare_view_targets(
                     dimension: TextureDimension::D2,
                     format: main_texture_format,
                     usage: texture_usage.0,
-                    view_formats: &[],
+                    view_formats: match main_texture_format {
+                        TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
+                        TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
+                        _ => &[],
+                    },
                 };
                 let a = texture_cache.get(
                     &render_device,
@@ -1124,8 +1146,8 @@ pub fn prepare_view_targets(
         let converted_clear_color = clear_color.map(Into::into);
 
         let main_textures = MainTargetTextures {
-            a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),
-            b: ColorAttachment::new(b.clone(), sampled.clone(), converted_clear_color),
+            a: ColorAttachment::new(a.clone(), sampled.clone(), None, converted_clear_color),
+            b: ColorAttachment::new(b.clone(), sampled.clone(), None, converted_clear_color),
             main_texture: main_texture.clone(),
         };
 

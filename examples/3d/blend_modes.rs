@@ -10,7 +10,7 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
-use bevy::{color::palettes::css::ORANGE, prelude::*, render::view::Hdr};
+use bevy::{camera::Hdr, color::palettes::css::ORANGE, prelude::*};
 use rand::random;
 
 fn main() {
@@ -161,7 +161,7 @@ fn setup(
 
     // We need the full version of this font so we can use box drawing characters.
     let text_style = TextFont {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
         ..default()
     };
 

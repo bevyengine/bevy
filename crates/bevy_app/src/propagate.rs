@@ -176,7 +176,7 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
             {
                 commands.insert(inherited.clone());
             } else {
-                commands.remove::<Inherited<C>>();
+                commands.try_remove::<Inherited<C>>();
             }
         }
     }
@@ -193,12 +193,12 @@ pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Re
         if let Ok(inherited) = relations.get(relation.get()) {
             commands.entity(entity).try_insert(inherited.clone());
         } else if maybe_inherited.is_some() {
-            commands.entity(entity).remove::<Inherited<C>>();
+            commands.entity(entity).try_remove::<Inherited<C>>();
         }
     }
 
     for orphan in &orphaned {
-        commands.entity(orphan).remove::<Inherited<C>>();
+        commands.entity(orphan).try_remove::<Inherited<C>>();
     }
 }
 
@@ -279,7 +279,7 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
         if let Some(inherited) = maybe_inherited {
             commands.entity(entity).try_insert(inherited);
         } else {
-            commands.entity(entity).remove::<Inherited<C>>();
+            commands.entity(entity).try_remove::<Inherited<C>>();
         }
     }
 }
@@ -304,7 +304,7 @@ pub fn propagate_output<C: Component + Clone + PartialEq, F: QueryFilter>(
 
     for removed in removed.read() {
         if skip.get(removed).is_err() {
-            commands.entity(removed).remove::<C>();
+            commands.entity(removed).try_remove::<C>();
         }
     }
 }

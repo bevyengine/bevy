@@ -1,8 +1,9 @@
 use crate::{
     graph::NodePbr, MeshPipeline, MeshViewBindGroup, RenderViewLightProbes,
-    ScreenSpaceAmbientOcclusion, ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset,
-    ViewLightProbesUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
-    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+    ScreenSpaceAmbientOcclusion, ScreenSpaceReflectionsUniform, ViewContactShadowsUniformOffset,
+    ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
+    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use crate::{
     DistanceFog, ExtractedAtmosphere, MeshPipelineKey, ViewFogUniformOffset,
@@ -139,6 +140,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
         &'static ViewScreenSpaceReflectionsUniformOffset,
+        &'static ViewContactShadowsUniformOffset,
         &'static ViewEnvironmentMapUniformOffset,
         &'static MeshViewBindGroup,
         &'static ViewTarget,
@@ -156,6 +158,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             view_fog_offset,
             view_light_probes_offset,
             view_ssr_offset,
+            view_contact_shadows_offset,
             view_environment_map_offset,
             mesh_view_bind_group,
             target,
@@ -202,6 +205,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             }),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "deferred_lighting");
 
@@ -215,6 +219,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 view_fog_offset.offset,
                 **view_light_probes_offset,
                 **view_ssr_offset,
+                **view_contact_shadows_offset,
                 **view_environment_map_offset,
             ],
         );
@@ -499,6 +504,10 @@ pub fn prepare_deferred_lighting_pipelines(
 
         if has_atmosphere {
             view_key |= MeshPipelineKey::ATMOSPHERE;
+        }
+
+        if view.invert_culling {
+            view_key |= MeshPipelineKey::INVERT_CULLING;
         }
 
         // Always true, since we're in the deferred lighting pipeline

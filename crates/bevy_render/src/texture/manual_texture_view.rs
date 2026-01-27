@@ -1,8 +1,10 @@
 use bevy_camera::ManualTextureViewHandle;
 use bevy_ecs::{prelude::Component, resource::Resource};
+use bevy_image::BevyDefault;
 use bevy_math::UVec2;
 use bevy_platform::collections::HashMap;
 use bevy_render_macros::ExtractResource;
+use wgpu::TextureFormat;
 
 use crate::render_resource::TextureView;
 
@@ -11,11 +13,16 @@ use crate::render_resource::TextureView;
 pub struct ManualTextureView {
     pub texture_view: TextureView,
     pub size: UVec2,
+    pub view_format: TextureFormat,
 }
 
 impl ManualTextureView {
-    pub fn new(texture_view: TextureView, size: UVec2) -> Self {
-        Self { texture_view, size }
+    pub fn with_default_format(texture_view: TextureView, size: UVec2) -> Self {
+        Self {
+            texture_view,
+            size,
+            view_format: TextureFormat::bevy_default(),
+        }
     }
 }
 
@@ -29,7 +36,7 @@ impl ManualTextureView {
 /// # world.insert_resource(ManualTextureViews::default());
 /// # let texture_view = todo!();
 /// let manual_views = world.resource_mut::<ManualTextureViews>();
-/// let manual_view = ManualTextureView::new(texture_view, UVec2::new(1024, 1024));
+/// let manual_view = ManualTextureView::with_default_format(texture_view, UVec2::new(1024, 1024));
 ///
 /// // Choose an unused handle value; it's likely only you are inserting manual views.
 /// const MANUAL_VIEW_HANDLE: ManualTextureViewHandle = ManualTextureViewHandle::new(42);

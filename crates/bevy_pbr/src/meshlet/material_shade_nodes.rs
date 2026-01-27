@@ -7,8 +7,9 @@ use super::{
     InstanceManager,
 };
 use crate::{
-    MeshViewBindGroup, PrepassViewBindGroup, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
-    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    MeshViewBindGroup, PrepassViewBindGroup, ViewContactShadowsUniformOffset,
+    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 use bevy_camera::MainPassResolutionOverride;
 use bevy_camera::Viewport;
@@ -44,6 +45,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
         &'static ViewScreenSpaceReflectionsUniformOffset,
+        &'static ViewContactShadowsUniformOffset,
         &'static ViewEnvironmentMapUniformOffset,
         Option<&'static MainPassResolutionOverride>,
         &'static MeshletViewMaterialsMainOpaquePass,
@@ -64,6 +66,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             view_fog_offset,
             view_light_probes_offset,
             view_ssr_offset,
+            view_contact_shadows_offset,
             view_environment_map_offset,
             resolution_override,
             meshlet_view_materials,
@@ -106,6 +109,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             }),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_opaque_3d_pass");
         if let Some(viewport) =
@@ -123,6 +127,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 view_fog_offset.offset,
                 **view_light_probes_offset,
                 **view_ssr_offset,
+                **view_contact_shadows_offset,
                 **view_environment_map_offset,
             ],
         );
@@ -233,6 +238,7 @@ impl ViewNode for MeshletPrepassNode {
             }),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_prepass");
         if let Some(viewport) =
@@ -370,6 +376,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             }),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
         let pass_span =
             diagnostics.pass_span(&mut render_pass, "meshlet_material_deferred_prepass");

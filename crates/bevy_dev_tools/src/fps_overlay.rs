@@ -1,32 +1,35 @@
 //! Module containing logic for FPS overlay.
 
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{With, Without},
+    reflect::ReflectResource,
     resource::Resource,
-    schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
+    schedule::{common_conditions::resource_changed, IntoScheduleConfigs, SystemSet},
     system::{Commands, Query, Res, ResMut, Single},
 };
 use bevy_picking::Pickable;
-use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{Font, TextColor, TextFont, TextSpan};
+use bevy_reflect::Reflect;
+use bevy_render::storage::ShaderBuffer;
+use bevy_text::{TextColor, TextFont, TextSpan};
 use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
     FlexDirection, GlobalZIndex, Node, PositionType, Val,
 };
+#[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
 use bevy_ui_render::prelude::MaterialNode;
 use core::time::Duration;
 use tracing::warn;
 
-use crate::frame_time_graph::{
-    FrameTimeGraphConfigUniform, FrameTimeGraphPlugin, FrametimeGraphMaterial,
-};
+#[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
+use crate::frame_time_graph::FrameTimeGraphConfigUniform;
+use crate::frame_time_graph::{FrameTimeGraphPlugin, FrametimeGraphMaterial};
 
 /// [`GlobalZIndex`] used to render the fps overlay.
 ///
@@ -53,6 +56,15 @@ pub struct FpsOverlayPlugin {
     pub config: FpsOverlayConfig,
 }
 
+/// System sets for FPS overlay updates.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub enum FpsOverlaySystems {
+    /// Applies config changes to the overlay UI.
+    Customize,
+    /// Updates the overlay contents.
+    UpdateText,
+}
+
 impl Plugin for FpsOverlayPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69
@@ -73,20 +85,28 @@ impl Plugin for FpsOverlayPlugin {
         }
 
         app.insert_resource(self.config.clone())
+            .configure_sets(
+                Update,
+                FpsOverlaySystems::Customize.before(FpsOverlaySystems::UpdateText),
+            )
             .add_systems(Startup, setup)
             .add_systems(
                 Update,
                 (
                     (toggle_display, customize_overlay)
-                        .run_if(resource_changed::<FpsOverlayConfig>),
-                    update_text.run_if(on_timer(self.config.refresh_interval)),
+                        .run_if(resource_changed::<FpsOverlayConfig>)
+                        .in_set(FpsOverlaySystems::Customize),
+                    update_text
+                        .run_if(on_timer(self.config.refresh_interval))
+                        .in_set(FpsOverlaySystems::UpdateText),
                 ),
             );
     }
 }
 
 /// Configuration options for the FPS overlay.
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Reflect)]
+#[reflect(Resource)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
     pub text_config: TextFont,
@@ -105,11 +125,7 @@ pub struct FpsOverlayConfig {
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
-            text_config: TextFont {
-                font: Handle::<Font>::default(),
-                font_size: 32.0,
-                ..Default::default()
-            },
+            text_config: TextFont::from_font_size(32.),
             text_color: Color::WHITE,
             enabled: true,
             refresh_interval: Duration::from_millis(100),
@@ -120,7 +136,7 @@ impl Default for FpsOverlayConfig {
 }
 
 /// Configuration of the frame time graph
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Reflect)]
 pub struct FrameTimeGraphConfig {
     /// Is the graph visible
     pub enabled: bool,
@@ -163,8 +179,14 @@ struct FrameTimeGraph;
 fn setup(
     mut commands: Commands,
     overlay_config: Res<FpsOverlayConfig>,
-    mut frame_time_graph_materials: ResMut<Assets<FrametimeGraphMaterial>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    #[cfg_attr(
+        all(target_arch = "wasm32", not(feature = "webgpu")),
+        expect(unused, reason = "Unused variables in wasm32 without webgpu feature")
+    )]
+    (mut frame_time_graph_materials, mut buffers): (
+        ResMut<Assets<FrametimeGraphMaterial>>,
+        ResMut<Assets<ShaderBuffer>>,
+    ),
 ) {
     commands
         .spawn((
@@ -212,7 +234,7 @@ fn setup(
                     },
                     Pickable::IGNORE,
                     MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
-                        values: buffers.add(ShaderStorageBuffer {
+                        values: buffers.add(ShaderBuffer {
                             // Initialize with dummy data because the default (`data: None`) will
                             // cause a panic in the shader if the frame time graph is constructed
                             // with `enabled: false`.

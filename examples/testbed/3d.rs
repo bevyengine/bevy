@@ -4,13 +4,25 @@
 
 mod helpers;
 
+use argh::FromArgs;
 use bevy::prelude::*;
 use helpers::Next;
 
+#[derive(FromArgs)]
+/// 3d testbed
+pub struct Args {
+    #[argh(positional)]
+    scene: Option<Scene>,
+}
+
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args: Args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,))
-        .init_state::<Scene>()
         .add_systems(OnEnter(Scene::Light), light::setup)
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Gltf), gltf::setup)
@@ -28,6 +40,11 @@ fn main() {
                 .run_if(in_state(Scene::GltfCoordinateConversion)),
         );
 
+    match args.scene {
+        None => app.init_state::<Scene>(),
+        Some(scene) => app.insert_state(scene),
+    };
+
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
 
@@ -43,6 +60,21 @@ enum Scene {
     Animation,
     Gizmos,
     GltfCoordinateConversion,
+}
+
+impl std::str::FromStr for Scene {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let mut isit = Self::default();
+        while s.to_lowercase() != format!("{isit:?}").to_lowercase() {
+            isit = isit.next();
+            if isit == Self::default() {
+                return Err(format!("Invalid Scene name: {s}"));
+            }
+        }
+        Ok(isit)
+    }
 }
 
 impl Next for Scene {
@@ -108,7 +140,7 @@ mod light {
             PointLight {
                 intensity: 100_000.0,
                 color: RED.into(),
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             Transform::from_xyz(1.0, 2.0, 0.0),
@@ -119,7 +151,7 @@ mod light {
             SpotLight {
                 intensity: 100_000.0,
                 color: LIME.into(),
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 inner_angle: 0.6,
                 outer_angle: 0.8,
                 ..default()
@@ -131,7 +163,7 @@ mod light {
         commands.spawn((
             DirectionalLight {
                 illuminance: light_consts::lux::OVERCAST_DAY,
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             Transform {
@@ -216,7 +248,7 @@ mod gltf {
 
         commands.spawn((
             DirectionalLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             DespawnOnExit(CURRENT_SCENE),
@@ -268,7 +300,7 @@ mod animation {
         commands.spawn((
             Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
             DirectionalLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             DespawnOnExit(CURRENT_SCENE),
@@ -351,7 +383,10 @@ mod gizmos {
 
 mod gltf_coordinate_conversion {
     use bevy::{
-        color::palettes::basic::*, gltf::GltfLoaderSettings, prelude::*, scene::SceneInstanceReady,
+        color::palettes::basic::*,
+        gltf::{convert_coordinates::GltfConvertCoordinates, GltfLoaderSettings},
+        prelude::*,
+        scene::SceneInstanceReady,
     };
 
     const CURRENT_SCENE: super::Scene = super::Scene::GltfCoordinateConversion;
@@ -395,7 +430,10 @@ mod gltf_coordinate_conversion {
                 SceneRoot(asset_server.load_with_settings(
                     GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
                     |s: &mut GltfLoaderSettings| {
-                        s.use_model_forward_direction = Some(true);
+                        s.convert_coordinates = Some(GltfConvertCoordinates {
+                            rotate_scene_entity: true,
+                            rotate_meshes: true,
+                        });
                     },
                 )),
                 DespawnOnExit(CURRENT_SCENE),

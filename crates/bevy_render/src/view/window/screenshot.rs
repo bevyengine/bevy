@@ -3,10 +3,8 @@ use crate::{
     gpu_readback,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntries, Buffer, BufferUsages, CachedRenderPipelineId, FragmentState,
-        PipelineCache, RenderPipelineDescriptor, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
+        BindGroup, BindGroupEntries, Buffer, BufferUsages, PipelineCache,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
     texture::{GpuImage, ManualTextureViews, OutputColorAttachment},
@@ -22,6 +20,14 @@ use bevy_ecs::{
     entity::EntityHashMap, message::message_update_system, prelude::*, system::SystemState,
 };
 use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
+use bevy_log::{error, info, warn};
+use bevy_material::{
+    bind_group_layout_entries::{binding_types::texture_2d, BindGroupLayoutEntries},
+    descriptor::{
+        BindGroupLayoutDescriptor, CachedRenderPipelineId, FragmentState, RenderPipelineDescriptor,
+        VertexState,
+    },
+};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_shader::Shader;
@@ -36,7 +42,6 @@ use std::{
         Mutex,
     },
 };
-use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
 #[derive(EntityEvent, Reflect, Deref, DerefMut, Debug)]
@@ -278,7 +283,9 @@ fn prepare_screenshots(
                     warn!("Unknown window for screenshot, skipping: {}", window);
                     continue;
                 };
-                let format = surface_data.configuration.format.add_srgb_suffix();
+                let view_format = surface_data
+                    .texture_view_format
+                    .unwrap_or(surface_data.configuration.format);
                 let size = Extent3d {
                     width: surface_data.configuration.width,
                     height: surface_data.configuration.height,
@@ -286,7 +293,7 @@ fn prepare_screenshots(
                 };
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
-                    format,
+                    view_format,
                     &render_device,
                     &screenshot_pipeline,
                     &pipeline_cache,
@@ -295,7 +302,7 @@ fn prepare_screenshots(
                 prepared.insert(*entity, state);
                 view_target_attachments.insert(
                     target.clone(),
-                    OutputColorAttachment::new(texture_view.clone()),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
                 );
             }
             NormalizedRenderTarget::Image(image) => {
@@ -303,10 +310,10 @@ fn prepare_screenshots(
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let format = gpu_image.texture_format;
+                let view_format = gpu_image.view_format();
                 let (texture_view, state) = prepare_screenshot_state(
-                    gpu_image.size,
-                    format,
+                    gpu_image.texture_descriptor.size,
+                    view_format,
                     &render_device,
                     &screenshot_pipeline,
                     &pipeline_cache,
@@ -315,7 +322,7 @@ fn prepare_screenshots(
                 prepared.insert(*entity, state);
                 view_target_attachments.insert(
                     target.clone(),
-                    OutputColorAttachment::new(texture_view.clone()),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
                 );
             }
             NormalizedRenderTarget::TextureView(texture_view) => {
@@ -326,11 +333,11 @@ fn prepare_screenshots(
                     );
                     continue;
                 };
-                let format = manual_texture_view.texture_view.texture().format();
+                let view_format = manual_texture_view.view_format;
                 let size = manual_texture_view.size.to_extents();
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
-                    format,
+                    view_format,
                     &render_device,
                     &screenshot_pipeline,
                     &pipeline_cache,
@@ -339,7 +346,7 @@ fn prepare_screenshots(
                 prepared.insert(*entity, state);
                 view_target_attachments.insert(
                     target.clone(),
-                    OutputColorAttachment::new(texture_view.clone()),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
                 );
             }
             NormalizedRenderTarget::None { .. } => {
@@ -502,13 +509,12 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 };
                 let width = window.physical_width;
                 let height = window.physical_height;
-                let Some(texture_format) = window.swap_chain_texture_format else {
+                let Some(texture_format) = window.swap_chain_texture_view_format else {
                     continue;
                 };
-                let Some(swap_chain_texture) = window.swap_chain_texture.as_ref() else {
+                let Some(swap_chain_texture_view) = window.swap_chain_texture_view.as_ref() else {
                     continue;
                 };
-                let texture_view = swap_chain_texture.texture.create_view(&Default::default());
                 render_screenshot(
                     encoder,
                     prepared,
@@ -517,7 +523,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     width,
                     height,
                     texture_format,
-                    &texture_view,
+                    swap_chain_texture_view,
                 );
             }
             NormalizedRenderTarget::Image(image) => {
@@ -525,9 +531,9 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let width = gpu_image.size.width;
-                let height = gpu_image.size.height;
-                let texture_format = gpu_image.texture_format;
+                let width = gpu_image.texture_descriptor.size.width;
+                let height = gpu_image.texture_descriptor.size.height;
+                let texture_format = gpu_image.texture_descriptor.format;
                 let texture_view = gpu_image.texture_view.deref();
                 render_screenshot(
                     encoder,
@@ -550,7 +556,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 };
                 let width = texture_view.size.x;
                 let height = texture_view.size.y;
-                let texture_format = texture_view.texture_view.texture().format();
+                let texture_format = texture_view.view_format;
                 let texture_view = texture_view.texture_view.deref();
                 render_screenshot(
                     encoder,
@@ -610,6 +616,7 @@ fn render_screenshot(
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
             pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &prepared_state.bind_group, &[]);
@@ -620,7 +627,7 @@ fn render_screenshot(
 
 pub(crate) fn collect_screenshots(world: &mut World) {
     #[cfg(feature = "trace")]
-    let _span = tracing::info_span!("collect_screenshots").entered();
+    let _span = bevy_log::info_span!("collect_screenshots").entered();
 
     let sender = world.resource::<RenderScreenshotsSender>().deref().clone();
     let prepared = world.resource::<RenderScreenshotsPrepared>();

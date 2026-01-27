@@ -1,5 +1,6 @@
 use bevy_asset::Asset;
 use bevy_color::{Alpha, ColorToComponents};
+use bevy_material::OpaqueRendererMethod;
 use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -240,6 +241,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_transmission_textures", texture(19))]
     #[cfg_attr(feature = "pbr_transmission_textures", sampler(20))]
     #[cfg(feature = "pbr_transmission_textures")]
+    #[dependency]
     pub diffuse_transmission_texture: Option<Handle<Image>>,
 
     /// The amount of light transmitted _specularly_ through the material (i.e. via refraction).
@@ -256,10 +258,10 @@ pub struct StandardMaterial {
     /// Specular transmission is implemented as a relatively expensive screen-space effect that allows occluded objects to be seen through the material,
     /// with distortion and blur effects.
     ///
-    /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_camera::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
+    /// - [`crate::ScreenSpaceTransmission::screen_space_specular_transmission_steps`] can be used to enable transmissive objects
     ///   to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
     ///   - If a simplified approximation of specular transmission using only environment map lighting is sufficient, consider setting
-    ///     [`Camera3d::screen_space_specular_transmission_steps`](bevy_camera::Camera3d::screen_space_specular_transmission_steps) to `0`.
+    ///     [`crate::ScreenSpaceTransmission::screen_space_specular_transmission_steps`] to `0`.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
     ///   for a much less expensive effect.
     /// - Specular transmission is rendered before alpha blending, so any material with [`AlphaMode::Blend`], [`AlphaMode::Premultiplied`], [`AlphaMode::Add`] or [`AlphaMode::Multiply`]
@@ -281,6 +283,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_transmission_textures", texture(15))]
     #[cfg_attr(feature = "pbr_transmission_textures", sampler(16))]
     #[cfg(feature = "pbr_transmission_textures")]
+    #[dependency]
     pub specular_transmission_texture: Option<Handle<Image>>,
 
     /// Thickness of the volume beneath the material surface.
@@ -310,6 +313,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_transmission_textures", texture(17))]
     #[cfg_attr(feature = "pbr_transmission_textures", sampler(18))]
     #[cfg(feature = "pbr_transmission_textures")]
+    #[dependency]
     pub thickness_texture: Option<Handle<Image>>,
 
     /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
@@ -464,6 +468,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_specular_textures", texture(27))]
     #[cfg_attr(feature = "pbr_specular_textures", sampler(28))]
     #[cfg(feature = "pbr_specular_textures")]
+    #[dependency]
     pub specular_texture: Option<Handle<Image>>,
 
     /// The UV channel to use for the
@@ -485,6 +490,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_specular_textures", texture(29))]
     #[cfg_attr(feature = "pbr_specular_textures", sampler(30))]
     #[cfg(feature = "pbr_specular_textures")]
+    #[dependency]
     pub specular_tint_texture: Option<Handle<Image>>,
 
     /// An extra thin translucent layer on top of the main PBR layer. This is
@@ -510,6 +516,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(21))]
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(22))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    #[dependency]
     pub clearcoat_texture: Option<Handle<Image>>,
 
     /// The roughness of the clearcoat material. This is specified in exactly
@@ -535,6 +542,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(23))]
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(24))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    #[dependency]
     pub clearcoat_roughness_texture: Option<Handle<Image>>,
 
     /// The UV channel to use for the [`StandardMaterial::clearcoat_normal_texture`].
@@ -557,6 +565,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(25))]
     #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(26))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    #[dependency]
     pub clearcoat_normal_texture: Option<Handle<Image>>,
 
     /// Increases the roughness along a specific direction, so that the specular
@@ -627,6 +636,7 @@ pub struct StandardMaterial {
     #[cfg_attr(feature = "pbr_anisotropy_texture", texture(13))]
     #[cfg_attr(feature = "pbr_anisotropy_texture", sampler(14))]
     #[cfg(feature = "pbr_anisotropy_texture")]
+    #[dependency]
     pub anisotropy_texture: Option<Handle<Image>>,
 
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
@@ -1135,7 +1145,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if has_normal_map {
             let normal_map_id = self.normal_map_texture.as_ref().map(Handle::id).unwrap();
             if let Some(texture) = images.get(normal_map_id) {
-                match texture.texture_format {
+                match texture.texture_descriptor.format {
                     // All 2-component unorm formats
                     TextureFormat::Rg8Unorm
                     | TextureFormat::Rg16Unorm
@@ -1531,15 +1541,19 @@ impl Material for StandardMaterial {
             }
         }
 
-        descriptor.primitive.cull_mode = if key
-            .bind_group_data
-            .contains(StandardMaterialKey::CULL_FRONT)
-        {
-            Some(Face::Front)
-        } else if key.bind_group_data.contains(StandardMaterialKey::CULL_BACK) {
-            Some(Face::Back)
-        } else {
-            None
+        // Generally, we want to cull front faces if `CULL_FRONT` is present and
+        // backfaces if `CULL_BACK` is present. However, if the view has
+        // `INVERT_CULLING` on (usually used for mirrors and the like), we do
+        // the opposite.
+        descriptor.primitive.cull_mode = match (
+            key.bind_group_data
+                .contains(StandardMaterialKey::CULL_FRONT),
+            key.bind_group_data.contains(StandardMaterialKey::CULL_BACK),
+            key.mesh_key.contains(MeshPipelineKey::INVERT_CULLING),
+        ) {
+            (true, false, false) | (false, true, true) => Some(Face::Front),
+            (false, true, false) | (true, false, true) => Some(Face::Back),
+            _ => None,
         };
 
         if let Some(label) = &mut descriptor.label {

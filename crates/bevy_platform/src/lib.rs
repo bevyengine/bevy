@@ -21,6 +21,7 @@ cfg::alloc! {
 
 pub mod cell;
 pub mod cfg;
+pub mod future;
 pub mod hash;
 pub mod sync;
 pub mod thread;

@@ -13,6 +13,7 @@
 use std::ops::Range;
 
 use bevy::camera::Viewport;
+use bevy::math::Affine3Ext;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     camera::MainPassResolutionOverride,
@@ -97,7 +98,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -549,7 +550,7 @@ fn queue_custom_meshes(
                     continue;
                 }
             };
-            let distance = rangefinder.distance_translation(&mesh_instance.translation);
+            let distance = rangefinder.distance(&mesh_instance.center);
             // At this point we have all the data we need to create a phase item and add it to our
             // phase
             custom_phase.add(Stencil3d {
@@ -612,6 +613,7 @@ impl ViewNode for CustomDrawNode {
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
 
         if let Some(viewport) =

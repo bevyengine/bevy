@@ -186,7 +186,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -194,11 +194,7 @@ fn setup(
 
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            // render to image
-            target: render_target,
-            ..default()
-        },
+        render_target,
         Tonemapping::None,
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
@@ -248,13 +244,13 @@ fn setup_render_target(
 
     // This is the texture that will be rendered to.
     let mut render_target_image =
-        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default());
+        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default(), None);
     render_target_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
     let render_target_image_handle = images.add(render_target_image);
 
     // This is the texture that will be copied to.
     let cpu_image =
-        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default());
+        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default(), None);
     let cpu_image_handle = images.add(cpu_image);
 
     commands.spawn(ImageCopier::new(
@@ -358,15 +354,20 @@ impl render_graph::Node for ImageCopyDriver {
                 .render_device()
                 .create_command_encoder(&CommandEncoderDescriptor::default());
 
-            let block_dimensions = src_image.texture_format.block_dimensions();
-            let block_size = src_image.texture_format.block_copy_size(None).unwrap();
+            let block_dimensions = src_image.texture_descriptor.format.block_dimensions();
+            let block_size = src_image
+                .texture_descriptor
+                .format
+                .block_copy_size(None)
+                .unwrap();
 
             // Calculating correct size of image row because
             // copy_texture_to_buffer can copy image only by rows aligned wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
             // That's why image in buffer can be little bit wider
             // This should be taken into account at copy from buffer stage
             let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
-                (src_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
+                (src_image.texture_descriptor.size.width as usize / block_dimensions.0 as usize)
+                    * block_size as usize,
             );
 
             encoder.copy_texture_to_buffer(
@@ -383,7 +384,7 @@ impl render_graph::Node for ImageCopyDriver {
                         rows_per_image: None,
                     },
                 },
-                src_image.size,
+                src_image.texture_descriptor.size,
             );
 
             let render_queue = world.get_resource::<RenderQueue>().unwrap();
@@ -449,7 +450,7 @@ fn receive_image_from_buffer(
 
         // This blocks until the gpu is done executing everything
         render_device
-            .poll(PollType::Wait)
+            .poll(PollType::wait_indefinitely())
             .expect("Failed to poll device for map async");
 
         // This blocks until the buffer is mapped

@@ -21,16 +21,17 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    camera::{Exposure, ScreenSpaceTransmissionQuality},
+    camera::{Exposure, Hdr},
     color::palettes::css::*,
     core_pipeline::{prepass::DepthPrepass, tonemapping::Tonemapping},
     light::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     math::ops,
+    pbr::{ScreenSpaceTransmission, ScreenSpaceTransmissionQuality},
     post_process::bloom::Bloom,
     prelude::*,
     render::{
         camera::TemporalJitter,
-        view::{ColorGrading, ColorGradingGlobal, Hdr},
+        view::{ColorGrading, ColorGradingGlobal},
     },
 };
 
@@ -289,7 +290,7 @@ fn setup(
             intensity: 4_000.0,
             radius: 0.2,
             range: 5.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Flicker,
@@ -378,7 +379,7 @@ fn example_control_system(
     camera: Single<
         (
             Entity,
-            &mut Camera3d,
+            &mut ScreenSpaceTransmission,
             &mut Transform,
             Option<&DepthPrepass>,
             Option<&TemporalJitter>,
@@ -449,8 +450,14 @@ fn example_control_system(
         }
     }
 
-    let (camera_entity, mut camera_3d, mut camera_transform, depth_prepass, temporal_jitter, hdr) =
-        camera.into_inner();
+    let (
+        camera_entity,
+        mut transmission,
+        mut camera_transform,
+        depth_prepass,
+        temporal_jitter,
+        hdr,
+    ) = camera.into_inner();
 
     if input.just_pressed(KeyCode::KeyH) {
         if hdr {
@@ -482,29 +489,35 @@ fn example_control_system(
         }
     }
 
-    if input.just_pressed(KeyCode::KeyO) && camera_3d.screen_space_specular_transmission_steps > 0 {
-        camera_3d.screen_space_specular_transmission_steps -= 1;
+    if input.just_pressed(KeyCode::KeyO)
+        && transmission.screen_space_specular_transmission_steps > 0
+    {
+        transmission.screen_space_specular_transmission_steps -= 1;
     }
 
-    if input.just_pressed(KeyCode::KeyP) && camera_3d.screen_space_specular_transmission_steps < 4 {
-        camera_3d.screen_space_specular_transmission_steps += 1;
+    if input.just_pressed(KeyCode::KeyP)
+        && transmission.screen_space_specular_transmission_steps < 4
+    {
+        transmission.screen_space_specular_transmission_steps += 1;
     }
 
     if input.just_pressed(KeyCode::KeyJ) {
-        camera_3d.screen_space_specular_transmission_quality = ScreenSpaceTransmissionQuality::Low;
+        transmission.screen_space_specular_transmission_quality =
+            ScreenSpaceTransmissionQuality::Low;
     }
 
     if input.just_pressed(KeyCode::KeyK) {
-        camera_3d.screen_space_specular_transmission_quality =
+        transmission.screen_space_specular_transmission_quality =
             ScreenSpaceTransmissionQuality::Medium;
     }
 
     if input.just_pressed(KeyCode::KeyL) {
-        camera_3d.screen_space_specular_transmission_quality = ScreenSpaceTransmissionQuality::High;
+        transmission.screen_space_specular_transmission_quality =
+            ScreenSpaceTransmissionQuality::High;
     }
 
     if input.just_pressed(KeyCode::Semicolon) {
-        camera_3d.screen_space_specular_transmission_quality =
+        transmission.screen_space_specular_transmission_quality =
             ScreenSpaceTransmissionQuality::Ultra;
     }
 
@@ -552,8 +565,8 @@ fn example_control_system(
             "             D  Depth Prepass: {}\n",
             "             T  TAA: {}\n",
         ),
-        camera_3d.screen_space_specular_transmission_quality,
-        camera_3d.screen_space_specular_transmission_steps,
+        transmission.screen_space_specular_transmission_quality,
+        transmission.screen_space_specular_transmission_steps,
         state.diffuse_transmission,
         state.specular_transmission,
         state.thickness,

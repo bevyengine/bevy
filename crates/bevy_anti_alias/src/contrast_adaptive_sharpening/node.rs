@@ -83,7 +83,7 @@ impl Node for CasNode {
             cached_bind_group => {
                 let bind_group = render_context.render_device().create_bind_group(
                     "cas_bind_group",
-                    &pipeline_cache.get_bind_group_layout(&sharpening_pipeline.texture_bind_group),
+                    &pipeline_cache.get_bind_group_layout(&sharpening_pipeline.layout),
                     &BindGroupEntries::sequential((
                         view_target.source,
                         &sharpening_pipeline.sampler,
@@ -108,6 +108,7 @@ impl Node for CasNode {
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         };
 
         let mut render_pass = render_context

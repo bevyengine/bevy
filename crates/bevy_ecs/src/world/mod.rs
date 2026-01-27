@@ -1,3 +1,8 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
@@ -67,7 +72,7 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
-use core::{any::TypeId, fmt};
+use core::{any::TypeId, fmt, mem::ManuallyDrop};
 use log::warn;
 use unsafe_world_cell::UnsafeWorldCell;
 
@@ -92,7 +97,7 @@ use unsafe_world_cell::UnsafeWorldCell;
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
-    pub(crate) allocator: EntityAllocator,
+    pub(crate) entity_allocator: EntityAllocator,
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
     pub(crate) archetypes: Archetypes,
@@ -112,7 +117,7 @@ impl Default for World {
         let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
-            allocator: EntityAllocator::default(),
+            entity_allocator: EntityAllocator::default(),
             components: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
@@ -208,14 +213,14 @@ impl World {
 
     /// Retrieves this world's [`EntityAllocator`] collection.
     #[inline]
-    pub fn entities_allocator(&self) -> &EntityAllocator {
-        &self.allocator
+    pub fn entity_allocator(&self) -> &EntityAllocator {
+        &self.entity_allocator
     }
 
     /// Retrieves this world's [`EntityAllocator`] collection mutably.
     #[inline]
-    pub fn entities_allocator_mut(&mut self) -> &mut EntityAllocator {
-        &mut self.allocator
+    pub fn entity_allocator_mut(&mut self) -> &mut EntityAllocator {
+        &mut self.entity_allocator
     }
 
     /// Retrieves this world's [`Entities`] collection mutably.
@@ -296,7 +301,7 @@ impl World {
         unsafe {
             Commands::new_raw_from_entities(
                 self.command_queue.clone(),
-                &self.allocator,
+                &self.entity_allocator,
                 &self.entities,
             )
         }
@@ -1021,7 +1026,7 @@ impl World {
         let raw_queue = unsafe { cell.get_raw_command_queue() };
         // SAFETY: `&mut self` ensures the commands does not outlive the world.
         let commands = unsafe {
-            Commands::new_raw_from_entities(raw_queue, cell.entities_allocator(), cell.entities())
+            Commands::new_raw_from_entities(raw_queue, cell.entity_allocator(), cell.entities())
         };
 
         (fetcher, commands)
@@ -1229,7 +1234,7 @@ impl World {
         bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
-        let entity = self.allocator.alloc();
+        let entity = self.entity_allocator.alloc();
         // This was just spawned from null, so it shouldn't panic.
         self.spawn_at_unchecked(entity, bundle, caller)
     }
@@ -1265,7 +1270,7 @@ impl World {
     }
 
     pub(crate) fn spawn_empty_with_caller(&mut self, caller: MaybeLocation) -> EntityWorldMut<'_> {
-        let entity = self.allocator.alloc();
+        let entity = self.entity_allocator.alloc();
         // This was just spawned from null, so it shouldn't panic.
         self.spawn_empty_at_unchecked(entity, caller)
     }
@@ -2700,6 +2705,12 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
+    ///
+    /// # Note
+    ///
+    /// If the world's resource metadata is cleared within the scope, such as by calling
+    /// [`World::clear_resources`] or [`World::clear_all`], the resource will *not* be re-inserted
+    /// at the end of the scope.
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
         self.try_resource_scope(f)
@@ -2713,6 +2724,12 @@ impl World {
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
     ///
     /// See also [`resource_scope`](Self::resource_scope).
+    ///
+    /// # Note
+    ///
+    /// If the world's resource metadata is cleared within the scope, such as by calling
+    /// [`World::clear_resources`] or [`World::clear_all`], the resource will *not* be re-inserted
+    /// at the end of the scope.
     pub fn try_resource_scope<R: Resource, U>(
         &mut self,
         f: impl FnOnce(&mut World, Mut<R>) -> U,
@@ -2721,38 +2738,98 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
-        let (ptr, mut ticks, mut caller) = self
-            .storages
-            .resources
-            .get_mut(component_id)
-            .and_then(ResourceData::remove)?;
+        let (ptr, ticks, caller) = self.storages.resources.get_mut(component_id)?.remove()?;
+
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
-        let mut value = unsafe { ptr.read::<R>() };
+        let value = unsafe { ptr.read::<R>() };
+
+        // type used to manage reinserting the resource at the end of the scope. use of a drop impl means that
+        // the resource is inserted even if the user-provided closure unwinds.
+        // this facilitates localized panic recovery and makes app shutdown in response to a panic more graceful
+        // by avoiding knock-on errors.
+        struct ReinsertGuard<'a, R> {
+            world: &'a mut World,
+            component_id: ComponentId,
+            value: ManuallyDrop<R>,
+            ticks: ComponentTicks,
+            caller: MaybeLocation,
+        }
+        impl<R> Drop for ReinsertGuard<'_, R> {
+            fn drop(&mut self) {
+                // take ownership of the value first so it'll get dropped if we return early
+                // SAFETY: drop semantics ensure that `self.value` will never be accessed again after this call
+                let value = unsafe { ManuallyDrop::take(&mut self.value) };
+
+                let Some(resource_data) = self.world.storages.resources.get_mut(self.component_id)
+                else {
+                    return;
+                };
+
+                // in debug mode, raise a panic if user code re-inserted a resource of this type within the scope.
+                // resource insertion usually indicates a logic error in user code, which is useful to catch at dev time,
+                // however it does not inherently lead to corrupted state, so we avoid introducing an unnecessary crash
+                // for production builds.
+                if resource_data.is_present() {
+                    #[cfg(debug_assertions)]
+                    {
+                        // if we're already panicking, log an error instead of panicking, as double-panics result in an abort
+                        #[cfg(feature = "std")]
+                        if std::thread::panicking() {
+                            log::error!("Resource `{}` was inserted during a call to World::resource_scope, which may result in unexpected behavior.\n\
+                                   In release builds, the value inserted will be overwritten at the end of the scope.",
+                                   DebugName::type_name::<R>());
+                            // return early to maintain consistent behavior with non-panicking calls in debug builds
+                            return;
+                        }
+
+                        panic!("Resource `{}` was inserted during a call to World::resource_scope, which may result in unexpected behavior.\n\
+                               In release builds, the value inserted will be overwritten at the end of the scope.",
+                               DebugName::type_name::<R>());
+                    }
+                    #[cfg(not(debug_assertions))]
+                    {
+                        #[cold]
+                        #[inline(never)]
+                        fn warn_reinsert(resource_name: &str) {
+                            warn!(
+                                "Resource `{resource_name}` was inserted during a call to World::resource_scope: the inserted value will be overwritten.",
+                            );
+                        }
+
+                        warn_reinsert(&DebugName::type_name::<R>());
+                    }
+                }
+
+                OwningPtr::make(value, |ptr| {
+                    // SAFETY: ptr is of type `R`, which corresponds to the same component ID used to retrieve the resource data.
+                    unsafe {
+                        resource_data.insert_with_ticks(ptr, self.ticks, self.caller);
+                    }
+                });
+            }
+        }
+
+        let mut guard = ReinsertGuard {
+            world: self,
+            component_id,
+            value: ManuallyDrop::new(value),
+            ticks,
+            caller,
+        };
+
         let value_mut = Mut {
-            value: &mut value,
+            value: &mut *guard.value,
             ticks: ComponentTicksMut {
-                added: &mut ticks.added,
-                changed: &mut ticks.changed,
-                changed_by: caller.as_mut(),
+                added: &mut guard.ticks.added,
+                changed: &mut guard.ticks.changed,
+                changed_by: guard.caller.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
         };
-        let result = f(self, value_mut);
-        assert!(!self.contains_resource::<R>(),
-            "Resource `{}` was inserted during a call to World::resource_scope.\n\
-            This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
-            DebugName::type_name::<R>());
 
-        OwningPtr::make(value, |ptr| {
-            // SAFETY: pointer is of type R
-            unsafe {
-                self.storages.resources.get_mut(component_id).map(|info| {
-                    info.insert_with_ticks(ptr, ticks, caller);
-                })
-            }
-        })?;
+        let result = f(guard.world, value_mut);
 
         Some(result)
     }
@@ -3126,7 +3203,7 @@ impl World {
         self.storages.sparse_sets.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();
-        self.allocator.restart();
+        self.entity_allocator.restart();
     }
 
     /// Clears all resources in this [`World`].
@@ -3750,6 +3827,7 @@ pub trait FromWorld {
 
 impl<T: Default> FromWorld for T {
     /// Creates `Self` using [`default()`](`Default::default`).
+    #[track_caller]
     fn from_world(_world: &mut World) -> Self {
         T::default()
     }
