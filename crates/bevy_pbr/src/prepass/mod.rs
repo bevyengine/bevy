@@ -437,13 +437,6 @@ impl PrepassPipeline {
             && !self.depth_clip_control_supported;
         if emulate_unclipped_depth {
             shader_defs.push("UNCLIPPED_DEPTH_ORTHO_EMULATION".into());
-            // PERF: This line forces the "prepass fragment shader" to always run in
-            // common scenarios like "directional light calculation". Doing so resolves
-            // a pretty nasty depth clamping bug, but it also feels a bit excessive.
-            // We should try to find a way to resolve this without forcing the fragment
-            // shader to run.
-            // https://github.com/bevyengine/bevy/pull/8877
-            shader_defs.push("PREPASS_FRAGMENT".into());
         }
         let unclipped_depth = mesh_key.contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
             && self.depth_clip_control_supported;
@@ -509,13 +502,6 @@ impl PrepassPipeline {
         if mesh_key.contains(MeshPipelineKey::VISIBILITY_RANGE_DITHER) {
             shader_defs.push("VISIBILITY_RANGE_DITHER".into());
         }
-        if mesh_key.intersects(
-            MeshPipelineKey::NORMAL_PREPASS
-                | MeshPipelineKey::MOTION_VECTOR_PREPASS
-                | MeshPipelineKey::DEFERRED_PREPASS,
-        ) {
-            shader_defs.push("PREPASS_FRAGMENT".into());
-        }
         let bind_group = setup_morph_and_skinning_defs(
             &self.mesh_layouts,
             layout,
@@ -544,6 +530,12 @@ impl PrepassPipeline {
         // is enabled, the material uses alpha cutoff values and doesn't rely on the standard
         // prepass shader, or we are emulating unclipped depth in the fragment shader.
         let fragment_required = !targets.is_empty()
+            // PERF: This line forces the "prepass fragment shader" to always run in
+            // common scenarios like "directional light calculation". Doing so resolves
+            // a pretty nasty depth clamping bug, but it also feels a bit excessive.
+            // We should try to find a way to resolve this without forcing the fragment
+            // shader to run.
+            // https://github.com/bevyengine/bevy/pull/8877
             || emulate_unclipped_depth
             || (mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && material_properties
@@ -551,6 +543,8 @@ impl PrepassPipeline {
                     .is_some());
 
         let fragment = fragment_required.then(|| {
+            shader_defs.push("PREPASS_FRAGMENT".into());
+
             // Use the fragment shader from the material
             let frag_shader_handle = if mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
                 match material_properties.get_shader(DeferredFragmentShader) {
