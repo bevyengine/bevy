@@ -48,8 +48,10 @@ use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 ///
 /// If this points to a not spawned entity (see [`EntityNotSpawnedError`](crate::entity::EntityNotSpawnedError)),
 /// this has no way of knowing why it is not spawned or its "unspawned state".
-/// For example, it the entity is not spawned, this will not know if that is because the entity is not yet spawned or if it was spawned and was later despawned.
+/// For example, if the entity is not spawned, this will not know if that is because the entity is not yet spawned or if it was spawned and was later despawned.
 /// If it was despawned, this can not know who was responsible to free the [`Entity`].
+/// Further, the [`Entity`] this points to may no longer be valid;
+/// its [`EntityGeneration`](crate::entity::EntityGeneration) may not be up to date.
 /// Keep these limitations in mind when use this type in the context of unknown code.
 ///
 /// Unless you have strong reason to assume these invariants, you should generally avoid keeping an [`EntityWorldMut`] to an entity that is potentially not spawned.
@@ -126,18 +128,17 @@ impl<'w> EntityWorldMut<'w> {
 
     /// # Safety
     ///
-    ///  - `entity` must be valid for `world`: the generation should match that of the entity at the same index.
-    ///  - `location` must be sourced from `world`'s `Entities` and must exactly match the location for `entity`
+    ///  The `location` must be sourced from `world`'s `Entities` and must exactly match the location for `entity`.
+    ///  If the `entity` is not spawned for any reason (See [`EntityNotSpawnedError`](crate::entity::EntityNotSpawnedError)), the location should be `None`.
     ///
-    ///  The above is trivially satisfied if `location` was sourced from `world.entities().get(entity)`.
+    ///  The above is trivially satisfied if `location` was sourced from `world.entities().get_spawned(entity).ok()`.
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w mut World,
         entity: Entity,
         location: Option<EntityLocation>,
     ) -> Self {
-        debug_assert!(world.entities().contains(entity));
-        debug_assert_eq!(world.entities().get(entity).unwrap(), location);
+        debug_assert_eq!(world.entities().get_spawned(entity).ok(), location);
 
         EntityWorldMut {
             world,
