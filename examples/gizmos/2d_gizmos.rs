@@ -9,7 +9,14 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (draw_example_collection, update_config))
+        .add_systems(
+            Update,
+            (
+                draw_example_collection,
+                draw_instructions_text,
+                update_config,
+            ),
+        )
         .run();
 }
 
@@ -19,23 +26,20 @@ struct MyRoundGizmos {}
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
-    // text
-    commands.spawn((
-        Text::new(
-            "Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
+}
+
+fn draw_instructions_text(mut gizmos: Gizmos) {
+    gizmos.text_2d(
+        Isometry2d::from_xy(-600., 300.),
+        "Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
         Hold 'Up' or 'Down' to change the line width of round gizmos\n\
         Press '1' / '2' to toggle the visibility of straight / round gizmos\n\
         Press 'U' / 'I' to cycle through line styles\n\
         Press 'J' / 'K' to cycle through line joins\n\
         Press 'Spacebar' to toggle pause",
-        ),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(12),
-            left: px(12),
-            ..default()
-        },
-    ));
+        20.,
+        Color::WHITE,
+    );
 }
 
 fn draw_example_collection(

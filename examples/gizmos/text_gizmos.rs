@@ -38,7 +38,7 @@ fn setup(mut commands: Commands, mut gizmo_config_store: ResMut<GizmoConfigStore
 
     let (config, _) = gizmo_config_store.config_mut::<DefaultGizmoConfigGroup>();
 
-    config.line.width = 2.;
+    config.line.width = 1.;
 }
 
 fn draw_labels(mut text_gizmos: Gizmos, diagnostic: Res<DiagnosticsStore>) {
@@ -47,7 +47,7 @@ fn draw_labels(mut text_gizmos: Gizmos, diagnostic: Res<DiagnosticsStore>) {
         let row = i / 5;
         let col = i % 5;
         let color = colors[i % 4];
-        text_gizmos.text_2d_simplex(
+        text_gizmos.text_2d(
             Isometry2d {
                 translation: Vec2::new(
                     START_X + col as f32 * X_STEP,
@@ -57,7 +57,6 @@ fn draw_labels(mut text_gizmos: Gizmos, diagnostic: Res<DiagnosticsStore>) {
             },
             &format!("label {i}"),
             25.,
-            1.2,
             color,
         );
     }
@@ -65,13 +64,19 @@ fn draw_labels(mut text_gizmos: Gizmos, diagnostic: Res<DiagnosticsStore>) {
     if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
         && let Some(fps_smoothed) = fps.smoothed()
     {
-        let pos = 0.5 * Vec2::new(1920., 1080.) - Vec2::new(300., 50.);
-        text_gizmos.text_2d_simplex(
+        let pos = 0.5 * Vec2::new(1920., 1080.) - Vec2::new(X_STEP, Y_STEP);
+        text_gizmos.text_2d(
             Isometry2d::from_translation(pos),
             &format!("fps: {:.1}", fps_smoothed),
             25.,
-            1.2,
             Color::WHITE,
         );
     }
+
+    text_gizmos.text_2d(
+        Isometry2d::from_translation(Vec2::new(-200., 500.)),
+        "lxgh",
+        150.,
+        Color::WHITE,
+    );
 }
