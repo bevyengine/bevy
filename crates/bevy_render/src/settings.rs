@@ -191,7 +191,11 @@ impl RenderCreation {
         .into()
     }
 
-    /// Creates [`RenderResources`] from this [`RenderCreation`] and an optional primary window.
+    /// Creates [`RenderResources`] from this [`RenderCreation`] and an optional primary window
+    /// and writes them into `future_resources`, possibly asynchronously.
+    ///
+    /// Returns true if creation was successful, false otherwise.
+    ///
     /// Note: [`RenderCreation::Manual`] will ignore the provided primary window.
     pub(crate) fn create_render(
         &self,

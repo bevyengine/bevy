@@ -305,6 +305,7 @@ impl Plugin for RenderPlugin {
             #[cfg(feature = "raw_vulkan_init")]
             raw_vulkan_init_settings,
         ) {
+            // Note that `future_resources` is not necessarily populated here yet.
             app.insert_resource(future_resources);
             // SAFETY: Plugins should be set up on the main thread.
             unsafe { initialize_render_app(app) };
@@ -343,9 +344,17 @@ impl Plugin for RenderPlugin {
     }
 
     fn ready(&self, app: &App) -> bool {
+        // This is a little tricky. `FutureRenderResources` is added in `build`, which runs synchronously before `ready`.
+        // It is only added if there is a wgpu backend and thus the renderer can be created.
+        // Hence, if we try and get the resource and it is not present, that means we are ready, because we dont need it.
+        // On the other hand, if the resource is present, then we try and lock on it. The lock can fail, in which case
+        // we currently can assume that means the `FutureRenderResources` is in the act of being populated, because
+        // that is the only other place the lock may be held. If it is being populated, we can assume we're ready. This
+        // happens via the `and_then` falling through to the same `unwrap_or(true)` case as when there's no resource.
+        // If the lock succeeds, we can straightforwardly check if it is populated. If it is not, then we're not ready.
         app.world()
             .get_resource::<FutureRenderResources>()
-            .and_then(|frr| frr.0.try_lock().map(|locked| locked.is_some()).ok())
+            .and_then(|frr| frr.try_lock().map(|locked| locked.is_some()).ok())
             .unwrap_or(true)
     }
 
