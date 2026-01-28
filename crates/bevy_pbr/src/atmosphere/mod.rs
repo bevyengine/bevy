@@ -40,7 +40,10 @@ pub mod resources;
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{embedded_asset, AssetId};
 use bevy_camera::Camera3d;
-use bevy_core_pipeline::core_3d::graph::Node3d;
+use bevy_core_pipeline::{
+    core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
+    schedule::{Core3d, Core3dSystems},
+};
 use bevy_ecs::{
     component::Component,
     query::{Changed, QueryItem, With},
@@ -58,19 +61,18 @@ use bevy_render::{
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{TextureFormat, TextureUsages},
     renderer::RenderAdapter,
     Render, RenderApp, RenderSystems,
 };
 
-use bevy_core_pipeline::core_3d::graph::Core3d;
 use bevy_shader::load_shader_library;
 use environment::{
-    init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
+    atmosphere_environment, init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
     prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_components,
-    prepare_probe_textures, AtmosphereEnvironmentMap, EnvironmentNode,
+    prepare_probe_textures, AtmosphereEnvironmentMap,
 };
+use node::{atmosphere_luts, render_sky};
 use resources::{
     prepare_atmosphere_transforms, prepare_atmosphere_uniforms, queue_render_sky_pipelines,
     AtmosphereTransforms, GpuAtmosphere, RenderSkyBindGroupLayouts,
@@ -79,12 +81,9 @@ use tracing::warn;
 
 use crate::resources::{init_atmosphere_buffer, write_atmosphere_buffer};
 
-use self::{
-    node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
-    resources::{
-        prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-        AtmosphereLutPipelines, AtmosphereSampler,
-    },
+use self::resources::{
+    prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
+    AtmosphereLutPipelines, AtmosphereSampler,
 };
 
 #[doc(hidden)]
@@ -177,30 +176,16 @@ impl Plugin for AtmospherePlugin {
                     write_atmosphere_buffer.in_set(RenderSystems::PrepareResources),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
-                Core3d,
-                AtmosphereNode::RenderLuts,
-            )
-            .add_render_graph_edges(
+            .add_systems(
                 Core3d,
                 (
-                    // END_PRE_PASSES -> RENDER_LUTS -> MAIN_PASS
-                    Node3d::EndPrepasses,
-                    AtmosphereNode::RenderLuts,
-                    Node3d::StartMainPass,
-                ),
-            )
-            .add_render_graph_node::<ViewNodeRunner<RenderSkyNode>>(
-                Core3d,
-                AtmosphereNode::RenderSky,
-            )
-            .add_render_graph_node::<EnvironmentNode>(Core3d, AtmosphereNode::Environment)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::MainOpaquePass,
-                    AtmosphereNode::RenderSky,
-                    Node3d::MainTransparentPass,
+                    (atmosphere_luts, atmosphere_environment)
+                        .chain()
+                        .after(Core3dSystems::Prepass)
+                        .before(Core3dSystems::MainPass),
+                    render_sky
+                        .after(main_opaque_pass_3d)
+                        .before(main_transparent_pass_3d),
                 ),
             );
     }
