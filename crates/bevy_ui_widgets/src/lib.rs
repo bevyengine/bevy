@@ -21,7 +21,6 @@
 mod button;
 mod checkbox;
 mod menu;
-mod observe;
 pub mod popover;
 mod radio;
 mod scrollbar;
@@ -30,7 +29,6 @@ mod slider;
 pub use button::*;
 pub use checkbox::*;
 pub use menu::*;
-pub use observe::*;
 pub use radio::*;
 pub use scrollbar::*;
 pub use slider::*;

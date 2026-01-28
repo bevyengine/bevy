@@ -6,6 +6,7 @@
 
 use bevy::{
     color::palettes::basic::*,
+    ecs::observer::observe,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin,
@@ -15,8 +16,8 @@ use bevy::{
     reflect::Is,
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
-        checkbox_self_update, observe, Activate, Button, Checkbox, Slider, SliderRange,
-        SliderThumb, SliderValue, UiWidgetsPlugins, ValueChange,
+        checkbox_self_update, Activate, Button, Checkbox, Slider, SliderRange, SliderThumb,
+        SliderValue, UiWidgetsPlugins, ValueChange,
     },
 };
 
