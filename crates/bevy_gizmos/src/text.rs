@@ -138,7 +138,11 @@ where
                     continue;
                 }
 
-                let position = isometry * Vec2::new(rx + scale * x as f32, ry - scale * y as f32);
+                let position = isometry
+                    * Vec2::new(
+                        rx + scale * x as f32,
+                        ry - scale * (SIMPLEX_CAP_HEIGHT - y as f32),
+                    );
                 stroke.push(position);
             }
 
@@ -157,7 +161,7 @@ const SIMPLEX_GLYPH_STRIDE: usize = 112;
 const SIMPLEX_CAP_HEIGHT: f32 = 21.0;
 
 /// Coordinate array for the Hershey font Simplex character set
-const SIMPLEX_FONT: [i32; 95 * 112] = [
+const SIMPLEX_FONT: [i8; 95 * 112] = [
     0, 16, /* Ascii 32 */
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
