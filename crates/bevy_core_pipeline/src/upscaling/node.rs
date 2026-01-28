@@ -60,10 +60,6 @@ pub fn upscaling(
         }
     };
 
-    let Some(pipeline) = pipeline_cache.get_render_pipeline(upscaling_target.0) else {
-        return;
-    };
-
     let pass_descriptor = RenderPassDescriptor {
         label: Some("upscaling"),
         color_attachments: &[Some(
@@ -73,6 +69,13 @@ pub fn upscaling(
         timestamp_writes: None,
         occlusion_query_set: None,
         multiview_mask: None,
+    };
+
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(upscaling_target.0) else {
+        // we need to do some work on the swapchain to avoid pink screen uninit on macos
+        #[cfg(target_os = "macos")]
+        ctx.command_encoder().begin_render_pass(&pass_descriptor);
+        return;
     };
 
     let diagnostics = ctx.diagnostic_recorder();
