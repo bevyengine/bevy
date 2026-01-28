@@ -1,6 +1,8 @@
 //! Demonstrates how to write a custom fullscreen shader
 //!
-//! This is currently limited to 3d only but work is in progress to make it work in 2d
+//! This example demonstrates working in 3d. To make the example work in 2d,
+//! replace `Node3d` with `Node2d`, use a `Camera2d`, and spawn `Mesh2d` instead
+//! of `Mesh3d`.
 
 use bevy::{
     core_pipeline::{
