@@ -4,17 +4,19 @@ mod texture;
 
 use bevy_app::{App, Plugin};
 use bevy_camera::Camera3d;
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
-use bevy_ecs::prelude::*;
+use bevy_core_pipeline::{
+    core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
+    schedule::{Core3d, Core3dSystems},
+};
+use bevy_ecs::{prelude::*, schedule::IntoScheduleConfigs};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, ViewSortedRenderPhases},
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::load_shader_library;
-pub use node::MainTransmissivePass3dNode;
+pub use node::main_transmissive_pass_3d;
 pub use phase::Transmissive3d;
 pub use texture::ViewTransmissionTexture;
 
@@ -49,17 +51,12 @@ impl Plugin for ScreenSpaceTransmissionPlugin {
                 Render,
                 prepare_core_3d_transmission_textures.in_set(RenderSystems::PrepareResources),
             )
-            .add_render_graph_node::<ViewNodeRunner<MainTransmissivePass3dNode>>(
+            .add_systems(
                 Core3d,
-                Node3d::MainTransmissivePass,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::MainOpaquePass,
-                    Node3d::MainTransmissivePass,
-                    Node3d::MainTransparentPass,
-                ),
+                main_transmissive_pass_3d
+                    .after(main_opaque_pass_3d)
+                    .before(main_transparent_pass_3d)
+                    .in_set(Core3dSystems::MainPass),
             );
     }
 }
