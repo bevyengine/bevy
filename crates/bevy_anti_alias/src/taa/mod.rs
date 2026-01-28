@@ -17,7 +17,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault as _, ToExtents};
 use bevy_math::vec2;
-use bevy_post_process::bloom::bloom;
+use bevy_post_process::{bloom::bloom, motion_blur::node::motion_blur};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
@@ -71,6 +71,7 @@ impl Plugin for TemporalAntiAliasPlugin {
         render_app.add_systems(
             Core3d,
             temporal_anti_alias
+                .after(motion_blur)
                 .before(bloom)
                 .in_set(Core3dSystems::PostProcess),
         );
