@@ -1,9 +1,9 @@
-use crate::renderer::{
-    self, RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
+use crate::{
+    renderer::{self, RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue},
+    FutureRenderResources,
 };
-use alloc::{borrow::Cow, sync::Arc};
+use alloc::borrow::Cow;
 use bevy_window::RawHandleWrapperHolder;
-use std::sync::Mutex;
 
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
@@ -193,19 +193,21 @@ impl RenderCreation {
 
     /// Creates [`RenderResources`] from this [`RenderCreation`] and an optional primary window.
     /// Note: [`RenderCreation::Manual`] will ignore the provided primary window.
-    pub fn create_render(
+    pub(crate) fn create_render(
         &self,
+        future_resources: FutureRenderResources,
         primary_window: Option<RawHandleWrapperHolder>,
         #[cfg(feature = "raw_vulkan_init")]
         raw_vulkan_init_settings: renderer::raw_vulkan_init::RawVulkanInitSettings,
-    ) -> Option<RenderResources> {
+    ) -> bool {
         match self {
-            RenderCreation::Manual(resources) => Some(resources.clone()),
+            RenderCreation::Manual(resources) => {
+                *future_resources.lock().unwrap() = Some(resources.clone());
+            }
             RenderCreation::Automatic(render_creation) => {
-                let backends = render_creation.backends?;
-                let future_render_resources_wrapper = Arc::new(Mutex::new(None));
-                let render_resources = future_render_resources_wrapper.clone();
-
+                let Some(backends) = render_creation.backends else {
+                    return false;
+                };
                 let settings = render_creation.clone();
 
                 let async_renderer = async move {
@@ -218,7 +220,7 @@ impl RenderCreation {
                     )
                     .await;
 
-                    *future_render_resources_wrapper.lock().unwrap() = Some(render_resources);
+                    *future_resources.lock().unwrap() = Some(render_resources);
                 };
 
                 // In wasm, spawn a task and detach it for execution
@@ -229,9 +231,9 @@ impl RenderCreation {
                 // Otherwise, just block for it to complete
                 #[cfg(not(target_arch = "wasm32"))]
                 bevy_tasks::block_on(async_renderer);
-                render_resources.lock().unwrap().clone()
             }
         }
+        true
     }
 }
 

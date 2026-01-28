@@ -271,8 +271,8 @@ pub mod graph {
     pub struct CameraDriverLabel;
 }
 
-#[derive(Resource)]
-struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
+#[derive(Resource, Default, Clone, Deref)]
+pub(crate) struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
 /// A label for the rendering sub-app.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
@@ -298,20 +298,16 @@ impl Plugin for RenderPlugin {
             .cloned()
             .unwrap_or_default();
 
-        let render_resources = self.render_creation.create_render(
+        let future_resources = FutureRenderResources::default();
+        if self.render_creation.create_render(
+            future_resources.clone(),
             primary_window,
             #[cfg(feature = "raw_vulkan_init")]
             raw_vulkan_init_settings,
-        );
-
-        if let Some(render_resources) = render_resources {
-            app.insert_resource(FutureRenderResources(Arc::new(Mutex::new(Some(
-                render_resources,
-            )))));
+        ) {
+            app.insert_resource(future_resources);
             // SAFETY: Plugins should be set up on the main thread.
             unsafe { initialize_render_app(app) };
-        } else {
-            bevy_log::error!("No backends found, failed to initialize the renderer");
         };
 
         app.add_plugins((
