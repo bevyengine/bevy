@@ -185,11 +185,8 @@ picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
 default_app = [
   "async_executor",
   "bevy_asset",
-  "bevy_input_focus",
   "bevy_log",
   "bevy_state",
-  "bevy_window",
-  "custom_cursor",
   "reflect_auto_register",
 ]
 
@@ -205,6 +202,7 @@ default_platform = [
   "webgl2",
   "x11",
   "wayland",
+  "custom_cursor",
   "sysinfo_plugin",
 ]
 
@@ -219,6 +217,7 @@ common_api = [
   "bevy_shader",
   "bevy_material",
   "bevy_text",
+  "bevy_window",
   "hdr",
   "png",
 ]
@@ -263,7 +262,7 @@ common_api = [
 ]
 
 # COLLECTION: Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
-ui_api = ["default_app", "common_api", "bevy_ui"]
+ui_api = ["default_app", "common_api", "bevy_input_focus", "bevy_ui"]
 
 # COLLECTION: Bevy's built-in UI renderer, built on top of `bevy_render`.
 ui_bevy_render = [
