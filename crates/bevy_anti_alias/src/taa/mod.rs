@@ -6,7 +6,6 @@ use bevy_core_pipeline::{
     schedule::{Core3d, Core3dSystems},
     FullscreenShader,
 };
-use bevy_post_process::bloom::bloom;
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     error::BevyError,
@@ -18,6 +17,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault as _, ToExtents};
 use bevy_math::vec2;
+use bevy_post_process::bloom::bloom;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},

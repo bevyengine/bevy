@@ -26,9 +26,9 @@ use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass},
     schedule::{Core3d, Core3dSystems},
 };
-use bevy_post_process::bloom::bloom;
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
+use bevy_post_process::bloom::bloom;
 use bevy_reflect::{reflect_remote, Reflect};
 use bevy_render::{
     camera::{MipBias, TemporalJitter},
