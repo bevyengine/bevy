@@ -95,7 +95,27 @@ jobs:
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
 
-  miri:
+  miri-setup-partitions:
+    runs-on: ubuntu-latest
+    outputs:
+      partitions: ${{ steps.list.outputs.partitions }}
+    steps:
+      - name: Setup partition list
+        id: list
+        run: |
+          count=20
+          t="["
+          for i in `seq 1 $((count-1))`
+          do
+            t="$t$i,"
+          done
+          echo "partitions=$t$count]" >> $GITHUB_OUTPUT
+
+  miri-run-partitions:
+    needs: [miri-setup-partitions]
+    strategy:
+      matrix:
+        partition: ${{ fromJSON(needs.miri-setup-partitions.outputs.partitions) }}
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
@@ -120,10 +140,13 @@ jobs:
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
+      - name: Install cargo-nextest
+        run: |
+          curl -LsSf https://get.nexte.st/0.9/mac | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
         # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
-        run: cargo miri test -p bevy_ecs --features bevy_utils/debug
+        run: cargo miri nextest run -p bevy_ecs --features bevy_utils/debug --partition count:${{ matrix.partition }}/${{ strategy.job-total }}
         env:
           # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
           RUSTFLAGS: -Zrandomize-layout
@@ -131,6 +154,13 @@ jobs:
           # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
           # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
           MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation
+
+  miri:
+    runs-on: ubuntu-latest
+    needs: [miri-run-partitions]
+    if: always()
+    steps:
+      - run: ${{ !contains(needs.*.result, 'failure') }}
 
   check-compiles:
     runs-on: ubuntu-latest
