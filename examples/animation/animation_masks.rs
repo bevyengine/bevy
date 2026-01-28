@@ -433,7 +433,7 @@ fn handle_button_toggles(
         // iterate just for clarity's sake.)
         for animation_graph_handle in animation_players.iter_mut() {
             // The animation graph needs to have loaded.
-            let Some(animation_graph) = animation_graphs.get_mut(animation_graph_handle) else {
+            let Some(mut animation_graph) = animation_graphs.get_mut(animation_graph_handle) else {
                 continue;
             };
 
