@@ -1,0 +1,7 @@
+(
+    meta_format_version: "1.0",
+    asset: Load(
+        loader: "asset_saving::ManyBoxesLoader",
+        settings: (),
+    ),
+)

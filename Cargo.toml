@@ -2019,6 +2019,18 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "asset_saving"
+path = "examples/asset/asset_saving.rs"
+doc-scrape-examples = true
+required-features = ["bevy_picking", "sprite_picking"]
+
+[package.metadata.example.asset_saving]
+name = "Asset Saving"
+description = "Demonstrates how to save an asset (with subassets)"
+category = "Assets"
+wasm = true
+
+[[example]]
 name = "asset_settings"
 path = "examples/asset/asset_settings.rs"
 doc-scrape-examples = true
