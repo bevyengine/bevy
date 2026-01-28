@@ -1102,13 +1102,11 @@ impl World {
         // SAFETY: command_queue is not referenced anywhere else
         if !unsafe { self.command_queue.is_empty() } {
             self.flush();
-            entity_location = self
-                .entities()
-                .get(entity)
-                .expect("For this to fail, a queued command would need to despawn the entity.");
+            entity_location = self.entities().get_spawned(entity).ok();
         }
 
-        // SAFETY: entity and location are valid, as they were just created above
+        // SAFETY: The entity and location started as valid.
+        // If they were changed by commands, the location was updated to match.
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
         // SAFETY:
         // - This is called exactly once after `get_components` has been called in `spawn_non_existent`.
