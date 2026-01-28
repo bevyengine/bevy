@@ -25,8 +25,8 @@ use bevy_camera::Hdr;
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass},
     schedule::{Core3d, Core3dSystems},
-    tonemapping::tonemapping,
 };
+use bevy_post_process::bloom::bloom;
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{reflect_remote, Reflect};
@@ -194,7 +194,7 @@ impl Plugin for DlssPlugin {
             Core3d,
             (node::dlss_super_resolution, node::dlss_ray_reconstruction)
                 .chain()
-                .before(tonemapping)
+                .before(bloom)
                 .in_set(Core3dSystems::PostProcess),
         );
     }

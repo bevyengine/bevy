@@ -4,9 +4,9 @@ use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
     schedule::{Core3d, Core3dSystems},
-    tonemapping::tonemapping,
     FullscreenShader,
 };
+use bevy_post_process::bloom::bloom;
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     error::BevyError,
@@ -71,7 +71,7 @@ impl Plugin for TemporalAntiAliasPlugin {
         render_app.add_systems(
             Core3d,
             temporal_anti_alias
-                .before(tonemapping)
+                .before(bloom)
                 .in_set(Core3dSystems::PostProcess),
         );
     }
