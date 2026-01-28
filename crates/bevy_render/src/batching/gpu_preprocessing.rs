@@ -1099,10 +1099,14 @@ impl FromWorld for GpuPreprocessingSupport {
         // Filter Android drivers that are incompatible with GPU preprocessing:
         // - We filter out Adreno 730 and earlier GPUs (except 720, as it's newer
         //   than 730).
-        // - We filter out Mali GPUs with driver versions lower than 48.
-        fn is_non_supported_android_device(adapter_info: &RenderAdapterInfo) -> bool {
+        fn is_preprocessing_unsupported_android_device(adapter_info: &RenderAdapterInfo) -> bool {
             crate::get_adreno_model(adapter_info).is_some_and(|model| model != 720 && model <= 730)
-                || crate::get_mali_driver_version(adapter_info).is_some_and(|version| version < 48)
+        }
+
+        // Filter Android drivers that are incompatible with GPU culling:
+        // - We filter out Mali GPUs with driver versions lower than 48.
+        fn is_culling_unsupported_android_device(adapter_info: &RenderAdapterInfo) -> bool {
+            crate::get_mali_driver_version(adapter_info).is_some_and(|version| version < 48)
         }
 
         let culling_feature_support = device
@@ -1124,15 +1128,17 @@ impl FromWorld for GpuPreprocessingSupport {
         let adapter_info = RenderAdapterInfo(WgpuWrapper::new(adapter.get_info()));
 
         let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
-            || is_non_supported_android_device(&adapter_info)
             || adapter_info.backend == wgpu::Backend::Gl
+            || is_preprocessing_unsupported_android_device(&adapter_info)
         {
             info!(
                 "GPU preprocessing is not supported on this device. \
                 Falling back to CPU preprocessing.",
             );
             GpuPreprocessingMode::None
-        } else if !(culling_feature_support && limit_support && downlevel_support) {
+        } else if !(culling_feature_support && limit_support && downlevel_support)
+            || is_culling_unsupported_android_device(&adapter_info)
+        {
             info!("Some GPU preprocessing are limited on this device.");
             GpuPreprocessingMode::PreprocessingOnly
         } else {
