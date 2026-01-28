@@ -8,9 +8,9 @@ use bevy::window::{PresentMode, WindowResolution};
 use bevy::winit::WinitSettings;
 
 const TEXT_COUNT: usize = 50;
-const START_X: f32 = -700.0;
+const START_X: f32 = -800.0;
 const START_Y: f32 = 200.0;
-const X_STEP: f32 = 300.0;
+const X_STEP: f32 = 250.0;
 const Y_STEP: f32 = 50.0;
 
 fn main() {
@@ -29,7 +29,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, draw_labels)
+        .add_systems(Update, (draw_labels, draw_all_glyphs))
         .run();
 }
 
@@ -77,6 +77,25 @@ fn draw_labels(mut text_gizmos: Gizmos, diagnostic: Res<DiagnosticsStore>) {
         Isometry2d::from_translation(Vec2::new(-200., 500.)),
         "lxgh",
         150.,
+        Color::WHITE,
+    );
+}
+
+const ALL_GLYPHS: &'static str = " !\"#$%&'()*\n\
++,-./012345\n\
+6789:;<=>?@\n\
+ABCDEFGHIJK\n\
+LMNOPQRSTUV\n\
+WXYZ[\\]^_`a\n\
+bcdefghijkl\n\
+mnopqrstuvw\n\
+xyz{|}~";
+
+fn draw_all_glyphs(mut text_gizmos: Gizmos) {
+    text_gizmos.text_2d(
+        Isometry2d::from_translation(Vec2::new(500., START_Y - 100.)),
+        ALL_GLYPHS,
+        24.0,
         Color::WHITE,
     );
 }

@@ -6,7 +6,7 @@ use std::ops::Range;
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 
-const LINE_HEIGHT: f32 = 1.2;
+const LINE_HEIGHT: f32 = 1.75;
 const SIMPLEX_ASCII_START: usize = 32;
 const SIMPLEX_ASCII_END: usize = 126;
 const SIMPLEX_CAP_HEIGHT: f32 = 21.0;
@@ -1408,6 +1408,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
+    /// Draw text using a
     pub fn text_2d(
         &mut self,
         isometry: impl Into<Isometry2d>,
