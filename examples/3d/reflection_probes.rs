@@ -153,7 +153,7 @@ fn spawn_sphere(
 // Spawns the reflection probe.
 fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     commands.spawn((
-        LightProbe,
+        LightProbe::default(),
         EnvironmentMapLight {
             diffuse_map: cubemaps.diffuse_environment_map.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),

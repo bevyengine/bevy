@@ -136,7 +136,7 @@ fn spawn_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) {
     let diffuse_map = asset_server.load(ENV_DIFFUSE_URL);
     let specular_map = asset_server.load(ENV_SPECULAR_URL);
     commands.spawn((
-        LightProbe,
+        LightProbe::default(),
         EnvironmentMapLight {
             diffuse_map,
             specular_map,

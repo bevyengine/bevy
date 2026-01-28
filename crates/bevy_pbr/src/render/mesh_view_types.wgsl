@@ -132,6 +132,9 @@ struct LightProbe {
     // This is stored as the transpose in order to save space in this structure.
     // It'll be transposed in the `environment_map_light` function.
     light_from_world_transposed: mat3x4<f32>,
+    // The falloff region, specified as a fraction of the light probe's
+    // bounding box.
+    falloff: vec3<f32>,
     cubemap_index: i32,
     intensity: f32,
     // Various flags that apply to this light probe.

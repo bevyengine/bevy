@@ -3,7 +3,7 @@ use bevy_camera::visibility::Visibility;
 use bevy_color::{Color, ColorToComponents, Srgba};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::{Quat, UVec2};
+use bevy_math::{Quat, UVec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
 use wgpu_types::{
@@ -18,11 +18,22 @@ use wgpu_types::{
 /// [`IrradianceVolume`].
 ///
 /// The light probe range is conceptually a unit cube (1×1×1) centered on the
-/// origin. The [`Transform`] applied to this entity can scale, rotate, or translate
-/// that cube so that it contains all fragments that should take this light probe into account.
+/// origin. The [`Transform`] applied to this entity can scale, rotate, or
+/// translate that cube so that it contains all fragments that should take this
+/// light probe into account.
+///
+/// Light probes may specify a *falloff* range over which their influence tapers
+/// off. The falloff range is expressed as a range from 0, representing
+/// infinitely-sharp falloff, to 1, representing the most gradual falloff,
+/// *inside* the 1×1×1 cube. So, for example, if you set the falloff to 0.5 on
+/// an axis, then any fragments with positions between 0.0 units to 0.25 units
+/// on that axis will receive 100% influence from the light probe, while
+/// fragments with positions between 0.25 units to 0.5 units on that axis will
+/// receive gradually-diminished influence, and fragments more than 0.5 units
+/// from the center of the light probe will receive no influence at all.
 ///
 /// When multiple sources of indirect illumination can be applied to a fragment,
-/// the highest-quality one is chosen. Diffuse and specular illumination are
+/// the highest-quality ones are chosen. Diffuse and specular illumination are
 /// considered separately, so, for example, Bevy may decide to sample the
 /// diffuse illumination from an irradiance volume and the specular illumination
 /// from a reflection probe. From highest priority to lowest priority, the
@@ -39,6 +50,11 @@ use wgpu_types::{
 /// not participate in the ranking. That is, ambient light is applied in
 /// addition to, not instead of, the light sources above.
 ///
+/// Multiple light probes of the same type can apply to a single fragment. By
+/// setting falloff regions appropriately, one can achieve a gradual blend from
+/// one reflection probe and/or irradiance volume to another as objects move
+/// between them.
+///
 /// A terminology note: Unfortunately, there is little agreement across game and
 /// graphics engines as to what to call the various techniques that Bevy groups
 /// under the term *light probe*. In Bevy, a *light probe* is the generic term
@@ -52,13 +68,29 @@ use wgpu_types::{
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Transform, Visibility)]
-pub struct LightProbe;
+pub struct LightProbe {
+    /// The distance over which the effect of the light probe becomes weaker, on
+    /// each axis.
+    ///
+    /// This is specified as a ratio of the total distance on each axis. So, for
+    /// example, if you specify `Vec3::splat(0.25)` here, then the light probe
+    /// will consist of a 0.75×0.75×0.75 unit cube within which fragments
+    /// receive the maximum influence from the light probe, contained within a
+    /// 1×1×1 cube which influences fragments inside it in a manner that
+    /// diminishes as fragments get farther from its center.
+    ///
+    /// Falloff doesn't affect the influence range of the light probe itself;
+    /// it's still conceptually a 1×1×1 cube, regardless of the falloff setting.
+    /// In other words, falloff modifies the *interior* of the light probe cube
+    /// instead of increasing the *exterior* boundaries of the cube.
+    pub falloff: Vec3,
+}
 
 impl LightProbe {
     /// Creates a new light probe component.
     #[inline]
     pub fn new() -> Self {
-        Self
+        Self::default()
     }
 }
 
