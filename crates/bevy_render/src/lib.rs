@@ -91,6 +91,7 @@ use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
@@ -100,7 +101,6 @@ use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use bitflags::bitflags;
-use core::ops::{Deref, DerefMut};
 use globals::GlobalsPlugin;
 use occlusion_culling::OcclusionCullingPlugin;
 use render_asset::{
@@ -261,22 +261,8 @@ pub struct ExtractSchedule;
 /// This resource is only available during [`ExtractSchedule`] and not
 /// during command application of that schedule.
 /// See [`Extract`] for more details.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Deref, DerefMut)]
 pub struct MainWorld(World);
-
-impl Deref for MainWorld {
-    type Target = World;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for MainWorld {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 
 pub mod graph {
     use crate::render_graph::RenderLabel;
