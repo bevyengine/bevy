@@ -768,3 +768,160 @@ mod bounding_circle_tests {
         assert!(!circle.intersects(&BoundingCircle::new(Vec2::ONE * 1.5, 1.0)));
     }
 }
+
+/// A 2D oriented bounding box.
+///
+/// An oriented bounding box contains its center in world coordinates, its rotation,
+/// and its half size. In local coordinates, the OBB's center is at (0, 0).
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(Serialize), derive(Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct Obb2d {
+    /// The isometrical transformation that converts local obb coordinates to world coordinates.
+    /// `isometry.translation` is equal to the center of the obb in world coordinates.
+    /// `let mat: Mat2 = isometry.rotation.into()` contains the local coordinate axes.
+    pub isometry: Isometry2d,
+    /// The half size of the oriented bounding box
+    pub half_size: Vec2,
+}
+
+impl Obb2d {
+    #[inline]
+    pub fn get_axes(&self) -> Mat2 {
+        self.isometry.rotation.into()
+    }
+
+    #[inline]
+    pub fn get_corners(&self) -> [Vec2; 4] {
+        [
+            self.isometry
+                .transform_point(Vec2::new(-1., -1.) * self.half_size),
+            self.isometry
+                .transform_point(Vec2::new(-1., 1.) * self.half_size),
+            self.isometry
+                .transform_point(Vec2::new(1., -1.) * self.half_size),
+            self.isometry
+                .transform_point(Vec2::new(1., 1.) * self.half_size),
+        ]
+    }
+}
+
+impl BoundingVolume for Obb2d {
+    type Translation = Vec2;
+    type Rotation = Rot2;
+    type HalfSize = Vec2;
+
+    #[inline]
+    fn center(&self) -> Self::Translation {
+        self.isometry.translation
+    }
+
+    #[inline]
+    fn half_size(&self) -> Self::HalfSize {
+        self.half_size
+    }
+
+    #[inline]
+    fn visible_area(&self) -> f32 {
+        let b = self.half_size * 2.;
+        b.x * b.y
+    }
+
+    #[inline]
+    fn contains(&self, other: &Self) -> bool {
+        // Convert the corners of `other` into this OBB's coordinate system.
+        let other_corners = other.get_corners();
+        // Check whether all corners are within the bounds of this OBB
+        other_corners.iter().all(|&point| {
+            let local_corner = self.isometry.inverse().transform_point(point);
+            local_corner.x <= self.half_size.x
+                && local_corner.x >= -self.half_size.x
+                && local_corner.y <= self.half_size.y
+                && local_corner.y >= -self.half_size.y
+        })
+    }
+
+    #[inline]
+    fn merge(&self, _other: &Self) -> Self {
+        // TODO: implement
+        todo!();
+    }
+
+    #[inline]
+    fn grow(&self, amount: impl Into<Self::HalfSize>) -> Self {
+        let isometry = self.isometry;
+        Self {
+            isometry,
+            half_size: self.half_size() + amount.into(),
+        }
+    }
+
+    #[inline]
+    fn shrink(&self, amount: impl Into<Self::HalfSize>) -> Self {
+        let isometry = self.isometry;
+        Self {
+            isometry,
+            half_size: self.half_size() - amount.into(),
+        }
+    }
+
+    #[inline]
+    fn scale_around_center(&self, scale: impl Into<Self::HalfSize>) -> Self {
+        let isometry = self.isometry;
+        Self {
+            isometry,
+            half_size: self.half_size() * scale.into(),
+        }
+    }
+
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    ///
+    /// The result is an Oriented Bounding Box that encompasses the rotated shape.
+    ///
+    /// If 'f(x)' is the isometry (the rotation followed by the translation) to be applied
+    /// to an OBB with existing isometry 'g(x)', the new isometry for the OBB is f(g(x)).
+    #[inline]
+    fn transform_by(
+        &mut self,
+        translation: impl Into<Self::Translation>,
+        rotation: impl Into<Self::Rotation>,
+    ) {
+        let translation = translation.into();
+        let rotation = rotation.into();
+        let isometry = Isometry2d {
+            translation,
+            rotation,
+        };
+        self.isometry = isometry * self.isometry
+    }
+
+    /// Translates the bounding volume by the given translation.
+    /// ///
+    /// The result is an Oriented Bounding Box that encompasses the translated shape.
+    ///
+    /// The translation is applied *after* `self.isometry`
+    #[inline]
+    fn translate_by(&mut self, translation: impl Into<Self::Translation>) {
+        let isometry = Isometry2d::from_translation(translation.into());
+        self.isometry = isometry * self.isometry;
+    }
+
+    /// Rotates the bounding volume around the origin by the given rotation.
+    ///
+    /// The result is an Oriented Bounding Box that encompasses the rotated shape.
+    ///
+    /// The rotation is applied *after* `self.isometry`
+    #[inline]
+    fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
+        let isometry = Isometry2d::from_rotation(rotation.into());
+        self.isometry = isometry * self.isometry;
+    }
+}
