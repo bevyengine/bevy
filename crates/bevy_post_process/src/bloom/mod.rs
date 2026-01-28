@@ -182,7 +182,7 @@ impl ViewNode for BloomNode {
                     &BindGroupEntries::sequential((
                         // Read from main texture directly
                         view_texture,
-                        &bind_groups.sampler,
+                        &downsampling_pipeline_res.sampler,
                         uniforms.clone(),
                     )),
                 );
@@ -366,16 +366,21 @@ fn prepare_bloom_textures(
     for (entity, camera, bloom) in &views {
         if let Some(viewport) = camera.physical_viewport_size {
             // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
-            let mip_height_ratio = if viewport.y != 0 {
-                bloom.max_mip_dimension as f32 / viewport.y as f32
+            let mip_count = bloom
+                .max_mip_dimension
+                .ilog2()
+                .clamp(2, bloom.max_mip_count)
+                - 1;
+            let mip_dim_ratio = if viewport.y != 0 && viewport.x != 0 {
+                // To better predict the mip count, `bloom.max_mip_dimension` actually controls the maximum size of the short side.
+                bloom.max_mip_dimension as f32 / viewport.as_vec2().min_element()
             } else {
                 0.
             };
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
-                size: (viewport.as_vec2() * mip_height_ratio)
+                size: (viewport.as_vec2() * mip_dim_ratio)
                     .round()
                     .as_uvec2()
                     .max(UVec2::ONE)
@@ -424,7 +429,6 @@ struct BloomBindGroups {
     cache_key: (TextureId, BufferId),
     downsampling_bind_groups: Box<[BindGroup]>,
     upsampling_bind_groups: Box<[BindGroup]>,
-    sampler: Sampler,
 }
 
 fn prepare_bloom_bind_groups(
@@ -436,8 +440,6 @@ fn prepare_bloom_bind_groups(
     uniforms: Res<ComponentUniforms<BloomUniforms>>,
     pipeline_cache: Res<PipelineCache>,
 ) {
-    let sampler = &downsampling_pipeline.sampler;
-
     for (entity, bloom_texture, bloom_bind_groups) in &views {
         if let Some(b) = bloom_bind_groups
             && b.cache_key
@@ -458,7 +460,7 @@ fn prepare_bloom_bind_groups(
                 &pipeline_cache.get_bind_group_layout(&downsampling_pipeline.bind_group_layout),
                 &BindGroupEntries::sequential((
                     &bloom_texture.view(mip - 1),
-                    sampler,
+                    &downsampling_pipeline.sampler,
                     uniforms.binding().unwrap(),
                 )),
             ));
@@ -471,7 +473,7 @@ fn prepare_bloom_bind_groups(
                 &pipeline_cache.get_bind_group_layout(&upsampling_pipeline.bind_group_layout),
                 &BindGroupEntries::sequential((
                     &bloom_texture.view(mip),
-                    sampler,
+                    &upsampling_pipeline.sampler,
                     uniforms.binding().unwrap(),
                 )),
             ));
@@ -484,7 +486,6 @@ fn prepare_bloom_bind_groups(
             ),
             downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
             upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
-            sampler: sampler.clone(),
         });
     }
 }
