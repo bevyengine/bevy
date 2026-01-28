@@ -1165,7 +1165,11 @@ impl RenderMeshInstanceGpuBuilder {
                     mesh_vertex_slice.range.start,
                     mesh_vertex_slice.range.end - mesh_vertex_slice.range.start,
                 ),
-                None => (0, 0),
+                None => {
+                    // GPU memory for this mesh hasn't been allocated yet. Retry next frame.
+                    meshes_to_reextract_next_frame.insert(entity);
+                    return None;
+                }
             };
         let (mesh_is_indexed, first_index_index, index_count) =
             match mesh_allocator.mesh_index_slice(&self.shared.mesh_asset_id) {
