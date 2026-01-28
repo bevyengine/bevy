@@ -1,8 +1,9 @@
 //! Demonstrates how to write a custom fullscreen shader
 //!
 //! This example demonstrates working in 3d. To make the example work in 2d,
-//! replace `Node3d` with `Node2d`, use a `Camera2d`, and spawn `Mesh2d` instead
-//! of `Mesh3d`.
+//! replace 3d components with their 2d counterparts, and schedule the work
+//! to run in the `Core2d` schedule as described in the `FullscreenMaterial`
+//! comment in this file.
 
 use bevy::{
     core_pipeline::fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
@@ -54,5 +55,14 @@ impl FullscreenMaterial for FullscreenEffect {
         "shaders/fullscreen_effect.wgsl".into()
     }
 
-    // Uses default run_in (Core3dSystems::PostProcess)
+    // The `FullscreenMaterial` uses 3d schedules by default.
+    // To make this work in 2d, you would need to schedule to
+    // run in `Core2d` and in a `Core2dSystems` set.
+    //
+    // fn schedule() -> impl bevy::ecs::schedule::ScheduleLabel + Clone {
+    //     bevy::core_pipeline::Core2d
+    // }
+    // fn run_in() -> impl SystemSet {
+    //     bevy::core_pipeline::Core2dSystems::PostProcess
+    // }
 }
