@@ -93,9 +93,9 @@ xyz{|}~";
 
 fn draw_all_glyphs(mut text_gizmos: Gizmos) {
     text_gizmos.text_2d(
-        Isometry2d::from_translation(Vec2::new(500., START_Y - 100.)),
+        Isometry2d::from_translation(Vec2::new(500., START_Y)),
         ALL_GLYPHS,
-        24.0,
+        30.0,
         Color::WHITE,
     );
 }
