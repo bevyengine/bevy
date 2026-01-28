@@ -1375,6 +1375,31 @@ impl AssetServer {
         Some(info.path.as_ref()?.clone())
     }
 
+    /// Returns a reference to the path for the given `id`, if it has one.
+    ///
+    /// This method is useful when you need to access the path without cloning it,
+    /// which can be more efficient when working with many asset handles.
+    ///
+    /// Note: The returned reference is tied to a temporary lock guard that lives
+    /// as long as the returned value is in scope. For more complex use cases,
+    /// consider using [`AssetServer::get_path`] instead.
+    pub fn get_path_ref<'a>(
+        &'a self,
+        id: impl Into<UntypedAssetId>,
+    ) -> Option<impl core::ops::Deref<Target = AssetPath<'static>> + 'a> {
+        let index = id.into().try_into().ok()?;
+        let infos = self.read_infos();
+        
+        if infos.get_path_ref(index).is_some() {
+            Some(AssetPathRef {
+                _guard: infos,
+                index,
+            })
+        } else {
+            None
+        }
+    }
+
     /// Returns the [`AssetServerMode`] this server is currently in.
     pub fn mode(&self) -> AssetServerMode {
         self.data.mode
@@ -2165,6 +2190,27 @@ fn format_missing_asset_ext(exts: &[String]) -> String {
         )
     } else {
         " for file with no extension".to_string()
+    }
+}
+
+/// A reference to an asset path that keeps the internal lock alive.
+/// 
+/// This type is returned by [`AssetServer::get_path_ref`] and allows
+/// accessing the path without cloning it, while keeping the necessary
+/// read lock alive for the duration of its lifetime.
+pub struct AssetPathRef<'a> {
+    _guard: RwLockReadGuard<'a, AssetInfos>,
+    index: ErasedAssetIndex,
+}
+
+impl<'a> core::ops::Deref for AssetPathRef<'a> {
+    type Target = AssetPath<'static>;
+
+    fn deref(&self) -> &Self::Target {
+        // SAFETY: We checked in get_path_ref that the path exists, so this unwrap is safe
+        self._guard
+            .get_path_ref(self.index)
+            .expect("AssetPathRef should only be created when path exists")
     }
 }
 
