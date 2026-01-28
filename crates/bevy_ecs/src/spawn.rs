@@ -336,12 +336,16 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
         // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
         // be valid and initialized.
         let effect = unsafe { ptr.assume_init() };
+        bevy_ptr::deconstruct_moving_ptr!({
+            let Self { list, marker: _ } = effect;
+        });
         let id = entity.id();
 
+        if entity.is_despawned() {
+            return;
+        }
+
         entity.world_scope(|world: &mut World| {
-            bevy_ptr::deconstruct_moving_ptr!({
-                let Self { list, marker: _ } = effect;
-            });
             L::spawn(list, world, id);
         });
     }
@@ -381,6 +385,10 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
         // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
         // be valid and initialized.
         let effect = unsafe { ptr.assume_init() };
+        if entity.is_despawned() {
+            return;
+        }
+
         let effect = effect.read();
         entity.with_related::<R>(effect.bundle);
     }
