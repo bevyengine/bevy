@@ -64,6 +64,11 @@ impl SystemMeta {
         &self.name
     }
 
+    /// Returns the system's state flags
+    pub fn flags(&self) -> SystemStateFlags {
+        self.flags
+    }
+
     /// Sets the name of this system.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
@@ -77,6 +82,18 @@ impl SystemMeta {
             self.commands_span = info_span!(parent: None, "system_commands", name = name);
         }
         self.name = new_name.into();
+    }
+
+    /// Gets the last time this system was run.
+    #[inline]
+    pub fn get_last_run(&self) -> Tick {
+        self.last_run
+    }
+
+    /// Sets the last time this system was run.
+    #[inline]
+    pub fn set_last_run(&mut self, last_run: Tick) {
+        self.last_run = last_run;
     }
 
     /// Returns true if the system is [`Send`].

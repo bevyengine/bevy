@@ -16,7 +16,7 @@ use crate::{
     },
     resource::Resource,
     storage::ResourceData,
-    system::{Query, Single, SystemMeta},
+    system::{Query, ReadOnlySystem, RunSystemError, Single, System, SystemInput, SystemMeta},
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
         FromWorld, World,
@@ -2838,6 +2838,177 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         // and we registered all resource access in `state``.
         unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
     }
+}
+
+/// A [`SystemParam`] that allows running other systems.
+///
+/// To be useful, this must be configured using a [`SystemRunnerBuilder`](crate::system::SystemRunnerBuilder)
+/// to build the system using a [`SystemParamBuilder`](crate::prelude::SystemParamBuilder).
+///
+/// Also see the macros [`compose`](crate::system::compose) and [`compose_with`](crate::system::compose_with)
+/// for some nice syntax on top of this API.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, system::*};
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// #
+/// # #[derive(Component)]
+/// # struct B;
+/// # let mut world = World::new();
+/// #
+/// fn count_a(a: Query<&A>) -> usize {
+///     a.count()
+/// }
+///
+/// fn count_b(b: Query<&B>) -> usize {
+///     b.count()
+/// }
+///
+/// let get_sum = (
+///     ParamBuilder::system(count_a),
+///     ParamBuilder::system(count_b)
+/// )
+/// .build_state(&mut world)
+/// .build_system(
+///     |mut run_a: SystemRunner<(), usize>, mut run_b: SystemRunner<(), usize>| -> Result<usize, RunSystemError> {
+///         let a = run_a.run()?;
+///         let b = run_b.run()?;
+///         Ok(a + b)
+///     }
+/// );
+/// ```
+pub struct SystemRunner<'w, 's, In = (), Out = (), Sys = dyn System<In = In, Out = Out>>
+where
+    In: SystemInput,
+    Sys: System<In = In, Out = Out> + ?Sized,
+{
+    world: UnsafeWorldCell<'w>,
+    system: &'s mut Sys,
+}
+
+impl<'w, 's, In, Out, Sys> SystemRunner<'w, 's, In, Out, Sys>
+where
+    In: SystemInput,
+    Sys: System<In = In, Out = Out> + ?Sized,
+{
+    /// Run the system with input.
+    #[inline]
+    pub fn run_with(&mut self, input: In::Inner<'_>) -> Result<Out, RunSystemError> {
+        // SAFETY:
+        // - all accesses are properly declared in `init_access`
+        unsafe { self.system.validate_param_unsafe(self.world)? };
+        // SAFETY:
+        // - all accesses are properly declared in `init_access`
+        unsafe { self.system.run_unsafe(input, self.world) }
+    }
+}
+
+impl<'w, 's, Out, Sys> SystemRunner<'w, 's, (), Out, Sys>
+where
+    Sys: System<In = (), Out = Out> + ?Sized,
+{
+    /// Run the system.
+    #[inline]
+    pub fn run(&mut self) -> Result<Out, RunSystemError> {
+        self.run_with(())
+    }
+}
+
+/// The [`SystemParam::State`] for a [`SystemRunner`].
+pub struct SystemRunnerState<Sys: System + ?Sized> {
+    pub(crate) system: Option<Box<Sys>>,
+    pub(crate) access: FilteredAccessSet,
+}
+
+// SAFETY: SystemRunner registers all accesses and panics if a conflict is detected.
+unsafe impl<'w, 's, In, Out, Sys> SystemParam for SystemRunner<'w, 's, In, Out, Sys>
+where
+    In: SystemInput,
+    Sys: System<In = In, Out = Out> + ?Sized,
+{
+    type State = SystemRunnerState<Sys>;
+
+    type Item<'world, 'state> = SystemRunner<'world, 'state, In, Out, Sys>;
+
+    #[inline]
+    fn init_state(_world: &mut World) -> Self::State {
+        SystemRunnerState {
+            system: None,
+            access: FilteredAccessSet::default(),
+        }
+    }
+
+    #[inline]
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    ) {
+        let conflicts = component_access_set.get_conflicts(&state.access);
+        if !conflicts.is_empty() {
+            let system_name = system_meta.name();
+            let mut accesses = conflicts.format_conflict_list(world);
+            // Access list may be empty (if access to all components requested)
+            if !accesses.is_empty() {
+                accesses.push(' ');
+            }
+            panic!("error[B0001]: SystemRunner({}) in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint system accesses or using a `ParamSet`. See: https://bevy.org/learn/errors/b0001", state.system.as_ref().map(|sys| sys.name()).unwrap_or(DebugName::borrowed("")));
+        }
+
+        component_access_set.extend(state.access.clone());
+    }
+
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        SystemRunner {
+            world,
+            system: state.system.as_deref_mut().expect("SystemRunner accessed with invalid state. This should have been caught by `validate_param`"),
+        }
+    }
+
+    #[inline]
+    fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
+        if let Some(sys) = &mut state.system {
+            sys.apply_deferred(world);
+        }
+    }
+
+    #[inline]
+    fn queue(state: &mut Self::State, _system_meta: &SystemMeta, world: DeferredWorld) {
+        if let Some(sys) = &mut state.system {
+            sys.queue_deferred(world);
+        }
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        let err = SystemParamValidationError::invalid::<Self>(
+            "SystemRunner must be manually initialized, for example with the system builder API.",
+        );
+        state.system.as_ref().map(|_| ()).ok_or(err)
+    }
+}
+
+// SAFETY: if the internal system is readonly, this param can't mutate the world.
+unsafe impl<'w, 's, In, Out, Sys> ReadOnlySystemParam for SystemRunner<'w, 's, In, Out, Sys>
+where
+    In: SystemInput,
+    Sys: System<In = In, Out = Out> + ReadOnlySystem + ?Sized,
+{
 }
 
 /// An error that occurs when a system parameter is not valid,
