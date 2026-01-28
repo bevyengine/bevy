@@ -90,7 +90,71 @@ where
             rx += advance;
         }
     }
+
+    pub fn text_2d_simplex(
+        &mut self,
+        isometry: impl Into<Isometry2d>,
+        text: &str,
+        size: f32,
+        line_height: f32,
+        color: impl Into<Color>,
+    ) {
+        let isometry = isometry.into();
+        let color = color.into();
+        let scale = size / SIMPLEX_CAP_HEIGHT;
+        let line_height = line_height * size;
+
+        let space_advance = SIMPLEX_FONT[1] as f32 * scale;
+        let mut rx = 0.0;
+        let mut ry = 0.0;
+
+        for c in text.chars() {
+            if c == '\n' {
+                rx = 0.0;
+                ry -= line_height;
+                continue;
+            }
+
+            let code = c as u32;
+            if !(SIMPLEX_ASCII_START..=SIMPLEX_ASCII_END).contains(&code) {
+                rx += space_advance;
+                continue;
+            }
+
+            let glyph_index = (code as usize - SIMPLEX_ASCII_START as usize) * SIMPLEX_GLYPH_STRIDE;
+            let point_count = SIMPLEX_FONT[glyph_index] as usize;
+            let advance = SIMPLEX_FONT[glyph_index + 1] as f32 * scale;
+            let points = &SIMPLEX_FONT[glyph_index + 2..glyph_index + 2 + point_count * 2];
+
+            let mut stroke = Vec::new();
+            for pair in points.chunks_exact(2) {
+                let x = pair[0];
+                let y = pair[1];
+                if x == -1 && y == -1 {
+                    if stroke.len() >= 2 {
+                        self.linestrip_2d(stroke.iter().copied(), color);
+                    }
+                    stroke.clear();
+                    continue;
+                }
+
+                let position = isometry * Vec2::new(rx + scale * x as f32, ry - scale * y as f32);
+                stroke.push(position);
+            }
+
+            if stroke.len() >= 2 {
+                self.linestrip_2d(stroke.iter().copied(), color);
+            }
+
+            rx += advance;
+        }
+    }
 }
+
+const SIMPLEX_ASCII_START: u32 = 32;
+const SIMPLEX_ASCII_END: u32 = 126;
+const SIMPLEX_GLYPH_STRIDE: usize = 112;
+const SIMPLEX_CAP_HEIGHT: f32 = 21.0;
 
 /// Coordinate array for the Hershey font Simplex character set
 const SIMPLEX_FONT: [i32; 95 * 112] = [

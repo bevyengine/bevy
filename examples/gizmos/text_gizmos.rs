@@ -19,7 +19,7 @@ fn setup_camera(mut commands: Commands, mut config_store: ResMut<GizmoConfigStor
 }
 
 fn draw_hello(mut gizmos: Gizmos) {
-    gizmos.text_2d(
+    gizmos.text_2d_simplex(
         Isometry2d::from_translation(-400.0 * Vec2::X),
         "Hello, gizmos!\nSecond Line!",
         100.0,
