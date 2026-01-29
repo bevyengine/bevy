@@ -1119,7 +1119,10 @@ impl FromWorld for GpuPreprocessingSupport {
         let downlevel_support = adapter
             .get_downlevel_capabilities()
             .flags
-            .contains(DownlevelFlags::COMPUTE_SHADERS);
+            .contains(
+                DownlevelFlags::COMPUTE_SHADERS |
+                DownlevelFlags::DEPTH_TEXTURE_AND_BUFFER_COPIES
+            );
 
         let adapter_info = RenderAdapterInfo(WgpuWrapper::new(adapter.get_info()));
 
