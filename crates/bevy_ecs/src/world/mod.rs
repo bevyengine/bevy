@@ -4404,7 +4404,7 @@ mod tests {
             world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
-        world.despawn(entity);
+        let new = world.despawn_no_free(entity).unwrap();
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),
             MaybeLocation::new(Some(Location::caller()))
@@ -4413,7 +4413,8 @@ mod tests {
             world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
-        let new = world.spawn_empty().id();
+
+        world.spawn_empty_at(new).unwrap();
         assert_eq!(entity.index(), new.index());
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),
