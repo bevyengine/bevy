@@ -202,20 +202,20 @@ fn temporal_anti_alias(
                 view: view_target.destination,
                 depth_slice: None,
                 resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Default::default()),
-                        store: StoreOp::Store,
-                    },
-                }),
+                ops: Operations {
+                    load: LoadOp::Clear(Default::default()),
+                    store: StoreOp::Store,
+                },
+            }),
             Some(RenderPassColorAttachment {
                 view: &taa_history_textures.write.default_view,
                 depth_slice: None,
                 resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Default::default()),
-                        store: StoreOp::Store,
-                    },
-                }),
+                ops: Operations {
+                    load: LoadOp::Clear(Default::default()),
+                    store: StoreOp::Store,
+                },
+            }),
         ],
         depth_stencil_attachment: None,
         timestamp_writes: None,

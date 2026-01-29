@@ -11,7 +11,7 @@ use bevy::{
     },
     asset::RenderAssetUsages,
     camera::Hdr,
-    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
+    core_pipeline::prepass::MotionVectorPrepass,
     image::{ImageSampler, ImageSamplerDescriptor},
     light::CascadeShadowConfigBuilder,
     prelude::*,
@@ -25,6 +25,8 @@ use bevy::{
 use bevy::anti_alias::dlss::{
     Dlss, DlssPerfQualityMode, DlssProjectId, DlssSuperResolutionSupported,
 };
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+use bevy::core_pipeline::prepass::DepthPrepass;
 
 fn main() {
     let mut app = App::new();
