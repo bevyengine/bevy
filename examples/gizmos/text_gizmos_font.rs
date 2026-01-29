@@ -2,7 +2,6 @@
 //! used by `bevy_gizmos`
 
 use bevy::prelude::*;
-use bevy_text_gizmos::prelude::*;
 
 const ALL_GLYPHS: &'static str = " !\"#$%&'()*\n\
 +,-./012345\n\
@@ -28,9 +27,9 @@ fn setup_camera(mut commands: Commands) {
 
 fn draw_all_glyphs(mut text_gizmos: Gizmos) {
     text_gizmos.text_2d(
-        Isometry2d::from_xy(-200., 200.),
+        Isometry2d::from_xy(-300., 300.),
         ALL_GLYPHS,
-        30.0,
+        40.0,
         Color::WHITE,
     );
 }

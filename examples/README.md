@@ -374,6 +374,7 @@ Example | Description
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
 [Text Gizmos](../examples/gizmos/text_gizmos.rs) | A scene showcasing text gizmos
+[Text Gizmos Font](../examples/gizmos/text_gizmos_font.rs) | Example displaying the font used by text gizmos
 
 ### Helpers
 
