@@ -49,6 +49,7 @@ mod prepass;
 mod render;
 mod ssao;
 mod ssr;
+mod transmission;
 mod volumetric_fog;
 
 use bevy_color::{Color, LinearRgba};
@@ -76,6 +77,7 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
+pub use transmission::*;
 pub use volumetric_fog::VolumetricFogPlugin;
 
 /// The PBR prelude.
@@ -94,48 +96,11 @@ pub mod prelude {
     };
 }
 
-pub mod graph {
-    use bevy_render::render_graph::RenderLabel;
-
-    /// Render graph nodes specific to 3D PBR rendering.
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum NodePbr {
-        /// Label for the shadow pass node that draws meshes that were visible
-        /// from the light last frame.
-        EarlyShadowPass,
-        /// Label for the shadow pass node that draws meshes that became visible
-        /// from the light this frame.
-        LateShadowPass,
-        /// Label for the screen space ambient occlusion render node.
-        ScreenSpaceAmbientOcclusion,
-        DeferredLightingPass,
-        /// Label for the volumetric lighting pass.
-        VolumetricFog,
-        /// Label for the shader that transforms and culls meshes that were
-        /// visible last frame.
-        EarlyGpuPreprocess,
-        /// Label for the shader that transforms and culls meshes that became
-        /// visible this frame.
-        LateGpuPreprocess,
-        /// Label for the screen space reflections pass.
-        ScreenSpaceReflections,
-        /// Label for the node that builds indirect draw parameters for meshes
-        /// that were visible last frame.
-        EarlyPrepassBuildIndirectParameters,
-        /// Label for the node that builds indirect draw parameters for meshes
-        /// that became visible this frame.
-        LatePrepassBuildIndirectParameters,
-        /// Label for the node that builds indirect draw parameters for the main
-        /// rendering pass, containing all meshes that are visible this frame.
-        MainBuildIndirectParameters,
-        ClearIndirectParametersMetadata,
-    }
-}
-
-use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
+use crate::deferred::DeferredPbrLightingPlugin;
 use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
+use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_ecs::prelude::*;
 #[cfg(feature = "bluenoise_texture")]
 use bevy_image::{CompressedImageFormats, ImageType};
@@ -144,7 +109,6 @@ use bevy_material::AlphaMode;
 use bevy_render::{
     camera::sort_cameras,
     extract_resource::ExtractResourcePlugin,
-    render_graph::RenderGraph,
     render_resource::{
         Extent3d, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
         TextureUsages,
@@ -203,7 +167,6 @@ impl Plugin for PbrPlugin {
         load_shader_library!(app, "render/utils.wgsl");
         load_shader_library!(app, "render/clustered_forward.wgsl");
         load_shader_library!(app, "render/pbr_lighting.wgsl");
-        load_shader_library!(app, "render/pbr_transmission.wgsl");
         load_shader_library!(app, "render/shadows.wgsl");
         load_shader_library!(app, "deferred/pbr_deferred_types.wgsl");
         load_shader_library!(app, "deferred/pbr_deferred_functions.wgsl");
@@ -246,6 +209,7 @@ impl Plugin for PbrPlugin {
                 },
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
+                ScreenSpaceTransmissionPlugin,
                 ClusteredDecalPlugin,
                 ContactShadowsPlugin,
             ))
@@ -355,17 +319,19 @@ impl Plugin for PbrPlugin {
             .add_observer(remove_light_view_entities);
         render_app.world_mut().add_observer(extracted_light_removed);
 
-        let early_shadow_pass_node = EarlyShadowPassNode::from_world(render_app.world_mut());
-        let late_shadow_pass_node = LateShadowPassNode::from_world(render_app.world_mut());
-        let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
-        let draw_3d_graph = graph.get_sub_graph_mut(Core3d).unwrap();
-        draw_3d_graph.add_node(NodePbr::EarlyShadowPass, early_shadow_pass_node);
-        draw_3d_graph.add_node(NodePbr::LateShadowPass, late_shadow_pass_node);
-        draw_3d_graph.add_node_edges((
-            NodePbr::EarlyShadowPass,
-            NodePbr::LateShadowPass,
-            Node3d::StartMainPass,
-        ));
+        render_app.add_systems(
+            Core3d,
+            (
+                shadow_pass::<EARLY_SHADOW_PASS>
+                    .after(early_prepass_build_indirect_parameters)
+                    .before(early_downsample_depth)
+                    .before(shadow_pass::<LATE_SHADOW_PASS>),
+                shadow_pass::<LATE_SHADOW_PASS>
+                    .after(late_prepass_build_indirect_parameters)
+                    .before(main_build_indirect_parameters)
+                    .before(Core3dSystems::MainPass),
+            ),
+        );
     }
 
     fn finish(&self, app: &mut App) {

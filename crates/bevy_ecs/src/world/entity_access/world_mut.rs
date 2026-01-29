@@ -1726,7 +1726,7 @@ impl<'w> EntityWorldMut<'w> {
     pub(crate) fn despawn_with_caller(mut self, caller: MaybeLocation) {
         self.despawn_no_free_with_caller(caller);
         if let Ok(None) = self.world.entities.get(self.entity) {
-            self.world.allocator.free(self.entity);
+            self.world.entity_allocator.free(self.entity);
         }
 
         // Otherwise:

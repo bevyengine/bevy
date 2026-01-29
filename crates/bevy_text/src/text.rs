@@ -368,8 +368,9 @@ pub struct TextFont {
     pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
-    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
-    /// transform or camera projection.
+    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity's
+    /// transform or camera projection. Then, the scaled font size is rounded to the nearest pixel
+    /// to produce the final font size used during glyph layout.
     ///
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
@@ -449,6 +450,14 @@ impl Default for TextFont {
 /// Valid font weights range from 1 to 1000, inclusive.
 /// Weights above 1000 are clamped to 1000.
 /// A weight of 0 is treated as [`FontWeight::DEFAULT`].
+///
+/// Legacy names from when most fonts weren't variable fonts
+/// are included as const values, but are misleading if
+/// used in documentation and examples, as valid weights
+/// for variable fonts are all of the numbers from 1-1000, and
+/// not all fonts which are not variable fonts have those weights
+/// supplied. If you use a custom font that supplies only specific
+/// weights, that will be documented where you purchased the font.
 ///
 /// `<https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-weight>`
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
@@ -784,15 +793,6 @@ pub enum LineHeight {
     Px(f32),
     /// Set line height to a multiple of the font size
     RelativeToFont(f32),
-}
-
-impl LineHeight {
-    pub(crate) fn eval(self, font_size: f32) -> f32 {
-        match self {
-            LineHeight::Px(px) => px,
-            LineHeight::RelativeToFont(scale) => scale * font_size,
-        }
-    }
 }
 
 impl Default for LineHeight {

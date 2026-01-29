@@ -114,6 +114,16 @@ struct GltfExtensionHandlerAnimationPlugin;
 
 impl Plugin for GltfExtensionHandlerAnimationPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(target_family = "wasm")]
+        bevy::tasks::block_on(async {
+            app.world_mut()
+                .resource_mut::<GltfExtensionHandlers>()
+                .0
+                .write()
+                .await
+                .push(Box::new(GltfExtensionHandlerAnimation::default()))
+        });
+        #[cfg(not(target_family = "wasm"))]
         app.world_mut()
             .resource_mut::<GltfExtensionHandlers>()
             .0
