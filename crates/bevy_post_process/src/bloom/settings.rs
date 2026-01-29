@@ -1,8 +1,13 @@
 use super::downsampling_pipeline::BloomUniforms;
-use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
-use bevy_math::{Vec2, Vec4};
+use bevy_camera::{Camera, Hdr};
+use bevy_ecs::{
+    prelude::Component,
+    query::{QueryItem, With},
+    reflect::ReflectComponent,
+};
+use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, view::Hdr};
+use bevy_render::extract_component::ExtractComponent;
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///

@@ -6,8 +6,8 @@ use bevy::anti_alias::taa::TemporalAntiAliasing;
 use bevy::{
     camera::CameraMainColorTargetConfig,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    core_pipeline::Skybox,
     image::CompressedImageFormats,
+    light::Skybox,
     pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
     render::{

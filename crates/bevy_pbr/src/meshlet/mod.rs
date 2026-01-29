@@ -13,18 +13,6 @@ mod pipelines;
 mod resource_manager;
 mod visibility_buffer_raster_node;
 
-pub mod graph {
-    use bevy_render::render_graph::RenderLabel;
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum NodeMeshlet {
-        VisibilityBufferRasterPass,
-        Prepass,
-        DeferredPrepass,
-        MainOpaquePass,
-    }
-}
-
 pub(crate) use self::{
     instance_manager::{queue_material_meshlet_meshes, InstanceManager},
     material_pipeline_prepare::{
@@ -40,32 +28,30 @@ pub use self::from_mesh::{
     MeshToMeshletMeshConversionError, MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR,
 };
 use self::{
-    graph::NodeMeshlet,
     instance_manager::extract_meshlet_mesh_entities,
     material_pipeline_prepare::{
         MeshletViewMaterialsDeferredGBufferPrepass, MeshletViewMaterialsMainOpaquePass,
         MeshletViewMaterialsPrepass,
     },
     material_shade_nodes::{
-        MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
+        meshlet_deferred_gbuffer_prepass, meshlet_main_opaque_pass, meshlet_prepass,
     },
     meshlet_mesh_manager::perform_pending_meshlet_mesh_writes,
     pipelines::*,
     resource_manager::{
         prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups, ResourceManager,
     },
-    visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
+    visibility_buffer_raster_node::meshlet_visibility_buffer_raster,
 };
-use crate::{
-    graph::NodePbr, meshlet::meshlet_mesh_manager::init_meshlet_mesh_manager,
-    PreviousGlobalTransform,
-};
+use crate::render::{shadow_pass, EARLY_SHADOW_PASS};
+use crate::{meshlet::meshlet_mesh_manager::init_meshlet_mesh_manager, PreviousGlobalTransform};
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, AssetApp, AssetId, Handle};
 use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
+    core_3d::main_opaque_pass_3d,
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -78,7 +64,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
     settings::WgpuFeatures,
     view::{prepare_view_targets, ExtractedView},
@@ -181,39 +166,6 @@ impl Plugin for MeshletPlugin {
             };
 
         render_app
-            .add_render_graph_node::<MeshletVisibilityBufferRasterPassNode>(
-                Core3d,
-                NodeMeshlet::VisibilityBufferRasterPass,
-            )
-            .add_render_graph_node::<ViewNodeRunner<MeshletPrepassNode>>(
-                Core3d,
-                NodeMeshlet::Prepass,
-            )
-            .add_render_graph_node::<ViewNodeRunner<MeshletDeferredGBufferPrepassNode>>(
-                Core3d,
-                NodeMeshlet::DeferredPrepass,
-            )
-            .add_render_graph_node::<ViewNodeRunner<MeshletMainOpaquePass3dNode>>(
-                Core3d,
-                NodeMeshlet::MainOpaquePass,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    NodeMeshlet::VisibilityBufferRasterPass,
-                    NodePbr::EarlyShadowPass,
-                    //
-                    NodeMeshlet::Prepass,
-                    //
-                    NodeMeshlet::DeferredPrepass,
-                    Node3d::EndPrepasses,
-                    //
-                    Node3d::StartMainPass,
-                    NodeMeshlet::MainOpaquePass,
-                    Node3d::MainOpaquePass,
-                    Node3d::EndMainPass,
-                ),
-            )
             .insert_resource(InstanceManager::new())
             .add_systems(
                 RenderStartup,
@@ -240,6 +192,21 @@ impl Plugin for MeshletPlugin {
                     prepare_material_meshlet_meshes_main_opaque_pass
                         .in_set(RenderSystems::QueueMeshes)
                         .before(queue_material_meshlet_meshes),
+                ),
+            )
+            .add_systems(
+                Core3d,
+                (
+                    meshlet_visibility_buffer_raster.before(shadow_pass::<EARLY_SHADOW_PASS>),
+                    meshlet_prepass
+                        .after(shadow_pass::<EARLY_SHADOW_PASS>)
+                        .in_set(Core3dSystems::Prepass),
+                    meshlet_deferred_gbuffer_prepass
+                        .after(meshlet_prepass)
+                        .in_set(Core3dSystems::Prepass),
+                    meshlet_main_opaque_pass
+                        .before(main_opaque_pass_3d)
+                        .in_set(Core3dSystems::MainPass),
                 ),
             );
     }

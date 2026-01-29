@@ -4,13 +4,13 @@ use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClick
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 use bevy::camera::CameraMainColorTargetConfig;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::core_pipeline::Skybox;
+use bevy::light::Skybox;
 use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::post_process::motion_blur::MotionBlur;
 use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 use bevy::{
-    ecs::message::MessageReader, light::NotShadowReceiver, pbr::ContactShadows,
-    post_process::bloom::Bloom, prelude::*, render::view::Hdr,
+    camera::Hdr, ecs::message::MessageReader, light::NotShadowReceiver, pbr::ContactShadows,
+    post_process::bloom::Bloom, prelude::*,
 };
 
 #[path = "../helpers/widgets.rs"]

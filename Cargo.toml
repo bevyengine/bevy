@@ -423,6 +423,9 @@ statically-linked-dxc = ["bevy_internal/statically-linked-dxc"]
 # Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
 raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
 
+# Pre-populate buffer labels with buffer types for debugging.
+type_label_buffers = ["bevy_internal/type_label_buffers"]
+
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 
@@ -3307,7 +3310,7 @@ doc-scrape-examples = false
 [package.metadata.example.manual_material]
 name = "Manual Material Implementation"
 description = "Demonstrates how to implement a material manually using the mid-level render APIs"
-category = "Shader Advanced"
+category = "Shaders Advanced"
 wasm = true
 
 [[example]]
@@ -5099,6 +5102,14 @@ path = "tests/3d/test_invalid_skinned_mesh.rs"
 doc-scrape-examples = false
 
 [package.metadata.example.test_invalid_skinned_mesh]
+hidden = true
+
+[[example]]
+name = "test_skinned_mesh_bounds"
+path = "tests/3d/test_skinned_mesh_bounds.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.test_skinned_mesh_bounds]
 hidden = true
 
 [profile.wasm-release]

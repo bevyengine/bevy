@@ -248,7 +248,7 @@ pub fn update_text2d_layout(
                 block.linebreak,
                 block.justify,
                 text_bounds,
-                scale_factor as f64,
+                scale_factor,
                 &mut computed,
                 &mut font_system,
                 *hinting,

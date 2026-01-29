@@ -2,15 +2,14 @@ use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_camera::Camera;
 use bevy_core_pipeline::{
-    core_2d::graph::{Core2d, Node2d},
-    core_3d::graph::{Core3d, Node3d},
+    schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems},
+    tonemapping::tonemapping,
     FullscreenShader,
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d},
         *,
@@ -24,7 +23,7 @@ use bevy_utils::default;
 
 mod node;
 
-pub use node::FxaaNode;
+pub(crate) use node::fxaa;
 
 #[derive(Debug, Reflect, Eq, PartialEq, Hash, Clone, Copy)]
 #[reflect(PartialEq, Hash, Clone)]
@@ -99,23 +98,13 @@ impl Plugin for FxaaPlugin {
                 Render,
                 prepare_fxaa_pipelines.in_set(RenderSystems::Prepare),
             )
-            .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(Core3d, Node3d::Fxaa)
-            .add_render_graph_edges(
+            .add_systems(
                 Core3d,
-                (
-                    Node3d::Tonemapping,
-                    Node3d::Fxaa,
-                    Node3d::EndMainPassPostProcessing,
-                ),
+                fxaa.after(tonemapping).in_set(Core3dSystems::PostProcess),
             )
-            .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(Core2d, Node2d::Fxaa)
-            .add_render_graph_edges(
+            .add_systems(
                 Core2d,
-                (
-                    Node2d::Tonemapping,
-                    Node2d::Fxaa,
-                    Node2d::EndMainPassPostProcessing,
-                ),
+                fxaa.after(tonemapping).in_set(Core2dSystems::PostProcess),
             );
     }
 }

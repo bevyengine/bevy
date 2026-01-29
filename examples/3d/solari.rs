@@ -603,7 +603,7 @@ fn update_performance_text(
         "Specular indirect",
         "render/solari_lighting/specular_indirect_lighting/elapsed_gpu",
     );
-    text.push_str(&format!("{:17}     TODO\n", "DLSS-RR"));
+    (add_diagnostic)("DLSS-RR", "render/dlss_ray_reconstruction/elapsed_gpu");
     text.push_str(&format!("{:17}  {total:.2} ms\n", "Total"));
 
     if let Some(world_cache_active_cells_count) = diagnostics

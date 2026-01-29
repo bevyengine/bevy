@@ -10,19 +10,19 @@ use bevy_render::view::ExtractedView;
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, ShaderType, TextureUsages},
     renderer::{RenderDevice, RenderQueue},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
-use resolve::{
-    node::{OitResolveNode, OitResolvePass},
-    OitResolvePlugin,
-};
+use bevy_window::PrimaryWindow;
+use resolve::{node::oit_resolve, OitResolvePlugin};
 use tracing::{trace, warn};
 
-use crate::core_3d::graph::{Core3d, Node3d};
+use crate::{
+    core_3d::main_transparent_pass_3d,
+    schedule::{Core3d, Core3dSystems},
+};
 
 /// Module that defines the necessary systems to resolve the OIT buffer and render it to the screen.
 pub mod resolve;
@@ -115,16 +115,12 @@ impl Plugin for OrderIndependentTransparencyPlugin {
                 prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
             );
 
-        render_app
-            .add_render_graph_node::<ViewNodeRunner<OitResolveNode>>(Core3d, OitResolvePass)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::MainTransparentPass,
-                    OitResolvePass,
-                    Node3d::EndMainPass,
-                ),
-            );
+        render_app.add_systems(
+            Core3d,
+            oit_resolve
+                .after(main_transparent_pass_3d)
+                .in_set(Core3dSystems::MainPass),
+        );
     }
 }
 

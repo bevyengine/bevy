@@ -1,36 +1,6 @@
 mod main_opaque_pass_2d_node;
 mod main_transparent_pass_2d_node;
 
-pub mod graph {
-    use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
-    pub struct Core2d;
-
-    pub mod input {
-        pub const VIEW_ENTITY: &str = "view_entity";
-    }
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum Node2d {
-        ColorTargetInput,
-        StartMainPass,
-        MainOpaquePass,
-        MainTransparentPass,
-        EndMainPass,
-        Wireframe,
-        StartMainPassPostProcessing,
-        Bloom,
-        PostProcessing,
-        Tonemapping,
-        Fxaa,
-        Smaa,
-        Upscaling,
-        ContrastAdaptiveSharpening,
-        EndMainPassPostProcessing,
-    }
-}
-
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
@@ -46,17 +16,16 @@ use bevy_render::{
 pub use main_opaque_pass_2d_node::*;
 pub use main_transparent_pass_2d_node::*;
 
-use crate::{
-    tonemapping::{DebandDither, Tonemapping, TonemappingNode},
-    upscaling::UpscalingNode,
-};
+use crate::schedule::Core2d;
+use crate::tonemapping::{tonemapping, DebandDither, Tonemapping};
+use crate::upscaling::upscaling;
+use crate::Core2dSystems;
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
-    render_graph::{EmptyNode, RenderGraphExt, ViewNodeRunner},
     render_phase::{
         sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
@@ -72,8 +41,6 @@ use bevy_render::{
     view::ViewDepthTexture,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-
-use self::graph::{Core2d, Node2d};
 
 pub const CORE_2D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
@@ -105,35 +72,16 @@ impl Plugin for Core2dPlugin {
                     sort_phase_system::<Transparent2d>.in_set(RenderSystems::PhaseSort),
                     prepare_core_2d_depth_textures.in_set(RenderSystems::PrepareResources),
                 ),
-            );
-
-        render_app
-            .add_render_sub_graph(Core2d)
-            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::StartMainPass)
-            .add_render_graph_node::<ViewNodeRunner<MainOpaquePass2dNode>>(
-                Core2d,
-                Node2d::MainOpaquePass,
             )
-            .add_render_graph_node::<ViewNodeRunner<MainTransparentPass2dNode>>(
-                Core2d,
-                Node2d::MainTransparentPass,
-            )
-            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPass)
-            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::StartMainPassPostProcessing)
-            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core2d, Node2d::Tonemapping)
-            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPassPostProcessing)
-            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core2d, Node2d::Upscaling)
-            .add_render_graph_edges(
+            .add_schedule(Core2d::base_schedule())
+            .add_systems(
                 Core2d,
                 (
-                    Node2d::StartMainPass,
-                    Node2d::MainOpaquePass,
-                    Node2d::MainTransparentPass,
-                    Node2d::EndMainPass,
-                    Node2d::StartMainPassPostProcessing,
-                    Node2d::Tonemapping,
-                    Node2d::EndMainPassPostProcessing,
-                    Node2d::Upscaling,
+                    (main_opaque_pass_2d, main_transparent_pass_2d)
+                        .chain()
+                        .in_set(Core2dSystems::MainPass),
+                    tonemapping.in_set(Core2dSystems::PostProcess),
+                    upscaling.after(Core2dSystems::PostProcess),
                 ),
             );
     }

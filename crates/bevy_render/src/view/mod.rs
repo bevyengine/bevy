@@ -145,16 +145,6 @@ impl Plugin for ViewPlugin {
     }
 }
 
-/// If this component is added to a camera, the camera will use an intermediate "high dynamic range" render texture.
-/// This allows rendering with a wider range of lighting values. However, this does *not* affect
-/// whether the camera will render with hdr display output (which bevy does not support currently)
-/// and only affects the intermediate render texture.
-#[derive(
-    Component, Default, Copy, Clone, ExtractComponent, Reflect, PartialEq, Eq, Hash, Debug,
-)]
-#[reflect(Component, Default, PartialEq, Hash, Debug)]
-pub struct Hdr;
-
 /// An identifier for a view that is stable across frames.
 ///
 /// We can't use [`Entity`] for this because render world entities aren't

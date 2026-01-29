@@ -16,7 +16,10 @@ use bevy::{
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     diagnostic::DiagnosticsStore,
     light::TransmittedShadowReceiver,
-    pbr::{DefaultOpaqueRendererMethod, ScreenSpaceAmbientOcclusion},
+    pbr::{
+        DefaultOpaqueRendererMethod, ScreenSpaceAmbientOcclusion, ScreenSpaceTransmission,
+        ScreenSpaceTransmissionQuality,
+    },
     post_process::bloom::Bloom,
     render::{
         batching::NoAutomaticBatching, occlusion_culling::OcclusionCulling, render_resource::Face,
@@ -26,10 +29,9 @@ use bevy::{
 };
 use bevy::{camera::CameraMainColorTargetConfig, pbr::ContactShadows};
 use bevy::{
-    camera::ScreenSpaceTransmissionQuality, light::CascadeShadowConfigBuilder, render::view::Hdr,
-};
-use bevy::{
+    camera::Hdr,
     diagnostic::FrameTimeDiagnosticsPlugin,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
@@ -104,6 +106,10 @@ pub struct Args {
     /// disable CPU culling.
     #[argh(switch)]
     no_cpu_culling: bool,
+
+    /// disable mip map generation.
+    #[argh(switch)]
+    no_mip_generation: bool,
 }
 
 pub fn main() {
@@ -125,41 +131,36 @@ pub fn main() {
             }),
             ..default()
         }))
-        // Generating mipmaps takes a minute
-        // Mipmap generation be skipped if ktx2 is used
-        .insert_resource(MipmapGeneratorSettings {
-            anisotropic_filtering: 16,
-            compression: args.compress.then(Default::default),
-            compressed_image_data_cache_path: if args.cache {
-                Some(PathBuf::from("compressed_texture_cache"))
-            } else {
-                None
-            },
-            low_quality: args.low_quality_compression,
-            ..default()
-        })
         .add_plugins((
             FrameTimeDiagnosticsPlugin {
                 max_history_length: 1000,
                 ..default()
             },
-            MipmapGeneratorPlugin,
-            MipmapGeneratorDebugTextPlugin,
             FreeCameraPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (
-                generate_mipmaps::<StandardMaterial>,
-                input,
-                run_animation,
-                spin,
-                frame_time_system,
-                benchmark,
-            )
-                .chain(),
+            (input, run_animation, spin, frame_time_system, benchmark).chain(),
         );
+
+    if !args.no_mip_generation {
+        app.add_plugins((MipmapGeneratorPlugin, MipmapGeneratorDebugTextPlugin))
+            // Generating mipmaps takes a minute
+            // Mipmap generation be skipped if ktx2 is used
+            .insert_resource(MipmapGeneratorSettings {
+                anisotropic_filtering: 16,
+                compression: args.compress.then(Default::default),
+                compressed_image_data_cache_path: if args.cache {
+                    Some(PathBuf::from("compressed_texture_cache"))
+                } else {
+                    None
+                },
+                low_quality: args.low_quality_compression,
+                ..default()
+            })
+            .add_systems(Update, generate_mipmaps::<StandardMaterial>);
+    }
 
     if args.no_frustum_culling {
         app.add_systems(Update, add_no_frustum_culling);
@@ -259,10 +260,10 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
     // Camera
     let mut cam = commands.spawn((
         CameraMainColorTargetConfig::default().with_msaa_off(),
-        Camera3d {
+        Camera3d::default(),
+        ScreenSpaceTransmission {
             screen_space_specular_transmission_steps: 0,
             screen_space_specular_transmission_quality: ScreenSpaceTransmissionQuality::Low,
-            ..default()
         },
         Hdr,
         Transform::from_xyz(-10.5, 1.7, -1.0).looking_at(Vec3::new(0.0, 3.5, 0.0), Vec3::Y),

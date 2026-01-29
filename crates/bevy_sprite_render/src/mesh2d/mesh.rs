@@ -20,7 +20,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{Affine3, Vec4};
+use bevy_math::{Affine3, Affine3Ext, Vec4};
 use bevy_mesh::{Mesh, Mesh2d, MeshTag, MeshVertexBufferLayoutRef};
 use bevy_render::RenderSystems::PrepareAssets;
 use bevy_render::{
@@ -266,7 +266,7 @@ pub fn extract_mesh2d(
             entity.into(),
             RenderMesh2dInstance {
                 transforms: Mesh2dTransforms {
-                    world_from_local: (&transform.affine()).into(),
+                    world_from_local: transform.affine().into(),
                     flags: MeshFlags::empty().bits(),
                 },
                 mesh_asset_id: handle.0.id(),

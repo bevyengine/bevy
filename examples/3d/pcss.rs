@@ -11,11 +11,8 @@ use bevy::{
         visibility::{CubemapVisibleEntities, VisibleMeshEntities},
         CameraMainColorTargetConfig,
     },
-    core_pipeline::{
-        prepass::{DepthPrepass, MotionVectorPrepass},
-        Skybox,
-    },
-    light::ShadowFilteringMethod,
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
+    light::{ShadowFilteringMethod, Skybox},
     math::vec3,
     prelude::*,
     render::camera::TemporalJitter,

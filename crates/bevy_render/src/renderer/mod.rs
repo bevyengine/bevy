@@ -1,82 +1,67 @@
-mod graph_runner;
 #[cfg(feature = "raw_vulkan_init")]
 pub mod raw_vulkan_init;
+mod render_context;
 mod render_device;
 mod wgpu_wrapper;
 
-pub use graph_runner::*;
+pub use render_context::{
+    CurrentView, FlushCommands, PendingCommandBuffers, RenderContext, RenderContextState, ViewQuery,
+};
 pub use render_device::*;
 pub use wgpu_wrapper::WgpuWrapper;
 
 use crate::{
-    diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
-    render_graph::RenderGraph,
-    render_phase::TrackedRenderPass,
-    render_resource::RenderPassDescriptor,
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
 use alloc::sync::Arc;
 use bevy_camera::NormalizedRenderTarget;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::{prelude::*, system::SystemState};
-use bevy_log::{debug, error, info, info_span, warn};
+use bevy_log::{debug, info, info_span, warn};
 use bevy_platform::time::Instant;
 use bevy_render::camera::ExtractedCamera;
 use bevy_time::TimeSender;
 use bevy_window::RawHandleWrapperHolder;
 use wgpu::{
-    Adapter, AdapterInfo, Backends, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
-    RequestAdapterOptions, Trace,
+    Adapter, AdapterInfo, Backends, DeviceType, Instance, Queue, RequestAdapterOptions, Trace,
 };
 
-/// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
+/// Schedule label for the root render graph schedule. This schedule runs once per frame
+/// in the [`render_system`] system and is responsible for driving the entire rendering process.
+#[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct RenderGraph;
+
+impl RenderGraph {
+    pub fn base_schedule() -> Schedule {
+        Schedule::new(Self)
+    }
+}
+
+/// The main render system that drives the rendering process. This system runs the [`RenderGraph`]
+/// schedule, runs any finalization commands like screenshot captures and GPU readbacks, and
+/// calls present on swap chains that need to be presented.
 pub fn render_system(
     world: &mut World,
     state: &mut SystemState<Query<(&ViewTarget, &ExtractedCamera)>>,
 ) {
-    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
-        graph.update(world);
-    });
+    #[cfg(feature = "trace")]
+    let _span = info_span!("main_render_schedule").entered();
 
-    let diagnostics_recorder = world.remove_resource::<DiagnosticsRecorder>();
+    world.run_schedule(RenderGraph);
 
-    let graph = world.resource::<RenderGraph>();
-    let render_device = world.resource::<RenderDevice>();
-    let render_queue = world.resource::<RenderQueue>();
+    {
+        let render_device = world.resource::<RenderDevice>();
+        let render_queue = world.resource::<RenderQueue>();
 
-    let res = RenderGraphRunner::run(
-        graph,
-        render_device.clone(), // TODO: is this clone really necessary?
-        diagnostics_recorder,
-        &render_queue.0,
-        world,
-        |encoder| {
-            crate::view::screenshot::submit_screenshot_commands(world, encoder);
-            crate::gpu_readback::submit_readback_commands(world, encoder);
-        },
-    );
+        let mut encoder =
+            render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
-    match res {
-        Ok(Some(diagnostics_recorder)) => {
-            world.insert_resource(diagnostics_recorder);
-        }
-        Ok(None) => {}
-        Err(e) => {
-            error!("Error running render graph:");
-            {
-                let mut src: &dyn core::error::Error = &e;
-                loop {
-                    error!("> {}", src);
-                    match src.source() {
-                        Some(s) => src = s,
-                        None => break,
-                    }
-                }
-            }
+        crate::view::screenshot::submit_screenshot_commands(world, &mut encoder);
+        crate::gpu_readback::submit_readback_commands(world, &mut encoder);
 
-            panic!("Error running render graph: {e}");
-        }
+        render_queue.submit([encoder.finish()]);
     }
 
     {
@@ -513,199 +498,4 @@ pub async fn initialize_renderer(
         #[cfg(feature = "raw_vulkan_init")]
         additional_vulkan_features,
     )
-}
-
-/// The context with all information required to interact with the GPU.
-///
-/// The [`RenderDevice`] is used to create render resources and the
-/// [`CommandEncoder`] is used to record a series of GPU operations.
-pub struct RenderContext<'w> {
-    render_device: RenderDevice,
-    command_encoder: Option<CommandEncoder>,
-    command_buffer_queue: Vec<QueuedCommandBuffer<'w>>,
-    diagnostics_recorder: Option<Arc<DiagnosticsRecorder>>,
-}
-
-impl<'w> RenderContext<'w> {
-    /// Creates a new [`RenderContext`] from a [`RenderDevice`].
-    pub fn new(
-        render_device: RenderDevice,
-        diagnostics_recorder: Option<DiagnosticsRecorder>,
-    ) -> Self {
-        Self {
-            render_device,
-            command_encoder: None,
-            command_buffer_queue: Vec::new(),
-            diagnostics_recorder: diagnostics_recorder.map(Arc::new),
-        }
-    }
-
-    /// Gets the underlying [`RenderDevice`].
-    pub fn render_device(&self) -> &RenderDevice {
-        &self.render_device
-    }
-
-    /// Gets the diagnostics recorder, used to track elapsed time and pipeline statistics
-    /// of various render and compute passes.
-    pub fn diagnostic_recorder(&self) -> impl RecordDiagnostics + use<> {
-        self.diagnostics_recorder.clone()
-    }
-
-    /// Gets the current [`CommandEncoder`].
-    pub fn command_encoder(&mut self) -> &mut CommandEncoder {
-        self.command_encoder.get_or_insert_with(|| {
-            self.render_device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
-        })
-    }
-
-    pub(crate) fn has_commands(&mut self) -> bool {
-        self.command_encoder.is_some() || !self.command_buffer_queue.is_empty()
-    }
-
-    /// Creates a new [`TrackedRenderPass`] for the context,
-    /// configured using the provided `descriptor`.
-    pub fn begin_tracked_render_pass<'a>(
-        &'a mut self,
-        descriptor: RenderPassDescriptor<'_>,
-    ) -> TrackedRenderPass<'a> {
-        // Cannot use command_encoder() as we need to split the borrow on self
-        let command_encoder = self.command_encoder.get_or_insert_with(|| {
-            self.render_device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
-        });
-
-        let render_pass = command_encoder.begin_render_pass(&descriptor);
-        TrackedRenderPass::new(&self.render_device, render_pass)
-    }
-
-    /// Append a [`CommandBuffer`] to the command buffer queue.
-    ///
-    /// If present, this will flush the currently unflushed [`CommandEncoder`]
-    /// into a [`CommandBuffer`] into the queue before appending the provided
-    /// buffer.
-    pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
-        self.flush_encoder();
-
-        self.command_buffer_queue
-            .push(QueuedCommandBuffer::Ready(command_buffer));
-    }
-
-    /// Append a function that will generate a [`CommandBuffer`] to the
-    /// command buffer queue, to be ran later.
-    ///
-    /// If present, this will flush the currently unflushed [`CommandEncoder`]
-    /// into a [`CommandBuffer`] into the queue before appending the provided
-    /// buffer.
-    pub fn add_command_buffer_generation_task(
-        &mut self,
-        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-        task: impl FnOnce(RenderDevice) -> CommandBuffer + 'w + Send,
-        #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-        task: impl FnOnce(RenderDevice) -> CommandBuffer + 'w,
-    ) {
-        self.flush_encoder();
-
-        self.command_buffer_queue
-            .push(QueuedCommandBuffer::Task(Box::new(task)));
-    }
-
-    /// Finalizes and returns the queue of [`CommandBuffer`]s.
-    ///
-    /// This function will wait until all command buffer generation tasks are complete
-    /// by running them in parallel (where supported).
-    ///
-    /// The [`CommandBuffer`]s will be returned in the order that they were added.
-    pub fn finish(
-        mut self,
-    ) -> (
-        Vec<CommandBuffer>,
-        RenderDevice,
-        Option<DiagnosticsRecorder>,
-    ) {
-        self.flush_encoder();
-
-        let mut command_buffers = Vec::with_capacity(self.command_buffer_queue.len());
-
-        #[cfg(feature = "trace")]
-        let _command_buffer_generation_tasks_span =
-            info_span!("command_buffer_generation_tasks").entered();
-
-        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-        {
-            let mut task_based_command_buffers =
-                bevy_tasks::ComputeTaskPool::get().scope(|task_pool| {
-                    for (i, queued_command_buffer) in
-                        self.command_buffer_queue.into_iter().enumerate()
-                    {
-                        match queued_command_buffer {
-                            QueuedCommandBuffer::Ready(command_buffer) => {
-                                command_buffers.push((i, command_buffer));
-                            }
-                            QueuedCommandBuffer::Task(command_buffer_generation_task) => {
-                                let render_device = self.render_device.clone();
-                                task_pool.spawn(async move {
-                                    (i, command_buffer_generation_task(render_device))
-                                });
-                            }
-                        }
-                    }
-                });
-            command_buffers.append(&mut task_based_command_buffers);
-        }
-
-        #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-        for (i, queued_command_buffer) in self.command_buffer_queue.into_iter().enumerate() {
-            match queued_command_buffer {
-                QueuedCommandBuffer::Ready(command_buffer) => {
-                    command_buffers.push((i, command_buffer));
-                }
-                QueuedCommandBuffer::Task(command_buffer_generation_task) => {
-                    let render_device = self.render_device.clone();
-                    command_buffers.push((i, command_buffer_generation_task(render_device)));
-                }
-            }
-        }
-
-        #[cfg(feature = "trace")]
-        drop(_command_buffer_generation_tasks_span);
-
-        command_buffers.sort_unstable_by_key(|(i, _)| *i);
-
-        let mut command_buffers = command_buffers
-            .into_iter()
-            .map(|(_, cb)| cb)
-            .collect::<Vec<CommandBuffer>>();
-
-        let mut diagnostics_recorder = self.diagnostics_recorder.take().map(|v| {
-            Arc::try_unwrap(v)
-                .ok()
-                .expect("diagnostic recorder shouldn't be held longer than necessary")
-        });
-
-        if let Some(recorder) = &mut diagnostics_recorder {
-            let mut command_encoder = self
-                .render_device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-            recorder.resolve(&mut command_encoder);
-            command_buffers.push(command_encoder.finish());
-        }
-
-        (command_buffers, self.render_device, diagnostics_recorder)
-    }
-
-    fn flush_encoder(&mut self) {
-        if let Some(encoder) = self.command_encoder.take() {
-            self.command_buffer_queue
-                .push(QueuedCommandBuffer::Ready(encoder.finish()));
-        }
-    }
-}
-
-enum QueuedCommandBuffer<'w> {
-    Ready(CommandBuffer),
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    Task(Box<dyn FnOnce(RenderDevice) -> CommandBuffer + 'w + Send>),
-    #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-    Task(Box<dyn FnOnce(RenderDevice) -> CommandBuffer + 'w>),
 }

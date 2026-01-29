@@ -6,23 +6,21 @@ use std::ops::Range;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::CameraMainColorTargetConfig,
+    camera::Hdr,
     color::palettes::css::{BLACK, WHITE},
-    core_pipeline::Skybox,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
     input::mouse::MouseWheel,
+    light::Skybox,
     math::{vec3, vec4},
     pbr::{
         DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension,
         ScreenSpaceAmbientOcclusion, ScreenSpaceReflections,
     },
     prelude::*,
-    render::{
-        render_resource::{AsBindGroup, ShaderType},
-        view::Hdr,
-    },
+    render::render_resource::{AsBindGroup, ShaderType},
     shader::ShaderRef,
 };
 

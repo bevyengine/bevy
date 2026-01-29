@@ -12,7 +12,7 @@
 
 #[cfg(target_arch = "wasm32")]
 use bevy::camera::CameraMainColorTargetConfig;
-use bevy::{color::palettes::css::ORANGE, prelude::*, render::view::Hdr};
+use bevy::{camera::Hdr, color::palettes::css::ORANGE, prelude::*};
 use rand::random;
 
 fn main() {

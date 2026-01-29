@@ -3,12 +3,11 @@ use crate::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
-    render_graph::{CameraDriverNode, InternedRenderSubGraph, RenderGraph, RenderSubGraph},
     render_resource::TextureView,
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Hdr, NoIndirectDrawing,
+        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
         RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -20,9 +19,9 @@ use bevy_camera::{
     color_target::{MainColorTarget, WithMainColorTarget},
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
-    Camera, Camera2d, Camera3d, CameraOutputMode, CameraUpdateSystems, ClearColor,
-    ClearColorConfig, Exposure, ManualTextureViewHandle, NormalizedRenderTarget, Projection,
-    RenderTarget, RenderTargetInfo, Viewport,
+    Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
+    ClearColor, ClearColorConfig, Exposure, Hdr, ManualTextureViewHandle, MsaaWriteback,
+    NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -36,14 +35,15 @@ use bevy_ecs::{
     query::{Has, QueryEntityError, QueryItem},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoScheduleConfigs,
+    schedule::{InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel},
     system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
 use bevy_image::Image;
 use bevy_log::warn;
-use bevy_math::{uvec2, vec2, Mat4, UVec2, UVec4, Vec2};
-use bevy_platform::collections::HashSet;
+use bevy_log::warn_once;
+use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
@@ -109,9 +109,6 @@ impl Plugin for CameraPlugin {
                     ),
                 )
                 .add_systems(Render, sort_cameras.in_set(RenderSystems::ManageViews));
-            let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
-            let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
-            render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);
         }
     }
 }
@@ -149,23 +146,23 @@ impl ExtractComponent for Camera3d {
     }
 }
 
-/// Configures the [`RenderGraph`] name assigned to be run for a given [`Camera`] entity.
+/// Configures the render schedule to be run for a given [`Camera`] entity.
 #[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
 #[reflect(opaque)]
 #[reflect(Component, Debug, Clone)]
-pub struct CameraRenderGraph(InternedRenderSubGraph);
+pub struct CameraRenderGraph(pub InternedScheduleLabel);
 
 impl CameraRenderGraph {
-    /// Creates a new [`CameraRenderGraph`] from any string-like type.
+    /// Creates a new [`CameraRenderGraph`] from a schedule label.
     #[inline]
-    pub fn new<T: RenderSubGraph>(name: T) -> Self {
-        Self(name.intern())
+    pub fn new<T: ScheduleLabel>(schedule: T) -> Self {
+        Self(schedule.intern())
     }
 
-    /// Sets the graph name.
+    /// Sets the schedule.
     #[inline]
-    pub fn set<T: RenderSubGraph>(&mut self, name: T) {
-        self.0 = name.intern();
+    pub fn set<T: ScheduleLabel>(&mut self, schedule: T) {
+        self.0 = schedule.intern();
     }
 }
 
@@ -520,7 +517,7 @@ pub struct ExtractedCamera {
     pub main_color_target: Entity,
     pub main_color_target_size: UVec2,
     pub viewport: Option<Viewport>,
-    pub render_graph: InternedRenderSubGraph,
+    pub schedule: InternedScheduleLabel,
     pub order: isize,
     pub output_mode: CameraOutputMode,
     pub clear_color: ClearColorConfig,
@@ -675,7 +672,7 @@ pub fn extract_cameras(
                     main_color_target: main_color_target_render_entity,
                     main_color_target_size,
                     viewport: camera.viewport.clone(),
-                    render_graph: camera_render_graph.0,
+                    schedule: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,
                     clear_color: camera.clear_color,
@@ -773,7 +770,7 @@ pub fn sort_cameras(
     }
 
     if !ambiguities.is_empty() {
-        warn!(
+        warn_once!(
             "Camera order ambiguities detected for active cameras with the following priorities: {:?}. \
             To fix this, ensure there is exactly one Camera entity spawned with a given order for a given RenderTarget. \
             Ambiguities should be resolved because either (1) multiple active cameras were spawned accidentally, which will \

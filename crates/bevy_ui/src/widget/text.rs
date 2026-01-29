@@ -283,7 +283,7 @@ pub fn measure_text_system(
             entity,
             fonts.as_ref(),
             text_reader.iter(entity),
-            computed_target.scale_factor.into(),
+            computed_target.scale_factor,
             &block,
             computed.as_mut(),
             &mut font_system,

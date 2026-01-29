@@ -3,10 +3,11 @@
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::CameraMainColorTargetConfig,
+    camera::Hdr,
     math::ops,
     pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
-    render::{camera::TemporalJitter, view::Hdr},
+    render::camera::TemporalJitter,
 };
 use std::f32::consts::PI;
 
