@@ -33,9 +33,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_resource::{
-        binding_types::{
-            sampler, texture_2d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
-        },
+        binding_types::{sampler, texture_2d, texture_2d_multisampled, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState, LoadOp,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
@@ -56,13 +54,10 @@ use bevy_render::{
 use bevy_shader::Shader;
 use bevy_utils::{default, once};
 use smallvec::SmallVec;
-use tracing::{info, warn};
+use tracing::warn;
 
 use crate::bloom::bloom;
-use bevy_core_pipeline::{
-    core_3d::DEPTH_TEXTURE_SAMPLING_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
-    FullscreenShader,
-};
+use bevy_core_pipeline::{schedule::Core3d, tonemapping::tonemapping, FullscreenShader};
 
 /// A plugin that adds support for the depth of field effect to Bevy.
 #[derive(Default)]
@@ -124,8 +119,6 @@ pub enum DepthOfFieldMode {
     ///
     /// For more information, see [Wikipedia's article on *bokeh*].
     ///
-    /// This doesn't work on WebGPU.
-    ///
     /// [Wikipedia's article on *bokeh*]: https://en.wikipedia.org/wiki/Bokeh
     Bokeh,
 
@@ -135,9 +128,6 @@ pub enum DepthOfFieldMode {
     /// aesthetically pleasing but requires less video memory bandwidth.
     ///
     /// This is the default.
-    ///
-    /// This works on native and WebGPU.
-    /// If targeting native platforms, consider using [`DepthOfFieldMode::Bokeh`] instead.
     #[default]
     Gaussian,
 }
@@ -389,9 +379,9 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
                 (
                     uniform_buffer::<ViewUniform>(true),
                     if *msaa != Msaa::Off {
-                        texture_depth_2d_multisampled()
+                        texture_2d_multisampled(TextureSampleType::Float { filterable: false })
                     } else {
-                        texture_depth_2d()
+                        texture_2d(TextureSampleType::Float { filterable: false })
                     },
                     texture_2d(TextureSampleType::Float { filterable: true }),
                 ),
@@ -409,9 +399,9 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
                     (
                         uniform_buffer::<ViewUniform>(true),
                         if *msaa != Msaa::Off {
-                            texture_depth_2d_multisampled()
+                            texture_2d_multisampled(TextureSampleType::Float { filterable: false })
                         } else {
-                            texture_depth_2d()
+                            texture_2d(TextureSampleType::Float { filterable: false })
                         },
                         texture_2d(TextureSampleType::Float { filterable: true }),
                         texture_2d(TextureSampleType::Float { filterable: true }),
@@ -643,8 +633,8 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                 entry_point: Some(match key.pass {
                     DofPass::GaussianHorizontal => "gaussian_horizontal".into(),
                     DofPass::GaussianVertical => "gaussian_vertical".into(),
-                    DofPass::BokehPass0 => "bokeh_pass_0".into(),
-                    DofPass::BokehPass1 => "bokeh_pass_1".into(),
+                    DofPass::BokehPass0 => "bokeh_pass_a".into(),
+                    DofPass::BokehPass1 => "bokeh_pass_b".into(),
                 }),
                 targets,
             }),
@@ -658,13 +648,6 @@ fn extract_depth_of_field_settings(
     mut commands: Commands,
     mut query: Extract<Query<(RenderEntity, &DepthOfField, &Projection)>>,
 ) {
-    if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
-        once!(info!(
-            "Disabling depth of field on this platform because depth textures aren't supported correctly"
-        ));
-        return;
-    }
-
     for (entity, depth_of_field, projection) in query.iter_mut() {
         let mut entity_commands = commands
             .get_entity(entity)

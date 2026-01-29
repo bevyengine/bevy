@@ -4,25 +4,29 @@ mod main_transparent_pass_3d_node;
 // PERF: vulkan docs recommend using 24 bit depth for better performance
 pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-/// True if multisampled depth textures are supported on this platform.
+/// True if prepass depth texture is supported on this platform.
 ///
-/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
-/// because of a silly bug whereby Naga assumes that all depth textures are
-/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
-/// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field and screen space reflections entirely on WebGL 2.
+/// On WebGL 2:
+/// - doesn't support `copy_texture_to_texture` for depth textures so it doesn't support `DepthPrepass`.
+/// - doesn't support creating multisampled textures if them are not pure `RENDER_ATTACHMENT` so it doesn't support Msaa when reading `ViewDepthTexture`.
+/// - shadow sampler `texture_depth_2d` doesn't support sampling, only supports comparison.
+///
+/// To read depth texture on WebGL 2, we can only use `ViewDepthTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
+/// Therefore we disable screen space reflections entirely on WebGL 2.
 #[cfg(not(any(feature = "webgpu", not(target_arch = "wasm32"))))]
-pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
+pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = false;
 
-/// True if multisampled depth textures are supported on this platform.
+/// True if prepass depth texture is supported on this platform.
 ///
-/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
-/// because of a silly bug whereby Naga assumes that all depth textures are
-/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
-/// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field and screen space reflections entirely on WebGL 2.
+/// On WebGL 2:
+/// - doesn't support `copy_texture_to_texture` for depth textures so it doesn't support `DepthPrepass`.
+/// - doesn't support creating multisampled textures if them are not pure `RENDER_ATTACHMENT` so it doesn't support Msaa when reading `ViewDepthTexture`.
+/// - shadow sampler `texture_depth_2d` doesn't support sampling, only supports comparison.
+///
+/// To read depth texture on WebGL 2, we can only use `ViewDepthTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
+/// Therefore we disable screen space reflections entirely on WebGL 2.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
+pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = true;
 
 use core::ops::Range;
 

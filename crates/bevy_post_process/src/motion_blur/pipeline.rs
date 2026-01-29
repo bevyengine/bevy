@@ -11,10 +11,7 @@ use bevy_image::BevyDefault as _;
 use bevy_render::{
     globals::GlobalsUniform,
     render_resource::{
-        binding_types::{
-            sampler, texture_2d, texture_2d_multisampled, texture_depth_2d,
-            texture_depth_2d_multisampled, uniform_buffer_sized,
-        },
+        binding_types::{sampler, texture_2d, texture_2d_multisampled, uniform_buffer_sized},
         BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId,
         ColorTargetState, ColorWrites, FragmentState, PipelineCache, RenderPipelineDescriptor,
         Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
@@ -51,7 +48,7 @@ impl MotionBlurPipeline {
                 // Motion Vectors
                 texture_2d(TextureSampleType::Float { filterable: true }),
                 // Depth
-                texture_depth_2d(),
+                texture_2d(TextureSampleType::Float { filterable: false }),
                 // Linear Sampler
                 sampler(SamplerBindingType::Filtering),
                 // Motion blur settings uniform input
@@ -69,7 +66,7 @@ impl MotionBlurPipeline {
                 // Motion Vectors
                 texture_2d_multisampled(TextureSampleType::Float { filterable: false }),
                 // Depth
-                texture_depth_2d_multisampled(),
+                texture_2d_multisampled(TextureSampleType::Float { filterable: false }),
                 // Linear Sampler
                 sampler(SamplerBindingType::Filtering),
                 // Motion blur settings uniform input
@@ -131,7 +128,6 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         {
-            shader_defs.push("NO_DEPTH_TEXTURE_SUPPORT".into());
             shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
         }
 

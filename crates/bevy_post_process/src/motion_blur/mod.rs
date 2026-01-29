@@ -5,9 +5,9 @@
 use crate::bloom::bloom;
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
-use bevy_camera::Camera;
+use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
-    prepass::{DepthPrepass, MotionVectorPrepass},
+    prepass::MotionVectorPrepass,
     schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{
@@ -15,11 +15,13 @@ use bevy_ecs::{
     query::{QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
+    system::Query,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    render_resource::{ShaderType, SpecializedRenderPipelines},
+    render_resource::{ShaderType, SpecializedRenderPipelines, TextureUsages},
+    view::prepare_view_targets,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -59,7 +61,7 @@ pub mod pipeline;
 /// ````
 #[derive(Reflect, Component, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(DepthPrepass, MotionVectorPrepass)]
+#[require(MotionVectorPrepass)]
 pub struct MotionBlur {
     /// The strength of motion blur from `0.0` to `1.0`.
     ///
@@ -148,7 +150,12 @@ impl Plugin for MotionBlurPlugin {
             .add_systems(RenderStartup, pipeline::init_motion_blur_pipeline)
             .add_systems(
                 Render,
-                pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
+                (
+                    pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_view_depth_texture_usages_for_motion_blur
+                        .after(prepare_view_targets)
+                        .in_set(RenderSystems::ManageViews),
+                ),
             );
 
         render_app.add_systems(
@@ -157,5 +164,13 @@ impl Plugin for MotionBlurPlugin {
                 .before(bloom)
                 .in_set(Core3dSystems::PostProcess),
         );
+    }
+}
+
+fn prepare_view_depth_texture_usages_for_motion_blur(
+    mut view_targets: Query<&mut Camera3d, With<MotionBlurUniform>>,
+) {
+    for mut camera in view_targets.iter_mut() {
+        camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
 }
