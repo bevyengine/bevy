@@ -414,7 +414,10 @@ impl VertexAttributeValues {
         }
     }
 
-    #[allow(clippy::match_same_arms)]
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Although the `values` binding on some match arms may have matching types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+    )]
     pub(crate) fn get_bytes_at(&self, i: usize) -> &[u8] {
         match self {
             VertexAttributeValues::Float32(values) => bytes_of(&values[i]),
@@ -448,7 +451,10 @@ impl VertexAttributeValues {
         }
     }
 
-    #[allow(clippy::match_same_arms)]
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Although the `values` binding on some match arms may have matching types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+    )]
     pub(crate) fn push_from(&mut self, source: &VertexAttributeValues, i: usize) {
         match (self, source) {
             (VertexAttributeValues::Float32(this), VertexAttributeValues::Float32(source)) => {
@@ -580,7 +586,10 @@ impl VertexAttributeValues {
         }
     }
 
-    #[allow(clippy::match_same_arms)]
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Although the `values` binding on some match arms may have matching types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+    )]
     pub(crate) fn shrink_to_fit(&mut self) {
         match self {
             VertexAttributeValues::Float32(v) => v.shrink_to_fit(),
