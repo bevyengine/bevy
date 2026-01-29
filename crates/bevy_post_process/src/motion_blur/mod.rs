@@ -7,8 +7,8 @@ use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
-    schedule::{Core3d, Core3dSystems},
     prepass::MotionVectorPrepass,
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{
     component::Component,

@@ -7,7 +7,7 @@ use bevy_render::{
         BindGroupEntries, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
         RenderPassDescriptor, StoreOp,
     },
-    renderer::RenderContext,
+    renderer::{RenderContext, ViewQuery},
     view::{Msaa, ViewDepthTexture, ViewTarget},
 };
 
@@ -33,7 +33,8 @@ pub fn motion_blur(
     globals_buffer: Res<GlobalsBuffer>,
     mut ctx: RenderContext,
 ) {
-    let (view_target, pipeline_id, prepass_textures, depth, motion_blur_uniform, msaa) = view.into_inner();
+    let (view_target, pipeline_id, prepass_textures, depth, motion_blur_uniform, msaa) =
+        view.into_inner();
 
     if motion_blur_uniform.samples == 0 || motion_blur_uniform.shutter_angle <= 0.0 {
         return; // We can skip running motion blur in these cases.

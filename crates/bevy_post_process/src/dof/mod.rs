@@ -58,7 +58,7 @@ use tracing::warn;
 
 use crate::bloom::bloom;
 use bevy_core_pipeline::{
-    core_3d::DEPTH_PREPASS_TEXTURE_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
+    schedule::Core3d, tonemapping::tonemapping,
     FullscreenShader,
 };
 
