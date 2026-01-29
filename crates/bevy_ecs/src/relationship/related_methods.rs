@@ -409,7 +409,7 @@ impl<'w> EntityWorldMut<'w> {
 
 impl<'a> EntityCommands<'a> {
     /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
-    pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
+    pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle + 'static) -> &mut Self {
         let parent = self.id();
         self.commands.spawn((bundle, R::from(parent)));
         self
@@ -539,7 +539,7 @@ impl<'a> EntityCommands<'a> {
     /// Any cycles will cause this method to loop infinitely.
     pub fn insert_recursive<S: RelationshipTarget>(
         &mut self,
-        bundle: impl Bundle + Clone,
+        bundle: impl Bundle + Clone + 'static,
     ) -> &mut Self {
         self.queue(move |mut entity: EntityWorldMut| {
             entity.insert_recursive::<S>(bundle);
@@ -626,7 +626,7 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
 
     /// Spawns an entity with the given `bundle` and an `R` relationship targeting the `target`
     /// entity this spawner was initialized with.
-    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'_> {
+    pub fn spawn(&mut self, bundle: impl Bundle + 'static) -> EntityCommands<'_> {
         self.commands.spawn((R::from(self.target), bundle))
     }
 

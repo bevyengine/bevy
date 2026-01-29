@@ -109,7 +109,7 @@ where
 
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
-pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
+pub fn insert(bundle: impl Bundle + 'static, mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         move_as_ptr!(bundle);
@@ -252,7 +252,7 @@ pub fn despawn() -> impl EntityCommand {
 /// watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
 /// targets this entity.
 #[track_caller]
-pub fn observe<E: EntityEvent, B: Bundle, M>(
+pub fn observe<E: EntityEvent, B: Bundle + 'static, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
     let caller = MaybeLocation::caller();

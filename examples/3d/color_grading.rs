@@ -159,7 +159,10 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
 
 /// Adds the buttons for the global controls (those that control the scene as a
 /// whole as opposed to shadows, midtones, or highlights).
-fn buttons_for_global_controls(color_grading: &ColorGrading, font: &Handle<Font>) -> impl Bundle {
+fn buttons_for_global_controls(
+    color_grading: &ColorGrading,
+    font: &Handle<Font>,
+) -> impl Bundle + use<> + 'static {
     let make_button = |option: SelectedGlobalColorGradingOption| {
         button_for_value(
             SelectedColorGradingOption::Global(option),
@@ -190,7 +193,7 @@ fn buttons_for_section(
     section: SelectedColorGradingSection,
     color_grading: &ColorGrading,
     font: &Handle<Font>,
-) -> impl Bundle {
+) -> impl Bundle + 'static {
     let make_button = |option| {
         button_for_value(
             SelectedColorGradingOption::Section(section, option),
@@ -229,7 +232,7 @@ fn button_for_value(
     option: SelectedColorGradingOption,
     color_grading: &ColorGrading,
     font: &Handle<Font>,
-) -> impl Bundle {
+) -> impl Bundle + use<> + 'static {
     let label = match option {
         SelectedColorGradingOption::Global(option) => option.to_string(),
         SelectedColorGradingOption::Section(_, option) => option.to_string(),

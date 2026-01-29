@@ -10,7 +10,7 @@ use indexmap::{IndexMap, IndexSet};
 
 use crate::{
     archetype::{Archetype, BundleComponentStatus, ComponentStatus},
-    bundle::{Bundle, DynamicBundle},
+    bundle::{bundle_id_of, Bundle, DynamicBundle},
     change_detection::{MaybeLocation, Tick},
     component::{
         ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor, StorageType,
@@ -434,7 +434,7 @@ impl Bundles {
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
-        *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
+        *self.bundle_ids.entry(bundle_id_of::<T>()).or_insert_with(|| {
             let component_ids = T::component_ids(components).collect::<Vec<_>>();
             let id = BundleId(bundle_infos.len());
             let bundle_info =
@@ -463,7 +463,11 @@ impl Bundles {
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
     ) -> BundleId {
-        if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {
+        if let Some(id) = self
+            .contributed_bundle_ids
+            .get(&bundle_id_of::<T>())
+            .cloned()
+        {
             id
         } else {
             // SAFETY: as per the guarantees of this function, components and
@@ -483,7 +487,7 @@ impl Bundles {
                 // part of init_dynamic_info. No mutable references will be created and the allocation will remain valid.
                 self.init_dynamic_info(storages, components, core::slice::from_raw_parts(ptr, len))
             };
-            self.contributed_bundle_ids.insert(TypeId::of::<T>(), id);
+            self.contributed_bundle_ids.insert(bundle_id_of::<T>(), id);
             id
         }
     }
