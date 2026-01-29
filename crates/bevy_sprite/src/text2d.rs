@@ -248,7 +248,7 @@ pub fn update_text2d_layout(
                 block.linebreak,
                 block.justify,
                 text_bounds,
-                scale_factor as f64,
+                scale_factor,
                 &mut computed,
                 &mut font_system,
                 *hinting,
@@ -259,9 +259,15 @@ pub fn update_text2d_layout(
                     reprocess_queue.insert(entity);
                     continue;
                 }
+                Err(e @ TextError::FailedToGetGlyphImage(key)) => {
+                    bevy_log::warn_once!(
+                        "{e}. Face: {:?}",
+                        font_system.get_face_details(key.font_id)
+                    );
+                    text_layout_info.clear();
+                }
                 Err(
                     e @ (TextError::FailedToAddGlyph(_)
-                    | TextError::FailedToGetGlyphImage(_)
                     | TextError::MissingAtlasLayout
                     | TextError::MissingAtlasTexture
                     | TextError::InconsistentAtlasState),

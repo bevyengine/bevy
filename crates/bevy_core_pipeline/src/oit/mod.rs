@@ -24,7 +24,10 @@ use resolve::{
 };
 use tracing::trace;
 
-use crate::core_3d::graph::{Core3d, Node3d};
+use crate::{
+    core_3d::main_transparent_pass_3d,
+    schedule::{Core3d, Core3dSystems},
+};
 
 /// Module that defines the necessary systems to resolve the OIT buffer and render it to the screen.
 pub mod resolve;
@@ -103,16 +106,12 @@ impl Plugin for OrderIndependentTransparencyPlugin {
                 ),
             );
 
-        render_app
-            .add_render_graph_node::<ViewNodeRunner<OitResolveNode>>(Core3d, OitResolvePass)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::MainTransparentPass,
-                    OitResolvePass,
-                    Node3d::EndMainPass,
-                ),
-            );
+        render_app.add_systems(
+            Core3d,
+            oit_resolve
+                .after(main_transparent_pass_3d)
+                .in_set(Core3dSystems::MainPass),
+        );
     }
 }
 

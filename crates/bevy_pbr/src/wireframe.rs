@@ -10,12 +10,11 @@ use bevy_asset::{
 };
 use bevy_camera::{visibility::ViewVisibility, Camera, Camera3d};
 use bevy_color::{Color, ColorToComponents};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::Tick,
     prelude::*,
-    query::QueryItem,
     system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
 };
 use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
@@ -27,7 +26,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::{extract_cameras, ExtractedCamera},
-    diagnostic::RecordDiagnostics,
     extract_resource::ExtractResource,
     mesh::{
         allocator::{MeshAllocator, SlabId},
@@ -37,7 +35,6 @@ use bevy_render::{
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
-    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_phase::{
         AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
@@ -45,7 +42,7 @@ use bevy_render::{
         SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
     },
     render_resource::*,
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, ViewQuery},
     sync_world::{MainEntity, MainEntityHashMap},
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
@@ -115,7 +112,7 @@ impl Plugin for WireframePlugin {
             return;
         };
 
-        let required_features = WgpuFeatures::POLYGON_MODE_LINE | WgpuFeatures::PUSH_CONSTANTS;
+        let required_features = WgpuFeatures::POLYGON_MODE_LINE | WgpuFeatures::IMMEDIATES;
         let render_device = render_app.world().resource::<RenderDevice>();
         if !render_device.features().contains(required_features) {
             warn!(
@@ -132,16 +129,13 @@ impl Plugin for WireframePlugin {
             .add_render_command::<Wireframe3d, DrawWireframe3d>()
             .init_resource::<RenderWireframeInstances>()
             .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
-            .add_render_graph_node::<ViewNodeRunner<Wireframe3dNode>>(Core3d, Node3d::Wireframe)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EndMainPass,
-                    Node3d::Wireframe,
-                    Node3d::PostProcessing,
-                ),
-            )
             .add_systems(RenderStartup, init_wireframe_3d_pipeline)
+            .add_systems(
+                Core3d,
+                wireframe_3d
+                    .after(Core3dSystems::MainPass)
+                    .before(Core3dSystems::PostProcess),
+            )
             .add_systems(
                 ExtractSchedule,
                 (
@@ -285,9 +279,9 @@ pub struct Wireframe3dBinKey {
     pub asset_id: UntypedAssetId,
 }
 
-pub struct SetWireframe3dPushConstants;
+pub struct SetWireframe3dImmediates;
 
-impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
+impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dImmediates {
     type Param = (
         SRes<RenderWireframeInstances>,
         SRes<RenderAssets<RenderWireframeMaterial>>,
@@ -310,11 +304,7 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
             return RenderCommandResult::Failure("No wireframe material found for entity");
         };
 
-        pass.set_push_constants(
-            ShaderStages::FRAGMENT,
-            0,
-            bytemuck::bytes_of(&wireframe_material.color),
-        );
+        pass.set_immediates(0, bytemuck::bytes_of(&wireframe_material.color));
         RenderCommandResult::Success
     }
 }
@@ -324,7 +314,7 @@ pub type DrawWireframe3d = (
     SetMeshViewBindGroup<0>,
     SetMeshViewBindingArrayBindGroup<1>,
     SetMeshBindGroup<2>,
-    SetWireframe3dPushConstants,
+    SetWireframe3dImmediates,
     DrawMesh,
 );
 
@@ -355,10 +345,7 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
         descriptor.label = Some("wireframe_3d_pipeline".into());
-        descriptor.push_constant_ranges.push(PushConstantRange {
-            stages: ShaderStages::FRAGMENT,
-            range: 0..16,
-        });
+        descriptor.immediate_size = 16;
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader = self.shader.clone();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
@@ -367,55 +354,44 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
     }
 }
 
-#[derive(Default)]
-struct Wireframe3dNode;
-impl ViewNode for Wireframe3dNode {
-    type ViewQuery = (
-        &'static ExtractedCamera,
-        &'static ExtractedView,
-        &'static ViewTarget,
-        &'static ViewDepthTexture,
-    );
+pub fn wireframe_3d(
+    world: &World,
+    view: ViewQuery<(
+        &ExtractedCamera,
+        &ExtractedView,
+        &ViewTarget,
+        &ViewDepthTexture,
+    )>,
+    wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
+    mut ctx: RenderContext,
+) {
+    let view_entity = view.entity();
 
-    fn run<'w>(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let Some(wireframe_phase) = world.get_resource::<ViewBinnedRenderPhases<Wireframe3d>>()
-        else {
-            return Ok(());
-        };
+    let (camera, extracted_view, target, depth) = view.into_inner();
 
-        let Some(wireframe_phase) = wireframe_phase.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
+    let Some(wireframe_phase) = wireframe_phases.get(&extracted_view.retained_view_entity) else {
+        return;
+    };
 
-        let diagnostics = render_context.diagnostic_recorder();
+    if wireframe_phase.is_empty() {
+        return;
+    }
 
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("wireframe_3d"),
-            color_attachments: &[Some(target.get_color_attachment())],
-            depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-        let pass_span = diagnostics.pass_span(&mut render_pass, "wireframe_3d");
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("wireframe_3d"),
+        color_attachments: &[Some(target.get_color_attachment())],
+        depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    });
 
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
-        }
+    if let Some(viewport) = camera.viewport.as_ref() {
+        render_pass.set_camera_viewport(viewport);
+    }
 
-        if let Err(err) = wireframe_phase.render(&mut render_pass, world, graph.view_entity()) {
-            error!("Error encountered while rendering the stencil phase {err:?}");
-            return Err(NodeRunError::DrawError(err));
-        }
-
-        pass_span.end(&mut render_pass);
-
-        Ok(())
+    if let Err(err) = wireframe_phase.render(&mut render_pass, world, view_entity) {
+        error!("Error encountered while rendering the wireframe phase {err:?}");
     }
 }
 

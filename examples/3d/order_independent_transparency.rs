@@ -40,7 +40,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: false,
+            shadow_maps_enabled: false,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

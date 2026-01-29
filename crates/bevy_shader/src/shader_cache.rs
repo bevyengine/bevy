@@ -63,7 +63,7 @@ pub struct ShaderCache<ShaderModule, RenderDevice> {
         &RenderDevice,
         ShaderCacheSource,
         &ValidateShader,
-    ) -> Result<ShaderModule, PipelineCacheError>,
+    ) -> Result<ShaderModule, ShaderCacheError>,
     #[cfg(feature = "shader_format_wesl")]
     module_path_to_asset_id: HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
@@ -109,7 +109,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
             &RenderDevice,
             ShaderCacheSource,
             &ValidateShader,
-        ) -> Result<ShaderModule, PipelineCacheError>,
+        ) -> Result<ShaderModule, ShaderCacheError>,
     ) -> Self {
         let capabilities = get_capabilities(features, downlevel);
         #[cfg(debug_assertions)]
@@ -131,16 +131,12 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         }
     }
 
-    #[expect(
-        clippy::result_large_err,
-        reason = "See https://github.com/bevyengine/bevy/issues/19220"
-    )]
     fn add_import_to_composer(
         composer: &mut naga_oil::compose::Composer,
         import_path_shaders: &HashMap<ShaderImport, AssetId<Shader>>,
         shaders: &HashMap<AssetId<Shader>, Shader>,
         import: &ShaderImport,
-    ) -> Result<(), PipelineCacheError> {
+    ) -> Result<(), ShaderCacheError> {
         // Early out if we've already imported this module
         if composer.contains_module(&import.module_name()) {
             return Ok(());
@@ -150,34 +146,32 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         let shader = import_path_shaders
             .get(import)
             .and_then(|handle| shaders.get(handle))
-            .ok_or(PipelineCacheError::ShaderImportNotYetAvailable)?;
+            .ok_or(ShaderCacheError::ShaderImportNotYetAvailable)?;
 
         // Recurse down to ensure all import dependencies are met
         for import in &shader.imports {
             Self::add_import_to_composer(composer, import_path_shaders, shaders, import)?;
         }
 
-        composer.add_composable_module(shader.into())?;
+        composer
+            .add_composable_module(shader.into())
+            .map_err(Box::new)?;
         // if we fail to add a module the composer will tell us what is missing
 
         Ok(())
     }
 
-    #[expect(
-        clippy::result_large_err,
-        reason = "See https://github.com/bevyengine/bevy/issues/19220"
-    )]
     pub fn get(
         &mut self,
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
         id: AssetId<Shader>,
         shader_defs: &[ShaderDefVal],
-    ) -> Result<Arc<ShaderModule>, PipelineCacheError> {
+    ) -> Result<Arc<ShaderModule>, ShaderCacheError> {
         let shader = self
             .shaders
             .get(&id)
-            .ok_or(PipelineCacheError::ShaderNotLoaded(id))?;
+            .ok_or(ShaderCacheError::ShaderNotLoaded(id))?;
 
         let data = self.data.entry(id).or_default();
         let n_asset_imports = shader
@@ -190,7 +184,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
             .filter(|import| matches!(import, ShaderImport::AssetPath(_)))
             .count();
         if n_asset_imports != n_resolved_asset_imports {
-            return Err(PipelineCacheError::ShaderImportNotYetAvailable);
+            return Err(ShaderCacheError::ShaderImportNotYetAvailable);
         }
 
         data.pipelines.insert(pipeline);
@@ -268,12 +262,13 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                             })
                             .collect::<std::collections::HashMap<_, _>>();
 
-                        let naga = self.composer.make_naga_module(
-                            naga_oil::compose::NagaModuleDescriptor {
+                        let naga = self
+                            .composer
+                            .make_naga_module(naga_oil::compose::NagaModuleDescriptor {
                                 shader_defs,
                                 ..shader.into()
-                            },
-                        )?;
+                            })
+                            .map_err(Box::new)?;
 
                         #[cfg(not(feature = "decoupled_naga"))]
                         {
@@ -418,21 +413,14 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
 }
 
 /// Type of error returned by a `PipelineCache` when the creation of a GPU pipeline object failed.
-#[cfg_attr(
-    not(target_arch = "wasm32"),
-    expect(
-        clippy::large_enum_variant,
-        reason = "See https://github.com/bevyengine/bevy/issues/19220"
-    )
-)]
 #[derive(Error, Debug)]
-pub enum PipelineCacheError {
+pub enum ShaderCacheError {
     #[error(
         "Pipeline could not be compiled because the following shader could not be loaded: {0:?}"
     )]
     ShaderNotLoaded(AssetId<Shader>),
     #[error(transparent)]
-    ProcessShaderError(#[from] naga_oil::compose::ComposerError),
+    ProcessShaderError(#[from] Box<naga_oil::compose::ComposerError>),
     #[error("Shader import not yet available.")]
     ShaderImportNotYetAvailable,
     #[error("Could not create shader module: {0}")]
@@ -446,32 +434,57 @@ pub enum PipelineCacheError {
 fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabilities {
     let mut capabilities = Capabilities::empty();
     capabilities.set(
-        Capabilities::PUSH_CONSTANT,
-        features.contains(Features::PUSH_CONSTANTS),
+        Capabilities::IMMEDIATES,
+        features.contains(Features::IMMEDIATES),
     );
     capabilities.set(
         Capabilities::FLOAT64,
         features.contains(Features::SHADER_F64),
     );
     capabilities.set(
+        Capabilities::SHADER_FLOAT16,
+        features.contains(Features::SHADER_F16),
+    );
+    capabilities.set(
+        Capabilities::SHADER_FLOAT16_IN_FLOAT32,
+        downlevel.contains(DownlevelFlags::SHADER_F16_IN_F32),
+    );
+    capabilities.set(
         Capabilities::PRIMITIVE_INDEX,
         features.contains(Features::SHADER_PRIMITIVE_INDEX),
     );
     capabilities.set(
-        Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+        Capabilities::TEXTURE_AND_SAMPLER_BINDING_ARRAY,
+        features.contains(Features::TEXTURE_BINDING_ARRAY),
+    );
+    capabilities.set(
+        Capabilities::BUFFER_BINDING_ARRAY,
+        features.contains(Features::BUFFER_BINDING_ARRAY),
+    );
+    capabilities.set(
+        Capabilities::STORAGE_TEXTURE_BINDING_ARRAY,
+        features.contains(Features::TEXTURE_BINDING_ARRAY)
+            && features.contains(Features::STORAGE_RESOURCE_BINDING_ARRAY),
+    );
+    capabilities.set(
+        Capabilities::STORAGE_BUFFER_BINDING_ARRAY,
+        features.contains(Features::BUFFER_BINDING_ARRAY)
+            && features.contains(Features::STORAGE_RESOURCE_BINDING_ARRAY),
+    );
+    capabilities.set(
+        Capabilities::TEXTURE_AND_SAMPLER_BINDING_ARRAY_NON_UNIFORM_INDEXING,
         features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
     );
     capabilities.set(
-        Capabilities::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+        Capabilities::BUFFER_BINDING_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::UNIFORM_BUFFER_BINDING_ARRAYS),
+    );
+    capabilities.set(
+        Capabilities::STORAGE_TEXTURE_BINDING_ARRAY_NON_UNIFORM_INDEXING,
         features.contains(Features::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
     );
     capabilities.set(
-        Capabilities::UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::UNIFORM_BUFFER_BINDING_ARRAYS),
-    );
-    // TODO: This needs a proper wgpu feature
-    capabilities.set(
-        Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
+        Capabilities::STORAGE_BUFFER_BINDING_ARRAY_NON_UNIFORM_INDEXING,
         features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
     );
     capabilities.set(
@@ -501,12 +514,20 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.contains(Features::SHADER_INT64_ATOMIC_ALL_OPS),
     );
     capabilities.set(
-        Capabilities::MULTISAMPLED_SHADING,
-        downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
+        Capabilities::TEXTURE_ATOMIC,
+        features.contains(Features::TEXTURE_ATOMIC),
     );
     capabilities.set(
-        Capabilities::RAY_QUERY,
-        features.contains(Features::EXPERIMENTAL_RAY_QUERY),
+        Capabilities::TEXTURE_INT64_ATOMIC,
+        features.contains(Features::TEXTURE_INT64_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::SHADER_FLOAT32_ATOMIC,
+        features.contains(Features::SHADER_FLOAT32_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::MULTISAMPLED_SHADING,
+        downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
     );
     capabilities.set(
         Capabilities::DUAL_SOURCE_BLENDING,
@@ -529,28 +550,32 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.intersects(Features::SUBGROUP_BARRIER),
     );
     capabilities.set(
+        Capabilities::RAY_QUERY,
+        features.intersects(Features::EXPERIMENTAL_RAY_QUERY),
+    );
+    capabilities.set(
         Capabilities::SUBGROUP_VERTEX_STAGE,
         features.contains(Features::SUBGROUP_VERTEX),
     );
     capabilities.set(
-        Capabilities::SHADER_FLOAT32_ATOMIC,
-        features.contains(Features::SHADER_FLOAT32_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::TEXTURE_ATOMIC,
-        features.contains(Features::TEXTURE_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::TEXTURE_INT64_ATOMIC,
-        features.contains(Features::TEXTURE_INT64_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::SHADER_FLOAT16,
-        features.contains(Features::SHADER_F16),
-    );
-    capabilities.set(
         Capabilities::RAY_HIT_VERTEX_POSITION,
         features.intersects(Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN),
+    );
+    capabilities.set(
+        Capabilities::TEXTURE_EXTERNAL,
+        features.intersects(Features::EXTERNAL_TEXTURE),
+    );
+    capabilities.set(
+        Capabilities::SHADER_BARYCENTRICS,
+        features.intersects(Features::SHADER_BARYCENTRICS),
+    );
+    capabilities.set(
+        Capabilities::MESH_SHADER,
+        features.intersects(Features::EXPERIMENTAL_MESH_SHADER),
+    );
+    capabilities.set(
+        Capabilities::MESH_SHADER_POINT_TOPOLOGY,
+        features.intersects(Features::EXPERIMENTAL_MESH_SHADER_POINTS),
     );
 
     capabilities

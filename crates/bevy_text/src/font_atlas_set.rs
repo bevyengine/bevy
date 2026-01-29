@@ -1,6 +1,8 @@
 use crate::{FontAtlas, FontSmoothing};
+use bevy_asset::Assets;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::resource::Resource;
+use bevy_image::Image;
 use bevy_platform::collections::HashMap;
 use cosmic_text::fontdb::ID;
 
@@ -26,5 +28,18 @@ impl FontAtlasSet {
     pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_key: &FontAtlasKey) -> bool {
         self.get(font_key)
             .is_some_and(|font_atlas| font_atlas.iter().any(|atlas| atlas.has_glyph(cache_key)))
+    }
+
+    /// Returns the total size in bytes of the image data for all fonts.
+    pub fn total_bytes(&self, images: &Assets<Image>) -> u64 {
+        self.values()
+            .flat_map(|font_atlases| font_atlases.iter())
+            .map(|font_atlas| {
+                images
+                    .get(&font_atlas.texture)
+                    .and_then(|image| image.data.as_ref())
+                    .map_or(0, |data| data.len() as u64)
+            })
+            .sum()
     }
 }

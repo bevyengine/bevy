@@ -3,10 +3,15 @@
 
 use std::{f32::consts::PI, time::Instant};
 
+use crate::light_consts::lux;
 use argh::FromArgs;
+use bevy::pbr::ContactShadows;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera::visibility::{NoCpuCulling, NoFrustumCulling},
+    camera::{
+        visibility::{NoCpuCulling, NoFrustumCulling},
+        Hdr,
+    },
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
@@ -17,18 +22,16 @@ use bevy::{
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
-        experimental::occlusion_culling::OcclusionCulling,
+        occlusion_culling::OcclusionCulling,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::{Hdr, NoIndirectDrawing},
+        view::NoIndirectDrawing,
     },
     scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
-
-use crate::light_consts::lux;
 
 #[derive(FromArgs, Resource, Clone)]
 /// Config
@@ -94,10 +97,7 @@ pub fn main() {
     app.init_resource::<CameraPositions>()
         .init_resource::<FrameLowHigh>()
         .insert_resource(args.clone())
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::Immediate,
@@ -182,7 +182,8 @@ pub fn setup(
             DirectionalLight {
                 color: Color::srgb(1.0, 0.87, 0.78),
                 illuminance: lux::FULL_DAYLIGHT,
-                shadows_enabled: !args.minimal,
+                shadow_maps_enabled: !args.minimal,
+                contact_shadows_enabled: !args.minimal,
                 shadow_depth_bias: 0.2,
                 shadow_normal_bias: 0.2,
                 ..default()
@@ -215,6 +216,7 @@ pub fn setup(
             intensity: 1000.0,
             ..default()
         },
+        ContactShadows::default(),
         FreeCamera::default(),
         Spin,
     ));

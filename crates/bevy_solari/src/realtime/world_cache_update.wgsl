@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::utils::{rand_f, rand_range_u, sample_cosine_hemisphere}
 #import bevy_render::view::View
@@ -8,6 +10,7 @@
     WORLD_CACHE_MAX_TEMPORAL_SAMPLES,
     WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT,
     WORLD_CACHE_MAX_GI_RAY_DISTANCE,
+    WORLD_CACHE_CELL_UPDATES_SOFT_CAP,
     query_world_cache,
 }
 #import bevy_solari::realtime_bindings::{
@@ -24,26 +27,38 @@
 }
 
 @compute @workgroup_size(64, 1, 1)
-fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
+fn sample_di(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x >= world_cache_active_cells_count { return; }
 
     let cell_index = world_cache_active_cell_indices[active_cell_id.x];
     let geometry_data = world_cache_geometry_data[cell_index];
     var rng = cell_index + constants.frame_index;
 
-    var new_radiance = sample_random_light_ris(geometry_data.world_position, geometry_data.world_normal, workgroup_id.xy, &rng);
+    if rand_f(&rng) >= f32(WORLD_CACHE_CELL_UPDATES_SOFT_CAP) / f32(world_cache_active_cells_count) { return; }
 
-#ifndef NO_MULTIBOUNCE
+    let new_radiance = sample_random_light_ris(geometry_data.world_position, geometry_data.world_normal, workgroup_id.xy, &rng);
+
+    world_cache_active_cells_new_radiance[active_cell_id.x] = new_radiance;
+}
+
+@compute @workgroup_size(64, 1, 1)
+fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
+    if active_cell_id.x >= world_cache_active_cells_count { return; }
+
+    let cell_index = world_cache_active_cell_indices[active_cell_id.x];
+    let geometry_data = world_cache_geometry_data[cell_index];
+    var rng = cell_index + constants.frame_index;
+
+    if rand_f(&rng) >= f32(WORLD_CACHE_CELL_UPDATES_SOFT_CAP) / f32(world_cache_active_cells_count) { return; }
+
     let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
     let ray = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, WORLD_CACHE_MAX_GI_RAY_DISTANCE, RAY_FLAG_NONE);
     if ray.kind != RAY_QUERY_INTERSECTION_NONE {
         let ray_hit = resolve_ray_hit_full(ray);
         let cell_life = atomicLoad(&world_cache_life[cell_index]);
-        new_radiance += ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, cell_life, &rng);
+        let radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray.t, cell_life, &rng);
+        world_cache_active_cells_new_radiance[active_cell_id.x] += ray_hit.material.base_color * radiance;
     }
-#endif
-
-    world_cache_active_cells_new_radiance[active_cell_id.x] = new_radiance;
 }
 
 @compute @workgroup_size(64, 1, 1)
@@ -52,6 +67,8 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
 
     let cell_index = world_cache_active_cell_indices[active_cell_id.x];
     var rng = cell_index + constants.frame_index;
+
+    if rand_f(&rng) >= f32(WORLD_CACHE_CELL_UPDATES_SOFT_CAP) / f32(world_cache_active_cells_count) { return; }
 
     let old_radiance = world_cache_radiance[cell_index];
     let new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
@@ -64,7 +81,7 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     let blend_amount = 1.0 / min(sample_count, max_sample_count);
 
     let blended_radiance = mix(old_radiance.rgb, new_radiance, blend_amount);
-    let blended_luminance_delta = mix(luminance_delta, luminance(blended_radiance - old_radiance.rgb), 1.0 / 8.0);
+    let blended_luminance_delta = mix(luminance_delta, luminance(blended_radiance) - luminance(old_radiance.rgb), 1.0 / 8.0);
 
     world_cache_radiance[cell_index] = vec4(blended_radiance, sample_count);
     world_cache_luminance_deltas[cell_index] = blended_luminance_delta;
@@ -84,13 +101,14 @@ fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, w
         let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
         let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, world_position, world_normal);
 
-        let target_function = luminance(light_contribution.radiance);
+        let contribution = light_contribution.radiance * saturate(dot(light_contribution.wi, world_normal));
+        let target_function = luminance(contribution);
         let resampling_weight = mis_weight * (target_function * light_contribution.inverse_pdf);
 
         weight_sum += resampling_weight;
 
         if rand_f(rng) < resampling_weight / weight_sum {
-            selected_sample_radiance = light_contribution.radiance;
+            selected_sample_radiance = contribution;
             selected_sample_target_function = target_function;
             selected_sample_world_position = resolved_light_sample.world_position;
         }

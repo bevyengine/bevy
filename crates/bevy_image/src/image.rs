@@ -20,9 +20,9 @@ use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{
-    AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
-    SamplerDescriptor, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureUsages, TextureViewDescriptor,
+    AddressMode, CompareFunction, Extent3d, Features, FilterMode, MipmapFilterMode,
+    SamplerBorderColor, SamplerDescriptor, TextureDataOrder, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
 /// Trait used to provide default values for Bevy-external types that
@@ -891,6 +891,15 @@ impl From<ImageFilterMode> for FilterMode {
     }
 }
 
+impl From<ImageFilterMode> for MipmapFilterMode {
+    fn from(value: ImageFilterMode) -> Self {
+        match value {
+            ImageFilterMode::Nearest => MipmapFilterMode::Nearest,
+            ImageFilterMode::Linear => MipmapFilterMode::Linear,
+        }
+    }
+}
+
 impl From<ImageCompareFunction> for CompareFunction {
     fn from(value: ImageCompareFunction) -> Self {
         match value {
@@ -924,6 +933,15 @@ impl From<AddressMode> for ImageAddressMode {
             AddressMode::Repeat => ImageAddressMode::Repeat,
             AddressMode::MirrorRepeat => ImageAddressMode::MirrorRepeat,
             AddressMode::ClampToBorder => ImageAddressMode::ClampToBorder,
+        }
+    }
+}
+
+impl From<MipmapFilterMode> for ImageFilterMode {
+    fn from(value: MipmapFilterMode) -> Self {
+        match value {
+            MipmapFilterMode::Nearest => ImageFilterMode::Nearest,
+            MipmapFilterMode::Linear => ImageFilterMode::Linear,
         }
     }
 }

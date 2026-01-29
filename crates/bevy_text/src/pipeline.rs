@@ -6,14 +6,14 @@ use bevy_ecs::{
     system::ResMut,
 };
 use bevy_image::prelude::*;
-use bevy_log::{once, warn};
+use bevy_log::warn_once;
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
-    FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource, Justify, LineBreak,
-    LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource, FontStyle, FontWeight,
+    Justify, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
@@ -31,6 +31,93 @@ impl Default for CosmicFontSystem {
         let db = cosmic_text::fontdb::Database::new();
         // TODO: consider using `cosmic_text::FontSystem::new()` (load system fonts by default)
         Self(cosmic_text::FontSystem::new_with_locale_and_db(locale, db))
+    }
+}
+
+impl CosmicFontSystem {
+    /// Get information about a font face, if it exists
+    pub fn get_face_details(&self, id: cosmic_text::fontdb::ID) -> Option<FontFaceDetails> {
+        self.0.db().face(id).map(FontFaceDetails::from)
+    }
+
+    /// Get the family name associated with a `FontSource`.
+    ///
+    /// Returns `None` for a `FontSource::Handle`. Instead, a font asset's family name
+    /// can be read from its `family` field.
+    pub fn get_family(&self, source: &FontSource) -> Option<smol_str::SmolStr> {
+        source
+            .as_family()
+            .map(|family| self.db().family_name(&family).into())
+    }
+}
+
+#[derive(Debug)]
+/// Details about a Font Face
+pub struct FontFaceDetails {
+    /// The path of the source file, if the font was loaded from a file.
+    pub path: Option<std::path::PathBuf>,
+
+    /// The face's index in the font data.
+    pub index: u32,
+
+    /// A list of family names.
+    ///
+    /// Contains pairs of Name + Language. Where the first family is always English US,
+    /// unless it's missing from the font.
+    ///
+    /// Corresponds to a *Typographic Family* (ID 16) or a *Font Family* (ID 1) [name ID]
+    /// in a TrueType font.
+    ///
+    /// This is not an *Extended Typographic Family* or a *Full Name*.
+    /// Meaning it will contain _Arial_ and not _Arial Bold_.
+    ///
+    /// [name ID]: https://docs.microsoft.com/en-us/typography/opentype/spec/name#name-ids
+    pub families: Vec<(String, String)>,
+
+    /// A PostScript name.
+    ///
+    /// Corresponds to a *PostScript name* (6) [name ID] in a TrueType font.
+    ///
+    /// [name ID]: https://docs.microsoft.com/en-us/typography/opentype/spec/name#name-ids
+    pub post_script_name: String,
+
+    /// A font face style.
+    pub style: FontStyle,
+
+    /// A font face weight.
+    pub weight: FontWeight,
+
+    /// A font face stretch.
+    pub stretch: u16,
+
+    /// Indicates that the font face is monospaced.
+    pub monospaced: bool,
+}
+
+impl From<&cosmic_text::fontdb::FaceInfo> for FontFaceDetails {
+    fn from(face: &cosmic_text::fontdb::FaceInfo) -> Self {
+        FontFaceDetails {
+            path: match face.source {
+                cosmic_text::fontdb::Source::Binary(_) => None,
+                cosmic_text::fontdb::Source::File(ref path)
+                | cosmic_text::fontdb::Source::SharedFile(ref path, _) => Some(path.clone()),
+            },
+            index: face.index,
+            families: face
+                .families
+                .iter()
+                .map(|(name, language)| (name.clone(), language.to_string()))
+                .collect(),
+            post_script_name: face.post_script_name.clone(),
+            style: match face.style {
+                cosmic_text::Style::Normal => FontStyle::Normal,
+                cosmic_text::Style::Italic => FontStyle::Italic,
+                cosmic_text::Style::Oblique => FontStyle::Oblique,
+            },
+            weight: FontWeight(face.weight.0),
+            stretch: face.stretch.to_number(),
+            monospaced: face.monospaced,
+        }
     }
 }
 
@@ -70,7 +157,7 @@ impl TextPipeline {
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
-        scale_factor: f64,
+        scale_factor: f32,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
@@ -79,9 +166,7 @@ impl TextPipeline {
         computed.needs_rerender = false;
 
         if scale_factor <= 0.0 {
-            once!(warn!(
-                "Text scale factor is <= 0.0. No text will be displayed.",
-            ));
+            warn_once!("Text scale factor is <= 0.0. No text will be displayed.",);
 
             return Err(TextError::DegenerateScaleFactor);
         }
@@ -99,8 +184,12 @@ impl TextPipeline {
             for (span_index, (entity, depth, span, text_font, _color, line_height)) in
                 text_spans.enumerate()
             {
-                // Save this section entity in the computed text block.
-                computed.entities.push(TextEntity { entity, depth });
+                // Save this span entity in the computed text block.
+                computed.entities.push(TextEntity {
+                    entity,
+                    depth,
+                    font_smoothing: text_font.font_smoothing,
+                });
 
                 if span.is_empty() {
                     continue;
@@ -112,15 +201,31 @@ impl TextPipeline {
                         Family::Name(font.family_name.as_str())
                     }
                     FontSource::Family(family) => Family::Name(family.as_str()),
+                    FontSource::Serif => Family::Serif,
+                    FontSource::SansSerif => Family::SansSerif,
+                    FontSource::Cursive => Family::Cursive,
+                    FontSource::Fantasy => Family::Fantasy,
+                    FontSource::Monospace => Family::Monospace,
                 };
 
                 // Save spans that aren't zero-sized.
                 if text_font.font_size <= 0.0 {
-                    once!(warn!(
+                    warn_once!(
                         "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
-                    ));
+                    );
 
                     continue;
+                }
+
+                const WARN_FONT_SIZE: f32 = 1000.0;
+                if text_font.font_size * scale_factor > WARN_FONT_SIZE {
+                    warn_once!(
+                        "Text span {entity} has an excessively large font size ({} with scale factor {}). \
+                        Extremely large font sizes will cause performance issues with font atlas \
+                        generation and high memory usage.",
+                        text_font.font_size,
+                        scale_factor,
+                    );
                 }
 
                 let attrs = get_attrs(span_index, text_font, line_height, family, scale_factor);
@@ -180,7 +285,7 @@ impl TextPipeline {
         entity: Entity,
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
-        scale_factor: f64,
+        scale_factor: f32,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
@@ -294,8 +399,7 @@ impl TextPipeline {
 
                 let mut temp_glyph;
                 let span_index = layout_glyph.metadata;
-                let font_smoothing = FontSmoothing::AntiAliased;
-
+                let font_smoothing = computed.entities[span_index].font_smoothing;
                 let layout_glyph = if font_smoothing == FontSmoothing::None {
                     // If font smoothing is disabled, round the glyph positions and sizes,
                     // effectively discarding all subpixel layout.
@@ -486,21 +590,24 @@ fn get_attrs<'a>(
     text_font: &TextFont,
     line_height: LineHeight,
     family: Family<'a>,
-    scale_factor: f64,
+    scale_factor: f32,
 ) -> Attrs<'a> {
+    let font_size = (text_font.font_size * scale_factor).round();
+    let line_height = match line_height {
+        LineHeight::Px(px) => px * scale_factor,
+        LineHeight::RelativeToFont(s) => s * font_size,
+    };
+
     Attrs::new()
         .metadata(span_index)
         .family(family)
         .stretch(text_font.width.into())
         .style(text_font.style.into())
         .weight(text_font.weight.into())
-        .metrics(
-            Metrics {
-                font_size: text_font.font_size,
-                line_height: line_height.eval(text_font.font_size),
-            }
-            .scale(scale_factor as f32),
-        )
+        .metrics(Metrics {
+            font_size,
+            line_height,
+        })
         .font_features((&text_font.font_features).into())
 }
 
@@ -511,7 +618,12 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
         size.x = size.x.max(run.line_w);
         size.y += run.line_height;
     }
-    size.ceil()
+
+    if size.is_finite() {
+        size.ceil()
+    } else {
+        Vec2::ZERO
+    }
 }
 
 /// Discards stale data cached in `FontSystem`.

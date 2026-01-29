@@ -1,6 +1,7 @@
 use crate::{
     serde::{ser::error_utils::make_custom_error, SerializationData, TypedReflectSerializer},
-    Struct, TypeInfo, TypeRegistry,
+    structs::Struct,
+    TypeInfo, TypeRegistry,
 };
 use serde::{ser::SerializeStruct, Serialize};
 
