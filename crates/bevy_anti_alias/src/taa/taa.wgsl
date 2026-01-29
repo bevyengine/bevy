@@ -13,7 +13,7 @@ const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ens
 @group(0) @binding(0) var view_target: texture_2d<f32>;
 @group(0) @binding(1) var history: texture_2d<f32>;
 @group(0) @binding(2) var motion_vectors: texture_2d<f32>;
-@group(0) @binding(3) var depth: texture_depth_2d;
+@group(0) @binding(3) var depth: texture_2d<f32>;
 @group(0) @binding(4) var nearest_sampler: sampler;
 @group(0) @binding(5) var linear_sampler: sampler;
 
@@ -95,11 +95,11 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let d_uv_bl = uv + vec2(-offset.x, -offset.y);
     let d_uv_br = uv + vec2(offset.x, -offset.y);
     var closest_uv = uv;
-    let d_tl = textureSample(depth, nearest_sampler, d_uv_tl);
-    let d_tr = textureSample(depth, nearest_sampler, d_uv_tr);
-    var closest_depth = textureSample(depth, nearest_sampler, uv);
-    let d_bl = textureSample(depth, nearest_sampler, d_uv_bl);
-    let d_br = textureSample(depth, nearest_sampler, d_uv_br);
+    let d_tl = textureSample(depth, nearest_sampler, d_uv_tl).x;
+    let d_tr = textureSample(depth, nearest_sampler, d_uv_tr).x;
+    var closest_depth = textureSample(depth, nearest_sampler, uv).x;
+    let d_bl = textureSample(depth, nearest_sampler, d_uv_bl).x;
+    let d_br = textureSample(depth, nearest_sampler, d_uv_br).x;
     if d_tl > closest_depth {
         closest_uv = d_uv_tl;
         closest_depth = d_tl;
@@ -162,7 +162,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     history_color = YCoCg_to_RGB(history_color);
 
     // How confident we are that the history is representative of the current frame
-    var history_confidence = textureSample(history, nearest_sampler, uv).a;
+    var history_confidence = textureSample(history, linear_sampler, uv).a;
     let pixel_motion_vector = abs(closest_motion_vector) * texture_size;
     if pixel_motion_vector.x < 0.01 && pixel_motion_vector.y < 0.01 {
         // Increment when pixels are not moving
