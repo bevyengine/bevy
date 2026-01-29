@@ -866,8 +866,19 @@ impl BoundingVolume for Obb2d {
     #[inline]
     fn merge(&self, _other: &Self) -> Self {
         // TODO: implement
-        // Remember that it should be the *smallest* bounding box that contains
-        // both self and other
+        // It should be the *smallest* bounding box that contains
+        // both self and other, which makes this trickier.
+        // Tentative algorithm (does not guarantee smallest):
+        // Pick a tentative new center as the midpoint between self and other.
+        // Of the eight corners between self and other, find the farthest point from the center.
+        // The farthest point should be the initial half extent in one direction.
+        // Between the center and this farthest point, you now have one axes of direction / line segment
+        // Find the orthogonal direction (e.g. by rotating the initial direction 90 degrees). 
+        // Find the farthest points along the orthogonal axes, and the other farthest point along orig dir
+        // Adjust the center / half extents as necessary until everything fits tightly.
+        // Note: This does not find the smallest bounding box in some special cases
+        // e.g. two identical squares well aligned with each other with some distance apart.
+        // the ideal obb in that case is a rectangle that fits snugly on 3 sides of each squares.
         todo!();
     }
 
@@ -920,7 +931,7 @@ impl BoundingVolume for Obb2d {
     }
 
     /// Translates the bounding volume by the given translation.
-    /// ///
+    ///
     /// The result is an Oriented Bounding Box that encompasses the translated shape.
     ///
     /// The translation is applied *after* `self.isometry`
