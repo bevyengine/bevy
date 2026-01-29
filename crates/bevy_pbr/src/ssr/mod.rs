@@ -5,11 +5,9 @@ use core::ops::Range;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_3d::{
-        graph::{Core3d, Node3d},
-        DEPTH_PREPASS_TEXTURE_SUPPORTED,
-    },
+    core_3d::{main_opaque_pass_3d, DEPTH_PREPASS_TEXTURE_SUPPORTED},
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    schedule::{Core3d, Core3dSystems},
     FullscreenShader,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -21,7 +19,6 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::World,
 };
 use bevy_image::BevyDefault as _;
 use bevy_light::EnvironmentMapLight;
@@ -30,9 +27,6 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
-    render_graph::{
-        NodeRunError, RenderGraph, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner,
-    },
     render_resource::{
         binding_types, AddressMode, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites,
@@ -42,7 +36,7 @@ use bevy_render::{
         SpecializedRenderPipelines, TextureFormat, TextureSampleType, TextureViewDescriptor,
         TextureViewDimension,
     },
-    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderStartup, RenderSystems,
@@ -52,10 +46,11 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, contact_shadows::ViewContactShadowsUniformOffset, graph::NodePbr,
-    Bluenoise, ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
-    MeshViewBindGroup, RenderViewLightProbes, ViewEnvironmentMapUniformOffset,
-    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    binding_arrays_are_usable, contact_shadows::ViewContactShadowsUniformOffset,
+    deferred::deferred_lighting, Bluenoise, ExtractedAtmosphere, MeshPipelineViewLayoutKey,
+    MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
+    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -219,40 +214,19 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
         render_app
             .init_resource::<ScreenSpaceReflectionsBuffer>()
             .init_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>()
-            .add_systems(
-                RenderStartup,
-                (
-                    init_screen_space_reflections_pipeline,
-                    add_screen_space_reflections_render_graph_edges,
-                ),
-            )
+            .add_systems(RenderStartup, init_screen_space_reflections_pipeline)
             .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSystems::Prepare))
             .add_systems(
                 Render,
                 prepare_ssr_settings.in_set(RenderSystems::PrepareResources),
             )
-            // Note: we add this node here but then we add edges in
-            // `add_screen_space_reflections_render_graph_edges`.
-            .add_render_graph_node::<ViewNodeRunner<ScreenSpaceReflectionsNode>>(
+            .add_systems(
                 Core3d,
-                NodePbr::ScreenSpaceReflections,
+                screen_space_reflections
+                    .after(deferred_lighting)
+                    .before(main_opaque_pass_3d)
+                    .in_set(Core3dSystems::MainPass),
             );
-    }
-}
-
-fn add_screen_space_reflections_render_graph_edges(mut render_graph: ResMut<RenderGraph>) {
-    let subgraph = render_graph.sub_graph_mut(Core3d);
-
-    subgraph.add_node_edge(NodePbr::ScreenSpaceReflections, Node3d::MainOpaquePass);
-
-    if subgraph
-        .get_node_state(NodePbr::DeferredLightingPass)
-        .is_ok()
-    {
-        subgraph.add_node_edge(
-            NodePbr::DeferredLightingPass,
-            NodePbr::ScreenSpaceReflections,
-        );
     }
 }
 
@@ -275,114 +249,110 @@ impl Default for ScreenSpaceReflections {
     }
 }
 
-impl ViewNode for ScreenSpaceReflectionsNode {
-    type ViewQuery = (
-        Read<ViewTarget>,
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
-        Read<ViewFogUniformOffset>,
-        Read<ViewLightProbesUniformOffset>,
-        Read<ViewScreenSpaceReflectionsUniformOffset>,
-        Read<ViewContactShadowsUniformOffset>,
-        Read<ViewEnvironmentMapUniformOffset>,
-        Read<MeshViewBindGroup>,
-        Read<ScreenSpaceReflectionsPipelineId>,
+pub fn screen_space_reflections(
+    view: ViewQuery<(
+        &ViewTarget,
+        &ViewUniformOffset,
+        &ViewLightsUniformOffset,
+        &ViewFogUniformOffset,
+        &ViewLightProbesUniformOffset,
+        &ViewScreenSpaceReflectionsUniformOffset,
+        &ViewContactShadowsUniformOffset,
+        &ViewEnvironmentMapUniformOffset,
+        &MeshViewBindGroup,
+        &ScreenSpaceReflectionsPipelineId,
+    )>,
+    pipeline_cache: Res<PipelineCache>,
+    ssr_pipeline: Res<ScreenSpaceReflectionsPipeline>,
+    bluenoise: Res<Bluenoise>,
+    render_images: Res<RenderAssets<GpuImage>>,
+    mut ctx: RenderContext,
+) {
+    let (
+        view_target,
+        view_uniform_offset,
+        view_lights_offset,
+        view_fog_offset,
+        view_light_probes_offset,
+        view_ssr_offset,
+        view_contact_shadows_offset,
+        view_environment_map_offset,
+        view_bind_group,
+        ssr_pipeline_id,
+    ) = view.into_inner();
+
+    // Grab the render pipeline.
+    let Some(render_pipeline) = pipeline_cache.get_render_pipeline(**ssr_pipeline_id) else {
+        return;
+    };
+
+    // Set up a standard pair of postprocessing textures.
+    let postprocess = view_target.post_process_write();
+
+    // Get blue noise texture for SSR.
+    let Some(stbn_texture) = render_images.get(&bluenoise.texture) else {
+        return;
+    };
+    let stbn_view = stbn_texture.texture.create_view(&TextureViewDescriptor {
+        label: Some("ssr_stbn_view"),
+        dimension: Some(TextureViewDimension::D2Array),
+        ..default()
+    });
+
+    // Create the bind group for this view.
+    let ssr_bind_group = ctx.render_device().create_bind_group(
+        "SSR bind group",
+        &pipeline_cache.get_bind_group_layout(&ssr_pipeline.bind_group_layout),
+        &BindGroupEntries::sequential((
+            postprocess.source,
+            &ssr_pipeline.color_sampler,
+            &ssr_pipeline.depth_linear_sampler,
+            &ssr_pipeline.depth_nearest_sampler,
+            &stbn_view,
+        )),
     );
 
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (
-            view_target,
-            view_uniform_offset,
-            view_lights_offset,
-            view_fog_offset,
-            view_light_probes_offset,
-            view_ssr_offset,
-            view_contact_shadows_offset,
-            view_environment_map_offset,
-            view_bind_group,
-            ssr_pipeline_id,
-        ): QueryItem<'w, '_, Self::ViewQuery>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        // Grab the render pipeline.
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let Some(render_pipeline) = pipeline_cache.get_render_pipeline(**ssr_pipeline_id) else {
-            return Ok(());
-        };
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
 
-        let diagnostics = render_context.diagnostic_recorder();
+    // Build the SSR render pass.
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("ssr"),
+        color_attachments: &[Some(RenderPassColorAttachment {
+            view: postprocess.destination,
+            depth_slice: None,
+            resolve_target: None,
+            ops: Operations::default(),
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    });
+    let pass_span = diagnostics.pass_span(&mut render_pass, "ssr");
 
-        // Set up a standard pair of postprocessing textures.
-        let postprocess = view_target.post_process_write();
+    // Set bind groups.
+    render_pass.set_render_pipeline(render_pipeline);
+    render_pass.set_bind_group(
+        0,
+        &view_bind_group.main,
+        &[
+            view_uniform_offset.offset,
+            view_lights_offset.offset,
+            view_fog_offset.offset,
+            **view_light_probes_offset,
+            **view_ssr_offset,
+            **view_contact_shadows_offset,
+            **view_environment_map_offset,
+        ],
+    );
+    render_pass.set_bind_group(1, &view_bind_group.binding_array, &[]);
 
-        // Create the bind group for this view.
-        let ssr_pipeline = world.resource::<ScreenSpaceReflectionsPipeline>();
-        let bluenoise = world.resource::<Bluenoise>();
-        let render_images = world.resource::<RenderAssets<GpuImage>>();
-        let Some(stbn_texture) = render_images.get(&bluenoise.texture) else {
-            return Ok(());
-        };
-        let stbn_view = stbn_texture.texture.create_view(&TextureViewDescriptor {
-            label: Some("ssr_stbn_view"),
-            dimension: Some(TextureViewDimension::D2Array),
-            ..default()
-        });
+    // Perform the SSR render pass.
+    render_pass.set_bind_group(2, &ssr_bind_group, &[]);
+    render_pass.draw(0..3, 0..1);
 
-        let ssr_bind_group = render_context.render_device().create_bind_group(
-            "SSR bind group",
-            &pipeline_cache.get_bind_group_layout(&ssr_pipeline.bind_group_layout),
-            &BindGroupEntries::sequential((
-                postprocess.source,
-                &ssr_pipeline.color_sampler,
-                &ssr_pipeline.depth_linear_sampler,
-                &ssr_pipeline.depth_nearest_sampler,
-                &stbn_view,
-            )),
-        );
-
-        // Build the SSR render pass.
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("ssr"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: postprocess.destination,
-                depth_slice: None,
-                resolve_target: None,
-                ops: Operations::default(),
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-        let pass_span = diagnostics.pass_span(&mut render_pass, "ssr");
-
-        // Set bind groups.
-        render_pass.set_render_pipeline(render_pipeline);
-        render_pass.set_bind_group(
-            0,
-            &view_bind_group.main,
-            &[
-                view_uniform_offset.offset,
-                view_lights_offset.offset,
-                view_fog_offset.offset,
-                **view_light_probes_offset,
-                **view_ssr_offset,
-                **view_contact_shadows_offset,
-                **view_environment_map_offset,
-            ],
-        );
-        render_pass.set_bind_group(1, &view_bind_group.binding_array, &[]);
-
-        // Perform the SSR render pass.
-        render_pass.set_bind_group(2, &ssr_bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
-
-        pass_span.end(&mut render_pass);
-
-        Ok(())
-    }
+    pass_span.end(&mut render_pass);
 }
 
 pub fn init_screen_space_reflections_pipeline(

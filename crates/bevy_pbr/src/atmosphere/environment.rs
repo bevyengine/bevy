@@ -9,10 +9,9 @@ use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUs
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{QueryState, With, Without},
+    query::{With, Without},
     resource::Resource,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_light::{AtmosphereEnvironmentMapLight, GeneratedEnvironmentMapLight};
@@ -20,9 +19,8 @@ use bevy_math::{Quat, UVec2};
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, ExtractComponent},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{binding_types::*, *},
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::{CachedTexture, GpuImage},
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
 };
@@ -243,91 +241,56 @@ pub fn prepare_atmosphere_probe_components(
             });
     }
 }
-
-pub(super) struct EnvironmentNode {
-    main_view_query: QueryState<(
-        Read<DynamicUniformIndex<GpuAtmosphere>>,
-        Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
-        Read<AtmosphereTransformsOffset>,
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
+pub fn atmosphere_environment(
+    view: ViewQuery<(
+        &DynamicUniformIndex<GpuAtmosphere>,
+        &DynamicUniformIndex<GpuAtmosphereSettings>,
+        &AtmosphereTransformsOffset,
+        &ViewUniformOffset,
+        &ViewLightsUniformOffset,
     )>,
-    probe_query: QueryState<(
-        Read<AtmosphereProbeBindGroups>,
-        Read<AtmosphereEnvironmentMap>,
-    )>,
-}
+    probe_query: Query<(&AtmosphereProbeBindGroups, &AtmosphereEnvironmentMap)>,
+    pipeline_cache: Res<PipelineCache>,
+    pipelines: Res<AtmosphereProbePipeline>,
+    mut ctx: RenderContext,
+) {
+    let Some(environment_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.environment)
+    else {
+        return;
+    };
 
-impl FromWorld for EnvironmentNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            main_view_query: QueryState::new(world),
-            probe_query: QueryState::new(world),
-        }
-    }
-}
+    let (
+        atmosphere_uniforms_offset,
+        settings_uniforms_offset,
+        atmosphere_transforms_offset,
+        view_uniforms_offset,
+        lights_uniforms_offset,
+    ) = view.into_inner();
 
-impl Node for EnvironmentNode {
-    fn update(&mut self, world: &mut World) {
-        self.main_view_query.update_archetypes(world);
-        self.probe_query.update_archetypes(world);
-    }
+    for (bind_groups, env_map_light) in probe_query.iter() {
+        let command_encoder = ctx.command_encoder();
+        let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("environment_pass"),
+            timestamp_writes: None,
+        });
 
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<AtmosphereProbePipeline>();
-        let view_entity = graph.view_entity();
+        pass.set_pipeline(environment_pipeline);
+        pass.set_bind_group(
+            0,
+            &bind_groups.environment,
+            &[
+                atmosphere_uniforms_offset.index(),
+                settings_uniforms_offset.index(),
+                atmosphere_transforms_offset.index(),
+                view_uniforms_offset.offset,
+                lights_uniforms_offset.offset,
+            ],
+        );
 
-        let Some(environment_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.environment)
-        else {
-            return Ok(());
-        };
-
-        let (Ok((
-            atmosphere_uniforms_offset,
-            settings_uniforms_offset,
-            atmosphere_transforms_offset,
-            view_uniforms_offset,
-            lights_uniforms_offset,
-        )),) = (self.main_view_query.get_manual(world, view_entity),)
-        else {
-            return Ok(());
-        };
-
-        for (bind_groups, env_map_light) in self.probe_query.iter_manual(world) {
-            let mut pass =
-                render_context
-                    .command_encoder()
-                    .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("environment_pass"),
-                        timestamp_writes: None,
-                    });
-
-            pass.set_pipeline(environment_pipeline);
-            pass.set_bind_group(
-                0,
-                &bind_groups.environment,
-                &[
-                    atmosphere_uniforms_offset.index(),
-                    settings_uniforms_offset.index(),
-                    atmosphere_transforms_offset.index(),
-                    view_uniforms_offset.offset,
-                    lights_uniforms_offset.offset,
-                ],
-            );
-
-            pass.dispatch_workgroups(
-                env_map_light.size.x / 8,
-                env_map_light.size.y / 8,
-                6, // 6 cubemap faces
-            );
-        }
-
-        Ok(())
+        pass.dispatch_workgroups(
+            env_map_light.size.x / 8,
+            env_map_light.size.y / 8,
+            6, // 6 cubemap faces
+        );
     }
 }

@@ -2,11 +2,12 @@
 //!
 //! Add the [`MotionBlur`] component to a camera to enable motion blur.
 
+use crate::bloom::bloom;
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
+    schedule::{Core3d, Core3dSystems},
     prepass::MotionVectorPrepass,
 };
 use bevy_ecs::{
@@ -19,7 +20,6 @@ use bevy_ecs::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{ShaderType, SpecializedRenderPipelines, TextureUsages},
     view::prepare_view_targets,
     Render, RenderApp, RenderStartup, RenderSystems,
@@ -158,19 +158,12 @@ impl Plugin for MotionBlurPlugin {
                 ),
             );
 
-        render_app
-            .add_render_graph_node::<ViewNodeRunner<node::MotionBlurNode>>(
-                Core3d,
-                Node3d::MotionBlur,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::StartMainPassPostProcessing,
-                    Node3d::MotionBlur,
-                    Node3d::Bloom, // we want blurred areas to bloom and tonemap properly.
-                ),
-            );
+        render_app.add_systems(
+            Core3d,
+            node::motion_blur
+                .before(bloom)
+                .in_set(Core3dSystems::PostProcess),
+        );
     }
 }
 
