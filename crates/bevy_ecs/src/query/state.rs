@@ -5,7 +5,10 @@ use crate::{
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
-    query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
+    query::{
+        ArchetypeFilter, ContiguousQueryData, FilteredAccess, QueryCombinationIter,
+        QueryContiguousIter, QueryIter, QueryParIter, WorldQuery,
+    },
     storage::{SparseSetIndex, TableId},
     system::Query,
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
@@ -1404,6 +1407,36 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.query_mut(world).par_iter_inner()
     }
 
+    /// Returns a contiguous iterator over the query results for the given [`World`] or [`None`] if
+    /// the query is not dense hence not contiguously iterable.
+    #[inline]
+    pub fn contiguous_iter<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> Option<QueryContiguousIter<'w, 's, D::ReadOnly, F>>
+    where
+        D::ReadOnly: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.query(world).contiguous_iter_inner().ok()
+    }
+
+    /// Returns a contiguous iterator over the query results for the given [`World`] or [`None`] if
+    /// the query is not dense hence not contiguously iterable.
+    ///
+    /// This can only be called for mutable queries, see [`Self::contiguous_iter`] for read-only-queries.
+    #[inline]
+    pub fn contiguous_iter_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> Option<QueryContiguousIter<'w, 's, D, F>>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.query_mut(world).contiguous_iter_inner().ok()
+    }
+
     /// Runs `func` on each query result in parallel for the given [`World`], where the last change and
     /// the current change tick are given. This is faster than the equivalent
     /// `iter()` method, but cannot be chained like a normal [`Iterator`].
@@ -1435,7 +1468,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual,
-        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual, QueryContiguousIter::next
         use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
@@ -1551,7 +1584,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
-        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual, QueryContiguousIter::next
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             let chunks = entity_list.chunks_exact(batch_size as usize);
@@ -1614,7 +1647,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::par_fold_init_unchecked_manual
-        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual, QueryContiguousIter::next
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             let chunks = entity_list.chunks_exact(batch_size as usize);
