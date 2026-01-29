@@ -11,6 +11,7 @@ use crate::{
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use itertools::{Itertools, MinMaxResult};
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
@@ -794,11 +795,13 @@ pub struct Obb2d {
 }
 
 impl Obb2d {
+    /// Gets the axes of the box in world coordinate space
     #[inline]
     pub fn get_axes(&self) -> Mat2 {
         self.isometry.rotation.into()
     }
 
+    /// Gets the four corners of the box in world coordinate space
     #[inline]
     pub fn get_corners(&self) -> [Vec2; 4] {
         [
@@ -811,6 +814,17 @@ impl Obb2d {
             self.isometry
                 .transform_point(Vec2::new(1., 1.) * self.half_size),
         ]
+    }
+
+    /// Finds the point on the OBB that is closest to the given `point` in world coordinates.
+    ///
+    /// If the point is outside the OBB, the returned point will be on the perimeter of the OBB.
+    /// Otherwise, it will be inside the OBB and returned as is.
+    #[inline]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        let local_point = self.isometry.inverse().transform_point(point);
+        let local_closest = local_point.clamp(-self.half_size, self.half_size);
+        self.isometry.transform_point(local_closest)
     }
 }
 
@@ -852,6 +866,8 @@ impl BoundingVolume for Obb2d {
     #[inline]
     fn merge(&self, _other: &Self) -> Self {
         // TODO: implement
+        // Remember that it should be the *smallest* bounding box that contains
+        // both self and other
         todo!();
     }
 
@@ -923,5 +939,86 @@ impl BoundingVolume for Obb2d {
     fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
         let isometry = Isometry2d::from_rotation(rotation.into());
         self.isometry = isometry * self.isometry;
+    }
+}
+
+impl IntersectsVolume<Self> for Obb2d {
+    #[inline]
+    fn intersects(&self, other: &Self) -> bool {
+        let axes = self.get_axes();
+        let other_axes = other.get_axes();
+        let self_points = self.get_corners();
+        let other_points = other.get_corners();
+
+        // The separating axis theorem states that two convex sets do not intersect
+        // if there is an axis where the projections of the sets onto the axis
+        // do not overlap. The only necessary axes to check are the surface normals
+        // of the rectangles, which are equivalent to these obb's x and y axes
+        [
+            axes.x_axis,
+            axes.y_axis,
+            other_axes.x_axis,
+            other_axes.y_axis,
+        ]
+        .iter()
+        .all(|axis: &Vec2| projections_have_overlap(axis, &self_points, &other_points))
+    }
+}
+
+fn projections_have_overlap(
+    normal: &Vec2,
+    self_points: &[Vec2; 4],
+    other_points: &[Vec2; 4],
+) -> bool {
+    let normal = normal / normal.length();
+    let (self_min, self_max) = self_points
+        .iter()
+        .map(|point| point.dot(normal))
+        .minmax()
+        .into_option()
+        .expect("There should be a min/max because there are elements in self_points.");
+    let (other_min, other_max) = other_points
+        .iter()
+        .map(|point| point.dot(normal))
+        .minmax()
+        .into_option()
+        .expect("There should be a min/max because there are elements in other_points.");
+    (self_max >= other_min && self_min <= other_max)
+        || (other_max >= self_min && other_min <= self_max)
+}
+
+impl IntersectsVolume<Aabb2d> for Obb2d {
+    #[inline]
+    fn intersects(&self, aabb: &Aabb2d) -> bool {
+        // an aabb is just an obb without rotation.
+        let other = Obb2d {
+            isometry: Isometry2d::from_translation(aabb.center()),
+            half_size: aabb.half_size(),
+        };
+        self.intersects(&other)
+    }
+}
+
+impl IntersectsVolume<BoundingCircle> for Obb2d {
+    #[inline]
+    fn intersects(&self, circle: &BoundingCircle) -> bool {
+        let closest_point = self.closest_point(circle.center);
+        let distance_squared = circle.center.distance_squared(closest_point);
+        let radius_squared = circle.radius().squared();
+        distance_squared <= radius_squared
+    }
+}
+
+impl IntersectsVolume<Obb2d> for Aabb2d {
+    #[inline]
+    fn intersects(&self, obb: &Obb2d) -> bool {
+        obb.intersects(self)
+    }
+}
+
+impl IntersectsVolume<Obb2d> for BoundingCircle {
+    #[inline]
+    fn intersects(&self, obb: &Obb2d) -> bool {
+        obb.intersects(self)
     }
 }
