@@ -19,7 +19,7 @@ use crate::{
     query::{DebugCheckedUnwrap, QueryAccessError, ReleaseStateQueryData},
     resource::Resource,
     storage::{ComponentSparseSet, Storages, Table},
-    world::RawCommandQueue,
+    world::{AsAccess, RawCommandQueue},
 };
 use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::Ptr;
@@ -806,16 +806,22 @@ impl<'w> UnsafeEntityCell<'w> {
     }
 
     /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component
-    /// - no other mutable references to the component exist at the same time
+    ///
+    /// Caller must ensure the provided [`AsAccess`] does not exceed the read
+    /// permissions of `self` in a way that would violate Rust's aliasing rules,
+    /// including via copies of `self` or other indirect means.
     #[inline]
-    pub unsafe fn get<T: Component>(self) -> Option<&'w T> {
+    pub unsafe fn get<T: Component>(self, access: impl AsAccess) -> Option<&'w T> {
         let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
+
+        if !access.has_component_read(component_id) {
+            return None;
+        }
+
         // SAFETY:
         // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
         // - `location` is valid
-        // - proper aliasing is promised by caller
+        // - proper world access is promised by caller
         unsafe {
             get_component(
                 self.world,
@@ -830,19 +836,25 @@ impl<'w> UnsafeEntityCell<'w> {
     }
 
     /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component
-    /// - no other mutable references to the component exist at the same time
+    ///
+    /// Caller must ensure the provided [`AsAccess`] does not exceed the read
+    /// permissions of `self` in a way that would violate Rust's aliasing rules,
+    /// including via copies of `self` or other indirect means.
     #[inline]
-    pub unsafe fn get_ref<T: Component>(self) -> Option<Ref<'w, T>> {
+    pub unsafe fn get_ref<T: Component>(self, access: impl AsAccess) -> Option<Ref<'w, T>> {
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
+
+        if !access.has_component_read(component_id) {
+            return None;
+        }
+
         let last_change_tick = self.last_run;
         let change_tick = self.this_run;
-        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - `storage_type` is correct (T component_id + T::STORAGE_TYPE)
         // - `location` is valid
-        // - proper aliasing is promised by caller
+        // - proper world access is promised by caller
         unsafe {
             get_component_and_ticks(
                 self.world,
@@ -863,12 +875,20 @@ impl<'w> UnsafeEntityCell<'w> {
     /// detection in custom runtimes.
     ///
     /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component
-    /// - no other mutable references to the component exist at the same time
+    ///
+    /// Caller must ensure the provided [`AsAccess`] does not exceed the read
+    /// permissions of `self` in a way that would violate Rust's aliasing rules,
+    /// including via copies of `self` or other indirect means.
     #[inline]
-    pub unsafe fn get_change_ticks<T: Component>(self) -> Option<ComponentTicks> {
+    pub unsafe fn get_change_ticks<T: Component>(
+        self,
+        access: impl AsAccess,
+    ) -> Option<ComponentTicks> {
         let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
+
+        if !access.has_component_read(component_id) {
+            return None;
+        }
 
         // SAFETY:
         // - entity location is valid
@@ -892,19 +912,26 @@ impl<'w> UnsafeEntityCell<'w> {
     /// compile time.**
     ///
     /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component
-    /// - no other mutable references to the component exist at the same time
+    ///
+    /// Caller must ensure the provided [`AsAccess`] does not exceed the read
+    /// permissions of `self` in a way that would violate Rust's aliasing rules,
+    /// including via copies of `self` or other indirect means.
     #[inline]
     pub unsafe fn get_change_ticks_by_id(
         &self,
+        access: impl AsAccess,
         component_id: ComponentId,
     ) -> Option<ComponentTicks> {
+        if !access.has_component_read(component_id) {
+            return None;
+        }
+
         let info = self.world.components().get_info(component_id)?;
         // SAFETY:
         // - entity location and entity is valid
         // - world access is immutable, lifetime tied to `&self`
         // - the storage type provided is correct for T
+        // - proper world access is promised by caller
         unsafe {
             get_ticks(
                 self.world,
@@ -917,36 +944,48 @@ impl<'w> UnsafeEntityCell<'w> {
     }
 
     /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
-    /// - no other references to the component exist at the same time
+    ///
+    /// Caller must ensure the provided [`AsAccess`] does not exceed the write
+    /// permissions of `self` in a way that would violate Rust's aliasing rules,
+    /// including via copies of `self` or other indirect means.
     #[inline]
-    pub unsafe fn get_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+    pub unsafe fn get_mut<T: Component<Mutability = Mutable>>(
+        self,
+        access: impl AsAccess,
+    ) -> Option<Mut<'w, T>> {
         // SAFETY:
         // - trait bound `T: Component<Mutability = Mutable>` ensures component is mutable
-        // - same safety requirements
-        unsafe { self.get_mut_assume_mutable() }
+        // - proper world access is promised by caller
+        unsafe { self.get_mut_assume_mutable(access) }
     }
 
     /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
-    /// - no other references to the component exist at the same time
-    /// - the component `T` is mutable
+    ///
+    /// Caller must ensure that:
+    /// - The provided [`AsAccess`] does not exceed the write permissions of
+    ///   `self` in a way that would violate Rust's aliasing rules, including
+    ///   via copies of `self` or other indirect means.
+    /// - The component `T` is mutable.
     #[inline]
-    pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
-        // SAFETY: same safety requirements
-        unsafe { self.get_mut_using_ticks_assume_mutable(self.last_run, self.this_run) }
+    pub unsafe fn get_mut_assume_mutable<T: Component>(
+        self,
+        access: impl AsAccess,
+    ) -> Option<Mut<'w, T>> {
+        // SAFETY: proper world access is promised by caller
+        unsafe { self.get_mut_using_ticks_assume_mutable(access, self.last_run, self.this_run) }
     }
 
     /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
-    /// - no other references to the component exist at the same time
-    /// - The component `T` is mutable
+    ///
+    /// Caller must ensure that:
+    /// - The provided [`AsAccess`] does not exceed the write permissions of
+    ///   `self` in a way that would violate Rust's aliasing rules, including
+    ///   via copies of `self` or other indirect means.
+    /// - The component `T` is mutable.
     #[inline]
     pub(crate) unsafe fn get_mut_using_ticks_assume_mutable<T: Component>(
         &self,
+        access: impl AsAccess,
         last_change_tick: Tick,
         change_tick: Tick,
     ) -> Option<Mut<'w, T>> {
@@ -954,10 +993,14 @@ impl<'w> UnsafeEntityCell<'w> {
 
         let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
+        if !access.has_component_write(component_id) {
+            return None;
+        }
+
         // SAFETY:
         // - `storage_type` is correct
         // - `location` is valid
-        // - aliasing rules are ensured by caller
+        // - proper world access is promised by caller
         unsafe {
             get_component_and_ticks(
                 self.world,
@@ -979,7 +1022,7 @@ impl<'w> UnsafeEntityCell<'w> {
     ///
     /// # Safety
     /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the queried data immutably
+    /// - `self` has permission to access the queried data immutably
     /// - no mutable references to the queried data exist at the same time
     /// - The `QueryData` does not provide aliasing mutable references to the same component.
     pub(crate) unsafe fn get_components<Q: ReleaseStateQueryData>(
@@ -1032,13 +1075,25 @@ impl<'w> UnsafeEntityCell<'w> {
     /// which is only valid while the `'w` borrow of the lifetime is active.
     ///
     /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component
-    /// - no other mutable references to the component exist at the same time
+    ///
+    /// Caller must ensure the provided [`AsAccess`] does not exceed the read
+    /// permissions of `self` in a way that would violate Rust's aliasing rules,
+    /// including via copies of `self` or other indirect means.
     #[inline]
-    pub unsafe fn get_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
+    pub unsafe fn get_by_id(
+        self,
+        access: impl AsAccess,
+        component_id: ComponentId,
+    ) -> Option<Ptr<'w>> {
+        if !access.has_component_read(component_id) {
+            return None;
+        }
+
         let info = self.world.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY:
+        // - entity_location is valid,
+        // - component_id is valid as checked by the line above
+        // - proper world access is promised by caller
         unsafe {
             get_component(
                 self.world,
@@ -1057,15 +1112,21 @@ impl<'w> UnsafeEntityCell<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
-    /// - no other references to the component exist at the same time
+    ///
+    /// Caller must ensure the provided [`AsAccess`] does not exceed the write
+    /// permissions of `self` in a way that would violate Rust's aliasing rules,
+    /// including via copies of `self` or other indirect means.
     #[inline]
     pub unsafe fn get_mut_by_id(
         self,
+        access: impl AsAccess,
         component_id: ComponentId,
     ) -> Result<MutUntyped<'w>, GetEntityMutByIdError> {
         self.world.assert_allows_mutable_access();
+
+        if !access.has_component_write(component_id) {
+            return Err(GetEntityMutByIdError::ComponentNotFound);
+        }
 
         let info = self
             .world
@@ -1078,7 +1139,10 @@ impl<'w> UnsafeEntityCell<'w> {
             return Err(GetEntityMutByIdError::ComponentIsImmutable);
         }
 
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY:
+        // - entity_location is valid
+        // - component_id is valid as checked by the line above
+        // - proper world access is promised by caller
         unsafe {
             get_component_and_ticks(
                 self.world,
@@ -1104,16 +1168,23 @@ impl<'w> UnsafeEntityCell<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
-    /// - no other references to the component exist at the same time
-    /// - the component `T` is mutable
+    ///
+    /// Caller must ensure that:
+    /// - The provided [`AsAccess`] does not exceed the write permissions of
+    ///   `self` in a way that would violate Rust's aliasing rules, including
+    ///   via copies of `self` or other indirect means.
+    /// - The component `T` is mutable.
     #[inline]
     pub unsafe fn get_mut_assume_mutable_by_id(
         self,
+        access: impl AsAccess,
         component_id: ComponentId,
     ) -> Result<MutUntyped<'w>, GetEntityMutByIdError> {
         self.world.assert_allows_mutable_access();
+
+        if !access.has_component_write(component_id) {
+            return Err(GetEntityMutByIdError::ComponentNotFound);
+        }
 
         let info = self
             .world
@@ -1121,7 +1192,10 @@ impl<'w> UnsafeEntityCell<'w> {
             .get_info(component_id)
             .ok_or(GetEntityMutByIdError::InfoNotFound)?;
 
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY:
+        // - entity_location is valid
+        // - component_id is valid as checked by the line above
+        // - proper world access is promised by caller
         unsafe {
             get_component_and_ticks(
                 self.world,
@@ -1298,6 +1372,8 @@ impl ContainsEntity for UnsafeEntityCell<'_> {
 
 #[cfg(test)]
 mod tests {
+    use crate::world::All;
+
     use super::*;
 
     #[test]
@@ -1333,6 +1409,6 @@ mod tests {
         let world_cell = world.as_unsafe_world_cell_readonly();
         let entity_cell = world_cell.get_entity(entity).unwrap();
         // SAFETY: this invalid usage will be caught by a runtime panic.
-        let _ = unsafe { entity_cell.get_mut::<C>() };
+        let _ = unsafe { entity_cell.get_mut::<C>(All) };
     }
 }
