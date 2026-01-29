@@ -1403,7 +1403,7 @@ mod debug_outlines {
             .spawn((
                 Node {
                     width: percent(100),
-                    height: percent(100),
+                    height: percent(50),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceAround,
                     ..default()
@@ -1460,6 +1460,170 @@ mod debug_outlines {
                             BackgroundColor(BLUE.into()),
                         ));
                     });
+            });
+
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(50),
+                    top: percent(50),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::DebugOutlines),
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Node {
+                        width: px(200),
+                        height: px(200),
+                        border: UiRect {
+                            top: px(10),
+                            bottom: px(20),
+                            left: px(30),
+                            right: px(40),
+                        },
+                        border_radius: BorderRadius::bottom_right(px(10)),
+                        padding: UiRect {
+                            top: px(40),
+                            bottom: px(30),
+                            left: px(20),
+                            right: px(10),
+                        },
+                        ..default()
+                    },
+                    children![(
+                        Text::new("border padding content outlines"),
+                        TextFont::default(),
+                        UiDebugOptions {
+                            enabled: false,
+                            ..default()
+                        }
+                    )],
+                    UiDebugOptions {
+                        outline_border_box: true,
+                        outline_padding_box: true,
+                        outline_content_box: true,
+                        ignore_border_radius: false,
+                        ..*debug_options
+                    },
+                ));
+
+                // Vertical scrollbar (non-functional)
+                parent.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        width: px(90),
+                        height: px(230),
+                        overflow: Overflow::scroll_y(),
+                        scrollbar_width: 20.,
+                        ..default()
+                    },
+                    ScrollPosition(Vec2::new(180., 180.)),
+                    UiDebugOptions {
+                        line_width: 3.,
+                        outline_scrollbars: true,
+                        show_hidden: false,
+                        show_clipped: false,
+                        ..*debug_options
+                    },
+                    Children::spawn(SpawnIter((0..20).map(move |i| {
+                        (
+                            Node::default(),
+                            children![(
+                                Text(format!("Item {i}")),
+                                UiDebugOptions {
+                                    enabled: false,
+                                    ..default()
+                                }
+                            )],
+                            UiDebugOptions {
+                                enabled: false,
+                                ..default()
+                            },
+                        )
+                    }))),
+                ));
+
+                // Horizontal scrollbar (non-functional)
+                parent.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        width: px(156),
+                        height: px(70),
+                        overflow: Overflow::scroll_x(),
+                        scrollbar_width: 10.,
+                        ..default()
+                    },
+                    UiDebugOptions {
+                        line_width: 3.,
+                        outline_scrollbars: true,
+                        show_hidden: false,
+                        show_clipped: false,
+                        ..*debug_options
+                    },
+                    Children::spawn(SpawnIter((0..20).map(move |i| {
+                        (
+                            Node::default(),
+                            children![(
+                                Text(format!("Item {i}")),
+                                UiDebugOptions {
+                                    enabled: false,
+                                    ..default()
+                                }
+                            )],
+                            UiDebugOptions {
+                                enabled: false,
+                                ..default()
+                            },
+                        )
+                    }))),
+                ));
+
+                // bi-directional scrollbar (non-functional)
+                parent.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        width: px(230),
+                        height: px(125),
+                        overflow: Overflow::scroll(),
+                        scrollbar_width: 20.,
+                        ..default()
+                    },
+                    ScrollPosition(Vec2::new(300., 0.)),
+                    UiDebugOptions {
+                        line_width: 3.,
+                        outline_scrollbars: true,
+                        show_hidden: false,
+                        show_clipped: false,
+                        ..*debug_options
+                    },
+                    Children::spawn(SpawnIter((0..6).map(move |i| {
+                        (
+                            Node {
+                                flex_direction: FlexDirection::Row,
+                                ..default()
+                            },
+                            Children::spawn(SpawnIter((0..6).map({
+                                move |j| {
+                                    (
+                                        Text(format!("Item {}", (i * 5) + j)),
+                                        UiDebugOptions {
+                                            enabled: false,
+                                            ..default()
+                                        },
+                                    )
+                                }
+                            }))),
+                            UiDebugOptions {
+                                enabled: false,
+                                ..default()
+                            },
+                        )
+                    }))),
+                ));
             });
     }
 
