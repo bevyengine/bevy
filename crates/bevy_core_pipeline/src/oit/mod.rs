@@ -9,7 +9,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{
         BufferUsages, DynamicUniformBuffer, ShaderType, TextureUsages, UninitBufferVec,
     },
@@ -18,14 +17,12 @@ use bevy_render::{
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
-use resolve::{
-    node::{OitResolveNode, OitResolvePass},
-    OitResolvePlugin,
-};
+use resolve::OitResolvePlugin;
 use tracing::trace;
 
 use crate::{
     core_3d::main_transparent_pass_3d,
+    oit::resolve::node::oit_resolve,
     schedule::{Core3d, Core3dSystems},
 };
 

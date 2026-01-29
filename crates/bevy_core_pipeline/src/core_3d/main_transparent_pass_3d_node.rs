@@ -9,7 +9,7 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_phase::ViewSortedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
-    renderer::RenderContext,
+    renderer::{RenderContext, ViewQuery},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
 use tracing::error;
@@ -24,13 +24,23 @@ pub fn main_transparent_pass_3d(
         &ViewTarget,
         &ViewDepthTexture,
         Option<&MainPassResolutionOverride>,
+        Has<OrderIndependentTransparencySettings>,
+        Option<&OitResolvePipelineId>,
     )>,
     transparent_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
 
-    let (camera, extracted_view, target, depth, resolution_override) = view.into_inner();
+    let (
+        camera,
+        extracted_view,
+        target,
+        depth,
+        resolution_override,
+        has_oit,
+        oit_resolve_pipeline_id,
+    ) = view.into_inner();
 
     let Some(transparent_phase) = transparent_phases.get(&extracted_view.retained_view_entity)
     else {
@@ -41,27 +51,24 @@ pub fn main_transparent_pass_3d(
         #[cfg(feature = "trace")]
         let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
 
-        if !transparent_phase.items.is_empty() {
-            if has_oit {
-                // We can't run transparent phase if OitResolvePipelineId is not ready
-                // Otherwise we will write to `oit_atomic_counter` and `oit_heads` buffer without resetting them
-                // which causes corrupted linked list(can have circular references) on the next pass
-                let Some(oit_resolve_pipeline_id) = oit_resolve_pipeline_id else {
-                    return Ok(());
-                };
-                let pipeline_cache = world.resource::<PipelineCache>();
-                if pipeline_cache
-                    .get_render_pipeline(oit_resolve_pipeline_id.0)
-                    .is_none()
-                {
-                    return Ok(());
-                }
-            }
+        let diagnostics = ctx.diagnostic_recorder();
+        let diagnostics = diagnostics.as_deref();
 
-            // Run the transparent pass, sorted back-to-front
-            // NOTE: Scoped to drop the mutable borrow of render_context
-            #[cfg(feature = "trace")]
-            let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
+        if has_oit {
+            // We can't run transparent phase if OitResolvePipelineId is not ready
+            // Otherwise we will write to `oit_atomic_counter` and `oit_heads` buffer without resetting them
+            // which causes corrupted linked list(can have circular references) on the next pass
+            let Some(oit_resolve_pipeline_id) = oit_resolve_pipeline_id else {
+                return;
+            };
+            let pipeline_cache = world.resource::<PipelineCache>();
+            if pipeline_cache
+                .get_render_pipeline(oit_resolve_pipeline_id.0)
+                .is_none()
+            {
+                return;
+            }
+        }
 
         let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("main_transparent_pass_3d"),
