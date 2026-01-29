@@ -13,6 +13,7 @@
 use std::ops::Range;
 
 use bevy::camera::{CameraMainColorTargetConfig, Viewport};
+use bevy::math::Affine3Ext;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     camera::MainPassResolutionOverride,
@@ -590,7 +591,6 @@ fn custom_draw_system(
         occlusion_query_set: None,
         multiview_mask: None,
     });
-
 
     if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);

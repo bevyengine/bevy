@@ -5,7 +5,7 @@ use bevy_camera::{
         MainColorTarget, MainColorTargetInputConfig, MainColorTargetReadsFrom,
         NoAutoConfiguredMainColorTarget, WithMainColorTarget,
     },
-    Camera, CameraMainColorTargetConfig, CameraMainColorTargetsSize,
+    Camera, CameraMainColorTargetConfig, CameraMainColorTargetsSize, Hdr,
 };
 use bevy_ecs::{
     component::Component,
@@ -19,9 +19,7 @@ use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::Ordering;
 use wgpu::{TextureFormat, TextureUsages};
 
-use crate::{
-    extract_component::ExtractComponent, sync_world::RenderEntity, view::Hdr, Extract, MainWorld,
-};
+use crate::{extract_component::ExtractComponent, sync_world::RenderEntity, Extract, MainWorld};
 
 pub(super) fn insert_camera_required_components_if_auto_configured(
     mut commands: Commands,
@@ -303,7 +301,7 @@ pub(super) fn extract_main_color_target_reads_from(
                 )
             })
             .collect::<Vec<_>>();
-        images.sort_by(|a, b| a.1.order.cmp(&b.1.order));
+        images.sort_by_key(|a| a.1.order);
 
         commands
             .entity(entity)

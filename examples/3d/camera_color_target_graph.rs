@@ -1,12 +1,10 @@
 //! Demonstrates connecting color target input and output of multiple cameras.
 //!
 
+use bevy::camera::Hdr;
 use bevy::image::ToExtents;
-use bevy::render::{
-    render_resource::{
-        BlendState, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    },
-    view::Hdr,
+use bevy::render::render_resource::{
+    BlendState, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 use bevy::{
     camera::{

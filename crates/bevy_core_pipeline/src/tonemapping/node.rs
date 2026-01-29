@@ -24,6 +24,7 @@ pub struct TonemappingBindGroupCache {
 
 pub fn tonemapping(
     view: ViewQuery<(
+        &ExtractedView,
         &ViewUniformOffset,
         &ViewTarget,
         &ViewTonemappingPipeline,
@@ -38,7 +39,8 @@ pub fn tonemapping(
     mut cache: Local<TonemappingBindGroupCache>,
     mut ctx: RenderContext,
 ) {
-    let (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) = view.into_inner();
+    let (view, view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) =
+        view.into_inner();
 
     if *tonemapping == Tonemapping::None {
         return;

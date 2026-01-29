@@ -204,7 +204,6 @@ fn run_prepass_system(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
-
     if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }

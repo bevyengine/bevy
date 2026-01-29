@@ -7,8 +7,8 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
-        RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset,
+        ColorGrading, ExtractedView, ExtractedWindows, NoIndirectDrawing, RenderVisibleEntities,
+        RetainedViewEntity, ViewUniformOffset,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -19,9 +19,9 @@ use bevy_camera::{
     color_target::{MainColorTarget, WithMainColorTarget},
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
-    Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, Hdr, ManualTextureViewHandle, MsaaWriteback,
-    NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
+    Camera, Camera2d, Camera3d, CameraOutputMode, CameraUpdateSystems, ClearColor,
+    ClearColorConfig, Exposure, Hdr, ManualTextureViewHandle, NormalizedRenderTarget, Projection,
+    RenderTarget, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -42,8 +42,8 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_log::warn;
 use bevy_log::warn_once;
-use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_math::{uvec2, vec2, Mat4, UVec2, UVec4, Vec2};
+use bevy_platform::collections::HashSet;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
@@ -756,7 +756,7 @@ pub fn sort_cameras(
         });
     }
     // sort by order and ensure within an order.
-    sorted_cameras.0.sort_by(|c1, c2| c1.order.cmp(&c2.order));
+    sorted_cameras.0.sort_by_key(|c| c.order);
     let mut previous_order = None;
     let mut ambiguities = <HashSet<_>>::default();
     for sorted_camera in &mut sorted_cameras.0 {

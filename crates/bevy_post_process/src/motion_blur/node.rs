@@ -8,7 +8,7 @@ use bevy_render::{
         RenderPassDescriptor,
     },
     renderer::{RenderContext, ViewQuery},
-    view::ViewTarget,
+    view::{ExtractedView, ViewTarget},
 };
 
 use bevy_core_pipeline::prepass::ViewPrepassTextures;

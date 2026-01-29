@@ -32,7 +32,7 @@ use bevy_render::{
         TextureSampleType, TextureViewId,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    view::ViewTarget,
+    view::{ExtractedView, ViewTarget},
     RenderApp, RenderStartup,
 };
 use bevy_shader::ShaderRef;

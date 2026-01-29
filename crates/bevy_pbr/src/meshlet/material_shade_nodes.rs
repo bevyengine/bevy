@@ -251,7 +251,6 @@ pub fn meshlet_deferred_gbuffer_prepass(
     mut ctx: RenderContext,
 ) {
     let (
-        camera,
         view_prepass_textures,
         view_uniform_offset,
         previous_view_uniform_offset,

@@ -402,10 +402,7 @@ pub fn init_solari_lighting_pipelines(
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                texture_storage_2d(
-                    TextureFormat::Rgba16Float,
-                    StorageTextureAccess::ReadWrite,
-                ),
+                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::ReadWrite),
                 storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
                 texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),

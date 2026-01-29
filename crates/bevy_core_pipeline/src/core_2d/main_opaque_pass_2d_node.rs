@@ -15,11 +15,7 @@ use super::AlphaMask2d;
 
 pub fn main_opaque_pass_2d(
     world: &World,
-    view: ViewQuery<(
-        &ExtractedView,
-        &ViewTarget,
-        &ViewDepthTexture,
-    )>,
+    view: ViewQuery<(&ExtractedView, &ViewTarget, &ViewDepthTexture)>,
     opaque_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     alpha_mask_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
     mut ctx: RenderContext,

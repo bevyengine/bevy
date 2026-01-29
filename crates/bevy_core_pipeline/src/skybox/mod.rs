@@ -8,7 +8,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault;
 use bevy_light::Skybox;
 use bevy_math::Mat4;
 use bevy_render::{
@@ -21,7 +20,7 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
+    view::{ExtractedView, ViewUniform, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;

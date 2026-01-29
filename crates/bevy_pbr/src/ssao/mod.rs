@@ -175,16 +175,11 @@ fn ssao(
 ) {
     let (camera, pipeline_id, bind_groups, view_uniform_offset) = view.into_inner();
 
-    let (
-        Some(preprocess_depth_pipeline),
-        Some(spatial_denoise_pipeline),
-        Some(ssao_pipeline),
-    ) = (
+    let (Some(preprocess_depth_pipeline), Some(spatial_denoise_pipeline), Some(ssao_pipeline)) = (
         pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
         pipeline_cache.get_compute_pipeline(pipeline_id.0),
-    )
-    else {
+    ) else {
         return;
     };
 
@@ -227,7 +222,11 @@ fn ssao(
             &bind_groups.common_bind_group,
             &[view_uniform_offset.offset],
         );
-        ssao_pass.dispatch_workgroups(camera.main_color_target_size.x.div_ceil(8), camera.main_color_target_size.y.div_ceil(8), 1);
+        ssao_pass.dispatch_workgroups(
+            camera.main_color_target_size.x.div_ceil(8),
+            camera.main_color_target_size.y.div_ceil(8),
+            1,
+        );
     }
 
     {

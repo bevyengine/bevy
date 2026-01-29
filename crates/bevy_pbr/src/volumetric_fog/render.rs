@@ -310,7 +310,6 @@ pub fn volumetric_fog(
         &MeshViewBindGroup,
         &ViewScreenSpaceReflectionsUniformOffset,
         &ViewContactShadowsUniformOffset,
-        &Msaa,
         &ViewEnvironmentMapUniformOffset,
     )>,
     pipeline_cache: Res<PipelineCache>,
@@ -335,7 +334,6 @@ pub fn volumetric_fog(
         view_bind_group,
         view_ssr_offset,
         view_contact_shadows_offset,
-        msaa,
         view_environment_map_offset,
     ) = view.into_inner();
 
@@ -395,7 +393,7 @@ pub fn volumetric_fog(
         let mut bind_group_layout_key = VolumetricFogBindGroupLayoutKey::empty();
         bind_group_layout_key.set(
             VolumetricFogBindGroupLayoutKey::MULTISAMPLED,
-            !matches!(*msaa, Msaa::Off),
+            view.msaa_samples > 1,
         );
 
         // Create the bind group entries. The ones relating to the density

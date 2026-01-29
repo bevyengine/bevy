@@ -343,11 +343,7 @@ impl SpecializedMeshPipeline for Wireframe2dPipeline {
 
 pub(crate) fn wireframe_2d(
     world: &World,
-    view: ViewQuery<(
-        &ExtractedView,
-        &ViewTarget,
-        &ViewDepthTexture,
-    )>,
+    view: ViewQuery<(&ExtractedView, &ViewTarget, &ViewDepthTexture)>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>,
     mut ctx: RenderContext,
 ) {

@@ -25,7 +25,7 @@ use bevy_platform::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::{extract_cameras, ExtractedCamera},
+    camera::extract_cameras,
     extract_resource::ExtractResource,
     mesh::{
         allocator::{MeshAllocator, SlabId},
@@ -356,11 +356,7 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
 
 pub fn wireframe_3d(
     world: &World,
-    view: ViewQuery<(
-        &ExtractedView,
-        &ViewTarget,
-        &ViewDepthTexture,
-    )>,
+    view: ViewQuery<(&ExtractedView, &ViewTarget, &ViewDepthTexture)>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
     mut ctx: RenderContext,
 ) {

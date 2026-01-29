@@ -15,7 +15,6 @@ use bevy_render::{
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
-use bevy_window::PrimaryWindow;
 use resolve::{node::oit_resolve, OitResolvePlugin};
 use tracing::{trace, warn};
 

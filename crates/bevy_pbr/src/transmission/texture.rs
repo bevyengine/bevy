@@ -4,18 +4,18 @@ use bevy_ecs::{
     entity::Entity,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::{BevyDefault, ToExtents};
+use bevy_image::ToExtents;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::ExtractedCamera,
     render_phase::{ViewBinnedRenderPhases, ViewSortedRenderPhases},
     render_resource::{
         FilterMode, Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages, TextureView,
+        TextureUsages, TextureView,
     },
     renderer::RenderDevice,
     texture::TextureCache,
-    view::{ExtractedView, ViewTarget},
+    view::ExtractedView,
 };
 
 use crate::{ScreenSpaceTransmission, Transmissive3d};
@@ -56,10 +56,6 @@ pub fn prepare_core_3d_transmission_textures(
             continue;
         };
 
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
         // Don't prepare a transmission texture if the number of steps is set to 0
         if transmission.screen_space_specular_transmission_steps == 0 {
             continue;
@@ -71,24 +67,22 @@ pub fn prepare_core_3d_transmission_textures(
         }
 
         let cached_texture = textures
-            .entry(camera.target.clone())
+            .entry((
+                camera.output_color_target.clone(),
+                camera.main_color_target_size,
+                view.color_target_format,
+            ))
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
-
-                let format = if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                };
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
                     // The size of the transmission texture
-                    size: physical_target_size.to_extents(),
+                    size: camera.main_color_target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,
-                    format,
+                    format: view.color_target_format,
                     usage,
                     view_formats: &[],
                 };

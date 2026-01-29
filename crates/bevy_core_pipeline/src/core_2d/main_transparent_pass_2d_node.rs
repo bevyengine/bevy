@@ -13,11 +13,7 @@ use tracing::info_span;
 
 pub fn main_transparent_pass_2d(
     world: &World,
-    view: ViewQuery<(
-        &ExtractedView,
-        &ViewTarget,
-        &ViewDepthTexture,
-    )>,
+    view: ViewQuery<(&ExtractedView, &ViewTarget, &ViewDepthTexture)>,
     transparent_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     mut ctx: RenderContext,
 ) {

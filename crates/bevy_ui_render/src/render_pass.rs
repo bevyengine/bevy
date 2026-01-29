@@ -33,7 +33,7 @@ pub fn ui_pass(
         return;
     };
 
-    let Ok((target, camera)) = ui_view_target_query.get(ui_view_target.0) else {
+    let Ok(target) = ui_view_target_query.get(ui_view_target.0) else {
         return;
     };
 

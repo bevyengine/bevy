@@ -615,12 +615,13 @@ pub fn prepare_core_3d_depth_textures(
     views_3d: Query<(
         Entity,
         &ExtractedCamera,
+        &ExtractedView,
         Option<&DepthPrepass>,
         &Camera3d,
     )>,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
-    for (_, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
+    for (_, camera, _view, depth_prepass, camera_3d) in &views_3d {
         // Default usage required to write to the depth texture
         let mut usage: TextureUsages = camera_3d.depth_texture_usages.into();
         if depth_prepass.is_some() {
@@ -634,7 +635,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, view, _, camera_3d) in &views_3d {
+    for (entity, camera, view, _depth_prepass, camera_3d) in &views_3d {
         let usage = *render_target_usage
             .get(&camera.output_color_target.clone())
             .expect("The depth texture usage should already exist for this target");

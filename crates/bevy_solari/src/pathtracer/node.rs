@@ -35,10 +35,7 @@ pub fn init_pathtracer_pipelines(
             ShaderStages::COMPUTE,
             (
                 texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadWrite),
-                texture_storage_2d(
-                    ViewTarget::TEXTURE_FORMAT_HDR,
-                    StorageTextureAccess::WriteOnly,
-                ),
+                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
                 uniform_buffer::<ViewUniform>(true),
             ),
         ),
@@ -116,5 +113,9 @@ pub fn pathtracer(
     pass.set_pipeline(pipeline);
     pass.set_bind_group(0, scene_bind_group, &[]);
     pass.set_bind_group(1, &bind_group, &[view_uniform_offset.offset]);
-    pass.dispatch_workgroups(camera.main_color_target_size.x.div_ceil(8), camera.main_color_target_size.y.div_ceil(8), 1);
+    pass.dispatch_workgroups(
+        camera.main_color_target_size.x.div_ceil(8),
+        camera.main_color_target_size.y.div_ceil(8),
+        1,
+    );
 }
