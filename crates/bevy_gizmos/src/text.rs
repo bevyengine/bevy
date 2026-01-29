@@ -1481,7 +1481,7 @@ where
         }
     }
 
-    /// Draw text using a stroke font in 3d with the given isometry applied.
+    /// Draw text using a stroke font with the given isometry applied.
     ///
     /// # Arguments
     ///
@@ -1500,7 +1500,7 @@ where
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn text_3d(
+    pub fn text(
         &mut self,
         isometry: impl Into<Isometry3d>,
         text: &str,
