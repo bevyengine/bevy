@@ -2,10 +2,11 @@
 
 use core::ops::Range;
 
-pub(crate) const LINE_HEIGHT: f32 = 1.75;
+pub(crate) const LINE_HEIGHT: f32 = 1.3;
 pub(crate) const SIMPLEX_ASCII_START: usize = 32;
 pub(crate) const SIMPLEX_ASCII_END: usize = 126;
 pub(crate) const SIMPLEX_CAP_HEIGHT: f32 = 21.0;
+pub(crate) const SIMPLEX_DESCENDER_DEPTH: f32 = 7.0;
 
 pub(crate) const SIMPLEX_POSITIONS: [[i8; 2]; 1100] = [
     [5, 21],

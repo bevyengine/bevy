@@ -41,11 +41,13 @@ where
         let isometry = isometry.into();
         let color = color.into();
         let scale = size / SIMPLEX_CAP_HEIGHT;
-        let line_height = LINE_HEIGHT * size;
+        let band = (SIMPLEX_CAP_HEIGHT + SIMPLEX_DESCENDER_DEPTH) * scale;
+        let line_height = LINE_HEIGHT * band;
+        let margin_top = 0.5 * (line_height - band);
         let space_advance = SIMPLEX_GLYPHS[0].0 as f32 * scale;
 
         let mut rx = 0.0;
-        let mut ry = 0.0;
+        let mut ry = -margin_top;
 
         for c in text.chars() {
             if c == '\n' {
@@ -117,11 +119,13 @@ where
         let isometry = isometry.into();
         let color = color.into();
         let scale = size / SIMPLEX_CAP_HEIGHT;
-        let line_height = LINE_HEIGHT * size;
+        let band = (SIMPLEX_CAP_HEIGHT + SIMPLEX_DESCENDER_DEPTH) * scale;
+        let line_height = LINE_HEIGHT * band;
+        let margin = line_height - band;
         let space_advance = SIMPLEX_GLYPHS[0].0 as f32 * scale;
 
         let mut rx = 0.0;
-        let mut ry = 0.0;
+        let mut ry = -margin;
 
         for c in text.chars() {
             if c == '\n' {
