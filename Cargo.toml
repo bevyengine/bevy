@@ -4535,6 +4535,18 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "text_gizmos"
+path = "examples/gizmos/text_gizmos.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.text_gizmos]
+name = "Text Gizmos"
+description = "A scene showcasing text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
 name = "custom_gltf_vertex_attribute"
 path = "examples/gltf/custom_gltf_vertex_attribute.rs"
 # Causes an ICE on docs.rs
