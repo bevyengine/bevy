@@ -2,7 +2,7 @@
 
 use bevy_color::Color;
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
-use std::ops::Range;
+use core::ops::Range;
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 
