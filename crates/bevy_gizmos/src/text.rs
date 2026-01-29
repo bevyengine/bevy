@@ -12,6 +12,8 @@ where
 {
     /// Draw text using a stroke font with the given isometry applied.
     ///
+    /// Only ASCII characters in the range 32–126 are supported.
+    ///
     /// # Arguments
     ///
     /// - `isometry`: defines the translation and rotation of the text.
@@ -85,6 +87,8 @@ where
     }
 
     /// Draw text using a stroke font in 2d with the given isometry applied.
+    ///
+    /// Only ASCII characters in the range 32–126 are supported.
     ///
     /// # Arguments
     ///
