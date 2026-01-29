@@ -4644,6 +4644,24 @@ path = "examples/dev_tools/fps_overlay.rs"
 doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
+[package.metadata.example.fps_overlay]
+name = "FPS overlay"
+description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "schedule_data"
+path = "examples/dev_tools/schedule_data.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools", "debug"]
+
+[package.metadata.example.schedule_data]
+name = "Extract Schedule Data"
+description = "Extracts the schedule data from a default app and writes it to a file"
+category = "Dev tools"
+wasm = true
+
 [[example]]
 name = "2d_top_down_camera"
 path = "examples/camera/2d_top_down_camera.rs"
@@ -4739,12 +4757,6 @@ doc-scrape-examples = false
 name = "2D on Bevy UI"
 description = "Shows how to render 2D objects on top of Bevy UI"
 category = "Camera"
-wasm = true
-
-[package.metadata.example.fps_overlay]
-name = "FPS overlay"
-description = "Demonstrates FPS overlay"
-category = "Dev tools"
 wasm = true
 
 [[example]]
