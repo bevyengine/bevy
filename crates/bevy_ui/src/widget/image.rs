@@ -117,6 +117,56 @@ impl ImageNode {
         self
     }
 
+    /// Crops an `ImageNode` to the portion described by
+    /// the provided `Rect`, measured from the top-left corner. This can be applied to `ImageNode`s created from
+    /// texture atlases.
+    /// The following example setup function demonstrates this use.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_asset::{Assets,AssetServer};
+    /// use bevy_ecs::prelude::{Commands,Res,ResMut};
+    /// use bevy_image::{TextureAtlas,TextureAtlasLayout};
+    /// use bevy_math::{UVec2,Rect};
+    /// use bevy_ui::Node;
+    /// use bevy_ui::prelude::{Display,ImageNode};
+    /// use std::default::Default;
+    ///
+    /// fn setup(
+    ///   mut commands: Commands,
+    ///   asset_server: Res<AssetServer>,
+    ///   mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    /// ) {
+    ///   let texture = asset_server.load("textures/array_texture.png");
+    ///   let layout = TextureAtlasLayout::from_grid(UVec2::splat(250), 1, 3, None, None);
+    ///   let texture_atlas_layout = texture_atlas_layouts.add(layout);
+    ///
+    ///   commands.spawn(Node {
+    ///     display: Display::Flex,
+    ///     ..Default::default()
+    ///   })
+    ///   .with_children(|parent| {
+    /// // this example node shows a texture constrained by a rect
+    ///     parent.spawn(
+    ///       ImageNode::new(texture.clone())
+    ///         .with_rect(
+    ///           Rect::new(0., 200., 250., 450.)
+    ///         ));
+    /// // this example node displays an index within a texture atlas
+    /// // constrained by a rect
+    ///     parent.spawn(ImageNode::from_atlas_image(
+    ///       texture.clone(),
+    ///       TextureAtlas {
+    ///         layout: texture_atlas_layout.clone(),
+    ///         index: 1,
+    ///       },
+    ///     ).with_rect(
+    ///        Rect::new(0., 0., 150., 150.)
+    ///      ));
+    ///   });
+    /// }
+    ///````
     #[must_use]
     pub const fn with_rect(mut self, rect: Rect) -> Self {
         self.rect = Some(rect);
