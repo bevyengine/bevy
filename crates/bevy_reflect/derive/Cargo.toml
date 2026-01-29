@@ -24,6 +24,8 @@ auto_register = []
 auto_register_inventory = ["auto_register"]
 # Enables automatic reflection on platforms not supported by inventory. See `load_type_registrations` for more info.
 auto_register_static = ["auto_register", "dep:uuid"]
+# Enables reflection functionality
+enable_codegen = []
 
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.19.0-dev" }

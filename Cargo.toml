@@ -190,6 +190,7 @@ default_app = [
   "bevy_state",
   "bevy_window",
   "custom_cursor",
+  "reflection",
   "reflect_auto_register",
 ]
 
@@ -679,6 +680,9 @@ reflect_auto_register = ["bevy_internal/reflect_auto_register"]
 
 # Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.
 reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
+
+# Enable reflection.
+reflection = ["bevy_internal/reflection"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
