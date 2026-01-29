@@ -4547,6 +4547,18 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "text_gizmos_font"
+path = "examples/gizmos/text_gizmos_font.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.text_gizmos_font]
+name = "Text Gizmos Font"
+description = "Example displaying the font used by text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
 name = "custom_gltf_vertex_attribute"
 path = "examples/gltf/custom_gltf_vertex_attribute.rs"
 # Causes an ICE on docs.rs
