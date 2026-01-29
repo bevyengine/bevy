@@ -2284,7 +2284,7 @@ impl<'a> EntityCommands<'a> {
         T::Trigger: Send + 'static,
     {
         let entity = self.entity;
-        let (mut event, mut trigger) = event_fn.into_event_from_entity(entity);
+        let (mut event, mut trigger) = event_fn.into_target_event(entity);
         let caller = MaybeLocation::caller();
         self.commands.queue(move |world: &mut World| {
             world.trigger_ref_with_caller(&mut event, &mut trigger, caller);

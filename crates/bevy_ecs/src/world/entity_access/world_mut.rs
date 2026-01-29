@@ -2077,7 +2077,7 @@ impl<'w> EntityWorldMut<'w> {
     /// See [`IntoTargetEvent`] for usage examples.
     #[track_caller]
     pub fn trigger<M, T: IntoTargetEvent<M>>(&mut self, event_fn: T) -> &mut Self {
-        let (mut event, mut trigger) = event_fn.into_event_from_entity(self.entity);
+        let (mut event, mut trigger) = event_fn.into_target_event(self.entity);
         let caller = MaybeLocation::caller();
         self.world_scope(|world| {
             world.trigger_ref_with_caller(&mut event, &mut trigger, caller);

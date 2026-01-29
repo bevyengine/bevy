@@ -291,12 +291,13 @@ pub trait EntityEvent: Event {
     fn event_target_mut(&mut self) -> &mut Entity;
 }
 
-/// A trait for events that can be observed on entities.
+/// A general trait to mark events that can be observed directly on entities,
+/// and therefore allowed to be used in the context of [`EntityWorldMut::observe`] amongst others.
 ///
-/// This trait is implemented by [`EntityEvent`] by default, but can be extended by third parties
-/// to support custom entity event types that don't implement [`EntityEvent`].
+/// This trait is implemented only for [`EntityEvent`] by default, but can be extended by third parties
+/// to support custom entity event types that don't use the [`EntityEvent`] pattern.
 ///
-/// Methods like [`EntityWorldMut::observe`](crate::world::EntityWorldMut::observe) constrain events to `TargetEvent`
+/// Methods like [`EntityWorldMut::observe`](crate::world::EntityWorldMut::observe) constrain events to [`TargetEvent`]
 /// to avoid accidentally adding a global observer to an entity.
 ///
 /// # Example
@@ -317,15 +318,14 @@ pub trait TargetEvent: Event {}
 
 impl<E: EntityEvent> TargetEvent for E {}
 
-/// A trait for converting values into entity-targeted events with their triggers.
+/// A trait for converting values into a [`TargetEvent`] along with its `[Trigger`].
 ///
 /// This trait allows methods like [`EntityWorldMut::trigger`](crate::world::EntityWorldMut::trigger)
-/// to accept both the `FnOnce(Entity) -> E` pattern and custom implementations
-/// that may use events targeting entities for which `EntityEvent` is not a good fit.
+/// to accept both the `FnOnce(Entity) -> E` pattern and custom implementations of [`TargetEvent`].
 ///
 /// # Example
 ///
-/// By default this type is implemented for any `FnOnce(Entity) -> E where E: EntityEvent`.
+/// By default this type is implemented for any `FnOnce(Entity) -> E where E: TargetEvent`.
 /// A surprising number of functions meet this pattern:
 ///
 /// ```rust
@@ -360,13 +360,13 @@ impl<E: EntityEvent> TargetEvent for E {}
 /// }
 /// ```
 pub trait IntoTargetEvent<M> {
-    /// The event type.
-    type Event: for<'a> Event<Trigger<'a> = Self::Trigger>;
+    /// The event type, which implements [`TargetEvent`]
+    type Event: TargetEvent + for<'a> Event<Trigger<'a> = Self::Trigger>;
     /// The trigger type for this event.
     type Trigger: Trigger<Self::Event>;
 
     /// Converts this value into an event and trigger for the given entity.
-    fn into_event_from_entity(self, entity: Entity) -> (Self::Event, Self::Trigger);
+    fn into_target_event(self, entity: Entity) -> (Self::Event, Self::Trigger);
 }
 
 /// Marker type for the `FnOnce(Entity) -> E` implementation of [`IntoTargetEvent`].
@@ -375,13 +375,13 @@ pub struct FnOnceIntoTargetEvent;
 impl<F, E, T> IntoTargetEvent<(E, T, FnOnceIntoTargetEvent)> for F
 where
     F: FnOnce(Entity) -> E,
-    E: for<'a> Event<Trigger<'a> = T>,
+    E: TargetEvent + for<'a> Event<Trigger<'a> = T>,
     T: Default + Trigger<E>,
 {
     type Event = E;
     type Trigger = T;
 
-    fn into_event_from_entity(self, entity: Entity) -> (Self::Event, Self::Trigger) {
+    fn into_target_event(self, entity: Entity) -> (Self::Event, Self::Trigger) {
         (self(entity), T::default())
     }
 }
