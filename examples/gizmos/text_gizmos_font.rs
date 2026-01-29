@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-const ALL_GLYPHS: &'static str = " !\"#$%&'()*\n\
+const ALL_GLYPHS: &str = " !\"#$%&'()*\n\
 +,-./012345\n\
 6789:;<=>?@\n\
 ABCDEFGHIJK\n\
