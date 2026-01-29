@@ -38,6 +38,7 @@ fn draw_instructions_text(mut gizmos: Gizmos) {
         Press 'J' / 'K' to cycle through line joins\n\
         Press 'Spacebar' to toggle pause",
         20.,
+        Vec2::new(-0.5, 0.5),
         Color::WHITE,
     );
 }
