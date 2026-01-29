@@ -81,7 +81,7 @@ fn draw_labels(mut text_gizmos: Gizmos, diagnostic: Res<DiagnosticsStore>) {
     );
 }
 
-const ALL_GLYPHS: &'static str = " !\"#$%&'()*\n\
+const ALL_GLYPHS: &str = " !\"#$%&'()*\n\
 +,-./012345\n\
 6789:;<=>?@\n\
 ABCDEFGHIJK\n\
