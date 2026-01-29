@@ -146,8 +146,6 @@ where
         anchor: Vec2,
         color: impl Into<Color>,
     ) {
-        let isometry = isometry.into();
-
         let color = color.into();
         let scale = size / SIMPLEX_CAP_HEIGHT;
         let band = (SIMPLEX_CAP_HEIGHT + SIMPLEX_DESCENDER_DEPTH) * scale;
