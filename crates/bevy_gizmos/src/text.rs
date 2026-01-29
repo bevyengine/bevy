@@ -1422,8 +1422,8 @@ where
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::Color;
-    /// fn system(mut gizmo: Gizmos) {
-    ///     gizmos.text_2d(Isometry2d::Identity, "2D text gizmo", 25., Color::WHITE);
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.text_2d(Isometry2d::IDENTITY, "2D text gizmo", 25., Color::WHITE);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -1495,8 +1495,8 @@ where
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::Color;
-    /// fn system(mut gizmo: Gizmos) {
-    ///     gizmos.text_3d(Isometry2d::Identity, "3D text gizmo", 25., Color::WHITE);
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.text_3d(Isometry3d::IDENTITY, "3D text gizmo", 25., Color::WHITE);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
