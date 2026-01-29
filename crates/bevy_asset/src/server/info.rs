@@ -1,7 +1,7 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
     Asset, AssetHandleProvider, AssetIndex, AssetLoadError, AssetPath, DependencyLoadState,
-    ErasedAssetIndex, ErasedLoadedAsset, Handle, InternalAssetEvent, LoadState,
+    ErasedAssetIndex, ErasedLoadedAsset, Handle, HandleEvent, InternalAssetEvent, LoadState,
     RecursiveDependencyLoadState, StrongHandle, UntypedHandle,
 };
 use alloc::{
@@ -40,9 +40,6 @@ pub(crate) struct AssetInfo {
     ///
     /// [`LoadedAsset`]: crate::loader::LoadedAsset
     loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
-    /// The number of handle drops to skip for this asset.
-    /// See usage (and comments) in `get_or_create_path_handle` for context.
-    handle_drops_to_skip: usize,
     /// List of tasks waiting for this asset to complete loading
     pub(crate) waiting_tasks: Vec<Waker>,
 }
@@ -62,7 +59,6 @@ impl AssetInfo {
             loader_dependencies: HashMap::default(),
             dependents_waiting_on_load: HashSet::default(),
             dependents_waiting_on_recursive_dep_load: HashSet::default(),
-            handle_drops_to_skip: 0,
             waiting_tasks: Vec::new(),
         }
     }
@@ -150,7 +146,7 @@ impl AssetInfos {
             }
         }
 
-        let handle = provider.reserve_handle_internal(true, path.clone(), meta_transform);
+        let handle = provider.reserve_handle_internal(path.clone(), meta_transform);
         let mut info = AssetInfo::new(Arc::downgrade(&handle), path);
         if loading {
             info.load_state = LoadState::Loading;
@@ -254,14 +250,12 @@ impl AssetInfos {
                     // (note that this is guaranteed to be transactional with the `track_assets` system
                     // because it locks the AssetInfos collection)
 
-                    // We must create a new strong handle for the existing id and ensure that the drop of the old
-                    // strong handle doesn't remove the asset from the Assets collection
-                    info.handle_drops_to_skip += 1;
+                    // We must create a new strong handle for the existing id.
                     let provider = self
                         .handle_providers
                         .get(&type_id)
                         .ok_or(MissingHandleProviderError(type_id))?;
-                    let handle = provider.get_handle(index, true, Some(path), meta_transform);
+                    let handle = provider.get_handle(index, Some(path), meta_transform);
                     info.weak_handle = Arc::downgrade(&handle);
                     Ok((UntypedHandle::Strong(handle), should_load))
                 }
@@ -306,7 +300,7 @@ impl AssetInfos {
     }
 
     pub(crate) fn get_path_and_type_id_handle(
-        &self,
+        &mut self,
         path: &AssetPath<'_>,
         type_id: TypeId,
     ) -> Option<UntypedHandle> {
@@ -318,61 +312,63 @@ impl AssetInfos {
         &'a self,
         path: &'a AssetPath<'_>,
     ) -> impl Iterator<Item = ErasedAssetIndex> + 'a {
-        /// Concrete type to allow returning an `impl Iterator` even if `self.path_to_id.get(&path)` is `None`
-        enum HandlesByPathIterator<T> {
-            None,
-            Some(T),
-        }
-
-        impl<T> Iterator for HandlesByPathIterator<T>
-        where
-            T: Iterator<Item = ErasedAssetIndex>,
-        {
-            type Item = ErasedAssetIndex;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                match self {
-                    HandlesByPathIterator::None => None,
-                    HandlesByPathIterator::Some(iter) => iter.next(),
-                }
-            }
-        }
-
-        if let Some(type_id_to_id) = self.path_to_index.get(path) {
-            HandlesByPathIterator::Some(
-                type_id_to_id
-                    .iter()
-                    .map(|(type_id, index)| ErasedAssetIndex::new(*index, *type_id)),
-            )
-        } else {
-            HandlesByPathIterator::None
-        }
+        self.path_to_index
+            .get(path)
+            .into_iter()
+            .flat_map(|type_id_to_index| type_id_to_index.iter())
+            .map(|(type_id, index)| ErasedAssetIndex::new(*index, *type_id))
     }
 
     pub(crate) fn get_path_handles<'a>(
-        &'a self,
+        &'a mut self,
         path: &'a AssetPath<'_>,
     ) -> impl Iterator<Item = UntypedHandle> + 'a {
-        self.get_path_indices(path)
-            .filter_map(|id| self.get_index_handle(id))
+        self.path_to_index
+            .get(path)
+            .into_iter()
+            .flat_map(|type_id_to_index| type_id_to_index.iter())
+            .map(|(type_id, index)| ErasedAssetIndex::new(*index, *type_id))
+            .filter_map(|index| {
+                Self::get_index_handle_internal(&mut self.infos, &self.handle_providers, index)
+            })
     }
 
-    pub(crate) fn get_index_handle(&self, index: ErasedAssetIndex) -> Option<UntypedHandle> {
-        let info = self.infos.get(&index)?;
-        let strong_handle = info.weak_handle.upgrade()?;
+    pub(crate) fn get_index_handle(&mut self, index: ErasedAssetIndex) -> Option<UntypedHandle> {
+        Self::get_index_handle_internal(&mut self.infos, &self.handle_providers, index)
+    }
+
+    /// Same as [`Self::get_index_handle`], but allows passing in only the required fields, to allow
+    /// holding borrows to other fields.
+    fn get_index_handle_internal(
+        infos: &mut HashMap<ErasedAssetIndex, AssetInfo>,
+        handle_providers: &TypeIdMap<AssetHandleProvider>,
+        index: ErasedAssetIndex,
+    ) -> Option<UntypedHandle> {
+        let info = infos.get_mut(&index)?;
+        let strong_handle = match info.weak_handle.upgrade() {
+            Some(handle) => handle,
+            None => {
+                // We still have this index's entry, so it hasn't been dropped yet, so we can
+                // allocate a new handle and return it.
+                let provider = handle_providers.get(&index.type_id).expect(
+                    "asset was loaded before, so we must have a corresponding handle_provider",
+                );
+                let handle = provider.get_handle(index.index, info.path.clone(), None);
+                info.weak_handle = Arc::downgrade(&handle);
+                handle
+            }
+        };
         Some(UntypedHandle::Strong(strong_handle))
-    }
-
-    /// Returns `true` if the asset this path points to is still alive
-    pub(crate) fn is_path_alive<'a>(&self, path: impl Into<AssetPath<'a>>) -> bool {
-        self.get_path_indices(&path.into())
-            .filter_map(|id| self.infos.get(&id))
-            .any(|info| info.weak_handle.strong_count() > 0)
     }
 
     /// Returns `true` if the asset at this path should be reloaded
     pub(crate) fn should_reload(&self, path: &AssetPath) -> bool {
-        if self.is_path_alive(path) {
+        // If any path indices still exist, that means they haven't been dropped yet, so we should
+        // try to reload this path. Technically, there's a race condition where all handles may have
+        // been dropped, but `Assets::track_assets` hasn't run yet, so we'd be reloading an asset
+        // that will be dropped soon. This will result in a load which is unfortunate, but not too
+        // big a deal, and should be very rare.
+        if self.get_path_indices(&path.into()).next().is_some() {
             return true;
         }
 
@@ -383,9 +379,9 @@ impl AssetInfos {
         }
     }
 
-    /// Returns `true` if the asset should be removed from the collection.
-    pub(crate) fn process_handle_drop(&mut self, index: ErasedAssetIndex) -> bool {
-        Self::process_handle_drop_internal(
+    /// Handles when an asset entry has been dropped from [`crate::Assets`].
+    pub(crate) fn process_asset_entry_drop(&mut self, index: ErasedAssetIndex) {
+        Self::process_asset_entry_drop_internal(
             &mut self.infos,
             &mut self.path_to_index,
             &mut self.loader_dependents,
@@ -393,7 +389,7 @@ impl AssetInfos {
             &mut self.pending_tasks,
             self.watching_for_changes,
             index,
-        )
+        );
     }
 
     /// Updates [`AssetInfo`] / load state for an asset that has finished loading (and relevant dependencies / dependents).
@@ -710,7 +706,7 @@ impl AssetInfos {
         }
     }
 
-    fn process_handle_drop_internal(
+    fn process_asset_entry_drop_internal(
         infos: &mut HashMap<ErasedAssetIndex, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, TypeIdMap<AssetIndex>>,
         loader_dependents: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
@@ -718,17 +714,12 @@ impl AssetInfos {
         pending_tasks: &mut HashMap<ErasedAssetIndex, Task<()>>,
         watching_for_changes: bool,
         index: ErasedAssetIndex,
-    ) -> bool {
-        let Entry::Occupied(mut entry) = infos.entry(index) else {
-            // Either the asset was already dropped, it doesn't exist, or it isn't managed by the asset server
-            // None of these cases should result in a removal from the Assets collection
-            return false;
+    ) {
+        let Entry::Occupied(entry) = infos.entry(index) else {
+            // Either the asset was already dropped, it doesn't exist, or it isn't managed by the
+            // asset server. In any of these cases, there's nothing more to do.
+            return;
         };
-
-        if entry.get_mut().handle_drops_to_skip > 0 {
-            entry.get_mut().handle_drops_to_skip -= 1;
-            return false;
-        }
 
         pending_tasks.remove(&index);
 
@@ -736,7 +727,7 @@ impl AssetInfos {
 
         let info = entry.remove();
         let Some(path) = &info.path else {
-            return true;
+            return;
         };
 
         if watching_for_changes {
@@ -755,8 +746,6 @@ impl AssetInfos {
                 path_to_id.remove(path);
             }
         };
-
-        true
     }
 
     /// Consumes all current handle drop events. This will update information in [`AssetInfos`], but it
@@ -766,18 +755,23 @@ impl AssetInfos {
     /// [`Assets`]: crate::Assets
     pub(crate) fn consume_handle_drop_events(&mut self) {
         for provider in self.handle_providers.values() {
-            while let Ok(drop_event) = provider.drop_receiver.try_recv() {
-                let id = drop_event.index;
-                if drop_event.asset_server_managed {
-                    Self::process_handle_drop_internal(
-                        &mut self.infos,
-                        &mut self.path_to_index,
-                        &mut self.loader_dependents,
-                        &mut self.living_labeled_assets,
-                        &mut self.pending_tasks,
-                        self.watching_for_changes,
-                        id,
-                    );
+            while let Ok(handle_event) = provider.event_receiver.try_recv() {
+                match handle_event {
+                    HandleEvent::New(_) => {}
+                    HandleEvent::Drop(index) => {
+                        Self::process_asset_entry_drop_internal(
+                            &mut self.infos,
+                            &mut self.path_to_index,
+                            &mut self.loader_dependents,
+                            &mut self.living_labeled_assets,
+                            &mut self.pending_tasks,
+                            self.watching_for_changes,
+                            ErasedAssetIndex {
+                                index,
+                                type_id: provider.type_id,
+                            },
+                        );
+                    }
                 }
             }
         }
