@@ -2312,8 +2312,7 @@ pub fn shadow_pass<const IS_LATE: bool>(
         #[cfg(feature = "trace")]
         let _shadow_pass_span = info_span!("", "{}", view_light.pass_name).entered();
 
-        let depth_stencil_attachment =
-            Some(view_light.get_attachment());
+        let depth_stencil_attachment = Some(view_light.get_attachment());
 
         let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some(&view_light.pass_name),
