@@ -57,10 +57,7 @@ use smallvec::SmallVec;
 use tracing::warn;
 
 use crate::bloom::bloom;
-use bevy_core_pipeline::{
-    schedule::Core3d, tonemapping::tonemapping,
-    FullscreenShader,
-};
+use bevy_core_pipeline::{schedule::Core3d, tonemapping::tonemapping, FullscreenShader};
 
 /// A plugin that adds support for the depth of field effect to Bevy.
 #[derive(Default)]
