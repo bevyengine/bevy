@@ -153,7 +153,7 @@ fn copy_depth_texture_system(
     // WebGPU spec: source aspect and destination aspect must both refer to all aspects.
     command_encoder.copy_texture_to_texture(
         TexelCopyTextureInfo {
-            texture: &depth_texture.texture,
+            texture: depth_texture.texture(),
             mip_level: 0,
             origin: Origin3d::default(),
             aspect: TextureAspect::All,
