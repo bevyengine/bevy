@@ -10,14 +10,14 @@ use bevy::{
         taa::TemporalAntiAliasing,
     },
     asset::RenderAssetUsages,
-    core_pipeline::prepass::MotionVectorPrepass,
+    camera::Hdr,
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
     image::{ImageSampler, ImageSamplerDescriptor},
     light::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
         camera::{MipBias, TemporalJitter},
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::Hdr,
     },
 };
 

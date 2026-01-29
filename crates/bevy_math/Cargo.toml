@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.85.0"
 
 [dependencies]
-glam = { version = "0.30.7", default-features = false, features = ["bytemuck"] }
+glam = { version = "0.31.0", default-features = false, features = ["bytemuck"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = [
   "from",
@@ -37,7 +37,7 @@ rand = "0.9"
 rand_chacha = "0.9"
 # Enable the approx feature when testing.
 bevy_math = { path = ".", default-features = false, features = ["approx"] }
-glam = { version = "0.30.7", default-features = false, features = ["approx"] }
+glam = { version = "0.31.0", default-features = false, features = ["approx"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 getrandom = { version = "0.3", default-features = false, features = [

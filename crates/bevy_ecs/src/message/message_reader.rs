@@ -14,22 +14,22 @@ use crate::{
 ///
 /// [`MessageWriter<T>`]: super::MessageWriter
 #[derive(SystemParam, Debug)]
-pub struct MessageReader<'w, 's, E: Message> {
-    pub(super) reader: Local<'s, MessageCursor<E>>,
+pub struct MessageReader<'w, 's, M: Message> {
+    pub(super) reader: Local<'s, MessageCursor<M>>,
     #[system_param(validation_message = "Message not initialized")]
-    messages: Res<'w, Messages<E>>,
+    messages: Res<'w, Messages<M>>,
 }
 
-impl<'w, 's, E: Message> MessageReader<'w, 's, E> {
+impl<'w, 's, M: Message> MessageReader<'w, 's, M> {
     /// Iterates over the messages this [`MessageReader`] has not seen yet. This updates the
     /// [`MessageReader`]'s message counter, which means subsequent message reads will not include messages
     /// that happened before now.
-    pub fn read(&mut self) -> MessageIterator<'_, E> {
+    pub fn read(&mut self) -> MessageIterator<'_, M> {
         self.reader.read(&self.messages)
     }
 
     /// Like [`read`](Self::read), except also returning the [`MessageId`](super::MessageId) of the messages.
-    pub fn read_with_id(&mut self) -> MessageIteratorWithId<'_, E> {
+    pub fn read_with_id(&mut self) -> MessageIteratorWithId<'_, M> {
         self.reader.read_with_id(&self.messages)
     }
 
@@ -69,7 +69,7 @@ impl<'w, 's, E: Message> MessageReader<'w, 's, E> {
     /// assert_eq!(counter.into_inner(), 4950);
     /// ```
     #[cfg(feature = "multi_threaded")]
-    pub fn par_read(&mut self) -> MessageParIter<'_, E> {
+    pub fn par_read(&mut self) -> MessageParIter<'_, M> {
         self.reader.par_read(&self.messages)
     }
 

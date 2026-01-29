@@ -14,15 +14,18 @@ pub mod fullscreen_material;
 pub mod mip_generation;
 pub mod oit;
 pub mod prepass;
+pub mod schedule;
 pub mod tonemapping;
 pub mod upscaling;
 
+pub use bevy_light::Skybox;
 pub use fullscreen_vertex_shader::FullscreenShader;
-pub use skybox::Skybox;
+pub use schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
 
 mod fullscreen_vertex_shader;
 mod skybox;
 
+use crate::schedule::camera_driver;
 use crate::{
     blit::BlitPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin, mip_generation::MipGenerationPlugin,
@@ -30,6 +33,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
+use bevy_render::renderer::RenderGraph;
 use bevy_render::RenderApp;
 use oit::OrderIndependentTransparencyPlugin;
 
@@ -51,6 +55,8 @@ impl Plugin for CorePipelinePlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-        render_app.init_resource::<FullscreenShader>();
+        render_app
+            .init_resource::<FullscreenShader>()
+            .add_systems(RenderGraph, camera_driver);
     }
 }

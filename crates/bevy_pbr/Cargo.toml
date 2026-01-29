@@ -22,7 +22,7 @@ bluenoise_texture = ["bevy_image/ktx2", "bevy_image/zstd"]
 shader_format_glsl = ["bevy_shader/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
-meshlet = ["dep:lz4_flex", "dep:range-alloc", "dep:bevy_tasks"]
+meshlet = ["dep:lz4_flex", "dep:range-alloc"]
 # Enables processing meshes into meshlet meshes
 meshlet_processor = [
   "meshlet",
@@ -56,7 +56,7 @@ bevy_render = { path = "../bevy_render", version = "0.19.0-dev", features = [
   "morph",
 ] }
 bevy_camera = { path = "../bevy_camera", version = "0.19.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev", optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
@@ -79,6 +79,7 @@ itertools = { version = "0.14", optional = true }
 bitvec = { version = "1", optional = true }
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive", "must_cast"] }
+radsort = "0.1"
 smallvec = { version = "1", default-features = false }
 nonmax = "0.5"
 static_assertions = "1"
