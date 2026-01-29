@@ -35,7 +35,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract,
 };
 use bevy_shader::{Shader, ShaderDefVal};
@@ -531,14 +531,13 @@ pub fn queue_sprites(
     mut views: Query<(
         &RenderVisibleEntities,
         &ExtractedView,
-        &ViewTarget,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (visible_entities, view, _view_target, tonemapping, dither) in &mut views {
+    for (visible_entities, view, tonemapping, dither) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;

@@ -66,33 +66,27 @@ impl Plugin for CameraPlugin {
             ))
             .add_systems(
                 PostStartup,
-                (
-                    (
-                        configure_camera_color_target,
-                        camera_system,
-                        configure_camera_color_target,
-                    )
-                        .chain()
-                        .in_set(CameraUpdateSystems),
-                    insert_camera_required_components_if_auto_configured
-                        .in_set(CameraUpdateSystems),
-                ),
+                ((
+                    insert_camera_required_components_if_auto_configured,
+                    configure_camera_color_target,
+                    camera_system,
+                    sync_camera_color_target_config,
+                )
+                    .chain()
+                    .in_set(CameraUpdateSystems),),
             )
             .add_systems(
                 PostUpdate,
-                (
-                    (
-                        configure_camera_color_target,
-                        camera_system,
-                        configure_camera_color_target,
-                    )
-                        .chain()
-                        .in_set(CameraUpdateSystems)
-                        .before(AssetEventSystems)
-                        .before(visibility::update_frusta),
-                    insert_camera_required_components_if_auto_configured
-                        .in_set(CameraUpdateSystems),
-                ),
+                ((
+                    insert_camera_required_components_if_auto_configured,
+                    configure_camera_color_target,
+                    camera_system,
+                    sync_camera_color_target_config,
+                )
+                    .chain()
+                    .in_set(CameraUpdateSystems)
+                    .before(AssetEventSystems)
+                    .before(visibility::update_frusta),),
             );
         app.world_mut()
             .register_component_hooks::<Camera>()
@@ -103,10 +97,7 @@ impl Plugin for CameraPlugin {
                 .init_resource::<SortedCameras>()
                 .add_systems(
                     ExtractSchedule,
-                    (
-                        (sync_camera_color_target_config, extract_cameras).chain(),
-                        extract_main_color_target_reads_from,
-                    ),
+                    (extract_cameras, extract_main_color_target_reads_from),
                 )
                 .add_systems(Render, sort_cameras.in_set(RenderSystems::ManageViews));
         }
@@ -435,30 +426,12 @@ pub fn camera_system(
                 || camera.computed.old_viewport_size != viewport_size
                 || camera.computed.old_sub_camera_view != camera.sub_camera_view)
         {
-            let new_computed_target_info = match normalized_target.get_render_target_info(
+            let new_computed_target_info = normalized_target.get_render_target_info(
                 windows,
                 &images,
                 &manual_texture_views,
                 &query_main_color_targets,
-            ) {
-                Ok(info) => info,
-                Err(err) => {
-                    // If render target is `MainColorTarget` and query failed, we ignore this error and continue.
-                    // Because the entity is not yet spawned by `configure_camera_color_target`,
-                    // which runs after and depends on `camera_system` to compute physical target size first.
-                    // TODO: Deal with this better.
-                    if matches!(
-                        err,
-                        MissingRenderTargetInfoError::MainColorTarget {
-                            query_error: Some(QueryEntityError::QueryDoesNotMatch(..)),
-                            image: None
-                        }
-                    ) {
-                        continue;
-                    }
-                    return Err(err.into());
-                }
-            };
+            )?;
             // Check for the scale factor changing, and resize the viewport if needed.
             // This can happen when the window is moved between monitors with different DPIs.
             // Without this, the viewport will take a smaller portion of the window moved to

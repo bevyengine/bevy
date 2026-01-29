@@ -160,7 +160,7 @@ fn sprite_picking(
         })?;
 
         if render_target
-            .normalize(primary_window,None)
+            .normalize(primary_window, None)
             .is_none_or(|x| x != location.target)
         {
             return None;

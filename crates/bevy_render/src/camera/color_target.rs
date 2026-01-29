@@ -12,14 +12,15 @@ use bevy_ecs::{
     entity::Entity,
     query::{Has, QueryItem, With, Without},
     relationship::RelationshipTarget,
-    system::{Commands, Local, Query, ResMut, SystemState},
+    system::{Commands, Query, ResMut},
 };
 use bevy_image::{BevyDefault, Image, ToExtents};
+use bevy_math::UVec2;
 use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::Ordering;
 use wgpu::{TextureFormat, TextureUsages};
 
-use crate::{extract_component::ExtractComponent, sync_world::RenderEntity, Extract, MainWorld};
+use crate::{extract_component::ExtractComponent, sync_world::RenderEntity, Extract};
 
 pub(super) fn insert_camera_required_components_if_auto_configured(
     mut commands: Commands,
@@ -52,13 +53,12 @@ pub(super) fn configure_camera_color_target(
     mut main_color_targets: Query<&mut MainColorTarget>,
 ) {
     for (entity, camera, config, hdr, with_main_color_target) in query.iter() {
-        let Some(physical_size) = camera.physical_target_size() else {
-            continue;
-        };
+        let physical_size = camera.physical_target_size().unwrap_or(UVec2::ONE);
         let size = match config.size {
-            CameraMainColorTargetsSize::Factor(vec2) => {
-                (physical_size.as_vec2() * vec2).round().as_uvec2()
-            }
+            CameraMainColorTargetsSize::Factor(vec2) => (physical_size.as_vec2() * vec2)
+                .round()
+                .as_uvec2()
+                .max(UVec2::ONE),
             CameraMainColorTargetsSize::Fixed(uvec2) => uvec2,
         }
         .to_extents();
@@ -146,43 +146,29 @@ pub(super) fn configure_camera_color_target(
 }
 
 pub(super) fn sync_camera_color_target_config(
-    mut main_world: ResMut<MainWorld>,
-    mut system_state: Local<
-        Option<
-            SystemState<(
-                Commands,
-                Query<
-                    (
-                        Entity,
-                        &Camera,
-                        &CameraMainColorTargetConfig,
-                        Has<Hdr>,
-                        &WithMainColorTarget,
-                    ),
-                    Without<NoAutoConfiguredMainColorTarget>,
-                >,
-                Query<&mut MainColorTarget>,
-                ResMut<Assets<Image>>,
-            )>,
-        >,
+    mut commands: Commands,
+    query: Query<
+        (
+            Entity,
+            &Camera,
+            &CameraMainColorTargetConfig,
+            Has<Hdr>,
+            &WithMainColorTarget,
+        ),
+        Without<NoAutoConfiguredMainColorTarget>,
     >,
+    mut query_main_color_targets: Query<&mut MainColorTarget>,
+    mut image_assets: ResMut<Assets<Image>>,
 ) {
-    if system_state.is_none() {
-        *system_state = Some(SystemState::new(&mut main_world));
-    }
-    let system_state = system_state.as_mut().unwrap();
-
-    let (mut commands, query, mut query_main_color_targets, mut image_assets) =
-        system_state.get_mut(&mut main_world);
-
     for (entity, camera, config, hdr, with_color_target) in query.iter() {
         let Some(physical_size) = camera.physical_target_size() else {
             continue;
         };
         let size = match config.size {
-            CameraMainColorTargetsSize::Factor(vec2) => {
-                (physical_size.as_vec2() * vec2).round().as_uvec2()
-            }
+            CameraMainColorTargetsSize::Factor(vec2) => (physical_size.as_vec2() * vec2)
+                .round()
+                .as_uvec2()
+                .max(UVec2::ONE),
             CameraMainColorTargetsSize::Fixed(uvec2) => uvec2,
         }
         .to_extents();
@@ -227,8 +213,6 @@ pub(super) fn sync_camera_color_target_config(
             main_textures.multisampled = None;
         }
     }
-
-    system_state.apply(&mut main_world);
 }
 
 #[derive(Component)]

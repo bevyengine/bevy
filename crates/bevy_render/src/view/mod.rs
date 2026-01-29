@@ -735,7 +735,7 @@ impl ViewTarget {
     /// ahead of time.
     pub fn main_texture_other(&self) -> &Texture {
         let Some(b) = &self.main_texture_b else {
-            panic!()
+            panic!("Other main texture doesn't exist")
         };
         if self
             .main_texture_flag
@@ -774,7 +774,7 @@ impl ViewTarget {
     /// ahead of time.
     pub fn main_texture_other_view(&self) -> &TextureView {
         let Some(b) = &self.main_texture_b else {
-            panic!("Main color target is not double buffered thus can't be used for post process")
+            panic!("Other main texture doesn't exist")
         };
         if self
             .main_texture_flag
@@ -838,7 +838,7 @@ impl ViewTarget {
     /// Failing to do so will cause the current main texture information to be lost.
     pub fn post_process_write(&self) -> PostProcessWrite<'_> {
         let Some(main_texture_b) = &self.main_texture_b else {
-            panic!("Main color target is not double buffered thus can't be used for post process")
+            panic!("Other main texture doesn't exist thus can't be used for post process")
         };
         let old_is_a_main_texture = self
             .main_texture_flag
