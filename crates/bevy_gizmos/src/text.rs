@@ -25,7 +25,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::Color;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.text_3d(Isometry3d::IDENTITY, "3D text gizmo", 25., Color::WHITE);
+    ///     gizmos.text(Isometry3d::IDENTITY, "text gizmo", 25., Color::WHITE);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
