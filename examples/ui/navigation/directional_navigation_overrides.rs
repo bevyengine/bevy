@@ -332,6 +332,11 @@ fn setup_paged_ui(
         pages_entities[1][3],
         CompassOctant::SouthEast,
     );
+    // Add one-way blocking within the triangle page (Page 1) for down nav.
+    for btn in &pages_entities[0] {
+        manual_directional_nav_map.block_edge(*btn, CompassOctant::South);
+        manual_directional_nav_map.block_edge(*btn, CompassOctant::North);
+    }
 
     // For Page 3, we override the navigation North and South to be inverted.
     let mut col_entities = Vec::with_capacity(4);
@@ -465,6 +470,28 @@ fn setup_buttons_for_grid_page(
                 Text::new(
                     "Vertical Navigation has been manually overridden to be inverted! \
                 ^ moves down, and v (down) moves up.",
+                ),
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(450),
+                    top: px(600),
+                    width: px(540),
+                    padding: UiRect::all(px(12)),
+                    ..default()
+                },
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+            ))
+            .id();
+        text_entities.push(footer_info);
+    }
+    if page_num == 0 {
+        let footer_info = commands
+            .spawn((
+                Text::new(
+                    "Vertical movements disabled on each button, but you can still go to the next row by going off the right side."
                 ),
                 Node {
                     position_type: PositionType::Absolute,
