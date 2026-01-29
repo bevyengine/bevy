@@ -313,7 +313,7 @@ meshlet = ["bevy_pbr?/meshlet"]
 meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 
 # Provides a collection of developer tools
-bevy_dev_tools = ["dep:bevy_dev_tools"]
+bevy_dev_tools = ["dep:bevy_dev_tools", "bevy_ui", "bevy_ui_render"]
 
 # Provides a collection of prebuilt camera controllers
 bevy_camera_controller = ["dep:bevy_camera_controller"]
