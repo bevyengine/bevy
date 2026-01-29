@@ -647,7 +647,7 @@ http = ["bevy_internal/http"]
 # Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.
 https = ["bevy_internal/https"]
 
-# Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!
+# Enable http caching for downloaded assets on the filesystem.
 web_asset_cache = ["bevy_internal/web_asset_cache"]
 
 # Enable stepping-based debugging of Bevy systems
