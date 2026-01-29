@@ -179,6 +179,37 @@ impl Default for EnvironmentMapLight {
     }
 }
 
+/// Adds a skybox to a 3D camera, based on a cubemap texture.
+///
+/// Note that this component does not (currently) affect the scene's lighting.
+/// To do so, use `EnvironmentMapLight` alongside this component.
+///
+/// See also <https://en.wikipedia.org/wiki/Skybox_(video_games)>.
+#[derive(Component, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct Skybox {
+    pub image: Handle<Image>,
+    /// Scale factor applied to the skybox image.
+    /// After applying this multiplier to the image samples, the resulting values should
+    /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
+    pub brightness: f32,
+
+    /// View space rotation applied to the skybox cubemap.
+    /// This is useful for users who require a different axis, such as the Z-axis, to serve
+    /// as the vertical axis.
+    pub rotation: Quat,
+}
+
+impl Default for Skybox {
+    fn default() -> Self {
+        Skybox {
+            image: Handle::default(),
+            brightness: 0.0,
+            rotation: Quat::IDENTITY,
+        }
+    }
+}
+
 /// A generated environment map that is filtered at runtime.
 ///
 /// See `bevy_pbr::light_probe::generate` for detailed information.
@@ -290,3 +321,31 @@ impl Default for IrradianceVolume {
         }
     }
 }
+
+/// Add this component to a reflection probe to opt out of *parallax
+/// correction*.
+///
+/// For environment maps added directly to a camera, Bevy renders the reflected
+/// scene that a cubemap captures as though it were infinitely far away. This is
+/// acceptable if the cubemap captures very distant objects, such as distant
+/// mountains in outdoor scenes. It's less ideal, however, if the cubemap
+/// reflects near objects, such as the interior of a room. Therefore, by default
+/// for reflection probes Bevy uses *parallax-corrected cubemaps* (PCCM), which
+/// causes Bevy to treat the reflected scene as though it coincided with the
+/// boundaries of the light probe.
+///
+/// As an example, for indoor scenes, it's common to place reflection probes
+/// inside each room and to make the boundaries of the reflection probe (as
+/// determined by the light probe's [`bevy_transform::components::Transform`])
+/// coincide with the walls of the room. That way, the reflection probes will
+/// (1) apply to the objects inside the room and (2) take the positions of those
+/// objects into account in order to create a realistic reflection.
+///
+/// Place this component on an entity that has a [`LightProbe`] and
+/// [`EnvironmentMapLight`] component in order to opt out of parallax
+/// correction.
+///
+/// See the `pccm` example for an example of usage.
+#[derive(Clone, Copy, Default, Component, Reflect)]
+#[reflect(Clone, Default, Component)]
+pub struct NoParallaxCorrection;

@@ -55,23 +55,45 @@ impl<'w> EntityMut<'w> {
 
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&mut EntityMut`, but you need `EntityMut`.
+    #[inline]
     pub fn reborrow(&mut self) -> EntityMut<'_> {
-        // SAFETY: We have exclusive access to the entire entity and its components.
+        // SAFETY:
+        // - We have exclusive access to the entire entity and its components.
+        // - `&mut self` ensures there are no other accesses.
         unsafe { Self::new(self.cell) }
     }
 
     /// Consumes `self` and returns read-only access to all of the entity's
     /// components, with the world `'w` lifetime.
+    #[inline]
     pub fn into_readonly(self) -> EntityRef<'w> {
-        EntityRef::from(self)
+        // SAFETY:
+        // - We have exclusive access to the entire entity and its components.
+        // - Consuming `self` ensures there are no other accesses.
+        unsafe { EntityRef::new(self.cell) }
     }
 
     /// Gets read-only access to all of the entity's components.
+    #[inline]
     pub fn as_readonly(&self) -> EntityRef<'_> {
-        EntityRef::from(self)
+        // SAFETY:
+        // - We have exclusive access to the entire entity and its components.
+        // - `&self` ensures there are no mutable accesses.
+        unsafe { EntityRef::new(self.cell) }
     }
 
-    /// Get access to the underlying [`UnsafeEntityCell`]
+    /// Consumes `self` and returns a [`FilteredEntityMut`] which has mutable
+    /// access to all of the entity's components, with the world `'w` lifetime.
+    #[inline]
+    pub fn into_filtered(self) -> FilteredEntityMut<'w, 'static> {
+        // SAFETY:
+        // - We have exclusive access to the entire entity and its components.
+        // - Consuming `self` ensures there are no other accesses.
+        unsafe { FilteredEntityMut::new(self.cell, const { &Access::new_write_all() }) }
+    }
+
+    /// Get access to the underlying [`UnsafeEntityCell`].
+    #[inline]
     pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
         self.cell
     }
@@ -756,57 +778,51 @@ impl<'w> EntityMut<'w> {
 }
 
 impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
+    #[inline]
     fn from(entity: EntityMut<'w>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all of the entity's components.
-        unsafe { EntityRef::new(entity.cell) }
+        entity.into_readonly()
     }
 }
 
 impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
+    #[inline]
     fn from(entity: &'a EntityMut<'_>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all of the entity's components.
-        // - `&entity` ensures there are no mutable accesses.
-        unsafe { EntityRef::new(entity.cell) }
+        entity.as_readonly()
     }
 }
 
 impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
+    #[inline]
     fn from(entity: &'w mut EntityMut<'_>) -> Self {
         entity.reborrow()
     }
 }
 
 impl<'a> From<EntityMut<'a>> for FilteredEntityRef<'a, 'static> {
+    #[inline]
     fn from(entity: EntityMut<'a>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
+        entity.into_readonly().into_filtered()
     }
 }
 
 impl<'a> From<&'a EntityMut<'_>> for FilteredEntityRef<'a, 'static> {
+    #[inline]
     fn from(entity: &'a EntityMut<'_>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
+        entity.as_readonly().into_filtered()
     }
 }
 
 impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a, 'static> {
+    #[inline]
     fn from(entity: EntityMut<'a>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
-        unsafe { FilteredEntityMut::new(entity.cell, const { &Access::new_write_all() }) }
+        entity.into_filtered()
     }
 }
 
 impl<'a> From<&'a mut EntityMut<'_>> for FilteredEntityMut<'a, 'static> {
+    #[inline]
     fn from(entity: &'a mut EntityMut<'_>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
-        unsafe { FilteredEntityMut::new(entity.cell, const { &Access::new_write_all() }) }
+        entity.reborrow().into_filtered()
     }
 }
 

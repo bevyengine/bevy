@@ -19,7 +19,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
-use tracing::warn;
+use bevy_log::warn;
 
 #[derive(Default)]
 pub struct TexturePlugin;

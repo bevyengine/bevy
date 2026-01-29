@@ -66,6 +66,9 @@ statically-linked-dxc = ["bevy_render/statically-linked-dxc"]
 # Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
 raw_vulkan_init = ["bevy_render/raw_vulkan_init"]
 
+# Pre-populate buffer labels with buffer types for debugging.
+type_label_buffers = ["bevy_render/type_label_buffers"]
+
 # Include tonemapping LUT KTX2 files.
 tonemapping_luts = [
   "bevy_core_pipeline?/tonemapping_luts",
@@ -225,7 +228,7 @@ bevy_text = [
   "bevy_sprite_render?/bevy_text",
 ]
 bevy_ui = ["dep:bevy_ui", "bevy_text", "bevy_sprite"]
-bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
+bevy_mesh = ["dep:bevy_mesh", "bevy_image", "bevy_gizmos?/bevy_mesh"]
 bevy_animation = ["dep:bevy_animation", "bevy_mesh"]
 bevy_mikktspace = ["bevy_mesh?/bevy_mikktspace"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y", "bevy_image"]
@@ -233,7 +236,7 @@ bevy_winit = ["dep:bevy_winit", "bevy_window"]
 bevy_camera = ["dep:bevy_camera", "bevy_mesh", "bevy_window"]
 bevy_scene = ["dep:bevy_scene", "bevy_asset"]
 bevy_material = ["dep:bevy_material", "bevy_image", "bevy_shader"]
-bevy_light = ["dep:bevy_light", "bevy_camera", "bevy_gizmos?/bevy_light"]
+bevy_light = ["dep:bevy_light", "bevy_camera"]
 bevy_render = [
   "dep:bevy_render",
   "bevy_camera",
@@ -260,7 +263,7 @@ bevy_sprite_render = [
 ]
 bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
 bevy_solari = ["dep:bevy_solari", "bevy_pbr"]
-bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera"]
+bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera", "bevy_light?/bevy_gizmos"]
 bevy_gizmos_render = ["dep:bevy_gizmos_render", "bevy_gizmos"]
 bevy_gltf = ["dep:bevy_gltf", "bevy_scene", "bevy_pbr"]
 
@@ -441,7 +444,7 @@ gestures = ["bevy_input/gestures"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-debug = ["bevy_utils/debug", "bevy_ecs/debug"]
+debug = ["bevy_utils/debug", "bevy_ecs/debug", "bevy_render/debug"]
 
 screenrecording = ["bevy_dev_tools/screenrecording"]
 

@@ -651,7 +651,7 @@ impl EntityCloner {
                         target,
                         &bundle_scratch_allocator,
                         &mut bundle_scratch,
-                        world.entities_allocator(),
+                        world.entity_allocator(),
                         info,
                         state,
                         mapper,

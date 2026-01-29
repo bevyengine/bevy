@@ -1,9 +1,11 @@
+enable wgpu_ray_query;
+
 #define_import_path bevy_solari::sampling
 
 #import bevy_pbr::lighting::D_GGX
 #import bevy_pbr::utils::{rand_f, rand_vec2f, rand_u, rand_range_u}
 #import bevy_render::maths::{PI_2, orthonormalize}
-#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull}
+#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD}
 
 fn power_heuristic(f: f32, g: f32) -> f32 {
     return balance_heuristic(f * f, g * g);
@@ -19,7 +21,8 @@ fn balance_heuristic(f: f32, g: f32) -> f32 {
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
-    if roughness <= 0.001 {
+    // Mirror BRDF case
+    if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
         return vec3(-wi_tangent.xy, wi_tangent.z);
     }
 
@@ -43,6 +46,12 @@ fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
 fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
+    // Mirror BRDF case
+    if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
+        let mirror_wo = vec3(-wi_tangent.xy, wi_tangent.z);
+        return f32(all(abs(mirror_wo - wo_tangent) < vec3(0.0001)));
+    }
+
     let i = wi_tangent;
     let o = wo_tangent;
     let m = normalize(i + o);
@@ -171,11 +180,10 @@ fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSam
     let light_distance = length(ray);
     let wi = ray / light_distance;
 
-    let cos_theta_origin = saturate(dot(wi, origin_world_normal));
     let cos_theta_light = saturate(dot(-wi, resolved_light_sample.world_normal));
     let light_distance_squared = light_distance * light_distance;
 
-    let radiance = resolved_light_sample.radiance * cos_theta_origin * (cos_theta_light / light_distance_squared);
+    let radiance = resolved_light_sample.radiance * (cos_theta_light / light_distance_squared);
 
     return LightContribution(radiance, resolved_light_sample.inverse_pdf, wi, resolved_light_sample.world_position.w == 1.0);
 }

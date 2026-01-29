@@ -4,7 +4,7 @@ use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use std::f32::consts::PI;
 
 use bevy::{
-    anti_alias::fxaa::Fxaa,
+    anti_alias::taa::TemporalAntiAliasing,
     camera::Exposure,
     color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
@@ -14,12 +14,12 @@ use bevy::{
     },
     input::keyboard::KeyCode,
     light::{
-        light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, FogVolume,
-        VolumetricFog, VolumetricLight,
+        atmosphere::ScatteringMedium, light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight,
+        CascadeShadowConfigBuilder, FogVolume, VolumetricFog, VolumetricLight,
     },
     pbr::{
-        Atmosphere, AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod,
-        ExtendedMaterial, MaterialExtension, ScatteringMedium, ScreenSpaceReflections,
+        AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, ExtendedMaterial,
+        MaterialExtension, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
@@ -128,7 +128,7 @@ fn setup_camera_fog(
             ..default()
         },
         Msaa::Off,
-        Fxaa::default(),
+        TemporalAntiAliasing::default(),
         ScreenSpaceReflections::default(),
     ));
 }

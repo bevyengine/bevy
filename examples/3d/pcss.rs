@@ -2,18 +2,16 @@
 
 use std::f32::consts::PI;
 
+#[cfg(feature = "free_camera")]
+use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::{
         primitives::{CubemapFrusta, Frustum},
         visibility::{CubemapVisibleEntities, VisibleMeshEntities},
     },
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    core_pipeline::{
-        prepass::{DepthPrepass, MotionVectorPrepass},
-        Skybox,
-    },
-    light::ShadowFilteringMethod,
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
+    light::{ShadowFilteringMethod, Skybox},
     math::vec3,
     prelude::*,
     render::camera::TemporalJitter,
@@ -113,6 +111,9 @@ enum AppSetting {
 
 /// The example application entry point.
 fn main() {
+    #[cfg(not(feature = "free_camera"))]
+    println!("Enable feature free_camera to add a free camera to this example");
+
     App::new()
         .init_resource::<AppStatus>()
         .add_plugins((
@@ -123,6 +124,7 @@ fn main() {
                 }),
                 ..default()
             }),
+            #[cfg(feature = "free_camera")]
             FreeCameraPlugin,
         ))
         .add_message::<WidgetClickEvent<AppSetting>>()
@@ -160,6 +162,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7).with_rotation(
                 Quat::from_euler(EulerRot::YXZ, -134.76 / 180.0 * PI, -0.175, 0.0),
             ),
+            #[cfg(feature = "free_camera")]
             FreeCamera::default(),
         ))
         .insert(ShadowFilteringMethod::Gaussian)
