@@ -3714,7 +3714,7 @@ wasm = true
 # UI (User Interface)
 [[example]]
 name = "anchor_layout"
-path = "examples/ui/anchor_layout.rs"
+path = "examples/ui/layout/anchor_layout.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3726,7 +3726,7 @@ wasm = true
 
 [[example]]
 name = "borders"
-path = "examples/ui/borders.rs"
+path = "examples/ui/styling/borders.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3738,7 +3738,7 @@ wasm = true
 
 [[example]]
 name = "box_shadow"
-path = "examples/ui/box_shadow.rs"
+path = "examples/ui/styling/box_shadow.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3750,7 +3750,7 @@ wasm = true
 
 [[example]]
 name = "button"
-path = "examples/ui/button.rs"
+path = "examples/ui/widgets/button.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3773,7 +3773,7 @@ wasm = true
 
 [[example]]
 name = "font_query"
-path = "examples/ui/font_query.rs"
+path = "examples/ui/text/font_query.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.font_query]
@@ -3784,7 +3784,7 @@ wasm = true
 
 [[example]]
 name = "display_and_visibility"
-path = "examples/ui/display_and_visibility.rs"
+path = "examples/ui/layout/display_and_visibility.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3796,7 +3796,7 @@ wasm = true
 
 [[example]]
 name = "font_weights"
-path = "examples/ui/font_weights.rs"
+path = "examples/ui/text/font_weights.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3819,7 +3819,7 @@ wasm = false
 
 [[example]]
 name = "vertical_slider"
-path = "examples/ui/vertical_slider.rs"
+path = "examples/ui/widgets/vertical_slider.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 required-features = ["experimental_bevy_ui_widgets"]
@@ -3832,7 +3832,7 @@ wasm = true
 
 [[example]]
 name = "font_atlas_debug"
-path = "examples/ui/font_atlas_debug.rs"
+path = "examples/ui/text/font_atlas_debug.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.font_atlas_debug]
@@ -3843,7 +3843,7 @@ wasm = true
 
 [[example]]
 name = "overflow"
-path = "examples/ui/overflow.rs"
+path = "examples/ui/scroll_and_overflow/overflow.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3855,7 +3855,7 @@ wasm = true
 
 [[example]]
 name = "overflow_clip_margin"
-path = "examples/ui/overflow_clip_margin.rs"
+path = "examples/ui/scroll_and_overflow/overflow_clip_margin.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3868,7 +3868,7 @@ wasm = true
 
 [[example]]
 name = "overflow_debug"
-path = "examples/ui/overflow_debug.rs"
+path = "examples/ui/scroll_and_overflow/overflow_debug.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3904,7 +3904,7 @@ wasm = true
 
 [[example]]
 name = "size_constraints"
-path = "examples/ui/size_constraints.rs"
+path = "examples/ui/layout/size_constraints.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3916,7 +3916,7 @@ wasm = true
 
 [[example]]
 name = "strikethrough_and_underline"
-path = "examples/ui/strikethrough_and_underline.rs"
+path = "examples/ui/text/strikethrough_and_underline.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3928,7 +3928,7 @@ wasm = true
 
 [[example]]
 name = "generic_font_families"
-path = "examples/ui/generic_font_families.rs"
+path = "examples/ui/text/generic_font_families.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3940,7 +3940,7 @@ wasm = true
 
 [[example]]
 name = "text"
-path = "examples/ui/text.rs"
+path = "examples/ui/text/text.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3952,7 +3952,7 @@ wasm = true
 
 [[example]]
 name = "text_background_colors"
-path = "examples/ui/text_background_colors.rs"
+path = "examples/ui/text/text_background_colors.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3964,7 +3964,7 @@ wasm = true
 
 [[example]]
 name = "text_debug"
-path = "examples/ui/text_debug.rs"
+path = "examples/ui/text/text_debug.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3976,7 +3976,7 @@ wasm = true
 
 [[example]]
 name = "flex_layout"
-path = "examples/ui/flex_layout.rs"
+path = "examples/ui/layout/flex_layout.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -3988,7 +3988,7 @@ wasm = true
 
 [[example]]
 name = "text_wrap_debug"
-path = "examples/ui/text_wrap_debug.rs"
+path = "examples/ui/text/text_wrap_debug.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -4000,7 +4000,7 @@ wasm = true
 
 [[example]]
 name = "ghost_nodes"
-path = "examples/ui/ghost_nodes.rs"
+path = "examples/ui/layout/ghost_nodes.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 required-features = ["ghost_nodes"]
@@ -4013,7 +4013,7 @@ wasm = true
 
 [[example]]
 name = "grid"
-path = "examples/ui/grid.rs"
+path = "examples/ui/layout/grid.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -4025,7 +4025,7 @@ wasm = true
 
 [[example]]
 name = "gradients"
-path = "examples/ui/gradients.rs"
+path = "examples/ui/styling/gradients.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -4037,7 +4037,7 @@ wasm = true
 
 [[example]]
 name = "stacked_gradients"
-path = "examples/ui/stacked_gradients.rs"
+path = "examples/ui/styling/stacked_gradients.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -4049,7 +4049,7 @@ wasm = true
 
 [[example]]
 name = "scroll"
-path = "examples/ui/scroll.rs"
+path = "examples/ui/scroll_and_overflow/scroll.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -4061,7 +4061,7 @@ wasm = true
 
 [[example]]
 name = "transparency_ui"
-path = "examples/ui/transparency_ui.rs"
+path = "examples/ui/styling/transparency_ui.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -4073,7 +4073,7 @@ wasm = true
 
 [[example]]
 name = "z_index"
-path = "examples/ui/z_index.rs"
+path = "examples/ui/layout/z_index.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.z_index]
@@ -4084,7 +4084,7 @@ wasm = true
 
 [[example]]
 name = "virtual_keyboard"
-path = "examples/ui/virtual_keyboard.rs"
+path = "examples/ui/widgets/virtual_keyboard.rs"
 doc-scrape-examples = true
 required-features = ["experimental_bevy_feathers"]
 
@@ -4108,7 +4108,7 @@ wasm = true
 
 [[example]]
 name = "ui_texture_atlas"
-path = "examples/ui/ui_texture_atlas.rs"
+path = "examples/ui/images/ui_texture_atlas.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -4120,7 +4120,7 @@ wasm = true
 
 [[example]]
 name = "ui_texture_slice"
-path = "examples/ui/ui_texture_slice.rs"
+path = "examples/ui/images/ui_texture_slice.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.ui_texture_slice]
@@ -4131,7 +4131,7 @@ wasm = true
 
 [[example]]
 name = "ui_texture_slice_flip_and_tile"
-path = "examples/ui/ui_texture_slice_flip_and_tile.rs"
+path = "examples/ui/images/ui_texture_slice_flip_and_tile.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.ui_texture_slice_flip_and_tile]
@@ -4142,7 +4142,7 @@ wasm = true
 
 [[example]]
 name = "ui_texture_atlas_slice"
-path = "examples/ui/ui_texture_atlas_slice.rs"
+path = "examples/ui/images/ui_texture_atlas_slice.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.ui_texture_atlas_slice]
@@ -4177,7 +4177,7 @@ wasm = true
 
 [[example]]
 name = "viewport_node"
-path = "examples/ui/viewport_node.rs"
+path = "examples/ui/widgets/viewport_node.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -4189,7 +4189,7 @@ wasm = true
 
 [[example]]
 name = "image_node"
-path = "examples/ui/image_node.rs"
+path = "examples/ui/images/image_node.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -4201,7 +4201,7 @@ wasm = true
 
 [[example]]
 name = "image_node_resizing"
-path = "examples/ui/image_node_resizing.rs"
+path = "examples/ui/images/image_node_resizing.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -4389,7 +4389,7 @@ wasm = true
 
 [[example]]
 name = "drag_to_scroll"
-path = "examples/ui/drag_to_scroll.rs"
+path = "examples/ui/scroll_and_overflow/drag_to_scroll.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
@@ -5181,7 +5181,7 @@ hidden = true
 
 [[example]]
 name = "tab_navigation"
-path = "examples/ui/tab_navigation.rs"
+path = "examples/ui/widgets/tab_navigation.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.tab_navigation]
@@ -5317,7 +5317,7 @@ wasm = false
 
 [[example]]
 name = "standard_widgets"
-path = "examples/ui/standard_widgets.rs"
+path = "examples/ui/widgets/standard_widgets.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 required-features = ["experimental_bevy_ui_widgets"]
@@ -5330,7 +5330,7 @@ wasm = true
 
 [[example]]
 name = "standard_widgets_observers"
-path = "examples/ui/standard_widgets_observers.rs"
+path = "examples/ui/widgets/standard_widgets_observers.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 required-features = ["experimental_bevy_ui_widgets"]
@@ -5343,7 +5343,7 @@ wasm = true
 
 [[example]]
 name = "scrollbars"
-path = "examples/ui/scrollbars.rs"
+path = "examples/ui/scroll_and_overflow/scrollbars.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 required-features = ["experimental_bevy_ui_widgets"]
@@ -5356,7 +5356,7 @@ wasm = true
 
 [[example]]
 name = "system_fonts"
-path = "examples/ui/system_fonts.rs"
+path = "examples/ui/text/system_fonts.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.system_fonts]
@@ -5367,7 +5367,7 @@ wasm = true
 
 [[example]]
 name = "feathers"
-path = "examples/ui/feathers.rs"
+path = "examples/ui/widgets/feathers.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 required-features = ["experimental_bevy_feathers"]
