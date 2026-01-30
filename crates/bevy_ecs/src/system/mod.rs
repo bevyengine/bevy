@@ -904,15 +904,6 @@ mod tests {
 
     #[test]
     #[should_panic = "error[B0001]"]
-    fn nested_query_conflicts_with_other_nested_query() {
-        fn sys(_: Query<(NestedQuery<&mut A>, NestedQuery<&A>)>) {}
-
-        let mut world = World::default();
-        run_system(&mut world, sys);
-    }
-
-    #[test]
-    #[should_panic = "error[B0001]"]
     fn nested_query_conflicts_with_earlier_query() {
         fn sys(_: Query<&mut A>, _: Query<NestedQuery<&A>>) {}
 
