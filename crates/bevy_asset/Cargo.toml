@@ -94,7 +94,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-featu
 ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-notify-debouncer-full = { version = "0.6.0", default-features = false, optional = true }
+notify-debouncer-full = { version = "0.7.0", default-features = false, optional = true }
 # updating ureq: while ureq is semver stable, it depends on rustls which is not, meaning unlikely but possible breaking changes on minor releases. https://github.com/bevyengine/bevy/pull/16366#issuecomment-2572890794
 ureq = { version = "3", optional = true, default-features = false }
 blocking = { version = "1.6", optional = true }
