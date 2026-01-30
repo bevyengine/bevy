@@ -275,6 +275,9 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
+        load_shader_library!(app, "maths.wgsl");
+        load_shader_library!(app, "color_operations.wgsl");
+        load_shader_library!(app, "bindless.wgsl");
 
         let primary_window = app
             .world_mut()
@@ -351,47 +354,57 @@ impl Plugin for RenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        load_shader_library!(app, "maths.wgsl");
-        load_shader_library!(app, "color_operations.wgsl");
-        load_shader_library!(app, "bindless.wgsl");
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
+            let bevy_app::SubApps { main, sub_apps } = app.sub_apps_mut();
+            let render = sub_apps.get_mut(&RenderApp.intern()).unwrap();
             let render_resources = future_render_resources.0.lock().unwrap().take().unwrap();
-            let RenderResources(device, queue, adapter_info, render_adapter, instance, ..) =
-                render_resources;
 
-            let compressed_image_format_support = CompressedImageFormatSupport(
-                CompressedImageFormats::from_features(device.features()),
+            render_resources.unpack_into(
+                main.world_mut(),
+                render.world_mut(),
+                self.synchronous_pipeline_compilation,
             );
-
-            app.insert_resource(device.clone())
-                .insert_resource(queue.clone())
-                .insert_resource(adapter_info.clone())
-                .insert_resource(render_adapter.clone())
-                .insert_resource(compressed_image_format_support);
-
-            let render_app = app.sub_app_mut(RenderApp);
-
-            #[cfg(feature = "raw_vulkan_init")]
-            {
-                let additional_vulkan_features: renderer::raw_vulkan_init::AdditionalVulkanFeatures =
-                    render_resources.5;
-                render_app.insert_resource(additional_vulkan_features);
-            }
-
-            render_app
-                .insert_resource(instance)
-                .insert_resource(PipelineCache::new(
-                    device.clone(),
-                    render_adapter.clone(),
-                    self.synchronous_pipeline_compilation,
-                ))
-                .insert_resource(device)
-                .insert_resource(queue)
-                .insert_resource(render_adapter)
-                .insert_resource(adapter_info);
         }
+    }
+}
+
+impl RenderResources {
+    fn unpack_into(
+        self,
+        main_world: &mut World,
+        render_world: &mut World,
+        synchronous_pipeline_compilation: bool,
+    ) {
+        let RenderResources(device, queue, adapter_info, render_adapter, instance, ..) = self;
+
+        let compressed_image_format_support =
+            CompressedImageFormatSupport(CompressedImageFormats::from_features(device.features()));
+
+        main_world.insert_resource(device.clone());
+        main_world.insert_resource(queue.clone());
+        main_world.insert_resource(adapter_info.clone());
+        main_world.insert_resource(render_adapter.clone());
+        main_world.insert_resource(compressed_image_format_support);
+
+        #[cfg(feature = "raw_vulkan_init")]
+        {
+            let additional_vulkan_features: renderer::raw_vulkan_init::AdditionalVulkanFeatures =
+                self.5;
+            render_world.insert_resource(additional_vulkan_features);
+        }
+
+        render_world.insert_resource(instance);
+        render_world.insert_resource(PipelineCache::new(
+            device.clone(),
+            render_adapter.clone(),
+            synchronous_pipeline_compilation,
+        ));
+        render_world.insert_resource(device);
+        render_world.insert_resource(queue);
+        render_world.insert_resource(render_adapter);
+        render_world.insert_resource(adapter_info);
     }
 }
 
