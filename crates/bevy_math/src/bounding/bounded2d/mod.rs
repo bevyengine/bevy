@@ -11,7 +11,7 @@ use crate::{
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use itertools::{Itertools, MinMaxResult};
+use itertools::Itertools;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
@@ -108,6 +108,15 @@ impl Aabb2d {
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         // Clamp point coordinates to the AABB
         point.clamp(self.min, self.max)
+    }
+
+    /// Converts this AABB into an OBB
+    #[inline]
+    pub fn obb_2d(&self) -> Obb2d {
+        Obb2d {
+            isometry: Isometry2d::from_translation(self.center()),
+            half_size: self.half_size(),
+        }
     }
 }
 
@@ -796,12 +805,15 @@ pub struct Obb2d {
 
 impl Obb2d {
     /// Gets the axes of the box in world coordinate space
+    /// 
+    /// Conveniently, the axes are just the rotation matrix.
+    /// Each axis should already be normalized.
     #[inline]
     pub fn get_axes(&self) -> Mat2 {
         self.isometry.rotation.into()
     }
 
-    /// Gets the four corners of the box in world coordinate space
+    /// Gets the four corners of the obb in world coordinate space
     #[inline]
     pub fn get_corners(&self) -> [Vec2; 4] {
         [
@@ -869,16 +881,17 @@ impl BoundingVolume for Obb2d {
         // It should be the *smallest* bounding box that contains
         // both self and other, which makes this trickier.
         // Tentative algorithm (does not guarantee smallest):
-        // Pick a tentative new center as the midpoint between self and other.
-        // Of the eight corners between self and other, find the farthest point from the center.
+        // Pick the new center as the center of the 8 corner points
+        // Of the eight corners, find the farthest point from the center.
         // The farthest point should be the initial half extent in one direction.
         // Between the center and this farthest point, you now have one axes of direction / line segment
         // Find the orthogonal direction (e.g. by rotating the initial direction 90 degrees). 
-        // Find the farthest points along the orthogonal axes, and the other farthest point along orig dir
-        // Adjust the center / half extents as necessary until everything fits tightly.
+        // Find the farthest point along the orthogonal axes to get the half extent in the other direction
         // Note: This does not find the smallest bounding box in some special cases
         // e.g. two identical squares well aligned with each other with some distance apart.
         // the ideal obb in that case is a rectangle that fits snugly on 3 sides of each squares.
+        // this could be remedied by testing whether any edge connected to the farthest point
+        // should be an edge/direction in the merged obb.
         todo!();
     }
 
@@ -981,16 +994,15 @@ fn projections_have_overlap(
     self_points: &[Vec2; 4],
     other_points: &[Vec2; 4],
 ) -> bool {
-    let normal = normal / normal.length();
     let (self_min, self_max) = self_points
         .iter()
-        .map(|point| point.dot(normal))
+        .map(|point| point.dot(*normal))
         .minmax()
         .into_option()
         .expect("There should be a min/max because there are elements in self_points.");
     let (other_min, other_max) = other_points
         .iter()
-        .map(|point| point.dot(normal))
+        .map(|point| point.dot(*normal))
         .minmax()
         .into_option()
         .expect("There should be a min/max because there are elements in other_points.");
@@ -1001,12 +1013,7 @@ fn projections_have_overlap(
 impl IntersectsVolume<Aabb2d> for Obb2d {
     #[inline]
     fn intersects(&self, aabb: &Aabb2d) -> bool {
-        // an aabb is just an obb without rotation.
-        let other = Obb2d {
-            isometry: Isometry2d::from_translation(aabb.center()),
-            half_size: aabb.half_size(),
-        };
-        self.intersects(&other)
+        self.intersects(&aabb.obb_2d())
     }
 }
 
@@ -1031,5 +1038,269 @@ impl IntersectsVolume<Obb2d> for BoundingCircle {
     #[inline]
     fn intersects(&self, obb: &Obb2d) -> bool {
         obb.intersects(self)
+    }
+}
+
+#[cfg(test)]
+mod obb2d_tests {
+    use core::f32::consts::{FRAC_1_SQRT_2, SQRT_2};
+
+    use approx::assert_relative_eq;
+
+    use super::Obb2d;
+    use crate::{
+        Isometry2d, Rot2, Vec2, bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume}, ops
+    };
+
+    #[test]
+    fn center() {
+        let obb = Obb2d {
+            isometry: Isometry2d::from_rotation(Rot2::FRAC_PI_4),
+            half_size: Vec2::new(2., 5.)
+        };
+        assert!((obb.center() - Vec2::new(0., 0.)).length() < f32::EPSILON);
+        let obb = Obb2d {
+            isometry: Isometry2d::from_translation(Vec2::new(3., -5.)),
+            half_size: Vec2::new(1., 8.)
+        };
+        assert!((obb.center() - Vec2::new(3., -5.)).length() < f32::EPSILON);
+    }
+
+    #[test]
+    fn half_size() {
+        let obb = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::FRAC_PI_8,
+                translation: Vec2::new(2., -8.)
+            },
+            half_size: Vec2::new(3., 9.)
+        };
+        let half_size = obb.half_size();
+        assert!((half_size - Vec2::new(3., 9.)).length() < f32::EPSILON);
+    }
+
+    #[test]
+    fn area() {
+        let obb = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::FRAC_PI_8,
+                translation: Vec2::new(2., -8.)
+            },
+            half_size: Vec2::new(2., 5.)
+        };
+        assert!(ops::abs(obb.visible_area() - 40.) < f32::EPSILON);
+        let obb = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::FRAC_PI_8,
+                translation: Vec2::new(2., -8.)
+            },
+            half_size: Vec2::new(1., 0.25)
+        };
+        assert!(ops::abs(obb.visible_area() - 1.) < f32::EPSILON);
+    }
+
+    #[test]
+    fn contains() {
+        let a = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::FRAC_PI_2,
+                translation: Vec2::new(2., -8.)
+            },
+            half_size: Vec2::new(2., 2.)
+        };
+        let b = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::IDENTITY,
+                translation: Vec2::new(4., -10.)
+            },
+            half_size: Vec2::new(3., 3.)
+        };
+        assert!(!a.contains(&b));
+        let b = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::IDENTITY,
+                translation: Vec2::new(1., -9.)
+            },
+            half_size: Vec2::new(1., 1.)
+        };
+        assert!(a.contains(&b));
+    }
+
+    #[test]
+    fn grow() {
+        let a = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::IDENTITY,
+                translation: Vec2::new(1., -9.)
+            },
+            half_size: Vec2::new(2., 1.)
+        };
+        let padded = a.grow(Vec2::ONE);
+        assert!((padded.half_size - Vec2::new(3., 2.)).length() < f32::EPSILON);
+        assert!(padded.contains(&a));
+        assert!(!a.contains(&padded));
+    }
+
+    #[test]
+    fn shrink() {
+        let a = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::IDENTITY,
+                translation: Vec2::new(1., -9.)
+            },
+            half_size: Vec2::new(3., 2.)
+        };
+        let shrunk = a.shrink(Vec2::ONE);
+        assert!((shrunk.half_size - Vec2::new(2., 1.)).length() < f32::EPSILON);
+        assert!(a.contains(&shrunk));
+        assert!(!shrunk.contains(&a));
+    }
+
+    #[test]
+    fn scale_around_center() {
+        let a = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::IDENTITY,
+                translation: Vec2::new(1., -9.)
+            },
+            half_size: Vec2::new(1., 1.)
+        };
+        let scaled = a.scale_around_center(Vec2::splat(2.));
+        assert!((scaled.half_size - Vec2::splat(2.)).length() < f32::EPSILON);
+        assert!(!a.contains(&scaled));
+        assert!(scaled.contains(&a));
+    }
+
+    #[test]
+    fn rotate() {
+        let a = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::FRAC_PI_4,
+                translation: Vec2::new(3., -2.)
+            },
+            half_size: Vec2::new(1., 1.)
+        };
+        let rotated = a.rotated_by(core::f32::consts::FRAC_PI_2);
+        assert_relative_eq!(rotated.center(), Vec2::new(2., 3.), epsilon=2e-7); 
+    }
+
+    #[test]
+    fn transform() {
+        let a = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::FRAC_PI_4,
+                translation: Vec2::new(3., -2.)
+            },
+            half_size: Vec2::new(1., 1.)
+        };
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), core::f32::consts::FRAC_PI_2);
+        assert_relative_eq!(
+            transformed.center(),
+            Vec2::new(4.0, 1.0),
+            epsilon=2e-7
+        );
+    }
+
+    #[test]
+    fn closest_point() {
+        let obb = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::FRAC_PI_4,
+                translation: Vec2::new(2., -3.)
+            },
+            half_size: Vec2::new(1., 1.)
+        };
+        assert_relative_eq!(
+            obb.closest_point(Vec2::new(20., -3.)), 
+            Vec2::new(2. + SQRT_2, -3.),
+            epsilon=2e-7);
+        assert_relative_eq!(
+            obb.closest_point(Vec2::new(2. + FRAC_1_SQRT_2 + 20., -3. - FRAC_1_SQRT_2 - 20.)), 
+            Vec2::new(2. + FRAC_1_SQRT_2, -3. - FRAC_1_SQRT_2),
+            epsilon=2e-6);
+        assert_relative_eq!(
+            obb.closest_point(Vec2::new(2.25, -3.1)),
+            Vec2::new(2.25, -3.1),
+            epsilon=2e-7);
+    }
+
+    #[test]
+    fn intersect_obb() {
+        let obb: Obb2d = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::FRAC_PI_4,
+                translation: Vec2::new(2., -3.)
+            },
+            half_size: Vec2::new(1., 1.)
+        };
+        assert!(obb.intersects(&obb));
+        // contains the other obb2d
+        assert!(obb.intersects(&Obb2d {
+            isometry: Isometry2d::from_translation(Vec2::new(2., -3.)),
+            half_size: Vec2::new(0.5, 0.5)
+        }));
+        // has some area overlap
+        assert!(obb.intersects(&Obb2d {
+            isometry: Isometry2d::from_translation(Vec2::new(2., -2.)),
+            half_size: Vec2::new(1., 1.)
+        }));
+        // touches a corner
+        assert!(obb.intersects(&Obb2d {
+            isometry: Isometry2d::from_translation(Vec2::new(3. + FRAC_1_SQRT_2, -3.)),
+            half_size: Vec2::new(1., 1.)
+        }));
+        // does not intersect
+        assert!(!obb.intersects(&Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::FRAC_PI_2,
+                translation: Vec2::new(2., -6.)
+            },
+            half_size: Vec2::new(1., 1.)
+        }));
+    }
+
+    #[test]
+    fn intersect_abb() {
+        let obb: Obb2d = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::FRAC_PI_4,
+                translation: Vec2::new(2., -3.)
+            },
+            half_size: Vec2::new(1., 1.)
+        };
+        assert!(obb.intersects(&Aabb2d {
+            min: Vec2::new(1.5, -3.5),
+            max: Vec2::new(2.5, -2.5),
+        }));
+        assert!(obb.intersects(&Aabb2d {
+            min: Vec2::new(3., -4.),
+            max: Vec2::new(4., -2.),
+        }));
+        assert!(obb.intersects(&Aabb2d {
+            min: Vec2::new(1., -5.),
+            max: Vec2::new(3., -3. - FRAC_1_SQRT_2),
+        }));
+        assert!(!obb.intersects(&Aabb2d {
+            min: Vec2::new(1.1, 0.0),
+            max: Vec2::new(2.0, 0.5),
+        }));
+    }
+
+    #[test]
+    fn intersect_bounding_circle() {
+        let obb: Obb2d = Obb2d {
+            isometry: Isometry2d {
+                rotation: Rot2::FRAC_PI_4,
+                translation: Vec2::new(2., -3.)
+            },
+            half_size: Vec2::new(1., 1.)
+        };
+        // contains
+        assert!(obb.intersects(&BoundingCircle::new(Vec2::new(2., -3.), 1.0)));
+        // overlaps
+        assert!(obb.intersects(&BoundingCircle::new(Vec2::new(1., -3.), 1.0)));
+        // touching a corner
+        assert!(obb.intersects(&BoundingCircle::new(Vec2::new(4. + FRAC_1_SQRT_2, -3.), 2.0)));
+        assert!(!obb.intersects(&BoundingCircle::new(Vec2::ZERO, 2.0)));
     }
 }
