@@ -940,7 +940,7 @@ impl BoundingVolume for Obb2d {
             translation,
             rotation,
         };
-        self.isometry = isometry * self.isometry
+        self.isometry = isometry * self.isometry;
     }
 
     /// Translates the bounding volume by the given translation.
@@ -1006,8 +1006,7 @@ fn projections_have_overlap(
         .minmax()
         .into_option()
         .expect("There should be a min/max because there are elements in other_points.");
-    (self_max >= other_min && self_min <= other_max)
-        || (other_max >= self_min && other_min <= self_max)
+    self_max >= other_min && self_min <= other_max
 }
 
 impl IntersectsVolume<Aabb2d> for Obb2d {
