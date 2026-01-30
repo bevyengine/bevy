@@ -1476,6 +1476,62 @@ pub fn ktx2_format_to_texture_format(
                 },
             }
         }
+        ktx2::Format::ASTC_4x4_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B4x4,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_5x4_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B5x4,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_5x5_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B5x5,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_6x5_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B6x5,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_6x6_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B6x6,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_8x5_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B8x5,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_8x6_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B8x6,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_8x8_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B8x8,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_10x5_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B10x5,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_10x6_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B10x6,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_10x8_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B10x8,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_10x10_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B10x10,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_12x10_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B12x10,
+            channel: AstcChannel::Hdr,
+        },
+        ktx2::Format::ASTC_12x12_SFLOAT_BLOCK => TextureFormat::Astc {
+            block: AstcBlock::B12x12,
+            channel: AstcChannel::Hdr,
+        },
         _ => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{ktx2_format:?}"
