@@ -11,19 +11,23 @@ use core::num::{NonZero, NonZeroU64};
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
-    mip_generation::experimental::depth::ViewDepthPyramid,
-    prepass::{DepthPrepass, PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms},
+    deferred::node::late_deferred_prepass,
+    mip_generation::experimental::depth::{early_downsample_depth, ViewDepthPyramid},
+    prepass::{
+        node::{early_prepass, late_prepass},
+        DepthPrepass, PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms,
+    },
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     prelude::resource_exists,
-    query::{Has, Or, QueryState, With, Without},
+    query::{Has, Or, With, Without},
     resource::Resource,
-    schedule::IntoScheduleConfigs as _,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
+    schedule::{common_conditions::any_match_filter, IntoScheduleConfigs as _},
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_log::warn_once;
@@ -36,9 +40,8 @@ use bevy_render::{
         PreprocessWorkItemBuffers, UntypedPhaseBatchedInstanceBuffers,
         UntypedPhaseIndirectParametersBuffers,
     },
-    diagnostic::RecordDiagnostics,
+    diagnostic::RecordDiagnostics as _,
     occlusion_culling::OcclusionCulling,
-    render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindingResource, Buffer,
@@ -47,7 +50,7 @@ use bevy_render::{
         SpecializedComputePipeline, SpecializedComputePipelines, TextureSampleType,
         UninitBufferVec,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     settings::WgpuFeatures,
     view::{ExtractedView, NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSystems,
@@ -58,9 +61,7 @@ use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
-use crate::{
-    graph::NodePbr, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
-};
+use crate::{MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform};
 
 use super::{ShadowView, ViewLightEntities};
 
@@ -77,109 +78,6 @@ pub struct GpuMeshPreprocessPlugin {
     /// This requires compute shader support and so will be forcibly disabled if
     /// the platform doesn't support those.
     pub use_gpu_instance_buffer_builder: bool,
-}
-
-/// The render node that clears out the GPU-side indirect metadata buffers.
-///
-/// This is only used when indirect drawing is enabled.
-#[derive(Default)]
-pub struct ClearIndirectParametersMetadataNode;
-
-/// The render node for the first mesh preprocessing pass.
-///
-/// This pass runs a compute shader to cull meshes outside the view frustum (if
-/// that wasn't done by the CPU), cull meshes that weren't visible last frame
-/// (if occlusion culling is on), transform them, and, if indirect drawing is
-/// on, populate indirect draw parameter metadata for the subsequent
-/// [`EarlyPrepassBuildIndirectParametersNode`].
-pub struct EarlyGpuPreprocessNode {
-    view_query: QueryState<
-        (
-            Read<ExtractedView>,
-            Option<Read<PreprocessBindGroups>>,
-            Option<Read<ViewUniformOffset>>,
-            Has<NoIndirectDrawing>,
-            Has<OcclusionCulling>,
-        ),
-        Without<SkipGpuPreprocess>,
-    >,
-    main_view_query: QueryState<Read<ViewLightEntities>>,
-}
-
-/// The render node for the second mesh preprocessing pass.
-///
-/// This pass runs a compute shader to cull meshes outside the view frustum (if
-/// that wasn't done by the CPU), cull meshes that were neither visible last
-/// frame nor visible this frame (if occlusion culling is on), transform them,
-/// and, if indirect drawing is on, populate the indirect draw parameter
-/// metadata for the subsequent [`LatePrepassBuildIndirectParametersNode`].
-pub struct LateGpuPreprocessNode {
-    view_query: QueryState<
-        (
-            Read<ExtractedView>,
-            Read<PreprocessBindGroups>,
-            Read<ViewUniformOffset>,
-        ),
-        (
-            Without<SkipGpuPreprocess>,
-            Without<NoIndirectDrawing>,
-            With<OcclusionCulling>,
-            With<DepthPrepass>,
-        ),
-    >,
-}
-
-/// The render node for the part of the indirect parameter building pass that
-/// draws the meshes visible from the previous frame.
-///
-/// This node runs a compute shader on the output of the
-/// [`EarlyGpuPreprocessNode`] in order to transform the
-/// [`IndirectParametersGpuMetadata`] into properly-formatted
-/// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
-pub struct EarlyPrepassBuildIndirectParametersNode {
-    view_query: QueryState<
-        Read<PreprocessBindGroups>,
-        (
-            Without<SkipGpuPreprocess>,
-            Without<NoIndirectDrawing>,
-            Or<(With<DepthPrepass>, With<ShadowView>)>,
-        ),
-    >,
-}
-
-/// The render node for the part of the indirect parameter building pass that
-/// draws the meshes that are potentially visible on this frame but weren't
-/// visible on the previous frame.
-///
-/// This node runs a compute shader on the output of the
-/// [`LateGpuPreprocessNode`] in order to transform the
-/// [`IndirectParametersGpuMetadata`] into properly-formatted
-/// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
-pub struct LatePrepassBuildIndirectParametersNode {
-    view_query: QueryState<
-        Read<PreprocessBindGroups>,
-        (
-            Without<SkipGpuPreprocess>,
-            Without<NoIndirectDrawing>,
-            Or<(With<DepthPrepass>, With<ShadowView>)>,
-            With<OcclusionCulling>,
-        ),
-    >,
-}
-
-/// The render node for the part of the indirect parameter building pass that
-/// draws all meshes, both those that are newly-visible on this frame and those
-/// that were visible last frame.
-///
-/// This node runs a compute shader on the output of the
-/// [`EarlyGpuPreprocessNode`] and [`LateGpuPreprocessNode`] in order to
-/// transform the [`IndirectParametersGpuMetadata`] into properly-formatted
-/// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
-pub struct MainBuildIndirectParametersNode {
-    view_query: QueryState<
-        Read<PreprocessBindGroups>,
-        (Without<SkipGpuPreprocess>, Without<NoIndirectDrawing>),
-    >,
 }
 
 /// The compute shader pipelines for the GPU mesh preprocessing and indirect
@@ -463,601 +361,488 @@ impl Plugin for GpuMeshPreprocessPlugin {
                     write_mesh_culling_data_buffer.in_set(RenderSystems::PrepareResourcesFlush),
                 ),
             )
-            .add_render_graph_node::<ClearIndirectParametersMetadataNode>(
-                Core3d,
-                NodePbr::ClearIndirectParametersMetadata
-            )
-            .add_render_graph_node::<EarlyGpuPreprocessNode>(Core3d, NodePbr::EarlyGpuPreprocess)
-            .add_render_graph_node::<LateGpuPreprocessNode>(Core3d, NodePbr::LateGpuPreprocess)
-            .add_render_graph_node::<EarlyPrepassBuildIndirectParametersNode>(
-                Core3d,
-                NodePbr::EarlyPrepassBuildIndirectParameters,
-            )
-            .add_render_graph_node::<LatePrepassBuildIndirectParametersNode>(
-                Core3d,
-                NodePbr::LatePrepassBuildIndirectParameters,
-            )
-            .add_render_graph_node::<MainBuildIndirectParametersNode>(
-                Core3d,
-                NodePbr::MainBuildIndirectParameters,
-            )
-            .add_render_graph_edges(
+            .add_systems(
                 Core3d,
                 (
-                    NodePbr::ClearIndirectParametersMetadata,
-                    NodePbr::EarlyGpuPreprocess,
-                    NodePbr::EarlyPrepassBuildIndirectParameters,
-                    Node3d::EarlyPrepass,
-                    Node3d::EarlyDeferredPrepass,
-                    Node3d::EarlyDownsampleDepth,
-                    NodePbr::LateGpuPreprocess,
-                    NodePbr::LatePrepassBuildIndirectParameters,
-                    Node3d::LatePrepass,
-                    Node3d::LateDeferredPrepass,
-                    NodePbr::MainBuildIndirectParameters,
-                    Node3d::StartMainPass,
+                    (
+                        clear_indirect_parameters_metadata,
+                        early_gpu_preprocess,
+                        early_prepass_build_indirect_parameters.run_if(any_match_filter::<(
+                            With<PreprocessBindGroups>,
+                            Without<SkipGpuPreprocess>,
+                            Without<NoIndirectDrawing>,
+                            Or<(With<DepthPrepass>, With<ShadowView>)>,
+                        )>),
+                    )
+                        .chain()
+                        .before(early_prepass),
+                    (
+                        late_gpu_preprocess,
+                        late_prepass_build_indirect_parameters.run_if(any_match_filter::<(
+                            With<PreprocessBindGroups>,
+                            Without<SkipGpuPreprocess>,
+                            Without<NoIndirectDrawing>,
+                            Or<(With<DepthPrepass>, With<ShadowView>)>,
+                            With<OcclusionCulling>,
+                        )>),
+                    )
+                        .chain()
+                        .after(early_downsample_depth)
+                        .before(late_prepass),
+                    main_build_indirect_parameters
+                        .run_if(any_match_filter::<(
+                            With<PreprocessBindGroups>,
+                            Without<SkipGpuPreprocess>,
+                            Without<NoIndirectDrawing>,
+                        )>)
+                        .after(late_prepass_build_indirect_parameters)
+                        .after(late_deferred_prepass)
+                        .before(Core3dSystems::MainPass),
                 ),
-            ).add_render_graph_edges(
-                Core3d,
-                (
-                    NodePbr::EarlyPrepassBuildIndirectParameters,
-                    NodePbr::EarlyShadowPass,
-                    Node3d::EarlyDownsampleDepth,
-                )
-            ).add_render_graph_edges(
-                Core3d,
-                (
-                    NodePbr::LatePrepassBuildIndirectParameters,
-                    NodePbr::LateShadowPass,
-                    NodePbr::MainBuildIndirectParameters,
-                )
             );
     }
 }
 
-impl Node for ClearIndirectParametersMetadataNode {
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let Some(indirect_parameters_buffers) = world.get_resource::<IndirectParametersBuffers>()
+pub fn clear_indirect_parameters_metadata(
+    indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
+    mut ctx: RenderContext,
+) {
+    let Some(indirect_parameters_buffers) = indirect_parameters_buffers else {
+        return;
+    };
+
+    // Clear out each indexed and non-indexed GPU-side buffer.
+    for phase_indirect_parameters_buffers in indirect_parameters_buffers.values() {
+        if let Some(indexed_gpu_metadata_buffer) = phase_indirect_parameters_buffers
+            .indexed
+            .gpu_metadata_buffer()
+        {
+            ctx.command_encoder().clear_buffer(
+                indexed_gpu_metadata_buffer,
+                0,
+                Some(
+                    phase_indirect_parameters_buffers.indexed.batch_count() as u64
+                        * size_of::<IndirectParametersGpuMetadata>() as u64,
+                ),
+            );
+        }
+
+        if let Some(non_indexed_gpu_metadata_buffer) = phase_indirect_parameters_buffers
+            .non_indexed
+            .gpu_metadata_buffer()
+        {
+            ctx.command_encoder().clear_buffer(
+                non_indexed_gpu_metadata_buffer,
+                0,
+                Some(
+                    phase_indirect_parameters_buffers.non_indexed.batch_count() as u64
+                        * size_of::<IndirectParametersGpuMetadata>() as u64,
+                ),
+            );
+        }
+    }
+}
+
+pub fn early_gpu_preprocess(
+    current_view: ViewQuery<Option<&ViewLightEntities>, Without<SkipGpuPreprocess>>,
+    view_query: Query<
+        (
+            &ExtractedView,
+            Option<&PreprocessBindGroups>,
+            Option<&ViewUniformOffset>,
+            Has<NoIndirectDrawing>,
+            Has<OcclusionCulling>,
+        ),
+        Without<SkipGpuPreprocess>,
+    >,
+    batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    pipeline_cache: Res<PipelineCache>,
+    preprocess_pipelines: Res<PreprocessPipelines>,
+    mut ctx: RenderContext,
+) {
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
+    let command_encoder = ctx.command_encoder();
+
+    let mut compute_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+        label: Some("early_mesh_preprocessing"),
+        timestamp_writes: None,
+    });
+
+    let pass_span = diagnostics.pass_span(&mut compute_pass, "early_mesh_preprocessing");
+
+    let view_entity = current_view.entity();
+    let shadow_cascade_views = current_view.into_inner();
+    let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
+    all_views.push(view_entity);
+    if let Some(shadow_cascade_views) = shadow_cascade_views {
+        all_views.extend(shadow_cascade_views.lights.iter().copied());
+    }
+
+    // Run the compute passes.
+    for view_entity in all_views {
+        let Ok((view, bind_groups, view_uniform_offset, no_indirect_drawing, occlusion_culling)) =
+            view_query.get(view_entity)
         else {
-            return Ok(());
+            continue;
         };
 
-        // Clear out each indexed and non-indexed GPU-side buffer.
-        for phase_indirect_parameters_buffers in indirect_parameters_buffers.values() {
-            if let Some(indexed_gpu_metadata_buffer) = phase_indirect_parameters_buffers
-                .indexed
-                .gpu_metadata_buffer()
-            {
-                render_context.command_encoder().clear_buffer(
-                    indexed_gpu_metadata_buffer,
-                    0,
-                    Some(
-                        phase_indirect_parameters_buffers.indexed.batch_count() as u64
-                            * size_of::<IndirectParametersGpuMetadata>() as u64,
-                    ),
-                );
-            }
+        let Some(bind_groups) = bind_groups else {
+            continue;
+        };
+        let Some(view_uniform_offset) = view_uniform_offset else {
+            continue;
+        };
 
-            if let Some(non_indexed_gpu_metadata_buffer) = phase_indirect_parameters_buffers
-                .non_indexed
-                .gpu_metadata_buffer()
-            {
-                render_context.command_encoder().clear_buffer(
-                    non_indexed_gpu_metadata_buffer,
-                    0,
-                    Some(
-                        phase_indirect_parameters_buffers.non_indexed.batch_count() as u64
-                            * size_of::<IndirectParametersGpuMetadata>() as u64,
-                    ),
-                );
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl FromWorld for EarlyGpuPreprocessNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            view_query: QueryState::new(world),
-            main_view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for EarlyGpuPreprocessNode {
-    fn update(&mut self, world: &mut World) {
-        self.view_query.update_archetypes(world);
-        self.main_view_query.update_archetypes(world);
-    }
-
-    fn run<'w>(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let diagnostics = render_context.diagnostic_recorder();
-
-        // Grab the [`BatchedInstanceBuffers`].
-        let batched_instance_buffers =
-            world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>();
-
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let preprocess_pipelines = world.resource::<PreprocessPipelines>();
-
-        let mut compute_pass =
-            render_context
-                .command_encoder()
-                .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("early_mesh_preprocessing"),
-                    timestamp_writes: None,
-                });
-        let pass_span = diagnostics.pass_span(&mut compute_pass, "early_mesh_preprocessing");
-
-        let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
-        all_views.push(graph.view_entity());
-        if let Ok(shadow_cascade_views) =
-            self.main_view_query.get_manual(world, graph.view_entity())
-        {
-            all_views.extend(shadow_cascade_views.lights.iter().copied());
-        }
-
-        // Run the compute passes.
-
-        for view_entity in all_views {
-            let Ok((
-                view,
-                bind_groups,
-                view_uniform_offset,
-                no_indirect_drawing,
-                occlusion_culling,
-            )) = self.view_query.get_manual(world, view_entity)
-            else {
-                continue;
-            };
-
-            let Some(bind_groups) = bind_groups else {
-                continue;
-            };
-            let Some(view_uniform_offset) = view_uniform_offset else {
-                continue;
-            };
-
-            // Select the right pipeline, depending on whether GPU culling is in
-            // use.
-            let maybe_pipeline_id = if no_indirect_drawing {
-                preprocess_pipelines.direct_preprocess.pipeline_id
-            } else if occlusion_culling {
-                preprocess_pipelines
-                    .early_gpu_occlusion_culling_preprocess
-                    .pipeline_id
-            } else {
-                preprocess_pipelines
-                    .gpu_frustum_culling_preprocess
-                    .pipeline_id
-            };
-
-            // Fetch the pipeline.
-            let Some(preprocess_pipeline_id) = maybe_pipeline_id else {
-                warn!("The build mesh uniforms pipeline wasn't ready");
-                continue;
-            };
-
-            let Some(preprocess_pipeline) =
-                pipeline_cache.get_compute_pipeline(preprocess_pipeline_id)
-            else {
-                // This will happen while the pipeline is being compiled and is fine.
-                continue;
-            };
-
-            compute_pass.set_pipeline(preprocess_pipeline);
-
-            // Loop over each render phase.
-            for (phase_type_id, batched_phase_instance_buffers) in
-                &batched_instance_buffers.phase_instance_buffers
-            {
-                // Grab the work item buffers for this view.
-                let Some(work_item_buffers) = batched_phase_instance_buffers
-                    .work_item_buffers
-                    .get(&view.retained_view_entity)
-                else {
-                    continue;
-                };
-
-                // Fetch the bind group for the render phase.
-                let Some(phase_bind_groups) = bind_groups.get(phase_type_id) else {
-                    continue;
-                };
-
-                // Make sure the mesh preprocessing shader has access to the
-                // view info it needs to do culling and motion vector
-                // computation.
-                let dynamic_offsets = [view_uniform_offset.offset];
-
-                // Are we drawing directly or indirectly?
-                match *phase_bind_groups {
-                    PhasePreprocessBindGroups::Direct(ref bind_group) => {
-                        // Invoke the mesh preprocessing shader to transform
-                        // meshes only, but not cull.
-                        let PreprocessWorkItemBuffers::Direct(work_item_buffer) = work_item_buffers
-                        else {
-                            continue;
-                        };
-                        compute_pass.set_bind_group(0, bind_group, &dynamic_offsets);
-                        let workgroup_count = work_item_buffer.len().div_ceil(WORKGROUP_SIZE);
-                        if workgroup_count > 0 {
-                            compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
-                        }
-                    }
-
-                    PhasePreprocessBindGroups::IndirectFrustumCulling {
-                        indexed: ref maybe_indexed_bind_group,
-                        non_indexed: ref maybe_non_indexed_bind_group,
-                    }
-                    | PhasePreprocessBindGroups::IndirectOcclusionCulling {
-                        early_indexed: ref maybe_indexed_bind_group,
-                        early_non_indexed: ref maybe_non_indexed_bind_group,
-                        ..
-                    } => {
-                        // Invoke the mesh preprocessing shader to transform and
-                        // cull the meshes.
-                        let PreprocessWorkItemBuffers::Indirect {
-                            indexed: indexed_buffer,
-                            non_indexed: non_indexed_buffer,
-                            ..
-                        } = work_item_buffers
-                        else {
-                            continue;
-                        };
-
-                        // Transform and cull indexed meshes if there are any.
-                        if let Some(indexed_bind_group) = maybe_indexed_bind_group {
-                            if let PreprocessWorkItemBuffers::Indirect {
-                                gpu_occlusion_culling:
-                                    Some(GpuOcclusionCullingWorkItemBuffers {
-                                        late_indirect_parameters_indexed_offset,
-                                        ..
-                                    }),
-                                ..
-                            } = *work_item_buffers
-                            {
-                                compute_pass.set_immediates(
-                                    0,
-                                    bytemuck::bytes_of(&late_indirect_parameters_indexed_offset),
-                                );
-                            }
-
-                            compute_pass.set_bind_group(0, indexed_bind_group, &dynamic_offsets);
-                            let workgroup_count = indexed_buffer.len().div_ceil(WORKGROUP_SIZE);
-                            if workgroup_count > 0 {
-                                compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
-                            }
-                        }
-
-                        // Transform and cull non-indexed meshes if there are any.
-                        if let Some(non_indexed_bind_group) = maybe_non_indexed_bind_group {
-                            if let PreprocessWorkItemBuffers::Indirect {
-                                gpu_occlusion_culling:
-                                    Some(GpuOcclusionCullingWorkItemBuffers {
-                                        late_indirect_parameters_non_indexed_offset,
-                                        ..
-                                    }),
-                                ..
-                            } = *work_item_buffers
-                            {
-                                compute_pass.set_immediates(
-                                    0,
-                                    bytemuck::bytes_of(
-                                        &late_indirect_parameters_non_indexed_offset,
-                                    ),
-                                );
-                            }
-
-                            compute_pass.set_bind_group(
-                                0,
-                                non_indexed_bind_group,
-                                &dynamic_offsets,
-                            );
-                            let workgroup_count = non_indexed_buffer.len().div_ceil(WORKGROUP_SIZE);
-                            if workgroup_count > 0 {
-                                compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        pass_span.end(&mut compute_pass);
-
-        Ok(())
-    }
-}
-
-impl FromWorld for EarlyPrepassBuildIndirectParametersNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl FromWorld for LatePrepassBuildIndirectParametersNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl FromWorld for MainBuildIndirectParametersNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl FromWorld for LateGpuPreprocessNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for LateGpuPreprocessNode {
-    fn update(&mut self, world: &mut World) {
-        self.view_query.update_archetypes(world);
-    }
-
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let diagnostics = render_context.diagnostic_recorder();
-
-        // Grab the [`BatchedInstanceBuffers`].
-        let batched_instance_buffers =
-            world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>();
-
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let preprocess_pipelines = world.resource::<PreprocessPipelines>();
-
-        let maybe_pipeline_id = preprocess_pipelines
-            .late_gpu_occlusion_culling_preprocess
-            .pipeline_id;
+        // Select the right pipeline, depending on whether GPU culling is in
+        // use.
+        let maybe_pipeline_id = if no_indirect_drawing {
+            preprocess_pipelines.direct_preprocess.pipeline_id
+        } else if occlusion_culling {
+            preprocess_pipelines
+                .early_gpu_occlusion_culling_preprocess
+                .pipeline_id
+        } else {
+            preprocess_pipelines
+                .gpu_frustum_culling_preprocess
+                .pipeline_id
+        };
 
         // Fetch the pipeline.
         let Some(preprocess_pipeline_id) = maybe_pipeline_id else {
-            warn_once!("The build mesh uniforms pipeline wasn't ready");
-            return Ok(());
+            warn!("The build mesh uniforms pipeline wasn't ready");
+            continue;
         };
 
         let Some(preprocess_pipeline) = pipeline_cache.get_compute_pipeline(preprocess_pipeline_id)
         else {
             // This will happen while the pipeline is being compiled and is fine.
-            return Ok(());
+            continue;
         };
 
-        let mut compute_pass =
-            render_context
-                .command_encoder()
-                .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("late_mesh_preprocessing"),
-                    timestamp_writes: None,
-                });
+        compute_pass.set_pipeline(preprocess_pipeline);
 
-        let pass_span = diagnostics.pass_span(&mut compute_pass, "late_mesh_preprocessing");
+        // Loop over each render phase.
+        for (phase_type_id, batched_phase_instance_buffers) in
+            &batched_instance_buffers.phase_instance_buffers
+        {
+            // Grab the work item buffers for this view.
+            let Some(work_item_buffers) = batched_phase_instance_buffers
+                .work_item_buffers
+                .get(&view.retained_view_entity)
+            else {
+                continue;
+            };
 
-        // Run the compute passes.
-        for (view, bind_groups, view_uniform_offset) in self.view_query.iter_manual(world) {
-            compute_pass.set_pipeline(preprocess_pipeline);
+            // Fetch the bind group for the render phase.
+            let Some(phase_bind_groups) = bind_groups.get(phase_type_id) else {
+                continue;
+            };
 
-            // Loop over each phase. Because we built the phases in parallel,
-            // each phase has a separate set of instance buffers.
-            for (phase_type_id, batched_phase_instance_buffers) in
-                &batched_instance_buffers.phase_instance_buffers
-            {
-                let UntypedPhaseBatchedInstanceBuffers {
-                    ref work_item_buffers,
-                    ref late_indexed_indirect_parameters_buffer,
-                    ref late_non_indexed_indirect_parameters_buffer,
-                    ..
-                } = *batched_phase_instance_buffers;
+            // Make sure the mesh preprocessing shader has access to the
+            // view info it needs to do culling and motion vector
+            // computation.
+            let dynamic_offsets = [view_uniform_offset.offset];
 
-                // Grab the work item buffers for this view.
-                let Some(phase_work_item_buffers) =
-                    work_item_buffers.get(&view.retained_view_entity)
-                else {
-                    continue;
-                };
-
-                let (
-                    PreprocessWorkItemBuffers::Indirect {
-                        gpu_occlusion_culling:
-                            Some(GpuOcclusionCullingWorkItemBuffers {
-                                late_indirect_parameters_indexed_offset,
-                                late_indirect_parameters_non_indexed_offset,
-                                ..
-                            }),
-                        ..
-                    },
-                    Some(PhasePreprocessBindGroups::IndirectOcclusionCulling {
-                        late_indexed: maybe_late_indexed_bind_group,
-                        late_non_indexed: maybe_late_non_indexed_bind_group,
-                        ..
-                    }),
-                    Some(late_indexed_indirect_parameters_buffer),
-                    Some(late_non_indexed_indirect_parameters_buffer),
-                ) = (
-                    phase_work_item_buffers,
-                    bind_groups.get(phase_type_id),
-                    late_indexed_indirect_parameters_buffer.buffer(),
-                    late_non_indexed_indirect_parameters_buffer.buffer(),
-                )
-                else {
-                    continue;
-                };
-
-                let mut dynamic_offsets: SmallVec<[u32; 1]> = smallvec![];
-                dynamic_offsets.push(view_uniform_offset.offset);
-
-                // If there's no space reserved for work items, then don't
-                // bother doing the dispatch, as there can't possibly be any
-                // meshes of the given class (indexed or non-indexed) in this
-                // phase.
-
-                // Transform and cull indexed meshes if there are any.
-                if let Some(late_indexed_bind_group) = maybe_late_indexed_bind_group {
-                    compute_pass.set_immediates(
-                        0,
-                        bytemuck::bytes_of(late_indirect_parameters_indexed_offset),
-                    );
-
-                    compute_pass.set_bind_group(0, late_indexed_bind_group, &dynamic_offsets);
-                    compute_pass.dispatch_workgroups_indirect(
-                        late_indexed_indirect_parameters_buffer,
-                        (*late_indirect_parameters_indexed_offset as u64)
-                            * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
-                    );
+            // Are we drawing directly or indirectly?
+            match *phase_bind_groups {
+                PhasePreprocessBindGroups::Direct(ref bind_group) => {
+                    // Invoke the mesh preprocessing shader to transform
+                    // meshes only, but not cull.
+                    let PreprocessWorkItemBuffers::Direct(work_item_buffer) = work_item_buffers
+                    else {
+                        continue;
+                    };
+                    compute_pass.set_bind_group(0, bind_group, &dynamic_offsets);
+                    let workgroup_count = work_item_buffer.len().div_ceil(WORKGROUP_SIZE);
+                    if workgroup_count > 0 {
+                        compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
+                    }
                 }
 
-                // Transform and cull non-indexed meshes if there are any.
-                if let Some(late_non_indexed_bind_group) = maybe_late_non_indexed_bind_group {
-                    compute_pass.set_immediates(
-                        0,
-                        bytemuck::bytes_of(late_indirect_parameters_non_indexed_offset),
-                    );
+                PhasePreprocessBindGroups::IndirectFrustumCulling {
+                    indexed: ref maybe_indexed_bind_group,
+                    non_indexed: ref maybe_non_indexed_bind_group,
+                }
+                | PhasePreprocessBindGroups::IndirectOcclusionCulling {
+                    early_indexed: ref maybe_indexed_bind_group,
+                    early_non_indexed: ref maybe_non_indexed_bind_group,
+                    ..
+                } => {
+                    // Invoke the mesh preprocessing shader to transform and
+                    // cull the meshes.
+                    let PreprocessWorkItemBuffers::Indirect {
+                        indexed: indexed_buffer,
+                        non_indexed: non_indexed_buffer,
+                        ..
+                    } = work_item_buffers
+                    else {
+                        continue;
+                    };
 
-                    compute_pass.set_bind_group(0, late_non_indexed_bind_group, &dynamic_offsets);
-                    compute_pass.dispatch_workgroups_indirect(
-                        late_non_indexed_indirect_parameters_buffer,
-                        (*late_indirect_parameters_non_indexed_offset as u64)
-                            * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
-                    );
+                    // Transform and cull indexed meshes if there are any.
+                    if let Some(indexed_bind_group) = maybe_indexed_bind_group {
+                        if let PreprocessWorkItemBuffers::Indirect {
+                            gpu_occlusion_culling:
+                                Some(GpuOcclusionCullingWorkItemBuffers {
+                                    late_indirect_parameters_indexed_offset,
+                                    ..
+                                }),
+                            ..
+                        } = *work_item_buffers
+                        {
+                            compute_pass.set_immediates(
+                                0,
+                                bytemuck::bytes_of(&late_indirect_parameters_indexed_offset),
+                            );
+                        }
+
+                        compute_pass.set_bind_group(0, indexed_bind_group, &dynamic_offsets);
+                        let workgroup_count = indexed_buffer.len().div_ceil(WORKGROUP_SIZE);
+                        if workgroup_count > 0 {
+                            compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
+                        }
+                    }
+
+                    // Transform and cull non-indexed meshes if there are any.
+                    if let Some(non_indexed_bind_group) = maybe_non_indexed_bind_group {
+                        if let PreprocessWorkItemBuffers::Indirect {
+                            gpu_occlusion_culling:
+                                Some(GpuOcclusionCullingWorkItemBuffers {
+                                    late_indirect_parameters_non_indexed_offset,
+                                    ..
+                                }),
+                            ..
+                        } = *work_item_buffers
+                        {
+                            compute_pass.set_immediates(
+                                0,
+                                bytemuck::bytes_of(&late_indirect_parameters_non_indexed_offset),
+                            );
+                        }
+
+                        compute_pass.set_bind_group(0, non_indexed_bind_group, &dynamic_offsets);
+                        let workgroup_count = non_indexed_buffer.len().div_ceil(WORKGROUP_SIZE);
+                        if workgroup_count > 0 {
+                            compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
+                        }
+                    }
                 }
             }
         }
-
-        pass_span.end(&mut compute_pass);
-
-        Ok(())
     }
+
+    pass_span.end(&mut compute_pass);
 }
 
-impl Node for EarlyPrepassBuildIndirectParametersNode {
-    fn update(&mut self, world: &mut World) {
-        self.view_query.update_archetypes(world);
-    }
+pub fn late_gpu_preprocess(
+    current_view: ViewQuery<
+        (&ExtractedView, &PreprocessBindGroups, &ViewUniformOffset),
+        (
+            Without<SkipGpuPreprocess>,
+            Without<NoIndirectDrawing>,
+            With<OcclusionCulling>,
+            With<DepthPrepass>,
+        ),
+    >,
+    batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    pipeline_cache: Res<PipelineCache>,
+    preprocess_pipelines: Res<PreprocessPipelines>,
+    mut ctx: RenderContext,
+) {
+    let (view, bind_groups, view_uniform_offset) = current_view.into_inner();
 
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let preprocess_pipelines = world.resource::<PreprocessPipelines>();
+    // Fetch the pipeline BEFORE starting diagnostic spans to avoid panic on early return
+    let maybe_pipeline_id = preprocess_pipelines
+        .late_gpu_occlusion_culling_preprocess
+        .pipeline_id;
 
-        // If there are no views with a depth prepass enabled, we don't need to
-        // run this.
-        if self.view_query.iter_manual(world).next().is_none() {
-            return Ok(());
-        }
-
-        run_build_indirect_parameters_node(
-            render_context,
-            world,
-            &preprocess_pipelines.early_phase,
-            "early_prepass_indirect_parameters_building",
-        )
-    }
-}
-
-impl Node for LatePrepassBuildIndirectParametersNode {
-    fn update(&mut self, world: &mut World) {
-        self.view_query.update_archetypes(world);
-    }
-
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let preprocess_pipelines = world.resource::<PreprocessPipelines>();
-
-        // If there are no views with occlusion culling enabled, we don't need
-        // to run this.
-        if self.view_query.iter_manual(world).next().is_none() {
-            return Ok(());
-        }
-
-        run_build_indirect_parameters_node(
-            render_context,
-            world,
-            &preprocess_pipelines.late_phase,
-            "late_prepass_indirect_parameters_building",
-        )
-    }
-}
-
-impl Node for MainBuildIndirectParametersNode {
-    fn update(&mut self, world: &mut World) {
-        self.view_query.update_archetypes(world);
-    }
-
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let preprocess_pipelines = world.resource::<PreprocessPipelines>();
-
-        run_build_indirect_parameters_node(
-            render_context,
-            world,
-            &preprocess_pipelines.main_phase,
-            "main_indirect_parameters_building",
-        )
-    }
-}
-
-fn run_build_indirect_parameters_node(
-    render_context: &mut RenderContext,
-    world: &World,
-    preprocess_phase_pipelines: &PreprocessPhasePipelines,
-    label: &'static str,
-) -> Result<(), NodeRunError> {
-    let Some(build_indirect_params_bind_groups) =
-        world.get_resource::<BuildIndirectParametersBindGroups>()
-    else {
-        return Ok(());
+    let Some(preprocess_pipeline_id) = maybe_pipeline_id else {
+        warn_once!("The build mesh uniforms pipeline wasn't ready");
+        return;
     };
 
-    let diagnostics = render_context.diagnostic_recorder();
+    let Some(preprocess_pipeline) = pipeline_cache.get_compute_pipeline(preprocess_pipeline_id)
+    else {
+        // This will happen while the pipeline is being compiled and is fine.
+        return;
+    };
 
-    let pipeline_cache = world.resource::<PipelineCache>();
-    let indirect_parameters_buffers = world.resource::<IndirectParametersBuffers>();
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
 
-    let mut compute_pass =
-        render_context
-            .command_encoder()
-            .begin_compute_pass(&ComputePassDescriptor {
-                label: Some(label),
-                timestamp_writes: None,
-            });
-    let pass_span = diagnostics.pass_span(&mut compute_pass, label);
+    let command_encoder = ctx.command_encoder();
+
+    let mut compute_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+        label: Some("late_mesh_preprocessing"),
+        timestamp_writes: None,
+    });
+
+    let pass_span = diagnostics.pass_span(&mut compute_pass, "late_mesh_preprocessing");
+
+    compute_pass.set_pipeline(preprocess_pipeline);
+
+    // Loop over each phase. Because we built the phases in parallel,
+    // each phase has a separate set of instance buffers.
+    for (phase_type_id, batched_phase_instance_buffers) in
+        &batched_instance_buffers.phase_instance_buffers
+    {
+        let UntypedPhaseBatchedInstanceBuffers {
+            ref work_item_buffers,
+            ref late_indexed_indirect_parameters_buffer,
+            ref late_non_indexed_indirect_parameters_buffer,
+            ..
+        } = *batched_phase_instance_buffers;
+
+        // Grab the work item buffers for this view.
+        let Some(phase_work_item_buffers) = work_item_buffers.get(&view.retained_view_entity)
+        else {
+            continue;
+        };
+
+        let (
+            PreprocessWorkItemBuffers::Indirect {
+                gpu_occlusion_culling:
+                    Some(GpuOcclusionCullingWorkItemBuffers {
+                        late_indirect_parameters_indexed_offset,
+                        late_indirect_parameters_non_indexed_offset,
+                        ..
+                    }),
+                ..
+            },
+            Some(PhasePreprocessBindGroups::IndirectOcclusionCulling {
+                late_indexed: maybe_late_indexed_bind_group,
+                late_non_indexed: maybe_late_non_indexed_bind_group,
+                ..
+            }),
+            Some(late_indexed_indirect_parameters_buffer),
+            Some(late_non_indexed_indirect_parameters_buffer),
+        ) = (
+            phase_work_item_buffers,
+            bind_groups.get(phase_type_id),
+            late_indexed_indirect_parameters_buffer.buffer(),
+            late_non_indexed_indirect_parameters_buffer.buffer(),
+        )
+        else {
+            continue;
+        };
+
+        let mut dynamic_offsets: SmallVec<[u32; 1]> = smallvec![];
+        dynamic_offsets.push(view_uniform_offset.offset);
+
+        // If there's no space reserved for work items, then don't
+        // bother doing the dispatch, as there can't possibly be any
+        // meshes of the given class (indexed or non-indexed) in this
+        // phase.
+
+        // Transform and cull indexed meshes if there are any.
+        if let Some(late_indexed_bind_group) = maybe_late_indexed_bind_group {
+            compute_pass.set_immediates(
+                0,
+                bytemuck::bytes_of(late_indirect_parameters_indexed_offset),
+            );
+
+            compute_pass.set_bind_group(0, late_indexed_bind_group, &dynamic_offsets);
+            compute_pass.dispatch_workgroups_indirect(
+                late_indexed_indirect_parameters_buffer,
+                (*late_indirect_parameters_indexed_offset as u64)
+                    * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
+            );
+        }
+
+        // Transform and cull non-indexed meshes if there are any.
+        if let Some(late_non_indexed_bind_group) = maybe_late_non_indexed_bind_group {
+            compute_pass.set_immediates(
+                0,
+                bytemuck::bytes_of(late_indirect_parameters_non_indexed_offset),
+            );
+
+            compute_pass.set_bind_group(0, late_non_indexed_bind_group, &dynamic_offsets);
+            compute_pass.dispatch_workgroups_indirect(
+                late_non_indexed_indirect_parameters_buffer,
+                (*late_indirect_parameters_non_indexed_offset as u64)
+                    * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
+            );
+        }
+    }
+
+    pass_span.end(&mut compute_pass);
+}
+
+pub fn early_prepass_build_indirect_parameters(
+    preprocess_pipelines: Res<PreprocessPipelines>,
+    build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
+    pipeline_cache: Res<PipelineCache>,
+    indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
+    mut ctx: RenderContext,
+) {
+    run_build_indirect_parameters(
+        &mut ctx,
+        build_indirect_params_bind_groups.as_deref(),
+        &pipeline_cache,
+        indirect_parameters_buffers.as_deref(),
+        &preprocess_pipelines.early_phase,
+        "early_prepass_indirect_parameters_building",
+    );
+}
+
+pub fn late_prepass_build_indirect_parameters(
+    preprocess_pipelines: Res<PreprocessPipelines>,
+    build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
+    pipeline_cache: Res<PipelineCache>,
+    indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
+    mut ctx: RenderContext,
+) {
+    run_build_indirect_parameters(
+        &mut ctx,
+        build_indirect_params_bind_groups.as_deref(),
+        &pipeline_cache,
+        indirect_parameters_buffers.as_deref(),
+        &preprocess_pipelines.late_phase,
+        "late_prepass_indirect_parameters_building",
+    );
+}
+
+pub fn main_build_indirect_parameters(
+    preprocess_pipelines: Res<PreprocessPipelines>,
+    build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
+    pipeline_cache: Res<PipelineCache>,
+    indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
+    mut ctx: RenderContext,
+) {
+    run_build_indirect_parameters(
+        &mut ctx,
+        build_indirect_params_bind_groups.as_deref(),
+        &pipeline_cache,
+        indirect_parameters_buffers.as_deref(),
+        &preprocess_pipelines.main_phase,
+        "main_indirect_parameters_building",
+    );
+}
+
+fn run_build_indirect_parameters(
+    ctx: &mut RenderContext,
+    build_indirect_params_bind_groups: Option<&BuildIndirectParametersBindGroups>,
+    pipeline_cache: &PipelineCache,
+    indirect_parameters_buffers: Option<&IndirectParametersBuffers>,
+    preprocess_phase_pipelines: &PreprocessPhasePipelines,
+    label: &'static str,
+) {
+    let Some(build_indirect_params_bind_groups) = build_indirect_params_bind_groups else {
+        return;
+    };
+
+    let Some(indirect_parameters_buffers) = indirect_parameters_buffers else {
+        return;
+    };
+
+    let command_encoder = ctx.command_encoder();
+
+    let mut compute_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+        label: Some(label),
+        timestamp_writes: None,
+    });
 
     // Fetch the pipeline.
     let (
@@ -1077,8 +862,7 @@ fn run_build_indirect_parameters_node(
     )
     else {
         warn!("The build indirect parameters pipelines weren't ready");
-        pass_span.end(&mut compute_pass);
-        return Ok(());
+        return;
     };
 
     let (
@@ -1092,8 +876,7 @@ fn run_build_indirect_parameters_node(
     )
     else {
         // This will happen while the pipeline is being compiled and is fine.
-        pass_span.end(&mut compute_pass);
-        return Ok(());
+        return;
     };
 
     // Loop over each phase. As each has as separate set of buffers, we need to
@@ -1163,10 +946,6 @@ fn run_build_indirect_parameters_node(
             }
         }
     }
-
-    pass_span.end(&mut compute_pass);
-
-    Ok(())
 }
 
 impl PreprocessPipelines {

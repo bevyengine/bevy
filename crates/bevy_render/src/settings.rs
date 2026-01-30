@@ -1,7 +1,9 @@
-use crate::renderer::{
-    RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
+use crate::{
+    renderer::{self, RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue},
+    FutureRenderResources,
 };
 use alloc::borrow::Cow;
+use bevy_window::RawHandleWrapperHolder;
 
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
@@ -151,8 +153,7 @@ pub struct RenderResources(
     pub RenderAdapterInfo,
     pub RenderAdapter,
     pub RenderInstance,
-    #[cfg(feature = "raw_vulkan_init")]
-    pub  crate::renderer::raw_vulkan_init::AdditionalVulkanFeatures,
+    #[cfg(feature = "raw_vulkan_init")] pub renderer::raw_vulkan_init::AdditionalVulkanFeatures,
 );
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
@@ -176,7 +177,7 @@ impl RenderCreation {
         adapter: RenderAdapter,
         instance: RenderInstance,
         #[cfg(feature = "raw_vulkan_init")]
-        additional_vulkan_features: crate::renderer::raw_vulkan_init::AdditionalVulkanFeatures,
+        additional_vulkan_features: renderer::raw_vulkan_init::AdditionalVulkanFeatures,
     ) -> Self {
         RenderResources(
             device,
@@ -188,6 +189,55 @@ impl RenderCreation {
             additional_vulkan_features,
         )
         .into()
+    }
+
+    /// Creates [`RenderResources`] from this [`RenderCreation`] and an optional primary window
+    /// and writes them into `future_resources`, possibly asynchronously.
+    ///
+    /// Returns true if creation was successful, false otherwise.
+    ///
+    /// Note: [`RenderCreation::Manual`] will ignore the provided primary window.
+    pub(crate) fn create_render(
+        &self,
+        future_resources: FutureRenderResources,
+        primary_window: Option<RawHandleWrapperHolder>,
+        #[cfg(feature = "raw_vulkan_init")]
+        raw_vulkan_init_settings: renderer::raw_vulkan_init::RawVulkanInitSettings,
+    ) -> bool {
+        match self {
+            RenderCreation::Manual(resources) => {
+                *future_resources.lock().unwrap() = Some(resources.clone());
+            }
+            RenderCreation::Automatic(render_creation) => {
+                let Some(backends) = render_creation.backends else {
+                    return false;
+                };
+                let settings = render_creation.clone();
+
+                let async_renderer = async move {
+                    let render_resources = renderer::initialize_renderer(
+                        backends,
+                        primary_window,
+                        &settings,
+                        #[cfg(feature = "raw_vulkan_init")]
+                        raw_vulkan_init_settings,
+                    )
+                    .await;
+
+                    *future_resources.lock().unwrap() = Some(render_resources);
+                };
+
+                // In wasm, spawn a task and detach it for execution
+                #[cfg(target_arch = "wasm32")]
+                bevy_tasks::IoTaskPool::get()
+                    .spawn_local(async_renderer)
+                    .detach();
+                // Otherwise, just block for it to complete
+                #[cfg(not(target_arch = "wasm32"))]
+                bevy_tasks::block_on(async_renderer);
+            }
+        }
+        true
     }
 }
 
