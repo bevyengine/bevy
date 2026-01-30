@@ -28,7 +28,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::Color;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.text(Isometry3d::IDENTITY, "text gizmo", 25., Color::WHITE);
+    ///     gizmos.text(Isometry3d::IDENTITY, "text gizmo", 25., Vec2::ZERO, Color::WHITE);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -134,7 +134,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::Color;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.text_2d(Isometry2d::IDENTITY, "2D text gizmo", 25., Color::WHITE);
+    ///     gizmos.text_2d(Isometry2d::IDENTITY, "2D text gizmo", 25., Vec2::ZERO, Color::WHITE);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
