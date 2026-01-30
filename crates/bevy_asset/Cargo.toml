@@ -16,7 +16,7 @@ embedded_watcher = ["file_watcher"]
 multi_threaded = ["bevy_tasks/multi_threaded"]
 http = ["blocking", "ureq"]
 https = ["blocking", "ureq", "ureq/rustls", "ureq/platform-verifier"]
-web_asset_cache = []
+web_asset_cache = ["http-cache-ureq"]
 asset_processor = []
 watch = []
 trace = []
@@ -37,6 +37,12 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev", default-features 
 bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
   "std",
+] }
+
+# http-cache-ureq = { version = "1.0.0-alpha.4", optional = true, default-features = false, features = [
+http-cache-ureq = { git = "https://github.com/06chaynes/http-cache", branch = "main", optional = true, default-features = false, features = [
+  "manager-cacache",
+  "url-ada",
 ] }
 
 stackfuture = { version = "0.3", default-features = false }
