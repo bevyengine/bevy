@@ -2,7 +2,10 @@
 //!
 //! Add the [`MotionBlur`] component to a camera to enable motion blur.
 
-use crate::{bloom::bloom, motion_blur::pipeline::{MotionBlurPipeline, MotionBlurPipelineId}};
+use crate::{
+    bloom::bloom,
+    motion_blur::pipeline::{MotionBlurPipeline, MotionBlurPipelineId},
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_camera::Camera;
@@ -14,11 +17,23 @@ use bevy_ecs::{
     component::Component,
     query::{QueryItem, With},
     reflect::ReflectComponent,
-    schedule::IntoScheduleConfigs, system::Res,
+    schedule::IntoScheduleConfigs,
+    system::Res,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    Render, RenderApp, RenderStartup, RenderSystems, diagnostic::RecordDiagnostics, extract_component::{ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin}, globals::GlobalsBuffer, render_resource::{BindGroupEntries, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, ShaderType, SpecializedRenderPipelines}, renderer::{RenderContext, ViewQuery}, view::{Msaa, ViewTarget}
+    diagnostic::RecordDiagnostics,
+    extract_component::{
+        ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
+    },
+    globals::GlobalsBuffer,
+    render_resource::{
+        BindGroupEntries, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, ShaderType, SpecializedRenderPipelines,
+    },
+    renderer::{RenderContext, ViewQuery},
+    view::{Msaa, ViewTarget},
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 pub mod pipeline;
@@ -150,9 +165,7 @@ impl Plugin for MotionBlurPlugin {
 
         render_app.add_systems(
             Core3d,
-            motion_blur
-                .before(bloom)
-                .in_set(Core3dSystems::PostProcess),
+            motion_blur.before(bloom).in_set(Core3dSystems::PostProcess),
         );
     }
 }

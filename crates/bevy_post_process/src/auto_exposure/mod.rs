@@ -2,9 +2,18 @@ use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems, diagnostic::RecordDiagnostics, extract_component::ExtractComponentPlugin, globals::GlobalsBuffer, render_asset::{RenderAssetPlugin, RenderAssets}, render_resource::{
-        BindGroupEntries, Buffer, BufferBinding, BufferDescriptor, BufferUsages, ComputePassDescriptor, PipelineCache, ShaderType, SpecializedComputePipelines
-    }, renderer::{RenderContext, RenderDevice, ViewQuery}, texture::{FallbackImage, GpuImage}, view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms}
+    diagnostic::RecordDiagnostics,
+    extract_component::ExtractComponentPlugin,
+    globals::GlobalsBuffer,
+    render_asset::{RenderAssetPlugin, RenderAssets},
+    render_resource::{
+        BindGroupEntries, Buffer, BufferBinding, BufferDescriptor, BufferUsages,
+        ComputePassDescriptor, PipelineCache, ShaderType, SpecializedComputePipelines,
+    },
+    renderer::{RenderContext, RenderDevice, ViewQuery},
+    texture::{FallbackImage, GpuImage},
+    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 mod buffers;
