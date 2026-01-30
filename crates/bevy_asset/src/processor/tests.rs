@@ -32,7 +32,7 @@ use crate::{
         AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
         ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
     },
-    saver::AssetSaver,
+    saver::{tests::CoolTextSaver, AssetSaver},
     tests::{
         read_asset_as_string, read_meta_as_string, run_app_until, CoolText, CoolTextLoader,
         CoolTextRon, SubText,
@@ -426,43 +426,6 @@ fn run_app_until_finished_processing(app: &mut App, guard: RwLockWriteGuard<'_, 
     });
 }
 
-#[derive(TypePath)]
-struct CoolTextSaver;
-
-impl AssetSaver for CoolTextSaver {
-    type Asset = CoolText;
-    type Settings = ();
-    type OutputLoader = CoolTextLoader;
-    type Error = std::io::Error;
-
-    async fn save(
-        &self,
-        writer: &mut crate::io::Writer,
-        asset: crate::saver::SavedAsset<'_, Self::Asset>,
-        _: &Self::Settings,
-    ) -> Result<(), Self::Error> {
-        let ron = CoolTextRon {
-            text: asset.text.clone(),
-            sub_texts: asset
-                .iter_labels()
-                .map(|label| asset.get_labeled::<SubText, _>(label).unwrap().text.clone())
-                .collect(),
-            dependencies: asset
-                .dependencies
-                .iter()
-                .map(|handle| handle.path().unwrap().path())
-                .map(|path| path.to_str().unwrap().to_string())
-                .collect(),
-            // NOTE: We can't handle embedded dependencies in any way, since we need to write to
-            // another file to do so.
-            embedded_dependencies: vec![],
-        };
-        let ron = ron::ser::to_string_pretty(&ron, PrettyConfig::new().new_line("\n")).unwrap();
-        writer.write_all(ron.as_bytes()).await?;
-        Ok(())
-    }
-}
-
 // Note: while we allow any Fn, since closures are unnameable types, creating a processor with a
 // closure cannot be used (since we need to include the name of the transformer in the meta
 // file).
@@ -637,7 +600,7 @@ fn asset_processor_transforms_asset_with_meta() {
     source_dir.insert_meta_text(path, r#"(
     meta_format_version: "1.0",
     asset: Process(
-        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::saver::tests::CoolTextSaver>",
         settings: (
             loader_settings: (),
             transformer_settings: (),
@@ -846,7 +809,7 @@ impl AssetSaver for FakeBsnSaver {
     async fn save(
         &self,
         writer: &mut crate::io::Writer,
-        asset: crate::saver::SavedAsset<'_, Self::Asset>,
+        asset: crate::saver::SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
     ) -> Result<(), Self::Error> {
         use std::io::{Error, ErrorKind};
@@ -1336,7 +1299,7 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
         async fn save(
             &self,
             writer: &mut crate::io::Writer,
-            asset: crate::saver::SavedAsset<'_, Self::Asset>,
+            asset: crate::saver::SavedAsset<'_, '_, Self::Asset>,
             _settings: &Self::Settings,
         ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error> {
             let serialized = serialize_as_leaf(asset.get().value.clone());
@@ -1759,7 +1722,7 @@ fn writes_default_meta_for_processor() {
         r#"(
     meta_format_version: "1.0",
     asset: Process(
-        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::saver::tests::CoolTextSaver>",
         settings: (
             loader_settings: (),
             transformer_settings: (),

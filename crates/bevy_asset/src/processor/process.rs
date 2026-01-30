@@ -16,6 +16,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+use bevy_ecs::error::BevyError;
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::marker::PhantomData;
@@ -160,7 +161,7 @@ pub enum ProcessError {
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
     #[from(ignore)]
-    AssetSaveError(Box<dyn core::error::Error + Send + Sync + 'static>),
+    AssetSaveError(BevyError),
     #[error("Encountered an error while transforming the asset: {0}")]
     #[from(ignore)]
     AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),

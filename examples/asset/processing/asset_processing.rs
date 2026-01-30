@@ -218,7 +218,7 @@ impl AssetSaver for CoolTextSaver {
     async fn save(
         &self,
         writer: &mut Writer,
-        asset: SavedAsset<'_, Self::Asset>,
+        asset: SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
     ) -> Result<TextSettings, Self::Error> {
         writer.write_all(asset.text.as_bytes()).await?;
