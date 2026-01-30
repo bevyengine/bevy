@@ -35,11 +35,11 @@ pub mod grid;
 pub mod primitives;
 pub mod retained;
 pub mod rounded_box;
+pub mod text;
 mod text_font;
 
 #[cfg(feature = "bevy_mesh")]
 pub mod skinned_mesh_bounds;
-pub mod text;
 
 /// The gizmos prelude.
 ///
