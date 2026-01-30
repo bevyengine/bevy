@@ -1,8 +1,11 @@
 use crate::{
+    render_resource::PipelineCache,
     renderer::{self, RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue},
     FutureRenderResources,
 };
 use alloc::borrow::Cow;
+use bevy_ecs::world::World;
+use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_window::RawHandleWrapperHolder;
 
 pub use wgpu::{
@@ -155,6 +158,51 @@ pub struct RenderResources(
     pub RenderInstance,
     #[cfg(feature = "raw_vulkan_init")] pub renderer::raw_vulkan_init::AdditionalVulkanFeatures,
 );
+
+impl RenderResources {
+    /// Effectively, this replaces the current render backend entirely with the given resources.
+    ///
+    /// We deconstruct the [`RenderResources`] and make them usable by the main and render worlds,
+    /// and insert [`PipelineCache`] and [`CompressedImageFormats`] which directly depend on having
+    /// references to these resources within them to be accurate. This causes all shaders to
+    /// be recompiled, and the set of supported images to possibly change. This is necessary
+    /// because the new backend may have different compression support or shader language.
+    pub(crate) fn unpack_into(
+        self,
+        main_world: &mut World,
+        render_world: &mut World,
+        synchronous_pipeline_compilation: bool,
+    ) {
+        let RenderResources(device, queue, adapter_info, render_adapter, instance, ..) = self;
+
+        let compressed_image_format_support =
+            CompressedImageFormatSupport(CompressedImageFormats::from_features(device.features()));
+
+        main_world.insert_resource(device.clone());
+        main_world.insert_resource(queue.clone());
+        main_world.insert_resource(adapter_info.clone());
+        main_world.insert_resource(render_adapter.clone());
+        main_world.insert_resource(compressed_image_format_support);
+
+        #[cfg(feature = "raw_vulkan_init")]
+        {
+            let additional_vulkan_features: renderer::raw_vulkan_init::AdditionalVulkanFeatures =
+                self.5;
+            render_world.insert_resource(additional_vulkan_features);
+        }
+
+        render_world.insert_resource(instance);
+        render_world.insert_resource(PipelineCache::new(
+            device.clone(),
+            render_adapter.clone(),
+            synchronous_pipeline_compilation,
+        ));
+        render_world.insert_resource(device);
+        render_world.insert_resource(queue);
+        render_world.insert_resource(render_adapter);
+        render_world.insert_resource(adapter_info);
+    }
+}
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
 #[expect(
