@@ -133,6 +133,112 @@ pub unsafe trait WorldQuery {
     ) -> bool;
 }
 
+/// A wrapper type around a data query `D` which will return the queried [`crate::entity::Entity`]
+/// alongside the results from `D`.
+///
+/// This convenience wrapper can be used by calling [`super::iter::QueryIter::include_entity`] on
+/// an iterator returned from `[Query::iter()]` or `[Query::iter_mut()]`.
+///
+/// Unlike `(Entity, D)`, the type `IncludeEntity<D>` is guaranteed to have identical
+/// internal query state to `D` itself.
+pub struct IncludeEntity<D>(pub D);
+
+/// SAFETY:
+///
+/// `IncludeEntity<D>` has the exact same internal state and query behavior as `D` itself,
+/// and inherits all of its safety properties from this fact.
+///
+/// The only difference is that the `Entity` (which is tracked by all queries internally) is
+/// also included in the output `Item`.
+unsafe impl<D: WorldQuery> WorldQuery for IncludeEntity<D> {
+    /// The same underlying state is used for `IncludeEntity<D>` as `D` itself.
+    type Fetch<'a> = D::Fetch<'a>;
+
+    /// The same underlying state is used for `IncludeEntity<D>` as `D` itself.
+    type State = D::State;
+
+    /// This function manually implements subtyping for the query items.
+    /// The query is shrunk exactly how `D` specifies.
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        D::shrink_fetch(fetch)
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        state: &Self::State,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        D::init_fetch(world, state, last_run, this_run)
+    }
+
+    const IS_DENSE: bool = D::IS_DENSE;
+
+    /// # Safety
+    ///
+    /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
+    /// - `table` must correspond to `archetype`.
+    /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        D::set_archetype(fetch, state, archetype, table);
+    }
+
+    /// Adjusts internal state to account for the next [`Table`]. This will always be called on tables
+    /// that match this [`WorldQuery`].
+    ///
+    /// # Safety
+    ///
+    /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
+    /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+        D::set_table(fetch, state, table);
+    }
+
+    /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
+    /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
+    ///
+    /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
+    fn set_access(state: &mut Self::State, access: &FilteredAccess<ComponentId>) {
+        D::set_access(state, access);
+    }
+
+    /// Adds any component accesses used by this [`WorldQuery`] to `access`.
+    ///
+    /// Used to check which queries are disjoint and can run in parallel
+    // This does not have a default body of `{}` because 99% of cases need to add accesses
+    // and forgetting to do so would be unsound.
+    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+        D::update_component_access(state, access);
+    }
+
+    /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
+    fn init_state(world: &mut World) -> Self::State {
+        D::init_state(world)
+    }
+
+    /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
+    /// access to [`Components`].
+    fn get_state(components: &Components) -> Option<Self::State> {
+        D::get_state(components)
+    }
+
+    /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
+    ///
+    /// Used to check which [`Archetype`]s can be skipped by the query
+    /// (if none of the [`Component`](crate::component::Component)s match)
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        D::matches_component_set(state, set_contains_id)
+    }
+}
+
 macro_rules! impl_tuple_world_query {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
 

@@ -900,6 +900,56 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             )
         }
     }
+
+    /// Transforms the iterator output to include the `Entity` which is being iterated over.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct Health(f32);
+    ///
+    /// #[derive(Component)]
+    /// struct Damage(f32);
+    ///
+    /// fn apply_damage_system(mut query: Query<(&mut Health, &Damage)>) {
+    ///     // Iterate over the input query:
+    ///     for (mut health, damage) in query.iter_mut() {
+    ///        health.0 -= damage.0;
+    ///     }
+    ///
+    ///     // Iterate again, this time including the entity:
+    ///     for (entity, (health, damage)) in query.iter().include_entity() {
+    ///         if health.0 <= 0.0 {
+    ///             println!("entity {:?} has been reduce to 0 health by {} damage", entity, damage.0);
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    ///
+    pub fn include_entity(self) -> QueryIter<'w, 's, crate::query::IncludeEntity<D>, F> {
+        // SAFETY: `IncludeEntity<D>` and `D` have identical access and query the same archetypes,
+        // since the internal state is not affected in any way by the `IncludeEntity` wrapper.
+        let query_state = unsafe { self.query_state.as_transmuted_state() };
+        QueryIter {
+            world: self.world,
+            tables: self.tables,
+            archetypes: self.archetypes,
+
+            query_state,
+            cursor: QueryIterationCursor {
+                is_dense: self.cursor.is_dense,
+                storage_id_iter: self.cursor.storage_id_iter,
+                table_entities: self.cursor.table_entities,
+                archetype_entities: self.cursor.archetype_entities,
+                fetch: self.cursor.fetch,
+                filter: self.cursor.filter,
+                current_len: self.cursor.current_len,
+                current_row: self.cursor.current_row,
+            },
+        }
+    }
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> {
@@ -3044,6 +3094,92 @@ mod tests {
                 .iter_many_mut(&mut world, [id, id])
                 .sort_by_cached_key::<&C, _>(|d| d.0);
             while query.fetch_next().is_some() {}
+        }
+    }
+
+    #[test]
+    fn query_iter_include_entity() {
+        let mut world = World::new();
+        world.spawn_batch([A(0.), A(1.), A(2.), A(3.), A(4.)]);
+        world.spawn_batch([
+            (A(0.), Sparse(100)),
+            (A(1.), Sparse(101)),
+            (A(2.), Sparse(102)),
+            (A(3.), Sparse(103)),
+            (A(4.), Sparse(104)),
+        ]);
+
+        {
+            // Read-only
+            let mut query_entity_a = world.query::<(Entity, &A)>();
+            let iter_plain = query_entity_a
+                .iter(&world)
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            let mut query_a = world.query::<&A>();
+            let iter_include_entity = query_a
+                .iter(&world)
+                .include_entity()
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            assert_eq!(iter_plain, iter_include_entity);
+        }
+
+        {
+            // Mut
+            let mut query_entity_a = world.query::<(Entity, &mut A)>();
+            let iter_plain = query_entity_a
+                .iter_mut(&mut world)
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            let mut query_a = world.query::<&mut A>();
+            let iter_include_entity = query_a
+                .iter_mut(&mut world)
+                .include_entity()
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            assert_eq!(iter_plain, iter_include_entity);
+        }
+
+        {
+            // With filter
+            let mut query_entity_a =
+                world.query_filtered::<(Entity, &A), crate::query::With<Sparse>>();
+            let iter_plain = query_entity_a
+                .iter(&world)
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            let mut query_a = world.query_filtered::<&A, crate::query::With<Sparse>>();
+            let iter_include_entity = query_a
+                .iter(&world)
+                .include_entity()
+                .map(|(entity, a)| (entity, *a))
+                .collect::<Vec<_>>();
+
+            assert_eq!(iter_plain, iter_include_entity);
+        }
+
+        {
+            // Multiple components in a query
+            let mut query_entity_a = world.query::<(Entity, &A, &Sparse)>();
+            let iter_plain = query_entity_a
+                .iter(&world)
+                .map(|(entity, a, sparse)| (entity, *a, *sparse))
+                .collect::<Vec<_>>();
+
+            let mut query_a = world.query::<(&A, &Sparse)>();
+            let iter_include_entity = query_a
+                .iter(&world)
+                .include_entity()
+                .map(|(entity, (a, sparse))| (entity, *a, *sparse))
+                .collect::<Vec<_>>();
+
+            assert_eq!(iter_plain, iter_include_entity);
         }
     }
 }
