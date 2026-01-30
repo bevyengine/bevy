@@ -26,7 +26,7 @@ const DEFAULT_CHROMATIC_ABERRATION_INTENSITY: f32 = 0.02;
 const DEFAULT_CHROMATIC_ABERRATION_MAX_SAMPLES: u32 = 8;
 
 #[derive(Resource)]
-pub(super) struct DefaultChromaticAberrationLut(pub(super) Handle<Image>);
+pub(crate) struct DefaultChromaticAberrationLut(pub(crate) Handle<Image>);
 
 /// Adds colored fringes to the edges of objects in the scene.
 ///
