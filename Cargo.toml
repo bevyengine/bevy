@@ -1958,6 +1958,17 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "render_recovery"
+path = "examples/app/render_recovery.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_recovery]
+name = "Render Recovery"
+description = "Demonstrates how bevy can recover from rendering failures."
+category = "Application"
+wasm = false
+
+[[example]]
 name = "headless_renderer"
 path = "examples/app/headless_renderer.rs"
 # Causes an ICE on docs.rs
