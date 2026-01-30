@@ -2,7 +2,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// An enum to define which UV attribute to use for a texture.
 ///
-/// It is used for every texture in the [`StandardMaterial`].
 /// It only supports two UV attributes, [`bevy_mesh::Mesh::ATTRIBUTE_UV_0`] and
 /// [`bevy_mesh::Mesh::ATTRIBUTE_UV_1`].
 /// The default is [`UvChannel::Uv0`].
