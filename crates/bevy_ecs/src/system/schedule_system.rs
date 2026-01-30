@@ -211,5 +211,100 @@ where
     }
 }
 
+/// Constructed in [`IntoSystem::with_cloned_input`].
+pub struct WithClonedInputWrapper<S, T> {
+    system: S,
+    value: T,
+}
+
+impl<S, T> WithClonedInputWrapper<S, T>
+where
+    for<'i> S: System<In: SystemInput<Inner<'i> = T>>,
+    T: Send + Sync + 'static,
+{
+    /// Wraps the given system.
+    pub fn new<M>(system: impl IntoSystem<S::In, S::Out, M, System = S>, value: T) -> Self {
+        Self {
+            system: IntoSystem::into_system(system),
+            value,
+        }
+    }
+
+    /// Retrieves a reference to the contained value.
+    pub fn value(&self) -> &T {
+        &self.value
+    }
+
+    /// Retrieves a mutable reference to the contained value.
+    pub fn value_mut(&mut self) -> &mut T {
+        &mut self.value
+    }
+}
+
+impl<S, T> System for WithClonedInputWrapper<S, T>
+where
+    for<'i> S: System<In: SystemInput<Inner<'i> = T>>,
+    T: Clone + Send + Sync + 'static,
+{
+    type In = ();
+    type Out = S::Out;
+
+    fn name(&self) -> DebugName {
+        self.system.name()
+    }
+
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        self.system.flags()
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        _input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Result<Self::Out, RunSystemError> {
+        // SAFETY: Upheld by caller
+        unsafe { self.system.run_unsafe(self.value.clone(), world) }
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        self.system.refresh_hotpatch();
+    }
+
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.system.apply_deferred(world);
+    }
+
+    fn queue_deferred(&mut self, world: DeferredWorld) {
+        self.system.queue_deferred(world);
+    }
+
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        // SAFETY: Upheld by caller
+        unsafe { self.system.validate_param_unsafe(world) }
+    }
+
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+        self.system.initialize(world)
+    }
+
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        self.system.check_change_tick(check);
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.system.get_last_run()
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system.set_last_run(last_run);
+    }
+}
+
 /// Type alias for a `BoxedSystem` that a `Schedule` can store.
 pub type ScheduleSystem = BoxedSystem<(), ()>;
