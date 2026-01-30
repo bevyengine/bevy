@@ -125,7 +125,7 @@ fn main() {
         let mut value: Box<dyn Reflect> = reflect_default.default();
         value.apply(deserialized.as_ref());
 
-        let identifiable: &dyn Identifiable = reflect_identifiable.get(value.as_reflect()).unwrap();
+        let identifiable: &dyn Identifiable = reflect_identifiable.get(&*value).unwrap();
         assert_eq!(identifiable.id(), 123);
     }
 
@@ -145,7 +145,7 @@ fn main() {
         let value: Box<dyn Reflect> = reflect_from_reflect
             .from_reflect(deserialized.as_ref())
             .unwrap();
-        let identifiable: &dyn Identifiable = reflect_identifiable.get(value.as_reflect()).unwrap();
+        let identifiable: &dyn Identifiable = reflect_identifiable.get(&*value).unwrap();
         assert_eq!(identifiable.id(), 123);
     }
 
