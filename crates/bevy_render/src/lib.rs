@@ -95,7 +95,6 @@ use bevy_ecs::{
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
 };
-use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
@@ -367,44 +366,6 @@ impl Plugin for RenderPlugin {
                 self.synchronous_pipeline_compilation,
             );
         }
-    }
-}
-
-impl RenderResources {
-    fn unpack_into(
-        self,
-        main_world: &mut World,
-        render_world: &mut World,
-        synchronous_pipeline_compilation: bool,
-    ) {
-        let RenderResources(device, queue, adapter_info, render_adapter, instance, ..) = self;
-
-        let compressed_image_format_support =
-            CompressedImageFormatSupport(CompressedImageFormats::from_features(device.features()));
-
-        main_world.insert_resource(device.clone());
-        main_world.insert_resource(queue.clone());
-        main_world.insert_resource(adapter_info.clone());
-        main_world.insert_resource(render_adapter.clone());
-        main_world.insert_resource(compressed_image_format_support);
-
-        #[cfg(feature = "raw_vulkan_init")]
-        {
-            let additional_vulkan_features: renderer::raw_vulkan_init::AdditionalVulkanFeatures =
-                self.5;
-            render_world.insert_resource(additional_vulkan_features);
-        }
-
-        render_world.insert_resource(instance);
-        render_world.insert_resource(PipelineCache::new(
-            device.clone(),
-            render_adapter.clone(),
-            synchronous_pipeline_compilation,
-        ));
-        render_world.insert_resource(device);
-        render_world.insert_resource(queue);
-        render_world.insert_resource(render_adapter);
-        render_world.insert_resource(adapter_info);
     }
 }
 
