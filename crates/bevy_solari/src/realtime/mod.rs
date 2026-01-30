@@ -5,44 +5,45 @@ mod prepare;
 use crate::SolariPlugins;
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
+use bevy_camera::Hdr;
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass},
+    prepass::{
+        DeferredPrepass, DeferredPrepassDoubleBuffer, DepthPrepass, DepthPrepassDoubleBuffer,
+        MotionVectorPrepass,
+    },
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
 use bevy_pbr::DefaultOpaqueRendererMethod;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    render_graph::{RenderGraphExt, ViewNodeRunner},
-    renderer::RenderDevice,
-    view::Hdr,
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
 use extract::extract_solari_lighting;
-use node::SolariLightingNode;
+use node::{init_solari_lighting_pipelines, solari_lighting};
 use prepare::prepare_solari_lighting_resources;
 use tracing::warn;
 
 /// Raytraced direct and indirect lighting.
 ///
-/// When using this plugin, it's highly recommended to set `shadows_enabled: false` on all lights, as Solari replaces
+/// When using this plugin, it's highly recommended to set `shadow_maps_enabled: false` on all lights, as Solari replaces
 /// traditional shadow mapping.
 pub struct SolariLightingPlugin;
 
 impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "gbuffer_utils.wgsl");
+        load_shader_library!(app, "realtime_bindings.wgsl");
         load_shader_library!(app, "presample_light_tiles.wgsl");
         embedded_asset!(app, "restir_di.wgsl");
         embedded_asset!(app, "restir_gi.wgsl");
-        embedded_asset!(app, "specular_gi.wgsl");
+        load_shader_library!(app, "specular_gi.wgsl");
         load_shader_library!(app, "world_cache_query.wgsl");
         embedded_asset!(app, "world_cache_compact.wgsl");
         embedded_asset!(app, "world_cache_update.wgsl");
 
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        embedded_asset!(app, "resolve_dlss_rr_textures.wgsl");
+        load_shader_library!(app, "resolve_dlss_rr_textures.wgsl");
 
         app.insert_resource(DefaultOpaqueRendererMethod::deferred());
     }
@@ -61,23 +62,13 @@ impl Plugin for SolariLightingPlugin {
         }
 
         render_app
+            .add_systems(RenderStartup, init_solari_lighting_pipelines)
             .add_systems(ExtractSchedule, extract_solari_lighting)
             .add_systems(
                 Render,
                 prepare_solari_lighting_resources.in_set(RenderSystems::PrepareResources),
             )
-            .add_render_graph_node::<ViewNodeRunner<SolariLightingNode>>(
-                Core3d,
-                node::graph::SolariLightingNode,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EndPrepasses,
-                    node::graph::SolariLightingNode,
-                    Node3d::EndMainPass,
-                ),
-            );
+            .add_systems(Core3d, solari_lighting.in_set(Core3dSystems::MainPass));
     }
 }
 
@@ -87,7 +78,14 @@ impl Plugin for SolariLightingPlugin {
 /// `Msaa::Off`.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(Hdr, DeferredPrepass, DepthPrepass, MotionVectorPrepass)]
+#[require(
+    Hdr,
+    DeferredPrepass,
+    DepthPrepass,
+    MotionVectorPrepass,
+    DeferredPrepassDoubleBuffer,
+    DepthPrepassDoubleBuffer
+)]
 pub struct SolariLighting {
     /// Set to true to delete the saved temporal history (past frames).
     ///

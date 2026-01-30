@@ -266,10 +266,10 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Retrieves this world's [`Entities`] collection.
     #[inline]
-    pub fn entities_allocator(self) -> &'w EntityAllocator {
+    pub fn entity_allocator(self) -> &'w EntityAllocator {
         // SAFETY:
         // - we only access world metadata
-        &unsafe { self.world_metadata() }.allocator
+        &unsafe { self.world_metadata() }.entity_allocator
     }
 
     /// Retrieves this world's [`Archetypes`] collection.
@@ -697,7 +697,8 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Must have read access to [`DefaultErrorHandler`].
     #[inline]
     pub unsafe fn default_error_handler(&self) -> ErrorHandler {
-        self.get_resource::<DefaultErrorHandler>()
+        // SAFETY: Upheld by caller
+        unsafe { self.get_resource::<DefaultErrorHandler>() }
             .copied()
             .unwrap_or_default()
             .0

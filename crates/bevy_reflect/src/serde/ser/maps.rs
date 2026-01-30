@@ -1,4 +1,4 @@
-use crate::{serde::TypedReflectSerializer, Map, TypeRegistry};
+use crate::{map::Map, serde::TypedReflectSerializer, TypeRegistry};
 use serde::{ser::SerializeMap, Serialize};
 
 use super::ReflectSerializerProcessor;

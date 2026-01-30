@@ -252,7 +252,7 @@ impl AssetServer {
         loader.get().await.map_err(|_| error())
     }
 
-    /// Returns the registered [`AssetLoader`] associated with the given [`core::any::type_name`], if it exists.
+    /// Returns the registered [`AssetLoader`] associated with the given type name, if it exists.
     pub async fn get_asset_loader_with_type_name(
         &self,
         type_name: &str,
@@ -790,7 +790,7 @@ impl AssetServer {
                     path: path.into_owned(),
                     requested: asset_type_id,
                     actual_asset_name: loader.asset_type_name(),
-                    loader_name: loader.type_name(),
+                    loader_name: loader.type_path(),
                 });
             }
         }
@@ -826,9 +826,9 @@ impl AssetServer {
         };
 
         match self
-            .load_with_meta_loader_and_reader(
+            .load_with_settings_loader_and_reader(
                 &base_path,
-                meta.as_ref(),
+                meta.loader_settings().expect("meta is set to Load"),
                 &*loader,
                 &mut *reader,
                 true,
@@ -887,6 +887,8 @@ impl AssetServer {
             .spawn(async move {
                 let mut reloaded = false;
 
+                // First, try to reload the asset for any handles to that path. This will try both
+                // root assets and subassets.
                 let requests = server
                     .read_infos()
                     .get_path_handles(&path)
@@ -902,6 +904,14 @@ impl AssetServer {
                     }
                 }
 
+                // If the above section failed, and there are still living subassets (aka we should
+                // reload), then just try doing an untyped load. This helps catch cases where the
+                // root asset has been dropped, but all its subassets are still being used (in which
+                // case the above section would have tried to find the loader with the root asset's
+                // type and loaded it). Hopefully the untyped load will find the right loader and
+                // reload all the subassets (though this is not guaranteed).
+                // TODO: Make sure we use the same loader as the original load (e.g., by storing a
+                // map from asset index to loader).
                 if !reloaded && server.read_infos().should_reload(&path) {
                     server.write_infos().stats.started_load_tasks += 1;
                     match server.load_internal(None, path.clone(), true, None).await {
@@ -1427,24 +1437,31 @@ impl AssetServer {
         AssetLoadError,
     > {
         let source = self.get_source(asset_path.source())?;
-        // NOTE: We grab the asset byte reader first to ensure this is transactional for AssetReaders like ProcessorGatedReader
-        // The asset byte reader will "lock" the processed asset, preventing writes for the duration of the lock.
-        // Then the meta reader, if meta exists, will correspond to the meta for the current "version" of the asset.
-        // See ProcessedAssetInfo::file_transaction_lock for more context
         let asset_reader = match self.data.mode {
             AssetServerMode::Unprocessed => source.reader(),
             AssetServerMode::Processed => source.processed_reader()?,
         };
-        let reader = asset_reader.read(asset_path.path()).await?;
         let read_meta = match &self.data.meta_check {
             AssetMetaCheck::Always => true,
             AssetMetaCheck::Paths(paths) => paths.contains(asset_path),
             AssetMetaCheck::Never => false,
         };
 
-        if read_meta {
-            match asset_reader.read_meta_bytes(asset_path.path()).await {
-                Ok(meta_bytes) => {
+        // Scope the meta reader up here. This allows the reader to be "transactional": for sources
+        // that want to lock the asset before reading it (e.g., with a RwLock), this allows the meta
+        // reader to take the RwLock, and since it overlaps with the asset reader, the asset reader
+        // can "take over" the RwLock before the meta reader gets dropped.
+        let mut meta_reader;
+
+        let (meta, loader) = if read_meta {
+            match asset_reader.read_meta(asset_path.path()).await {
+                Ok(new_meta_reader) => {
+                    meta_reader = new_meta_reader;
+                    let mut meta_bytes = vec![];
+                    meta_reader
+                        .read_to_end(&mut meta_bytes)
+                        .await
+                        .map_err(|err| AssetLoadError::AssetReaderError(err.into()))?;
                     // TODO: this isn't fully minimal yet. we only need the loader
                     let minimal: AssetMetaMinimal =
                         ron::de::from_bytes(&meta_bytes).map_err(|e| {
@@ -1474,7 +1491,7 @@ impl AssetServer {
                         }
                     })?;
 
-                    Ok((meta, loader, reader))
+                    (meta, loader)
                 }
                 Err(AssetReaderError::NotFound(_)) => {
                     // TODO: Handle error transformation
@@ -1493,9 +1510,9 @@ impl AssetServer {
                     let loader = loader.ok_or_else(error)?.get().await.map_err(|_| error())?;
 
                     let meta = loader.default_meta();
-                    Ok((meta, loader, reader))
+                    (meta, loader)
                 }
-                Err(err) => Err(err.into()),
+                Err(err) => return Err(err.into()),
             }
         } else {
             let loader = {
@@ -1513,14 +1530,16 @@ impl AssetServer {
             let loader = loader.ok_or_else(error)?.get().await.map_err(|_| error())?;
 
             let meta = loader.default_meta();
-            Ok((meta, loader, reader))
-        }
+            (meta, loader)
+        };
+        let reader = asset_reader.read(asset_path.path()).await?;
+        Ok((meta, loader, reader))
     }
 
-    pub(crate) async fn load_with_meta_loader_and_reader(
+    pub(crate) async fn load_with_settings_loader_and_reader(
         &self,
         asset_path: &AssetPath<'_>,
-        meta: &dyn AssetMetaDyn,
+        settings: &dyn Settings,
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
         load_dependencies: bool,
@@ -1530,17 +1549,27 @@ impl AssetServer {
         let asset_path = asset_path.clone_owned();
         let load_context =
             LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
-        AssertUnwindSafe(loader.load(reader, meta, load_context))
-            .catch_unwind()
-            .await
+        let load = AssertUnwindSafe(loader.load(reader, settings, load_context)).catch_unwind();
+        #[cfg(feature = "trace")]
+        let load = {
+            use tracing::Instrument;
+
+            let span = tracing::info_span!(
+                "asset loading",
+                loader = loader.type_path(),
+                asset = asset_path.to_string()
+            );
+            load.instrument(span)
+        };
+        load.await
             .map_err(|_| AssetLoadError::AssetLoaderPanic {
                 path: asset_path.clone_owned(),
-                loader_name: loader.type_name(),
+                loader_name: loader.type_path(),
             })?
             .map_err(|e| {
                 AssetLoadError::AssetLoaderError(AssetLoaderError {
                     path: asset_path.clone_owned(),
-                    loader_name: loader.type_name(),
+                    loader_name: loader.type_path(),
                     error: e.into(),
                 })
             })

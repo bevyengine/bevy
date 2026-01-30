@@ -421,9 +421,9 @@ pub trait ReleaseStateQueryData: QueryData {
 /// The trait must only be implemented for query data where its corresponding [`QueryData::IS_ARCHETYPAL`] is [`prim@true`].
 pub trait ArchetypeQueryData: QueryData {}
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for Entity {
     type Fetch<'w> = ();
     type State = ();
@@ -473,7 +473,7 @@ unsafe impl WorldQuery for Entity {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for Entity {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -502,13 +502,13 @@ unsafe impl QueryData for Entity {
     }
 }
 
-/// SAFETY: access is read only and only on the current entity
+// SAFETY: access is read only and only on the current entity
 unsafe impl IterQueryData for Entity {}
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for Entity {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl SingleEntityQueryData for Entity {}
 
 impl ReleaseStateQueryData for Entity {
@@ -519,9 +519,9 @@ impl ReleaseStateQueryData for Entity {
 
 impl ArchetypeQueryData for Entity {}
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for EntityLocation {
     type Fetch<'w> = &'w Entities;
     type State = ();
@@ -576,7 +576,7 @@ unsafe impl WorldQuery for EntityLocation {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for EntityLocation {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -605,13 +605,13 @@ unsafe impl QueryData for EntityLocation {
     }
 }
 
-/// SAFETY: access is read only and only on the current entity
+// SAFETY: access is read only and only on the current entity
 unsafe impl IterQueryData for EntityLocation {}
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityLocation {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl SingleEntityQueryData for EntityLocation {}
 
 impl ReleaseStateQueryData for EntityLocation {
@@ -791,13 +791,13 @@ unsafe impl QueryData for SpawnDetails {
     }
 }
 
-/// SAFETY: access is read only and only on the current entity
+// SAFETY: access is read only and only on the current entity
 unsafe impl IterQueryData for SpawnDetails {}
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for SpawnDetails {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl SingleEntityQueryData for SpawnDetails {}
 
 impl ReleaseStateQueryData for SpawnDetails {
@@ -818,10 +818,10 @@ pub struct EntityFetch<'w> {
     this_run: Tick,
 }
 
-/// SAFETY:
-/// `fetch` accesses all components in a readonly way.
-/// This is sound because `update_component_access` sets read access for all components and panic when appropriate.
-/// Filters are unchanged.
+// SAFETY:
+// `fetch` accesses all components in a readonly way.
+// This is sound because `update_component_access` sets read access for all components and panic when appropriate.
+// Filters are unchanged.
 unsafe impl<'a> WorldQuery for EntityRef<'a> {
     type Fetch<'w> = EntityFetch<'w>;
     type State = ();
@@ -884,7 +884,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a> QueryData for EntityRef<'a> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -920,13 +920,13 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
     }
 }
 
-/// SAFETY: access is read only and only on the current entity
+// SAFETY: access is read only and only on the current entity
 unsafe impl IterQueryData for EntityRef<'_> {}
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl SingleEntityQueryData for EntityRef<'_> {}
 
 impl ReleaseStateQueryData for EntityRef<'_> {
@@ -937,7 +937,7 @@ impl ReleaseStateQueryData for EntityRef<'_> {
 
 impl ArchetypeQueryData for EntityRef<'_> {}
 
-/// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
+// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for EntityMut<'a> {
     type Fetch<'w> = EntityFetch<'w>;
     type State = ();
@@ -1000,7 +1000,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     }
 }
 
-/// SAFETY: access of `EntityRef` is a subset of `EntityMut`
+// SAFETY: access of `EntityRef` is a subset of `EntityMut`
 unsafe impl<'a> QueryData for EntityMut<'a> {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
@@ -1036,10 +1036,10 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
     }
 }
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl IterQueryData for EntityMut<'_> {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl SingleEntityQueryData for EntityMut<'_> {}
 
 impl ReleaseStateQueryData for EntityMut<'_> {
@@ -1050,7 +1050,7 @@ impl ReleaseStateQueryData for EntityMut<'_> {
 
 impl ArchetypeQueryData for EntityMut<'_> {}
 
-/// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
+// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     type Fetch<'w> = EntityFetch<'w>;
     type State = Access;
@@ -1115,7 +1115,7 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -1170,18 +1170,18 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
     }
 }
 
-/// SAFETY: access is read only and only on the current entity
+// SAFETY: access is read only and only on the current entity
 unsafe impl IterQueryData for FilteredEntityRef<'_, '_> {}
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_, '_> {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl SingleEntityQueryData for FilteredEntityRef<'_, '_> {}
 
 impl ArchetypeQueryData for FilteredEntityRef<'_, '_> {}
 
-/// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
+// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     type Fetch<'w> = EntityFetch<'w>;
     type State = Access;
@@ -1246,7 +1246,7 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     }
 }
 
-/// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
+// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
 unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
@@ -1299,17 +1299,17 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     }
 }
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl IterQueryData for FilteredEntityMut<'_, '_> {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl SingleEntityQueryData for FilteredEntityMut<'_, '_> {}
 
 impl ArchetypeQueryData for FilteredEntityMut<'_, '_> {}
 
-/// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
-/// and populates `Access` values so that queries that conflict with this access
-/// are rejected.
+// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
+// and populates `Access` values so that queries that conflict with this access
+// are rejected.
 unsafe impl<'a, 'b, B> WorldQuery for EntityRefExcept<'a, 'b, B>
 where
     B: Bundle,
@@ -1385,7 +1385,7 @@ where
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`.
+// SAFETY: `Self` is the same as `Self::ReadOnly`.
 unsafe impl<'a, 'b, B> QueryData for EntityRefExcept<'a, 'b, B>
 where
     B: Bundle,
@@ -1419,20 +1419,20 @@ where
     }
 }
 
-/// SAFETY: access is read only and only on the current entity
+// SAFETY: access is read only and only on the current entity
 unsafe impl<B> IterQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl<B> ReadOnlyQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl<B> SingleEntityQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
 
 impl<B: Bundle> ArchetypeQueryData for EntityRefExcept<'_, '_, B> {}
 
-/// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
-/// and populates `Access` values so that queries that conflict with this access
-/// are rejected.
+// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
+// and populates `Access` values so that queries that conflict with this access
+// are rejected.
 unsafe impl<'a, 'b, B> WorldQuery for EntityMutExcept<'a, 'b, B>
 where
     B: Bundle,
@@ -1508,8 +1508,8 @@ where
     }
 }
 
-/// SAFETY: All accesses that `EntityRefExcept` provides are also accesses that
-/// `EntityMutExcept` provides.
+// SAFETY: All accesses that `EntityRefExcept` provides are also accesses that
+// `EntityMutExcept` provides.
 unsafe impl<'a, 'b, B> QueryData for EntityMutExcept<'a, 'b, B>
 where
     B: Bundle,
@@ -1543,17 +1543,17 @@ where
     }
 }
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl<B> IterQueryData for EntityMutExcept<'_, '_, B> where B: Bundle {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl<B> SingleEntityQueryData for EntityMutExcept<'_, '_, B> where B: Bundle {}
 
 impl<B: Bundle> ArchetypeQueryData for EntityMutExcept<'_, '_, B> {}
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for &Archetype {
     type Fetch<'w> = (&'w Entities, &'w Archetypes);
     type State = ();
@@ -1608,7 +1608,7 @@ unsafe impl WorldQuery for &Archetype {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for &Archetype {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -1640,13 +1640,13 @@ unsafe impl QueryData for &Archetype {
     }
 }
 
-/// SAFETY: access is read only and only on the current entity
+// SAFETY: access is read only and only on the current entity
 unsafe impl IterQueryData for &Archetype {}
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for &Archetype {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl SingleEntityQueryData for &Archetype {}
 
 impl ReleaseStateQueryData for &Archetype {
@@ -1676,11 +1676,11 @@ impl<T: Component> Clone for ReadFetch<'_, T> {
 
 impl<T: Component> Copy for ReadFetch<'_, T> {}
 
-/// SAFETY:
-/// `fetch` accesses a single component in a readonly way.
-/// This is sound because `update_component_access` adds read access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+// SAFETY:
+// `fetch` accesses a single component in a readonly way.
+// This is sound because `update_component_access` adds read access for that component and panic when appropriate.
+// `update_component_access` adds a `With` filter for a component.
+// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for &T {
     type Fetch<'w> = ReadFetch<'w, T>;
     type State = ComponentId;
@@ -1773,7 +1773,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for &T {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -1819,13 +1819,13 @@ unsafe impl<T: Component> QueryData for &T {
     }
 }
 
-/// SAFETY: access is read only and only on the current entity
+// SAFETY: access is read only and only on the current entity
 unsafe impl<T: Component> IterQueryData for &T {}
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyQueryData for &T {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl<T: Component> SingleEntityQueryData for &T {}
 
 impl<T: Component> ReleaseStateQueryData for &T {
@@ -1863,11 +1863,11 @@ impl<T: Component> Clone for RefFetch<'_, T> {
 
 impl<T: Component> Copy for RefFetch<'_, T> {}
 
-/// SAFETY:
-/// `fetch` accesses a single component in a readonly way.
-/// This is sound because `update_component_access` adds read access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+// SAFETY:
+// `fetch` accesses a single component in a readonly way.
+// This is sound because `update_component_access` adds read access for that component and panic when appropriate.
+// `update_component_access` adds a `With` filter for a component.
+// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     type Fetch<'w> = RefFetch<'w, T>;
     type State = ComponentId;
@@ -1969,7 +1969,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -2042,13 +2042,13 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
     }
 }
 
-/// SAFETY: access is read only and only on the current entity
+// SAFETY: access is read only and only on the current entity
 unsafe impl<'__w, T: Component> IterQueryData for Ref<'__w, T> {}
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl<'__w, T: Component> SingleEntityQueryData for Ref<'__w, T> {}
 
 impl<T: Component> ReleaseStateQueryData for Ref<'_, T> {
@@ -2086,11 +2086,11 @@ impl<T: Component> Clone for WriteFetch<'_, T> {
 
 impl<T: Component> Copy for WriteFetch<'_, T> {}
 
-/// SAFETY:
-/// `fetch` accesses a single component mutably.
-/// This is sound because `update_component_access` adds write access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+// SAFETY:
+// `fetch` accesses a single component mutably.
+// This is sound because `update_component_access` adds write access for that component and panic when appropriate.
+// `update_component_access` adds a `With` filter for a component.
+// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
@@ -2192,7 +2192,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     }
 }
 
-/// SAFETY: access of `&T` is a subset of `&mut T`
+// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
@@ -2265,10 +2265,10 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
     }
 }
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for &mut T {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for &mut T {}
 
 impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
@@ -2282,12 +2282,12 @@ impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T {}
 /// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its read-only form, providing access to change detection methods.
 ///
 /// By contrast `&mut T` will result in a `Mut<T>` item in mutable form to record mutations, but result in a bare `&T` in read-only form.
-///
-/// SAFETY:
-/// `fetch` accesses a single component mutably.
-/// This is sound because `update_component_access` adds write access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+//
+// SAFETY:
+// `fetch` accesses a single component mutably.
+// This is sound because `update_component_access` adds write access for that component and panic when appropriate.
+// `update_component_access` adds a `With` filter for a component.
+// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
@@ -2390,10 +2390,10 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
     }
 }
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for Mut<'_, T> {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for Mut<'_, T> {}
 
 impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T> {
@@ -2656,10 +2656,10 @@ impl<T: WorldQuery> Clone for OptionFetch<'_, T> {
     }
 }
 
-/// SAFETY:
-/// `fetch` might access any components that `T` accesses.
-/// This is sound because `update_component_access` adds the same accesses as `T`.
-/// Filters are unchanged.
+// SAFETY:
+// `fetch` might access any components that `T` accesses.
+// This is sound because `update_component_access` adds the same accesses as `T`.
+// Filters are unchanged.
 unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     type Fetch<'w> = OptionFetch<'w, T>;
     type State = T::State;
@@ -2798,13 +2798,13 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
     }
 }
 
-/// SAFETY: `Option<T>` is iterable because `T` is iterable
+// SAFETY: `Option<T>` is iterable because `T` is iterable
 unsafe impl<T: IterQueryData> IterQueryData for Option<T> {}
 
-/// SAFETY: `Option<T>` is read only because `T` is read only
+// SAFETY: `Option<T>` is read only because `T` is read only
 unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 
-/// SAFETY: `Option<T>` only accesses the current entity because `T` only accesses the current entity
+// SAFETY: `Option<T>` only accesses the current entity because `T` only accesses the current entity
 unsafe impl<T: SingleEntityQueryData> SingleEntityQueryData for Option<T> {}
 
 impl<T: ReleaseStateQueryData> ReleaseStateQueryData for Option<T> {
@@ -2888,9 +2888,9 @@ impl<T> core::fmt::Debug for Has<T> {
     }
 }
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl<T: Component> WorldQuery for Has<T> {
     type Fetch<'w> = bool;
     type State = ComponentId;
@@ -2956,7 +2956,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for Has<T> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -2984,13 +2984,13 @@ unsafe impl<T: Component> QueryData for Has<T> {
     }
 }
 
-/// SAFETY: access is read only and only on the current entity
+// SAFETY: access is read only and only on the current entity
 unsafe impl<T: Component> IterQueryData for Has<T> {}
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
 
-/// SAFETY: access is only on the current entity
+// SAFETY: access is only on the current entity
 unsafe impl<T: Component> SingleEntityQueryData for Has<T> {}
 
 impl<T: Component> ReleaseStateQueryData for Has<T> {
@@ -3071,15 +3071,15 @@ macro_rules! impl_tuple_query_data {
         }
 
         $(#[$meta])*
-        /// SAFETY: each item in the tuple is iterable
+        // SAFETY: each item in the tuple is iterable
         unsafe impl<$($name: IterQueryData),*> IterQueryData for ($($name,)*) {}
 
         $(#[$meta])*
-        /// SAFETY: each item in the tuple is read only
+        // SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for ($($name,)*) {}
 
         $(#[$meta])*
-        /// SAFETY: each item in the tuple only accesses the current entity
+        // SAFETY: each item in the tuple only accesses the current entity
         unsafe impl<$($name: SingleEntityQueryData),*> SingleEntityQueryData for ($($name,)*) {}
 
         #[expect(
@@ -3121,11 +3121,11 @@ macro_rules! impl_anytuple_fetch {
             clippy::unused_unit,
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
-        /// SAFETY:
-        /// `fetch` accesses are a subset of the subqueries' accesses
-        /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
-        /// `update_component_access` replaces the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
-        /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
+        // SAFETY:
+        // `fetch` accesses are a subset of the subqueries' accesses
+        // This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
+        // `update_component_access` replaces the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
+        // This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
             type Fetch<'w> = ($(($name::Fetch<'w>, bool),)*);
             type State = ($($name::State,)*);
@@ -3295,15 +3295,15 @@ macro_rules! impl_anytuple_fetch {
         }
 
         $(#[$meta])*
-        /// SAFETY: each item in the tuple is iterable
+        // SAFETY: each item in the tuple is iterable
         unsafe impl<$($name: IterQueryData),*> IterQueryData for AnyOf<($($name,)*)> {}
 
         $(#[$meta])*
-        /// SAFETY: each item in the tuple is read only
+        // SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for AnyOf<($($name,)*)> {}
 
         $(#[$meta])*
-        /// SAFETY: each item in the tuple only accesses the current entity
+        // SAFETY: each item in the tuple only accesses the current entity
         unsafe impl<$($name: SingleEntityQueryData),*> SingleEntityQueryData for AnyOf<($($name,)*)> {}
 
         #[expect(
@@ -3349,9 +3349,9 @@ all_tuples!(
 /// This will rarely be useful to consumers of `bevy_ecs`.
 pub(crate) struct NopWorldQuery<D: QueryData>(PhantomData<D>);
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     type Fetch<'w> = ();
     type State = D::State;
@@ -3404,7 +3404,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     }
 }
 
-/// SAFETY: `Self::ReadOnly` is `Self`
+// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -3431,13 +3431,13 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     }
 }
 
-/// SAFETY: `NopFetch` never accesses any data
+// SAFETY: `NopFetch` never accesses any data
 unsafe impl<D: QueryData> IterQueryData for NopWorldQuery<D> {}
 
-/// SAFETY: `NopFetch` never accesses any data
+// SAFETY: `NopFetch` never accesses any data
 unsafe impl<D: QueryData> ReadOnlyQueryData for NopWorldQuery<D> {}
 
-/// SAFETY: `NopFetch` never accesses any data
+// SAFETY: `NopFetch` never accesses any data
 unsafe impl<D: QueryData> SingleEntityQueryData for NopWorldQuery<D> {}
 
 impl<D: QueryData> ReleaseStateQueryData for NopWorldQuery<D> {
@@ -3446,9 +3446,9 @@ impl<D: QueryData> ReleaseStateQueryData for NopWorldQuery<D> {
 
 impl<D: QueryData> ArchetypeQueryData for NopWorldQuery<D> {}
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     type Fetch<'w> = ();
 
@@ -3500,7 +3500,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     }
 }
 
-/// SAFETY: `Self::ReadOnly` is `Self`
+// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -3526,13 +3526,13 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     }
 }
 
-/// SAFETY: `PhantomData` never accesses any data
+// SAFETY: `PhantomData` never accesses any data
 unsafe impl<T: ?Sized> IterQueryData for PhantomData<T> {}
 
-/// SAFETY: `PhantomData` never accesses any data
+// SAFETY: `PhantomData` never accesses any data
 unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
 
-/// SAFETY: `PhantomData` never accesses any data
+// SAFETY: `PhantomData` never accesses any data
 unsafe impl<T: ?Sized> SingleEntityQueryData for PhantomData<T> {}
 
 impl<T: ?Sized> ReleaseStateQueryData for PhantomData<T> {
@@ -3661,9 +3661,9 @@ mod tests {
     fn derive_release_state() {
         struct NonReleaseQueryData;
 
-        /// SAFETY:
-        /// `update_component_access` do nothing.
-        /// This is sound because `fetch` does not access components.
+        // SAFETY:
+        // `update_component_access` do nothing.
+        // This is sound because `fetch` does not access components.
         unsafe impl WorldQuery for NonReleaseQueryData {
             type Fetch<'w> = ();
             type State = ();
@@ -3716,7 +3716,7 @@ mod tests {
             }
         }
 
-        /// SAFETY: `Self` is the same as `Self::ReadOnly`
+        // SAFETY: `Self` is the same as `Self::ReadOnly`
         unsafe impl QueryData for NonReleaseQueryData {
             type ReadOnly = Self;
             const IS_READ_ONLY: bool = true;
@@ -3744,10 +3744,10 @@ mod tests {
             }
         }
 
-        /// SAFETY: access is read only
+        // SAFETY: access is read only
         unsafe impl ReadOnlyQueryData for NonReleaseQueryData {}
 
-        /// SAFETY: access is read only
+        // SAFETY: access is read only
         unsafe impl IterQueryData for NonReleaseQueryData {}
 
         impl ArchetypeQueryData for NonReleaseQueryData {}

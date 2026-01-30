@@ -94,7 +94,7 @@ fn setup(
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            margin: UiRect::all(px(20)),
+                            margin: px(20).all(),
                             ..default()
                         },
                     ))
@@ -102,7 +102,7 @@ fn setup(
                         parent.spawn((
                             Text::new("Button"),
                             TextFont {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                                 font_size: 33.0,
                                 ..default()
                             },

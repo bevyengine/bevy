@@ -229,7 +229,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let data_impl = {
         let read_only_data_impl = if attributes.is_mutable {
             quote! {
-                /// SAFETY: we assert fields are readonly below
+                // SAFETY: we assert fields are readonly below
                 unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
                     const IS_READ_ONLY: bool = true;
@@ -311,7 +311,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         let is_read_only = !attributes.is_mutable;
 
         quote! {
-            /// SAFETY: we assert fields are readonly below
+            // SAFETY: we assert fields are readonly below
             unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
                 const IS_READ_ONLY: bool = #is_read_only;
@@ -394,7 +394,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     };
 
     let read_only_data_impl = quote! {
-        /// SAFETY: we assert fields are readonly below
+        // SAFETY: we assert fields are readonly below
         unsafe impl #user_impl_generics #path::query::ReadOnlyQueryData
         for #read_only_struct_name #user_ty_generics #user_where_clauses {}
     };

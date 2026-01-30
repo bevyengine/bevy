@@ -1,7 +1,4 @@
-#[cfg(any(feature = "http", feature = "https"))]
-use crate::io::AssetSourceBuilder;
-use crate::io::PathStream;
-use crate::io::{AssetReader, AssetReaderError, Reader};
+use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
 use crate::{AssetApp, AssetPlugin};
 use alloc::boxed::Box;
 use bevy_app::{App, Plugin};

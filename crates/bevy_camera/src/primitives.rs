@@ -1,9 +1,11 @@
 use core::borrow::Borrow;
 
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{
     bounding::{Aabb3d, BoundingVolume},
-    Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles,
+    primitives::{HalfSpace, ViewFrustum},
+    Affine3A, Mat3A, Vec3, Vec3A,
 };
 use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
@@ -18,8 +20,13 @@ pub trait MeshAabb {
 
 impl MeshAabb for Mesh {
     fn compute_aabb(&self) -> Option<Aabb> {
-        let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
+        if let Some(aabb) = self.final_aabb {
+            // use precomputed extents
+            return Some(aabb.into());
+        }
+
+        let Ok(VertexAttributeValues::Float32x3(values)) =
+            self.try_attribute(Mesh::ATTRIBUTE_POSITION)
         else {
             return None;
         };
@@ -190,74 +197,6 @@ impl Sphere {
     }
 }
 
-/// A region of 3D space, specifically an open set whose border is a bisecting 2D plane.
-///
-/// This bisecting plane partitions 3D space into two infinite regions,
-/// the half-space is one of those regions and excludes the bisecting plane.
-///
-/// Each instance of this type is characterized by:
-/// - the bisecting plane's unit normal, normalized and pointing "inside" the half-space,
-/// - the signed distance along the normal from the bisecting plane to the origin of 3D space.
-///
-/// The distance can also be seen as:
-/// - the distance along the inverse of the normal from the origin of 3D space to the bisecting plane,
-/// - the opposite of the distance along the normal from the origin of 3D space to the bisecting plane.
-///
-/// Any point `p` is considered to be within the `HalfSpace` when the length of the projection
-/// of p on the normal is greater or equal than the opposite of the distance,
-/// meaning: if the equation `normal.dot(p) + distance > 0.` is satisfied.
-///
-/// For example, the half-space containing all the points with a z-coordinate lesser
-/// or equal than `8.0` would be defined by: `HalfSpace::new(Vec3::NEG_Z.extend(-8.0))`.
-/// It includes all the points from the bisecting plane towards `NEG_Z`, and the distance
-/// from the plane to the origin is `-8.0` along `NEG_Z`.
-///
-/// It is used to define a [`Frustum`], but is also a useful mathematical primitive for rendering tasks such as  light computation.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct HalfSpace {
-    normal_d: Vec4,
-}
-
-impl HalfSpace {
-    /// Constructs a `HalfSpace` from a 4D vector whose first 3 components
-    /// represent the bisecting plane's unit normal, and the last component is
-    /// the signed distance along the normal from the plane to the origin.
-    /// The constructor ensures the normal vector is normalized and the distance is appropriately scaled.
-    #[inline]
-    pub fn new(normal_d: Vec4) -> Self {
-        Self {
-            normal_d: normal_d * normal_d.xyz().length_recip(),
-        }
-    }
-
-    /// Returns the unit normal vector of the bisecting plane that characterizes the `HalfSpace`.
-    #[inline]
-    pub fn normal(&self) -> Vec3A {
-        Vec3A::from_vec4(self.normal_d)
-    }
-
-    /// Returns the signed distance from the bisecting plane to the origin along
-    /// the plane's unit normal vector.
-    #[inline]
-    pub fn d(&self) -> f32 {
-        self.normal_d.w
-    }
-
-    /// Returns the bisecting plane's unit normal vector and the signed distance
-    /// from the plane to the origin.
-    #[inline]
-    pub fn normal_d(&self) -> Vec4 {
-        self.normal_d
-    }
-}
-
-/// A region of 3D space defined by the intersection of 6 [`HalfSpace`]s.
-///
-/// Frustums are typically an apex-truncated square pyramid (a pyramid without the top) or a cuboid.
-///
-/// Half spaces are ordered left, right, top, bottom, near, far. The normal vectors
-/// of the half-spaces point towards the interior of the frustum.
-///
 /// A frustum component is used on an entity with a [`Camera`] component to
 /// determine which entities will be considered for rendering by this camera.
 /// All entities with an [`Aabb`] component that are not contained by (or crossing
@@ -277,73 +216,19 @@ impl HalfSpace {
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
 /// [`Camera2d`]: crate::Camera2d
 /// [`Camera3d`]: crate::Camera3d
-#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+#[derive(Component, Clone, Copy, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-pub struct Frustum {
-    #[reflect(ignore, clone)]
-    pub half_spaces: [HalfSpace; 6],
-}
+pub struct Frustum(pub ViewFrustum);
 
 impl Frustum {
-    pub const NEAR_PLANE_IDX: usize = 4;
-    const FAR_PLANE_IDX: usize = 5;
-    const INACTIVE_HALF_SPACE: Vec4 = Vec4::new(0.0, 0.0, 0.0, f32::INFINITY);
-
-    /// Returns a frustum derived from `clip_from_world`.
-    #[inline]
-    pub fn from_clip_from_world(clip_from_world: &Mat4) -> Self {
-        let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
-        frustum.half_spaces[Self::FAR_PLANE_IDX] = HalfSpace::new(clip_from_world.row(2));
-        frustum
-    }
-
-    /// Returns a frustum derived from `clip_from_world`,
-    /// but with a custom far plane.
-    #[inline]
-    pub fn from_clip_from_world_custom_far(
-        clip_from_world: &Mat4,
-        view_translation: &Vec3,
-        view_backward: &Vec3,
-        far: f32,
-    ) -> Self {
-        let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
-        let far_center = *view_translation - far * *view_backward;
-        frustum.half_spaces[Self::FAR_PLANE_IDX] =
-            HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
-        frustum
-    }
-
-    // NOTE: This approach of extracting the frustum half-space from the view
-    // projection matrix is from Foundations of Game Engine Development 2
-    // Rendering by Lengyel.
-    /// Returns a frustum derived from `view_projection`,
-    /// without a far plane.
-    fn from_clip_from_world_no_far(clip_from_world: &Mat4) -> Self {
-        let row0 = clip_from_world.row(0);
-        let row1 = clip_from_world.row(1);
-        let row2 = clip_from_world.row(2);
-        let row3 = clip_from_world.row(3);
-
-        Self {
-            half_spaces: [
-                HalfSpace::new(row3 + row0),
-                HalfSpace::new(row3 - row0),
-                HalfSpace::new(row3 + row1),
-                HalfSpace::new(row3 - row1),
-                HalfSpace::new(row3 + row2),
-                HalfSpace::new(Self::INACTIVE_HALF_SPACE),
-            ],
-        }
-    }
-
     /// Checks if a sphere intersects the frustum.
     #[inline]
     pub fn intersects_sphere(&self, sphere: &Sphere, intersect_far: bool) -> bool {
         let sphere_center = sphere.center.extend(1.0);
         let max = if intersect_far {
-            Self::FAR_PLANE_IDX
+            ViewFrustum::FAR_PLANE_IDX
         } else {
-            Self::NEAR_PLANE_IDX
+            ViewFrustum::NEAR_PLANE_IDX
         };
         for half_space in &self.half_spaces[..=max] {
             if half_space.normal_d().dot(sphere_center) + sphere.radius <= 0.0 {
@@ -365,8 +250,8 @@ impl Frustum {
         let aabb_center_world = world_from_local.transform_point3a(aabb.center).extend(1.0);
 
         for (idx, half_space) in self.half_spaces.into_iter().enumerate() {
-            if (idx == Self::NEAR_PLANE_IDX && !intersect_near)
-                || (idx == Self::FAR_PLANE_IDX && !intersect_far)
+            if (idx == ViewFrustum::NEAR_PLANE_IDX && !intersect_near)
+                || (idx == ViewFrustum::FAR_PLANE_IDX && !intersect_far)
             {
                 continue;
             }
@@ -479,7 +364,6 @@ pub fn face_index_to_name(face_index: usize) -> &'static str {
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct CubemapFrusta {
-    #[reflect(ignore, clone)]
     pub frusta: [Frustum; 6],
 }
 
@@ -531,7 +415,6 @@ pub enum CubemapLayout {
 #[derive(Component, Debug, Default, Reflect, Clone)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct CascadesFrusta {
-    #[reflect(ignore, clone)]
     pub frusta: EntityHashMap<Vec<Frustum>>,
 }
 
@@ -539,7 +422,7 @@ pub struct CascadesFrusta {
 mod tests {
     use core::f32::consts::PI;
 
-    use bevy_math::{ops, Quat};
+    use bevy_math::{ops, Quat, Vec4};
     use bevy_transform::components::GlobalTransform;
 
     use crate::{CameraProjection, PerspectiveProjection};
@@ -548,7 +431,7 @@ mod tests {
 
     // A big, offset frustum
     fn big_frustum() -> Frustum {
-        Frustum {
+        Frustum(ViewFrustum {
             half_spaces: [
                 HalfSpace::new(Vec4::new(-0.9701, -0.2425, -0.0000, 7.7611)),
                 HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 4.0000)),
@@ -557,7 +440,7 @@ mod tests {
                 HalfSpace::new(Vec4::new(-0.0000, -0.2425, 0.9701, 2.9104)),
                 HalfSpace::new(Vec4::new(0.9701, -0.2425, -0.0000, -1.9403)),
             ],
-        }
+        })
     }
 
     #[test]
@@ -584,7 +467,7 @@ mod tests {
 
     // A frustum
     fn frustum() -> Frustum {
-        Frustum {
+        Frustum(ViewFrustum {
             half_spaces: [
                 HalfSpace::new(Vec4::new(-0.9701, -0.2425, -0.0000, 0.7276)),
                 HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 1.0000)),
@@ -593,7 +476,7 @@ mod tests {
                 HalfSpace::new(Vec4::new(-0.0000, -0.2425, 0.9701, 0.7276)),
                 HalfSpace::new(Vec4::new(0.9701, -0.2425, -0.0000, 0.7276)),
             ],
-        }
+        })
     }
 
     #[test]
@@ -664,7 +547,7 @@ mod tests {
 
     // A long frustum.
     fn long_frustum() -> Frustum {
-        Frustum {
+        Frustum(ViewFrustum {
             half_spaces: [
                 HalfSpace::new(Vec4::new(-0.9998, -0.0222, -0.0000, -1.9543)),
                 HalfSpace::new(Vec4::new(-0.0000, 1.0000, -0.0000, 45.1249)),
@@ -673,7 +556,7 @@ mod tests {
                 HalfSpace::new(Vec4::new(-0.0000, -0.0168, 0.9999, 2.2718)),
                 HalfSpace::new(Vec4::new(0.9998, -0.0222, -0.0000, 7.9528)),
             ],
-        }
+        })
     }
 
     #[test]

@@ -34,11 +34,11 @@ impl From<taffy::NodeId> for LayoutNode {
 pub(crate) struct UiTree<T>(TaffyTree<T>);
 
 #[expect(unsafe_code, reason = "TaffyTree is safe as long as calc is not used")]
-/// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
+// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
 unsafe impl Send for UiTree<NodeMeasure> {}
 
 #[expect(unsafe_code, reason = "TaffyTree is safe as long as calc is not used")]
-/// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
+// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
 unsafe impl Sync for UiTree<NodeMeasure> {}
 
 impl<T> Deref for UiTree<T> {

@@ -289,8 +289,8 @@ mod render_entities_world_query_impls {
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
-    /// SAFETY: defers completely to `&RenderEntity` implementation,
-    /// and then only modifies the output safely.
+    // SAFETY: defers completely to `&RenderEntity` implementation,
+    // and then only modifies the output safely.
     unsafe impl WorldQuery for RenderEntity {
         type Fetch<'w> = <&'static RenderEntity as WorldQuery>::Fetch<'w>;
         type State = <&'static RenderEntity as WorldQuery>::State;
@@ -410,8 +410,8 @@ mod render_entities_world_query_impls {
         }
     }
 
-    /// SAFETY: defers completely to `&RenderEntity` implementation,
-    /// and then only modifies the output safely.
+    // SAFETY: defers completely to `&RenderEntity` implementation,
+    // and then only modifies the output safely.
     unsafe impl WorldQuery for MainEntity {
         type Fetch<'w> = <&'static MainEntity as WorldQuery>::Fetch<'w>;
         type State = <&'static MainEntity as WorldQuery>::State;
