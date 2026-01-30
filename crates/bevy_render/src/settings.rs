@@ -162,8 +162,8 @@ pub struct RenderResources(
 impl RenderResources {
     /// Effectively, this replaces the current render backend entirely with the given resources.
     ///
-    /// We deconstruct the RenderResources and make them usable by the main and render worlds,
-    /// and insert PipelineCache and CompressedImageFormats which directly depend on having
+    /// We deconstruct the [`RenderResources`] and make them usable by the main and render worlds,
+    /// and insert [`PipelineCache`] and [`CompressedImageFormats`] which directly depend on having
     /// references to these resources within them to be accurate. This causes all shaders to
     /// be recompiled, and the set of supported images to possibly change. This is necessary
     /// because the new backend may have different compression support or shader language.
