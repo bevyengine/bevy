@@ -377,6 +377,33 @@ impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F where
 {
 }
 
+/// Conversion trait to turn something into a [`BoxedCondition`].
+///
+/// This trait is automatically implemented for all types that implement
+/// [`SystemCondition`], as well as for [`BoxedCondition`] itself.
+pub trait IntoBoxedCondition<Marker, In: SystemInput = ()> {
+    /// Converts `self` into a boxed run condition.
+    fn into_boxed_condition(this: Self) -> BoxedCondition<In>;
+}
+
+#[doc(hidden)]
+pub struct UnboxedSystemMarker;
+
+impl<Marker, In: SystemInput, S> IntoBoxedCondition<(UnboxedSystemMarker, Marker), In> for S
+where
+    S: SystemCondition<Marker, In>,
+{
+    fn into_boxed_condition(this: Self) -> BoxedCondition<In> {
+        Box::new(IntoSystem::into_system(this))
+    }
+}
+
+impl<In: SystemInput> IntoBoxedCondition<(), In> for BoxedCondition<In> {
+    fn into_boxed_condition(this: Self) -> BoxedCondition<In> {
+        this
+    }
+}
+
 /// A collection of [run conditions](SystemCondition) that may be useful in any bevy app.
 pub mod common_conditions {
     use super::{NotSystem, SystemCondition};
@@ -1249,6 +1276,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
+
     use super::{common_conditions::*, SystemCondition};
     use crate::error::{BevyError, DefaultErrorHandler, ErrorContext};
     use crate::{
@@ -1256,7 +1285,7 @@ mod tests {
         component::Component,
         message::Message,
         query::With,
-        schedule::{IntoScheduleConfigs, Schedule},
+        schedule::{BoxedCondition, IntoScheduleConfigs, Schedule},
         system::{IntoSystem, Local, System},
         world::World,
     };
@@ -1679,5 +1708,26 @@ mod tests {
             .add_systems((system_b,).in_set(Set))
             .configure_sets(Set.run_if(condition));
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn boxed_run_if() {
+        #[derive(Resource, Default)]
+        struct MyResource;
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let mut schedule = Schedule::default();
+
+        let condition: BoxedCondition =
+            Box::new(IntoSystem::into_system(resource_exists::<MyResource>));
+
+        schedule.add_systems(increment_counter.run_if(condition));
+
+        schedule.run(&mut world);
+        assert_eq!(world.resource::<Counter>().0, 0);
+        world.init_resource::<MyResource>();
+        schedule.run(&mut world);
+        assert_eq!(world.resource::<Counter>().0, 1);
     }
 }
