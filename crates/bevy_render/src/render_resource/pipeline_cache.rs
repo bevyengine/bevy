@@ -210,7 +210,7 @@ pub struct PipelineCache {
     global_shader_defs: Vec<ShaderDefVal>,
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, wasm, or without the `multi_threaded` feature.
-    synchronous_pipeline_compilation: bool,
+    pub(crate) synchronous_pipeline_compilation: bool,
 }
 
 impl PipelineCache {

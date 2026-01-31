@@ -39,6 +39,7 @@ pub mod batching;
 pub mod camera;
 pub mod diagnostic;
 pub mod erased_render_asset;
+pub mod error_handler;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -76,6 +77,7 @@ pub use extract_param::Extract;
 
 use crate::{
     camera::CameraPlugin,
+    error_handler::{RenderErrorHandler, RenderErrorPolicy, RenderState},
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
@@ -262,6 +264,10 @@ pub struct ExtractSchedule;
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct MainWorld(World);
 
+/// The render recovery schedule.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+struct RenderRecovery;
+
 #[derive(Resource, Default, Clone, Deref)]
 pub(crate) struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
@@ -303,7 +309,8 @@ impl Plugin for RenderPlugin {
             diagnostic::RenderDiagnosticsPlugin,
         ));
 
-        app.init_resource::<RenderAssetBytesPerFrame>();
+        app.init_resource::<RenderAssetBytesPerFrame>()
+            .init_resource::<RenderErrorPolicy>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
             render_app
@@ -403,7 +410,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
     let mut render_app = SubApp::new();
-    render_app.update_schedule = Some(Render.intern());
+    render_app.update_schedule = Some(RenderRecovery.intern());
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
     // We skip applying any commands during the ExtractSchedule
@@ -416,9 +423,17 @@ unsafe fn initialize_render_app(app: &mut App) {
 
     render_app
         .add_schedule(extract_schedule)
+        .add_schedule(Schedule::new(RenderRecovery))
         .add_schedule(Render::base_schedule())
         .init_resource::<renderer::PendingCommandBuffers>()
         .insert_resource(app.world().resource::<AssetServer>().clone())
+        .insert_resource(RenderState::Initializing)
+        .add_systems(RenderRecovery, move |world: &mut World| {
+            if matches!(world.resource::<RenderState>(), RenderState::Ready) {
+                world.run_schedule(Render);
+                world.insert_resource(world.resource::<RenderErrorHandler>().poll());
+            }
+        })
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
         .add_systems(
             Render,
@@ -433,17 +448,12 @@ unsafe fn initialize_render_app(app: &mut App) {
             ),
         );
 
-    // We want the closure to have a flag to only run the RenderStartup schedule once, but the only
-    // way to have the closure store this flag is by capturing it. This variable is otherwise
-    // unused.
-    let mut should_run_startup = true;
-    render_app.set_extract(move |main_world, render_world| {
-        if should_run_startup {
+    render_app.set_extract(|main_world, render_world| {
+        if error_handler::update(main_world, render_world) {
             // Run the `RenderStartup` if it hasn't run yet. This does mean `RenderStartup` blocks
             // the rest of the app extraction, but this is necessary since extraction itself can
             // depend on resources initialized in `RenderStartup`.
             render_world.run_schedule(RenderStartup);
-            should_run_startup = false;
         }
 
         {
