@@ -15,7 +15,7 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId},
     entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
-    event::EntityEvent,
+    event::TargetEvent,
     name::Name,
     relationship::RelationshipHookMode,
     system::IntoObserverSystem,
@@ -249,10 +249,9 @@ pub fn despawn() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
-/// watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
-/// targets this entity.
+/// watching for an [`TargetEvent`] of type `E` who targets this entity.
 #[track_caller]
-pub fn observe<E: EntityEvent, B: Bundle, M>(
+pub fn observe<E: TargetEvent, B: Bundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
     let caller = MaybeLocation::caller();

@@ -328,6 +328,101 @@ pub trait SetEntityEventTarget: EntityEvent {
     fn set_event_target(&mut self, entity: Entity);
 }
 
+/// A general trait to mark events that can be observed directly on entities,
+/// and therefore allowed to be used in the context of [`EntityWorldMut::observe`] amongst others.
+///
+/// This trait is implemented only for [`EntityEvent`] by default, but can be extended by third parties
+/// to support custom entity event types that don't use the [`EntityEvent`] pattern.
+///
+/// Methods like [`EntityWorldMut::observe`](crate::world::EntityWorldMut::observe) constrain events to [`TargetEvent`]
+/// to avoid accidentally adding a global observer to an entity.
+///
+/// # Example
+///
+/// ```ignore
+/// // Custom entity event type
+/// #[derive(Event)]
+/// struct MyCustomEvent;
+///
+/// impl TargetEvent for MyCustomEvent {}
+///
+/// // Now can be used with entity.observe()
+/// entity.observe(|event: On<MyCustomEvent>| {
+///     // observer logic
+/// });
+/// ```
+pub trait TargetEvent: Event {}
+
+impl<E: EntityEvent> TargetEvent for E {}
+
+/// A trait for converting values into a [`TargetEvent`] along with its `[Trigger`].
+///
+/// This trait allows methods like [`EntityWorldMut::trigger`](crate::world::EntityWorldMut::trigger)
+/// to accept both the `FnOnce(Entity) -> E` pattern and custom implementations of [`TargetEvent`].
+///
+/// # Example
+///
+/// By default this type is implemented for any `FnOnce(Entity) -> E where E: TargetEvent`.
+/// A surprising number of functions meet this pattern:
+///
+/// ```rust
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(EntityEvent)]
+/// struct Explode(Entity);
+///
+/// impl From<Entity> for Explode {
+///    fn from(entity: Entity) -> Self {
+///       Explode(entity)
+///    }
+/// }
+///
+///
+/// fn trigger_via_constructor(mut commands: Commands) {
+///     // The fact that `Explode` is a single-field tuple struct
+///     // ensures that `Explode(entity)` is a function that generates
+///     // an EntityEvent, meeting the trait bounds for `event_fn`.
+///     commands.spawn_empty().trigger(Explode);
+///
+/// }
+///
+///
+/// fn trigger_via_from_trait(mut commands: Commands) {
+///     // This variant also works for events like `struct Explode { entity: Entity }`
+///     commands.spawn_empty().trigger(Explode::from);
+/// }
+///
+/// fn trigger_via_closure(mut commands: Commands) {
+///     commands.spawn_empty().trigger(|entity| Explode(entity));
+/// }
+/// ```
+pub trait IntoTargetEvent<M> {
+    /// The event type, which implements [`TargetEvent`]
+    type Event: TargetEvent + for<'a> Event<Trigger<'a> = Self::Trigger>;
+    /// The trigger type for this event.
+    type Trigger: Trigger<Self::Event>;
+
+    /// Converts this value into an event and trigger for the given entity.
+    fn into_target_event(self, entity: Entity) -> (Self::Event, Self::Trigger);
+}
+
+/// Marker type for the `FnOnce(Entity) -> E` implementation of [`IntoTargetEvent`].
+pub struct FnOnceIntoTargetEvent;
+
+impl<F, E, T> IntoTargetEvent<(E, T, FnOnceIntoTargetEvent)> for F
+where
+    F: FnOnce(Entity) -> E,
+    E: TargetEvent + for<'a> Event<Trigger<'a> = T>,
+    T: Default + Trigger<E>,
+{
+    type Event = E;
+    type Trigger = T;
+
+    fn into_target_event(self, entity: Entity) -> (Self::Event, Self::Trigger) {
+        (self(entity), T::default())
+    }
+}
+
 impl World {
     /// Generates the [`EventKey`] for this event type.
     ///
