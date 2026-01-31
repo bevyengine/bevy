@@ -39,9 +39,10 @@ use variadics_please::all_tuples;
 /// If [`IS_ARCHETYPAL`] is `true`, [`matches`] must return `true` for all inputs.
 ///
 /// When implementing [`find_table_chunk`] and [`find_archetype_chunk`], their return values must be
-/// subsets of `rows` and `indices` respectively, even if returning an empty range. Additionally,
-/// they must match the behavior of [`matches`], i.e. calling that method on any
-/// row/index in the returned range should return `true`.
+/// _well formed_ subsets of `rows` and `indices` respectively, even if returning an empty range.
+/// What this means is that given a range `(start..end)`, the returned range `(chunk_start..chunk_end)`
+/// must satisfy `start <= chunk_start <= chunk_end <= end`. Additionally, they must match the behavior
+/// of [`matches`], i.e. calling that method on any row/index in the returned range must return `true`.
 ///
 /// [`find_table_chunk`], [`find_archetype_chunk`], and [`matches`] must not mutably access any world data.
 ///
@@ -315,15 +316,15 @@ impl RangeExt for Range<u32> {
 pub struct TupleFetch<'w, T: WorldQuery> {
     /// the `Fetch` type of the query term
     pub(crate) fetch: T::Fetch<'w>,
-    // the cached chunk last found in `find_table_chunk`/`find_archetype_chunk`
-    chunk: Range<u32>,
+    // the `end` value of the chunk last found in `find_table_chunk`/`find_archetype_chunk`
+    chunk_end: u32,
 }
 
 impl<'w, T: WorldQuery> Clone for TupleFetch<'w, T> {
     fn clone(&self) -> Self {
         Self {
             fetch: self.fetch.clone(),
-            chunk: self.chunk.clone(),
+            chunk_end: self.chunk_end,
         }
     }
 }
@@ -369,7 +370,7 @@ macro_rules! impl_tuple_world_query {
                 ($(
                     TupleFetch {
                         fetch: $name::shrink_fetch($name.fetch),
-                        chunk: $name.chunk
+                        chunk_end: $name.chunk_end
                     },
                 )*)
             }
@@ -381,7 +382,7 @@ macro_rules! impl_tuple_world_query {
                     TupleFetch {
                         // SAFETY: The invariants are upheld by the caller.
                         fetch: unsafe { $name::init_fetch(world, $name, last_run, this_run) },
-                        chunk: 0..0,
+                        chunk_end: 0,
                     },
                 )*)
             }
@@ -401,7 +402,7 @@ macro_rules! impl_tuple_world_query {
                 $({
                     // SAFETY: The invariants are upheld by the caller.
                     unsafe { $name::set_archetype(&mut $name.fetch, $state, archetype, table); };
-                    $name.chunk = 0..0;
+                    $name.chunk_end = 0;
                 })*
             }
 
@@ -412,7 +413,7 @@ macro_rules! impl_tuple_world_query {
                 $({
                     // SAFETY: The invariants are upheld by the caller.
                     unsafe { $name::set_table(&mut $name.fetch, $state, table); }
-                    $name.chunk = 0..0
+                    $name.chunk_end = 0;
                 })*
             }
 
@@ -449,15 +450,15 @@ macro_rules! impl_tuple_world_query {
                     loop {
                         let mut any_valid_terms = false;
                         $({
-                            let mut term_chunk = $name.chunk.start.max(chunk.start)..$name.chunk.end;
+                            let mut term_chunk = chunk.start..$name.chunk_end;
                             if term_chunk.is_empty() {
                                 // SAFETY: chunk.start..rows.end is always a subset of `rows`
                                 term_chunk = unsafe { $name::find_table_chunk($state, &mut $name.fetch, table_entities, chunk.start..rows.end) };
                             }
                             any_valid_terms |= !term_chunk.is_empty();
-                            chunk.start = chunk.start.max(term_chunk.start);
-                            chunk.end = chunk.end.min(term_chunk.end).max(chunk.start);
-                            $name.chunk = term_chunk;
+                            chunk.start = term_chunk.start;
+                            chunk.end = chunk.end.min(term_chunk.end);
+                            $name.chunk_end = term_chunk.end;
                         })*
 
                         if !chunk.is_empty() || !any_valid_terms {
