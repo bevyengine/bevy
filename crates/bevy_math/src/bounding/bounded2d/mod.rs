@@ -109,15 +109,6 @@ impl Aabb2d {
         // Clamp point coordinates to the AABB
         point.clamp(self.min, self.max)
     }
-
-    /// Converts this AABB into an OBB
-    #[inline]
-    pub fn obb_2d(&self) -> Obb2d {
-        Obb2d {
-            isometry: Isometry2d::from_translation(self.center()),
-            half_size: self.half_size(),
-        }
-    }
 }
 
 impl BoundingVolume for Aabb2d {
@@ -804,6 +795,17 @@ pub struct Obb2d {
 }
 
 impl Obb2d {
+    /// Create an Obb2d from an Aabb2d.
+    ///
+    /// An Aabb2d is just an Obb2d without a rotation.
+    #[inline]
+    pub fn from_aabb_2d(aabb: &Aabb2d) -> Self {
+        Obb2d {
+            isometry: Isometry2d::from_translation(aabb.center()),
+            half_size: aabb.half_size(),
+        }
+    }
+
     /// Gets the axes of the box in world coordinate space
     ///
     /// Conveniently, the axes are just the rotation matrix.
@@ -814,6 +816,12 @@ impl Obb2d {
     }
 
     /// Gets the four corners of the obb in world coordinate space
+    ///
+    /// The corners are returned with the following order:
+    /// [local lower left, local top left, local top right, local bottom right].
+    /// Note that "local lower left" does not necessarily mean that the point is
+    /// "lower left" in world space due to rotation.
+    /// There is a bounding edge between adjacent entries.
     #[inline]
     pub fn get_corners(&self) -> [Vec2; 4] {
         [
@@ -822,9 +830,9 @@ impl Obb2d {
             self.isometry
                 .transform_point(Vec2::new(-1., 1.) * self.half_size),
             self.isometry
-                .transform_point(Vec2::new(1., -1.) * self.half_size),
-            self.isometry
                 .transform_point(Vec2::new(1., 1.) * self.half_size),
+            self.isometry
+                .transform_point(Vec2::new(1., -1.) * self.half_size),
         ]
     }
 
@@ -966,6 +974,13 @@ impl BoundingVolume for Obb2d {
     }
 }
 
+impl From<&Aabb2d> for Obb2d {
+    #[inline]
+    fn from(aabb: &Aabb2d) -> Self {
+        Obb2d::from_aabb_2d(aabb)
+    }
+}
+
 impl IntersectsVolume<Self> for Obb2d {
     #[inline]
     fn intersects(&self, other: &Self) -> bool {
@@ -1012,7 +1027,7 @@ fn projections_have_overlap(
 impl IntersectsVolume<Aabb2d> for Obb2d {
     #[inline]
     fn intersects(&self, aabb: &Aabb2d) -> bool {
-        self.intersects(&aabb.obb_2d())
+        self.intersects(&Obb2d::from_aabb_2d(aabb))
     }
 }
 
