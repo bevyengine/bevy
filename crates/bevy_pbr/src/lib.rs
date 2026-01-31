@@ -81,7 +81,7 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-use tracing::info;
+use tracing::warn;
 pub use transmission::*;
 pub use volumetric_fog::VolumetricFogPlugin;
 
@@ -257,11 +257,11 @@ impl Plugin for PbrPlugin {
                         Ok(standard_material_from_gltf_material(gltf_material))
                     });
 
-                    if let Some(tt) = t.ok() {
-                        return Ok(tt.untyped());
+                    if let Ok(tt) = t {
+                        Ok(tt.untyped())
                     } else {
-                        info!("translator load_material got error");
-                        return Err(BevyError::from(PbrGltfError));
+                        warn!("translator load_material got error");
+                        Err(BevyError::from(PbrGltfError))
                     }
                 },
             ),

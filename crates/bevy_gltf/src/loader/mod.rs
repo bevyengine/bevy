@@ -2050,20 +2050,25 @@ struct MorphTargetNames {
 mod test {
     use std::path::Path;
 
-    use crate::{Gltf, GltfAssetLabel, GltfMaterial, GltfNode, GltfSkin};
+    use crate::{Gltf, GltfAssetLabel, GltfMaterial, GltfMaterialTranslator, GltfNode, GltfSkin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
             AssetSourceBuilder, AssetSourceId,
         },
-        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadState,
+        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext, LoadState,
     };
-    use bevy_ecs::{resource::Resource, world::World};
+    use bevy_ecs::{
+        error::BevyError,
+        resource::Resource,
+        world::{EntityWorldMut, World},
+    };
     use bevy_image::{Image, ImageLoaderSettings};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
+    use bevy_platform::sync::Arc;
     use bevy_reflect::TypePath;
     use bevy_scene::ScenePlugin;
 
@@ -2074,6 +2079,20 @@ mod test {
             AssetSourceId::Default,
             AssetSourceBuilder::new(move || Box::new(reader.clone())),
         )
+        .insert_resource(GltfMaterialTranslator {
+            load_material: Arc::new(
+                |_gltf_material: &GltfMaterial,
+                 _label: &GltfAssetLabel,
+                 _load_context: &mut LoadContext| {
+                    Err(BevyError::from("No translator"))
+                },
+            ),
+            insert_material: Arc::new(
+                |_label: &GltfAssetLabel,
+                 _load_context: &mut LoadContext,
+                 _entity: &mut EntityWorldMut| { Ok(()) },
+            ),
+        })
         .add_plugins((
             LogPlugin::default(),
             TaskPoolPlugin::default(),
@@ -2483,6 +2502,8 @@ mod test {
         assert_eq!(skinned_node.skin.as_ref(), Some(&gltf_root.skins[0]));
     }
 
+    // TODO: add a test for translator
+
     fn test_app_custom_asset_source() -> (App, Dir) {
         let dir = Dir::default();
 
@@ -2501,6 +2522,20 @@ mod test {
             "custom",
             AssetSourceBuilder::new(move || Box::new(custom_reader.clone())),
         )
+        .insert_resource(GltfMaterialTranslator {
+            load_material: Arc::new(
+                |_gltf_material: &GltfMaterial,
+                 _label: &GltfAssetLabel,
+                 _load_context: &mut LoadContext| {
+                    Err(BevyError::from("No translator"))
+                },
+            ),
+            insert_material: Arc::new(
+                |_label: &GltfAssetLabel,
+                 _load_context: &mut LoadContext,
+                 _entity: &mut EntityWorldMut| { Ok(()) },
+            ),
+        })
         .add_plugins((
             LogPlugin::default(),
             TaskPoolPlugin::default(),
@@ -2613,7 +2648,7 @@ mod test {
                 &self,
                 _reader: &mut dyn bevy_asset::io::Reader,
                 _settings: &Self::Settings,
-                _load_context: &mut bevy_asset::LoadContext<'_>,
+                _load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
                 Ok(Image::default())
             }
