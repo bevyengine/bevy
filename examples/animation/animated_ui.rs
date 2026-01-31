@@ -43,15 +43,15 @@ impl AnimationInfo {
         // Allocate an animation clip.
         let mut animation_clip = AnimationClip::default();
 
-        // Create a curve that animates font size.
+        // Create a curve that animates `UiTransform::scale`.
         animation_clip.add_curve_to_target(
             animation_target_id,
             AnimatableCurve::new(
-                animated_field!(TextFont::font_size),
+                animated_field!(UiTransform::scale),
                 AnimatableKeyframeCurve::new(
                     [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
                         .into_iter()
-                        .zip([24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0]),
+                        .zip([0.3, 1.0, 0.3, 1.0, 0.3, 1.0, 0.3].map(Vec2::splat)),
                 )
                 .expect(
                     "should be able to build translation curve because we pass in valid samples",
@@ -110,7 +110,7 @@ fn setup(
         target_id: animation_target_id,
         graph: animation_graph,
         node_index: animation_node_index,
-    } = AnimationInfo::create(&mut animation_graphs, &mut animation_clips);
+    } = AnimationInfo::create(animation_graphs.as_mut(), animation_clips.as_mut());
 
     // Build an animation player that automatically plays the UI animation.
     let mut animation_player = AnimationPlayer::default();
@@ -139,11 +139,11 @@ fn setup(
     ));
 
     let player = entity.id();
-    entity.insert(children![(
+    entity.with_child((
         Text::new("Bevy"),
         TextFont {
             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-            font_size: 24.0,
+            font_size: 80.,
             ..default()
         },
         TextColor(Color::Srgba(Srgba::RED)),
@@ -151,7 +151,7 @@ fn setup(
         animation_target_id,
         AnimatedBy(player),
         animation_target_name,
-    )]);
+    ));
 }
 
 // A type that represents the color of the first text section.
