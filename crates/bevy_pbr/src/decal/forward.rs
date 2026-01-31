@@ -47,7 +47,7 @@ impl Plugin for ForwardDecalPlugin {
     }
 }
 
-/// A decal that renders via a 1x1 transparent quad mesh, smoothly alpha-blending with the underlying
+/// A decal that renders via a 1x1 quad mesh, smoothly alpha-blending with the underlying
 /// geometry towards the edges.
 ///
 /// Because forward decals are meshes, you can use arbitrary materials to control their appearance.
@@ -91,6 +91,8 @@ pub struct ForwardDecalMaterialExt {
     /// blending with more distant surfaces.
     ///
     /// Units are in meters.
+    ///
+    /// This has no effect if alpha mode is `Opaque`.
     pub depth_fade_factor: f32,
 }
 
@@ -111,8 +113,8 @@ impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMater
 }
 
 impl MaterialExtension for ForwardDecalMaterialExt {
-    fn alpha_mode() -> Option<AlphaMode> {
-        Some(AlphaMode::Blend)
+    fn enable_prepass() -> bool {
+        false // This is needed if alpha mode is `Opaque`.
     }
 
     fn enable_shadows() -> bool {

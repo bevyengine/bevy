@@ -2587,8 +2587,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
         if key.contains(MeshPipelineKey::OIT_ENABLED) && pass == MeshPipelineKey::BLEND_ALPHA {
             label = "oit_mesh_pipeline".into();
-            // TODO tail blending would need alpha blending
-            blend = None;
+            // TODO tail blending would need to return color in shader to do alpha blending
+            // Alpha blending is also needed by forward decals.
+            blend = Some(BlendState::ALPHA_BLENDING);
             shader_defs.push("OIT_ENABLED".into());
             // TODO it should be possible to use this to combine MSAA and OIT
             // alpha_to_coverage_enabled = true;
