@@ -1876,7 +1876,7 @@ mod tests {
                     res.0 += 2;
                 },
             )
-                .distributive_run_if(resource_exists::<A>.or(resource_exists::<B>)),
+                .distributive_run_if(resource_exists::<A>.or_eager(resource_exists::<B>)),
         );
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);

@@ -495,7 +495,7 @@ mod tests {
     use bevy_utils::prelude::DebugName;
 
     use crate::{
-        schedule::OrMarker,
+        schedule::OrElseMarker,
         system::{assert_system_does_not_conflict, CombinatorSystem},
     };
 
@@ -513,7 +513,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(DefaultErrorHandler::default());
 
-        let system = CombinatorSystem::<OrMarker, _, _>::new(
+        let system = CombinatorSystem::<OrElseMarker, _, _>::new(
             IntoSystem::into_system(a),
             IntoSystem::into_system(b),
             DebugName::borrowed("a OR b"),
