@@ -281,10 +281,12 @@ impl Plugin for RenderPlugin {
         ) {
             // Note that `future_resources` is not necessarily populated here yet.
             app.insert_resource(future_resources);
+
+            // Only setup the render app if we're not running in headless mode
+            app.add_plugins(ExtractPlugin);
         };
 
         app.add_plugins((
-            ExtractPlugin,
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,

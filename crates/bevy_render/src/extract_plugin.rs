@@ -14,7 +14,8 @@ use bevy_ecs::{
 use bevy_log::tracing;
 use bevy_utils::default;
 
-/// Plugin that handles extracting data from the main world to the render world.
+/// Plugin that sets up the render subapp and handles extracting data from the
+/// main world to the render world.
 #[derive(Default)]
 pub struct ExtractPlugin;
 
