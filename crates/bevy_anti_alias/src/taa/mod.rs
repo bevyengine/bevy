@@ -174,7 +174,7 @@ fn temporal_anti_alias(
             view_target.source,
             &taa_history_textures.read.default_view,
             &prepass_motion_vectors_texture.texture.default_view,
-            &prepass_depth_texture.texture.default_view,
+            &prepass_depth_texture.depth_only_view,
             &pipelines.nearest_sampler,
             &pipelines.linear_sampler,
         )),

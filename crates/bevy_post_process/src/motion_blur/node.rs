@@ -68,7 +68,7 @@ pub fn motion_blur(
         &BindGroupEntries::sequential((
             post_process.source,
             &prepass_motion_vectors_texture.texture.default_view,
-            &prepass_depth_texture.texture.default_view,
+            &prepass_depth_texture.depth_only_view,
             &motion_blur_pipeline.sampler,
             settings_binding.clone(),
             globals_uniforms.clone(),
