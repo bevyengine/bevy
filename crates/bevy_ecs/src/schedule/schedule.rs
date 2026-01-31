@@ -541,7 +541,11 @@ impl Schedule {
         });
 
         let error_handler = world.default_error_handler();
-
+        #[cfg(feature = "std")]
+        while async_ecs::GLOBAL_WAKE_REGISTRY
+            .wait(self.label, world)
+            .is_some()
+        {}
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
             .run(&mut self.executable, world, None, error_handler);

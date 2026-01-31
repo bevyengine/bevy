@@ -94,13 +94,16 @@ pub mod prelude {
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
-            FromWorld, World,
+            FromWorld, World, WorldId,
         },
     };
 
     #[doc(hidden)]
     #[cfg(feature = "std")]
-    pub use crate::system::ParallelCommands;
+    pub use crate::{
+        schedule::executor::async_ecs::{async_access, EcsTask},
+        system::ParallelCommands,
+    };
 
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
