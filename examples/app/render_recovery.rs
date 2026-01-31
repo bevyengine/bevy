@@ -1,6 +1,7 @@
 //! Demonstrates how to trigger various rendering errors, and how bevy can recover from them.
 
 use bevy::{
+    input::keyboard::Key,
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -94,18 +95,18 @@ enum RenderError {
     Loop,
 }
 
-fn input(keyboard_input: Res<ButtonInput<KeyCode>>, mut error: ResMut<RenderError>) {
+fn input(input: Res<ButtonInput<Key>>, mut error: ResMut<RenderError>) {
     *error = RenderError::None;
-    if keyboard_input.just_pressed(KeyCode::KeyO) {
+    if input.just_pressed(Key::Character("o".into())) {
         *error = RenderError::OutOfMemory;
     }
-    if keyboard_input.just_pressed(KeyCode::KeyV) {
+    if input.just_pressed(Key::Character("v".into())) {
         *error = RenderError::Validation;
     }
-    if keyboard_input.just_pressed(KeyCode::KeyD) {
+    if input.just_pressed(Key::Character("d".into())) {
         *error = RenderError::DeviceLost;
     }
-    if keyboard_input.just_pressed(KeyCode::KeyL) {
+    if input.just_pressed(Key::Character("l".into())) {
         *error = RenderError::Loop;
     }
 }
