@@ -84,7 +84,7 @@ impl Plugin for ExtractPlugin {
 /// running the next frame while rendering the current frame.
 ///
 /// This schedule is run on the render world, but it also has access to the main world.
-/// See [`MainWorld`] and [`Extract`] for details on how to access main world data from this schedule.
+/// See [`MainWorld`] and [`Extract`](crate::Extract) for details on how to access main world data from this schedule.
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash, Default)]
 pub struct ExtractSchedule;
 
@@ -104,7 +104,7 @@ fn apply_extract_commands(render_world: &mut World) {
 ///
 /// This resource is only available during [`ExtractSchedule`] and not
 /// during command application of that schedule.
-/// See [`Extract`] for more details.
+/// See [`Extract`](crate::Extract) for more details.
 #[derive(Resource, Default)]
 pub struct MainWorld(World);
 
