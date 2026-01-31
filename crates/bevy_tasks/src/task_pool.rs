@@ -560,7 +560,7 @@ impl TaskPool {
     where
         T: Send + 'static,
     {
-        Task::new(self.executor.spawn(future))
+        self.executor.spawn(future)
     }
 
     /// Spawns a static future on the thread-local async executor for the
@@ -578,7 +578,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+        TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future))
     }
 
     /// Runs a function with the local executor. Typically used to tick
