@@ -213,7 +213,7 @@ pub struct Mesh2dUniform {
     /// AABB for decompressing positions.
     pub aabb_half_extents: Vec3,
     pub flags: u32,
-    /// UVs range for decompressing UVs coordinates.
+    /// UVs range for decompressing UVs coordinates. xy is the min UV value, zw is the length of range.
     pub uv0_range: Vec4,
     pub tag: u32,
 }
@@ -244,7 +244,7 @@ impl Mesh2dUniform {
 
 fn uv_range_to_vec4(range: Option<Aabb2d>) -> Vec4 {
     range
-        .map(|r| Vec4::new(r.min.x, r.min.y, r.max.x, r.max.y))
+        .map(|r| Vec4::new(r.min.x, r.min.y, r.max.x - r.min.x, r.max.y - r.min.y))
         .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
 }
 

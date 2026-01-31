@@ -503,7 +503,7 @@ pub struct MeshUniform {
     pub aabb_center: Vec3,
     /// AABB half extents for decompressing vertex positions.
     pub aabb_half_extents: Vec3,
-    /// UVs range for decompressing UVs coordinates.
+    /// UVs range for decompressing UVs coordinates. xy is the min UV value, zw is the length of range.
     pub uv0_range: Vec4,
     pub uv1_range: Vec4,
 }
@@ -646,7 +646,7 @@ impl MeshUniform {
 
 fn uv_range_to_vec4(range: Option<Aabb2d>) -> Vec4 {
     range
-        .map(|r| Vec4::new(r.min.x, r.min.y, r.max.x, r.max.y))
+        .map(|r| Vec4::new(r.min.x, r.min.y, r.max.x - r.min.x, r.max.y - r.min.y))
         .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
 }
 
