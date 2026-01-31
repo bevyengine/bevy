@@ -35,6 +35,8 @@ impl Plugin for BlitPlugin {
 pub struct BlitPipeline {
     pub layout: BindGroupLayoutDescriptor,
     pub sampler: Sampler,
+    pub layout_filtering: BindGroupLayoutDescriptor,
+    pub sampler_filtering: Sampler,
     pub fullscreen_shader: FullscreenShader,
     pub fragment_shader: Handle<Shader>,
 }
@@ -58,9 +60,28 @@ pub fn init_blit_pipeline(
 
     let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
+    let layout_filtering = BindGroupLayoutDescriptor::new(
+        "blit_bind_group_layout_filtering",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                binding_types::sampler(SamplerBindingType::Filtering),
+            ),
+        ),
+    );
+
+    let sampler_filtering = render_device.create_sampler(&SamplerDescriptor {
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        ..Default::default()
+    });
+
     commands.insert_resource(BlitPipeline {
         layout,
         sampler,
+        layout_filtering,
+        sampler_filtering,
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(asset_server.as_ref(), "blit.wgsl"),
     });
@@ -72,12 +93,21 @@ impl BlitPipeline {
         render_device: &RenderDevice,
         src_texture: &TextureView,
         pipeline_cache: &PipelineCache,
+        filtering: bool,
     ) -> BindGroup {
-        render_device.create_bind_group(
-            None,
-            &pipeline_cache.get_bind_group_layout(&self.layout),
-            &BindGroupEntries::sequential((src_texture, &self.sampler)),
-        )
+        if filtering {
+            render_device.create_bind_group(
+                None,
+                &pipeline_cache.get_bind_group_layout(&self.layout_filtering),
+                &BindGroupEntries::sequential((src_texture, &self.sampler_filtering)),
+            )
+        } else {
+            render_device.create_bind_group(
+                None,
+                &pipeline_cache.get_bind_group_layout(&self.layout),
+                &BindGroupEntries::sequential((src_texture, &self.sampler)),
+            )
+        }
     }
 }
 
@@ -86,6 +116,7 @@ pub struct BlitPipelineKey {
     pub texture_format: TextureFormat,
     pub blend_state: Option<BlendState>,
     pub samples: u32,
+    pub filtering: bool,
 }
 
 impl SpecializedRenderPipeline for BlitPipeline {
@@ -94,7 +125,11 @@ impl SpecializedRenderPipeline for BlitPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
-            layout: vec![self.layout.clone()],
+            layout: vec![if key.filtering {
+                self.layout_filtering.clone()
+            } else {
+                self.layout.clone()
+            }],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),

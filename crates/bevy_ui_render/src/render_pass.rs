@@ -9,7 +9,6 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_phase::*,
     render_resource::{CachedRenderPipelineId, RenderPassDescriptor},
@@ -23,7 +22,7 @@ pub fn ui_pass(
     world: &World,
     view: ViewQuery<&UiCameraView>,
     ui_view_query: Query<(&ExtractedView, &UiViewTarget)>,
-    ui_view_target_query: Query<(&ViewTarget, &ExtractedCamera)>,
+    ui_view_target_query: Query<&ViewTarget>,
     transparent_render_phases: Res<ViewSortedRenderPhases<TransparentUi>>,
     mut ctx: RenderContext,
 ) {
@@ -34,7 +33,7 @@ pub fn ui_pass(
         return;
     };
 
-    let Ok((target, camera)) = ui_view_target_query.get(ui_view_target.0) else {
+    let Ok(target) = ui_view_target_query.get(ui_view_target.0) else {
         return;
     };
 
@@ -60,10 +59,6 @@ pub fn ui_pass(
         multiview_mask: None,
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "ui");
-
-    if let Some(viewport) = camera.viewport.as_ref() {
-        render_pass.set_camera_viewport(viewport);
-    }
 
     if let Err(err) = transparent_phase.render(&mut render_pass, world, ui_view_entity) {
         error!("Error encountered while rendering the ui phase {err:?}");

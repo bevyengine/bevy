@@ -74,8 +74,7 @@ impl Plugin for SolariLightingPlugin {
 
 /// A component for a 3d camera entity to enable the Solari raytraced lighting system.
 ///
-/// Must be used with `CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING)`, and
-/// `Msaa::Off`.
+/// The main color target must be used with `CameraMainColorTargetConfig::default().with_msaa_off().with_usage(TextureUsages::STORAGE_BINDING)`.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 #[require(

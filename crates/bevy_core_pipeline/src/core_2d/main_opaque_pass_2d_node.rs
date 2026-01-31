@@ -1,7 +1,6 @@
 use crate::core_2d::Opaque2d;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_phase::ViewBinnedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
@@ -16,18 +15,13 @@ use super::AlphaMask2d;
 
 pub fn main_opaque_pass_2d(
     world: &World,
-    view: ViewQuery<(
-        &ExtractedCamera,
-        &ExtractedView,
-        &ViewTarget,
-        &ViewDepthTexture,
-    )>,
+    view: ViewQuery<(&ExtractedView, &ViewTarget, &ViewDepthTexture)>,
     opaque_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     alpha_mask_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
-    let (camera, extracted_view, target, depth) = view.into_inner();
+    let (extracted_view, target, depth) = view.into_inner();
 
     let (Some(opaque_phase), Some(alpha_mask_phase)) = (
         opaque_phases.get(&extracted_view.retained_view_entity),
@@ -58,10 +52,6 @@ pub fn main_opaque_pass_2d(
         multiview_mask: None,
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_2d");
-
-    if let Some(viewport) = camera.viewport.as_ref() {
-        render_pass.set_camera_viewport(viewport);
-    }
 
     if !opaque_phase.is_empty() {
         #[cfg(feature = "trace")]

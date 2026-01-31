@@ -19,7 +19,7 @@ use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
     asset::RenderAssetUsages,
-    camera::RenderTarget,
+    camera::{CameraMainColorTargetConfig, RenderTarget},
     color::palettes::css::LIME,
     core_pipeline::{prepass::DepthPrepass, schedule::Core3d, Core3dSystems},
     image::{ImageCompareFunction, ImageSampler, ImageSamplerDescriptor},
@@ -257,7 +257,7 @@ fn spawn_depth_only_camera(commands: &mut Commands) {
         // We need to disable multisampling or the depth texture will be
         // multisampled, which adds complexity we don't care about for this
         // demo.
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
         // Cameras with no render target render *nothing* by default. To get
         // them to render something, we must add a prepass that specifies what
         // we want to render: in this case, depth.
@@ -271,7 +271,7 @@ fn spawn_main_camera(commands: &mut Commands) {
         Camera3d::default(),
         Transform::from_xyz(5.0, 2.0, 30.0).looking_at(vec3(5.0, 2.0, 0.0), Vec3::Y),
         // Disable antialiasing just for simplicity's sake.
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
     ));
 }
 

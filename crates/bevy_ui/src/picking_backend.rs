@@ -128,7 +128,7 @@ pub fn ui_picking(
                 .filter(|(_, _, render_target, cam_can_pick)| {
                     (!settings.require_markers || *cam_can_pick)
                         && render_target
-                            .normalize(primary_window.single().ok())
+                            .normalize(primary_window.single().ok(), None)
                             .is_some_and(|target| target == pointer_location.target)
                 })
         {

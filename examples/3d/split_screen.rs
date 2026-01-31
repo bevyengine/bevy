@@ -2,8 +2,20 @@
 
 use std::f32::consts::PI;
 
+use bevy::camera::color_target::MAIN_COLOR_TARGET_DEFAULT_USAGES;
+use bevy::image::ToExtents;
+use bevy::render::render_resource::{
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+};
 use bevy::{
-    camera::Viewport, light::CascadeShadowConfigBuilder, prelude::*, window::WindowResized,
+    camera::{
+        color_target::{MainColorTarget, NoAutoConfiguredMainColorTarget, WithMainColorTarget},
+        Viewport,
+    },
+    light::CascadeShadowConfigBuilder,
+    post_process::bloom::Bloom,
+    prelude::*,
+    window::WindowResized,
 };
 
 fn main() {
@@ -19,12 +31,13 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 2.0, 0.3))),
     ));
 
     commands.spawn(SceneRoot(
@@ -56,6 +69,53 @@ fn setup(
         .build(),
     ));
 
+    let main_color_target = commands
+        .spawn(MainColorTarget::new(
+            images.add(Image {
+                data: None,
+                texture_descriptor: TextureDescriptor {
+                    label: Some("main_texture_a"),
+                    size: UVec2::new(1280, 720).to_extents(),
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::Rg11b10Ufloat,
+                    usage: MAIN_COLOR_TARGET_DEFAULT_USAGES,
+                    view_formats: &[],
+                },
+                ..Default::default()
+            }),
+            Some(images.add(Image {
+                data: None,
+                texture_descriptor: TextureDescriptor {
+                    label: Some("main_texture_b"),
+                    size: UVec2::new(1280, 720).to_extents(),
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::Rg11b10Ufloat,
+                    usage: MAIN_COLOR_TARGET_DEFAULT_USAGES,
+                    view_formats: &[],
+                },
+                ..Default::default()
+            })),
+            Some(images.add(Image {
+                data: None,
+                texture_descriptor: TextureDescriptor {
+                    label: Some("main_texture_multisampled"),
+                    size: UVec2::new(1280, 720).to_extents(),
+                    mip_level_count: 1,
+                    sample_count: 4, // MSAAx4
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::Rg11b10Ufloat,
+                    usage: TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
+                },
+                ..Default::default()
+            })),
+        ))
+        .id();
+
     // Cameras and their dedicated UI
     for (index, (camera_name, camera_pos)) in [
         ("Player 1", Vec3::new(0.0, 200.0, -150.0)),
@@ -66,20 +126,26 @@ fn setup(
     .iter()
     .enumerate()
     {
-        let camera = commands
-            .spawn((
-                Camera3d::default(),
-                Transform::from_translation(*camera_pos).looking_at(Vec3::ZERO, Vec3::Y),
-                Camera {
-                    // Renders cameras with different priorities to prevent ambiguities
-                    order: index as isize,
-                    ..default()
-                },
-                CameraPosition {
-                    pos: UVec2::new((index % 2) as u32, (index / 2) as u32),
-                },
-            ))
-            .id();
+        let bundle = (
+            Camera3d::default(),
+            Transform::from_translation(*camera_pos).looking_at(Vec3::ZERO, Vec3::Y),
+            Camera {
+                // Renders cameras with different priorities to prevent ambiguities
+                order: index as isize,
+                ..default()
+            },
+            CameraPosition {
+                pos: UVec2::new((index % 2) as u32, (index / 2) as u32),
+            },
+            NoAutoConfiguredMainColorTarget,
+            WithMainColorTarget(main_color_target),
+        );
+        let camera = if index == 0 || index == 1 {
+            commands.spawn((Bloom::NATURAL, bundle))
+        } else {
+            commands.spawn(bundle)
+        }
+        .id();
 
         // Set up UI
         commands.spawn((

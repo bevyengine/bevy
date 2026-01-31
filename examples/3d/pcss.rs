@@ -9,6 +9,7 @@ use bevy::{
     camera::{
         primitives::{CubemapFrusta, Frustum},
         visibility::{CubemapVisibleEntities, VisibleMeshEntities},
+        CameraMainColorTargetConfig,
     },
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
     light::{ShadowFilteringMethod, Skybox},
@@ -170,7 +171,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         // `TemporalAntiAliasSettings`.
         .insert(TemporalJitter::default())
         // We want MSAA off for TAA to work properly.
-        .insert(Msaa::Off)
+        .insert(CameraMainColorTargetConfig::default().with_msaa_off())
         // The depth prepass is needed for TAA.
         .insert(DepthPrepass)
         // The motion vector prepass is needed for TAA.

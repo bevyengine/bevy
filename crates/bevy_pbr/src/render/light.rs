@@ -19,6 +19,7 @@ use bevy_ecs::{
     prelude::*,
     system::{SystemParam, SystemState},
 };
+use bevy_image::BevyDefault;
 use bevy_light::cascade::Cascade;
 use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectType};
 use bevy_light::cluster::GlobalVisibleClusterableObjects;
@@ -1374,6 +1375,8 @@ pub fn prepare_lights(
                         hdr: false,
                         color_grading: Default::default(),
                         invert_culling: false,
+                        msaa_samples: 1,
+                        color_target_format: TextureFormat::bevy_default(),
                     },
                     *frustum,
                     LightEntity::Point {
@@ -1477,6 +1480,8 @@ pub fn prepare_lights(
                     hdr: false,
                     color_grading: Default::default(),
                     invert_culling: false,
+                    msaa_samples: 1,
+                    color_target_format: TextureFormat::bevy_default(),
                 },
                 *spot_light_frustum.unwrap(),
                 LightEntity::Spot { light_entity },
@@ -1626,6 +1631,8 @@ pub fn prepare_lights(
                         hdr: false,
                         color_grading: Default::default(),
                         invert_culling: false,
+                        msaa_samples: 1,
+                        color_target_format: TextureFormat::bevy_default(),
                     },
                     frustum,
                     LightEntity::Directional {

@@ -14,7 +14,7 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
-    view::ViewTarget,
+    view::ExtractedView,
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -37,7 +37,7 @@ pub struct BloomUpsamplingPipeline {
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct BloomUpsamplingPipelineKeys {
     composite_mode: BloomCompositeMode,
-    final_pipeline: bool,
+    texture_format: TextureFormat,
 }
 
 pub fn init_bloom_upscaling_pipeline(
@@ -71,12 +71,6 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
     type Key = BloomUpsamplingPipelineKeys;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let texture_format = if key.final_pipeline {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            BLOOM_TEXTURE_FORMAT
-        };
-
         let color_blend = match key.composite_mode {
             BloomCompositeMode::EnergyConserving => {
                 // At the time of developing this we decided to blend our
@@ -117,7 +111,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                 shader: self.fragment_shader.clone(),
                 entry_point: Some("upsample".into()),
                 targets: vec![Some(ColorTargetState {
-                    format: texture_format,
+                    format: key.texture_format,
                     blend: Some(BlendState {
                         color: color_blend,
                         alpha: BlendComponent {
@@ -140,15 +134,15 @@ pub fn prepare_upsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &Bloom)>,
+    views: Query<(Entity, &ExtractedView, &Bloom)>,
 ) {
-    for (entity, bloom) in &views {
+    for (entity, view, bloom) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
-                final_pipeline: false,
+                texture_format: BLOOM_TEXTURE_FORMAT,
             },
         );
 
@@ -157,7 +151,7 @@ pub fn prepare_upsampling_pipeline(
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
-                final_pipeline: true,
+                texture_format: view.color_target_format,
             },
         );
 

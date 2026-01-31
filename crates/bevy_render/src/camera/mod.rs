@@ -7,8 +7,8 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
-        RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset,
+        ColorGrading, ExtractedView, ExtractedWindows, NoIndirectDrawing, RenderVisibleEntities,
+        RetainedViewEntity, ViewUniformOffset,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -16,11 +16,12 @@ use crate::{
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_camera::{
+    color_target::{MainColorTarget, WithMainColorTarget},
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
-    Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, Hdr, ManualTextureViewHandle, MsaaWriteback,
-    NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
+    Camera, Camera2d, Camera3d, CameraOutputMode, CameraUpdateSystems, ClearColor,
+    ClearColorConfig, Exposure, Hdr, ManualTextureViewHandle, NormalizedRenderTarget, Projection,
+    RenderTarget, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -31,7 +32,7 @@ use bevy_ecs::{
     lifecycle::HookContext,
     message::MessageReader,
     prelude::With,
-    query::{Has, QueryItem},
+    query::{Has, QueryEntityError, QueryItem},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::{InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel},
@@ -41,33 +42,51 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_log::warn;
 use bevy_log::warn_once;
-use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_math::{uvec2, vec2, Mat4, UVec2, UVec4, Vec2};
+use bevy_platform::collections::HashSet;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
 use wgpu::TextureFormat;
+
+mod color_target;
+pub use color_target::*;
 
 #[derive(Default)]
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.register_required_components::<Camera, Msaa>()
-            .register_required_components::<Camera, SyncToRenderWorld>()
+        app.register_required_components::<Camera, SyncToRenderWorld>()
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
             .add_plugins((
                 ExtractResourcePlugin::<ClearColor>::default(),
-                ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
+                ExtractComponentPlugin::<MainColorTarget>::default(),
             ))
-            .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
+            .add_systems(
+                PostStartup,
+                ((
+                    insert_camera_required_components_if_auto_configured,
+                    configure_camera_color_target,
+                    camera_system,
+                    sync_camera_color_target_config,
+                )
+                    .chain()
+                    .in_set(CameraUpdateSystems),),
+            )
             .add_systems(
                 PostUpdate,
-                camera_system
+                ((
+                    insert_camera_required_components_if_auto_configured,
+                    configure_camera_color_target,
+                    camera_system,
+                    sync_camera_color_target_config,
+                )
+                    .chain()
                     .in_set(CameraUpdateSystems)
                     .before(AssetEventSystems)
-                    .before(visibility::update_frusta),
+                    .before(visibility::update_frusta),),
             );
         app.world_mut()
             .register_component_hooks::<Camera>()
@@ -76,7 +95,10 @@ impl Plugin for CameraPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<SortedCameras>()
-                .add_systems(ExtractSchedule, extract_cameras)
+                .add_systems(
+                    ExtractSchedule,
+                    (extract_cameras, extract_main_color_target_reads_from),
+                )
                 .add_systems(Render, sort_cameras.in_set(RenderSystems::ManageViews));
         }
     }
@@ -94,15 +116,6 @@ impl ExtractResource for ClearColor {
 
     fn extract_resource(source: &Self::Source) -> Self {
         source.clone()
-    }
-}
-impl ExtractComponent for CameraMainTextureUsages {
-    type QueryData = &'static Self;
-    type QueryFilter = ();
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
-        Some(*item)
     }
 }
 impl ExtractComponent for Camera2d {
@@ -150,14 +163,16 @@ pub trait NormalizedRenderTargetExt {
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
+        query_main_color_targets: &'a Query<&ExtractedMainColorTarget>,
     ) -> Option<&'a TextureView>;
 
     /// Retrieves the [`TextureFormat`] of this render target, if it exists.
-    fn get_texture_view_format<'a>(
+    fn get_texture_view_format(
         &self,
-        windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<GpuImage>,
-        manual_texture_views: &'a ManualTextureViews,
+        windows: &ExtractedWindows,
+        images: &RenderAssets<GpuImage>,
+        manual_texture_views: &ManualTextureViews,
+        query_main_color_targets: &Query<&ExtractedMainColorTarget>,
     ) -> Option<TextureFormat>;
 
     fn get_render_target_info<'a>(
@@ -165,6 +180,7 @@ pub trait NormalizedRenderTargetExt {
         resolutions: impl IntoIterator<Item = (Entity, &'a Window)>,
         images: &Assets<Image>,
         manual_texture_views: &ManualTextureViews,
+        query_main_color_targets: &Query<&MainColorTarget>,
     ) -> Result<RenderTargetInfo, MissingRenderTargetInfoError>;
 
     // Check if this render target is contained in the given changed windows or images.
@@ -172,6 +188,7 @@ pub trait NormalizedRenderTargetExt {
         &self,
         changed_window_ids: &HashSet<Entity>,
         changed_image_handles: &HashSet<&AssetId<Image>>,
+        query_main_color_targets: &Query<&MainColorTarget>,
     ) -> bool;
 }
 
@@ -181,6 +198,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
+        query_main_color_targets: &'a Query<&ExtractedMainColorTarget>,
     ) -> Option<&'a TextureView> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows
@@ -192,16 +210,25 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| &tex.texture_view)
             }
+            NormalizedRenderTarget::MainColorTarget { render_entity, .. } => {
+                if let Ok(t) = query_main_color_targets.get(render_entity.unwrap())
+                    && let Some(image) = images.get(t.main_a)
+                {
+                    return Some(&image.texture_view);
+                }
+                None
+            }
             NormalizedRenderTarget::None { .. } => None,
         }
     }
 
     /// Retrieves the texture view's [`TextureFormat`] of this render target, if it exists.
-    fn get_texture_view_format<'a>(
+    fn get_texture_view_format(
         &self,
-        windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<GpuImage>,
-        manual_texture_views: &'a ManualTextureViews,
+        windows: &ExtractedWindows,
+        images: &RenderAssets<GpuImage>,
+        manual_texture_views: &ManualTextureViews,
+        query_main_color_targets: &Query<&ExtractedMainColorTarget>,
     ) -> Option<TextureFormat> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows
@@ -213,6 +240,14 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| tex.view_format)
             }
+            NormalizedRenderTarget::MainColorTarget { render_entity, .. } => {
+                if let Ok(t) = query_main_color_targets.get(render_entity.unwrap())
+                    && let Some(image) = images.get(t.main_a)
+                {
+                    return Some(image.view_format());
+                }
+                None
+            }
             NormalizedRenderTarget::None { .. } => None,
         }
     }
@@ -222,6 +257,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
         resolutions: impl IntoIterator<Item = (Entity, &'a Window)>,
         images: &Assets<Image>,
         manual_texture_views: &ManualTextureViews,
+        query_main_color_targets: &Query<&MainColorTarget>,
     ) -> Result<RenderTargetInfo, MissingRenderTargetInfoError> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => resolutions
@@ -250,6 +286,27 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
                     scale_factor: 1.0,
                 })
                 .ok_or(MissingRenderTargetInfoError::TextureView { texture_view: *id }),
+            NormalizedRenderTarget::MainColorTarget { entity, .. } => {
+                match query_main_color_targets.get(*entity) {
+                    Ok(t) => {
+                        if let Some(image) = images.get(&t.main_a) {
+                            Ok(RenderTargetInfo {
+                                physical_size: image.size(),
+                                scale_factor: 1.0,
+                            })
+                        } else {
+                            Err(MissingRenderTargetInfoError::MainColorTarget {
+                                image: Some(t.main_a.id()),
+                                query_error: None,
+                            })
+                        }
+                    }
+                    Err(err) => Err(MissingRenderTargetInfoError::MainColorTarget {
+                        image: None,
+                        query_error: Some(err),
+                    }),
+                }
+            }
             NormalizedRenderTarget::None { width, height } => Ok(RenderTargetInfo {
                 physical_size: uvec2(*width, *height),
                 scale_factor: 1.0,
@@ -262,6 +319,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
         &self,
         changed_window_ids: &HashSet<Entity>,
         changed_image_handles: &HashSet<&AssetId<Image>>,
+        query_main_color_targets: &Query<&MainColorTarget>,
     ) -> bool {
         match self {
             NormalizedRenderTarget::Window(window_ref) => {
@@ -271,6 +329,22 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
                 changed_image_handles.contains(&image_target.handle.id())
             }
             NormalizedRenderTarget::TextureView(_) => true,
+            NormalizedRenderTarget::MainColorTarget { entity, .. } => {
+                let mut handles = smallvec::SmallVec::<[AssetId<Image>; 3]>::new();
+                if let Ok(t) = query_main_color_targets.get(*entity) {
+                    handles.push(t.main_a.id());
+                    if let Some(b) = &t.main_b {
+                        handles.push(b.id());
+                    }
+                    if let Some(multisampled) = &t.multisampled {
+                        handles.push(multisampled.id());
+                    }
+                }
+                handles
+                    .iter()
+                    .any(|handle| changed_image_handles.contains(handle))
+            }
+
             NormalizedRenderTarget::None { .. } => false,
         }
     }
@@ -282,6 +356,11 @@ pub enum MissingRenderTargetInfoError {
     Window { window: Entity },
     #[error("RenderTarget::Image missing ({image:?}): Make sure the Image's usages include RenderAssetUsages::MAIN_WORLD.")]
     Image { image: AssetId<Image> },
+    #[error("RenderTarget::MainColorTarget failed to get target info, query error: {query_error:?}, image: {image:?}")]
+    MainColorTarget {
+        query_error: Option<QueryEntityError>,
+        image: Option<AssetId<Image>>,
+    },
     #[error("RenderTarget::TextureView missing ({texture_view:?}): make sure the texture view handle was not removed.")]
     TextureView {
         texture_view: ManualTextureViewHandle,
@@ -310,6 +389,7 @@ pub fn camera_system(
     images: Res<Assets<Image>>,
     manual_texture_views: Res<ManualTextureViews>,
     mut cameras: Query<(&mut Camera, &RenderTarget, &mut Projection)>,
+    query_main_color_targets: Query<&MainColorTarget>,
 ) -> Result<(), BevyError> {
     let primary_window = primary_window.iter().next();
 
@@ -336,9 +416,12 @@ pub fn camera_system(
             .as_ref()
             .map(|viewport| viewport.physical_size);
 
-        if let Some(normalized_target) = render_target.normalize(primary_window)
-            && (normalized_target.is_changed(&changed_window_ids, &changed_image_handles)
-                || camera.is_added()
+        if let Some(normalized_target) = render_target.normalize(primary_window, None)
+            && (normalized_target.is_changed(
+                &changed_window_ids,
+                &changed_image_handles,
+                &query_main_color_targets,
+            ) || camera.is_added()
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
                 || camera.computed.old_sub_camera_view != camera.sub_camera_view)
@@ -347,17 +430,21 @@ pub fn camera_system(
                 windows,
                 &images,
                 &manual_texture_views,
+                &query_main_color_targets,
             )?;
             // Check for the scale factor changing, and resize the viewport if needed.
             // This can happen when the window is moved between monitors with different DPIs.
             // Without this, the viewport will take a smaller portion of the window moved to
             // a higher DPI monitor.
-            if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::default())
-                && let Some(old_scale_factor) = camera
-                    .computed
-                    .target_info
-                    .as_ref()
-                    .map(|info| info.scale_factor)
+            if normalized_target.is_changed(
+                &scale_factor_changed_window_ids,
+                &HashSet::default(),
+                &query_main_color_targets,
+            ) && let Some(old_scale_factor) = camera
+                .computed
+                .target_info
+                .as_ref()
+                .map(|info| info.scale_factor)
             {
                 let resize_factor = new_computed_target_info.scale_factor / old_scale_factor;
                 if let Some(ref mut viewport) = camera.viewport {
@@ -399,16 +486,14 @@ pub fn camera_system(
 
 #[derive(Component, Debug)]
 pub struct ExtractedCamera {
-    pub target: Option<NormalizedRenderTarget>,
-    pub physical_viewport_size: Option<UVec2>,
-    pub physical_target_size: Option<UVec2>,
+    pub output_color_target: Option<NormalizedRenderTarget>,
+    pub main_color_target: Entity,
+    pub main_color_target_size: UVec2,
     pub viewport: Option<Viewport>,
     pub schedule: InternedScheduleLabel,
     pub order: isize,
     pub output_mode: CameraOutputMode,
-    pub msaa_writeback: MsaaWriteback,
     pub clear_color: ClearColorConfig,
-    pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
     pub hdr: bool,
 }
@@ -435,8 +520,11 @@ pub fn extract_cameras(
                 Option<&Projection>,
                 Has<NoIndirectDrawing>,
             ),
+            &WithMainColorTarget,
         )>,
     >,
+    query_main_color_targets: Extract<Query<(RenderEntity, &MainColorTarget)>>,
+    images: Extract<Res<Assets<Image>>>,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mapper: Extract<Query<&RenderEntity>>,
@@ -472,6 +560,7 @@ pub fn extract_cameras(
             projection,
             no_indirect_drawing,
         ),
+        with_main_color_target,
     ) in query.iter()
     {
         if !camera.is_active {
@@ -481,20 +570,33 @@ pub fn extract_cameras(
             continue;
         }
 
+        let Ok((main_color_target_render_entity, main_color_target)) =
+            query_main_color_targets.get(with_main_color_target.0)
+        else {
+            continue;
+        };
+
+        let Some(main_texture_a) = images.get(&main_color_target.main_a) else {
+            continue;
+        };
+        let color_target_format = main_texture_a
+            .texture_view_descriptor
+            .as_ref()
+            .and_then(|v| v.format)
+            .unwrap_or(main_texture_a.texture_descriptor.format);
+        let main_color_target_size = main_texture_a.size();
+        let msaa_samples = if let Some(multisampled) = &main_color_target.multisampled {
+            let Some(tex) = images.get(multisampled) else {
+                continue;
+            };
+            tex.texture_descriptor.sample_count
+        } else {
+            1
+        };
+
         let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
-        if let (
-            Some(URect {
-                min: viewport_origin,
-                ..
-            }),
-            Some(viewport_size),
-            Some(target_size),
-        ) = (
-            camera.physical_viewport_rect(),
-            camera.physical_viewport_size(),
-            camera.physical_target_size(),
-        ) {
+        if let Some(target_size) = camera.physical_target_size() {
             if target_size.x == 0 || target_size.y == 0 {
                 commands
                     .entity(render_entity)
@@ -523,20 +625,30 @@ pub fn extract_cameras(
                     .collect(),
             };
 
+            let render_target_color_target_render_entity =
+                if let RenderTarget::MainColorTarget(entity) = render_target {
+                    query_main_color_targets
+                        .get(*entity)
+                        .ok()
+                        .map(|(render_entity, _)| render_entity)
+                } else {
+                    None
+                };
+            let output_color_target =
+                render_target.normalize(primary_window, render_target_color_target_render_entity);
+
             let mut commands = commands.entity(render_entity);
+
             commands.insert((
                 ExtractedCamera {
-                    target: render_target.normalize(primary_window),
+                    output_color_target,
+                    main_color_target: main_color_target_render_entity,
+                    main_color_target_size,
                     viewport: camera.viewport.clone(),
-                    physical_viewport_size: Some(viewport_size),
-                    physical_target_size: Some(target_size),
                     schedule: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,
-                    msaa_writeback: camera.msaa_writeback,
                     clear_color: camera.clear_color,
-                    // this will be set in sort_cameras
-                    sorted_camera_index_for_target: 0,
                     exposure: exposure
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
@@ -547,15 +659,12 @@ pub fn extract_cameras(
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
-                    hdr,
-                    viewport: UVec4::new(
-                        viewport_origin.x,
-                        viewport_origin.y,
-                        viewport_size.x,
-                        viewport_size.y,
-                    ),
+                    viewport: UVec4::new(0, 0, main_color_target_size.x, main_color_target_size.y),
                     color_grading,
                     invert_culling: camera.invert_culling,
+                    hdr,
+                    color_target_format,
+                    msaa_samples,
                 },
                 render_visible_entities,
                 *frustum,
@@ -606,46 +715,31 @@ pub struct SortedCameras(pub Vec<SortedCamera>);
 pub struct SortedCamera {
     pub entity: Entity,
     pub order: isize,
-    pub target: Option<NormalizedRenderTarget>,
-    pub hdr: bool,
 }
 
 pub fn sort_cameras(
     mut sorted_cameras: ResMut<SortedCameras>,
-    mut cameras: Query<(Entity, &mut ExtractedCamera)>,
+    cameras: Query<(Entity, &ExtractedCamera)>,
 ) {
     sorted_cameras.0.clear();
     for (entity, camera) in cameras.iter() {
         sorted_cameras.0.push(SortedCamera {
             entity,
             order: camera.order,
-            target: camera.target.clone(),
-            hdr: camera.hdr,
         });
     }
-    // sort by order and ensure within an order, RenderTargets of the same type are packed together
-    sorted_cameras
-        .0
-        .sort_by(|c1, c2| (c1.order, &c1.target).cmp(&(c2.order, &c2.target)));
-    let mut previous_order_target = None;
+    // sort by order and ensure within an order.
+    sorted_cameras.0.sort_by_key(|c| c.order);
+    let mut previous_order = None;
     let mut ambiguities = <HashSet<_>>::default();
-    let mut target_counts = <HashMap<_, _>>::default();
     for sorted_camera in &mut sorted_cameras.0 {
-        let new_order_target = (sorted_camera.order, sorted_camera.target.clone());
-        if let Some(previous_order_target) = previous_order_target
-            && previous_order_target == new_order_target
+        let new_order = sorted_camera.order;
+        if let Some(previous_order) = previous_order
+            && previous_order == new_order
         {
-            ambiguities.insert(new_order_target.clone());
+            ambiguities.insert(new_order);
         }
-        if let Some(target) = &sorted_camera.target {
-            let count = target_counts
-                .entry((target.clone(), sorted_camera.hdr))
-                .or_insert(0usize);
-            let (_, mut camera) = cameras.get_mut(sorted_camera.entity).unwrap();
-            camera.sorted_camera_index_for_target = *count;
-            *count += 1;
-        }
-        previous_order_target = Some(new_order_target);
+        previous_order = Some(new_order);
     }
 
     if !ambiguities.is_empty() {

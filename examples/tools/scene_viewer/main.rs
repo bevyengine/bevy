@@ -11,7 +11,10 @@
 use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
-    camera::primitives::{Aabb, Sphere},
+    camera::{
+        primitives::{Aabb, Sphere},
+        CameraMainColorTargetConfig,
+    },
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
@@ -228,7 +231,7 @@ fn setup_scene_after_load(
         // If deferred shading was requested, include the prepass.
         if args.deferred == Some(true) {
             camera
-                .insert(Msaa::Off)
+                .insert(CameraMainColorTargetConfig::default().with_msaa_off())
                 .insert(DepthPrepass)
                 .insert(DeferredPrepass);
         }

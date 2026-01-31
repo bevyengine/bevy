@@ -2,7 +2,6 @@ use crate::core_3d::Transparent3d;
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
@@ -16,7 +15,6 @@ use tracing::info_span;
 pub fn main_transparent_pass_3d(
     world: &World,
     view: ViewQuery<(
-        &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
         &ViewDepthTexture,
@@ -27,7 +25,7 @@ pub fn main_transparent_pass_3d(
 ) {
     let view_entity = view.entity();
 
-    let (camera, extracted_view, target, depth, resolution_override) = view.into_inner();
+    let (extracted_view, target, depth, resolution_override) = view.into_inner();
 
     let Some(transparent_phase) = transparent_phases.get(&extracted_view.retained_view_entity)
     else {
@@ -57,9 +55,7 @@ pub fn main_transparent_pass_3d(
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
 
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
+        if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
             render_pass.set_camera_viewport(&viewport);
         }
 
@@ -68,23 +64,5 @@ pub fn main_transparent_pass_3d(
         }
 
         pass_span.end(&mut render_pass);
-    }
-
-    // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
-    // reset for the next render pass so add an empty render pass without a custom viewport
-    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    if camera.viewport.is_some() {
-        #[cfg(feature = "trace")]
-        let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("reset_viewport_pass_3d"),
-            color_attachments: &[Some(target.get_color_attachment())],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
-        };
-
-        ctx.command_encoder().begin_render_pass(&pass_descriptor);
     }
 }

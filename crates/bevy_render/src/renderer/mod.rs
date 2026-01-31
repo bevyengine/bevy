@@ -72,7 +72,7 @@ pub fn render_system(
             for window in windows.values_mut() {
                 let view_needs_present = views.iter().any(|(view_target, camera)| {
                     matches!(
-                        camera.target,
+                        camera.output_color_target,
                         Some(NormalizedRenderTarget::Window(w)) if w.entity() == window.entity
                     ) && view_target.needs_present()
                 });

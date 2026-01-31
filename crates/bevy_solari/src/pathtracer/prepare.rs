@@ -23,9 +23,7 @@ pub fn prepare_pathtracer_accumulation_texture(
     mut commands: Commands,
 ) {
     for (entity, camera) in &query {
-        let Some(viewport) = camera.physical_viewport_size else {
-            continue;
-        };
+        let viewport = camera.main_color_target_size;
 
         let descriptor = TextureDescriptor {
             label: Some("pathtracer_accumulation_texture"),

@@ -227,10 +227,13 @@ impl Location {
         primary_window: &Query<Entity, With<PrimaryWindow>>,
     ) -> bool {
         if render_target
-            .normalize(Some(match primary_window.single() {
-                Ok(w) => w,
-                Err(_) => return false,
-            }))
+            .normalize(
+                Some(match primary_window.single() {
+                    Ok(w) => w,
+                    Err(_) => return false,
+                }),
+                None,
+            )
             .as_ref()
             != Some(&self.target)
         {

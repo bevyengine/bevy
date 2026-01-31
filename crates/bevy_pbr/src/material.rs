@@ -52,7 +52,7 @@ use bevy_render::{
     render_resource::*,
     renderer::RenderDevice,
     sync_world::MainEntity,
-    view::{ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity},
+    view::{ExtractedView, RenderVisibilityRanges, RetainedViewEntity},
     Extract,
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
@@ -614,7 +614,7 @@ pub struct MaterialExtractionSystems;
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct MaterialExtractEntitiesNeedingSpecializationSystems;
 
-pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
+pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa_samples: u32) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
         // They're made distinct in the PBR shader, via `premultiply_alpha()`
@@ -622,8 +622,8 @@ pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> Mesh
         AlphaMode::Blend => MeshPipelineKey::BLEND_ALPHA,
         AlphaMode::Multiply => MeshPipelineKey::BLEND_MULTIPLY,
         AlphaMode::Mask(_) => MeshPipelineKey::MAY_DISCARD,
-        AlphaMode::AlphaToCoverage => match *msaa {
-            Msaa::Off => MeshPipelineKey::MAY_DISCARD,
+        AlphaMode::AlphaToCoverage => match msaa_samples {
+            1 => MeshPipelineKey::MAY_DISCARD,
             _ => MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE,
         },
         _ => MeshPipelineKey::NONE,
@@ -1110,7 +1110,7 @@ pub(crate) fn specialize_material_meshes(
                     material.properties.mesh_pipeline_key_bits.downcast();
                 mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(
                     material.properties.alpha_mode,
-                    &Msaa::from_samples(view_key.msaa_samples()),
+                    view_key.msaa_samples(),
                 ));
                 let mut mesh_key = *view_key
                     | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())

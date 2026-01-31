@@ -152,6 +152,7 @@ Example | Description
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
 [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
+[Camera color target graph](../examples/3d/camera_color_target_graph.rs) | Demonstrates connecting color target input and output of multiple cameras
 [Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
 [Clustered Decal Maps](../examples/3d/clustered_decal_maps.rs) | Demonstrates normal and metallic-roughness maps of decals

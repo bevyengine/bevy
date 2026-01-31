@@ -37,8 +37,8 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     view::{
-        ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
-        ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        ExtractedView, RenderVisibilityRanges, RetainedViewEntity, ViewUniform, ViewUniformOffset,
+        ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
@@ -782,15 +782,14 @@ pub fn check_prepass_views_need_specialization(
     mut view_specialization_ticks: ResMut<ViewPrepassSpecializationTicks>,
     mut views: Query<(
         &ExtractedView,
-        &Msaa,
         Option<&DepthPrepass>,
         Option<&NormalPrepass>,
         Option<&MotionVectorPrepass>,
     )>,
     ticks: SystemChangeTick,
 ) {
-    for (view, msaa, depth_prepass, normal_prepass, motion_vector_prepass) in views.iter_mut() {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
+    for (view, depth_prepass, normal_prepass, motion_vector_prepass) in views.iter_mut() {
+        let mut view_key = MeshPipelineKey::from_msaa_samples(view.msaa_samples);
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
@@ -837,7 +836,6 @@ pub(crate) struct SpecializePrepassSystemParam<'w, 's> {
         (
             &'static ExtractedView,
             &'static RenderVisibleEntities,
-            &'static Msaa,
             Option<&'static MotionVectorPrepass>,
             Option<&'static DeferredPrepass>,
         ),
@@ -887,9 +885,7 @@ pub(crate) fn specialize_prepass_material_meshes(
 
         this_run = system_change_tick.this_run();
 
-        for (extracted_view, visible_entities, msaa, motion_vector_prepass, deferred_prepass) in
-            &views
-        {
+        for (extracted_view, visible_entities, motion_vector_prepass, deferred_prepass) in &views {
             if !opaque_deferred_render_phases.contains_key(&extracted_view.retained_view_entity)
                 && !alpha_mask_deferred_render_phases
                     .contains_key(&extracted_view.retained_view_entity)
@@ -955,7 +951,8 @@ pub(crate) fn specialize_prepass_material_meshes(
                 let alpha_mode = material.properties.alpha_mode;
                 match alpha_mode {
                     AlphaMode::Opaque | AlphaMode::AlphaToCoverage | AlphaMode::Mask(_) => {
-                        mesh_key |= alpha_mode_pipeline_key(alpha_mode, msaa);
+                        mesh_key |=
+                            alpha_mode_pipeline_key(alpha_mode, extracted_view.msaa_samples);
                     }
                     AlphaMode::Blend
                     | AlphaMode::Premultiplied
