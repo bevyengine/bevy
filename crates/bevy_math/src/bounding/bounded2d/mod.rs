@@ -818,9 +818,9 @@ impl Obb2d {
     /// Gets the four corners of the obb in world coordinate space
     ///
     /// The corners are returned with the following order:
-    /// [local lower left, local top left, local top right, local bottom right].
-    /// Note that "local lower left" does not necessarily mean that the point is
-    /// "lower left" in world space due to rotation.
+    /// [local bottom left, local top left, local top right, local bottom right].
+    /// Note that "local bottom left" does not necessarily mean that the point is
+    /// "bottom left" in world space due to rotation.
     /// There is a bounding edge between adjacent entries.
     #[inline]
     pub fn get_corners(&self) -> [Vec2; 4] {
