@@ -278,28 +278,7 @@ impl Plugin for RenderPlugin {
         load_shader_library!(app, "color_operations.wgsl");
         load_shader_library!(app, "bindless.wgsl");
 
-        let main_world = app.world_mut();
-        let primary_window = main_world
-            .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
-            .single(main_world)
-            .ok()
-            .cloned();
-
-        #[cfg(feature = "raw_vulkan_init")]
-        let raw_vulkan_init_settings = main_world
-            .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
-            .cloned()
-            .unwrap_or_default();
-
-        let future_resources = FutureRenderResources::default();
-        if self.render_creation.create_render(
-            future_resources.clone(),
-            primary_window,
-            #[cfg(feature = "raw_vulkan_init")]
-            raw_vulkan_init_settings,
-        ) {
-            // Note that `future_resources` is not necessarily populated here yet.
-            main_world.insert_resource(future_resources);
+        if insert_future_resources(&self.render_creation, app.world_mut()) {
             // SAFETY: Plugins should be set up on the main thread.
             unsafe { initialize_render_app(app) };
         };
@@ -366,6 +345,36 @@ impl Plugin for RenderPlugin {
             );
         }
     }
+}
+
+/// Inserts a [`FutureRenderResources`] created from this [`RenderCreation`].
+///
+/// Returns true if creation was successful, false otherwise.
+fn insert_future_resources(render_creation: &RenderCreation, main_world: &mut World) -> bool {
+    let primary_window = main_world
+        .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
+        .single(main_world)
+        .ok()
+        .cloned();
+
+    #[cfg(feature = "raw_vulkan_init")]
+    let raw_vulkan_init_settings = main_world
+        .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
+        .cloned()
+        .unwrap_or_default();
+
+    let future_resources = FutureRenderResources::default();
+    let success = render_creation.create_render(
+        future_resources.clone(),
+        primary_window,
+        #[cfg(feature = "raw_vulkan_init")]
+        raw_vulkan_init_settings,
+    );
+    if success {
+        // Note that `future_resources` is not necessarily populated here yet.
+        main_world.insert_resource(future_resources);
+    }
+    success
 }
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
