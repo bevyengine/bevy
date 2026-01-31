@@ -319,7 +319,7 @@ impl Default for DepthOfField {
             sensor_height: physical_camera_default.sensor_height,
             max_circle_of_confusion_diameter: 64.0,
             max_depth: f32::INFINITY,
-            mode: DepthOfFieldMode::Bokeh,
+            mode: DepthOfFieldMode::default(),
         }
     }
 }
