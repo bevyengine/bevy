@@ -1,4 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(not(feature = "enable_codegen"), allow(unused))]
 
 //! This crate contains macros used by Bevy's `Reflect` API.
 //!
@@ -115,6 +116,21 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
             #assertions
         };
     })
+}
+
+#[cfg(feature = "enable_codegen")]
+macro_rules! maybe_early_out {
+    () => {};
+    ($expression:expr) => {};
+}
+#[cfg(not(feature = "enable_codegen"))]
+macro_rules! maybe_early_out {
+    () => {
+        return TokenStream::new();
+    };
+    ($expression:expr) => {
+        return $expression;
+    };
 }
 
 /// The main derive macro used by `bevy_reflect` for deriving its `Reflect` trait.
@@ -399,6 +415,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// [`reflect_trait`]: macro@reflect_trait
 #[proc_macro_derive(Reflect, attributes(reflect, type_path, type_name))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
+    maybe_early_out!();
     let ast = parse_macro_input!(input as DeriveInput);
     match_reflect_impls(ast, ReflectImplSource::DeriveLocalType)
 }
@@ -431,6 +448,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 /// such as when converting a partially-constructed dynamic type to a concrete one.
 #[proc_macro_derive(FromReflect, attributes(reflect))]
 pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
+    maybe_early_out!();
     let ast = parse_macro_input!(input as DeriveInput);
 
     let derive_data = match ReflectDerive::from_input(
@@ -477,6 +495,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
 /// To use this attribute, `#[type_path = "..."]` must also be specified.
 #[proc_macro_derive(TypePath, attributes(type_path, type_name))]
 pub fn derive_type_path(input: TokenStream) -> TokenStream {
+    maybe_early_out!();
     let ast = parse_macro_input!(input as DeriveInput);
     let derive_data = match ReflectDerive::from_input(
         &ast,
@@ -548,6 +567,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 /// [object-safe]: https://doc.rust-lang.org/reference/items/traits.html#object-safety
 #[proc_macro_attribute]
 pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
+    maybe_early_out!(input);
     trait_reflection::reflect_trait(&args, input)
 }
 
@@ -633,6 +653,7 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// [transmuted]: std::mem::transmute
 #[proc_macro_attribute]
 pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
+    maybe_early_out!(input);
     remote::reflect_remote(args, input)
 }
 
@@ -670,6 +691,7 @@ pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
 /// [deriving `Reflect`]: Reflect
 #[proc_macro]
 pub fn impl_reflect_opaque(input: TokenStream) -> TokenStream {
+    maybe_early_out!();
     let def = parse_macro_input!(input with ReflectOpaqueDef::parse_reflect);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
@@ -734,6 +756,7 @@ pub fn impl_reflect_opaque(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro]
 pub fn impl_reflect(input: TokenStream) -> TokenStream {
+    maybe_early_out!();
     let ast = parse_macro_input!(input as DeriveInput);
     match_reflect_impls(ast, ReflectImplSource::ImplRemoteType)
 }
@@ -760,6 +783,7 @@ pub fn impl_reflect(input: TokenStream) -> TokenStream {
 /// [derives `Reflect`]: Reflect
 #[proc_macro]
 pub fn impl_from_reflect_opaque(input: TokenStream) -> TokenStream {
+    maybe_early_out!();
     let def = parse_macro_input!(input with ReflectOpaqueDef::parse_from_reflect);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
@@ -825,6 +849,7 @@ pub fn impl_from_reflect_opaque(input: TokenStream) -> TokenStream {
 /// [deriving `TypePath`]: TypePath
 #[proc_macro]
 pub fn impl_type_path(input: TokenStream) -> TokenStream {
+    maybe_early_out!();
     let def = parse_macro_input!(input as NamedTypePathDef);
 
     let type_path = match def {
@@ -869,6 +894,7 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
 /// If you're experiencing linking issues try running `cargo clean` before rebuilding.
 #[proc_macro]
 pub fn load_type_registrations(_input: TokenStream) -> TokenStream {
+    maybe_early_out!();
     if !cfg!(feature = "auto_register_static") {
         return TokenStream::new();
     }
