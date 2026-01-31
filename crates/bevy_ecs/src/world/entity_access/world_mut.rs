@@ -1200,7 +1200,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[must_use]
     #[track_caller]
-    pub fn take<T: Bundle + BundleFromComponents>(&mut self) -> Option<T> {
+    pub fn take<T: Bundle + BundleFromComponents + 'static>(&mut self) -> Option<T> {
         let location = self.location();
         let entity = self.entity;
 
@@ -1878,14 +1878,14 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the given system is an exclusive system.
     #[track_caller]
-    pub fn observe<E: EntityEvent, B: Bundle, M>(
+    pub fn observe<E: EntityEvent, B: Bundle + 'static, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.observe_with_caller(observer, MaybeLocation::caller())
     }
 
-    pub(crate) fn observe_with_caller<E: EntityEvent, B: Bundle, M>(
+    pub(crate) fn observe_with_caller<E: EntityEvent, B: Bundle + 'static, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
         caller: MaybeLocation,

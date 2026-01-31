@@ -74,11 +74,11 @@ impl Plugin for DelayedComponentPlugin {
 /// Extension trait providing [`insert_delayed`](EntityCommandsExt::insert_delayed).
 pub trait EntityCommandsExt {
     /// Insert the provided [`Bundle`] `B` with a provided `delay`.
-    fn insert_delayed<B: Bundle>(&mut self, bundle: B, delay: Duration) -> &mut Self;
+    fn insert_delayed<B: Bundle + 'static>(&mut self, bundle: B, delay: Duration) -> &mut Self;
 }
 
 impl EntityCommandsExt for EntityCommands<'_> {
-    fn insert_delayed<B: Bundle>(&mut self, bundle: B, delay: Duration) -> &mut Self {
+    fn insert_delayed<B: Bundle + 'static>(&mut self, bundle: B, delay: Duration) -> &mut Self {
         self.insert((
             DelayedComponentTimer(Timer::new(delay, TimerMode::Once)),
             DelayedComponent(bundle),
@@ -88,7 +88,7 @@ impl EntityCommandsExt for EntityCommands<'_> {
 }
 
 impl EntityCommandsExt for EntityWorldMut<'_> {
-    fn insert_delayed<B: Bundle>(&mut self, bundle: B, delay: Duration) -> &mut Self {
+    fn insert_delayed<B: Bundle + 'static>(&mut self, bundle: B, delay: Duration) -> &mut Self {
         self.insert((
             DelayedComponentTimer(Timer::new(delay, TimerMode::Once)),
             DelayedComponent(bundle),
@@ -125,7 +125,7 @@ fn tick_timers(
     }
 }
 
-fn unwrap<B: Bundle>(event: On<Unwrap>, world: &mut World) {
+fn unwrap<B: Bundle + 'static>(event: On<Unwrap>, world: &mut World) {
     if let Ok(mut target) = world.get_entity_mut(event.event_target())
         && let Some(DelayedComponent(bundle)) = target.take::<DelayedComponent<B>>()
     {

@@ -65,7 +65,7 @@ pub fn option_button<T>(
     is_selected: bool,
     is_first: bool,
     is_last: bool,
-) -> impl Bundle
+) -> impl Bundle + use<T>
 where
     T: Clone + Send + Sync + 'static,
 {
@@ -113,7 +113,7 @@ where
 /// The user may change the setting to any one of the labeled `options`. The
 /// value of the given type parameter will be packaged up and sent as a
 /// [`WidgetClickEvent`] when one of the radio buttons is clicked.
-pub fn option_buttons<T>(title: &str, options: &[(T, &str)]) -> impl Bundle
+pub fn option_buttons<T>(title: &str, options: &[(T, &str)]) -> impl Bundle + use<T>
 where
     T: Clone + Send + Sync + 'static,
 {
