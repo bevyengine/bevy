@@ -260,7 +260,7 @@ pub struct Mesh {
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
-    /// Whether or not to compress vertex attributes when uploading to GPU buffer to save memory
+    /// Whether or not to compress vertex attributes when uploading to GPU buffer to save video memory
     /// and bandwidth, but it will reduce precision and have some CPU processing overhead.
     ///
     /// If the corresponding flag is enabled:
@@ -1091,7 +1091,26 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION) =>
             {
-                Some(attribute_values.create_compressed_positions(self.final_aabb.unwrap()))
+                fn compute_aabb(positions: &VertexAttributeValues) -> Option<Aabb3d> {
+                    match positions {
+                        VertexAttributeValues::Float32x3(val) => {
+                            let mut iter = val.iter().map(|a| Vec3A::from_array(*a));
+                            let first = iter.next()?;
+                            let (min, max) =
+                                iter.fold((first, first), |(prev_min, prev_max), point| {
+                                    (point.min(prev_min), point.max(prev_max))
+                                });
+                            Some(Aabb3d { min, max })
+                        }
+                        _ => None,
+                    }
+                }
+                Some(
+                    attribute_values.create_compressed_positions(
+                        self.final_aabb
+                            .unwrap_or_else(|| compute_aabb(attribute_values).unwrap()),
+                    ),
+                )
             }
             id if id == Self::ATTRIBUTE_NORMAL.id
                 && self

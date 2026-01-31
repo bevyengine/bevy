@@ -1092,6 +1092,6 @@ pub enum MeshToMeshletMeshConversionError {
     WrongMeshVertexAttributes(Vec<String>),
     #[error("Mesh has no indices")]
     MeshMissingIndices,
-    #[error("Mesh attributes should not be compressed")]
+    #[error("Mesh compressed vertex attributes are not supported yet")]
     MeshAttributesCompressed,
 }

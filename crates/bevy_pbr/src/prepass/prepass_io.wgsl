@@ -1,6 +1,5 @@
 #define_import_path bevy_pbr::prepass_io
 
-
 // Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
 // pass them to custom prepass shaders like pbr_prepass.wgsl.
 struct UncompressedVertex {

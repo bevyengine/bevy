@@ -22,10 +22,9 @@ use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::{Parallel, TypeIdMap};
 use smallvec::SmallVec;
 
-use crate::primitives::MeshAabb;
 use crate::{
     camera::Camera,
-    primitives::{Aabb, Frustum, Sphere},
+    primitives::{Aabb, Frustum, MeshAabb, Sphere},
     Projection,
 };
 use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d};
