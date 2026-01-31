@@ -278,16 +278,15 @@ impl Plugin for RenderPlugin {
         load_shader_library!(app, "color_operations.wgsl");
         load_shader_library!(app, "bindless.wgsl");
 
-        let primary_window = app
-            .world_mut()
+        let main_world = app.world_mut();
+        let primary_window = main_world
             .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
-            .single(app.world())
+            .single(main_world)
             .ok()
             .cloned();
 
         #[cfg(feature = "raw_vulkan_init")]
-        let raw_vulkan_init_settings = app
-            .world_mut()
+        let raw_vulkan_init_settings = main_world
             .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
             .cloned()
             .unwrap_or_default();
@@ -300,7 +299,7 @@ impl Plugin for RenderPlugin {
             raw_vulkan_init_settings,
         ) {
             // Note that `future_resources` is not necessarily populated here yet.
-            app.insert_resource(future_resources);
+            main_world.insert_resource(future_resources);
             // SAFETY: Plugins should be set up on the main thread.
             unsafe { initialize_render_app(app) };
         };
