@@ -29,7 +29,9 @@ bevy_image = { path = "../bevy_image", version = "0.19.0-dev" }
 bevy_light = { path = "../bevy_light", version = "0.19.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.19.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev", features = [
+  "serialize",
+] }
 bevy_pbr = { path = "../bevy_pbr", version = "0.19.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.19.0-dev" }

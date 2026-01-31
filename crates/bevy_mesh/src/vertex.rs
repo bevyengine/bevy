@@ -471,9 +471,11 @@ impl VertexAttributeValues {
             unreachable!()
         };
         let mut values = Vec::<[i16; 4]>::with_capacity(uncompressed_values.len());
+        let scale = 1.0 / aabb.half_size();
+        let scale = Vec3A::select(scale.is_nan_mask(), Vec3A::ZERO, scale);
         for val in uncompressed_values {
             let mut val = Vec3A::from_array(*val);
-            val = (val - aabb.center()) / aabb.half_size();
+            val = (val - aabb.center()) * scale;
             let val = arr_f32_to_snorm16(val.extend(0.0).to_array());
             values.push(val);
         }
@@ -486,9 +488,11 @@ impl VertexAttributeValues {
             unreachable!()
         };
         let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
+        let scale = 1.0 / (range.max - range.min);
+        let scale = Vec2::select(scale.is_nan_mask(), Vec2::ZERO, scale);
         for val in uncompressed_values {
             let mut val = Vec2::from_array(*val);
-            val = (val - range.min) / (range.max - range.min);
+            val = (val - range.min) * scale;
             values.push(arr_f32_to_unorm16(val.to_array()));
         }
         VertexAttributeValues::Unorm16x2(values)

@@ -22,6 +22,7 @@ use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::{Parallel, TypeIdMap};
 use smallvec::SmallVec;
 
+use crate::primitives::MeshAabb;
 use crate::{
     camera::Camera,
     primitives::{Aabb, Frustum, Sphere},
@@ -488,7 +489,7 @@ pub fn calculate_bounds(
 ) {
     for (entity, mesh_handle) in &new_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
-            && let Some(aabb) = mesh.compute_aabb().map(|aabb| -> Aabb { aabb.into() })
+            && let Some(aabb) = mesh.compute_aabb()
         {
             commands.entity(entity).try_insert(aabb);
         }

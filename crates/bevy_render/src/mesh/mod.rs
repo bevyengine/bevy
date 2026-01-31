@@ -207,7 +207,7 @@ impl RenderAsset for RenderMesh {
             layout: mesh_vertex_buffer_layout,
             #[cfg(feature = "morph")]
             morph_targets,
-            aabb: mesh.compute_aabb(),
+            aabb: mesh.final_aabb,
             uv0_range: mesh.compute_uv_range(Mesh::ATTRIBUTE_UV_0),
             uv1_range: mesh.compute_uv_range(Mesh::ATTRIBUTE_UV_1),
         })

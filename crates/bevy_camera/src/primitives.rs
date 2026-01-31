@@ -7,6 +7,7 @@ use bevy_math::{
     primitives::{HalfSpace, ViewFrustum},
     Affine3A, Mat3A, Vec3, Vec3A,
 };
+use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
 
 pub trait MeshAabb {

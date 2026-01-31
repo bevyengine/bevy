@@ -40,7 +40,10 @@ pub mod prelude {
 }
 
 use bevy_asset::Assets;
-use bevy_camera::{primitives::Aabb, visibility::NoFrustumCulling, visibility::VisibilitySystems};
+use bevy_camera::{
+    primitives::{Aabb, MeshAabb},
+    visibility::{NoFrustumCulling, VisibilitySystems},
+};
 use bevy_mesh::{Mesh, Mesh2d};
 #[cfg(feature = "bevy_picking")]
 pub use picking_backend::*;

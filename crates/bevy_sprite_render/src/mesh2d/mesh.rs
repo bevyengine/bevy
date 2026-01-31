@@ -21,7 +21,10 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_image::BevyDefault;
-use bevy_math::{Affine3, Affine3Ext, Vec4};
+use bevy_math::{
+    bounding::{Aabb2d, BoundingVolume},
+    Affine3, Affine3Ext, Vec3, Vec4,
+};
 use bevy_mesh::{Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshTag, MeshVertexBufferLayoutRef};
 use bevy_render::prelude::Msaa;
 use bevy_render::RenderSystems::PrepareAssets;
@@ -204,16 +207,15 @@ pub struct Mesh2dUniform {
     //   [1].yz, [2].xy
     //   [2].z
     pub local_from_world_transpose_a: [Vec4; 2],
-    pub local_from_world_transpose_b: f32,
-    pub flags: u32,
-    pub tag: u32,
     /// AABB for decompressing positions.
     pub aabb_center: Vec3,
-    pub pad1: u32,
+    pub local_from_world_transpose_b: f32,
+    /// AABB for decompressing positions.
     pub aabb_half_extents: Vec3,
-    pub pad2: u32,
+    pub flags: u32,
     /// UVs range for decompressing UVs coordinates.
     pub uv0_range: Vec4,
+    pub tag: u32,
 }
 
 impl Mesh2dUniform {
@@ -236,8 +238,6 @@ impl Mesh2dUniform {
                 .map(|aabb| aabb.half_size().into())
                 .unwrap_or(Vec3::ZERO),
             uv0_range: uv_range_to_vec4(uv_range),
-            pad1: 0,
-            pad2: 0,
         }
     }
 }

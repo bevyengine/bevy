@@ -17,7 +17,11 @@ use bevy_asset::Handle;
 use bevy_asset::{Asset, RenderAssetUsages};
 #[cfg(feature = "morph")]
 use bevy_image::Image;
-use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
+use bevy_math::{
+    bounding::{Aabb2d, Aabb3d},
+    primitives::Triangle3d,
+    *,
+};
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
@@ -982,25 +986,6 @@ impl Mesh {
         vertex_count.unwrap_or(0)
     }
 
-    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
-    ///
-    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
-    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
-    pub fn compute_aabb(&self) -> Option<Aabb3d> {
-        let positions = self.attribute(Self::ATTRIBUTE_POSITION)?;
-        match positions {
-            VertexAttributeValues::Float32x3(val) => {
-                let mut iter = val.iter().map(|a| Vec3A::from_array(*a));
-                let first = iter.next()?;
-                let (min, max) = iter.fold((first, first), |(prev_min, prev_max), point| {
-                    (point.min(prev_min), point.max(prev_max))
-                });
-                Some(Aabb3d { min, max })
-            }
-            _ => None,
-        }
-    }
-
     /// Compute the UV0 or UV1 range.
     ///
     /// Returns `None` if `attr` isn't [`Mesh::ATTRIBUTE_UV_0`] or [`Mesh::ATTRIBUTE_UV_1`],
@@ -1106,7 +1091,7 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION) =>
             {
-                Some(attribute_values.create_compressed_positions(self.compute_aabb().unwrap()))
+                Some(attribute_values.create_compressed_positions(self.final_aabb.unwrap()))
             }
             id if id == Self::ATTRIBUTE_NORMAL.id
                 && self

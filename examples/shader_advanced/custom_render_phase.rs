@@ -14,7 +14,6 @@ use std::ops::Range;
 
 use bevy::camera::Viewport;
 use bevy::mesh::MeshAttributeCompressionFlags;
-use bevy::math::Affine3Ext;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     camera::MainPassResolutionOverride,

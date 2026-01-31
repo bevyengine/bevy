@@ -30,6 +30,7 @@ use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
 };
+use bevy_math::bounding::{Aabb2d, BoundingVolume};
 use bevy_math::{Affine3, Affine3Ext, Rect, UVec2, Vec3, Vec4};
 use bevy_mesh::{
     skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshAttributeCompressionFlags,
@@ -1858,6 +1859,7 @@ pub fn collect_meshes_for_gpu_building(
     let render_lightmaps = &render_lightmaps;
     let skin_uniforms = &skin_uniforms;
     let frame_count = *frame_count;
+    let meshes = &meshes;
 
     // Spawn workers on the taskpool to prepare and update meshes in parallel.
     ComputeTaskPool::get().scope(|scope| {
@@ -1933,6 +1935,7 @@ pub fn collect_meshes_for_gpu_building(
                                         render_lightmaps,
                                         skin_uniforms,
                                         frame_count,
+                                        meshes,
                                     ) {
                                     Some(prepared) => {
                                         prepared_tx.send_blocking((entity, prepared, None)).ok();
@@ -1968,6 +1971,7 @@ pub fn collect_meshes_for_gpu_building(
                                     render_lightmaps,
                                     skin_uniforms,
                                     frame_count,
+                                    meshes,
                                 ) {
                                     Some(prepared) => {
                                         let data = (entity, prepared, Some(mesh_culling_builder));
