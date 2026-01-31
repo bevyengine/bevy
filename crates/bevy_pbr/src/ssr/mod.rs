@@ -160,10 +160,6 @@ pub struct ScreenSpaceReflectionsUniform {
     use_secant: u32,
 }
 
-/// The node in the render graph that traces screen space reflections.
-#[derive(Default)]
-pub struct ScreenSpaceReflectionsNode;
-
 /// Identifies which screen space reflections render pipeline a view needs.
 #[derive(Component, Deref, DerefMut)]
 pub struct ScreenSpaceReflectionsPipelineId(pub CachedRenderPipelineId);
