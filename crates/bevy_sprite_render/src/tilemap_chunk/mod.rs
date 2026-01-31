@@ -219,7 +219,7 @@ pub fn update_tilemap_chunk_indices(
             );
             continue;
         };
-        let Some(tile_data_image) = images.get_mut(&material.tile_data) else {
+        let Some(mut tile_data_image) = images.get_mut(&material.tile_data) else {
             warn!(
                 "TilemapChunkMaterial tile data image not found for tilemap chunk {}",
                 chunk_entity

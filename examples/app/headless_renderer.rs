@@ -470,7 +470,7 @@ fn update(
             if !image_data.is_empty() {
                 for image in images_to_save.iter() {
                     // Fill correct data from channel to image
-                    let img_bytes = images.get_mut(image.id()).unwrap();
+                    let mut img_bytes = images.get_mut(image.id()).unwrap();
 
                     // We need to ensure that this works regardless of the image dimensions
                     // If the image became wider when copying from the texture to the buffer,
