@@ -303,15 +303,8 @@ impl MeshAttributeCompressionFlags {
 }
 
 impl Default for MeshAttributeCompressionFlags {
-    /// Default compression flags for mesh attributes.
-    ///
-    /// Includes normal, tangent, joint weights, and float16 color.
-    /// These values have a very small dynamic range and are unlikely to produce significant visual differences.
     fn default() -> Self {
-        Self::COMPRESS_NORMAL
-            | Self::COMPRESS_TANGENT
-            | Self::COMPRESS_JOINT_WEIGHT
-            | Self::COMPRESS_COLOR_FLOAT16
+        Self::COMPRESS_NONE
     }
 }
 
