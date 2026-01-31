@@ -52,12 +52,13 @@ fn setup_mesh_and_animation(
     // Start loading the asset as a scene and store a reference to it in a
     // SceneRoot component. This component will automatically spawn a scene
     // containing our mesh once it has loaded.
-    let mesh_scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)));
+    let k = asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH));
+    let mesh_scene = SceneRoot(k);
 
     // Spawn an entity with our components, and connect it to an observer that
     // will trigger when the scene is loaded and spawned.
     commands
-        .spawn((animation_to_play, mesh_scene))
+        .spawn((Name::new("animated"), animation_to_play, mesh_scene))
         .observe(play_animation_when_ready);
 }
 
@@ -102,18 +103,21 @@ fn setup_camera_and_environment(
 ) {
     // Camera
     commands.spawn((
+        Name::new("camera"),
         Camera3d::default(),
         Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
     ));
 
     // Plane
-    commands.spawn((
+    let _t = commands.spawn((
+        Name::new("plane"),
         Mesh3d(meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0))),
         MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
 
     // Light
     commands.spawn((
+        Name::new("light"),
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
             shadow_maps_enabled: true,

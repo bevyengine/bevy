@@ -1,6 +1,5 @@
-use bevy_material::AlphaMode;
+use bevy_material::{AlphaMode, UvChannel};
 use bevy_math::Affine2;
-use bevy_pbr::UvChannel;
 
 use gltf::{json::texture::Info, Material};
 

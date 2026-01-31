@@ -26,15 +26,14 @@ use bevy_image::{
     ImageType, TextureError,
 };
 use bevy_light::{DirectionalLight, PointLight, SpotLight};
+#[cfg(feature = "pbr_transmission_textures")]
+use bevy_material::UvChannel;
 use bevy_math::{Mat4, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
 };
-#[cfg(feature = "pbr_transmission_textures")]
-use bevy_pbr::UvChannel;
-use bevy_pbr::{MeshMaterial3d, StandardMaterial, MAX_JOINTS};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
 use bevy_render::render_resource::Face;
@@ -57,8 +56,9 @@ use tracing::{error, info_span, warn};
 
 use crate::{
     convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
-    GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfMeshName,
-    GltfNode, GltfSceneExtras, GltfSkin, GltfSkinnedMeshBoundsPolicy,
+    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
+    GltfMaterialTranslator, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
+    GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -77,6 +77,9 @@ use self::{
     },
 };
 use crate::convert_coordinates::GltfConvertCoordinates;
+
+/// Must match same constant in bevy pbr
+pub const MAX_JOINTS: usize = 256;
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -160,6 +163,8 @@ pub struct GltfLoader {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+    ///  Converts `GltfMaterial` to something the renderer understands
+    pub material_translator: GltfMaterialTranslator,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -673,6 +678,8 @@ impl GltfLoader {
                         &texture_handles,
                         false,
                         load_context.path().clone(),
+                        &loader.material_translator.clone(),
+                        load_context,
                     );
                     load_context.add_labeled_asset(label, material)
                 };
@@ -1013,6 +1020,7 @@ impl GltfLoader {
                             &convert_coordinates,
                             &mut extensions,
                             skinned_mesh_bounds_policy,
+                            &loader.material_translator,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -1199,16 +1207,16 @@ async fn load_image<'a, 'b>(
     }
 }
 
-/// Loads a glTF material as a bevy [`StandardMaterial`] and returns the label and material.
-// Note: this function intentionally **does not** take a `LoadContext` and insert the asset here,
-// since we don't use the `LoadContext` otherwise, and this prevents accidentally using the context
-// without `labeled_asset_scope`.
+/// Loads a glTF material as a bevy [`GltfMaterial`] and returns the label and material.
+/// Uses the `material_translator` to load a second asset via the `load_context`.
 fn load_material(
     material: &Material,
     textures: &[Handle<Image>],
     is_scale_inverted: bool,
     asset_path: AssetPath<'_>,
-) -> (String, StandardMaterial) {
+    material_translator: &GltfMaterialTranslator,
+    load_context: &mut LoadContext,
+) -> (String, GltfMaterial) {
     let pbr = material.pbr_metallic_roughness();
 
     // TODO: handle missing label handle errors here?
@@ -1367,7 +1375,7 @@ fn load_material(
     let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
     let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
 
-    let standard_material = StandardMaterial {
+    let gltf_material = GltfMaterial {
         base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
         base_color_channel,
         base_color_texture,
@@ -1446,13 +1454,15 @@ fn load_material(
         specular_tint_channel: specular.specular_color_channel,
         #[cfg(feature = "pbr_specular_textures")]
         specular_tint_texture: specular.specular_color_texture,
-        ..Default::default()
     };
 
-    (
-        material_label(material, is_scale_inverted).to_string(),
-        standard_material,
-    )
+    let mat_label = material_label(material, is_scale_inverted);
+
+    let _k = (material_translator.load_material)(&gltf_material, &mat_label, load_context);
+    // TODO: at least log an error here
+    // TODO: could consider changing `load_material` to return a result
+
+    (mat_label.to_string(), gltf_material)
 }
 
 /// Loads a glTF node.
@@ -1479,6 +1489,7 @@ fn load_node(
     convert_coordinates: &GltfConvertCoordinates,
     extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
     skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+    material_translator: &GltfMaterialTranslator,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
@@ -1579,7 +1590,8 @@ fn load_node(
             // append primitives
             for primitive in mesh.primitives() {
                 let material = primitive.material();
-                let material_label = material_label(&material, is_scale_inverted).to_string();
+                let mat_label = material_label(&material, is_scale_inverted);
+                let material_label = mat_label.to_string();
 
                 // This will make sure we load the default material now since it would not have been
                 // added when iterating over all the gltf materials (since the default material is
@@ -1593,7 +1605,10 @@ fn load_node(
                         textures,
                         is_scale_inverted,
                         load_context.path().clone(),
+                        material_translator,
+                        load_context,
                     );
+                    // TODO: maybe move this into `load_material` ?
                     load_context.add_labeled_asset(label, material);
                 }
 
@@ -1611,11 +1626,17 @@ fn load_node(
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
                     Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
-                    MeshMaterial3d::<StandardMaterial>(
-                        load_context.get_label_handle(&material_label),
-                    ),
+                    // TODO: could add the `GltfMaterial` here
                     mesh_entity_transform,
                 ));
+
+                if let Err(err) = (material_translator.insert_material)(
+                    &mat_label,
+                    load_context,
+                    &mut mesh_entity,
+                ) {
+                    warn!("gltf material_translator insert_material error: {:?}", err);
+                }
 
                 if gltf_node.skin().is_some() {
                     match skinned_mesh_bounds_policy {
@@ -1807,6 +1828,7 @@ fn load_node(
                 convert_coordinates,
                 extensions,
                 skinned_mesh_bounds_policy,
+                material_translator,
             ) {
                 gltf_error = Some(err);
                 return;
@@ -2028,21 +2050,25 @@ struct MorphTargetNames {
 mod test {
     use std::path::Path;
 
-    use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
+    use crate::{Gltf, GltfAssetLabel, GltfMaterial, GltfMaterialTranslator, GltfNode, GltfSkin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
             AssetSourceBuilder, AssetSourceId,
         },
-        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadState,
+        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext, LoadState,
     };
-    use bevy_ecs::{resource::Resource, world::World};
+    use bevy_ecs::{
+        error::BevyError,
+        resource::Resource,
+        world::{EntityWorldMut, World},
+    };
     use bevy_image::{Image, ImageLoaderSettings};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
-    use bevy_pbr::StandardMaterial;
+    use bevy_platform::sync::Arc;
     use bevy_reflect::TypePath;
     use bevy_scene::ScenePlugin;
 
@@ -2053,6 +2079,20 @@ mod test {
             AssetSourceId::Default,
             AssetSourceBuilder::new(move || Box::new(reader.clone())),
         )
+        .insert_resource(GltfMaterialTranslator {
+            load_material: Arc::new(
+                |_gltf_material: &GltfMaterial,
+                 _label: &GltfAssetLabel,
+                 _load_context: &mut LoadContext| {
+                    Err(BevyError::from("No translator"))
+                },
+            ),
+            insert_material: Arc::new(
+                |_label: &GltfAssetLabel,
+                 _load_context: &mut LoadContext,
+                 _entity: &mut EntityWorldMut| { Ok(()) },
+            ),
+        })
         .add_plugins((
             LogPlugin::default(),
             TaskPoolPlugin::default(),
@@ -2462,6 +2502,8 @@ mod test {
         assert_eq!(skinned_node.skin.as_ref(), Some(&gltf_root.skins[0]));
     }
 
+    // TODO: add a test for translator
+
     fn test_app_custom_asset_source() -> (App, Dir) {
         let dir = Dir::default();
 
@@ -2480,6 +2522,20 @@ mod test {
             "custom",
             AssetSourceBuilder::new(move || Box::new(custom_reader.clone())),
         )
+        .insert_resource(GltfMaterialTranslator {
+            load_material: Arc::new(
+                |_gltf_material: &GltfMaterial,
+                 _label: &GltfAssetLabel,
+                 _load_context: &mut LoadContext| {
+                    Err(BevyError::from("No translator"))
+                },
+            ),
+            insert_material: Arc::new(
+                |_label: &GltfAssetLabel,
+                 _load_context: &mut LoadContext,
+                 _entity: &mut EntityWorldMut| { Ok(()) },
+            ),
+        })
         .add_plugins((
             LogPlugin::default(),
             TaskPoolPlugin::default(),
@@ -2534,7 +2590,7 @@ mod test {
     fn reads_images_in_custom_asset_source() {
         let (mut app, dir) = test_app_custom_asset_source();
 
-        app.init_asset::<StandardMaterial>();
+        app.init_asset::<GltfMaterial>();
 
         // Note: We need the material here since otherwise we don't store the texture handle, which
         // can result in the image getting dropped leading to the gltf never being loaded with
@@ -2592,7 +2648,7 @@ mod test {
                 &self,
                 _reader: &mut dyn bevy_asset::io::Reader,
                 _settings: &Self::Settings,
-                _load_context: &mut bevy_asset::LoadContext<'_>,
+                _load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
                 Ok(Image::default())
             }
