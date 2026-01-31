@@ -6,9 +6,11 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     query::{
         access_iter::{EcsAccessLevel, EcsAccessType},
-        Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery,
+        Access, DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, QueryFilter, QueryState,
+        WorldQuery,
     },
     storage::{ComponentSparseSet, Table, TableRow},
+    system::Query,
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
@@ -276,7 +278,6 @@ use variadics_please::all_tuples;
 ///   and `Self::ReadOnly` must match exactly the same archetypes/tables as `Self`
 /// - `IS_READ_ONLY` must be `true` if and only if `Self: ReadOnlyQueryData`
 ///
-/// [`Query`]: crate::system::Query
 /// [`ReadOnly`]: Self::ReadOnly
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not valid to request as data in a `Query`",
@@ -339,6 +340,8 @@ pub unsafe trait QueryData: WorldQuery {
     /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     ///   `table_row` must be in the range of the current table and archetype.
     /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
+    /// - If `Self` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
+    /// - If `Self` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
     unsafe fn fetch<'w, 's>(
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
@@ -352,19 +355,54 @@ pub unsafe trait QueryData: WorldQuery {
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>>;
 }
 
+/// A [`QueryData`] for which instances may be alive for different entities concurrently.
+///
+/// Rust [`Iterator`]s don't connect the lifetime in [`Iterator::next`] to anything in [`Iterator::Item`],
+/// so later calls don't invalidate earlier items.
+/// This is how methods like [`Iterator::collect`] work.
+/// It is therefore unsound to offer an [`Iterator`] for a [`QueryData`] for which only one instance may be alive concurrently.
+///
+/// For `QueryData` that implement this trait, [`QueryData::fetch`] may be called for one entity while an item is still alive for a different entity.
+///
+/// All [`SingleEntityQueryData`] types are [`IterQueryData`].
+/// They only access data on the current entity, the one passed to [`QueryData::fetch`],
+/// so the access for different entities will always be disjoint.
+///
+/// All [`ReadOnlyQueryData`] types are [`IterQueryData`].
+/// Even if they access data on entities other than the current one,
+/// that access is read-only and it's sound for it to alias.
+///
+/// Queries with a nested query that performs mutable access should generally *not* be [`IterQueryData`],
+/// although they can be if they have a way to prove that all accesses through the nested query are disjoint.
+///
+/// # Safety
+///
+/// This [`QueryData`] must not perform conflicting access when fetched for different entities.
+pub unsafe trait IterQueryData: QueryData {}
+
 /// A [`QueryData`] that is read only.
 ///
 /// # Safety
 ///
 /// This must only be implemented for read-only [`QueryData`]'s.
-pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
+pub unsafe trait ReadOnlyQueryData: IterQueryData<ReadOnly = Self> {}
+
+/// A [`QueryData`] that only accesses data from the current entity, the one passed to [`QueryData::fetch`].
+///
+/// This is used as a bound in [`EntityRef::get_components`] and related APIs,
+/// since they only have access to a single entity.
+///
+/// # Safety
+///
+/// This [`QueryData`] must only access data from the current entity, and not any other entities.
+pub unsafe trait SingleEntityQueryData: IterQueryData {}
 
 /// The item type returned when a [`WorldQuery`] is iterated over
 pub type QueryItem<'w, 's, Q> = <Q as QueryData>::Item<'w, 's>;
 /// The read-only variant of the item type returned when a [`QueryData`] is iterated over immutably
 pub type ROQueryItem<'w, 's, D> = QueryItem<'w, 's, <D as QueryData>::ReadOnly>;
 
-/// A [`QueryData`] that does not borrow from its [`QueryState`](crate::query::QueryState).
+/// A [`QueryData`] that does not borrow from its [`QueryState`].
 ///
 /// This is implemented by most `QueryData` types.
 /// The main exceptions are [`FilteredEntityRef`], [`FilteredEntityMut`], [`EntityRefExcept`], and [`EntityMutExcept`],
@@ -464,8 +502,14 @@ unsafe impl QueryData for Entity {
     }
 }
 
+// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for Entity {}
+
 // SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for Entity {}
+
+// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for Entity {}
 
 impl ReleaseStateQueryData for Entity {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -561,8 +605,14 @@ unsafe impl QueryData for EntityLocation {
     }
 }
 
+// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for EntityLocation {}
+
 // SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityLocation {}
+
+// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for EntityLocation {}
 
 impl ReleaseStateQueryData for EntityLocation {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -741,8 +791,14 @@ unsafe impl QueryData for SpawnDetails {
     }
 }
 
+// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for SpawnDetails {}
+
 // SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for SpawnDetails {}
+
+// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for SpawnDetails {}
 
 impl ReleaseStateQueryData for SpawnDetails {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -864,8 +920,14 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
     }
 }
 
+// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for EntityRef<'_> {}
+
 // SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
+
+// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for EntityRef<'_> {}
 
 impl ReleaseStateQueryData for EntityRef<'_> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -973,6 +1035,12 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
         iter::once(EcsAccessType::Component(EcsAccessLevel::WriteAll))
     }
 }
+
+// SAFETY: access is only on the current entity
+unsafe impl IterQueryData for EntityMut<'_> {}
+
+// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for EntityMut<'_> {}
 
 impl ReleaseStateQueryData for EntityMut<'_> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -1102,8 +1170,14 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
     }
 }
 
-// SAFETY: Access is read-only.
+// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for FilteredEntityRef<'_, '_> {}
+
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_, '_> {}
+
+// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for FilteredEntityRef<'_, '_> {}
 
 impl ArchetypeQueryData for FilteredEntityRef<'_, '_> {}
 
@@ -1225,6 +1299,12 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     }
 }
 
+// SAFETY: access is only on the current entity
+unsafe impl IterQueryData for FilteredEntityMut<'_, '_> {}
+
+// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for FilteredEntityMut<'_, '_> {}
+
 impl ArchetypeQueryData for FilteredEntityMut<'_, '_> {}
 
 // SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
@@ -1339,9 +1419,14 @@ where
     }
 }
 
-// SAFETY: `EntityRefExcept` enforces read-only access to its contained
-// components.
+// SAFETY: access is read only and only on the current entity
+unsafe impl<B> IterQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
+
+// SAFETY: access is read only
 unsafe impl<B> ReadOnlyQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
+
+// SAFETY: access is only on the current entity
+unsafe impl<B> SingleEntityQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
 
 impl<B: Bundle> ArchetypeQueryData for EntityRefExcept<'_, '_, B> {}
 
@@ -1458,6 +1543,12 @@ where
     }
 }
 
+// SAFETY: access is only on the current entity
+unsafe impl<B> IterQueryData for EntityMutExcept<'_, '_, B> where B: Bundle {}
+
+// SAFETY: access is only on the current entity
+unsafe impl<B> SingleEntityQueryData for EntityMutExcept<'_, '_, B> where B: Bundle {}
+
 impl<B: Bundle> ArchetypeQueryData for EntityMutExcept<'_, '_, B> {}
 
 // SAFETY:
@@ -1549,8 +1640,14 @@ unsafe impl QueryData for &Archetype {
     }
 }
 
+// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for &Archetype {}
+
 // SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for &Archetype {}
+
+// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for &Archetype {}
 
 impl ReleaseStateQueryData for &Archetype {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -1722,8 +1819,14 @@ unsafe impl<T: Component> QueryData for &T {
     }
 }
 
+// SAFETY: access is read only and only on the current entity
+unsafe impl<T: Component> IterQueryData for &T {}
+
 // SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyQueryData for &T {}
+
+// SAFETY: access is only on the current entity
+unsafe impl<T: Component> SingleEntityQueryData for &T {}
 
 impl<T: Component> ReleaseStateQueryData for &T {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -1939,8 +2042,14 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
     }
 }
 
+// SAFETY: access is read only and only on the current entity
+unsafe impl<'__w, T: Component> IterQueryData for Ref<'__w, T> {}
+
 // SAFETY: access is read only
 unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
+
+// SAFETY: access is only on the current entity
+unsafe impl<'__w, T: Component> SingleEntityQueryData for Ref<'__w, T> {}
 
 impl<T: Component> ReleaseStateQueryData for Ref<'_, T> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -2156,6 +2265,12 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
     }
 }
 
+// SAFETY: access is only on the current entity
+unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for &mut T {}
+
+// SAFETY: access is only on the current entity
+unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for &mut T {}
+
 impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
         item
@@ -2275,6 +2390,12 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
     }
 }
 
+// SAFETY: access is only on the current entity
+unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for Mut<'_, T> {}
+
+// SAFETY: access is only on the current entity
+unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for Mut<'_, T> {}
+
 impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
         item
@@ -2282,6 +2403,235 @@ impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T> {
 }
 
 impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for Mut<'_, T> {}
+
+/// A helper type for accessing a [`Query`] within a [`QueryData`].
+///
+/// This is intended to be used inside other implementations of [`QueryData`],
+/// either for manual implementations or `#[derive(QueryData)]`.
+/// It is not normally useful to query directly,
+/// since it's equivalent to adding another [`Query`] parameter to a system.
+///
+/// Note that this requires the inner query to be a [`ReadOnlyQueryData`]
+/// to prevent mutable aliasing.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::NestedQuery;
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// fn system(mut query: Query<NestedQuery<&A>>) {
+///     // This works, because it performs read-only iteration
+///     for a in &query {
+///         let a: Query<&A> = a;
+///     }
+/// }
+/// ```
+///
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::NestedQuery;
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// fn system(mut query: Query<NestedQuery<&mut A>>) {
+///     // This fails, because it would allow mutable aliasing of `&mut A`
+///     for a in &mut query {
+///         let a: Query<&mut A> = a;
+///     }
+/// }
+/// ```
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::{QueryData, NestedQuery};
+/// #
+/// #[derive(Component)]
+/// struct A(Entity);
+///
+/// #[derive(Component)]
+/// struct Name(String);
+///
+/// #[derive(QueryData)]
+/// struct NameFromA {
+///     a: &'static A,
+///     query: NestedQuery<&'static Name>,
+/// }
+///
+/// impl<'w, 's> NameFromAItem<'w, 's> {
+///     fn name(&self) -> Option<&str> {
+///         self.query.get(self.a.0).ok().map(|name| &*name.0)
+///     }
+/// }
+///
+/// fn system(query: Query<NameFromA>) {
+///     for item in query {
+///         let name: Option<&str> = item.name();
+///     }
+/// }
+/// ```
+pub struct NestedQuery<D: QueryData + 'static, F: QueryFilter + 'static = ()>(
+    PhantomData<Query<'static, 'static, D, F>>,
+);
+
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct NestedQueryFetch<'w> {
+    world: UnsafeWorldCell<'w>,
+    last_run: Tick,
+    this_run: Tick,
+}
+
+// SAFETY:
+// Does not access any components on the current entity
+// Accesses through the nested query are registered in `init_nested_access`
+unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> WorldQuery
+    for NestedQuery<D, F>
+{
+    type Fetch<'w> = NestedQueryFetch<'w>;
+    type State = QueryState<D, F>;
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
+    #[inline]
+    unsafe fn init_fetch<'w, 's>(
+        world: UnsafeWorldCell<'w>,
+        _state: &'s Self::State,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        NestedQueryFetch {
+            world,
+            last_run,
+            this_run,
+        }
+    }
+
+    const IS_DENSE: bool = true;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &'w Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    }
+
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {
+        // This performs no access on the current entity
+        // Access to the nested query is checked through `init_nested_access`
+    }
+
+    fn init_nested_access(
+        state: &Self::State,
+        system_name: Option<&str>,
+        component_access_set: &mut FilteredAccessSet,
+        world: UnsafeWorldCell,
+    ) {
+        state.init_access(system_name, component_access_set, world);
+    }
+
+    fn init_state(world: &mut World) -> Self::State {
+        // SAFETY: `WorldQuery::init_nested_access` calls `QueryState::init_access`,
+        // `WorldQuery::init_nested_access` must be called before `WorldQuery::init_fetch,
+        // which must be called before `QueryData::fetch`,
+        // and we only call methods on the `QueryState` in `fetch`.
+        unsafe { QueryState::<D, F>::new_unchecked(world) }
+    }
+
+    fn get_state(_components: &Components) -> Option<Self::State> {
+        // This is not currently possible.
+        // `QueryState::new` requires read access to the `DefaultQueryFilters` resource,
+        // but this method may be called during `transmute` or `join`
+        // when we have no such access.
+        None
+    }
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+
+    fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+        state.update_archetypes_unsafe_world_cell(world);
+    }
+}
+
+// SAFETY:
+// `Self::ReadOnly` accesses `D::ReadOnly`, which is a subset of the data accessed by `D`
+// `IS_READ_ONLY` iff `D::IS_READ_ONLY` iff `D: ReadOnlyQueryData` iff `Self: ReadOnlyQueryData`
+unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> QueryData
+    for NestedQuery<D, F>
+{
+    const IS_READ_ONLY: bool = D::IS_READ_ONLY;
+    // Nested queries are always archetypal because `fetch` always returns `Some`.
+    // If `D::IS_ARCHETYPAL == false` or `F::IS_ARCHETYPAL == false`,
+    // then the nested query may filter out some entities that *it* matches,
+    // but it will not filter the outer query.
+    const IS_ARCHETYPAL: bool = true;
+    type ReadOnly = NestedQuery<D, F>;
+    type Item<'w, 's> = Query<'w, 's, D, F>;
+
+    fn shrink<'wlong: 'wshort, 'wshort, 's>(
+        item: Self::Item<'wlong, 's>,
+    ) -> Self::Item<'wshort, 's> {
+        item
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w, 's>(
+        state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> Option<Self::Item<'w, 's>> {
+        // SAFETY:
+        // - We registered the required access in `init_nested_access`, so it's available.
+        // - If we are fetching multiple entities concurrently,
+        //   then `Self: IterQueryData`, so `D: ReadOnlyQueryData`,
+        //   so it's safe to alias the queries.
+        unsafe {
+            Some(state.query_unchecked_manual_with_ticks(
+                fetch.world,
+                fetch.last_run,
+                fetch.this_run,
+            ))
+        }
+    }
+
+    fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        // This performs no access on the current entity
+        // Access to the nested query is checked through `init_nested_access`
+        iter::empty()
+    }
+}
+
+// SAFETY: All access is through `D`, which is read-only
+// The nested query does not access the entity from the outer query,
+// but the nested access also needs to be read-only because we can copy it.
+unsafe impl<D: ReadOnlyQueryData, F: QueryFilter> ReadOnlyQueryData for NestedQuery<D, F> {}
+
+// SAFETY: All access to other entities is through `D`, which is read-only and does not conflict.
+// Note that we must not impl IterQueryData for queries with mutable access,
+// since the nested query must only be live for one entity at a time.
+unsafe impl<D: ReadOnlyQueryData, F: QueryFilter> IterQueryData for NestedQuery<D, F> {}
+
+// Nested queries are always archetypal because `fetch` always returns `Some`.
+// If `D::IS_ARCHETYPAL == false` or `F::IS_ARCHETYPAL == false`,
+// then the nested query may filter out some entities that *it* matches,
+// but it will never filter the outer query.
+impl<D: ReadOnlyQueryData, F: QueryFilter> ArchetypeQueryData for NestedQuery<D, F> {}
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {
@@ -2375,6 +2725,15 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         access.extend_access(&intermediate);
     }
 
+    fn init_nested_access(
+        state: &Self::State,
+        system_name: Option<&str>,
+        component_access_set: &mut FilteredAccessSet,
+        world: UnsafeWorldCell,
+    ) {
+        T::init_nested_access(state, system_name, component_access_set, world);
+    }
+
     fn init_state(world: &mut World) -> T::State {
         T::init_state(world)
     }
@@ -2388,6 +2747,10 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         _set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         true
+    }
+
+    fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+        T::update_archetypes(state, world);
     }
 }
 
@@ -2427,8 +2790,14 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
     }
 }
 
-// SAFETY: [`OptionFetch`] is read only because `T` is read only
+// SAFETY: `Option<T>` is iterable because `T` is iterable
+unsafe impl<T: IterQueryData> IterQueryData for Option<T> {}
+
+// SAFETY: `Option<T>` is read only because `T` is read only
 unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
+
+// SAFETY: `Option<T>` only accesses the current entity because `T` only accesses the current entity
+unsafe impl<T: SingleEntityQueryData> SingleEntityQueryData for Option<T> {}
 
 impl<T: ReleaseStateQueryData> ReleaseStateQueryData for Option<T> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -2442,7 +2811,7 @@ impl<T: QueryData> ArchetypeQueryData for Option<T> {}
 
 /// Returns a bool that describes if an entity has the component `T`.
 ///
-/// This can be used in a [`Query`](crate::system::Query) if you want to know whether or not entities
+/// This can be used in a [`Query`] if you want to know whether or not entities
 /// have the component `T`  but don't actually care about the component's value.
 ///
 /// # Footguns
@@ -2607,8 +2976,14 @@ unsafe impl<T: Component> QueryData for Has<T> {
     }
 }
 
-// SAFETY: [`Has`] is read only
+// SAFETY: access is read only and only on the current entity
+unsafe impl<T: Component> IterQueryData for Has<T> {}
+
+// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
+
+// SAFETY: access is only on the current entity
+unsafe impl<T: Component> SingleEntityQueryData for Has<T> {}
 
 impl<T: Component> ReleaseStateQueryData for Has<T> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -2688,8 +3063,16 @@ macro_rules! impl_tuple_query_data {
         }
 
         $(#[$meta])*
+        // SAFETY: each item in the tuple is iterable
+        unsafe impl<$($name: IterQueryData),*> IterQueryData for ($($name,)*) {}
+
+        $(#[$meta])*
         // SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for ($($name,)*) {}
+
+        $(#[$meta])*
+        // SAFETY: each item in the tuple only accesses the current entity
+        unsafe impl<$($name: SingleEntityQueryData),*> SingleEntityQueryData for ($($name,)*) {}
 
         #[expect(
             clippy::allow_attributes,
@@ -2812,6 +3195,16 @@ macro_rules! impl_anytuple_fetch {
                 <($(Option<$name>,)*)>::update_component_access(state, access);
 
             }
+
+            fn init_nested_access(
+                state: &Self::State,
+                system_name: Option<&str>,
+                component_access_set: &mut FilteredAccessSet,
+                world: UnsafeWorldCell,
+            ) {
+                <($(Option<$name>,)*)>::init_nested_access(state, system_name, component_access_set, world);
+            }
+
             fn init_state(world: &mut World) -> Self::State {
                 ($($name::init_state(world),)*)
             }
@@ -2822,6 +3215,10 @@ macro_rules! impl_anytuple_fetch {
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = _state;
                 false $(|| $name::matches_component_set($name, _set_contains_id))*
+            }
+
+            fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+                <($(Option<$name>,)*)>::update_archetypes(state, world);
             }
         }
 
@@ -2890,8 +3287,16 @@ macro_rules! impl_anytuple_fetch {
         }
 
         $(#[$meta])*
+        // SAFETY: each item in the tuple is iterable
+        unsafe impl<$($name: IterQueryData),*> IterQueryData for AnyOf<($($name,)*)> {}
+
+        $(#[$meta])*
         // SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for AnyOf<($($name,)*)> {}
+
+        $(#[$meta])*
+        // SAFETY: each item in the tuple only accesses the current entity
+        unsafe impl<$($name: SingleEntityQueryData),*> SingleEntityQueryData for AnyOf<($($name,)*)> {}
 
         #[expect(
             clippy::allow_attributes,
@@ -2985,6 +3390,10 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     ) -> bool {
         D::matches_component_set(state, set_contains_id)
     }
+
+    fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+        D::update_archetypes(state, world);
+    }
 }
 
 // SAFETY: `Self::ReadOnly` is `Self`
@@ -3015,7 +3424,13 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
 }
 
 // SAFETY: `NopFetch` never accesses any data
+unsafe impl<D: QueryData> IterQueryData for NopWorldQuery<D> {}
+
+// SAFETY: `NopFetch` never accesses any data
 unsafe impl<D: QueryData> ReadOnlyQueryData for NopWorldQuery<D> {}
+
+// SAFETY: `NopFetch` never accesses any data
+unsafe impl<D: QueryData> SingleEntityQueryData for NopWorldQuery<D> {}
 
 impl<D: QueryData> ReleaseStateQueryData for NopWorldQuery<D> {
     fn release_state<'w>(_item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {}
@@ -3103,8 +3518,14 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     }
 }
 
-// SAFETY: `PhantomData` never accesses any world data.
+// SAFETY: `PhantomData` never accesses any data
+unsafe impl<T: ?Sized> IterQueryData for PhantomData<T> {}
+
+// SAFETY: `PhantomData` never accesses any data
 unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
+
+// SAFETY: `PhantomData` never accesses any data
+unsafe impl<T: ?Sized> SingleEntityQueryData for PhantomData<T> {}
 
 impl<T: ?Sized> ReleaseStateQueryData for PhantomData<T> {
     fn release_state<'w>(_item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {}
@@ -3317,6 +3738,9 @@ mod tests {
 
         // SAFETY: access is read only
         unsafe impl ReadOnlyQueryData for NonReleaseQueryData {}
+
+        // SAFETY: access is read only
+        unsafe impl IterQueryData for NonReleaseQueryData {}
 
         impl ArchetypeQueryData for NonReleaseQueryData {}
 

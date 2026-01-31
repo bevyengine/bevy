@@ -411,7 +411,7 @@ mod tests {
         lifecycle::RemovedComponents,
         name::Name,
         prelude::{Add, AnyOf, EntityRef, On},
-        query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
+        query::{Added, Changed, NestedQuery, Or, SpawnDetails, Spawned, With, Without},
         resource::Resource,
         schedule::{
             common_conditions::resource_exists, ApplyDeferred, IntoScheduleConfigs, Schedule,
@@ -888,6 +888,33 @@ mod tests {
     #[should_panic]
     fn changed_trackers_or_conflict() {
         fn sys(_: Query<&mut A>, _: Query<(), Or<(Changed<A>,)>>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn nested_query_conflicts_with_main_query() {
+        fn sys(_: Query<(&mut A, NestedQuery<&A>)>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn nested_query_conflicts_with_earlier_query() {
+        fn sys(_: Query<&mut A>, _: Query<NestedQuery<&A>>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn nested_query_conflicts_with_later_query() {
+        fn sys(_: Query<NestedQuery<&A>>, _: Query<&mut A>) {}
 
         let mut world = World::default();
         run_system(&mut world, sys);

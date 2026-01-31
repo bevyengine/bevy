@@ -3,7 +3,9 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, Tick},
     component::{Component, ComponentId},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
-    query::{Access, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{
+        Access, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData, SingleEntityQueryData,
+    },
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
         FilteredEntityRef, Ref,
@@ -270,14 +272,16 @@ impl<'w> EntityRef<'w> {
     /// # Panics
     ///
     /// If the entity does not have the components required by the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'w, 'static> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
+        &self,
+    ) -> Q::Item<'w, 'static> {
         self.get_components::<Q>()
             .expect("Query does not match the current entity")
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
     /// or `None` if the entity does not have the components required by the query `Q`.
-    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
         &self,
     ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         // SAFETY:

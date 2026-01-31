@@ -118,8 +118,8 @@ mod tests {
         component::{Component, ComponentId, Components},
         prelude::{AnyOf, Changed, Entity, Or, QueryState, Resource, With, Without},
         query::{
-            ArchetypeFilter, ArchetypeQueryData, FilteredAccess, Has, QueryCombinationIter,
-            QueryData, QueryFilter, ReadOnlyQueryData, WorldQuery,
+            ArchetypeFilter, ArchetypeQueryData, FilteredAccess, Has, IterQueryData,
+            QueryCombinationIter, QueryData, QueryFilter, ReadOnlyQueryData, WorldQuery,
         },
         schedule::{IntoScheduleConfigs, Schedule},
         storage::{Table, TableRow},
@@ -916,6 +916,9 @@ mod tests {
 
     // SAFETY: access is read only
     unsafe impl ReadOnlyQueryData for ReadsRData {}
+
+    /// SAFETY: access is read only
+    unsafe impl IterQueryData for ReadsRData {}
 
     impl ArchetypeQueryData for ReadsRData {}
 
