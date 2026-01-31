@@ -1,6 +1,5 @@
 use crate::{
-    meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath,
-    ErasedAssetIndex, UntypedAssetId,
+    meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath, UntypedAssetId,
 };
 use alloc::sync::Arc;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
@@ -19,25 +18,28 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct AssetHandleProvider {
     pub(crate) allocator: Arc<AssetIndexAllocator>,
-    pub(crate) drop_sender: Sender<DropEvent>,
-    pub(crate) drop_receiver: Receiver<DropEvent>,
+    pub(crate) event_sender: Sender<HandleEvent>,
+    pub(crate) event_receiver: Receiver<HandleEvent>,
     pub(crate) type_id: TypeId,
 }
 
+/// An event relating to the allocation of handles for assets.
 #[derive(Debug)]
-pub(crate) struct DropEvent {
-    pub(crate) index: ErasedAssetIndex,
-    pub(crate) asset_server_managed: bool,
+pub(crate) enum HandleEvent {
+    /// A new handle for the given index was allocated.
+    New(AssetIndex),
+    /// A handle for the given index was dropped.
+    Drop(AssetIndex),
 }
 
 impl AssetHandleProvider {
     pub(crate) fn new(type_id: TypeId, allocator: Arc<AssetIndexAllocator>) -> Self {
-        let (drop_sender, drop_receiver) = crossbeam_channel::unbounded();
+        let (event_sender, event_receiver) = crossbeam_channel::unbounded();
         Self {
             type_id,
             allocator,
-            drop_sender,
-            drop_receiver,
+            event_sender,
+            event_receiver,
         }
     }
 
@@ -45,34 +47,34 @@ impl AssetHandleProvider {
     /// [`UntypedHandle`] will match the [`Asset`] [`TypeId`] assigned to this [`AssetHandleProvider`].
     pub fn reserve_handle(&self) -> UntypedHandle {
         let index = self.allocator.reserve();
-        UntypedHandle::Strong(self.get_handle(index, false, None, None))
+        UntypedHandle::Strong(self.get_handle(index, None, None))
     }
 
     pub(crate) fn get_handle(
         &self,
         index: AssetIndex,
-        asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
         meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
+        self.event_sender
+            .send(HandleEvent::New(index))
+            .expect("channel is never explicitly closed");
         Arc::new(StrongHandle {
             index,
             type_id: self.type_id,
-            drop_sender: self.drop_sender.clone(),
+            event_sender: self.event_sender.clone(),
             meta_transform,
             path,
-            asset_server_managed,
         })
     }
 
     pub(crate) fn reserve_handle_internal(
         &self,
-        asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
         meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
         let index = self.allocator.reserve();
-        self.get_handle(index, asset_server_managed, path, meta_transform)
+        self.get_handle(index, path, meta_transform)
     }
 }
 
@@ -82,21 +84,17 @@ impl AssetHandleProvider {
 pub struct StrongHandle {
     pub(crate) index: AssetIndex,
     pub(crate) type_id: TypeId,
-    pub(crate) asset_server_managed: bool,
     pub(crate) path: Option<AssetPath<'static>>,
     /// Modifies asset meta. This is stored on the handle because it is:
     /// 1. configuration tied to the lifetime of a specific asset load
     /// 2. configuration that must be repeatable when the asset is hot-reloaded
     pub(crate) meta_transform: Option<MetaTransform>,
-    pub(crate) drop_sender: Sender<DropEvent>,
+    pub(crate) event_sender: Sender<HandleEvent>,
 }
 
 impl Drop for StrongHandle {
     fn drop(&mut self) {
-        let _ = self.drop_sender.send(DropEvent {
-            index: ErasedAssetIndex::new(self.index, self.type_id),
-            asset_server_managed: self.asset_server_managed,
-        });
+        let _ = self.event_sender.send(HandleEvent::Drop(self.index));
     }
 }
 
@@ -105,9 +103,8 @@ impl core::fmt::Debug for StrongHandle {
         f.debug_struct("StrongHandle")
             .field("index", &self.index)
             .field("type_id", &self.type_id)
-            .field("asset_server_managed", &self.asset_server_managed)
             .field("path", &self.path)
-            .field("drop_sender", &self.drop_sender)
+            .field("drop_sender", &self.event_sender)
             .finish()
     }
 }
