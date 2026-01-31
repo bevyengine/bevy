@@ -9,7 +9,7 @@ use bevy_render::{
 
 mod node;
 
-pub use node::UpscalingNode;
+pub use node::upscaling;
 
 pub struct UpscalingPlugin;
 
@@ -72,7 +72,7 @@ fn prepare_view_upscaling_pipelines(
         };
 
         let key = BlitPipelineKey {
-            texture_format: view_target.out_texture_format(),
+            texture_format: view_target.out_texture_view_format(),
             blend_state,
             samples: 1,
         };

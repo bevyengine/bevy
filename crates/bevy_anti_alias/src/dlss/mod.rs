@@ -21,22 +21,23 @@ mod prepare;
 pub use dlss_wgpu::DlssPerfQualityMode;
 
 use bevy_app::{App, Plugin};
+use bevy_camera::Hdr;
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, MotionVectorPrepass},
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
+use bevy_post_process::bloom::bloom;
 use bevy_reflect::{reflect_remote, Reflect};
 use bevy_render::{
     camera::{MipBias, TemporalJitter},
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::{
         raw_vulkan_init::{AdditionalVulkanFeatures, RawVulkanInitSettings},
         RenderDevice, RenderQueue,
     },
     texture::CachedTexture,
-    view::{prepare_view_targets, Hdr},
+    view::prepare_view_targets,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use dlss_wgpu::{
@@ -187,26 +188,15 @@ impl Plugin for DlssPlugin {
                 )
                     .in_set(RenderSystems::ManageViews)
                     .before(prepare_view_targets),
-            )
-            .add_render_graph_node::<ViewNodeRunner<node::DlssNode<DlssSuperResolutionFeature>>>(
-                Core3d,
-                Node3d::DlssSuperResolution,
-            )
-            .add_render_graph_node::<ViewNodeRunner<node::DlssNode<DlssRayReconstructionFeature>>>(
-                Core3d,
-                Node3d::DlssRayReconstruction,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EndMainPass,
-                    Node3d::MotionBlur, // Running before DLSS reduces edge artifacts and noise
-                    Node3d::DlssSuperResolution,
-                    Node3d::DlssRayReconstruction,
-                    Node3d::Bloom,
-                    Node3d::Tonemapping,
-                ),
             );
+
+        app.sub_app_mut(RenderApp).add_systems(
+            Core3d,
+            (node::dlss_super_resolution, node::dlss_ray_reconstruction)
+                .chain()
+                .before(bloom)
+                .in_set(Core3dSystems::PostProcess),
+        );
     }
 }
 

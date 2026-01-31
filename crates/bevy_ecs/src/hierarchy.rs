@@ -12,21 +12,17 @@ use crate::{
     bundle::Bundle,
     component::Component,
     entity::Entity,
-    lifecycle::HookContext,
-    name::Name,
     relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
-    world::{DeferredWorld, EntityWorldMut, FromWorld, World},
+    world::{EntityWorldMut, FromWorld, World},
 };
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::prelude::DebugName;
 use core::ops::Deref;
 use core::slice;
-use log::warn;
 
 /// Stores the parent entity of this child entity with this component.
 ///
@@ -490,41 +486,6 @@ impl<'a> EntityCommands<'a> {
     }
 }
 
-/// An `on_insert` component hook that when run, will validate that the parent of a given entity
-/// contains component `C`. This will print a warning if the parent does not contain `C`.
-pub fn validate_parent_has_component<C: Component>(
-    world: DeferredWorld,
-    HookContext { entity, caller, .. }: HookContext,
-) {
-    let entity_ref = world.entity(entity);
-    let Some(child_of) = entity_ref.get::<ChildOf>() else {
-        return;
-    };
-    let parent = child_of.parent();
-    let maybe_parent_ref = world.get_entity(parent);
-    if let Ok(parent_ref) = maybe_parent_ref
-        && !parent_ref.contains::<C>()
-    {
-        let name = entity_ref.get::<Name>();
-        let debug_name = DebugName::type_name::<C>();
-        let parent_name = parent_ref.get::<Name>();
-        warn!(
-            "warning[B0004]: {}{name} with the {ty_name} component has a parent ({parent_name}) without {ty_name}.\n\
-            This will cause inconsistent behaviors! See: https://bevy.org/learn/errors/b0004",
-            caller.map(|c| format!("{c}: ")).unwrap_or_default(),
-            ty_name = debug_name.shortname(),
-            name = name.map_or_else(
-                || format!("Entity {entity}"),
-                |s| format!("The {s} entity")
-            ),
-            parent_name = parent_name.map_or_else(
-                || format!("{parent} entity"),
-                |s| format!("the {s} entity")
-            ),
-        );
-    }
-}
-
 /// Returns a [`SpawnRelatedBundle`] that will insert the [`Children`] component, spawn a [`SpawnableList`] of entities with given bundles that
 /// relate to the [`Children`] entity via the [`ChildOf`] component, and reserve space in the [`Children`] for each spawned entity.
 ///
@@ -537,7 +498,6 @@ pub fn validate_parent_has_component<C: Component>(
 /// # use bevy_ecs::name::Name;
 /// # use bevy_ecs::world::World;
 /// # use bevy_ecs::children;
-/// # use bevy_ecs::spawn::{Spawn, SpawnRelated};
 /// let mut world = World::new();
 /// world.spawn((
 ///     Name::new("Root"),
@@ -557,7 +517,7 @@ pub fn validate_parent_has_component<C: Component>(
 #[macro_export]
 macro_rules! children {
     [$($child:expr),*$(,)?] => {
-       $crate::hierarchy::Children::spawn($crate::recursive_spawn!($($child),*))
+        $crate::related!($crate::hierarchy::Children [$($child),*])
     };
 }
 

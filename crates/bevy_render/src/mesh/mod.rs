@@ -1,6 +1,8 @@
 pub mod allocator;
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_asset::{
+        AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
+    },
     texture::GpuImage,
     RenderApp,
 };
@@ -138,6 +140,15 @@ impl RenderAsset for RenderMesh {
     #[inline]
     fn asset_usage(mesh: &Self::SourceAsset) -> RenderAssetUsages {
         mesh.asset_usage
+    }
+
+    fn take_gpu_data(
+        source: &mut Self::SourceAsset,
+        _previous_gpu_asset: Option<&Self>,
+    ) -> Result<Self::SourceAsset, AssetExtractionError> {
+        source
+            .take_gpu_data()
+            .map_err(|_| AssetExtractionError::AlreadyExtracted)
     }
 
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {

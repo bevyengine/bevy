@@ -12,7 +12,7 @@ pub struct WidgetClickEvent<T>(T);
 /// A marker component that we place on all widgets that send
 /// [`WidgetClickEvent`]s of the given type.
 #[derive(Clone, Component, Deref, DerefMut)]
-pub struct WidgetClickSender<T>(T)
+pub struct WidgetClickSender<T>(pub T)
 where
     T: Clone + Send + Sync + 'static;
 
@@ -139,9 +139,9 @@ where
         },
         Children::spawn((
             Spawn((
-                ui_text(title, Color::BLACK),
+                ui_text(title, Color::WHITE),
                 Node {
-                    width: px(125),
+                    width: px(150),
                     ..default()
                 },
             )),
@@ -165,10 +165,7 @@ pub fn ui_text(label: &str, color: Color) -> impl Bundle + use<> {
 /// Checks for clicks on the radio buttons and sends `RadioButtonChangeEvent`s
 /// as necessary.
 pub fn handle_ui_interactions<T>(
-    mut interactions: Query<
-        (&Interaction, &WidgetClickSender<T>),
-        (With<Button>, With<RadioButton>),
-    >,
+    mut interactions: Query<(&Interaction, &WidgetClickSender<T>), With<Button>>,
     mut widget_click_events: MessageWriter<WidgetClickEvent<T>>,
 ) where
     T: Clone + Send + Sync + 'static,

@@ -1,44 +1,43 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
+    schedule::{Core3d, Core3dSystems},
     FullscreenShader,
 };
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
+    error::BevyError,
     prelude::{Component, Entity, ReflectComponent},
-    query::{QueryItem, With},
+    query::With,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
-    world::World,
 };
 use bevy_image::{BevyDefault as _, ToExtents};
 use bevy_math::vec2;
+use bevy_post_process::{bloom::bloom, motion_blur::node::motion_blur};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     diagnostic::RecordDiagnostics,
-    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState,
-        Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages,
+        CachedRenderPipelineId, Canonical, ColorTargetState, ColorWrites, FilterMode,
+        FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
+        RenderPipeline, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
+        ShaderStages, Specializer, SpecializerKey, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureSampleType, TextureUsages, Variants,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, ViewQuery},
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_shader::Shader;
 use bevy_utils::default;
 use tracing::warn;
 
@@ -58,7 +57,6 @@ impl Plugin for TemporalAntiAliasPlugin {
             return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<TaaPipeline>>()
             .add_systems(RenderStartup, init_taa_pipeline)
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
@@ -68,18 +66,15 @@ impl Plugin for TemporalAntiAliasPlugin {
                     prepare_taa_pipelines.in_set(RenderSystems::Prepare),
                     prepare_taa_history_textures.in_set(RenderSystems::PrepareResources),
                 ),
-            )
-            .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(Core3d, Node3d::Taa)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::StartMainPassPostProcessing,
-                    Node3d::MotionBlur, // Running before TAA reduces edge artifacts and noise
-                    Node3d::Taa,
-                    Node3d::Bloom,
-                    Node3d::Tonemapping,
-                ),
             );
+
+        render_app.add_systems(
+            Core3d,
+            temporal_anti_alias
+                .after(motion_blur)
+                .before(bloom)
+                .in_set(Core3dSystems::PostProcess),
+        );
     }
 }
 
@@ -138,100 +133,87 @@ impl Default for TemporalAntiAliasing {
     }
 }
 
-/// Render [`bevy_render::render_graph::Node`] used by temporal anti-aliasing.
-#[derive(Default)]
-pub struct TemporalAntiAliasNode;
+fn temporal_anti_alias(
+    view: ViewQuery<(
+        &ExtractedCamera,
+        &ViewTarget,
+        &TemporalAntiAliasHistoryTextures,
+        &ViewPrepassTextures,
+        &TemporalAntiAliasPipelineId,
+        &Msaa,
+    )>,
+    pipelines: Option<Res<TaaPipeline>>,
+    pipeline_cache: Res<PipelineCache>,
+    mut ctx: RenderContext,
+) {
+    let (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa) =
+        view.into_inner();
 
-impl ViewNode for TemporalAntiAliasNode {
-    type ViewQuery = (
-        &'static ExtractedCamera,
-        &'static ViewTarget,
-        &'static TemporalAntiAliasHistoryTextures,
-        &'static ViewPrepassTextures,
-        &'static TemporalAntiAliasPipelineId,
-        &'static Msaa,
+    if *msaa != Msaa::Off {
+        warn!("Temporal anti-aliasing requires MSAA to be disabled");
+        return;
+    }
+
+    let Some(pipelines) = pipelines else {
+        return;
+    };
+    let (Some(taa_pipeline), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
+        pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
+        &prepass_textures.motion_vectors,
+        &prepass_textures.depth,
+    ) else {
+        return;
+    };
+
+    let view_target = view_target.post_process_write();
+
+    let taa_bind_group = ctx.render_device().create_bind_group(
+        "taa_bind_group",
+        &pipeline_cache.get_bind_group_layout(&pipelines.taa_bind_group_layout),
+        &BindGroupEntries::sequential((
+            view_target.source,
+            &taa_history_textures.read.default_view,
+            &prepass_motion_vectors_texture.texture.default_view,
+            &prepass_depth_texture.texture.default_view,
+            &pipelines.nearest_sampler,
+            &pipelines.linear_sampler,
+        )),
     );
 
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
-            Self::ViewQuery,
-        >,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        if *msaa != Msaa::Off {
-            warn!("Temporal anti-aliasing requires MSAA to be disabled");
-            return Ok(());
-        }
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
 
-        let (Some(pipelines), Some(pipeline_cache)) = (
-            world.get_resource::<TaaPipeline>(),
-            world.get_resource::<PipelineCache>(),
-        ) else {
-            return Ok(());
-        };
-        let (Some(taa_pipeline), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
-            pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
-            &prepass_textures.motion_vectors,
-            &prepass_textures.depth,
-        ) else {
-            return Ok(());
-        };
+    let mut taa_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("taa"),
+        color_attachments: &[
+            Some(RenderPassColorAttachment {
+                view: view_target.destination,
+                depth_slice: None,
+                resolve_target: None,
+                ops: Operations::default(),
+            }),
+            Some(RenderPassColorAttachment {
+                view: &taa_history_textures.write.default_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: Operations::default(),
+            }),
+        ],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    });
+    let pass_span = diagnostics.pass_span(&mut taa_pass, "taa");
 
-        let diagnostics = render_context.diagnostic_recorder();
-
-        let view_target = view_target.post_process_write();
-
-        let taa_bind_group = render_context.render_device().create_bind_group(
-            "taa_bind_group",
-            &pipeline_cache.get_bind_group_layout(&pipelines.taa_bind_group_layout),
-            &BindGroupEntries::sequential((
-                view_target.source,
-                &taa_history_textures.read.default_view,
-                &prepass_motion_vectors_texture.texture.default_view,
-                &prepass_depth_texture.texture.default_view,
-                &pipelines.nearest_sampler,
-                &pipelines.linear_sampler,
-            )),
-        );
-
-        {
-            let mut taa_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("taa"),
-                color_attachments: &[
-                    Some(RenderPassColorAttachment {
-                        view: view_target.destination,
-                        depth_slice: None,
-                        resolve_target: None,
-                        ops: Operations::default(),
-                    }),
-                    Some(RenderPassColorAttachment {
-                        view: &taa_history_textures.write.default_view,
-                        depth_slice: None,
-                        resolve_target: None,
-                        ops: Operations::default(),
-                    }),
-                ],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
-            let pass_span = diagnostics.pass_span(&mut taa_pass, "taa");
-
-            taa_pass.set_render_pipeline(taa_pipeline);
-            taa_pass.set_bind_group(0, &taa_bind_group, &[]);
-            if let Some(viewport) = camera.viewport.as_ref() {
-                taa_pass.set_camera_viewport(viewport);
-            }
-            taa_pass.draw(0..3, 0..1);
-
-            pass_span.end(&mut taa_pass);
-        }
-
-        Ok(())
+    taa_pass.set_render_pipeline(taa_pipeline);
+    taa_pass.set_bind_group(0, &taa_bind_group, &[]);
+    if let Some(viewport) = camera.viewport.as_ref() {
+        taa_pass.set_camera_viewport(viewport);
     }
+    taa_pass.draw(0..3, 0..1);
+
+    pass_span.end(&mut taa_pass);
 }
 
 #[derive(Resource)]
@@ -239,8 +221,7 @@ struct TaaPipeline {
     taa_bind_group_layout: BindGroupLayoutDescriptor,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
-    fullscreen_shader: FullscreenShader,
-    fragment_shader: Handle<Shader>,
+    variants: Variants<RenderPipeline, TaaPipelineSpecializer>,
 }
 
 fn init_taa_pipeline(
@@ -283,61 +264,68 @@ fn init_taa_pipeline(
         ),
     );
 
+    let fragment_shader = load_embedded_asset!(asset_server.as_ref(), "taa.wgsl");
+
+    let variants = Variants::new(
+        TaaPipelineSpecializer,
+        RenderPipelineDescriptor {
+            label: Some("taa_pipeline".into()),
+            layout: vec![taa_bind_group_layout.clone()],
+            vertex: fullscreen_shader.to_vertex_state(),
+            fragment: Some(FragmentState {
+                shader: fragment_shader,
+                ..default()
+            }),
+            ..default()
+        },
+    );
+
     commands.insert_resource(TaaPipeline {
         taa_bind_group_layout,
         nearest_sampler,
         linear_sampler,
-        fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "taa.wgsl"),
+        variants,
     });
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+struct TaaPipelineSpecializer;
+
+#[derive(PartialEq, Eq, Hash, Clone, SpecializerKey)]
 struct TaaPipelineKey {
     hdr: bool,
     reset: bool,
 }
 
-impl SpecializedRenderPipeline for TaaPipeline {
+impl Specializer<RenderPipeline> for TaaPipelineSpecializer {
     type Key = TaaPipelineKey;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut shader_defs = vec![];
-
+    fn specialize(
+        &self,
+        key: Self::Key,
+        descriptor: &mut RenderPipelineDescriptor,
+    ) -> Result<Canonical<Self::Key>, BevyError> {
+        let fragment = descriptor.fragment_mut()?;
         let format = if key.hdr {
-            shader_defs.push("TONEMAP".into());
+            fragment.shader_defs.push("TONEMAP".into());
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()
         };
 
         if key.reset {
-            shader_defs.push("RESET".into());
+            fragment.shader_defs.push("RESET".into());
         }
 
-        RenderPipelineDescriptor {
-            label: Some("taa_pipeline".into()),
-            layout: vec![self.taa_bind_group_layout.clone()],
-            vertex: self.fullscreen_shader.to_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: self.fragment_shader.clone(),
-                shader_defs,
-                targets: vec![
-                    Some(ColorTargetState {
-                        format,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-                    Some(ColorTargetState {
-                        format,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-                ],
-                ..default()
-            }),
-            ..default()
-        }
+        let color_target_state = ColorTargetState {
+            format,
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        };
+
+        fragment.set_target(0, color_target_state.clone());
+        fragment.set_target(1, color_target_state);
+
+        Ok(key)
     }
 }
 
@@ -455,25 +443,30 @@ pub struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
 fn prepare_taa_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<TaaPipeline>>,
-    pipeline: Res<TaaPipeline>,
+    mut pipeline: ResMut<TaaPipeline>,
     views: Query<(Entity, &ExtractedView, &TemporalAntiAliasing)>,
-) {
+) -> Result<(), BevyError> {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TaaPipelineKey {
             hdr: view.hdr,
             reset: taa_settings.reset,
         };
-        let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key.clone());
+        let pipeline_id = pipeline
+            .variants
+            .specialize(&pipeline_cache, pipeline_key.clone())?;
 
         // Prepare non-reset pipeline anyways - it will be necessary next frame
         if pipeline_key.reset {
             pipeline_key.reset = false;
-            pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
+            pipeline
+                .variants
+                .specialize(&pipeline_cache, pipeline_key)?;
         }
 
         commands
             .entity(entity)
             .insert(TemporalAntiAliasPipelineId(pipeline_id));
     }
+
+    Ok(())
 }

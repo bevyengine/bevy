@@ -4,144 +4,106 @@ use super::{
     pipeline::{AutoExposurePipeline, ViewAutoExposurePipeline},
     AutoExposureResources,
 };
-use bevy_ecs::{
-    query::QueryState,
-    system::lifetimeless::Read,
-    world::{FromWorld, World},
-};
+use bevy_ecs::prelude::*;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     globals::GlobalsBuffer,
     render_asset::RenderAssets,
-    render_graph::*,
     render_resource::*,
-    renderer::RenderContext,
+    renderer::{RenderContext, ViewQuery},
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 
-#[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct AutoExposure;
-
-pub struct AutoExposureNode {
-    query: QueryState<(
-        Read<ViewUniformOffset>,
-        Read<ViewTarget>,
-        Read<ViewAutoExposurePipeline>,
-        Read<ExtractedView>,
+pub(crate) fn auto_exposure(
+    view: ViewQuery<(
+        &ViewUniformOffset,
+        &ViewTarget,
+        &ViewAutoExposurePipeline,
+        &ExtractedView,
     )>,
-}
+    pipeline_cache: Res<PipelineCache>,
+    pipeline: Res<AutoExposurePipeline>,
+    resources: Res<AutoExposureResources>,
+    view_uniforms: Res<ViewUniforms>,
+    globals_buffer: Res<GlobalsBuffer>,
+    auto_exposure_buffers: Res<AutoExposureBuffers>,
+    fallback: Res<FallbackImage>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
+    compensation_curves: Res<RenderAssets<GpuAutoExposureCompensationCurve>>,
+    mut ctx: RenderContext,
+) {
+    let view_entity = view.entity();
+    let (view_uniform_offset, view_target, auto_exposure_pipeline, extracted_view) =
+        view.into_inner();
 
-impl FromWorld for AutoExposureNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            query: QueryState::new(world),
-        }
-    }
-}
+    let Some(auto_exposure_buffer) = auto_exposure_buffers.buffers.get(&view_entity) else {
+        return;
+    };
 
-impl Node for AutoExposureNode {
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
+    let (Some(histogram_pipeline), Some(average_pipeline)) = (
+        pipeline_cache.get_compute_pipeline(auto_exposure_pipeline.histogram_pipeline),
+        pipeline_cache.get_compute_pipeline(auto_exposure_pipeline.mean_luminance_pipeline),
+    ) else {
+        return;
+    };
 
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let view_entity = graph.view_entity();
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipeline = world.resource::<AutoExposurePipeline>();
-        let resources = world.resource::<AutoExposureResources>();
+    let view_uniforms_buffer = view_uniforms.uniforms.buffer().unwrap();
+    let source = view_target.main_texture_view();
 
-        let view_uniforms_resource = world.resource::<ViewUniforms>();
-        let view_uniforms = &view_uniforms_resource.uniforms;
-        let view_uniforms_buffer = view_uniforms.buffer().unwrap();
+    let mask = gpu_images
+        .get(&auto_exposure_pipeline.metering_mask)
+        .map(|i| &i.texture_view)
+        .unwrap_or(&fallback.d2.texture_view);
 
-        let globals_buffer = world.resource::<GlobalsBuffer>();
+    let Some(compensation_curve) =
+        compensation_curves.get(&auto_exposure_pipeline.compensation_curve)
+    else {
+        return;
+    };
 
-        let auto_exposure_buffers = world.resource::<AutoExposureBuffers>();
+    let compute_bind_group = ctx.render_device().create_bind_group(
+        None,
+        &pipeline_cache.get_bind_group_layout(&pipeline.histogram_layout),
+        &BindGroupEntries::sequential((
+            &globals_buffer.buffer,
+            &auto_exposure_buffer.settings,
+            source,
+            mask,
+            &compensation_curve.texture_view,
+            &compensation_curve.extents,
+            resources.histogram.as_entire_buffer_binding(),
+            &auto_exposure_buffer.state,
+            BufferBinding {
+                buffer: view_uniforms_buffer,
+                size: Some(ViewUniform::min_size()),
+                offset: 0,
+            },
+        )),
+    );
 
-        let (
-            Ok((view_uniform_offset, view_target, auto_exposure, view)),
-            Some(auto_exposure_buffers),
-        ) = (
-            self.query.get_manual(world, view_entity),
-            auto_exposure_buffers.buffers.get(&view_entity),
-        )
-        else {
-            return Ok(());
-        };
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "auto_exposure");
 
-        let (Some(histogram_pipeline), Some(average_pipeline)) = (
-            pipeline_cache.get_compute_pipeline(auto_exposure.histogram_pipeline),
-            pipeline_cache.get_compute_pipeline(auto_exposure.mean_luminance_pipeline),
-        ) else {
-            return Ok(());
-        };
-
-        let source = view_target.main_texture_view();
-
-        let fallback = world.resource::<FallbackImage>();
-        let mask = world
-            .resource::<RenderAssets<GpuImage>>()
-            .get(&auto_exposure.metering_mask);
-        let mask = mask
-            .map(|i| &i.texture_view)
-            .unwrap_or(&fallback.d2.texture_view);
-
-        let Some(compensation_curve) = world
-            .resource::<RenderAssets<GpuAutoExposureCompensationCurve>>()
-            .get(&auto_exposure.compensation_curve)
-        else {
-            return Ok(());
-        };
-
-        let diagnostics = render_context.diagnostic_recorder();
-
-        let compute_bind_group = render_context.render_device().create_bind_group(
-            None,
-            &pipeline_cache.get_bind_group_layout(&pipeline.histogram_layout),
-            &BindGroupEntries::sequential((
-                &globals_buffer.buffer,
-                &auto_exposure_buffers.settings,
-                source,
-                mask,
-                &compensation_curve.texture_view,
-                &compensation_curve.extents,
-                resources.histogram.as_entire_buffer_binding(),
-                &auto_exposure_buffers.state,
-                BufferBinding {
-                    buffer: view_uniforms_buffer,
-                    size: Some(ViewUniform::min_size()),
-                    offset: 0,
-                },
-            )),
-        );
-
-        let mut compute_pass =
-            render_context
-                .command_encoder()
-                .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("auto_exposure"),
-                    timestamp_writes: None,
-                });
-        let pass_span = diagnostics.pass_span(&mut compute_pass, "auto_exposure");
+    {
+        let mut compute_pass = ctx
+            .command_encoder()
+            .begin_compute_pass(&ComputePassDescriptor {
+                label: Some("auto_exposure"),
+                timestamp_writes: None,
+            });
 
         compute_pass.set_bind_group(0, &compute_bind_group, &[view_uniform_offset.offset]);
         compute_pass.set_pipeline(histogram_pipeline);
         compute_pass.dispatch_workgroups(
-            view.viewport.z.div_ceil(16),
-            view.viewport.w.div_ceil(16),
+            extracted_view.viewport.z.div_ceil(16),
+            extracted_view.viewport.w.div_ceil(16),
             1,
         );
         compute_pass.set_pipeline(average_pipeline);
         compute_pass.dispatch_workgroups(1, 1, 1);
-
-        pass_span.end(&mut compute_pass);
-
-        Ok(())
     }
+
+    time_span.end(ctx.command_encoder());
 }

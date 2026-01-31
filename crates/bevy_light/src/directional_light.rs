@@ -7,6 +7,7 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
+use bevy_math::primitives::ViewFrustum;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
 use tracing::warn;
@@ -47,7 +48,7 @@ use super::{
 ///
 /// ## Shadows
 ///
-/// To enable shadows, set the `shadows_enabled` property to `true`.
+/// To enable shadows, set the `shadow_maps_enabled` property to `true`.
 ///
 /// Shadows are produced via [cascaded shadow maps](https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf).
 ///
@@ -86,7 +87,10 @@ pub struct DirectionalLight {
     /// Note that shadows are rather expensive and become more so with every
     /// light that casts them. In general, it's best to aggressively limit the
     /// number of lights with shadows enabled to one or two at most.
-    pub shadows_enabled: bool,
+    pub shadow_maps_enabled: bool,
+
+    /// Whether this light casts contact shadows.
+    pub contact_shadows_enabled: bool,
 
     /// Whether soft shadows are enabled, and if so, the size of the light.
     ///
@@ -142,7 +146,8 @@ impl Default for DirectionalLight {
         DirectionalLight {
             color: Color::WHITE,
             illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
-            shadows_enabled: false,
+            shadow_maps_enabled: false,
+            contact_shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             affects_lightmapped_mesh_diffuse: true,
@@ -221,7 +226,7 @@ pub fn update_directional_light_frusta(
         // The frustum is used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frustum is
         // not needed.
-        if !directional_light.shadows_enabled || !visibility.get() {
+        if !directional_light.shadow_maps_enabled || !visibility.get() {
             continue;
         }
 
@@ -233,7 +238,7 @@ pub fn update_directional_light_frusta(
                     *view,
                     cascades
                         .iter()
-                        .map(|c| Frustum::from_clip_from_world(&c.clip_from_world))
+                        .map(|c| Frustum(ViewFrustum::from_clip_from_world(&c.clip_from_world)))
                         .collect::<Vec<_>>(),
                 )
             })

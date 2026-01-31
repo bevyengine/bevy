@@ -20,9 +20,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, LineHeight, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline,
-    TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, FontHinting, LineBreak, LineHeight,
+    SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -88,7 +88,9 @@ use core::any::TypeId;
     Anchor,
     Visibility,
     VisibilityClass,
-    Transform
+    Transform,
+    // Disable hinting as `Text2d` text is not always pixel-aligned
+    FontHinting::Disabled
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
@@ -160,8 +162,8 @@ impl Default for Text2dShadow {
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
     mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
-    // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
-    mut queue: Local<EntityHashSet>,
+    // Text2d entities from the previous frame which need to be reprocessed, usually because the font hadn't loaded yet.
+    mut reprocess_queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
@@ -175,6 +177,7 @@ pub fn update_text2d_layout(
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
+        Ref<FontHinting>,
     )>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -197,7 +200,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
+    for (entity, maybe_entity_mask, block, bounds, mut text_layout_info, mut computed, hinting) in
         &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
@@ -219,53 +222,92 @@ pub fn update_text2d_layout(
             *scale_factor
         };
 
-        if scale_factor != text_layout_info.scale_factor
+        let text_changed = scale_factor != text_layout_info.scale_factor
+            || block.is_changed()
+            || hinting.is_changed()
             || computed.needs_rerender()
-            || bounds.is_changed()
-            || (!queue.is_empty() && queue.remove(&entity))
-        {
-            let text_bounds = TextBounds {
-                width: if block.linebreak == LineBreak::NoWrap {
-                    None
-                } else {
-                    bounds.width.map(|width| width * scale_factor)
-                },
-                height: bounds.height.map(|height| height * scale_factor),
-            };
+            || (!reprocess_queue.is_empty() && reprocess_queue.remove(&entity));
 
-            let text_layout_info = text_layout_info.into_inner();
-            match text_pipeline.queue_text(
-                text_layout_info,
+        if !(text_changed || bounds.is_changed()) {
+            continue;
+        }
+
+        let text_bounds = TextBounds {
+            width: if block.linebreak == LineBreak::NoWrap {
+                None
+            } else {
+                bounds.width.map(|width| width * scale_factor)
+            },
+            height: bounds.height.map(|height| height * scale_factor),
+        };
+
+        if text_changed {
+            match text_pipeline.update_buffer(
                 &fonts,
                 text_reader.iter(entity),
-                scale_factor as f64,
-                &block,
+                block.linebreak,
+                block.justify,
                 text_bounds,
-                &mut font_atlas_set,
-                &mut texture_atlases,
-                &mut textures,
-                computed.as_mut(),
+                scale_factor,
+                &mut computed,
                 &mut font_system,
-                &mut swash_cache,
+                *hinting,
             ) {
-                Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the
-                    // queue for further processing
-                    queue.insert(entity);
+                Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
+                    // There was an error processing the text layout.
+                    // Add this entity to the queue and reprocess it in the following frame
+                    reprocess_queue.insert(entity);
+                    continue;
+                }
+                Err(e @ TextError::FailedToGetGlyphImage(key)) => {
+                    bevy_log::warn_once!(
+                        "{e}. Face: {:?}",
+                        font_system.get_face_details(key.font_id)
+                    );
+                    text_layout_info.clear();
                 }
                 Err(
                     e @ (TextError::FailedToAddGlyph(_)
-                    | TextError::FailedToGetGlyphImage(_)
                     | TextError::MissingAtlasLayout
                     | TextError::MissingAtlasTexture
                     | TextError::InconsistentAtlasState),
                 ) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(()) => {
-                    text_layout_info.scale_factor = scale_factor;
-                    text_layout_info.size *= scale_factor.recip();
-                }
+                Ok(()) => {}
+            }
+        }
+
+        match text_pipeline.update_text_layout_info(
+            &mut text_layout_info,
+            &mut font_atlas_set,
+            &mut texture_atlases,
+            &mut textures,
+            &mut computed,
+            &mut font_system,
+            &mut swash_cache,
+            text_bounds,
+            block.justify,
+        ) {
+            Err(TextError::NoSuchFont) => {
+                // There was an error processing the text layout.
+                // Add this entity to the queue and reprocess it in the following frame.
+                reprocess_queue.insert(entity);
+                continue;
+            }
+            Err(
+                e @ (TextError::FailedToAddGlyph(_)
+                | TextError::FailedToGetGlyphImage(_)
+                | TextError::MissingAtlasLayout
+                | TextError::MissingAtlasTexture
+                | TextError::InconsistentAtlasState
+                | TextError::DegenerateScaleFactor),
+            ) => {
+                panic!("Fatal error when processing text: {e}.");
+            }
+            Ok(()) => {
+                text_layout_info.scale_factor = scale_factor;
+                text_layout_info.size *= scale_factor.recip();
             }
         }
     }
@@ -367,6 +409,19 @@ mod tests {
             "../../bevy_text/src/FiraMono-subset.ttf",
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
+
+        let world = app.world_mut();
+
+        let mut fonts = world.resource_mut::<Assets<Font>>();
+
+        let font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
+        font.family_name = "Fira Mono".into();
+        let data = font.data.as_ref().clone();
+
+        app.world_mut()
+            .resource_mut::<CosmicFontSystem>()
+            .db_mut()
+            .load_font_data(data);
 
         let entity = app.world_mut().spawn(Text2d::new(FIRST_TEXT)).id();
 

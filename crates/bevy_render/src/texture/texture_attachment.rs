@@ -1,5 +1,5 @@
 use super::CachedTexture;
-use crate::render_resource::TextureView;
+use crate::render_resource::{TextureFormat, TextureView};
 use alloc::sync::Arc;
 use bevy_color::LinearRgba;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -12,6 +12,7 @@ use wgpu::{
 pub struct ColorAttachment {
     pub texture: CachedTexture,
     pub resolve_target: Option<CachedTexture>,
+    pub previous_frame_texture: Option<CachedTexture>,
     clear_color: Option<LinearRgba>,
     is_first_call: Arc<AtomicBool>,
 }
@@ -20,11 +21,13 @@ impl ColorAttachment {
     pub fn new(
         texture: CachedTexture,
         resolve_target: Option<CachedTexture>,
+        previous_frame_texture: Option<CachedTexture>,
         clear_color: Option<LinearRgba>,
     ) -> Self {
         Self {
             texture,
             resolve_target,
+            previous_frame_texture,
             clear_color,
             is_first_call: Arc::new(AtomicBool::new(true)),
         }
@@ -127,13 +130,15 @@ impl DepthAttachment {
 #[derive(Clone)]
 pub struct OutputColorAttachment {
     pub view: TextureView,
+    pub view_format: TextureFormat,
     is_first_call: Arc<AtomicBool>,
 }
 
 impl OutputColorAttachment {
-    pub fn new(view: TextureView) -> Self {
+    pub fn new(view: TextureView, view_format: TextureFormat) -> Self {
         Self {
             view,
+            view_format,
             is_first_call: Arc::new(AtomicBool::new(true)),
         }
     }

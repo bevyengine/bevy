@@ -1,5 +1,7 @@
 use crate::{
-    serde::de::tuple_utils::visit_tuple, DynamicTuple, TupleInfo, TypeRegistration, TypeRegistry,
+    serde::de::tuple_utils::visit_tuple,
+    tuple::{DynamicTuple, TupleInfo},
+    TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{SeqAccess, Visitor};
@@ -8,7 +10,7 @@ use super::ReflectDeserializerProcessor;
 
 /// A [`Visitor`] for deserializing [`Tuple`] values.
 ///
-/// [`Tuple`]: crate::Tuple
+/// [`Tuple`]: crate::tuple::Tuple
 pub(super) struct TupleVisitor<'a, P> {
     pub tuple_info: &'static TupleInfo,
     pub registration: &'a TypeRegistration,
