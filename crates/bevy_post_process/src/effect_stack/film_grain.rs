@@ -34,26 +34,26 @@ const DEFAULT_FILM_GRAIN_GRAIN_SIZE: f32 = 1.0;
 #[derive(Resource)]
 pub(crate) struct DefaultFilmGrainTexture(pub(super) Handle<Image>);
 
-/// Add a film grain overlay to the rendered image. 
-/// 
-/// [Film grain] simulates the random optical texture of photographic film 
-/// caused by the presence of small silver particles. It adds a gritty, noisy 
-/// look to the image, which is especially visible in flat color areas. Film 
-/// grain is commonly used to increase perceived realism and aesthetic style, 
-/// especially in retro or cinematic games. 
-/// 
-/// Bevy’s implementation provides two methods for generating grain: 
-/// 
-/// 1. **Texture-based grain (primary method)**: 
-/// Samples from a pre-computed noise texture that is tiled across the screen in repeat mode. 
-/// The texture is offset each frame using a hash function to prevent static patterns. 
-/// This is the default and recommended approach for performance. 
-/// 
-/// 2. **Procedural grid noise (fallback)**: 
-/// Used if no grain texture is available or the texture size is invalid(1x1). It works by: 
-///     - Creating a virtual grid where each cell represents a grain chunk. 
-///     - Sampling pseudo-random RGB noise at grid cell corners using a hash function. 
-///     - Applying bilinear interpolation with smoothstep for smooth transitions. 
+/// Add a film grain overlay to the rendered image.
+///
+/// [Film grain] simulates the random optical texture of photographic film
+/// caused by the presence of small silver particles. It adds a gritty, noisy
+/// look to the image, which is especially visible in flat color areas. Film
+/// grain is commonly used to increase perceived realism and aesthetic style,
+/// especially in retro or cinematic games.
+///
+/// Bevy’s implementation provides two methods for generating grain:
+///
+/// 1. **Texture-based grain (primary method)**:
+/// Samples from a pre-computed noise texture that is tiled across the screen in repeat mode.
+/// The texture is offset each frame using a hash function to prevent static patterns.
+/// This is the default and recommended approach for performance.
+///
+/// 2. **Procedural grid noise (fallback)**:
+/// Used if no grain texture is available or the texture size is invalid(1x1). It works by:
+///     - Creating a virtual grid where each cell represents a grain chunk.
+///     - Sampling pseudo-random RGB noise at grid cell corners using a hash function.
+///     - Applying bilinear interpolation with smoothstep for smooth transitions.
 ///     - Animating the pattern by offsetting grid coordinates with the frame count.
 #[derive(Reflect, Component, Clone)]
 #[reflect(Component, Default, Clone)]
