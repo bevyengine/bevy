@@ -2,7 +2,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
-    prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
+    prepass::{MotionVectorPrepass, ViewPrepassTextures},
     schedule::{Core3d, Core3dSystems},
     FullscreenShader,
 };
@@ -23,19 +23,20 @@ use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     diagnostic::RecordDiagnostics,
     render_resource::{
-        binding_types::{sampler, texture_2d, texture_depth_2d},
+        binding_types::{sampler, texture_2d},
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, Canonical, ColorTargetState, ColorWrites, FilterMode,
-        FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipeline, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
-        ShaderStages, Specializer, SpecializerKey, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages, Variants,
+        FragmentState, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, Specializer, SpecializerKey, StoreOp,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        Variants,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::default;
@@ -64,6 +65,9 @@ impl Plugin for TemporalAntiAliasPlugin {
                 (
                     prepare_taa_jitter.in_set(RenderSystems::ManageViews),
                     prepare_taa_pipelines.in_set(RenderSystems::Prepare),
+                    prepare_view_depth_texture_usages_for_taa
+                        .after(prepare_view_targets)
+                        .in_set(RenderSystems::ManageViews),
                     prepare_taa_history_textures.in_set(RenderSystems::PrepareResources),
                 ),
             );
@@ -75,6 +79,14 @@ impl Plugin for TemporalAntiAliasPlugin {
                 .before(bloom)
                 .in_set(Core3dSystems::PostProcess),
         );
+    }
+}
+
+fn prepare_view_depth_texture_usages_for_taa(
+    mut view_targets: Query<&mut Camera3d, With<TemporalAntiAliasing>>,
+) {
+    for mut camera in view_targets.iter_mut() {
+        camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
 }
 
@@ -114,7 +126,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 /// 2. Render particles after TAA
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
-#[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass)]
+#[require(TemporalJitter, MipBias, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {
     /// Set to true to delete the saved temporal history (past frames).
@@ -139,6 +151,7 @@ fn temporal_anti_alias(
         &ViewTarget,
         &TemporalAntiAliasHistoryTextures,
         &ViewPrepassTextures,
+        &ViewDepthTexture,
         &TemporalAntiAliasPipelineId,
         &Msaa,
     )>,
@@ -146,7 +159,7 @@ fn temporal_anti_alias(
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa) =
+    let (camera, view_target, taa_history_textures, prepass_textures, depth, taa_pipeline_id, msaa) =
         view.into_inner();
 
     if *msaa != Msaa::Off {
@@ -157,10 +170,9 @@ fn temporal_anti_alias(
     let Some(pipelines) = pipelines else {
         return;
     };
-    let (Some(taa_pipeline), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
+    let (Some(taa_pipeline), Some(prepass_motion_vectors_texture)) = (
         pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
         &prepass_textures.motion_vectors,
-        &prepass_textures.depth,
     ) else {
         return;
     };
@@ -174,7 +186,7 @@ fn temporal_anti_alias(
             view_target.source,
             &taa_history_textures.read.default_view,
             &prepass_motion_vectors_texture.texture.default_view,
-            &prepass_depth_texture.texture.default_view,
+            depth.view(),
             &pipelines.nearest_sampler,
             &pipelines.linear_sampler,
         )),
@@ -190,13 +202,19 @@ fn temporal_anti_alias(
                 view: view_target.destination,
                 depth_slice: None,
                 resolve_target: None,
-                ops: Operations::default(),
+                ops: Operations {
+                    load: LoadOp::Clear(Default::default()),
+                    store: StoreOp::Store,
+                },
             }),
             Some(RenderPassColorAttachment {
                 view: &taa_history_textures.write.default_view,
                 depth_slice: None,
                 resolve_target: None,
-                ops: Operations::default(),
+                ops: Operations {
+                    load: LoadOp::Clear(Default::default()),
+                    store: StoreOp::Store,
+                },
             }),
         ],
         depth_stencil_attachment: None,
@@ -255,7 +273,7 @@ fn init_taa_pipeline(
                 // Motion Vectors
                 texture_2d(TextureSampleType::Float { filterable: true }),
                 // Depth
-                texture_depth_2d(),
+                texture_2d(TextureSampleType::Float { filterable: false }),
                 // Nearest sampler
                 sampler(SamplerBindingType::NonFiltering),
                 // Linear sampler
@@ -360,7 +378,6 @@ fn prepare_taa_jitter(
             With<TemporalAntiAliasing>,
             With<Camera3d>,
             With<TemporalJitter>,
-            With<DepthPrepass>,
             With<MotionVectorPrepass>,
         ),
     >,
