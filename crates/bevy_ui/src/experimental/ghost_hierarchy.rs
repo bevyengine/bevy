@@ -41,7 +41,7 @@ pub type UiRootNodes<'w, 's> = Query<'w, 's, Entity, (With<Node>, Without<ChildO
 
 #[cfg(feature = "ghost_nodes")]
 impl<'w, 's> UiRootNodes<'w, 's> {
-    pub fn iter(&'s self) -> impl Iterator<Item = Entity> + 's {
+    pub fn iter(&self) -> impl Iterator<Item = Entity> + '_ {
         self.root_node_query
             .iter()
             .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
@@ -85,7 +85,7 @@ impl<'w, 's> UiChildren<'w, 's> {
     /// # Performance
     ///
     /// This iterator allocates if the `entity` node has more than 8 children (including ghost nodes).
-    pub fn iter_ui_children(&'s self, entity: Entity) -> UiChildrenIter<'w, 's> {
+    pub fn iter_ui_children(&self, entity: Entity) -> UiChildrenIter<'_, 's> {
         UiChildrenIter {
             stack: self
                 .ui_children_query
@@ -98,14 +98,14 @@ impl<'w, 's> UiChildren<'w, 's> {
     }
 
     /// Returns the UI parent of the provided entity, skipping over [`GhostNode`].
-    pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
+    pub fn get_parent(&self, entity: Entity) -> Option<Entity> {
         self.parents_query
             .iter_ancestors(entity)
             .find(|entity| !self.ghost_nodes_query.contains(*entity))
     }
 
     /// Iterates the [`GhostNode`]s between this entity and its UI children.
-    pub fn iter_ghost_nodes(&'s self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + 's> {
+    pub fn iter_ghost_nodes(&self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + '_> {
         Box::new(
             self.children_query
                 .get(entity)
@@ -121,7 +121,7 @@ impl<'w, 's> UiChildren<'w, 's> {
     }
 
     /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
-    pub fn is_changed(&'s self, entity: Entity) -> bool {
+    pub fn is_changed(&self, entity: Entity) -> bool {
         self.changed_children_query.contains(entity)
             || self
                 .iter_ghost_nodes(entity)
@@ -129,7 +129,7 @@ impl<'w, 's> UiChildren<'w, 's> {
     }
 
     /// Returns `true` if the given entity is either a [`Node`] or a [`GhostNode`].
-    pub fn is_ui_node(&'s self, entity: Entity) -> bool {
+    pub fn is_ui_node(&self, entity: Entity) -> bool {
         self.ui_children_query.contains(entity)
     }
 }
@@ -137,7 +137,7 @@ impl<'w, 's> UiChildren<'w, 's> {
 #[cfg(not(feature = "ghost_nodes"))]
 impl<'w, 's> UiChildren<'w, 's> {
     /// Iterates the children of `entity`.
-    pub fn iter_ui_children(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
+    pub fn iter_ui_children(&self, entity: Entity) -> impl Iterator<Item = Entity> + '_ {
         self.ui_children_query
             .get(entity)
             .ok()
@@ -149,17 +149,17 @@ impl<'w, 's> UiChildren<'w, 's> {
     }
 
     /// Returns the UI parent of the provided entity.
-    pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
+    pub fn get_parent(&self, entity: Entity) -> Option<Entity> {
         self.parents_query.get(entity).ok().map(ChildOf::parent)
     }
 
     /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
-    pub fn is_changed(&'s self, entity: Entity) -> bool {
+    pub fn is_changed(&self, entity: Entity) -> bool {
         self.changed_children_query.contains(entity)
     }
 
     /// Returns `true` if the given entity is either a [`Node`] or a [`GhostNode`].
-    pub fn is_ui_node(&'s self, entity: Entity) -> bool {
+    pub fn is_ui_node(&self, entity: Entity) -> bool {
         self.ui_children_query.contains(entity)
     }
 }
@@ -167,7 +167,7 @@ impl<'w, 's> UiChildren<'w, 's> {
 #[cfg(feature = "ghost_nodes")]
 pub struct UiChildrenIter<'w, 's> {
     stack: SmallVec<[Entity; 8]>,
-    query: &'s Query<
+    query: &'w Query<
         'w,
         's,
         (Option<&'static Children>, Has<GhostNode>),

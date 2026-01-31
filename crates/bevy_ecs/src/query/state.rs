@@ -14,9 +14,9 @@ use crate::{
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 use crate::entity::UniqueEntityEquivalentSlice;
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use bevy_utils::prelude::DebugName;
-use core::{fmt, ptr};
+use core::{fmt, ops::Deref, ptr};
 use fixedbitset::FixedBitSet;
 use log::warn;
 #[cfg(feature = "trace")]
@@ -87,6 +87,30 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
     par_iter_span: Span,
+}
+
+/// Indicates how the internal state of a [`Query`] is stored.
+pub trait QueryType {
+    /// The type used to store the internal state of a [`Query`].
+    type QueryState<'s, D: QueryData + 's, F: QueryFilter + 's>: Deref<Target = QueryState<D, F>>;
+}
+
+/// A [`Query`] that holds a shared borrow of its internal state.
+///
+/// This is the default [`QueryType`] for a [`Query`], and is used by [system parameters](crate::system::SystemParam).
+pub struct BorrowedQuery;
+
+impl QueryType for BorrowedQuery {
+    type QueryState<'s, D: QueryData + 's, F: QueryFilter + 's> = &'s QueryState<D, F>;
+}
+
+/// A [`Query`] that owns its internal state.
+///
+/// This is the [`QueryType`] for a [`QueryLens`](crate::system::QueryLens).
+pub struct OwnedQuery;
+
+impl QueryType for OwnedQuery {
+    type QueryState<'s, D: QueryData + 's, F: QueryFilter + 's> = Box<QueryState<D, F>>;
 }
 
 impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
@@ -2046,7 +2070,7 @@ mod tests {
             .run_system_once(|query: Query<&mut A>| {
                 let mut readonly = query.as_readonly();
                 let mut lens: QueryLens<&mut A> = readonly.transmute_lens();
-                bad(lens.query(), query.as_readonly());
+                bad(lens.reborrow(), query.as_readonly());
             })
             .unwrap();
     }
@@ -2225,7 +2249,7 @@ mod tests {
             .run_system_once(|query_a: Query<&mut A>, mut query_b: Query<&mut B>| {
                 let mut readonly = query_a.as_readonly();
                 let mut lens: QueryLens<(&mut A, &mut B)> = readonly.join(&mut query_b);
-                bad(lens.query(), query_a.as_readonly());
+                bad(lens.reborrow(), query_a.as_readonly());
             })
             .unwrap();
     }
