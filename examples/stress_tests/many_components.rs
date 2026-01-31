@@ -65,7 +65,7 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
 
         // we assign this value to all the components we can write to
         for component_id in &access_components.0 {
-            if let Some(ptr) = filtered_entity.get_mut_by_id(*component_id) {
+            if let Ok(ptr) = filtered_entity.get_mut_by_id(*component_id) {
                 // SAFETY: All components have a u8 layout
                 unsafe {
                     let mut value = ptr.with_type::<u8>();

@@ -3,10 +3,9 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, Tick},
     component::{Component, ComponentId, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
-    query::{has_conflicts, Access, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData},
     world::{
-        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
-        EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, Ref,
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, All, AsAccess,
+        DynamicComponentFetch, EntityRef, Mut, Ref,
     },
 };
 
@@ -16,11 +15,22 @@ use core::{
     hash::{Hash, Hasher},
 };
 
-/// Provides mutable access to a single entity and all of its components.
+/// Provides mutable access to a single [`Entity`] and the components allowed by
+/// the [`AsAccess`] `A`. Plain `EntityMut`s have an [`AsAccess`]
+/// of [`All`], providing access to all components of the entity.
 ///
 /// Contrast with [`EntityWorldMut`], which allows adding and removing components,
 /// despawning the entity, and provides mutable access to the entire world.
 /// Because of this, `EntityWorldMut` cannot coexist with any other world accesses.
+///
+/// # [`AsAccess`]s
+///
+/// Access kinds describe what you can access on an `EntityMut`. The default
+/// kind is [`All`], which provides access to all components of the entity.
+/// Other kinds, such as [`Filtered`] and [`Except`], can restrict access to
+/// only a subset of components.
+///
+/// See the documentation of [`AsAccess`] for more details.
 ///
 /// # Examples
 ///
@@ -39,63 +49,63 @@ use core::{
 /// ```
 ///
 /// [`EntityWorldMut`]: crate::world::EntityWorldMut
-pub struct EntityMut<'w> {
-    cell: UnsafeEntityCell<'w>,
+/// [`Filtered`]: crate::world::Filtered
+/// [`Except`]: crate::world::Except
+pub struct EntityMut<'w, A: AsAccess = All> {
+    pub(super) cell: UnsafeEntityCell<'w>,
+    access: A,
 }
 
-impl<'w> EntityMut<'w> {
+impl<'w, A: AsAccess> EntityMut<'w, A> {
     /// # Safety
-    /// - `cell` must have permission to mutate every component of the entity.
-    /// - No accesses to any of the entity's components may exist
-    ///   at the same time as the returned [`EntityMut`].
+    ///
+    /// Caller must ensure `access` does not exceed the read or write permissions
+    /// of `cell` in a way that would violate Rust's aliasing rules, including
+    /// simultaneous access of `cell` via another `EntityMut`, `EntityRef`, or
+    /// any other means.
     #[inline]
-    pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>) -> Self {
-        Self { cell }
+    pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>, access: A) -> Self {
+        Self { cell, access }
     }
 
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&mut EntityMut`, but you need `EntityMut`.
     #[inline]
-    pub fn reborrow(&mut self) -> EntityMut<'_> {
-        // SAFETY:
-        // - We have exclusive access to the entire entity and its components.
-        // - `&mut self` ensures there are no other accesses.
-        unsafe { Self::new(self.cell) }
+    pub fn reborrow(&mut self) -> EntityMut<'_, A> {
+        // SAFETY: We have exclusive access to the entire entity and its components.
+        unsafe { EntityMut::new(self.cell, self.access) }
     }
 
-    /// Consumes `self` and returns read-only access to all of the entity's
-    /// components, with the world `'w` lifetime.
+    /// Consumes `self` and returns a [`EntityRef`] with the same access
+    /// permissions.
     #[inline]
-    pub fn into_readonly(self) -> EntityRef<'w> {
+    pub fn into_readonly(self) -> EntityRef<'w, A> {
         // SAFETY:
-        // - We have exclusive access to the entire entity and its components.
-        // - Consuming `self` ensures there are no other accesses.
-        unsafe { EntityRef::new(self.cell) }
+        // - Read permissions of `entity.access` are preserved.
+        // - Consuming `entity` ensures there are no mutable accesses.
+        unsafe { EntityRef::new(self.cell, self.access) }
     }
 
-    /// Gets read-only access to all of the entity's components.
+    /// Borrows `self` and returns a [`EntityRef`] with the same access
+    /// permissions.
     #[inline]
-    pub fn as_readonly(&self) -> EntityRef<'_> {
+    pub fn as_readonly(&self) -> EntityRef<'_, A> {
         // SAFETY:
-        // - We have exclusive access to the entire entity and its components.
-        // - `&self` ensures there are no mutable accesses.
-        unsafe { EntityRef::new(self.cell) }
-    }
-
-    /// Consumes `self` and returns a [`FilteredEntityMut`] which has mutable
-    /// access to all of the entity's components, with the world `'w` lifetime.
-    #[inline]
-    pub fn into_filtered(self) -> FilteredEntityMut<'w, 'static> {
-        // SAFETY:
-        // - We have exclusive access to the entire entity and its components.
-        // - Consuming `self` ensures there are no other accesses.
-        unsafe { FilteredEntityMut::new(self.cell, const { &Access::new_write_all() }) }
+        // - Read permissions of `&entity.access` are preserved.
+        // - `&entity` ensures there are no mutable accesses.
+        unsafe { EntityRef::new(self.cell, self.access) }
     }
 
     /// Get access to the underlying [`UnsafeEntityCell`].
     #[inline]
     pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
         self.cell
+    }
+
+    /// Returns a copy of the current [`AsAccess`].
+    #[inline]
+    pub fn access(&self) -> A {
+        self.access
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -161,181 +171,6 @@ impl<'w> EntityMut<'w> {
         self.as_readonly().get()
     }
 
-    /// Returns read-only components for the current entity that match the query `Q`.
-    ///
-    /// # Panics
-    ///
-    /// If the entity does not have the components required by the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_, 'static> {
-        self.as_readonly().components::<Q>()
-    }
-
-    /// Returns read-only components for the current entity that match the query `Q`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
-    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
-        &self,
-    ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
-        self.as_readonly().get_components::<Q>()
-    }
-
-    /// Returns components for the current entity that match the query `Q`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// #[derive(Component)]
-    /// struct X(usize);
-    /// #[derive(Component)]
-    /// struct Y(usize);
-    ///
-    /// # let mut world = World::default();
-    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
-    /// // Get mutable access to two components at once
-    /// // SAFETY: X and Y are different components
-    /// let (mut x, mut y) =
-    ///     unsafe { entity.get_components_mut_unchecked::<(&mut X, &mut Y)>() }.unwrap();
-    /// *x = X(1);
-    /// *y = Y(1);
-    /// // This would trigger undefined behavior, as the `&mut X`s would alias:
-    /// // entity.get_components_mut_unchecked::<(&mut X, &mut X)>();
-    /// ```
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// the `QueryData` does not provide aliasing mutable references to the same component.
-    ///
-    /// # See also
-    ///
-    /// - [`Self::get_components_mut`] for the safe version that performs aliasing checks
-    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
-        &mut self,
-    ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
-        // SAFETY: Caller ensures the `QueryData` does not provide aliasing mutable references to the same component
-        unsafe { self.reborrow().into_components_mut_unchecked::<Q>() }
-    }
-
-    /// Returns components for the current entity that match the query `Q`.
-    /// In the case of conflicting [`QueryData`](crate::query::QueryData), unregistered components, or missing components,
-    /// this will return a [`QueryAccessError`]
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// #[derive(Component)]
-    /// struct X(usize);
-    /// #[derive(Component)]
-    /// struct Y(usize);
-    ///
-    /// # let mut world = World::default();
-    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
-    /// // Get mutable access to two components at once
-    /// // SAFETY: X and Y are different components
-    /// let (mut x, mut y) = entity.get_components_mut::<(&mut X, &mut Y)>().unwrap();
-    /// ```
-    ///
-    /// Note that this does a O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
-    /// consideration you should use [`Self::get_components_mut_unchecked`] instead.
-    pub fn get_components_mut<Q: ReleaseStateQueryData>(
-        &mut self,
-    ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
-        self.reborrow().into_components_mut::<Q>()
-    }
-
-    /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// #[derive(Component)]
-    /// struct X(usize);
-    /// #[derive(Component)]
-    /// struct Y(usize);
-    ///
-    /// # let mut world = World::default();
-    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
-    /// // Get mutable access to two components at once
-    /// // SAFETY: X and Y are different components
-    /// let (mut x, mut y) =
-    ///     unsafe { entity.into_components_mut_unchecked::<(&mut X, &mut Y)>() }.unwrap();
-    /// *x = X(1);
-    /// *y = Y(1);
-    /// // This would trigger undefined behavior, as the `&mut X`s would alias:
-    /// // entity.into_components_mut_unchecked::<(&mut X, &mut X)>();
-    /// ```
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// the `QueryData` does not provide aliasing mutable references to the same component.
-    ///
-    /// # See also
-    ///
-    /// - [`Self::into_components_mut`] for the safe version that performs aliasing checks
-    pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
-        self,
-    ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
-        // SAFETY:
-        // - We have mutable access to all components of this entity.
-        // - Caller asserts the `QueryData` does not provide aliasing mutable references to the same component
-        unsafe { self.cell.get_components::<Q>() }
-    }
-
-    /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
-    ///
-    /// The checks for aliasing mutable references may be expensive.
-    /// If performance is a concern, consider making multiple calls to [`Self::get_mut`].
-    /// If that is not possible, consider using [`Self::into_components_mut_unchecked`] to skip the checks.
-    ///
-    /// # Panics
-    ///
-    /// If the `QueryData` provides aliasing mutable references to the same component.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// #[derive(Component)]
-    /// struct X(usize);
-    /// #[derive(Component)]
-    /// struct Y(usize);
-    ///
-    /// # let mut world = World::default();
-    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
-    /// // Get mutable access to two components at once
-    /// let (mut x, mut y) = entity.into_components_mut::<(&mut X, &mut Y)>().unwrap();
-    /// *x = X(1);
-    /// *y = Y(1);
-    /// ```
-    ///
-    /// ```should_panic
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Component)]
-    /// # struct X(usize);
-    /// #
-    /// # let mut world = World::default();
-    /// let mut entity = world.spawn((X(0))).into_mutable();
-    /// // This panics, as the `&mut X`s would alias:
-    /// entity.into_components_mut::<(&mut X, &mut X)>();
-    /// ```
-    pub fn into_components_mut<Q: ReleaseStateQueryData>(
-        self,
-    ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
-        has_conflicts::<Q>(self.cell.world().components())?;
-
-        // SAFETY: we checked that there were not conflicting components above
-        unsafe { self.into_components_mut_unchecked::<Q>() }
-    }
-
     /// Consumes `self` and gets access to the component of type `T` with the
     /// world `'w` lifetime for the current entity.
     ///
@@ -368,8 +203,7 @@ impl<'w> EntityMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFETY: &mut self implies exclusive access for duration of returned value
-        unsafe { self.cell.get_mut() }
+        self.reborrow().into_mut()
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -380,10 +214,7 @@ impl<'w> EntityMut<'w> {
     /// - `T` must be a mutable component
     #[inline]
     pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFETY:
-        // - &mut self implies exclusive access for duration of returned value
-        // - Caller ensures `T` is a mutable component
-        unsafe { self.cell.get_mut_assume_mutable() }
+        self.reborrow().into_mut_assume_mutable()
     }
 
     /// Consumes self and gets mutable access to the component of type `T`
@@ -391,8 +222,11 @@ impl<'w> EntityMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
-        // SAFETY: consuming `self` implies exclusive access
-        unsafe { self.cell.get_mut() }
+        // SAFETY:
+        // - `self` was constructed with an `access` that doesn't violate aliasing
+        //   rules for `cell`.
+        // - Consuming `self` implies exclusive access to components in `access`.
+        unsafe { self.cell.get_mut(self.access) }
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -404,9 +238,11 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY:
-        // - Consuming `self` implies exclusive access
-        // - Caller ensures `T` is a mutable component
-        unsafe { self.cell.get_mut_assume_mutable() }
+        // - `self` was constructed with an `access` that doesn't violate aliasing
+        //   rules for `cell`.
+        // - Consuming `self` implies exclusive access to components in `access`.
+        // - Caller ensures `T` is a mutable component.
+        unsafe { self.cell.get_mut_assume_mutable(self.access) }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -602,10 +438,7 @@ impl<'w> EntityMut<'w> {
         &mut self,
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
-        // SAFETY:
-        // - `&mut self` ensures that no references exist to this entity's components.
-        // - We have exclusive access to all components of this entity.
-        unsafe { component_ids.fetch_mut(self.cell) }
+        self.reborrow().into_mut_by_id(component_ids)
     }
 
     /// Returns untyped mutable reference(s) to component(s) for
@@ -635,10 +468,7 @@ impl<'w> EntityMut<'w> {
         &mut self,
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
-        // SAFETY:
-        // - `&mut self` ensures that no references exist to this entity's components.
-        // - We have exclusive access to all components of this entity.
-        unsafe { component_ids.fetch_mut_assume_mutable(self.cell) }
+        self.reborrow().into_mut_assume_mutable_by_id(component_ids)
     }
 
     /// Returns untyped mutable reference to component for
@@ -664,9 +494,11 @@ impl<'w> EntityMut<'w> {
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
         // SAFETY:
-        // - The caller must ensure simultaneous access is limited
-        // - to components that are mutually independent.
-        unsafe { component_ids.fetch_mut(self.cell) }
+        // - `self` was constructed with an `access` that doesn't violate aliasing
+        //   rules for `cell`.
+        // - Caller ensures exclusive access to components in `access` for
+        //   duration of returned value.
+        unsafe { component_ids.fetch_mut(self.cell, self.access) }
     }
 
     /// Returns untyped mutable reference to component for
@@ -694,9 +526,12 @@ impl<'w> EntityMut<'w> {
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
         // SAFETY:
-        // - The caller must ensure simultaneous access is limited
-        // - to components that are mutually independent.
-        unsafe { component_ids.fetch_mut_assume_mutable(self.cell) }
+        // - `self` was constructed with an `access` that doesn't violate aliasing
+        //   rules for `cell`.
+        // - Caller ensures exclusive access to components in `access` for
+        //   duration of returned value.
+        // - Caller ensures provided `ComponentId`s refer to mutable components.
+        unsafe { component_ids.fetch_mut_assume_mutable(self.cell, self.access) }
     }
 
     /// Consumes `self` and returns untyped mutable reference(s)
@@ -727,9 +562,10 @@ impl<'w> EntityMut<'w> {
         component_ids: F,
     ) -> Result<F::Mut<'w>, EntityComponentError> {
         // SAFETY:
-        // - consuming `self` ensures that no references exist to this entity's components.
-        // - We have exclusive access to all components of this entity.
-        unsafe { component_ids.fetch_mut(self.cell) }
+        // - `self` was constructed with an `access` that doesn't violate aliasing
+        //   rules for `cell`.
+        // - Consuming `self` implies exclusive access to components in `access`.
+        unsafe { component_ids.fetch_mut(self.cell, self.access) }
     }
 
     /// Consumes `self` and returns untyped mutable reference(s)
@@ -761,9 +597,11 @@ impl<'w> EntityMut<'w> {
         component_ids: F,
     ) -> Result<F::Mut<'w>, EntityComponentError> {
         // SAFETY:
-        // - consuming `self` ensures that no references exist to this entity's components.
-        // - We have exclusive access to all components of this entity.
-        unsafe { component_ids.fetch_mut_assume_mutable(self.cell) }
+        // - `self` was constructed with an `access` that doesn't violate aliasing
+        //   rules for `cell`.
+        // - Consuming `self` implies exclusive access to components in `access`.
+        // - Caller ensures provided `ComponentId`s refer to mutable components.
+        unsafe { component_ids.fetch_mut_assume_mutable(self.cell, self.access) }
     }
 
     /// Returns the source code location from which this entity has been spawned.
@@ -777,64 +615,36 @@ impl<'w> EntityMut<'w> {
     }
 }
 
-impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
+impl<'w, A: AsAccess> From<EntityMut<'w, A>> for EntityRef<'w, A> {
     #[inline]
-    fn from(entity: EntityMut<'w>) -> Self {
+    fn from(entity: EntityMut<'w, A>) -> Self {
         entity.into_readonly()
     }
 }
 
-impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
+impl<'w, A: AsAccess> From<&'w EntityMut<'_, A>> for EntityRef<'w, A> {
     #[inline]
-    fn from(entity: &'a EntityMut<'_>) -> Self {
+    fn from(entity: &'w EntityMut<'_, A>) -> Self {
         entity.as_readonly()
     }
 }
 
-impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
+impl<'w, A: AsAccess> From<&'w mut EntityMut<'_, A>> for EntityMut<'w, A> {
     #[inline]
-    fn from(entity: &'w mut EntityMut<'_>) -> Self {
+    fn from(entity: &'w mut EntityMut<'_, A>) -> Self {
         entity.reborrow()
     }
 }
 
-impl<'a> From<EntityMut<'a>> for FilteredEntityRef<'a, 'static> {
-    #[inline]
-    fn from(entity: EntityMut<'a>) -> Self {
-        entity.into_readonly().into_filtered()
-    }
-}
-
-impl<'a> From<&'a EntityMut<'_>> for FilteredEntityRef<'a, 'static> {
-    #[inline]
-    fn from(entity: &'a EntityMut<'_>) -> Self {
-        entity.as_readonly().into_filtered()
-    }
-}
-
-impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a, 'static> {
-    #[inline]
-    fn from(entity: EntityMut<'a>) -> Self {
-        entity.into_filtered()
-    }
-}
-
-impl<'a> From<&'a mut EntityMut<'_>> for FilteredEntityMut<'a, 'static> {
-    #[inline]
-    fn from(entity: &'a mut EntityMut<'_>) -> Self {
-        entity.reborrow().into_filtered()
-    }
-}
-
-impl PartialEq for EntityMut<'_> {
+impl<A: AsAccess> PartialEq for EntityMut<'_, A> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl Eq for EntityMut<'_> {}
+impl<A: AsAccess> Eq for EntityMut<'_, A> {}
 
-impl PartialOrd for EntityMut<'_> {
+impl<A: AsAccess> PartialOrd for EntityMut<'_, A> {
     /// [`EntityMut`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -842,23 +652,23 @@ impl PartialOrd for EntityMut<'_> {
     }
 }
 
-impl Ord for EntityMut<'_> {
+impl<A: AsAccess> Ord for EntityMut<'_, A> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl Hash for EntityMut<'_> {
+impl<A: AsAccess> Hash for EntityMut<'_, A> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl ContainsEntity for EntityMut<'_> {
+impl<A: AsAccess> ContainsEntity for EntityMut<'_, A> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl EntityEquivalent for EntityMut<'_> {}
+unsafe impl<A: AsAccess> EntityEquivalent for EntityMut<'_, A> {}
