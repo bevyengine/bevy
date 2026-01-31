@@ -448,24 +448,32 @@ macro_rules! impl_tuple_world_query {
                     let ($($name,)*) = fetch;
                     let ($($state,)*) = state;
                     loop {
-                        let mut any_valid_terms = false;
-                        $({
+                        $(if !$name::IS_ARCHETYPAL { // help the compiler out to remove unnecessary terms
                             let mut term_chunk = chunk.start..$name.chunk_end;
+                            // if the term chunk is empty, we've gone past what what previously
+                            // cached and need to refresh.
                             if term_chunk.is_empty() {
                                 // SAFETY: chunk.start..rows.end is always a subset of `rows`
                                 term_chunk = unsafe { $name::find_table_chunk($state, &mut $name.fetch, table_entities, chunk.start..rows.end) };
+                                $name.chunk_end = term_chunk.end;
                             }
-                            any_valid_terms |= !term_chunk.is_empty();
+                            // if the term chunk is empty even after refreshing the cache, there's
+                            // no more matches in this table.
+                            if term_chunk.is_empty() {
+                                return term_chunk;
+                            }
                             chunk.start = term_chunk.start;
                             chunk.end = chunk.end.min(term_chunk.end);
-                            $name.chunk_end = term_chunk.end;
+                            if chunk.is_empty() {
+                                // the current chunk can't continue matching, so we
+                                // have to advance its end to the next feasible chunk
+                                chunk.end = term_chunk.end;
+                                continue;
+                            }
                         })*
 
-                        if !chunk.is_empty() || !any_valid_terms {
-                            break;
-                        }
+                        return chunk;
                     }
-                    chunk
                 }
             }
 
@@ -482,11 +490,33 @@ macro_rules! impl_tuple_world_query {
                     let mut chunk = indices.clone();
                     let ($($name,)*) = fetch;
                     let ($($state,)*) = state;
-                    // SAFETY: `indices` is only ever narrowed as we iterate subqueries, so it's
-                    // always valid to pass to the next term. Other invariants are upheld by
-                    // the caller.
-                    $(indices = unsafe { $name::find_archetype_chunk($state, &mut $name.fetch, archetype_entities, indices) };)*
-                    indices
+                    loop {
+                        $(if !$name::IS_ARCHETYPAL { // help the compiler out to remove unnecessary terms
+                            let mut term_chunk = chunk.start..$name.chunk_end;
+                            // if the term chunk is empty, we've gone past what what previously
+                            // cached and need to refresh.
+                            if term_chunk.is_empty() {
+                                // SAFETY: chunk.start..indices.end is always a subset of `indices`
+                                term_chunk = unsafe { $name::find_archetype_chunk($state, &mut $name.fetch, archetype_entities, chunk.start..indices.end) };
+                                $name.chunk_end = term_chunk.end;
+                            }
+                            // if the term chunk is empty even after refreshing the cache, there's
+                            // no more matches in this table.
+                            if term_chunk.is_empty() {
+                                return term_chunk;
+                            }
+                            chunk.start = term_chunk.start;
+                            chunk.end = chunk.end.min(term_chunk.end);
+                            if chunk.is_empty() {
+                                // the current chunk can't continue matching, so we
+                                // have to advance its end to the next feasible chunk
+                                chunk.end = term_chunk.end;
+                                continue;
+                            }
+                        })*
+
+                        return chunk;
+                    }
                 }
             }
 
