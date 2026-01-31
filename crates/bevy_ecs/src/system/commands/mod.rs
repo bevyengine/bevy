@@ -27,6 +27,7 @@ use crate::{
     event::{EntityEvent, Event},
     message::Message,
     observer::Observer,
+    prelude::IntoSystemSet,
     resource::Resource,
     schedule::ScheduleLabel,
     system::{
@@ -1244,6 +1245,60 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.queue(command::run_schedule(label).handle_error_with(warn));
+    }
+
+    /// Runs the given [`SystemSet`] within the schedule corresponding to the
+    /// given [`ScheduleLabel`]. All systems in the set (including transitively)
+    /// will be executed.
+    ///
+    /// Calls [`World::try_run_system_set`](World::try_run_system_set).
+    ///
+    /// # Fallible
+    ///
+    /// This command will fail if the given [`ScheduleLabel`]
+    /// does not correspond to a [`Schedule`](crate::schedule::Schedule),
+    ///
+    /// It will internally return a [`TryRunScheduleError`](crate::world::error::TryRunScheduleError),
+    /// which will be handled by [logging the error at the `warn` level](warn).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::ScheduleLabel;
+    /// # #[derive(Default, Resource)]
+    /// # struct Counter(u32);
+    /// #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
+    /// struct FooSchedule;
+    ///
+    /// #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone, Copy)]
+    /// struct FooSet;
+    ///
+    /// # fn foo_system(mut counter: ResMut<Counter>) {
+    /// #     counter.0 += 1;
+    /// # }
+    /// #
+    /// # let mut schedule = Schedule::new(FooSchedule);
+    /// # schedule.add_systems(foo_system.in_set(FooSet));
+    /// #
+    /// # let mut world = World::default();
+    /// #
+    /// # world.init_resource::<Counter>();
+    /// # world.add_schedule(schedule);
+    /// #
+    /// # assert_eq!(world.resource::<Counter>().0, 0);
+    /// #
+    /// # let mut commands = world.commands();
+    /// commands.run_system_set(FooSchedule, FooSet);
+    /// #
+    /// # world.flush();
+    /// #
+    /// # assert_eq!(world.resource::<Counter>().0, 1);
+    /// ```
+    ///
+    /// [`SystemSet`]: crate::schedule::SystemSet
+    pub fn run_system_set<M>(&mut self, schedule: impl ScheduleLabel, set: impl IntoSystemSet<M>) {
+        self.queue(command::run_system_set(schedule, set).handle_error_with(warn));
     }
 }
 
