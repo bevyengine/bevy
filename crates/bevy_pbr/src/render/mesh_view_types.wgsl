@@ -192,8 +192,15 @@ struct EnvironmentMapUniform {
 
 // Shader version of the order independent transparency settings component.
 struct OrderIndependentTransparencySettings {
-  layers_count: i32,
+  sorted_fragment_max_count: u32,
+  fragments_per_pixel_average: f32,
   alpha_threshold: f32,
+};
+
+struct OitFragmentNode {
+    color: u32,
+    depth_alpha: u32,
+    next: u32,
 };
 
 struct ClusteredDecal {
