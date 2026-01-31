@@ -66,7 +66,9 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
-        change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
+        change_detection::{
+            ContiguousMut, ContiguousRef, DetectChanges, DetectChangesMut, Mut, Ref,
+        },
         children,
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},

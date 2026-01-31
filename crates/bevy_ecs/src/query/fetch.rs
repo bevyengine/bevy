@@ -1,7 +1,10 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
-    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
+    change_detection::{
+        ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
+        ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, MaybeLocation, Tick,
+    },
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
     query::{
@@ -99,14 +102,16 @@ use variadics_please::all_tuples;
 ///
 /// ## Macro expansion
 ///
-/// Expanding the macro will declare one or three additional structs, depending on whether or not the struct is marked as mutable.
+/// Expanding the macro will declare one to five additional structs, depending on whether or not the struct is marked as mutable or as contiguous.
 /// For a struct named `X`, the additional structs will be:
 ///
-/// |Struct name|`mutable` only|Description|
-/// |:---:|:---:|---|
-/// |`XItem`|---|The type of the query item for `X`|
-/// |`XReadOnlyItem`|✓|The type of the query item for `XReadOnly`|
-/// |`XReadOnly`|✓|[`ReadOnly`] variant of `X`|
+/// |Struct name|`mutable` only|`contiguous` target|Description|
+/// |:---:|:---:|:---:|---|
+/// |`XItem`|---|---|The type of the query item for `X`|
+/// |`XReadOnlyItem`|✓|---|The type of the query item for `XReadOnly`|
+/// |`XReadOnly`|✓|---|[`ReadOnly`] variant of `X`|
+/// |`XContiguousItem`|---|`mutable` or `all`|The type of the contiguous query item for `X`|
+/// |`XReadOnlyContiguousItem`|✓|`immutable` or `all`|The type of the contiguous query item for `XReadOnly`|
 ///
 /// ## Adding mutable references
 ///
@@ -142,11 +147,41 @@ use variadics_please::all_tuples;
 /// }
 /// ```
 ///
+/// ## Supporting contiguous iteration
+///
+/// To create contiguous items additionally (to support contiguous iteration), the struct must be marked with the `#[query_data(contiguous(target))]` attribute,
+/// where the target may be `all`, `mutable` or `immutable` (see the table above).
+///
+/// For mutable queries it may be done like this:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// #[derive(QueryData)]
+/// /// - contiguous(all) will create contiguous items for both read and mutable versions
+/// /// - contiguous(mutable) will only create a contiguous item for the mutable version
+/// /// - contiguous(immutable) will only create a contiguous item for the read only version
+/// #[query_data(mutable, contiguous(all))]
+/// struct CustomQuery {
+///     component_a: &'static mut ComponentA,
+/// }
+/// ```
+///
+/// For immutable queries `contiguous(immutable)` attribute will be **ignored**, meanwhile `contiguous(mutable)` and `contiguous(all)`
+/// will only generate a contiguous item for the (original) read only version.
+///
+/// To understand contiguous iteration refer to
+/// [`Query::contiguous_iter`](`crate::system::Query::contiguous_iter`)
+///
 /// ## Adding methods to query items
 ///
 /// It is possible to add methods to query items in order to write reusable logic about related components.
 /// This will often make systems more readable because low level logic is moved out from them.
-/// It is done by adding `impl` blocks with methods for the `-Item` or `-ReadOnlyItem` generated structs.
+/// It is done by adding `impl` blocks with methods for the `-Item`, `-ReadOnlyItem`, `-ContiguousItem` or `ContiguousReadOnlyItem`
+/// generated structs.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -211,7 +246,7 @@ use variadics_please::all_tuples;
 /// # struct ComponentA;
 /// #
 /// #[derive(QueryData)]
-/// #[query_data(mutable, derive(Debug))]
+/// #[query_data(mutable, derive(Debug), contiguous(all))]
 /// struct CustomQuery {
 ///     component_a: &'static ComponentA,
 /// }
@@ -221,6 +256,8 @@ use variadics_please::all_tuples;
 ///
 /// assert_debug::<CustomQueryItem>();
 /// assert_debug::<CustomQueryReadOnlyItem>();
+/// assert_debug::<CustomQueryContiguousItem>();
+/// assert_debug::<CustomQueryReadOnlyContiguousItem>();
 /// ```
 ///
 /// ## Query composition
@@ -352,6 +389,41 @@ pub unsafe trait QueryData: WorldQuery {
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>>;
 }
 
+/// A [`QueryData`] which allows getting a direct access to contiguous chunks of components'
+/// values, which may be used to apply simd-operations.
+///
+/// Contiguous iteration may be done via:
+/// - [`Query::contiguous_iter`](crate::system::Query::contiguous_iter),
+/// - [`Query::contiguous_iter_mut`](crate::system::Query::contiguous_iter_mut),
+///
+// NOTE: Even though all component references (&T, &mut T) implement this trait, it won't be executed for
+// SparseSet components because in that case the query is not dense.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be iterated contiguously",
+    label = "invalid contiguous `Query` data",
+    note = "if `{Self}` is a custom query type, using `QueryData` derive macro, ensure that the `#[query_data(contiguous(target))]` attribute is added"
+)]
+pub trait ContiguousQueryData: ArchetypeQueryData {
+    /// Item returned by [`ContiguousQueryData::fetch_contiguous`].
+    /// Represents a contiguous chunk of memory.
+    type Contiguous<'w, 's>;
+
+    /// Fetch [`ContiguousQueryData::Contiguous`] which represents a contiguous chunk of memory (e.g., an array) in the current [`Table`].
+    /// This must always be called after [`WorldQuery::set_table`].
+    ///
+    /// # Safety
+    ///
+    /// - Must always be called _after_ [`WorldQuery::set_table`].
+    /// - `entities`'s length must match the length of the set table.
+    /// - `entities` must match the entities of the set table.
+    /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
+    unsafe fn fetch_contiguous<'w, 's>(
+        state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's>;
+}
+
 /// A [`QueryData`] that is read only.
 ///
 /// # Safety
@@ -474,6 +546,18 @@ impl ReleaseStateQueryData for Entity {
 }
 
 impl ArchetypeQueryData for Entity {}
+
+impl ContiguousQueryData for Entity {
+    type Contiguous<'w, 's> = &'w [Entity];
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        _state: &'s Self::State,
+        _fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        entities
+    }
+}
 
 // SAFETY:
 // `update_component_access` does nothing.
@@ -1722,6 +1806,34 @@ unsafe impl<T: Component> QueryData for &T {
     }
 }
 
+impl<T: Component> ContiguousQueryData for &T {
+    type Contiguous<'w, 's> = &'w [T];
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        _state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        fetch.components.extract(
+            |table| {
+                // SAFETY: The caller ensures `set_table` was previously called
+                let table = unsafe { table.debug_checked_unwrap() };
+                // SAFETY:
+                // - `table` is `entities.len()` long
+                // - `UnsafeCell<T>` has the same layout as `T`
+                unsafe { table.cast().as_slice_unchecked(entities.len()) }
+            },
+            |_| {
+                #[cfg(debug_assertions)]
+                unreachable!();
+                // SAFETY: The caller ensures query is dense
+                #[cfg(not(debug_assertions))]
+                core::hint::unreachable_unchecked();
+            },
+        )
+    }
+}
+
 // SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyQueryData for &T {}
 
@@ -1950,6 +2062,50 @@ impl<T: Component> ReleaseStateQueryData for Ref<'_, T> {
 
 impl<T: Component> ArchetypeQueryData for Ref<'_, T> {}
 
+impl<T: Component> ContiguousQueryData for Ref<'_, T> {
+    type Contiguous<'w, 's> = ContiguousRef<'w, T>;
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        _state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        fetch.components.extract(
+            |table| {
+                // SAFETY: set_table was previously called
+                let (table_components, added_ticks, changed_ticks, callers) =
+                    unsafe { table.debug_checked_unwrap() };
+
+                ContiguousRef {
+                    // SAFETY: `entities` has the same length as the rows in the set table.
+                    value: unsafe { table_components.cast().as_slice_unchecked(entities.len()) },
+                    // SAFETY:
+                    // - The caller ensures the permission to access ticks.
+                    // - `entities` has the same length as the rows in the set table hence the
+                    // ticks.
+                    ticks: unsafe {
+                        ContiguousComponentTicksRef::from_slice_ptrs(
+                            added_ticks,
+                            changed_ticks,
+                            callers,
+                            entities.len(),
+                            fetch.this_run,
+                            fetch.last_run,
+                        )
+                    },
+                }
+            },
+            |_| {
+                #[cfg(debug_assertions)]
+                unreachable!();
+                // SAFETY: the caller ensures that [`Self::set_table`] was called beforehand.
+                #[cfg(not(debug_assertions))]
+                core::hint::unreachable_unchecked();
+            },
+        )
+    }
+}
+
 /// The [`WorldQuery::Fetch`] type for `&mut T`.
 pub struct WriteFetch<'w, T: Component> {
     components: StorageSwitch<
@@ -2164,6 +2320,50 @@ impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
 
 impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T {}
 
+impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
+    type Contiguous<'w, 's> = ContiguousMut<'w, T>;
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        _state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        fetch.components.extract(
+            |table| {
+                // SAFETY: set_table was previously called
+                let (table_components, added_ticks, changed_ticks, callers) =
+                    unsafe { table.debug_checked_unwrap() };
+
+                ContiguousMut {
+                    // SAFETY: `entities` has the same length as the rows in the set table.
+                    value: unsafe { table_components.as_mut_slice_unchecked(entities.len()) },
+                    // SAFETY:
+                    // - The caller ensures the permission to access ticks.
+                    // - `entities` has the same length as the rows in the set table hence the
+                    // ticks.
+                    ticks: unsafe {
+                        ContiguousComponentTicksMut::from_slice_ptrs(
+                            added_ticks,
+                            changed_ticks,
+                            callers,
+                            entities.len(),
+                            fetch.this_run,
+                            fetch.last_run,
+                        )
+                    },
+                }
+            },
+            |_| {
+                #[cfg(debug_assertions)]
+                unreachable!();
+                // SAFETY: the caller ensures that [`Self::set_table`] was called beforehand.
+                #[cfg(not(debug_assertions))]
+                core::hint::unreachable_unchecked();
+            },
+        )
+    }
+}
+
 /// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its read-only form, providing access to change detection methods.
 ///
 /// By contrast `&mut T` will result in a `Mut<T>` item in mutable form to record mutations, but result in a bare `&T` in read-only form.
@@ -2282,6 +2482,18 @@ impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T> {
 }
 
 impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for Mut<'_, T> {}
+
+impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w, T> {
+    type Contiguous<'w, 's> = ContiguousMut<'w, T>;
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        <&mut T as ContiguousQueryData>::fetch_contiguous(state, fetch, entities)
+    }
+}
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {
@@ -2439,6 +2651,21 @@ impl<T: ReleaseStateQueryData> ReleaseStateQueryData for Option<T> {
 // `Option` matches all entities, even if `T` does not,
 // so it's always an `ArchetypeQueryData`, even for non-archetypal `T`.
 impl<T: QueryData> ArchetypeQueryData for Option<T> {}
+
+impl<T: ContiguousQueryData> ContiguousQueryData for Option<T> {
+    type Contiguous<'w, 's> = Option<T::Contiguous<'w, 's>>;
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        fetch
+            .matches
+            // SAFETY: The invariants are upheld by the caller
+            .then(|| unsafe { T::fetch_contiguous(state, &mut fetch.fetch, entities) })
+    }
+}
 
 /// Returns a bool that describes if an entity has the component `T`.
 ///
@@ -2618,6 +2845,18 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
 
 impl<T: Component> ArchetypeQueryData for Has<T> {}
 
+impl<T: Component> ContiguousQueryData for Has<T> {
+    type Contiguous<'w, 's> = bool;
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        _state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        _entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        *fetch
+    }
+}
+
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
 /// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), Or<(With<A>, With<B>, With<C>)>>`.
@@ -2708,6 +2947,38 @@ macro_rules! impl_tuple_query_data {
 
         $(#[$meta])*
         impl<$($name: ArchetypeQueryData),*> ArchetypeQueryData for ($($name,)*) {}
+
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
+        $(#[$meta])*
+        impl<$($name: ContiguousQueryData),*> ContiguousQueryData for ($($name,)*) {
+            type Contiguous<'w, 's> = ($($name::Contiguous::<'w, 's>,)*);
+
+            unsafe fn fetch_contiguous<'w, 's>(
+                state: &'s Self::State,
+                fetch: &mut Self::Fetch<'w>,
+                entities: &'w [Entity],
+            ) -> Self::Contiguous<'w, 's> {
+                let ($($state,)*) = state;
+                let ($($name,)*) = fetch;
+                // SAFETY: The invariants are upheld by the caller.
+                ($(unsafe {$name::fetch_contiguous($state, $name, entities)},)*)
+            }
+        }
     };
 }
 
@@ -2909,6 +3180,42 @@ macro_rules! impl_anytuple_fetch {
 
         $(#[$meta])*
         impl<$($name: ArchetypeQueryData),*> ArchetypeQueryData for AnyOf<($($name,)*)> {}
+
+
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
+        $(#[$meta])*
+        impl<$($name: ContiguousQueryData),*> ContiguousQueryData for AnyOf<($($name,)*)> {
+            type Contiguous<'w, 's> = ($(Option<$name::Contiguous<'w,'s>>,)*);
+
+            unsafe fn fetch_contiguous<'w, 's>(
+                state: &'s Self::State,
+                fetch: &mut Self::Fetch<'w>,
+                entities: &'w [Entity],
+            ) -> Self::Contiguous<'w, 's> {
+                let ($($name,)*) = fetch;
+                let ($($state,)*) = state;
+                // Matches the [`QueryData::fetch`] except it always returns Some
+                ($(
+                    // SAFETY: The invariants are upheld by the caller
+                    $name.1.then(|| unsafe { $name::fetch_contiguous($state, &mut $name.0, entities) }),
+                )*)
+            }
+        }
     };
 }
 
@@ -3184,6 +3491,7 @@ impl<C: Component, T: Copy, S: Copy> Copy for StorageSwitch<C, T, S> {}
 mod tests {
     use super::*;
     use crate::change_detection::DetectChanges;
+    use crate::query::Without;
     use crate::system::{assert_is_system, Query};
     use bevy_ecs::prelude::Schedule;
     use bevy_ecs_macros::QueryData;
@@ -3431,5 +3739,155 @@ mod tests {
 
         // we want EntityRef to use the change ticks of the system
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_contiguous_query_data() {
+        #[derive(Component, PartialEq, Eq, Debug)]
+        pub struct C(i32);
+
+        #[derive(Component, PartialEq, Eq, Debug)]
+        pub struct D(bool);
+
+        let mut world = World::new();
+        world.spawn((C(0), D(true)));
+        world.spawn((C(1), D(false)));
+        world.spawn(C(2));
+
+        let mut query = world.query::<(&C, &D)>();
+        let mut iter = query.contiguous_iter(&world).unwrap();
+        let c = iter.next().unwrap();
+        assert_eq!(c.0, [C(0), C(1)].as_slice());
+        assert_eq!(c.1, [D(true), D(false)].as_slice());
+        assert!(iter.next().is_none());
+
+        let mut query = world.query::<&C>();
+        let mut iter = query.contiguous_iter(&world).unwrap();
+        let mut present = [false; 3];
+        let mut len = 0;
+        for _ in 0..2 {
+            let c = iter.next().unwrap();
+            for c in c {
+                present[c.0 as usize] = true;
+                len += 1;
+            }
+        }
+        assert!(iter.next().is_none());
+        assert_eq!(len, 3);
+        assert_eq!(present, [true; 3]);
+
+        let mut query = world.query::<&mut C>();
+        let mut iter = query.contiguous_iter_mut(&mut world).unwrap();
+        for _ in 0..2 {
+            let c = iter.next().unwrap();
+            for c in c {
+                c.0 *= 2;
+            }
+        }
+        assert!(iter.next().is_none());
+        let mut iter = query.contiguous_iter(&world).unwrap();
+        let mut present = [false; 6];
+        let mut len = 0;
+        for _ in 0..2 {
+            let c = iter.next().unwrap();
+            for c in c {
+                present[c.0 as usize] = true;
+                len += 1;
+            }
+        }
+        assert_eq!(present, [true, false, true, false, true, false]);
+        assert_eq!(len, 3);
+
+        let mut query = world.query_filtered::<&C, Without<D>>();
+        let mut iter = query.contiguous_iter(&world).unwrap();
+        assert_eq!(iter.next().unwrap(), &[C(4)]);
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn sparse_set_contiguous_query() {
+        #[derive(Component, Debug, PartialEq, Eq)]
+        #[component(storage = "SparseSet")]
+        pub struct S(i32);
+
+        let mut world = World::new();
+        world.spawn(S(0));
+
+        let mut query = world.query::<&mut S>();
+        let iter = query.contiguous_iter_mut(&mut world);
+        assert!(iter.is_none());
+    }
+
+    #[test]
+    fn any_of_contiguous_test() {
+        #[derive(Component, Debug, Clone, Copy)]
+        pub struct C(i32);
+
+        #[derive(Component, Debug, Clone, Copy)]
+        pub struct D(i32);
+
+        let mut world = World::new();
+        world.spawn((C(0), D(1)));
+        world.spawn(C(2));
+        world.spawn(D(3));
+        world.spawn(());
+
+        let mut query = world.query::<AnyOf<(&C, &D)>>();
+        let iter = query.contiguous_iter(&world).unwrap();
+        let mut present = [false; 4];
+
+        for (c, d) in iter {
+            assert!(c.is_some() || d.is_some());
+            let c = c.unwrap_or_default();
+            let d = d.unwrap_or_default();
+            for i in 0..c.len().max(d.len()) {
+                let c = c.get(i).cloned();
+                let d = d.get(i).cloned();
+                if let Some(C(c)) = c {
+                    assert!(!present[c as usize]);
+                    present[c as usize] = true;
+                }
+                if let Some(D(d)) = d {
+                    assert!(!present[d as usize]);
+                    present[d as usize] = true;
+                }
+            }
+        }
+
+        assert_eq!(present, [true; 4]);
+    }
+
+    #[test]
+    fn option_contiguous_test() {
+        #[derive(Component, Clone, Copy)]
+        struct C(i32);
+
+        #[derive(Component, Clone, Copy)]
+        struct D(i32);
+
+        let mut world = World::new();
+        world.spawn((C(0), D(1)));
+        world.spawn(D(2));
+        world.spawn(C(3));
+
+        let mut query = world.query::<(Option<&C>, &D)>();
+        let iter = query.contiguous_iter(&world).unwrap();
+        let mut present = [false; 3];
+
+        for (c, d) in iter {
+            let c = c.unwrap_or_default();
+            for i in 0..d.len() {
+                let c = c.get(i).cloned();
+                let D(d) = d[i];
+                if let Some(C(c)) = c {
+                    assert!(!present[c as usize]);
+                    present[c as usize] = true;
+                }
+                assert!(!present[d as usize]);
+                present[d as usize] = true;
+            }
+        }
+
+        assert_eq!(present, [true; 3]);
     }
 }

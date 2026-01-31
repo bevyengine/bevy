@@ -5404,6 +5404,17 @@ category = "Camera"
 wasm = true
 
 [[example]]
+name = "contiguous_query"
+path = "examples/ecs/contiguous_query.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.contiguous_query]
+name = "Contiguous Query"
+description = "Demonstrates contiguous queries"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "clustered_decal_maps"
 path = "examples/3d/clustered_decal_maps.rs"
 # Causes an ICE on docs.rs

@@ -5,8 +5,9 @@ use crate::{
     change_detection::Tick,
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
-        DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
-        QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
+        ArchetypeFilter, ContiguousQueryData, DebugCheckedUnwrap, NopWorldQuery,
+        QueryCombinationIter, QueryContiguousIter, QueryData, QueryEntityError, QueryFilter,
+        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
         QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -1352,6 +1353,103 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
         }
+    }
+
+    /// Returns a contiguous iterator over the query results for the given
+    /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
+    /// iterable.
+    ///
+    /// Contiguous iteration enables getting slices of contiguously lying components (which lie in the same table), which for example
+    /// may be used for simd-operations, which may accelerate an algorithm.
+    ///
+    /// # Example
+    ///
+    /// The following system despawns all entities which health is negative.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Health(pub f32);
+    ///
+    /// fn despawn_all_dead_entities(mut commands: Commands, query: Query<(Entity, &Health)>) {
+    ///     for (entities, health) in query.contiguous_iter().unwrap() {
+    ///         // For each entity there is one component, hence it always holds true
+    ///         assert!(entities.len() == health.len());
+    ///         for (entity, health) in entities.iter().zip(health.iter()) {
+    ///             if health.0 < 0.0 {
+    ///                 commands.entity(*entity).despawn();
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// ```
+    ///
+    /// A mutable version: [`Self::contiguous_iter_mut`]
+    pub fn contiguous_iter(&self) -> Option<QueryContiguousIter<'_, 's, D::ReadOnly, F>>
+    where
+        D::ReadOnly: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.as_readonly().contiguous_iter_inner().ok()
+    }
+
+    /// Returns a mutable contiguous iterator over the query results for the given
+    /// [`World`](crate::world::World) or [`None`] if the query is not dense hence not contiguously
+    /// iterable.
+    ///
+    /// Contiguous iteration enables getting slices of contiguously lying components (which lie in the same table), which for example
+    /// may be used for simd-operations, which may accelerate an algorithm.
+    ///
+    /// # Example
+    ///
+    /// The following system applies a "health decay" effect on all entities, which reduces their
+    /// health by some fraction.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Health(pub f32);
+    /// #
+    /// # #[derive(Component)]
+    /// # struct HealthDecay(pub f32);
+    ///
+    /// fn apply_health_decay(mut query: Query<(&mut Health, &HealthDecay)>) {
+    ///     for (mut health, decay) in query.contiguous_iter_mut().unwrap() {
+    ///         // all data slices returned by component queries are the same size
+    ///         assert!(health.len() == decay.len());
+    ///         // we could have used health.bypass_change_detection() to do less work.
+    ///         for (health, decay) in health.iter_mut().zip(decay) {
+    ///             health.0 *= decay.0;
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    /// An immutable version: [`Self::contiguous_iter`]
+    pub fn contiguous_iter_mut(&mut self) -> Option<QueryContiguousIter<'_, 's, D, F>>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.reborrow().contiguous_iter_inner().ok()
+    }
+
+    /// Returns a contiguous iterator over the query results for the given
+    /// [`World`](crate::world::World) or [`Err`] with this [`Query`] if the query is not dense hence not contiguously
+    /// iterable.
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
+    pub fn contiguous_iter_inner(self) -> Result<QueryContiguousIter<'w, 's, D, F>, Self>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        // SAFETY:
+        // - `self.world` has permission to access the required components
+        // - `self.world` was used to initialize `self.state`
+        unsafe { QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run) }
+            .ok_or(self)
     }
 
     /// Returns the read-only query item for the given [`Entity`].
