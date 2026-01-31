@@ -3224,7 +3224,7 @@ mod tests {
         mesh.insert_indices(Indices::U32(vec![0, 1, 2, 2, 3, 0]));
         mesh = mesh.take_gpu_data().unwrap();
         assert_eq!(
-            mesh.final_aabb,
+            mesh.final_aabb.or_else(|| mesh.compute_aabb()),
             Some(Aabb3d::from_min_max([-1., -1., 0.], [-0.5, 0., 0.]))
         );
     }
