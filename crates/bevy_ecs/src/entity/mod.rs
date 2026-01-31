@@ -715,7 +715,7 @@ impl EntityAllocator {
 
     /// Builds a new remote allocator that hooks into this [`EntityAllocator`].
     /// This is useful when you need to allocate entities without holding a reference to the world (like in async).
-    pub fn build_remote_allocator(&mut self) -> RemoteAllocator {
+    pub fn build_remote_allocator(&self) -> RemoteAllocator {
         RemoteAllocator::new(&self.inner)
     }
 
