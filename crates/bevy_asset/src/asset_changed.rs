@@ -272,10 +272,9 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     ) -> bool {
         fetch.inner.as_mut().is_some_and(|inner| {
             // SAFETY: We delegate to the inner `fetch` for `A`.
-            // Component accesses are archetypal, so we don't need to check if it `matches`.
             unsafe {
-                let handle = <&A>::fetch(&state.asset_id, inner, entity, table_row);
-                fetch.check.has_changed(handle)
+                let handle = <&A>::try_fetch(&state.asset_id, inner, entity, table_row);
+                handle.is_some_and(|handle| fetch.check.has_changed(handle))
             }
         })
     }
