@@ -2064,6 +2064,7 @@ mod test {
 
         app.finish();
         app.cleanup();
+        app.startup();
 
         app
     }

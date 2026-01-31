@@ -395,6 +395,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
     let mut render_app = SubApp::new();
+    render_app.startup_schedule = Some(RenderStartup.intern());
     render_app.update_schedule = Some(Render.intern());
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
@@ -425,19 +426,7 @@ unsafe fn initialize_render_app(app: &mut App) {
             ),
         );
 
-    // We want the closure to have a flag to only run the RenderStartup schedule once, but the only
-    // way to have the closure store this flag is by capturing it. This variable is otherwise
-    // unused.
-    let mut should_run_startup = true;
     render_app.set_extract(move |main_world, render_world| {
-        if should_run_startup {
-            // Run the `RenderStartup` if it hasn't run yet. This does mean `RenderStartup` blocks
-            // the rest of the app extraction, but this is necessary since extraction itself can
-            // depend on resources initialized in `RenderStartup`.
-            render_world.run_schedule(RenderStartup);
-            should_run_startup = false;
-        }
-
         {
             #[cfg(feature = "trace")]
             let _stage_span = bevy_log::info_span!("entity_sync").entered();

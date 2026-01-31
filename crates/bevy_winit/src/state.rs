@@ -157,6 +157,7 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
             } else {
                 self.app.finish();
                 self.app.cleanup();
+                self.app.startup();
             }
             self.redraw_requested = true;
         }
@@ -884,6 +885,7 @@ pub fn winit_runner(mut app: App, event_loop: EventLoop<WinitUserEvent>) -> AppE
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();
+        app.startup();
     }
 
     let runner_state = WinitAppRunnerState::new(app);

@@ -1,6 +1,6 @@
 use crate::{
-    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
-    SubApps,
+    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, StartupMain,
+    SubApp, SubApps,
 };
 use alloc::{
     boxed::Box,
@@ -107,6 +107,7 @@ impl Debug for App {
 impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
+        app.sub_apps.main.startup_schedule = Some(StartupMain.intern());
         app.sub_apps.main.update_schedule = Some(Main.intern());
 
         #[cfg(feature = "bevy_reflect")]
@@ -153,6 +154,15 @@ impl App {
             runner: Box::new(run_once),
             default_error_handler: None,
         }
+    }
+
+    /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
+    pub fn startup(&mut self) {
+        if self.is_building_plugins() {
+            panic!("App::startup() was called while a plugin was building.");
+        }
+
+        self.sub_apps.startup();
     }
 
     /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
@@ -1460,6 +1470,7 @@ fn run_once(mut app: App) -> AppExit {
     app.finish();
     app.cleanup();
 
+    app.startup();
     app.update();
 
     app.should_exit().unwrap_or(AppExit::Success)

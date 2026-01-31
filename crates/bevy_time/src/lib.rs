@@ -329,6 +329,8 @@ mod tests {
                 Time::<Fixed>::default().timestep(),
             ));
 
+        app.startup();
+
         for _ in 0..10 {
             app.update();
         }
@@ -358,6 +360,8 @@ mod tests {
             .add_systems(Startup, write_message)
             .add_systems(FixedUpdate, count_fixed_updates)
             .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
+
+        app.startup();
 
         for frame in 0..10 {
             app.update();

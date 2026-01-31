@@ -482,6 +482,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins((InputPlugin, InputDispatchPlugin));
 
+        app.startup();
         app.update();
 
         assert_eq!(app.world().resource::<InputFocus>().0, None);
@@ -496,6 +497,7 @@ mod tests {
             .world_mut()
             .spawn((Window::default(), PrimaryWindow))
             .id();
+        app.startup();
         app.update();
 
         assert_eq!(app.world().resource::<InputFocus>().0, Some(entity_window));
@@ -512,6 +514,7 @@ mod tests {
             commands.spawn(AutoFocus);
         });
 
+        app.startup();
         app.update();
 
         let autofocus_entity = app

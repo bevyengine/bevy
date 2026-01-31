@@ -69,9 +69,7 @@ fn test_player_spawn() {
     let mut app = create_test_app();
     app.add_plugins(game_plugin);
 
-    // The `update` function needs to be called at least once for the startup
-    // systems to run.
-    app.update();
+    app.startup();
 
     // Now that the startup systems have run, we can check if the player has
     // spawned as expected.
@@ -89,6 +87,8 @@ fn test_player_spawn() {
 fn test_spell_casting() {
     let mut app = create_test_app();
     app.add_plugins(game_plugin);
+
+    app.startup();
 
     // Simulate pressing space to trigger the spell casting system.
     app.world_mut()
@@ -133,6 +133,7 @@ fn test_window_title() {
     let mut app = create_test_app();
     app.add_plugins(game_plugin);
 
+    app.startup();
     app.update();
 
     let window = app
