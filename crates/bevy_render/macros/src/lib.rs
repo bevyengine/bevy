@@ -91,22 +91,6 @@ pub fn derive_render_label(input: TokenStream) -> TokenStream {
     derive_label(input, "RenderLabel", &trait_path)
 }
 
-/// Derive macro generating an impl of the trait `RenderSubGraph`.
-///
-/// This does not work for unions.
-#[proc_macro_derive(RenderSubGraph)]
-pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_render_path();
-    trait_path
-        .segments
-        .push(format_ident!("render_graph").into());
-    trait_path
-        .segments
-        .push(format_ident!("RenderSubGraph").into());
-    derive_label(input, "RenderSubGraph", &trait_path)
-}
-
 /// Derive macro generating an impl of the trait `Specializer`
 ///
 /// This only works for structs whose members all implement `Specializer`

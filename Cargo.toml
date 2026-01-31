@@ -5360,7 +5360,7 @@ path = "examples/ui/system_fonts.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.system_fonts]
-name = "system_fonts"
+name = "System Fonts"
 description = "Demonstrates how to use system fonts"
 category = "UI (User Interface)"
 wasm = true
