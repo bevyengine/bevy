@@ -232,7 +232,7 @@ pub(crate) fn buffer_layout(
 }
 
 /// Returns the appropriate bind group layout vec based on the parameters
-fn layout_entries(
+pub fn layout_entries(
     clustered_forward_buffer_binding_type: BufferBindingType,
     visibility_ranges_buffer_binding_type: BufferBindingType,
     layout_key: MeshPipelineViewLayoutKey,
@@ -538,6 +538,7 @@ impl MeshPipelineViewLayouts {
 
 /// Generates all possible view layouts for the mesh pipeline, based on all combinations of
 /// [`MeshPipelineViewLayoutKey`] flags.
+#[deprecated(since = "0.16.0", note = "Use `layout_entries` instead")]
 pub fn generate_view_layouts(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
