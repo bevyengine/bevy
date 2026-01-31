@@ -304,7 +304,7 @@ impl MeshAttributeCompressionFlags {
 
 impl Default for MeshAttributeCompressionFlags {
     fn default() -> Self {
-        Self::COMPRESS_NONE
+        Self::all()
     }
 }
 
