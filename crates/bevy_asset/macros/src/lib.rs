@@ -17,7 +17,7 @@ const DEPENDENCY_ATTRIBUTE: &str = "dependency";
 #[proc_macro_derive(Asset, attributes(dependency))]
 pub fn derive_asset(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let bevy_asset_path: Path = bevy_asset_path();
+    let bevy_asset_path = bevy_asset_path();
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
@@ -36,7 +36,7 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(VisitAssetDependencies, attributes(dependency))]
 pub fn derive_asset_dependency_visitor(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let bevy_asset_path: Path = bevy_asset_path();
+    let bevy_asset_path = bevy_asset_path();
     match derive_dependency_visitor_internal(&ast, &bevy_asset_path) {
         Ok(dependency_visitor) => TokenStream::from(dependency_visitor),
         Err(err) => err.into_compile_error().into(),
@@ -102,7 +102,7 @@ fn derive_dependency_visitor_internal(
 
     Ok(quote! {
         impl #impl_generics #bevy_asset_path::VisitAssetDependencies for #struct_name #type_generics #where_clause {
-            fn visit_dependencies(&self, #visit: &mut impl FnMut(#bevy_asset_path::UntypedAssetId)) {
+            fn visit_dependencies(&self, #visit: &mut impl FnMut(#bevy_asset_path::AssetEntity)) {
                 #body
             }
         }

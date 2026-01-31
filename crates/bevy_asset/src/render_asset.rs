@@ -10,7 +10,7 @@ bitflags::bitflags! {
     ///
     /// Unloading the asset data saves on memory, as for most cases it is no longer necessary to keep
     /// it in RAM once it's been uploaded to the GPU's VRAM. However, this means you cannot access the
-    /// asset data from the CPU (via the `Assets<T>` resource) once unloaded (without re-loading it).
+    /// asset data from the CPU (via the [`AssetData`](crate::AssetData) component) once unloaded (without re-loading it).
     ///
     /// If you never need access to the asset from the CPU past the first frame it's loaded on,
     /// or only need very infrequent access, then set this to `RENDER_WORLD`. Otherwise, set this to

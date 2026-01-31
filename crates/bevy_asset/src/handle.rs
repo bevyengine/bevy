@@ -1,78 +1,87 @@
-use crate::{
-    meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath,
-    ErasedAssetIndex, UntypedAssetId,
-};
-use alloc::sync::Arc;
+use crate::{meta::MetaTransform, Asset, AssetEntity, AssetId, AssetPath, UntypedAssetId};
+use alloc::sync::{Arc, Weak};
+use bevy_ecs::{component::Component, resource::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
     marker::PhantomData,
 };
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::{bounded, never, Receiver, Sender};
 use disqualified::ShortName;
 use thiserror::Error;
 use uuid::Uuid;
 
-/// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
-/// This should _only_ be used for one specific asset type.
-#[derive(Clone)]
-pub struct AssetHandleProvider {
-    pub(crate) allocator: Arc<AssetIndexAllocator>,
-    pub(crate) drop_sender: Sender<DropEvent>,
-    pub(crate) drop_receiver: Receiver<DropEvent>,
-    pub(crate) type_id: TypeId,
+#[derive(Component)]
+pub struct AssetSelfHandle(pub(crate) Weak<StrongHandle>);
+
+impl AssetSelfHandle {
+    pub fn upgrade<A: Asset>(&self) -> Result<Handle<A>, HandleUpgradeError> {
+        let handle = self
+            .upgrade_untyped()
+            .ok_or(HandleUpgradeError::ExpiredHandle)?;
+        Ok(handle.try_typed()?)
+    }
+
+    pub fn upgrade_untyped(&self) -> Option<UntypedHandle> {
+        self.0.upgrade().map(UntypedHandle::Strong)
+    }
 }
 
-#[derive(Debug)]
-pub(crate) struct DropEvent {
-    pub(crate) index: ErasedAssetIndex,
-    pub(crate) asset_server_managed: bool,
+#[derive(Error, Debug, Clone)]
+pub enum HandleUpgradeError {
+    #[error("The underlying handle has been dropped, so the handle can't be upgraded")]
+    ExpiredHandle,
+    #[error(transparent)]
+    WrongType(#[from] UntypedAssetConversionError),
+}
+
+/// Provides [`Handle`] and [`UntypedHandle`]s for an entity.
+#[derive(Resource, Clone)]
+pub(crate) struct AssetHandleProvider {
+    // TODO: We only need the TypeId for sending AssetEvent::Unused. Remove the TypeId once we're
+    // using events.
+    pub(crate) drop_sender: Sender<(AssetEntity, TypeId)>,
+    pub(crate) drop_receiver: Receiver<(AssetEntity, TypeId)>,
 }
 
 impl AssetHandleProvider {
-    pub(crate) fn new(type_id: TypeId, allocator: Arc<AssetIndexAllocator>) -> Self {
+    /// Creates a fake provider, for use in cases where we don't need real handles.
+    pub(crate) fn fake() -> Self {
+        // Create a totally fake channel. The sender channel is already closed, and the receiver is
+        // just the `never` channel.
+        let (sender, _) = bounded(0);
+        let receiver = never();
+        Self {
+            drop_sender: sender,
+            drop_receiver: receiver,
+        }
+    }
+
+    /// Creates a new instance of a handle provider.
+    pub(crate) fn new() -> Self {
         let (drop_sender, drop_receiver) = crossbeam_channel::unbounded();
         Self {
-            type_id,
-            allocator,
             drop_sender,
             drop_receiver,
         }
     }
 
-    /// Reserves a new strong [`UntypedHandle`] (with a new [`UntypedAssetId`]). The stored [`Asset`] [`TypeId`] in the
-    /// [`UntypedHandle`] will match the [`Asset`] [`TypeId`] assigned to this [`AssetHandleProvider`].
-    pub fn reserve_handle(&self) -> UntypedHandle {
-        let index = self.allocator.reserve();
-        UntypedHandle::Strong(self.get_handle(index, false, None, None))
-    }
-
-    pub(crate) fn get_handle(
+    /// Creates a handle with all its asset's details provided.
+    pub(crate) fn create_handle(
         &self,
-        index: AssetIndex,
-        asset_server_managed: bool,
+        entity: AssetEntity,
+        type_id: TypeId,
         path: Option<AssetPath<'static>>,
         meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
         Arc::new(StrongHandle {
-            index,
-            type_id: self.type_id,
-            drop_sender: self.drop_sender.clone(),
+            entity,
+            type_id,
             meta_transform,
             path,
-            asset_server_managed,
+            drop_sender: self.drop_sender.clone(),
         })
-    }
-
-    pub(crate) fn reserve_handle_internal(
-        &self,
-        asset_server_managed: bool,
-        path: Option<AssetPath<'static>>,
-        meta_transform: Option<MetaTransform>,
-    ) -> Arc<StrongHandle> {
-        let index = self.allocator.reserve();
-        self.get_handle(index, asset_server_managed, path, meta_transform)
     }
 }
 
@@ -80,48 +89,185 @@ impl AssetHandleProvider {
 /// the [`Asset`] will be freed. It also stores some asset metadata for easy access from handles.
 #[derive(TypePath)]
 pub struct StrongHandle {
-    pub(crate) index: AssetIndex,
+    pub(crate) entity: AssetEntity,
     pub(crate) type_id: TypeId,
-    pub(crate) asset_server_managed: bool,
     pub(crate) path: Option<AssetPath<'static>>,
     /// Modifies asset meta. This is stored on the handle because it is:
     /// 1. configuration tied to the lifetime of a specific asset load
     /// 2. configuration that must be repeatable when the asset is hot-reloaded
     pub(crate) meta_transform: Option<MetaTransform>,
-    pub(crate) drop_sender: Sender<DropEvent>,
+    pub(crate) drop_sender: Sender<(AssetEntity, TypeId)>,
 }
 
 impl Drop for StrongHandle {
     fn drop(&mut self) {
-        let _ = self.drop_sender.send(DropEvent {
-            index: ErasedAssetIndex::new(self.index, self.type_id),
-            asset_server_managed: self.asset_server_managed,
-        });
+        let _ = self.drop_sender.send((self.entity, self.type_id));
     }
 }
 
 impl core::fmt::Debug for StrongHandle {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("StrongHandle")
-            .field("index", &self.index)
+            .field("entity", &self.entity)
             .field("type_id", &self.type_id)
-            .field("asset_server_managed", &self.asset_server_managed)
             .field("path", &self.path)
             .field("drop_sender", &self.drop_sender)
             .finish()
     }
 }
 
+/// A handle to an asset entity whose type information only exists at runtime.
+///
+/// Unlike [`UntypedHandle`], this handle is guaranteed to be pointed at an entity, and not at a
+/// UUID.
+#[derive(Clone, Debug)]
+pub struct UntypedEntityHandle(pub(crate) Arc<StrongHandle>);
+
+impl UntypedEntityHandle {
+    /// Returns the asset entity this handle references.
+    #[inline]
+    pub fn entity(&self) -> AssetEntity {
+        self.0.entity
+    }
+
+    /// Returns the [`UntypedAssetId`] for this handle.
+    #[inline]
+    pub fn id(&self) -> UntypedAssetId {
+        UntypedAssetId::Entity {
+            type_id: self.0.type_id,
+            entity: self.0.entity,
+        }
+    }
+
+    /// Returns the type ID of the asset being referenced.
+    pub fn type_id(&self) -> TypeId {
+        self.0.type_id
+    }
+
+    /// Returns the path if the asset has a path.
+    #[inline]
+    pub fn path(&self) -> Option<&AssetPath<'static>> {
+        self.0.path.as_ref()
+    }
+
+    /// Converts to a typed Handle. This _will not check if the target Handle type matches_.
+    #[inline]
+    pub fn typed_unchecked<A: Asset>(self) -> EntityHandle<A> {
+        EntityHandle(self.0, PhantomData)
+    }
+
+    /// Converts to a typed Handle. This will check the type when compiled with debug asserts, but it
+    ///  _will not check if the target Handle type matches in release builds_. Use this as an optimization
+    /// when you want some degree of validation at dev-time, but you are also very certain that the type
+    /// actually matches.
+    #[inline]
+    pub fn typed_debug_checked<A: Asset>(self) -> EntityHandle<A> {
+        debug_assert_eq!(
+            self.0.type_id,
+            TypeId::of::<A>(),
+            "The target EntityHandle<A>'s TypeId does not match the TypeId of this UntypedEntityHandle"
+        );
+        self.typed_unchecked()
+    }
+
+    /// Converts to a typed Handle. This will panic if the internal [`TypeId`] does not match the given asset type `A`
+    #[inline]
+    pub fn typed<A: Asset>(self) -> EntityHandle<A> {
+        let Ok(handle) = self.try_typed() else {
+            panic!(
+                "The target EntityHandle<{}>'s TypeId does not match the TypeId of this UntypedEntityHandle",
+                core::any::type_name::<A>()
+            )
+        };
+
+        handle
+    }
+
+    /// Converts to a typed Handle. This will panic if the internal [`TypeId`] does not match the given asset type `A`
+    #[inline]
+    pub fn try_typed<A: Asset>(self) -> Result<EntityHandle<A>, UntypedAssetConversionError> {
+        EntityHandle::try_from(self)
+    }
+}
+
+/// A handle to an asset entity for the `A` [`Asset`].
+///
+/// Unlike [`Handle`], this handle is guaranteed to be pointed at an entity, and not at a UUID.
+pub struct EntityHandle<A>(Arc<StrongHandle>, PhantomData<fn() -> A>);
+
+impl<A: Asset> EntityHandle<A> {
+    /// Returns the asset entity this handle references.
+    #[inline]
+    pub fn entity(&self) -> AssetEntity {
+        self.0.entity
+    }
+
+    /// Returns the [`AssetId`] for this handle.
+    #[inline]
+    pub fn id(&self) -> AssetId<A> {
+        AssetId::Entity {
+            entity: self.0.entity,
+            marker: PhantomData,
+        }
+    }
+
+    /// Returns the path if the asset has a path.
+    #[inline]
+    pub fn path(&self) -> Option<&AssetPath<'static>> {
+        self.0.path.as_ref()
+    }
+
+    /// Converts this [`EntityHandle`] to an "untyped" / "generic-less" [`UntypedEntityHandle`],
+    /// which stores the [`Asset`] type information _inside_ [`UntypedEntityHandle`].
+    #[inline]
+    pub fn untyped(self) -> UntypedEntityHandle {
+        self.into()
+    }
+}
+
+impl<A: Asset> TryFrom<UntypedEntityHandle> for EntityHandle<A> {
+    type Error = UntypedAssetConversionError;
+
+    fn try_from(value: UntypedEntityHandle) -> Result<Self, Self::Error> {
+        let found = value.0.type_id;
+        let expected = TypeId::of::<A>();
+        if found == expected {
+            return Err(UntypedAssetConversionError::TypeIdMismatch { expected, found });
+        }
+
+        Ok(value.typed_unchecked())
+    }
+}
+
+impl<A: Asset> From<EntityHandle<A>> for UntypedEntityHandle {
+    fn from(value: EntityHandle<A>) -> Self {
+        UntypedEntityHandle(value.0)
+    }
+}
+
+impl<A: core::fmt::Debug> core::fmt::Debug for EntityHandle<A> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("EntityHandle").field(&self.0).finish()
+    }
+}
+
+impl<A> Clone for EntityHandle<A> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone(), PhantomData)
+    }
+}
+
 /// A handle to a specific [`Asset`] of type `A`. Handles act as abstract "references" to
-/// assets, whose data are stored in the [`Assets<A>`](crate::prelude::Assets) resource,
+/// assets, whose data are stored on entities in the [`AssetData`](crate::AssetData) component,
 /// avoiding the need to store multiple copies of the same data.
 ///
 /// If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
-/// alive until the [`Handle`] is dropped. If a [`Handle`] is [`Handle::Uuid`], it does not necessarily reference a live [`Asset`],
-/// nor will it keep assets alive.
+/// alive until the [`Handle`] is dropped. If a [`Handle`] is [`Handle::Uuid`], it does not
+/// necessarily reference a live [`Asset`].
 ///
 /// Modifying a *handle* will change which existing asset is referenced, but modifying the *asset*
-/// (by mutating the [`Assets`](crate::prelude::Assets) resource) will change the asset for all handles referencing it.
+/// (by mutating the data in [`AssetData`](crate::AssetData)) will change the asset for all handles
+/// referencing it.
 ///
 /// [`Handle`] can be cloned. If a [`Handle::Strong`] is cloned, the referenced [`Asset`] will not be freed until _all_ instances
 /// of the [`Handle`] are dropped.
@@ -148,15 +294,29 @@ impl<T: Asset> Clone for Handle<T> {
 }
 
 impl<A: Asset> Handle<A> {
-    /// Returns the [`AssetId`] of this [`Asset`].
+    /// Returns the entity if this is a strong handle.
+    ///
+    /// While a UUID could refer to an entity as well, the handle must first be resolved with
+    /// [`crate::AssetUuidMap::resolve_handle`]. In general, using
+    /// [`crate::AssetUuidMap::resolve_handle`] should be preferred to allow for maximum
+    /// flexibility.
+    #[inline]
+    pub fn entity(&self) -> Option<AssetEntity> {
+        match self {
+            Self::Strong(handle) => Some(handle.entity),
+            Self::Uuid(..) => None,
+        }
+    }
+
+    /// Returns the [`AssetId`] for this handle.
     #[inline]
     pub fn id(&self) -> AssetId<A> {
         match self {
-            Handle::Strong(handle) => AssetId::Index {
-                index: handle.index,
+            Self::Strong(handle) => AssetId::Entity {
+                entity: handle.entity,
                 marker: PhantomData,
             },
-            Handle::Uuid(uuid, ..) => AssetId::Uuid { uuid: *uuid },
+            Self::Uuid(uuid, _) => AssetId::Uuid { uuid: *uuid },
         }
     }
 
@@ -164,8 +324,17 @@ impl<A: Asset> Handle<A> {
     #[inline]
     pub fn path(&self) -> Option<&AssetPath<'static>> {
         match self {
-            Handle::Strong(handle) => handle.path.as_ref(),
-            Handle::Uuid(..) => None,
+            Self::Strong(handle) => handle.path.as_ref(),
+            Self::Uuid(..) => None,
+        }
+    }
+
+    /// Returns the UUID if this is a UUID handle.
+    #[inline]
+    pub fn uuid(&self) -> Option<Uuid> {
+        match self {
+            Self::Uuid(uuid, _) => Some(*uuid),
+            Self::Strong(_) => None,
         }
     }
 
@@ -203,8 +372,8 @@ impl<A: Asset> core::fmt::Debug for Handle<A> {
             Handle::Strong(handle) => {
                 write!(
                     f,
-                    "StrongHandle<{name}>{{ index: {:?}, type_id: {:?}, path: {:?} }}",
-                    handle.index, handle.type_id, handle.path
+                    "StrongHandle<{name}>{{ entity: {:?}, type_id: {:?}, path: {:?} }}",
+                    handle.entity, handle.type_id, handle.path
                 )
             }
             Handle::Uuid(uuid, ..) => write!(f, "UuidHandle<{name}>({uuid:?})"),
@@ -240,34 +409,6 @@ impl<A: Asset> PartialEq for Handle<A> {
 
 impl<A: Asset> Eq for Handle<A> {}
 
-impl<A: Asset> From<&Handle<A>> for AssetId<A> {
-    #[inline]
-    fn from(value: &Handle<A>) -> Self {
-        value.id()
-    }
-}
-
-impl<A: Asset> From<&Handle<A>> for UntypedAssetId {
-    #[inline]
-    fn from(value: &Handle<A>) -> Self {
-        value.id().into()
-    }
-}
-
-impl<A: Asset> From<&mut Handle<A>> for AssetId<A> {
-    #[inline]
-    fn from(value: &mut Handle<A>) -> Self {
-        value.id()
-    }
-}
-
-impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
-    #[inline]
-    fn from(value: &mut Handle<A>) -> Self {
-        value.id().into()
-    }
-}
-
 impl<A: Asset> From<Uuid> for Handle<A> {
     #[inline]
     fn from(uuid: Uuid) -> Self {
@@ -284,7 +425,7 @@ impl<A: Asset> From<Uuid> for Handle<A> {
 pub enum UntypedHandle {
     /// A strong handle, which will keep the referenced [`Asset`] alive until all strong handles are dropped.
     Strong(Arc<StrongHandle>),
-    /// A UUID handle, which does not keep the referenced [`Asset`] alive.
+    /// A UUID handle. Dropping this handle will not result in the asset being dropped.
     Uuid {
         /// An identifier that records the underlying asset type.
         type_id: TypeId,
@@ -294,15 +435,27 @@ pub enum UntypedHandle {
 }
 
 impl UntypedHandle {
-    /// Returns the [`UntypedAssetId`] for the referenced asset.
+    /// Returns the entity if this is a strong handle.
+    ///
+    /// While a UUID could refer to an entity as well, the handle must first be resolved with
+    /// [`crate::AssetUuidMap::resolve_untyped_handle`].
+    #[inline]
+    pub fn entity(&self) -> Option<AssetEntity> {
+        match self {
+            Self::Strong(handle) => Some(handle.entity),
+            Self::Uuid { .. } => None,
+        }
+    }
+
+    /// Returns the [`UntypedAssetId`] for this handle.
     #[inline]
     pub fn id(&self) -> UntypedAssetId {
         match self {
-            UntypedHandle::Strong(handle) => UntypedAssetId::Index {
+            Self::Strong(handle) => UntypedAssetId::Entity {
+                entity: handle.entity,
                 type_id: handle.type_id,
-                index: handle.index,
             },
-            UntypedHandle::Uuid { type_id, uuid } => UntypedAssetId::Uuid {
+            Self::Uuid { uuid, type_id } => UntypedAssetId::Uuid {
                 uuid: *uuid,
                 type_id: *type_id,
             },
@@ -315,6 +468,15 @@ impl UntypedHandle {
         match self {
             UntypedHandle::Strong(handle) => handle.path.as_ref(),
             UntypedHandle::Uuid { .. } => None,
+        }
+    }
+
+    /// Returns the UUID if this is a UUID handle.
+    #[inline]
+    pub fn uuid(&self) -> Option<Uuid> {
+        match self {
+            Self::Uuid { uuid, .. } => Some(*uuid),
+            Self::Strong(_) => None,
         }
     }
 
@@ -383,7 +545,7 @@ impl UntypedHandle {
 impl PartialEq for UntypedHandle {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.id() == other.id() && self.type_id() == other.type_id()
+        self.id() == other.id()
     }
 }
 
@@ -402,8 +564,8 @@ impl core::fmt::Debug for UntypedHandle {
             UntypedHandle::Strong(handle) => {
                 write!(
                     f,
-                    "StrongHandle{{ type_id: {:?}, id: {:?}, path: {:?} }}",
-                    handle.type_id, handle.index, handle.path
+                    "StrongHandle{{ type_id: {:?}, entity: {:?}, path: {:?} }}",
+                    handle.type_id, handle.entity, handle.path
                 )
             }
             UntypedHandle::Uuid { type_id, uuid } => {
@@ -415,18 +577,7 @@ impl core::fmt::Debug for UntypedHandle {
 
 impl PartialOrd for UntypedHandle {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        if self.type_id() == other.type_id() {
-            self.id().partial_cmp(&other.id())
-        } else {
-            None
-        }
-    }
-}
-
-impl From<&UntypedHandle> for UntypedAssetId {
-    #[inline]
-    fn from(value: &UntypedHandle) -> Self {
-        value.id()
+        self.id().partial_cmp(&other.id())
     }
 }
 
@@ -435,7 +586,7 @@ impl From<&UntypedHandle> for UntypedAssetId {
 impl<A: Asset> PartialEq<UntypedHandle> for Handle<A> {
     #[inline]
     fn eq(&self, other: &UntypedHandle) -> bool {
-        TypeId::of::<A>() == other.type_id() && self.id() == other.id()
+        self.id() == other.id()
     }
 }
 
@@ -449,11 +600,7 @@ impl<A: Asset> PartialEq<Handle<A>> for UntypedHandle {
 impl<A: Asset> PartialOrd<UntypedHandle> for Handle<A> {
     #[inline]
     fn partial_cmp(&self, other: &UntypedHandle) -> Option<core::cmp::Ordering> {
-        if TypeId::of::<A>() != other.type_id() {
-            None
-        } else {
-            self.id().partial_cmp(&other.id())
-        }
+        self.id().partial_cmp(&other.id())
     }
 }
 
@@ -491,6 +638,64 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
             UntypedHandle::Strong(handle) => Handle::Strong(handle),
             UntypedHandle::Uuid { uuid, .. } => Handle::Uuid(uuid, PhantomData),
         })
+    }
+}
+
+impl<A: Asset> TryFrom<Handle<A>> for EntityHandle<A> {
+    type Error = HandleToEntityHandleError;
+
+    fn try_from(value: Handle<A>) -> Result<Self, Self::Error> {
+        match value {
+            Handle::Uuid(uuid, _) => Err(HandleToEntityHandleError::UuidHandle(uuid)),
+            Handle::Strong(inner) => Ok(EntityHandle(inner, PhantomData)),
+        }
+    }
+}
+
+impl TryFrom<UntypedHandle> for UntypedEntityHandle {
+    type Error = HandleToEntityHandleError;
+
+    fn try_from(value: UntypedHandle) -> Result<Self, Self::Error> {
+        match value {
+            UntypedHandle::Uuid { uuid, .. } => Err(HandleToEntityHandleError::UuidHandle(uuid)),
+            UntypedHandle::Strong(inner) => Ok(UntypedEntityHandle(inner)),
+        }
+    }
+}
+
+impl<A: Asset> From<&Handle<A>> for AssetId<A> {
+    fn from(value: &Handle<A>) -> Self {
+        value.id()
+    }
+}
+
+impl<A: Asset> From<&Handle<A>> for UntypedAssetId {
+    fn from(value: &Handle<A>) -> Self {
+        value.id().into()
+    }
+}
+
+impl<A: Asset> From<&mut Handle<A>> for AssetId<A> {
+    fn from(value: &mut Handle<A>) -> Self {
+        value.id()
+    }
+}
+
+impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
+    fn from(value: &mut Handle<A>) -> Self {
+        value.id().into()
+    }
+}
+
+impl From<&UntypedHandle> for UntypedAssetId {
+    fn from(value: &UntypedHandle) -> Self {
+        value.id()
+    }
+}
+
+impl From<&mut UntypedHandle> for UntypedAssetId {
+    fn from(value: &mut UntypedHandle) -> Self {
+        value.id()
     }
 }
 
@@ -534,6 +739,15 @@ pub enum UntypedAssetConversionError {
     },
 }
 
+/// An error for when trying to convert a [`Handle`]/[`UntypedHandle`] into an
+/// [`EntityHandle`]/[`UntypedEntityHandle`].
+#[derive(Error, Debug)]
+pub enum HandleToEntityHandleError {
+    /// The handle is not an entity handle.
+    #[error("The handle being converted is a UUID handle, not an entity handle")]
+    UuidHandle(Uuid),
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::boxed::Box;
@@ -542,7 +756,7 @@ mod tests {
     use core::hash::BuildHasher;
     use uuid::Uuid;
 
-    use crate::tests::create_app;
+    use crate::{tests::create_app, DirectAssetAccessExt};
 
     use super::*;
 
@@ -642,13 +856,13 @@ mod tests {
         let handle: Handle<TestAsset> = uuid.into();
 
         assert!(handle.is_uuid());
-        assert_eq!(handle.id(), AssetId::Uuid { uuid });
+        assert_eq!(handle.id(), AssetId::<TestAsset>::Uuid { uuid });
     }
 
     /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong count of a strong handle
     #[test]
     fn strong_handle_reflect_clone() {
-        use crate::{AssetApp, Assets, VisitAssetDependencies};
+        use crate::{AssetApp, VisitAssetDependencies};
         use bevy_reflect::FromReflect;
 
         #[derive(Reflect)]
@@ -657,14 +871,13 @@ mod tests {
         }
         impl Asset for MyAsset {}
         impl VisitAssetDependencies for MyAsset {
-            fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
+            fn visit_dependencies(&self, _visit: &mut impl FnMut(AssetEntity)) {}
         }
 
         let mut app = create_app().0;
         app.init_asset::<MyAsset>();
-        let mut assets = app.world_mut().resource_mut::<Assets<MyAsset>>();
 
-        let handle: Handle<MyAsset> = assets.add(MyAsset { value: 1 });
+        let handle: Handle<MyAsset> = app.world_mut().spawn_asset(MyAsset { value: 1 });
         match &handle {
             Handle::Strong(strong) => {
                 assert_eq!(
