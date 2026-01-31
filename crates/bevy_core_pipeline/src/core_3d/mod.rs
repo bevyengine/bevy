@@ -822,7 +822,8 @@ pub fn prepare_prepass_textures(
                             sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
                             format: NORMAL_PREPASS_FORMAT,
-                            usage: TextureUsages::RENDER_ATTACHMENT
+                            usage: TextureUsages::COPY_DST
+                                | TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
                             view_formats: &[],
                         },
@@ -844,7 +845,8 @@ pub fn prepare_prepass_textures(
                             sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
                             format: MOTION_VECTOR_PREPASS_FORMAT,
-                            usage: TextureUsages::RENDER_ATTACHMENT
+                            usage: TextureUsages::COPY_DST
+                                | TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
                             view_formats: &[],
                         },
