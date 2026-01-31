@@ -5,7 +5,7 @@ use core::ops::Range;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_3d::{main_opaque_pass_3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED},
+    core_3d::{main_opaque_pass_3d, DEPTH_PREPASS_TEXTURE_SUPPORTED},
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     schedule::{Core3d, Core3dSystems},
     FullscreenShader,
@@ -523,7 +523,7 @@ impl ExtractComponent for ScreenSpaceReflections {
     type Out = ScreenSpaceReflectionsUniform;
 
     fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
+        if !DEPTH_PREPASS_TEXTURE_SUPPORTED {
             once!(info!(
                 "Disabling screen-space reflections on this platform because depth textures \
                 aren't supported correctly"
