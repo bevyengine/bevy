@@ -3,6 +3,7 @@
 //! Includes:
 //!
 //! - Chromatic Aberration
+//! - Film Grain
 //! - Vignette
 
 use std::f32::consts::PI;
@@ -10,34 +11,43 @@ use std::f32::consts::PI;
 use bevy::{
     camera::Hdr,
     light::CascadeShadowConfigBuilder,
-    post_process::effect_stack::{ChromaticAberration, Vignette},
+    post_process::effect_stack::{ChromaticAberration, FilmGrain, Vignette},
     prelude::*,
 };
 
 /// The number of units per frame to add to or subtract from intensity when the
 /// arrow keys are held.
-const ADJUSTMENT_SPEED: f32 = 0.005;
+const ADJUSTMENT_SPEED: f32 = 0.002;
 
 /// The maximum supported chromatic aberration intensity level.
 const MAX_CHROMATIC_ABERRATION_INTENSITY: f32 = 0.4;
 
+/// The maximum supported film grain intensity level.
+const MAX_FILM_GRAIN_INTENSITY: f32 = 0.2;
+
 /// The settings that the user can control.
 #[derive(Resource)]
 struct AppSettings {
+    /// Control visibility of UI.
+    ui_visible: bool,
     /// The index of the currently selected UI item.
     selected: usize,
     /// The intensity of the chromatic aberration effect.
     chromatic_aberration_intensity: f32,
     /// The intensity of the vignette effect.
     vignette_intensity: f32,
-    /// The radius of the vignette.
+    /// The radius of the vignette effect.
     vignette_radius: f32,
-    /// The smoothness of the vignette.
+    /// The smoothness of the vignette effect.
     vignette_smoothness: f32,
-    /// The roundness of the vignette.
+    /// The roundness of the vignette effect.
     vignette_roundness: f32,
-    /// The edge compensation of the vignette.
+    /// The edge compensation of the vignette effect.
     vignette_edge_compensation: f32,
+    /// The intensity of the film grain effect.
+    film_grain_intensity: f32,
+    /// The grain size of the film grain effect.
+    film_grain_grain_size: f32,
 }
 
 /// The entry point.
@@ -92,6 +102,8 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         ChromaticAberration::default(),
         // Include the `Vignette` component.
         Vignette::default(),
+        // Include the `FilmGrain` component.
+        FilmGrain::default(),
     ));
 }
 
@@ -147,23 +159,31 @@ fn spawn_text(commands: &mut Commands) {
 impl Default for AppSettings {
     fn default() -> Self {
         let vignette_default = Vignette::default();
+        let film_grain = FilmGrain::default();
         Self {
-            selected: 0,
+            ui_visible: true,
+            selected: 6,
             chromatic_aberration_intensity: ChromaticAberration::default().intensity,
             vignette_intensity: vignette_default.intensity,
             vignette_radius: vignette_default.radius,
             vignette_smoothness: vignette_default.smoothness,
             vignette_roundness: vignette_default.roundness,
             vignette_edge_compensation: vignette_default.edge_compensation,
+            film_grain_intensity: film_grain.intensity,
+            film_grain_grain_size: film_grain.grain_size,
         }
     }
 }
 
 /// Handles requests from the user to change the chromatic aberration intensity.
 fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<ButtonInput<KeyCode>>) {
+    if input.just_pressed(KeyCode::KeyH) {
+        app_settings.ui_visible = !app_settings.ui_visible;
+    }
+
     if input.just_pressed(KeyCode::ArrowUp) && app_settings.selected > 0 {
         app_settings.selected -= 1;
-    } else if input.just_pressed(KeyCode::ArrowDown) && app_settings.selected < 5 {
+    } else if input.just_pressed(KeyCode::ArrowDown) && app_settings.selected < 7 {
         app_settings.selected += 1;
     }
 
@@ -198,6 +218,14 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
             app_settings.vignette_edge_compensation =
                 (app_settings.vignette_edge_compensation + delta).clamp(0.0, 1.0);
         }
+        6 => {
+            app_settings.film_grain_intensity =
+                (app_settings.film_grain_intensity + delta).clamp(0.0, MAX_FILM_GRAIN_INTENSITY);
+        }
+        7 => {
+            app_settings.film_grain_grain_size =
+                (app_settings.film_grain_grain_size + delta).max(0.01);
+        }
         _ => {}
     }
 }
@@ -206,6 +234,7 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
 fn update_chromatic_aberration_settings(
     mut chromatic_aberration: Query<&mut ChromaticAberration>,
     mut vignette: Query<&mut Vignette>,
+    mut film_grain: Query<&mut FilmGrain>,
     app_settings: Res<AppSettings>,
 ) {
     let intensity = app_settings.chromatic_aberration_intensity;
@@ -231,41 +260,60 @@ fn update_chromatic_aberration_settings(
         vignette.roundness = app_settings.vignette_roundness;
         vignette.edge_compensation = app_settings.vignette_edge_compensation;
     }
+
+    for mut film_grain in &mut film_grain {
+        film_grain.intensity = app_settings.film_grain_intensity;
+        film_grain.grain_size = app_settings.film_grain_grain_size;
+    }
 }
 
 /// Updates the help text at the bottom of the screen to reflect the current
 /// [`AppSettings`].
 fn update_help_text(mut text: Single<&mut Text>, app_settings: Res<AppSettings>) {
     text.clear();
-    //let vignette_mode_list = ["Cosine Fourth Law", "Higher-order Powers", "Smoothstep"];
-    let text_list = [
-        format!(
-            "Chromatic aberration intensity: {:.2}\n",
-            app_settings.chromatic_aberration_intensity
-        ),
-        format!(
-            "Vignette intensity: {:.2}\n",
-            app_settings.vignette_intensity
-        ),
-        format!("Vignette radius: {:.2}\n", app_settings.vignette_radius),
-        format!(
-            "Vignette smoothness: {:.2}\n",
-            app_settings.vignette_smoothness
-        ),
-        format!(
-            "Vignette roundness: {:.2}\n",
-            app_settings.vignette_roundness
-        ),
-        format!(
-            "Vignette edge_compensation: {:.2}\n",
-            app_settings.vignette_edge_compensation
-        ),
-    ];
-    for (i, val) in text_list.iter().enumerate() {
-        if i == app_settings.selected {
-            text.push_str("> ");
+
+    if app_settings.ui_visible {
+        let text_list = [
+            format!(
+                "Chromatic aberration intensity: {:.2}\n",
+                app_settings.chromatic_aberration_intensity
+            ),
+            format!(
+                "Vignette intensity: {:.2}\n",
+                app_settings.vignette_intensity
+            ),
+            format!("Vignette radius: {:.2}\n", app_settings.vignette_radius),
+            format!(
+                "Vignette smoothness: {:.2}\n",
+                app_settings.vignette_smoothness
+            ),
+            format!(
+                "Vignette roundness: {:.2}\n",
+                app_settings.vignette_roundness
+            ),
+            format!(
+                "Vignette edge_compensation: {:.2}\n",
+                app_settings.vignette_edge_compensation
+            ),
+            format!(
+                "Film grain intensity: {:.2}\n",
+                app_settings.film_grain_intensity
+            ),
+            format!(
+                "Film grain grain size: {:.2}\n",
+                app_settings.film_grain_grain_size
+            ),
+        ];
+
+        for (i, val) in text_list.iter().enumerate() {
+            if i == app_settings.selected {
+                text.push_str("> ");
+            }
+            text.push_str(val);
         }
-        text.push_str(val);
+
+        text.push_str("\n(Press Up or Down to select)\n(Press Left or Right to change)\n");
     }
-    text.push_str("\n(Press Up or Down to select)\n(Press Left or Right to change)");
+
+    text.push_str("(Press H to toggle UI)");
 }

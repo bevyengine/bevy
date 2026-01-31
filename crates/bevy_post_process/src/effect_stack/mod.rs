@@ -3,23 +3,27 @@
 //! Includes:
 //!
 //! - Chromatic Aberration
+//! - Film Grain
 //! - Vignette
 
 mod chromatic_aberration;
+mod film_grain;
 mod vignette;
 
-use bevy_color::ColorToComponents;
 pub use chromatic_aberration::{ChromaticAberration, ChromaticAberrationUniform};
+pub use film_grain::{FilmGrain, FilmGrainUniform};
 pub use vignette::{Vignette, VignetteUniform};
 
-use crate::effect_stack::chromatic_aberration::{
-    DefaultChromaticAberrationLut, DEFAULT_CHROMATIC_ABERRATION_LUT_DATA,
+use crate::effect_stack::{
+    chromatic_aberration::{DefaultChromaticAberrationLut, DEFAULT_CHROMATIC_ABERRATION_LUT_DATA},
+    film_grain::{DefaultFilmGrainTexture, DEFAULT_FILM_GRAIN_TEXTURE_DATA},
 };
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{
     embedded_asset, load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages,
 };
+use bevy_color::ColorToComponents;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -27,7 +31,7 @@ use bevy_ecs::{
     query::{AnyOf, Or, With},
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_render::{
@@ -36,7 +40,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
-        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        AddressMode, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
         FilterMode, FragmentState, MipmapFilterMode, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
@@ -64,6 +68,7 @@ use bevy_core_pipeline::{
 /// Includes:
 ///
 /// - Chromatic Aberration
+/// - Film Grain
 /// - Vignette
 #[derive(Default)]
 pub struct EffectStackPlugin;
@@ -79,6 +84,8 @@ pub struct PostProcessingPipeline {
     source_sampler: Sampler,
     /// Specifies how to sample the chromatic aberration gradient.
     chromatic_aberration_lut_sampler: Sampler,
+    /// Specifies how to sample the film grain texture.
+    film_grain_sampler: Sampler,
     /// The asset handle for the fullscreen vertex shader.
     fullscreen_shader: FullscreenShader,
     /// The fragment shader asset handle.
@@ -106,6 +113,7 @@ pub struct PostProcessingPipelineId(CachedRenderPipelineId);
 pub struct PostProcessingUniformBuffers {
     chromatic_aberration: DynamicUniformBuffer<ChromaticAberrationUniform>,
     vignette: DynamicUniformBuffer<VignetteUniform>,
+    film_grain: DynamicUniformBuffer<FilmGrainUniform>,
 }
 
 /// A component, part of the render world, that stores the appropriate byte
@@ -115,11 +123,14 @@ pub struct PostProcessingUniformBuffers {
 pub struct PostProcessingUniformBufferOffsets {
     chromatic_aberration: u32,
     vignette: u32,
+    film_grain: u32,
 }
 
 impl Plugin for EffectStackPlugin {
     fn build(&self, app: &mut App) {
+        load_shader_library!(app, "bindings.wgsl");
         load_shader_library!(app, "chromatic_aberration.wgsl");
+        load_shader_library!(app, "film_grain.wgsl");
         load_shader_library!(app, "vignette.wgsl");
 
         embedded_asset!(app, "post_process.wgsl");
@@ -138,8 +149,21 @@ impl Plugin for EffectStackPlugin {
             RenderAssetUsages::RENDER_WORLD,
         ));
 
+        let default_film_grain_texture = assets.add(Image::new(
+            Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            DEFAULT_FILM_GRAIN_TEXTURE_DATA.to_vec(),
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::RENDER_WORLD,
+        ));
+
         app.add_plugins(ExtractComponentPlugin::<ChromaticAberration>::default())
-            .add_plugins(ExtractComponentPlugin::<Vignette>::default());
+            .add_plugins(ExtractComponentPlugin::<Vignette>::default())
+            .add_plugins(ExtractComponentPlugin::<FilmGrain>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -147,6 +171,7 @@ impl Plugin for EffectStackPlugin {
 
         render_app
             .insert_resource(DefaultChromaticAberrationLut(default_lut))
+            .insert_resource(DefaultFilmGrainTexture(default_film_grain_texture))
             .init_resource::<SpecializedRenderPipelines<PostProcessingPipeline>>()
             .init_resource::<PostProcessingUniformBuffers>()
             .add_systems(RenderStartup, init_post_processing_pipeline)
@@ -190,6 +215,12 @@ pub fn init_post_processing_pipeline(
                 uniform_buffer::<ChromaticAberrationUniform>(true),
                 // Vignette settings:
                 uniform_buffer::<VignetteUniform>(true),
+                // Film grain texture.
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Film grain texture sampler.
+                sampler(SamplerBindingType::Filtering),
+                // Film grain settings:
+                uniform_buffer::<FilmGrainUniform>(true),
             ),
         ),
     );
@@ -211,10 +242,21 @@ pub fn init_post_processing_pipeline(
         ..default()
     });
 
+    let film_grain_sampler = render_device.create_sampler(&SamplerDescriptor {
+        address_mode_u: AddressMode::Repeat,
+        address_mode_v: AddressMode::Repeat,
+        address_mode_w: AddressMode::Repeat,
+        mipmap_filter: MipmapFilterMode::Linear,
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        ..default()
+    });
+
     commands.insert_resource(PostProcessingPipeline {
         bind_group_layout,
         source_sampler,
         chromatic_aberration_lut_sampler,
+        film_grain_sampler,
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(asset_server.as_ref(), "post_process.wgsl"),
     });
@@ -246,7 +288,7 @@ pub(crate) fn post_processing(
     view: ViewQuery<(
         &ViewTarget,
         &PostProcessingPipelineId,
-        AnyOf<(&ChromaticAberration, &Vignette)>,
+        AnyOf<(&ChromaticAberration, &Vignette, &FilmGrain)>,
         &PostProcessingUniformBufferOffsets,
     )>,
     pipeline_cache: Res<PipelineCache>,
@@ -254,14 +296,18 @@ pub(crate) fn post_processing(
     post_processing_uniform_buffers: Res<PostProcessingUniformBuffers>,
     gpu_image_assets: Res<RenderAssets<GpuImage>>,
     default_lut: Res<DefaultChromaticAberrationLut>,
+    default_film_grain_texture: Res<DefaultFilmGrainTexture>,
     mut ctx: RenderContext,
 ) {
     let (view_target, pipeline_id, post_effects, post_processing_uniform_buffer_offsets) =
         view.into_inner();
 
-    let (maybe_chromatic_aberration, maybe_vignette) = post_effects;
+    let (maybe_chromatic_aberration, maybe_vignette, maybe_film_grain) = post_effects;
 
-    if maybe_chromatic_aberration.is_none() && maybe_vignette.is_none() {
+    if maybe_chromatic_aberration.is_none()
+        && maybe_vignette.is_none()
+        && maybe_film_grain.is_none()
+    {
         return;
     }
 
@@ -279,6 +325,14 @@ pub(crate) fn post_processing(
         return;
     };
 
+    let Some(film_grain_texture) = gpu_image_assets.get(
+        maybe_film_grain
+            .and_then(|fg| fg.texture.as_ref())
+            .unwrap_or(&default_film_grain_texture.0),
+    ) else {
+        return;
+    };
+
     // We need the postprocessing settings to be uploaded to the GPU.
     let Some(chromatic_aberration_uniform_buffer_binding) = post_processing_uniform_buffers
         .chromatic_aberration
@@ -288,6 +342,12 @@ pub(crate) fn post_processing(
     };
 
     let Some(vignette_uniform_buffer_binding) = post_processing_uniform_buffers.vignette.binding()
+    else {
+        return;
+    };
+
+    let Some(film_grain_uniform_buffer_binding) =
+        post_processing_uniform_buffers.film_grain.binding()
     else {
         return;
     };
@@ -319,6 +379,9 @@ pub(crate) fn post_processing(
             &post_processing_pipeline.chromatic_aberration_lut_sampler,
             chromatic_aberration_uniform_buffer_binding,
             vignette_uniform_buffer_binding,
+            &post_processing_pipeline.film_grain_sampler,
+            &film_grain_texture.texture_view,
+            film_grain_uniform_buffer_binding,
         )),
     );
 
@@ -335,6 +398,7 @@ pub(crate) fn post_processing(
         &[
             post_processing_uniform_buffer_offsets.chromatic_aberration,
             post_processing_uniform_buffer_offsets.vignette,
+            post_processing_uniform_buffer_offsets.film_grain,
         ],
     );
     render_pass.draw(0..3, 0..1);
@@ -348,7 +412,10 @@ pub fn prepare_post_processing_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<PostProcessingPipeline>>,
     post_processing_pipeline: Res<PostProcessingPipeline>,
-    views: Query<(Entity, &ExtractedView), Or<(With<ChromaticAberration>, With<Vignette>)>>,
+    views: Query<
+        (Entity, &ExtractedView),
+        Or<(With<ChromaticAberration>, With<Vignette>, With<FilmGrain>)>,
+    >,
 ) {
     for (entity, view) in views.iter() {
         let pipeline_id = pipelines.specialize(
@@ -376,16 +443,26 @@ pub fn prepare_post_processing_uniforms(
     mut post_processing_uniform_buffers: ResMut<PostProcessingUniformBuffers>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    mut frame_count: Local<u32>,
     mut views: Query<
-        (Entity, Option<&ChromaticAberration>, Option<&Vignette>),
-        Or<(With<ChromaticAberration>, With<Vignette>)>,
+        (
+            Entity,
+            Option<&ChromaticAberration>,
+            Option<&Vignette>,
+            Option<&FilmGrain>,
+        ),
+        Or<(With<ChromaticAberration>, With<Vignette>, With<FilmGrain>)>,
     >,
 ) {
+    *frame_count += 1;
     post_processing_uniform_buffers.chromatic_aberration.clear();
     post_processing_uniform_buffers.vignette.clear();
+    post_processing_uniform_buffers.film_grain.clear();
 
     // Gather up all the postprocessing settings.
-    for (view_entity, maybe_chromatic_aberration, maybe_vignette) in views.iter_mut() {
+    for (view_entity, maybe_chromatic_aberration, maybe_vignette, maybe_film_grain) in
+        views.iter_mut()
+    {
         let chromatic_aberration_uniform_buffer_offset =
             if let Some(chromatic_aberration) = maybe_chromatic_aberration {
                 post_processing_uniform_buffers.chromatic_aberration.push(
@@ -421,11 +498,31 @@ pub fn prepare_post_processing_uniforms(
                 .push(&VignetteUniform::default())
         };
 
+        let film_grain_uniform_buffer_offset = if let Some(film_grain) = maybe_film_grain {
+            post_processing_uniform_buffers
+                .film_grain
+                .push(&FilmGrainUniform {
+                    intensity: film_grain.intensity,
+                    shadows_intensity: film_grain.shadows_intensity,
+                    midtones_intensity: film_grain.midtones_intensity,
+                    highlights_intensity: film_grain.highlights_intensity,
+                    shadows_threshold: film_grain.shadows_threshold,
+                    highlights_threshold: film_grain.highlights_threshold,
+                    grain_size: film_grain.grain_size,
+                    frame: *frame_count,
+                })
+        } else {
+            post_processing_uniform_buffers
+                .film_grain
+                .push(&FilmGrainUniform::default())
+        };
+
         commands
             .entity(view_entity)
             .insert(PostProcessingUniformBufferOffsets {
                 chromatic_aberration: chromatic_aberration_uniform_buffer_offset,
                 vignette: vignette_uniform_buffer_offset,
+                film_grain: film_grain_uniform_buffer_offset,
             });
     }
 
@@ -435,5 +532,8 @@ pub fn prepare_post_processing_uniforms(
         .write_buffer(&render_device, &render_queue);
     post_processing_uniform_buffers
         .vignette
+        .write_buffer(&render_device, &render_queue);
+    post_processing_uniform_buffers
+        .film_grain
         .write_buffer(&render_device, &render_queue);
 }
