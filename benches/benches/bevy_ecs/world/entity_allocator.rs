@@ -72,6 +72,29 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
 
     group.finish();
 
+    let mut group = criterion.benchmark_group("entity_allocator_free_bulk");
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+
+    for entity_count in ENTITY_COUNTS {
+        group.bench_function(format!("{entity_count}_entities"), |bencher| {
+            bencher.iter_batched_ref(
+                || {
+                    let world = World::new();
+                    let entities =
+                        Vec::from_iter(world.entity_allocator().alloc_many(entity_count));
+                    (world, entities)
+                },
+                |(world, entities)| {
+                    world.entity_allocator_mut().free_many(entities);
+                },
+                BatchSize::SmallInput,
+            );
+        });
+    }
+
+    group.finish();
+
     let mut group = criterion.benchmark_group("entity_allocator_allocate_reused");
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
@@ -81,11 +104,9 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
             bencher.iter_batched_ref(
                 || {
                     let mut world = World::new();
-                    let mut entities =
+                    let entities =
                         Vec::from_iter(world.entity_allocator().alloc_many(entity_count));
-                    entities
-                        .drain(..)
-                        .for_each(|e| world.entity_allocator_mut().free(e));
+                    world.entity_allocator_mut().free_many(&entities);
                     world
                 },
                 |world| {
@@ -110,11 +131,9 @@ pub fn entity_allocator_benches(criterion: &mut Criterion) {
             bencher.iter_batched_ref(
                 || {
                     let mut world = World::new();
-                    let mut entities =
+                    let entities =
                         Vec::from_iter(world.entity_allocator().alloc_many(entity_count));
-                    entities
-                        .drain(..)
-                        .for_each(|e| world.entity_allocator_mut().free(e));
+                    world.entity_allocator_mut().free_many(&entities);
                     world
                 },
                 |world| {

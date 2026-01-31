@@ -96,9 +96,7 @@ mod world_builder {
 
             // free
             entities.shuffle(&mut self.rng);
-            entities
-                .drain(..)
-                .for_each(|e| self.world.entity_allocator_mut().free(e));
+            self.world.entity_allocator_mut().free_many(&entities);
 
             self
         }

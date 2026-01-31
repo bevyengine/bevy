@@ -733,6 +733,16 @@ impl EntityAllocator {
         self.inner.free(freed);
     }
 
+    /// This allows `freed` to be retrieved from [`alloc`](Self::alloc), etc.
+    ///
+    /// This is slower than [`free`](Self::free) when used with very small slices (dozens of entities) but much faster for large slices (more than a hundred).
+    ///
+    /// The same caveats of [`free`](Self::free) apply here.
+    /// (Eg. the slice should not contain duplicates.)
+    pub fn free_many(&mut self, freed: &[Entity]) {
+        self.inner.free_many(freed);
+    }
+
     /// Allocates some [`Entity`].
     /// The result could have come from a [`free`](Self::free) or be a brand new [`EntityIndex`].
     ///

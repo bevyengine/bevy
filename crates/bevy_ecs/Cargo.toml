@@ -17,7 +17,7 @@ default = ["std", "bevy_reflect", "async_executor", "backtrace"]
 
 ## Enables multithreading support. Schedules will attempt to run systems on
 ## multiple threads whenever possible.
-multi_threaded = ["bevy_tasks/multi_threaded", "dep:arrayvec"]
+multi_threaded = ["bevy_tasks/multi_threaded"]
 
 ## Adds serialization support through `serde`.
 serialize = ["dep:serde", "bevy_platform/serialize", "indexmap/serde"]
@@ -73,7 +73,7 @@ std = [
   "indexmap/std",
   "serde?/std",
   "nonmax/std",
-  "arrayvec?/std",
+  "arrayvec/std",
   "log/std",
   "bevy_platform/std",
 ]
@@ -114,7 +114,7 @@ derive_more = { version = "2", default-features = false, features = [
   "as_ref",
 ] }
 nonmax = { version = "0.5", default-features = false }
-arrayvec = { version = "0.7.4", default-features = false, optional = true }
+arrayvec = { version = "0.7.4", default-features = false }
 smallvec = { version = "1", default-features = false, features = [
   "union",
   "const_generics",

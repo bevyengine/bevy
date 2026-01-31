@@ -404,13 +404,12 @@ mod tests {
         );
 
         mapper.finish(&mut world);
-        // Next allocated entity should be a further generation on the same index
-        let entity = world.spawn_empty().id();
-        assert_eq!(entity.index(), dead_ref.index());
-        assert!(entity
+        let freed_dead_ref = world.entities().resolve_from_index(dead_ref.index());
+        assert!(freed_dead_ref
             .generation()
             .cmp_approx(&dead_ref.generation())
             .is_gt());
+        assert!(world.entities().check_can_spawn_at(freed_dead_ref).is_ok());
     }
 
     #[test]
@@ -422,12 +421,11 @@ mod tests {
             mapper.get_mapped(Entity::from_raw_u32(0).unwrap())
         });
 
-        // Next allocated entity should be a further generation on the same index
-        let entity = world.spawn_empty().id();
-        assert_eq!(entity.index(), dead_ref.index());
-        assert!(entity
+        let freed_dead_ref = world.entities().resolve_from_index(dead_ref.index());
+        assert!(freed_dead_ref
             .generation()
             .cmp_approx(&dead_ref.generation())
             .is_gt());
+        assert!(world.entities().check_can_spawn_at(freed_dead_ref).is_ok());
     }
 }
