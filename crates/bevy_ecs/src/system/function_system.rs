@@ -772,7 +772,7 @@ where
     }
 }
 
-/// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
+// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
 unsafe impl<Marker, In, Out, F> ReadOnlySystem for FunctionSystem<Marker, In, Out, F>
 where
     Marker: 'static,

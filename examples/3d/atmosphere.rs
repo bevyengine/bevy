@@ -14,12 +14,12 @@ use bevy::{
     },
     input::keyboard::KeyCode,
     light::{
-        light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, FogVolume,
-        VolumetricFog, VolumetricLight,
+        atmosphere::ScatteringMedium, light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight,
+        CascadeShadowConfigBuilder, FogVolume, VolumetricFog, VolumetricLight,
     },
     pbr::{
-        Atmosphere, AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod,
-        ExtendedMaterial, MaterialExtension, ScatteringMedium, ScreenSpaceReflections,
+        AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, ExtendedMaterial,
+        MaterialExtension, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,

@@ -7,12 +7,12 @@ use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::Hdr,
     color::palettes::css::{BLACK, WHITE},
-    core_pipeline::Skybox,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
     input::mouse::MouseWheel,
+    light::Skybox,
     math::{vec3, vec4},
     pbr::{
         DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension,

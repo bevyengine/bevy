@@ -831,7 +831,7 @@ fn spawn_menu(anchor: Entity, assets: Res<AssetServer>, mut commands: Commands) 
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
                 min_height: px(10.),
-                min_width: Val::Percent(100.),
+                min_width: percent(100),
                 border: UiRect::all(px(1)),
                 position_type: PositionType::Absolute,
                 ..default()

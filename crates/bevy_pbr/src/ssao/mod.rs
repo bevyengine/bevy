@@ -1,14 +1,13 @@
-use crate::NodePbr;
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::{Has, QueryItem, With},
+    query::{Has, With},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -22,14 +21,13 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
-    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{
             sampler, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
         },
         *,
     },
-    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
@@ -82,20 +80,13 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
                     prepare_ssao_textures.in_set(RenderSystems::PrepareResources),
                     prepare_ssao_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
-            )
-            .add_render_graph_node::<ViewNodeRunner<SsaoNode>>(
-                Core3d,
-                NodePbr::ScreenSpaceAmbientOcclusion,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    // END_PRE_PASSES -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
-                    Node3d::EndPrepasses,
-                    NodePbr::ScreenSpaceAmbientOcclusion,
-                    Node3d::StartMainPass,
-                ),
             );
+
+        render_app.add_systems(
+            Core3d,
+            ssao.after(Core3dSystems::Prepass)
+                .before(Core3dSystems::MainPass),
+        );
     }
 }
 
@@ -171,106 +162,97 @@ impl ScreenSpaceAmbientOcclusionQualityLevel {
     }
 }
 
-#[derive(Default)]
-struct SsaoNode {}
+fn ssao(
+    view: ViewQuery<(
+        &ExtractedCamera,
+        &SsaoPipelineId,
+        &SsaoBindGroups,
+        &ViewUniformOffset,
+    )>,
+    pipelines: Res<SsaoPipelines>,
+    pipeline_cache: Res<PipelineCache>,
+    mut ctx: RenderContext,
+) {
+    let (camera, pipeline_id, bind_groups, view_uniform_offset) = view.into_inner();
 
-impl ViewNode for SsaoNode {
-    type ViewQuery = (
-        &'static ExtractedCamera,
-        &'static SsaoPipelineId,
-        &'static SsaoBindGroups,
-        &'static ViewUniformOffset,
-    );
+    let (
+        Some(camera_size),
+        Some(preprocess_depth_pipeline),
+        Some(spatial_denoise_pipeline),
+        Some(ssao_pipeline),
+    ) = (
+        camera.physical_viewport_size,
+        pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
+        pipeline_cache.get_compute_pipeline(pipeline_id.0),
+    )
+    else {
+        return;
+    };
 
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (camera, pipeline_id, bind_groups, view_uniform_offset): QueryItem<Self::ViewQuery>,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let pipelines = world.resource::<SsaoPipelines>();
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let (
-            Some(camera_size),
-            Some(preprocess_depth_pipeline),
-            Some(spatial_denoise_pipeline),
-            Some(ssao_pipeline),
-        ) = (
-            camera.physical_viewport_size,
-            pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
-            pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
-            pipeline_cache.get_compute_pipeline(pipeline_id.0),
-        )
-        else {
-            return Ok(());
-        };
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "ssao");
 
-        let diagnostics = render_context.diagnostic_recorder();
+    let command_encoder = ctx.command_encoder();
+    command_encoder.push_debug_group("ssao");
 
-        let command_encoder = render_context.command_encoder();
-        command_encoder.push_debug_group("ssao");
-        let time_span = diagnostics.time_span(command_encoder, "ssao");
-
-        {
-            let mut preprocess_depth_pass =
-                command_encoder.begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("ssao_preprocess_depth"),
-                    timestamp_writes: None,
-                });
-            preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
-            preprocess_depth_pass.set_bind_group(0, &bind_groups.preprocess_depth_bind_group, &[]);
-            preprocess_depth_pass.set_bind_group(
-                1,
-                &bind_groups.common_bind_group,
-                &[view_uniform_offset.offset],
-            );
-            preprocess_depth_pass.dispatch_workgroups(
-                camera_size.x.div_ceil(16),
-                camera_size.y.div_ceil(16),
-                1,
-            );
-        }
-
-        {
-            let mut ssao_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("ssao"),
+    {
+        let mut preprocess_depth_pass =
+            command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("ssao_preprocess_depth"),
                 timestamp_writes: None,
             });
-            ssao_pass.set_pipeline(ssao_pipeline);
-            ssao_pass.set_bind_group(0, &bind_groups.ssao_bind_group, &[]);
-            ssao_pass.set_bind_group(
-                1,
-                &bind_groups.common_bind_group,
-                &[view_uniform_offset.offset],
-            );
-            ssao_pass.dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
-        }
-
-        {
-            let mut spatial_denoise_pass =
-                command_encoder.begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("ssao_spatial_denoise"),
-                    timestamp_writes: None,
-                });
-            spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
-            spatial_denoise_pass.set_bind_group(0, &bind_groups.spatial_denoise_bind_group, &[]);
-            spatial_denoise_pass.set_bind_group(
-                1,
-                &bind_groups.common_bind_group,
-                &[view_uniform_offset.offset],
-            );
-            spatial_denoise_pass.dispatch_workgroups(
-                camera_size.x.div_ceil(8),
-                camera_size.y.div_ceil(8),
-                1,
-            );
-        }
-
-        time_span.end(command_encoder);
-        command_encoder.pop_debug_group();
-        Ok(())
+        preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
+        preprocess_depth_pass.set_bind_group(0, &bind_groups.preprocess_depth_bind_group, &[]);
+        preprocess_depth_pass.set_bind_group(
+            1,
+            &bind_groups.common_bind_group,
+            &[view_uniform_offset.offset],
+        );
+        preprocess_depth_pass.dispatch_workgroups(
+            camera_size.x.div_ceil(16),
+            camera_size.y.div_ceil(16),
+            1,
+        );
     }
+
+    {
+        let mut ssao_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("ssao"),
+            timestamp_writes: None,
+        });
+        ssao_pass.set_pipeline(ssao_pipeline);
+        ssao_pass.set_bind_group(0, &bind_groups.ssao_bind_group, &[]);
+        ssao_pass.set_bind_group(
+            1,
+            &bind_groups.common_bind_group,
+            &[view_uniform_offset.offset],
+        );
+        ssao_pass.dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
+    }
+
+    {
+        let mut spatial_denoise_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("ssao_spatial_denoise"),
+            timestamp_writes: None,
+        });
+        spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
+        spatial_denoise_pass.set_bind_group(0, &bind_groups.spatial_denoise_bind_group, &[]);
+        spatial_denoise_pass.set_bind_group(
+            1,
+            &bind_groups.common_bind_group,
+            &[view_uniform_offset.offset],
+        );
+        spatial_denoise_pass.dispatch_workgroups(
+            camera_size.x.div_ceil(8),
+            camera_size.y.div_ceil(8),
+            1,
+        );
+    }
+
+    command_encoder.pop_debug_group();
+    time_span.end(ctx.command_encoder());
 }
 
 #[derive(Resource)]

@@ -157,7 +157,7 @@ impl TextPipeline {
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
-        scale_factor: f64,
+        scale_factor: f32,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
@@ -218,7 +218,7 @@ impl TextPipeline {
                 }
 
                 const WARN_FONT_SIZE: f32 = 1000.0;
-                if text_font.font_size * scale_factor as f32 > WARN_FONT_SIZE {
+                if text_font.font_size * scale_factor > WARN_FONT_SIZE {
                     warn_once!(
                         "Text span {entity} has an excessively large font size ({} with scale factor {}). \
                         Extremely large font sizes will cause performance issues with font atlas \
@@ -285,7 +285,7 @@ impl TextPipeline {
         entity: Entity,
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
-        scale_factor: f64,
+        scale_factor: f32,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
@@ -590,11 +590,11 @@ fn get_attrs<'a>(
     text_font: &TextFont,
     line_height: LineHeight,
     family: Family<'a>,
-    scale_factor: f64,
+    scale_factor: f32,
 ) -> Attrs<'a> {
-    let font_size = (text_font.font_size * scale_factor as f32).round();
+    let font_size = (text_font.font_size * scale_factor).round();
     let line_height = match line_height {
-        LineHeight::Px(px) => px * scale_factor as f32,
+        LineHeight::Px(px) => px * scale_factor,
         LineHeight::RelativeToFont(s) => s * font_size,
     };
 

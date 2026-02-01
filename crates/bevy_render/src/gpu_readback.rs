@@ -5,7 +5,7 @@ use crate::{
         Buffer, BufferUsages, CommandEncoder, Extent3d, TexelCopyBufferLayout, Texture,
         TextureFormat,
     },
-    renderer::{render_system, RenderDevice},
+    renderer::RenderDevice,
     storage::{GpuShaderBuffer, ShaderBuffer},
     sync_world::MainEntity,
     texture::GpuImage,
@@ -61,9 +61,8 @@ impl Plugin for GpuReadbackPlugin {
                     Render,
                     (
                         prepare_buffers.in_set(RenderSystems::PrepareResources),
-                        map_buffers
-                            .after(render_system)
-                            .in_set(RenderSystems::Render),
+                        // TODO: this should be in the graph somehow
+                        map_buffers.in_set(RenderSystems::Cleanup),
                     ),
                 );
         }
