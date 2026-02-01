@@ -57,9 +57,6 @@ impl Preferences {
     ///   preferences directory so as not to confuse it with other applications' preferences.
     ///   To ensure global uniqueness, it is recommended to use a reverse domain name, e.g.
     ///   "com.example.myapp".
-    ///
-    ///   This is only used on desktop platforms. On web platforms, the name is ignored.
-    ///
     pub fn new(app_name: &str) -> Self {
         Self {
             #[cfg(not(target_arch = "wasm32"))]
