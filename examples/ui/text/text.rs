@@ -86,10 +86,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             Node {
-                margin: UiRect::all(Val::Px(12.0)),
+                margin: UiRect::all(px(12.0)),
                 position_type: PositionType::Absolute,
-                top: Val::Px(5.0),
-                right: Val::Px(5.0),
+                top: px(5.0),
+                right: px(5.0),
                 ..default()
             },
             Text::new("Opentype features:\n"),
