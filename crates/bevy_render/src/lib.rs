@@ -97,7 +97,9 @@ use bevy_ecs::{
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
 };
+use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
+use bevy_time::TimeSender;
 use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use bitflags::bitflags;
@@ -432,6 +434,22 @@ unsafe fn initialize_render_app(app: &mut App) {
             if matches!(world.resource::<RenderState>(), RenderState::Ready) {
                 world.run_schedule(Render);
                 world.insert_resource(world.resource::<RenderErrorHandler>().poll());
+            }
+
+            // update the time and send it to the app world regardless of whether we render
+            let time_sender = world.resource::<TimeSender>();
+            if let Err(error) = time_sender.0.try_send(Instant::now()) {
+                match error {
+                    bevy_time::TrySendError::Full(_) => {
+                        panic!(
+                            "The TimeSender channel should always be empty during render. \
+                            You might need to add the bevy::core::time_system to your app."
+                        );
+                    }
+                    bevy_time::TrySendError::Disconnected(_) => {
+                        // ignore disconnected errors, the main world probably just got dropped during shutdown
+                    }
+                }
             }
         })
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)

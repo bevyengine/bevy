@@ -20,9 +20,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_log::{debug, info, info_span, warn};
-use bevy_platform::time::Instant;
 use bevy_render::camera::ExtractedCamera;
-use bevy_time::TimeSender;
 use bevy_window::RawHandleWrapperHolder;
 use wgpu::{
     Adapter, AdapterInfo, Backends, DeviceType, Instance, Queue, RequestAdapterOptions, Trace,
@@ -93,19 +91,6 @@ pub fn render_system(
     }
 
     crate::view::screenshot::collect_screenshots(world);
-
-    // update the time and send it to the app world
-    let time_sender = world.resource::<TimeSender>();
-    if let Err(error) = time_sender.0.try_send(Instant::now()) {
-        match error {
-            bevy_time::TrySendError::Full(_) => {
-                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.");
-            }
-            bevy_time::TrySendError::Disconnected(_) => {
-                // ignore disconnected errors, the main world probably just got dropped during shutdown
-            }
-        }
-    }
 }
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
