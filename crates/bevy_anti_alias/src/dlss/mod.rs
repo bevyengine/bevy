@@ -265,11 +265,11 @@ impl DlssFeature for DlssSuperResolutionFeature {
     type Context = DlssSuperResolution;
 
     fn upscaled_resolution(context: &Self::Context) -> UVec2 {
-        context.upscaled_resolution()
+        context.upscaled_resolution().into()
     }
 
     fn render_resolution(context: &Self::Context) -> UVec2 {
-        context.render_resolution()
+        context.render_resolution().into()
     }
 
     fn suggested_jitter(
@@ -277,11 +277,13 @@ impl DlssFeature for DlssSuperResolutionFeature {
         frame_number: u32,
         render_resolution: UVec2,
     ) -> Vec2 {
-        context.suggested_jitter(frame_number, render_resolution)
+        context
+            .suggested_jitter(frame_number, render_resolution.to_array())
+            .into()
     }
 
     fn suggested_mip_bias(context: &Self::Context, render_resolution: UVec2) -> f32 {
-        context.suggested_mip_bias(render_resolution)
+        context.suggested_mip_bias(render_resolution.to_array())
     }
 
     fn new_context(
@@ -293,7 +295,7 @@ impl DlssFeature for DlssSuperResolutionFeature {
         queue: &RenderQueue,
     ) -> Result<Self::Context, dlss_wgpu::DlssError> {
         DlssSuperResolution::new(
-            upscaled_resolution,
+            upscaled_resolution.to_array(),
             perf_quality_mode,
             feature_flags,
             sdk,
@@ -313,11 +315,11 @@ impl DlssFeature for DlssRayReconstructionFeature {
     type Context = DlssRayReconstruction;
 
     fn upscaled_resolution(context: &Self::Context) -> UVec2 {
-        context.upscaled_resolution()
+        context.upscaled_resolution().into()
     }
 
     fn render_resolution(context: &Self::Context) -> UVec2 {
-        context.render_resolution()
+        context.render_resolution().into()
     }
 
     fn suggested_jitter(
@@ -325,11 +327,13 @@ impl DlssFeature for DlssRayReconstructionFeature {
         frame_number: u32,
         render_resolution: UVec2,
     ) -> Vec2 {
-        context.suggested_jitter(frame_number, render_resolution)
+        context
+            .suggested_jitter(frame_number, render_resolution.to_array())
+            .into()
     }
 
     fn suggested_mip_bias(context: &Self::Context, render_resolution: UVec2) -> f32 {
-        context.suggested_mip_bias(render_resolution)
+        context.suggested_mip_bias(render_resolution.to_array())
     }
 
     fn new_context(
@@ -341,7 +345,7 @@ impl DlssFeature for DlssRayReconstructionFeature {
         queue: &RenderQueue,
     ) -> Result<Self::Context, dlss_wgpu::DlssError> {
         DlssRayReconstruction::new(
-            upscaled_resolution,
+            upscaled_resolution.to_array(),
             perf_quality_mode,
             feature_flags,
             DlssRayReconstructionRoughnessMode::Packed,
