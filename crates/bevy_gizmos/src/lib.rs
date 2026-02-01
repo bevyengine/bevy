@@ -46,7 +46,7 @@ pub mod skinned_mesh_bounds;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::aabb::{AabbGizmoConfigGroup, ShowAabbGizmo};
-    pub use crate::frustum::{FrustumGizmo, FrustumGizmoConfig};
+    pub use crate::frustum::{FrustumGizmoConfigGroup, ShowFrustumGizmo};
 
     #[doc(hidden)]
     #[cfg(feature = "bevy_mesh")]
@@ -70,7 +70,9 @@ pub mod prelude {
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
+use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
+    prelude::Entity,
     resource::Resource,
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Res, ResMut},
@@ -99,7 +101,11 @@ impl Plugin for GizmoPlugin {
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
 
-        app.add_plugins((aabb::AabbGizmoPlugin, frustum::FrustumGizmoPlugin, global::GlobalGizmosPlugin));
+        app.add_plugins((
+            aabb::AabbGizmoPlugin,
+            frustum::FrustumGizmoPlugin,
+            global::GlobalGizmosPlugin,
+        ));
 
         #[cfg(feature = "bevy_mesh")]
         app.add_plugins(SkinnedMeshBoundsGizmoPlugin);
@@ -339,4 +345,9 @@ impl Default for GizmoAsset {
     fn default() -> Self {
         GizmoAsset::new()
     }
+}
+
+/// Used by aabb and frustum gizmos for line color
+pub(crate) fn color_from_entity(entity: Entity) -> Color {
+    Oklcha::sequential_dispersed(entity.index_u32()).into()
 }

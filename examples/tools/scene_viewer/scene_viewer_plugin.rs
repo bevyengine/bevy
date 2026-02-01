@@ -37,7 +37,6 @@ const INSTRUCTIONS: &str = r#"
 Scene Controls:
     L           - animate light direction
     U           - toggle shadows
-    B           - toggle bounding boxes
     F           - toggle camera frusta
     C           - cycle through the camera controller and any cameras loaded from the scene
 
@@ -91,8 +90,7 @@ fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
 }
 
 fn toggle_camera_frusta(mut config: ResMut<GizmoConfigStore>) {
-    // TODO change to frusta
-    config.frustum.draw_all ^= true;
+    config.config_mut::<FrustumGizmoConfigGroup>().1.draw_all ^= true;
 }
 
 fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {

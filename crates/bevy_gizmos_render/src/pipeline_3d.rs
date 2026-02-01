@@ -296,7 +296,6 @@ fn queue_line_gizmos_3d(
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(
-        Entity,
         &ExtractedView,
         &Msaa,
         Option<&RenderLayers>,
@@ -317,7 +316,6 @@ fn queue_line_gizmos_3d(
         .unwrap();
 
     for (
-        view_entity,
         view,
         msaa,
         render_layers,
@@ -360,12 +358,6 @@ fn queue_line_gizmos_3d(
 
         for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
-                continue;
-            }
-
-            // The frustum gizmo adds a line gizmo to the same entity.
-            // We can use that here to prevent views from rendering their own frustum.
-            if entity == view_entity {
                 continue;
             }
 
