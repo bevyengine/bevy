@@ -489,36 +489,28 @@ fn example_control_system(
         }
     }
 
-    if input.just_pressed(KeyCode::KeyO)
-        && transmission.steps > 0
-    {
+    if input.just_pressed(KeyCode::KeyO) && transmission.steps > 0 {
         transmission.steps -= 1;
     }
 
-    if input.just_pressed(KeyCode::KeyP)
-        && transmission.steps < 4
-    {
+    if input.just_pressed(KeyCode::KeyP) && transmission.steps < 4 {
         transmission.steps += 1;
     }
 
     if input.just_pressed(KeyCode::KeyJ) {
-        transmission.quality =
-            ScreenSpaceTransmissionQuality::Low;
+        transmission.quality = ScreenSpaceTransmissionQuality::Low;
     }
 
     if input.just_pressed(KeyCode::KeyK) {
-        transmission.quality =
-            ScreenSpaceTransmissionQuality::Medium;
+        transmission.quality = ScreenSpaceTransmissionQuality::Medium;
     }
 
     if input.just_pressed(KeyCode::KeyL) {
-        transmission.quality =
-            ScreenSpaceTransmissionQuality::High;
+        transmission.quality = ScreenSpaceTransmissionQuality::High;
     }
 
     if input.just_pressed(KeyCode::Semicolon) {
-        transmission.quality =
-            ScreenSpaceTransmissionQuality::Ultra;
+        transmission.quality = ScreenSpaceTransmissionQuality::Ultra;
     }
 
     let rotation = if input.pressed(KeyCode::ArrowRight) {
