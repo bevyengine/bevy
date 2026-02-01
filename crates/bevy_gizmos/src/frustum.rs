@@ -50,7 +50,7 @@ impl Plugin for FrustumGizmoPlugin {
 pub struct FrustumGizmoConfigGroup {
     /// Draws all frusta in the scene when set to `true`.
     ///
-    /// To draw a specific entity's frustum, you can add the [`FrustumGizmo`] component.
+    /// To draw a specific entity's frustum, you can add the [`ShowFrustumGizmo`] component.
     ///
     /// Defaults to `false`.
     pub draw_all: bool,
@@ -68,7 +68,7 @@ pub struct FrustumGizmoConfigGroup {
 pub struct ShowFrustumGizmo {
     /// The color of the frustum.
     ///
-    /// The default color from the [`GizmoConfig`] resource is used if `None`,
+    /// The default color from the [`FrustumGizmoConfigGroup`] resource is used if `None`,
     pub color: Option<Color>,
 }
 
