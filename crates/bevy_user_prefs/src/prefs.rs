@@ -9,11 +9,6 @@ use crate::StoreWasm;
 
 pub use crate::{PreferencesFile, PreferencesFileContent};
 
-// TODO: Think about potential Results:
-// NoFile
-// NoDirectory
-// IOError
-
 /// Abstracts the storage location of the preferences files. This could be a directory on disk,
 /// a database, or some other repository.
 pub trait PreferencesStore {
