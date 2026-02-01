@@ -39,6 +39,17 @@ use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 /// See also [`EntityMut`], which allows disjoint mutable access to multiple
 /// entities at once.  Unlike `EntityMut`, this type allows adding and
 /// removing components, and despawning the entity.
+///
+/// # Invariants and Risk
+///
+/// An [`EntityWorldMut`] may point to a despawned entity.
+/// You can check this via [`is_despawned`](Self::is_despawned).
+/// Using an [`EntityWorldMut`] of a despawned entity may panic in some contexts, so read method documentation carefully.
+///
+/// Unless you have strong reason to assume these invariants, you should generally avoid keeping an [`EntityWorldMut`] to an entity that is potentially not spawned.
+/// For example, when inserting a component, that component insert may trigger an observer that despawns the entity.
+/// So, when you don't have full knowledge of what commands may interact with this entity,
+/// do not further use this value without first checking [`is_despawned`](Self::is_despawned).
 pub struct EntityWorldMut<'w> {
     world: &'w mut World,
     entity: Entity,
@@ -109,18 +120,17 @@ impl<'w> EntityWorldMut<'w> {
 
     /// # Safety
     ///
-    ///  - `entity` must be valid for `world`: the generation should match that of the entity at the same index.
-    ///  - `location` must be sourced from `world`'s `Entities` and must exactly match the location for `entity`
+    ///  The `location` must be sourced from `world`'s `Entities` and must exactly match the location for `entity`.
+    ///  If the `entity` is not spawned for any reason (See [`EntityNotSpawnedError`](crate::entity::EntityNotSpawnedError)), the location should be `None`.
     ///
-    ///  The above is trivially satisfied if `location` was sourced from `world.entities().get(entity)`.
+    ///  The above is trivially satisfied if `location` was sourced from `world.entities().get_spawned(entity).ok()`.
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w mut World,
         entity: Entity,
         location: Option<EntityLocation>,
     ) -> Self {
-        debug_assert!(world.entities().contains(entity));
-        debug_assert_eq!(world.entities().get(entity).unwrap(), location);
+        debug_assert_eq!(world.entities().get_spawned(entity).ok(), location);
 
         EntityWorldMut {
             world,
@@ -1540,6 +1550,11 @@ impl<'w> EntityWorldMut<'w> {
     /// This returns the new [`Entity`], which you must manage.
     /// Note that this still increases the generation to differentiate different spawns of the same row.
     ///
+    /// Additionally, keep in mind the limitations documented in the type-level docs.
+    /// Unless you have full knowledge of this [`EntityWorldMut`]'s lifetime,
+    /// you may not assume that nothing else has taken responsibility of this [`Entity`].
+    /// If you are not careful, this could cause a double free.
+    ///
     /// This may be later [`spawn_at`](World::spawn_at).
     /// See [`World::despawn_no_free`] for details and usage examples.
     #[track_caller]
@@ -1813,9 +1828,11 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// This is *only* required when using the unsafe function [`EntityWorldMut::world_mut`],
     /// which enables the location to change.
+    ///
+    /// Note that if the entity is not spawned for any reason,
+    /// this will have a location of `None`, leading some methods to panic.
     pub fn update_location(&mut self) {
-        self.location = self.world.entities().get(self.entity)
-            .expect("Attempted to update the location of a despawned entity, which is impossible. This was the result of performing an operation on this EntityWorldMut that queued a despawn command");
+        self.location = self.world.entities().get_spawned(self.entity).ok();
     }
 
     /// Returns if the entity has been despawned.
