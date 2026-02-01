@@ -884,23 +884,31 @@ impl BoundingVolume for Obb2d {
     }
 
     #[inline]
-    fn merge(&self, _other: &Self) -> Self {
-        // TODO: implement
+    fn merge(&self, other: &Self) -> Self {
+        // TODO: implement a true OBB
         // It should be the *smallest* bounding box that contains
         // both self and other, which makes this trickier.
         // Tentative algorithm (does not guarantee smallest):
-        // Pick the new center as the center of the 8 corner points
+        // Pick the new center as the center of the 8 corner points (point_cloud_2d_center)
         // Of the eight corners, find the farthest point from the center.
-        // The farthest point should be the initial half extent in one direction.
+        // The farthest point can be the initial half extent in one direction.
         // Between the center and this farthest point, you now have one axes of direction / line segment
-        // Find the orthogonal direction (e.g. by rotating the initial direction 90 degrees).
-        // Find the farthest point along the orthogonal axes to get the half extent in the other direction
+        // Find the orthogonal direction (e.g. by rotating this first direction 90 degrees).
+        // Find the farthest point along the orthogonal directional to get the half extent in the other direction
         // Note: This does not find the smallest bounding box in some special cases
         // e.g. two identical squares well aligned with each other with some distance apart.
         // the ideal obb in that case is a rectangle that fits snugly on 3 sides of each squares.
-        // this could be remedied by testing whether any edge connected to the farthest point
+        // the above algo can be remedied by testing whether an edge connected to the farthest point
         // should be an edge/direction in the merged obb.
-        todo!();
+
+        // For now, just return the smallest aabb as an obb around the eight points.
+        let points: [Vec2; 8] = self
+            .get_corners()
+            .into_iter()
+            .chain(other.get_corners())
+            .collect_array()
+            .expect("There should be 8 corners.");
+        Self::from(&Aabb2d::from_point_cloud(Isometry2d::IDENTITY, &points))
     }
 
     #[inline]
