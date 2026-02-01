@@ -45,7 +45,7 @@ pub(crate) enum RenderState {
 #[derive(Resource)]
 pub(crate) struct RenderErrorHandler {
     device_lost: Arc<Mutex<Option<(wgpu::DeviceLostReason, String)>>>,
-    uncaptured: Arc<Mutex<Option<wgpu::Error>>>,
+    uncaptured: Arc<Mutex<Option<WgpuWrapper<wgpu::Error>>>>,
 }
 
 impl RenderErrorHandler {
@@ -66,7 +66,10 @@ impl RenderErrorHandler {
             });
             device.on_uncaptured_error(Arc::new(move |e| {
                 bevy_log::error!("Caught rendering error: {e}");
-                uncaptured.lock().unwrap().get_or_insert(e);
+                uncaptured
+                    .lock()
+                    .unwrap()
+                    .get_or_insert(WgpuWrapper::new(e));
             }));
         }
         Self {
@@ -78,7 +81,7 @@ impl RenderErrorHandler {
     /// Checks to see if any errors have been caught, and returns an appropriate `RenderState`
     pub(crate) fn poll(&self) -> RenderState {
         if let Some(error) = self.uncaptured.lock().unwrap().take() {
-            let (ty, str, source) = match error {
+            let (ty, str, source) = match error.into_inner() {
                 wgpu::Error::OutOfMemory { source } => {
                     (ErrorType::OutOfMemory, "".to_string(), source)
                 }
