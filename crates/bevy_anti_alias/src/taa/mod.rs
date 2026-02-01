@@ -32,7 +32,7 @@ use bevy_render::{
         TextureFormat, TextureSampleType, TextureUsages, Variants,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    sync_component::SyncComponentPlugin,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
@@ -131,6 +131,10 @@ impl Default for TemporalAntiAliasing {
     fn default() -> Self {
         Self { reset: true }
     }
+}
+
+impl SyncComponent for TemporalAntiAliasing {
+    type Out = Self;
 }
 
 fn temporal_anti_alias(

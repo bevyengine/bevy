@@ -1,7 +1,10 @@
 use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-use bevy_ecs::component::Component;
+use bevy_ecs::{
+    bundle::{Bundle, NoBundleEffect},
+    component::Component,
+};
 
 use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
 
@@ -14,21 +17,41 @@ use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
 /// It adds [`SyncToRenderWorld`] as a required component to make the [`SyncWorldPlugin`] aware of the component, and
 /// handles cleanup of the component in the render world when it is removed from an entity.
 ///
-/// # Warning
-/// When the component is removed from the main world entity, all components are removed from the entity in the render world.
-/// This is done in order to handle components with custom extraction logic and derived state.
-///
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
-pub struct SyncComponentPlugin<C: Component>(PhantomData<C>);
+pub struct SyncComponentPlugin<C: SyncComponent<Marker>, Marker: Send + Sync = ()>(
+    PhantomData<(C, Marker)>,
+);
 
-impl<C: Component> Default for SyncComponentPlugin<C> {
+impl<C: SyncComponent<Marker>, Marker: Send + Sync> Default for SyncComponentPlugin<C, Marker> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<C: Component> Plugin for SyncComponentPlugin<C> {
+/// Trait that links components from the main world with output components in
+/// the render world. It is used by [`SyncComponentPlugin`].
+///
+/// This trait is a subtrait of [`ExtractComponent`], which uses it to determine
+/// which components to extract.
+///
+/// [`ExtractComponent`]: crate::extract_component::ExtractComponent
+pub trait SyncComponent<Marker = ()>: Component {
+    /// Describes what components should be removed from the render world if the
+    /// implementing component is removed.
+    ///
+    /// It is also used by the [`ExtractComponent`] trait to determine which
+    /// components are generated during extraction.
+    ///
+    /// [`ExtractComponent`]: crate::extract_component::ExtractComponent
+    type Out: Bundle<Effect: NoBundleEffect>;
+    // TODO: https://github.com/rust-lang/rust/issues/29661
+    // type Out: Component = Self;
+}
+
+impl<C: SyncComponent<Marker>, Marker: Send + Sync + 'static> Plugin
+    for SyncComponentPlugin<C, Marker>
+{
     fn build(&self, app: &mut App) {
         app.register_required_components::<C, SyncToRenderWorld>();
 
@@ -39,7 +62,7 @@ impl<C: Component> Plugin for SyncComponentPlugin<C> {
                 pending.push(EntityRecord::ComponentRemoved(
                     context.entity,
                     |mut entity| {
-                        entity.remove::<C>();
+                        entity.remove::<C::Out>();
                     },
                 ));
             });

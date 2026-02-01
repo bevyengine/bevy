@@ -20,6 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_resource::{ShaderType, SpecializedRenderPipelines},
+    sync_component::SyncComponent,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -102,10 +103,13 @@ impl Default for MotionBlur {
     }
 }
 
+impl SyncComponent for MotionBlur {
+    type Out = MotionBlurUniform;
+}
+
 impl ExtractComponent for MotionBlur {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
-    type Out = MotionBlurUniform;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(MotionBlurUniform {

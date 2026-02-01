@@ -37,6 +37,7 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
+use bevy_render::sync_component::SyncComponent;
 use std::f32::consts::PI;
 
 fn main() {
@@ -124,6 +125,10 @@ fn star(
 /// A marker component for colored 2d meshes
 #[derive(Component, Default)]
 pub struct ColoredMesh2d;
+
+impl SyncComponent for ColoredMesh2d {
+    type Out = Self;
+}
 
 /// Custom pipeline for 2d meshes with vertex colors
 #[derive(Resource)]

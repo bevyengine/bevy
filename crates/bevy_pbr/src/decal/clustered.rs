@@ -43,7 +43,7 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
-    sync_component::SyncComponentPlugin,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -147,7 +147,7 @@ impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "clustered.wgsl");
 
-        app.add_plugins(SyncComponentPlugin::<ClusteredDecal>::default());
+        app.add_plugins(SyncComponentPlugin::<ClusteredDecal, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -168,6 +168,10 @@ impl Plugin for ClusteredDecalPlugin {
                 upload_decals.in_set(RenderSystems::PrepareResources),
             );
     }
+}
+
+impl SyncComponent<ClusteredDecalPlugin> for ClusteredDecal {
+    type Out = Self;
 }
 
 // This is needed because of the orphan rule not allowing implementing
