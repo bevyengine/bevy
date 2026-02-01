@@ -11,15 +11,16 @@ use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
 
 pub trait MeshAabb {
-    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
+    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space,
+    /// or return `Mesh::final_aabb` if it is not `None`.
     ///
     /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
     /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
-    fn compute_aabb(&self) -> Option<Aabb>;
+    fn get_aabb(&self) -> Option<Aabb>;
 }
 
 impl MeshAabb for Mesh {
-    fn compute_aabb(&self) -> Option<Aabb> {
+    fn get_aabb(&self) -> Option<Aabb> {
         if let Some(aabb) = self.final_aabb {
             // use precomputed extents
             return Some(aabb.into());

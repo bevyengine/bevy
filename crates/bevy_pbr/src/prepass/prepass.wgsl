@@ -2,7 +2,7 @@
     prepass_bindings,
     mesh_bindings::mesh,
     mesh_functions,
-    prepass_io::{Vertex, VertexOutput, FragmentOutput},
+    prepass_io::{Vertex, VertexOutput, FragmentOutput, decompress_vertex},
     skinning,
     morph,
     mesh_view_bindings::view,
@@ -59,11 +59,11 @@ fn morph_prev_vertex(vertex_in: Vertex) -> Vertex {
 @vertex
 fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
-
+    let uncompressed_vertex_no_morph = decompress_vertex(vertex_no_morph);
 #ifdef MORPH_TARGETS
-    var vertex = morph_vertex(vertex_no_morph);
+    var vertex = morph_vertex(uncompressed_vertex_no_morph);
 #else
-    var vertex = vertex_no_morph;
+    var vertex = uncompressed_vertex_no_morph;
 #endif
 
     let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
@@ -132,13 +132,13 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef MORPH_TARGETS
 
 #ifdef HAS_PREVIOUS_MORPH
-    let prev_vertex = morph_prev_vertex(vertex_no_morph);
+    let prev_vertex = morph_prev_vertex(uncompressed_vertex);
 #else   // HAS_PREVIOUS_MORPH
-    let prev_vertex = vertex_no_morph;
+    let prev_vertex = uncompressed_vertex_no_morph;
 #endif  // HAS_PREVIOUS_MORPH
 
 #else   // MORPH_TARGETS
-    let prev_vertex = vertex_no_morph;
+    let prev_vertex = uncompressed_vertex_no_morph;
 #endif  // MORPH_TARGETS
 
     // Take skinning into account.

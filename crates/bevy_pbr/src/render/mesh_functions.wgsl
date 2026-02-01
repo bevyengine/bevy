@@ -24,7 +24,7 @@ fn get_previous_world_from_local(instance_index: u32) -> mat4x4<f32> {
 
 fn get_local_from_world(instance_index: u32) -> mat4x4<f32> {
     // the model matrix is translation * rotation * scale
-    // the inverse is then scale^-1 * rotation ^-1 * translation^-1        
+    // the inverse is then scale^-1 * rotation ^-1 * translation^-1
     // the 3x3 matrix only contains the information for the rotation and scale
     let inverse_model_3x3 = transpose(mat2x4_f32_to_mat3x3_unpack(
         mesh[instance_index].local_from_world_transpose_a,
@@ -164,5 +164,29 @@ fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f
 #ifndef MESHLET_MESH_MATERIAL_PASS
 fn get_tag(instance_index: u32) -> u32 {
     return mesh[instance_index].tag;
+}
+
+fn decompress_vertex_position(instance_index: u32, compressed_position: vec4<f32>) -> vec3<f32> {
+    let aabb_center = bevy_pbr::mesh_bindings::mesh[instance_index].aabb_center;
+    let aabb_half_extents = bevy_pbr::mesh_bindings::mesh[instance_index].aabb_half_extents;
+    return aabb_center + aabb_half_extents * compressed_position.xyz;
+}
+
+fn decompress_vertex_normal(compressed_normal: vec2<f32>) -> vec3<f32> {
+    return bevy_pbr::utils::octahedral_decode_signed(compressed_normal);
+}
+
+fn decompress_vertex_tangent(compressed_tangent: vec2<f32>) -> vec4<f32> {
+    return bevy_pbr::utils::octahedral_decode_tangent(compressed_tangent);
+}
+
+fn decompress_vertex_uv(instance_index: u32, compressed_uv: vec2<f32>) -> vec2<f32> {
+    let uv_range = bevy_pbr::mesh_bindings::mesh[instance_index].uv0_range;
+    return uv_range.xy + uv_range.zw * compressed_uv;
+}
+
+fn decompress_vertex_uv_b(instance_index: u32, compressed_uv: vec2<f32>) -> vec2<f32> {
+    let uv_range = bevy_pbr::mesh_bindings::mesh[instance_index].uv1_range;
+    return uv_range.xy + uv_range.zw * compressed_uv;
 }
 #endif

@@ -7,7 +7,7 @@ use bevy_math::{
     ops::log2,
     IVec3, Isometry3d, Vec2, Vec3, Vec3A, Vec3Swizzles,
 };
-use bevy_mesh::{Indices, Mesh};
+use bevy_mesh::{Indices, Mesh, MeshAttributeCompressionFlags};
 use bevy_platform::collections::HashMap;
 use bevy_render::render_resource::PrimitiveTopology;
 use bevy_tasks::{AsyncComputeTaskPool, ParallelSlice};
@@ -247,6 +247,10 @@ impl MeshletMesh {
 }
 
 fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshConversionError> {
+    if mesh.attribute_compression != MeshAttributeCompressionFlags::COMPRESS_NONE {
+        return Err(MeshToMeshletMeshConversionError::MeshAttributesCompressed);
+    }
+
     if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
         return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
     }
@@ -1088,4 +1092,6 @@ pub enum MeshToMeshletMeshConversionError {
     WrongMeshVertexAttributes(Vec<String>),
     #[error("Mesh has no indices")]
     MeshMissingIndices,
+    #[error("Mesh compressed vertex attributes are not supported yet")]
+    MeshAttributesCompressed,
 }
