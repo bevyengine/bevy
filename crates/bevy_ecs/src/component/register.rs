@@ -698,3 +698,27 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         })
     }
 }
+
+/// Represents a way to get the id of component types.
+///
+/// This exists to encapsulate shared behavior of [`ComponentsRegistrator`] and [`ComponentsQueuedRegistrator`].
+/// If you know which one you are working with, prefer their direct methods.
+pub trait DetermineComponentIds {
+    /// Determines the [`ComponentId`] of `T`.
+    /// This makes no promises of whether or not `T` will be full registered; it just gets its id.
+    fn determine_component_id_of<T: Component>(&mut self) -> ComponentId;
+}
+
+impl DetermineComponentIds for ComponentsRegistrator<'_> {
+    #[inline]
+    fn determine_component_id_of<T: Component>(&mut self) -> ComponentId {
+        self.register_component::<T>()
+    }
+}
+
+impl DetermineComponentIds for ComponentsQueuedRegistrator<'_> {
+    #[inline]
+    fn determine_component_id_of<T: Component>(&mut self) -> ComponentId {
+        self.queue_register_component::<T>()
+    }
+}

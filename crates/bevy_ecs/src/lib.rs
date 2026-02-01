@@ -1466,62 +1466,62 @@ mod tests {
     #[test]
     #[should_panic]
     fn ref_and_mut_query_panic() {
-        let mut world = World::new();
+        let world = World::new();
         world.query::<(&A, &mut A)>();
     }
 
     #[test]
     #[should_panic]
     fn entity_ref_and_mut_query_panic() {
-        let mut world = World::new();
+        let world = World::new();
         world.query::<(EntityRef, &mut A)>();
     }
 
     #[test]
     #[should_panic]
     fn mut_and_ref_query_panic() {
-        let mut world = World::new();
+        let world = World::new();
         world.query::<(&mut A, &A)>();
     }
 
     #[test]
     #[should_panic]
     fn mut_and_entity_ref_query_panic() {
-        let mut world = World::new();
+        let world = World::new();
         world.query::<(&mut A, EntityRef)>();
     }
 
     #[test]
     #[should_panic]
     fn entity_ref_and_entity_mut_query_panic() {
-        let mut world = World::new();
+        let world = World::new();
         world.query::<(EntityRef, EntityMut)>();
     }
 
     #[test]
     #[should_panic]
     fn entity_mut_and_entity_mut_query_panic() {
-        let mut world = World::new();
+        let world = World::new();
         world.query::<(EntityMut, EntityMut)>();
     }
 
     #[test]
     fn entity_ref_and_entity_ref_query_no_panic() {
-        let mut world = World::new();
+        let world = World::new();
         world.query::<(EntityRef, EntityRef)>();
     }
 
     #[test]
     #[should_panic]
     fn mut_and_mut_query_panic() {
-        let mut world = World::new();
+        let world = World::new();
         world.query::<(&mut A, &mut A)>();
     }
 
     #[test]
     #[should_panic]
     fn multiple_worlds_same_query_iter() {
-        let mut world_a = World::new();
+        let world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
         query.iter(&world_a);
@@ -1530,7 +1530,7 @@ mod tests {
 
     #[test]
     fn query_filters_dont_collide_with_fetches() {
-        let mut world = World::new();
+        let world = World::new();
         world.query_filtered::<&mut A, Changed<A>>();
     }
 
@@ -1555,7 +1555,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn multiple_worlds_same_query_get() {
-        let mut world_a = World::new();
+        let world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
         let _ = query.get(&world_a, Entity::from_raw_u32(0).unwrap());
@@ -1565,7 +1565,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn multiple_worlds_same_query_for_each() {
-        let mut world_a = World::new();
+        let world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
         query.iter(&world_a).for_each(|_| {});

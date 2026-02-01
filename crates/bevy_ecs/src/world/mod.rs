@@ -1671,7 +1671,7 @@ impl World {
     /// ]);
     /// ```
     #[inline]
-    pub fn query<D: QueryData>(&mut self) -> QueryState<D, ()> {
+    pub fn query<D: QueryData>(&self) -> QueryState<D, ()> {
         self.query_filtered::<D, ()>()
     }
 
@@ -1695,7 +1695,7 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
+    pub fn query_filtered<D: QueryData, F: QueryFilter>(&self) -> QueryState<D, F> {
         QueryState::new(self)
     }
 
@@ -1746,6 +1746,8 @@ impl World {
     /// assert!(some_query.is_some());
     /// ```
     #[inline]
+    #[deprecated(since = "0.19.0", note = "Use `query` instead.")]
+    #[expect(deprecated, reason = "also deprecated")]
     pub fn try_query<D: QueryData>(&self) -> Option<QueryState<D, ()>> {
         self.try_query_filtered::<D, ()>()
     }
@@ -1773,6 +1775,8 @@ impl World {
     /// Requires only an immutable world reference, but may fail if, for example,
     /// the components that make up this query have not been registered into the world.
     #[inline]
+    #[deprecated(since = "0.19.0", note = "Use `query_filtered` instead.")]
+    #[expect(deprecated, reason = "also deprecated")]
     pub fn try_query_filtered<D: QueryData, F: QueryFilter>(&self) -> Option<QueryState<D, F>> {
         QueryState::try_new(self)
     }

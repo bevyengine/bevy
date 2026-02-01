@@ -134,9 +134,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
-            fn component_ids(
-                components: &mut #ecs_path::component::ComponentsRegistrator,
-            ) -> impl Iterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)*> {
+            fn component_ids<Components: #ecs_path::component::DetermineComponentIds>(
+                components: &mut Components,
+            ) -> impl Iterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)* Components> {
                 core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components)))*
             }
 

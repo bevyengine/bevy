@@ -156,7 +156,7 @@ pub(crate) fn world_query_impl(
                 #( <#field_types>::update_component_access(&state.#field_aliases, _access); )*
             }
 
-            fn init_state(world: &mut #path::world::World) -> #state_struct_name #user_ty_generics {
+            fn init_state(world: &#path::world::World) -> #state_struct_name #user_ty_generics {
                 #state_struct_name {
                     #(#field_aliases: <#field_types>::init_state(world),)*
                 }
