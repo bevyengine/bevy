@@ -37,6 +37,10 @@ impl<C: Component> DynamicUniformIndex<C> {
 /// adding [`ExtractComponentPlugin`] with the component type.
 ///
 /// The Out type is defined in [`SyncComponent`].
+///
+/// The marker type is only used as a way to bypass the orphan rules. To
+/// implement the trait for a foreign type you can use a local type as the
+/// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
 pub trait ExtractComponent<Marker = ()>: SyncComponent {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;
