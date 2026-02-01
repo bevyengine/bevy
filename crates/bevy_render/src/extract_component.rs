@@ -174,22 +174,22 @@ impl<C, F> ExtractComponentPlugin<C, F> {
     }
 }
 
-impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
+impl<C: ExtractComponent<Marker>, Marker: 'static> Plugin for ExtractComponentPlugin<C, Marker> {
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncComponentPlugin::<C>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
+                render_app.add_systems(ExtractSchedule, extract_visible_components::<C, Marker>);
             } else {
-                render_app.add_systems(ExtractSchedule, extract_components::<C>);
+                render_app.add_systems(ExtractSchedule, extract_components::<C, Marker>);
             }
         }
     }
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_components<C: ExtractComponent>(
+fn extract_components<C: ExtractComponent<Marker>, Marker>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
@@ -207,7 +207,7 @@ fn extract_components<C: ExtractComponent>(
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_visible_components<C: ExtractComponent>(
+fn extract_visible_components<C: ExtractComponent<Marker>, Marker>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,

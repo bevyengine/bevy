@@ -19,11 +19,9 @@ use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
 ///
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
-pub struct SyncComponentPlugin<C: SyncComponent<Marker>, Marker: Send + Sync = ()>(
-    PhantomData<(C, Marker)>,
-);
+pub struct SyncComponentPlugin<C, Marker = ()>(PhantomData<(C, Marker)>);
 
-impl<C: SyncComponent<Marker>, Marker: Send + Sync> Default for SyncComponentPlugin<C, Marker> {
+impl<C: SyncComponent<Marker>, Marker> Default for SyncComponentPlugin<C, Marker> {
     fn default() -> Self {
         Self(PhantomData)
     }
