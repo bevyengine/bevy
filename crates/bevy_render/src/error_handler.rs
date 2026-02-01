@@ -9,23 +9,45 @@ use crate::{
     insert_future_resources,
     render_resource::PipelineCache,
     renderer::{RenderDevice, WgpuWrapper},
-    settings::{RenderCreation, WgpuSettings},
+    settings::RenderCreation,
     FutureRenderResources,
 };
 
 /// Resource to indicate renderer behavior upon error.
 #[expect(clippy::large_enum_variant, reason = "ergonomics")]
-#[derive(Resource, Default)]
+#[derive(Default)]
 pub enum RenderErrorPolicy {
+    /// Pretends nothing happened and continues rendering.
+    #[default]
+    Ignore,
     /// Panics on error.
     Panic,
-    #[default]
     /// Signals app exit on error.
     Shutdown,
     /// Keeps the app alive, but stops rendering further.
     StopRendering,
-    /// Attempt renderer recovery the given number of times.
-    Recover(usize, WgpuSettings),
+    /// Attempt renderer recovery with the given [`RenderCreation`].
+    Recover(RenderCreation),
+}
+
+/// Determines what [`RenderErrorPolicy`] should be used to respond to a given [`RenderError`].
+#[derive(Resource)]
+pub struct RenderErrorHandler(pub for<'a> fn(&'a RenderError) -> RenderErrorPolicy);
+
+impl Default for RenderErrorHandler {
+    fn default() -> Self {
+        // This is what we've always done historically,
+        // but we could choose a new default once recovery works better.
+        Self(|_| RenderErrorPolicy::Ignore)
+    }
+}
+
+/// An error encountered during rendering.
+#[derive(Debug)]
+pub struct RenderError {
+    pub ty: ErrorType,
+    pub description: String,
+    pub source: Option<WgpuWrapper<ErrorSource>>,
 }
 
 /// The current state of the renderer.
@@ -36,19 +58,19 @@ pub(crate) enum RenderState {
     /// Everything is okay and we are rendering stuff every frame.
     Ready,
     /// An error was encountered, and we may decide how to handle it.
-    Errored(ErrorType, String, Option<WgpuWrapper<ErrorSource>>),
+    Errored(RenderError),
     /// We are recreating the render context after an error to recover.
     Reinitializing,
 }
 
-/// Resource to allows polling wgpu error handlers.
+/// Resource to allow polling wgpu error handlers.
 #[derive(Resource)]
-pub(crate) struct RenderErrorHandler {
+pub(crate) struct DeviceErrorHandler {
     device_lost: Arc<Mutex<Option<(wgpu::DeviceLostReason, String)>>>,
     uncaptured: Arc<Mutex<Option<WgpuWrapper<wgpu::Error>>>>,
 }
 
-impl RenderErrorHandler {
+impl DeviceErrorHandler {
     /// Creates and registers error handlers on the given device and stores them to later be polled.
     pub(crate) fn new(device: &RenderDevice) -> Self {
         let device_lost = Arc::new(Mutex::new(None));
@@ -79,9 +101,17 @@ impl RenderErrorHandler {
     }
 
     /// Checks to see if any errors have been caught, and returns an appropriate `RenderState`
-    pub(crate) fn poll(&self) -> RenderState {
+    pub(crate) fn poll(&self) -> Option<RenderError> {
+        // Device lost is more important so we let it take precedence; every error gets logged anyways.
+        if let Some((_, description)) = self.device_lost.lock().unwrap().take() {
+            return Some(RenderError {
+                ty: ErrorType::DeviceLost,
+                description,
+                source: None,
+            });
+        }
         if let Some(error) = self.uncaptured.lock().unwrap().take() {
-            let (ty, str, source) = match error.into_inner() {
+            let (ty, description, source) = match error.into_inner() {
                 wgpu::Error::OutOfMemory { source } => {
                     (ErrorType::OutOfMemory, "".to_string(), source)
                 }
@@ -94,19 +124,22 @@ impl RenderErrorHandler {
                     description,
                 } => (ErrorType::Internal, description, source),
             };
-            return RenderState::Errored(ty, str, Some(WgpuWrapper::new(source)));
+            return Some(RenderError {
+                ty,
+                description,
+                source: Some(WgpuWrapper::new(source)),
+            });
         }
-        // Device lost is more important so we let it take precedence; every error gets logged anyways.
-        if let Some((_, str)) = self.device_lost.lock().unwrap().take() {
-            return RenderState::Errored(ErrorType::DeviceLost, str, None);
-        }
-        RenderState::Ready
+        None
     }
 }
 
 /// We need both the main and render world to properly handle errors, so we wedge ourselves into Extract.
 /// Returns true if `RenderStartup` should be run.
-pub(crate) fn update(main_world: &mut World, render_world: &mut World) -> bool {
+pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) -> bool {
+    if let Some(error) = render_world.resource::<DeviceErrorHandler>().poll() {
+        render_world.insert_resource(RenderState::Errored(error));
+    }
     match render_world.resource::<RenderState>() {
         RenderState::Initializing => {
             render_world.insert_resource(RenderState::Ready);
@@ -115,28 +148,25 @@ pub(crate) fn update(main_world: &mut World, render_world: &mut World) -> bool {
         RenderState::Ready => {
             // all is well
         }
-        RenderState::Errored(error_type, str, source) => {
-            match main_world.resource::<RenderErrorPolicy>() {
+        RenderState::Errored(error) => {
+            match main_world.resource::<RenderErrorHandler>().0(error) {
+                RenderErrorPolicy::Ignore => {
+                    // Pretend that didn't happen.
+                    render_world.insert_resource(RenderState::Ready);
+                }
                 RenderErrorPolicy::Panic => {
-                    panic!("Rendering error {error_type:?}: {str} in {source:?}");
+                    panic!("Rendering error {error:?}");
                 }
                 RenderErrorPolicy::Shutdown => {
-                    // error was already logged by `RenderErrorHandler`
+                    // error was already logged by `DeviceErrorHandler`
                     main_world.write_message(AppExit::error());
                 }
                 RenderErrorPolicy::StopRendering => {
                     // do nothing
                 }
-                RenderErrorPolicy::Recover(i, settings) => {
-                    if *i > 0 {
-                        render_world.insert_resource(RenderState::Reinitializing);
-                        render_world
-                            .insert_resource(RenderErrorPolicy::Recover(i - 1, settings.clone()));
-                        assert!(insert_future_resources(
-                            &RenderCreation::Automatic(settings.clone()),
-                            main_world
-                        ));
-                    }
+                RenderErrorPolicy::Recover(render_creation) => {
+                    assert!(insert_future_resources(&render_creation, main_world));
+                    render_world.insert_resource(RenderState::Reinitializing);
                 }
             }
         }

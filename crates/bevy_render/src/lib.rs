@@ -77,7 +77,7 @@ pub use extract_param::Extract;
 
 use crate::{
     camera::CameraPlugin,
-    error_handler::{RenderErrorHandler, RenderErrorPolicy, RenderState},
+    error_handler::{RenderErrorHandler, RenderState},
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
@@ -312,7 +312,7 @@ impl Plugin for RenderPlugin {
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
-            .init_resource::<RenderErrorPolicy>();
+            .init_resource::<RenderErrorHandler>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
             render_app
@@ -433,7 +433,6 @@ unsafe fn initialize_render_app(app: &mut App) {
         .add_systems(RenderRecovery, move |world: &mut World| {
             if matches!(world.resource::<RenderState>(), RenderState::Ready) {
                 world.run_schedule(Render);
-                world.insert_resource(world.resource::<RenderErrorHandler>().poll());
             }
 
             // update the time and send it to the app world regardless of whether we render
@@ -467,7 +466,7 @@ unsafe fn initialize_render_app(app: &mut App) {
         );
 
     render_app.set_extract(|main_world, render_world| {
-        if error_handler::update(main_world, render_world) {
+        if error_handler::update_state(main_world, render_world) {
             // Run the `RenderStartup` if it hasn't run yet. This does mean `RenderStartup` blocks
             // the rest of the app extraction, but this is necessary since extraction itself can
             // depend on resources initialized in `RenderStartup`.
