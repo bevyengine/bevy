@@ -1,6 +1,9 @@
 use alloc::sync::Arc;
 use bevy_app::AppExit;
-use bevy_ecs::{resource::Resource, world::World};
+use bevy_ecs::{
+    resource::Resource,
+    world::{Mut, World},
+};
 use std::sync::Mutex;
 use wgpu::ErrorSource;
 use wgpu_types::error::ErrorType;
@@ -32,13 +35,15 @@ pub enum RenderErrorPolicy {
 
 /// Determines what [`RenderErrorPolicy`] should be used to respond to a given [`RenderError`].
 #[derive(Resource)]
-pub struct RenderErrorHandler(pub for<'a> fn(&'a RenderError) -> RenderErrorPolicy);
+pub struct RenderErrorHandler(
+    pub for<'a> fn(&'a RenderError, &'a mut World, &'a mut World) -> RenderErrorPolicy,
+);
 
 impl Default for RenderErrorHandler {
     fn default() -> Self {
         // This is what we've always done historically,
         // but we could choose a new default once recovery works better.
-        Self(|_| RenderErrorPolicy::Ignore)
+        Self(|_, _, _| RenderErrorPolicy::Ignore)
     }
 }
 
@@ -137,10 +142,15 @@ impl DeviceErrorHandler {
 /// We need both the main and render world to properly handle errors, so we wedge ourselves into Extract.
 /// Returns true if `RenderStartup` should be run.
 pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) -> bool {
-    if let Some(error) = render_world.resource::<DeviceErrorHandler>().poll() {
-        render_world.insert_resource(RenderState::Errored(error));
-    }
-    match render_world.resource::<RenderState>() {
+    // Remove the render state so we can access both worlds
+    let state = render_world.remove_resource::<RenderState>().unwrap();
+    let state = if let Some(error) = render_world.resource::<DeviceErrorHandler>().poll() {
+        RenderState::Errored(error)
+    } else {
+        state
+    };
+
+    match &state {
         RenderState::Initializing => {
             render_world.insert_resource(RenderState::Ready);
             return true;
@@ -149,26 +159,28 @@ pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) -> 
             // all is well
         }
         RenderState::Errored(error) => {
-            match main_world.resource::<RenderErrorHandler>().0(error) {
-                RenderErrorPolicy::Ignore => {
-                    // Pretend that didn't happen.
-                    render_world.insert_resource(RenderState::Ready);
+            main_world.resource_scope(|main_world, error_handler: Mut<RenderErrorHandler>| {
+                match error_handler.0(error, main_world, render_world) {
+                    RenderErrorPolicy::Ignore => {
+                        // Pretend that didn't happen.
+                        render_world.insert_resource(RenderState::Ready);
+                    }
+                    RenderErrorPolicy::Panic => {
+                        panic!("Rendering error {error:?}");
+                    }
+                    RenderErrorPolicy::Shutdown => {
+                        // error was already logged by `DeviceErrorHandler`
+                        main_world.write_message(AppExit::error());
+                    }
+                    RenderErrorPolicy::StopRendering => {
+                        // do nothing
+                    }
+                    RenderErrorPolicy::Recover(render_creation) => {
+                        assert!(insert_future_resources(&render_creation, main_world));
+                        render_world.insert_resource(RenderState::Reinitializing);
+                    }
                 }
-                RenderErrorPolicy::Panic => {
-                    panic!("Rendering error {error:?}");
-                }
-                RenderErrorPolicy::Shutdown => {
-                    // error was already logged by `DeviceErrorHandler`
-                    main_world.write_message(AppExit::error());
-                }
-                RenderErrorPolicy::StopRendering => {
-                    // do nothing
-                }
-                RenderErrorPolicy::Recover(render_creation) => {
-                    assert!(insert_future_resources(&render_creation, main_world));
-                    render_world.insert_resource(RenderState::Reinitializing);
-                }
-            }
+            });
         }
         RenderState::Reinitializing => {
             if let Some(render_resources) = main_world
@@ -191,5 +203,11 @@ pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) -> 
             }
         }
     }
+
+    // Put the state back if we didn't set a new one
+    if render_world.get_resource::<RenderState>().is_none() {
+        render_world.insert_resource(state);
+    }
+
     false
 }
