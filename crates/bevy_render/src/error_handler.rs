@@ -34,6 +34,8 @@ pub enum RenderErrorPolicy {
 }
 
 /// Determines what [`RenderErrorPolicy`] should be used to respond to a given [`RenderError`].
+///
+/// The handler has access to both the main world and the render world in that order.
 #[derive(Resource)]
 pub struct RenderErrorHandler(
     pub for<'a> fn(&'a RenderError, &'a mut World, &'a mut World) -> RenderErrorPolicy,
