@@ -42,7 +42,7 @@ fn main() {
                 draw_gizmos_2d.run_if(in_mode(CameraActive::Dim2)),
                 draw_gizmos_3d.run_if(in_mode(CameraActive::Dim3)),
                 update_primitive_meshes
-                    .run_if(state_changed::<PrimitiveSelected>.or(state_changed::<CameraActive>)),
+                    .run_if(state_changed::<PrimitiveSelected>.or_eager(state_changed::<CameraActive>)),
                 rotate_primitive_2d_meshes,
                 rotate_primitive_3d_meshes,
             ),
