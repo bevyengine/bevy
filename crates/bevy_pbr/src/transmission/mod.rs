@@ -22,7 +22,7 @@ pub use texture::ViewTransmissionTexture;
 
 use texture::prepare_core_3d_transmission_textures;
 
-use crate::DrawMaterial;
+use crate::{DrawMaterial, MeshPipelineKey};
 
 /// Enables screen-space transmission for cameras.
 pub struct ScreenSpaceTransmissionPlugin;
@@ -130,4 +130,23 @@ pub enum ScreenSpaceTransmissionQuality {
     ///
     /// `num_taps` = 32
     Ultra,
+}
+
+impl ScreenSpaceTransmissionQuality {
+    pub const fn pipeline_key(self) -> MeshPipelineKey {
+        match self {
+            ScreenSpaceTransmissionQuality::Low => {
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW
+            }
+            ScreenSpaceTransmissionQuality::Medium => {
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM
+            }
+            ScreenSpaceTransmissionQuality::High => {
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH
+            }
+            ScreenSpaceTransmissionQuality::Ultra => {
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA
+            }
+        }
+    }
 }
