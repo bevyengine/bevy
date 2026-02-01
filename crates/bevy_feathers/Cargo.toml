@@ -40,6 +40,8 @@ accesskit = "0.23"
 [features]
 default = []
 custom_cursor = ["bevy_window/custom_cursor"]
+webgl = []
+webgpu = []
 
 [lints]
 workspace = true
