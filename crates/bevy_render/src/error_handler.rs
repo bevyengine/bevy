@@ -39,6 +39,31 @@ pub struct RenderErrorHandler(
     pub for<'a> fn(&'a RenderError, &'a mut World, &'a mut World) -> RenderErrorPolicy,
 );
 
+impl RenderErrorHandler {
+    fn handle(&self, error: &RenderError, main_world: &mut World, render_world: &mut World) {
+        match self.0(error, main_world, render_world) {
+            RenderErrorPolicy::Ignore => {
+                // Pretend that didn't happen.
+                render_world.insert_resource(RenderState::Ready);
+            }
+            RenderErrorPolicy::Panic => {
+                panic!("Rendering error {error:?}");
+            }
+            RenderErrorPolicy::Shutdown => {
+                // error was already logged by `DeviceErrorHandler`
+                main_world.write_message(AppExit::error());
+            }
+            RenderErrorPolicy::StopRendering => {
+                // do nothing
+            }
+            RenderErrorPolicy::Recover(render_creation) => {
+                assert!(insert_future_resources(&render_creation, main_world));
+                render_world.insert_resource(RenderState::Reinitializing);
+            }
+        }
+    }
+}
+
 impl Default for RenderErrorHandler {
     fn default() -> Self {
         // This is what we've always done historically,
@@ -160,26 +185,7 @@ pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) -> 
         }
         RenderState::Errored(error) => {
             main_world.resource_scope(|main_world, error_handler: Mut<RenderErrorHandler>| {
-                match error_handler.0(error, main_world, render_world) {
-                    RenderErrorPolicy::Ignore => {
-                        // Pretend that didn't happen.
-                        render_world.insert_resource(RenderState::Ready);
-                    }
-                    RenderErrorPolicy::Panic => {
-                        panic!("Rendering error {error:?}");
-                    }
-                    RenderErrorPolicy::Shutdown => {
-                        // error was already logged by `DeviceErrorHandler`
-                        main_world.write_message(AppExit::error());
-                    }
-                    RenderErrorPolicy::StopRendering => {
-                        // do nothing
-                    }
-                    RenderErrorPolicy::Recover(render_creation) => {
-                        assert!(insert_future_resources(&render_creation, main_world));
-                        render_world.insert_resource(RenderState::Reinitializing);
-                    }
-                }
+                error_handler.handle(error, main_world, render_world);
             });
         }
         RenderState::Reinitializing => {
