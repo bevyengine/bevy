@@ -1,44 +1,48 @@
 //! Module for the drawing of [`Frustum`]s.
 
-use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{Assets, Handle};
+use bevy_app::{Plugin, PostUpdate};
+use bevy_camera::{primitives::Frustum, visibility::VisibilitySystems};
+use bevy_color::Color;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Changed, Or, With, Without},
+    query::Without,
     reflect::ReflectComponent,
-    removal_detection::RemovedComponents,
-    schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut},
+    schedule::IntoScheduleConfigs,
+    system::{Query, Res},
 };
-use bevy_math::Vec3;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectFromReflect};
-use bevy_render::{color::Color, primitives::Frustum, view::VisibilitySystems};
 
-use crate::{color_from_entity, GizmoConfig, LineGizmo};
+use crate::{
+    color_from_entity,
+    config::{GizmoConfigGroup, GizmoConfigStore},
+    gizmos::Gizmos,
+    AppGizmoBuilder,
+};
 
-/// Plugin for the drawing of [`Frustum`]s.
+/// A [`Plugin`] that provides visualization of [`Frustum`]s for debugging.
 pub struct FrustumGizmoPlugin;
 
 impl Plugin for FrustumGizmoPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            PostUpdate,
-            (
-                frustum_gizmos,
-                all_frustum_gizmos.run_if(|config: Res<GizmoConfig>| config.frustum.draw_all),
-                remove_frustum_gizmos.run_if(|config: Res<GizmoConfig>| !config.frustum.draw_all),
-            )
-                .after(VisibilitySystems::UpdateOrthographicFrusta)
-                .after(VisibilitySystems::UpdatePerspectiveFrusta)
-                .after(VisibilitySystems::UpdateProjectionFrusta),
-        );
+    fn build(&self, app: &mut bevy_app::App) {
+        app.init_gizmo_group::<FrustumGizmoConfigGroup>()
+            .add_systems(
+                PostUpdate,
+                (
+                    draw_frustum_gizmos,
+                    draw_all_frustum_gizmos.run_if(|config: Res<GizmoConfigStore>| {
+                        config.config::<FrustumGizmoConfigGroup>().1.draw_all
+                    }),
+                )
+                    .after(VisibilitySystems::UpdateFrusta),
+            );
     }
 }
 
-/// Configuration for drawing the [`Frustum`] component on entities.
-#[derive(Clone, Default)]
-pub struct FrustumGizmoConfig {
+/// The [`GizmoConfigGroup`] used for debug visualizations of [`Frustum`] components on entities
+#[derive(Clone, Default, Reflect, GizmoConfigGroup)]
+#[reflect(Clone, Default)]
+pub struct FrustumGizmoConfigGroup {
     /// Draws all frusta in the scene when set to `true`.
     ///
     /// To draw a specific entity's frustum, you can add the [`FrustumGizmo`] component.
@@ -56,113 +60,55 @@ pub struct FrustumGizmoConfig {
 /// Add this [`Component`] to an entity to draw its [`Frustum`] component.
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, FromReflect, Default)]
-pub struct FrustumGizmo {
+pub struct ShowFrustumGizmo {
     /// The color of the frustum.
     ///
     /// The default color from the [`GizmoConfig`] resource is used if `None`,
     pub color: Option<Color>,
 }
 
-fn frustum_gizmos(
-    query: Query<
-        (Entity, &Frustum, &FrustumGizmo, Option<&Handle<LineGizmo>>),
-        Or<(Changed<Frustum>, Changed<FrustumGizmo>)>,
-    >,
-    config: Res<GizmoConfig>,
-    mut commands: Commands,
-    mut lines: ResMut<Assets<LineGizmo>>,
-    mut removed: RemovedComponents<FrustumGizmo>,
+fn draw_frustum_gizmos(
+    query: Query<(Entity, &Frustum, &ShowFrustumGizmo)>,
+    mut gizmos: Gizmos<FrustumGizmoConfigGroup>,
 ) {
-    for entity in removed.read() {
-        if !query.contains(entity) {
-            commands.entity(entity).remove::<Handle<LineGizmo>>();
-        }
-    }
-
-    for (entity, frustum, gizmo, line_handle) in &query {
+    for (entity, &frustum, gizmo) in &query {
         let color = gizmo
             .color
-            .or(config.frustum.default_color)
+            .or(gizmos.config_ext.default_color)
             .unwrap_or_else(|| color_from_entity(entity));
 
-        frustum_inner(
-            &mut commands,
-            &mut lines,
-            entity,
-            frustum,
-            line_handle,
-            color,
-        );
+        frustum_inner(&frustum, color, &mut gizmos);
     }
 }
 
-fn all_frustum_gizmos(
-    query: Query<
-        (Entity, &Frustum, Option<&Handle<LineGizmo>>),
-        (Without<FrustumGizmo>, Changed<Frustum>),
-    >,
-    config: Res<GizmoConfig>,
-    mut commands: Commands,
-    mut lines: ResMut<Assets<LineGizmo>>,
+fn draw_all_frustum_gizmos(
+    query: Query<(Entity, &Frustum), Without<ShowFrustumGizmo>>,
+    mut gizmos: Gizmos<FrustumGizmoConfigGroup>,
 ) {
-    for (entity, frustum, line_handle) in &query {
-        let color = config
-            .frustum
+    for (entity, &frustum) in &query {
+        let color = gizmos
+            .config_ext
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
 
-        frustum_inner(
-            &mut commands,
-            &mut lines,
-            entity,
-            frustum,
-            line_handle,
-            color,
-        );
+        frustum_inner(&frustum, color, &mut gizmos);
     }
 }
 
-fn frustum_inner(
-    commands: &mut Commands,
-    lines: &mut ResMut<Assets<LineGizmo>>,
-    entity: Entity,
-    frustum: &Frustum,
-    line_handle: Option<&Handle<LineGizmo>>,
-    color: Color,
-) {
+fn frustum_inner(frustum: &Frustum, color: Color, gizmos: &mut Gizmos<FrustumGizmoConfigGroup>) {
     let Some([tln, trn, brn, bln, tlf, trf, brf, blf]) = frustum.corners() else {
         return;
     };
 
-    #[rustfmt::skip]
-    let positions: Vec<_> = [
-        tln, trn, brn, bln, tln, // Near
-        tlf, trf, brf, blf, tlf, // Far
-        Vec3::NAN, trn, trf, // Near to far
-        Vec3::NAN, brn, brf,
-        Vec3::NAN, bln, blf,
-    ].into_iter().map(|v| v.to_array()).collect();
-
-    let line = LineGizmo {
-        colors: std::iter::repeat(color.as_linear_rgba_f32())
-            .take(positions.len())
-            .collect(),
-        positions,
-        strip: true,
-    };
-
-    if let Some(handle) = line_handle {
-        lines.insert(handle, line);
-    } else {
-        commands.entity(entity).insert(lines.add(line));
-    }
-}
-
-fn remove_frustum_gizmos(
-    query: Query<Entity, (With<Handle<LineGizmo>>, Without<FrustumGizmo>)>,
-    mut commands: Commands,
-) {
-    for entity in &query {
-        commands.entity(entity).remove::<Handle<LineGizmo>>();
-    }
+    gizmos.linestrip(
+        [
+            tln, trn, brn, bln, // Near
+            tln, tlf, // Top Left Near to Far
+            trf, brf, blf, tlf, // Far
+        ],
+        color,
+    );
+    gizmos.line(trn, trf, color); // Top Right Near to Far
+    gizmos.line(brn, brf, color); // Bottom Right Near to Far
+    gizmos.line(bln, blf, color); // Bottom Left Near to Far
 }

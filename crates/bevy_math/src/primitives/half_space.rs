@@ -1,4 +1,4 @@
-use crate::{Vec3A, Vec4, Vec4Swizzles};
+use crate::{ops, Vec3, Vec3A, Vec4, Vec4Swizzles};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -78,7 +78,7 @@ impl HalfSpace {
 
     /// Returns the intersection position if the three halfspaces all intersect at a single point.
     #[inline]
-    pub fn intersect(a: HalfSpace, b: HalfSpace, c: HalfSpace) -> Option<Vec3A> {
+    pub fn intersect(a: HalfSpace, b: HalfSpace, c: HalfSpace) -> Option<Vec3> {
         let an = a.normal();
         let bn = b.normal();
         let cn = c.normal();
@@ -94,10 +94,10 @@ impl HalfSpace {
 
         let denom = x.dot(u);
 
-        if denom.abs() < f32::EPSILON {
+        if ops::abs(denom) < f32::EPSILON {
             return None;
         }
 
-        Some(Vec3A::new(d.dot(u), z.dot(v), -y.dot(v)) / denom)
+        Some(Vec3::new(d.dot(u), z.dot(v), -y.dot(v)) / denom)
     }
 }

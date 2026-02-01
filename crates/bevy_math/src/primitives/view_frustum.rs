@@ -1,4 +1,4 @@
-use crate::{primitives::HalfSpace, Mat4, Vec3, Vec3A, Vec4};
+use crate::{primitives::HalfSpace, Mat4, Vec3, Vec4};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -63,7 +63,7 @@ impl ViewFrustum {
 
     /// Calculates the corners of this frustum. Returns `None` if the frustum isn't properly defined.
     #[inline]
-    pub fn corners(&self) -> Option<[Vec3A; 8]> {
+    pub fn corners(&self) -> Option<[Vec3; 8]> {
         // TODO Why are these intersection tests failing on spotlight frusta?
         let [left, right, top, bottom, near, far] = self.half_spaces;
         Some([

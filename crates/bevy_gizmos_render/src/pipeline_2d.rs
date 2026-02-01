@@ -297,7 +297,7 @@ fn queue_line_and_joint_gizmos_2d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
+    mut views: Query<(&ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
     let draw_line_function_strip = draw_functions
@@ -309,7 +309,7 @@ fn queue_line_and_joint_gizmos_2d(
         .get_id::<DrawLineJointGizmo2d>()
         .unwrap();
 
-    for (view_entity, view, msaa, render_layers) in &mut views {
+    for (view, msaa, render_layers) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
@@ -321,12 +321,6 @@ fn queue_line_and_joint_gizmos_2d(
         let render_layers = render_layers.unwrap_or_default();
         for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
-                continue;
-            }
-
-            // The frustum gizmo adds a line gizmo to the same entity.
-            // We can use that here to prevent views from rendering their own frustum.
-            if entity == view_entity {
                 continue;
             }
 
