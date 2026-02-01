@@ -524,7 +524,7 @@ impl MeshPipelineViewLayouts {
         layout_key: MeshPipelineViewLayoutKey,
     ) -> &MeshPipelineViewLayout {
         let index = layout_key.bits() as usize;
-        let layout = &self[index];
+        let layout = &(***self)[index];
 
         #[cfg(debug_assertions)]
         if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES {
