@@ -37,6 +37,7 @@ const INSTRUCTIONS: &str = r#"
 Scene Controls:
     L           - animate light direction
     U           - toggle shadows
+    F           - toggle camera frusta
     C           - cycle through the camera controller and any cameras loaded from the scene
 
     compile with "--features animation" for animation controls.
@@ -48,6 +49,7 @@ Scene Controls:
     L           - animate light direction
     U           - toggle shadows
     B           - toggle bounding boxes
+    F           - toggle camera frusta
     J           - toggle skinned mesh joint bounding boxes
     C           - cycle through the camera controller and any cameras loaded from the scene
 
@@ -74,6 +76,7 @@ impl Plugin for SceneViewerPlugin {
                     camera_tracker,
                     (
                         toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
+                        toggle_camera_frusta.run_if(input_just_pressed(KeyCode::KeyF)),
                         toggle_skinned_mesh_bounds.run_if(input_just_pressed(KeyCode::KeyJ)),
                     )
                         .chain(),
@@ -84,6 +87,10 @@ impl Plugin for SceneViewerPlugin {
 
 fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
     config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+}
+
+fn toggle_camera_frusta(mut config: ResMut<GizmoConfigStore>) {
+    config.config_mut::<FrustumGizmoConfigGroup>().1.draw_all ^= true;
 }
 
 fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {

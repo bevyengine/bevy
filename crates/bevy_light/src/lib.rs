@@ -14,6 +14,8 @@ use bevy_camera::{
     CameraUpdateSystems,
 };
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
+#[cfg(feature = "bevy_gizmos")]
+use bevy_gizmos::frustum::FrustumGizmoSystems;
 use bevy_math::Vec3A;
 use bevy_mesh::Mesh3d;
 use bevy_reflect::prelude::*;
@@ -190,6 +192,13 @@ impl Plugin for LightPlugin {
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystems::Propagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
+                    #[cfg(feature = "bevy_gizmos")]
+                    update_spot_light_frusta
+                        .in_set(SimulationLightSystems::UpdateLightFrusta)
+                        .before(FrustumGizmoSystems)
+                        .after(TransformSystems::Propagate)
+                        .after(SimulationLightSystems::AssignLightsToClusters),
+                    #[cfg(not(feature = "bevy_gizmos"))]
                     update_spot_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystems::Propagate)

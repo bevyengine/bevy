@@ -61,6 +61,22 @@ impl ViewFrustum {
         frustum
     }
 
+    /// Calculates the corners of this frustum. Returns `None` if the frustum isn't properly defined.
+    #[inline]
+    pub fn corners(&self) -> Option<[Vec3; 8]> {
+        let [left, right, top, bottom, near, far] = self.half_spaces;
+        Some([
+            HalfSpace::intersect(top, left, near)?,
+            HalfSpace::intersect(top, right, near)?,
+            HalfSpace::intersect(bottom, right, near)?,
+            HalfSpace::intersect(bottom, left, near)?,
+            HalfSpace::intersect(top, left, far)?,
+            HalfSpace::intersect(top, right, far)?,
+            HalfSpace::intersect(bottom, right, far)?,
+            HalfSpace::intersect(bottom, left, far)?,
+        ])
+    }
+
     // NOTE: This approach of extracting the frustum half-space from the view
     // projection matrix is from Foundations of Game Engine Development 2
     // Rendering by Lengyel.
