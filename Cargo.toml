@@ -414,6 +414,9 @@ experimental_bevy_feathers = [
   "experimental_bevy_ui_widgets",
 ]
 
+# User preferences storage and serialization.
+bevy_user_prefs = ["bevy_internal/bevy_user_prefs"]
+
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
@@ -5375,6 +5378,18 @@ required-features = ["experimental_bevy_ui_widgets"]
 name = "Scrollbars"
 description = "Demonstrates use of core scrollbar in Bevy UI"
 category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "prefs"
+path = "examples/app/prefs.rs"
+doc-scrape-examples = true
+required-features = ["bevy_user_prefs"]
+
+[package.metadata.example.prefs]
+name = "User Preferences"
+description = "Demonstrates persistence of user preferences"
+category = "Application"
 wasm = true
 
 [[example]]

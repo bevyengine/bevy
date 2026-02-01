@@ -102,6 +102,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
+|bevy_user_prefs|User preferences storage and serialization.|
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|

@@ -99,6 +99,8 @@ pub use bevy_ui as ui;
 pub use bevy_ui_render as ui_render;
 #[cfg(feature = "bevy_ui_widgets")]
 pub use bevy_ui_widgets as ui_widgets;
+#[cfg(feature = "bevy_user_prefs")]
+pub use bevy_user_prefs as user_prefs;
 pub use bevy_utils as utils;
 #[cfg(feature = "bevy_window")]
 pub use bevy_window as window;
