@@ -1,4 +1,5 @@
 use crate::{
+    error_handler::RenderErrorHandler,
     render_resource::PipelineCache,
     renderer::{self, RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue},
     FutureRenderResources,
@@ -197,6 +198,7 @@ impl RenderResources {
             render_adapter.clone(),
             synchronous_pipeline_compilation,
         ));
+        render_world.insert_resource(RenderErrorHandler::new(&device));
         render_world.insert_resource(device);
         render_world.insert_resource(queue);
         render_world.insert_resource(render_adapter);
