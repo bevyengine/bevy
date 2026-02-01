@@ -36,7 +36,12 @@ impl<C: Component> Plugin for SyncComponentPlugin<C> {
             .register_component_hooks::<C>()
             .on_remove(|mut world, context| {
                 let mut pending = world.resource_mut::<PendingSyncEntity>();
-                pending.push(EntityRecord::ComponentRemoved(context.entity));
+                pending.push(EntityRecord::ComponentRemoved(
+                    context.entity,
+                    |mut entity| {
+                        entity.remove::<C>();
+                    },
+                ));
             });
     }
 }
