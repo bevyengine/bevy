@@ -30,12 +30,12 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
+        sync_component::SyncComponent,
         sync_world::MainEntity,
         view::{ExtractedView, NoIndirectDrawing},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
-use bevy_render::sync_component::SyncComponent;
 use bytemuck::{Pod, Zeroable};
 
 /// This example uses a shader source file from the assets subdirectory
