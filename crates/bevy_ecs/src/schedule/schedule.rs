@@ -11,7 +11,7 @@ use alloc::{
     vec::Vec,
 };
 use bevy_platform::{
-    collections::{HashMap, HashSet},
+    collections::{hash_map::Entry, HashMap, HashSet},
     hash::FixedHasher,
 };
 use bevy_utils::{default, TypeIdMap};
@@ -531,6 +531,34 @@ impl Schedule {
         #[cfg(feature = "trace")]
         let _span = info_span!("schedule", name = ?self.label).entered();
 
+        self.run_internal(world, None)
+            .unwrap_or_else(|_| unreachable!("No set was specified"));
+    }
+
+    /// Runs all systems in the specified system set (including transitively) on
+    /// the `world`, using its current execution strategy.
+    pub fn run_system_set<M>(
+        &mut self,
+        world: &mut World,
+        set: impl IntoSystemSet<M>,
+    ) -> Result<(), SystemSetNotFound> {
+        let set = set.into_system_set().intern();
+
+        #[cfg(feature = "trace")]
+        let _span = info_span!("schedule", name = ?self.label, system_set = ?set).entered();
+
+        let Some(set_key) = self.graph.system_sets.get_key(set) else {
+            return Err(SystemSetNotFound(set));
+        };
+        self.run_internal(world, Some((set_key, set)))
+    }
+
+    #[inline(always)]
+    fn run_internal(
+        &mut self,
+        world: &mut World,
+        set: Option<(SystemSetKey, InternedSystemSet)>,
+    ) -> Result<(), SystemSetNotFound> {
         world.check_change_ticks();
         self.initialize(world).unwrap_or_else(|e| {
             panic!(
@@ -540,11 +568,35 @@ impl Schedule {
             )
         });
 
+        if let Some((set_key, set)) = set {
+            // Lazily initialize `systems_in_set` with the newly requested set. If
+            // the graph changes at any point, this will be cleared and need to be
+            // lazily re-populated again.
+            if let Entry::Vacant(entry) = self.executable.systems_in_sets.entry(set_key) {
+                let Ok(systems_in_set) = self.graph.systems_in_set(set) else {
+                    // Return error if the set is not found.
+                    return Err(SystemSetNotFound(set));
+                };
+                let mut systems = FixedBitSet::with_capacity(self.executable.systems.len());
+                for (index, key) in self.executable.system_ids.iter().enumerate() {
+                    if systems_in_set.contains(key) {
+                        systems.insert(index);
+                    }
+                }
+                entry.insert(systems);
+            }
+        }
+
         let error_handler = world.default_error_handler();
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
-        self.executor
-            .run(&mut self.executable, world, None, error_handler);
+        self.executor.run(
+            &mut self.executable,
+            world,
+            set.map(|(key, _)| key),
+            None,
+            error_handler,
+        );
 
         #[cfg(feature = "bevy_debug_stepping")]
         {
@@ -556,10 +608,13 @@ impl Schedule {
             self.executor.run(
                 &mut self.executable,
                 world,
+                set.map(|(key, _)| key),
                 skip_systems.as_ref(),
                 error_handler,
             );
         }
+
+        Ok(())
     }
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
@@ -914,7 +969,7 @@ impl ScheduleGraph {
         AnonymousSet::new(id)
     }
 
-    /// Returns a `Vec` containing all [`SystemKey`]s in a [`SystemSet`].
+    /// Returns a `HashSet` containing all [`SystemKey`]s in a [`SystemSet`].
     ///
     /// # Errors
     ///
@@ -1314,6 +1369,7 @@ impl ScheduleGraph {
             system_dependents,
             sets_with_conditions_of_systems,
             systems_in_sets_with_conditions,
+            systems_in_sets: HashMap::default(),
         }
     }
 
@@ -2634,5 +2690,157 @@ mod tests {
                 TypeId::of::<Pass<2>>()
             ]
         );
+    }
+
+    mod run_system_set {
+        use crate::{
+            prelude::{IntoScheduleConfigs, Resource, Schedule},
+            schedule::{ExecutorKind, SystemSet},
+            system::ResMut,
+            world::World,
+        };
+
+        #[derive(SystemSet, Clone, Copy, PartialEq, Eq, Debug, Hash)]
+        enum SystemSets {
+            Foo,
+            Bar,
+            Baz,
+        }
+
+        #[derive(Resource)]
+        struct Counter(usize);
+
+        fn increment_counter(mut counter: ResMut<Counter>) {
+            counter.0 += 1;
+        }
+
+        fn flat(kind: ExecutorKind) -> Schedule {
+            let mut schedule = Schedule::default();
+            schedule.set_executor_kind(kind);
+            schedule.add_systems((
+                increment_counter.in_set(SystemSets::Foo),
+                (increment_counter, increment_counter).in_set(SystemSets::Bar),
+            ));
+            schedule
+        }
+
+        #[test]
+        fn flat_single_threaded() {
+            let mut schedule = flat(ExecutorKind::SingleThreaded);
+
+            let mut world = World::new();
+            world.insert_resource(Counter(0));
+
+            schedule
+                .run_system_set(&mut world, SystemSets::Foo)
+                .unwrap();
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 1);
+
+            schedule
+                .run_system_set(&mut world, SystemSets::Bar)
+                .unwrap();
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
+
+            assert_eq!(
+                schedule
+                    .run_system_set(&mut world, SystemSets::Baz)
+                    .unwrap_err()
+                    .0,
+                SystemSets::Baz.intern()
+            );
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
+        }
+
+        #[test]
+        fn flat_multi_threaded() {
+            let mut schedule = flat(ExecutorKind::MultiThreaded);
+
+            let mut world = World::new();
+            world.insert_resource(Counter(0));
+
+            schedule
+                .run_system_set(&mut world, SystemSets::Foo)
+                .unwrap();
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 1);
+
+            schedule
+                .run_system_set(&mut world, SystemSets::Bar)
+                .unwrap();
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
+
+            assert_eq!(
+                schedule
+                    .run_system_set(&mut world, SystemSets::Baz)
+                    .unwrap_err()
+                    .0,
+                SystemSets::Baz.intern()
+            );
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
+        }
+
+        fn nested(kind: ExecutorKind) -> Schedule {
+            let mut schedule = Schedule::default();
+            schedule.set_executor_kind(kind);
+            schedule.configure_sets(SystemSets::Bar.in_set(SystemSets::Foo));
+            schedule.add_systems((
+                increment_counter.in_set(SystemSets::Foo),
+                (increment_counter, increment_counter).in_set(SystemSets::Bar),
+            ));
+            schedule
+        }
+
+        #[test]
+        fn nested_single_threaded() {
+            let mut schedule = nested(ExecutorKind::SingleThreaded);
+
+            let mut world = World::new();
+            world.insert_resource(Counter(0));
+
+            schedule
+                .run_system_set(&mut world, SystemSets::Foo)
+                .unwrap();
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
+
+            schedule
+                .run_system_set(&mut world, SystemSets::Bar)
+                .unwrap();
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
+
+            assert_eq!(
+                schedule
+                    .run_system_set(&mut world, SystemSets::Baz)
+                    .unwrap_err()
+                    .0,
+                SystemSets::Baz.intern()
+            );
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
+        }
+
+        #[test]
+        fn nested_multi_threaded() {
+            let mut schedule = nested(ExecutorKind::MultiThreaded);
+
+            let mut world = World::new();
+            world.insert_resource(Counter(0));
+
+            schedule
+                .run_system_set(&mut world, SystemSets::Foo)
+                .unwrap();
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 3);
+
+            schedule
+                .run_system_set(&mut world, SystemSets::Bar)
+                .unwrap();
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
+
+            assert_eq!(
+                schedule
+                    .run_system_set(&mut world, SystemSets::Baz)
+                    .unwrap_err()
+                    .0,
+                SystemSets::Baz.intern()
+            );
+            assert_eq!(world.get_resource::<Counter>().unwrap().0, 5);
+        }
     }
 }
