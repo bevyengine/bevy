@@ -64,7 +64,6 @@ impl ViewFrustum {
     /// Calculates the corners of this frustum. Returns `None` if the frustum isn't properly defined.
     #[inline]
     pub fn corners(&self) -> Option<[Vec3; 8]> {
-        // TODO Why are these intersection tests failing on spotlight frusta?
         let [left, right, top, bottom, near, far] = self.half_spaces;
         Some([
             HalfSpace::intersect(top, left, near)?,
