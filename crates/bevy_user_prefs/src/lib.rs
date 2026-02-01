@@ -35,10 +35,9 @@
 //!
 //! ## Platform support
 //!
-//! When compiling for WASM targets, preferences are stored in browser `LocalStorage` in serialized
-//! JSON format.
+//! When compiling for WASM targets, preferences are stored in browser `LocalStorage`.
 //!
-//! When compiling for desktop, preferences are stored as TOML files in the standard OS locations
+//! When compiling for desktop, preferences are stored in the standard OS locations
 //! for user preferences.
 //!
 //! ## Usage
