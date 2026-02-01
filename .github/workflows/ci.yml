@@ -1,15 +1,28 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   merge_group:
   pull_request:
   push:
     branches:
-      - main
+      - release-*
 
+# Environment variables must be kept in sync with all workflows that defines them.
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
+  RUSTFLAGS: "-D warnings"
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
 jobs:
   build:
@@ -19,131 +32,297 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
-        if: runner.os == 'linux'
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- test
         env:
-          CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-ci-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
+          toolchain: stable
           components: rustfmt, clippy
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
+          x264: true
       - name: CI job
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
 
   miri:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
-        # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
-        run: cargo miri test -p bevy_ecs
+        # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
+        run: cargo miri test -p bevy_ecs --features bevy_utils/debug
         env:
           # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
           RUSTFLAGS: -Zrandomize-layout
           # https://github.com/rust-lang/miri#miri--z-flags-and-environment-variables
           # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
-          # -Zmiri-permissive-provenance disables warnings against int2ptr casts (since those are used by once_cell)
           # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
-          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation -Zmiri-permissive-provenance
+          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation
 
   check-compiles:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: ci
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-            crates/bevy_ecs_compile_fail_tests/target/
-            crates/bevy_reflect_compile_fail_tests/target/
-          key: ${{ runner.os }}-cargo-check-compiles-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
           toolchain: stable
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - name: Check Compile
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- compile
+
+  check-compiles-no-std:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable-x86_64-unknown-none-${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable-x86_64-unknown-none-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable-x86_64-unknown-none-
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-none
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check Compile
+        run: cargo check -p bevy --no-default-features --features default_no_std --target x86_64-unknown-none
+      # Check for regression in "web" feature breaking no_std builds.
+      # This is not a separate CI job because the added feature should mostly have no effect
+      # and be able to reuse the prior build.
+      - name: Check Compile with --features=web
+        run: cargo check -p bevy --no-default-features --features default_no_std,web --target x86_64-unknown-none
+
+  check-compiles-no-std-portable-atomic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable-thumbv6m-none-eabi-${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable-thumbv6m-none-eabi-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable-thumbv6m-none-eabi-
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
+          targets: thumbv6m-none-eabi
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check Compile
+        run: cargo check -p bevy --no-default-features --features default_no_std --target thumbv6m-none-eabi
+
+  check-compiles-no-std-examples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable-x86_64-unknown-none-${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable-x86_64-unknown-none-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable-x86_64-unknown-none-
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-none
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check Compile
+        run: cd examples/no_std/library && cargo check --no-default-features --features libm,critical-section --target x86_64-unknown-none
 
   build-wasm:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: build
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable-wasm32-unknown-unknown-
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ubuntu-assets-cargo-build-wasm-stable-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
+          toolchain: stable
           target: wasm32-unknown-unknown
       - name: Check wasm
-        run: cargo check --target wasm32-unknown-unknown
         env:
-          RUSTFLAGS: --cfg=web_sys_unstable_apis
+          RUSTFLAGS: --cfg getrandom_backend="wasm_js"
+        run: cargo check --target wasm32-unknown-unknown
+
+  build-wasm-atomics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}-wasm32-unknown-unknown-
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
+          targets: wasm32-unknown-unknown
+          components: rust-src
+      - name: Check wasm
+        run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
+        env:
+          RUSTFLAGS: '-C target-feature=+atomics,+bulk-memory --cfg getrandom_backend="wasm_js"'
 
   markdownlint:
     runs-on: ubuntu-latest
@@ -151,76 +330,94 @@ jobs:
     needs: check-missing-features-in-docs
     if: always()
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
+          persist-credentials: false
       - name: Run Markdown Lint
-        uses: docker://ghcr.io/github/super-linter:slim-v4
+        uses: super-linter/super-linter/slim@12562e48d7059cf666c43a4ecb0d3b5a2b31bd9e # v8.4.0
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_MARKDOWN: true
           DEFAULT_BRANCH: main
+          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
 
-  run-examples-on-windows-dx12:
-    runs-on: windows-latest
-    timeout-minutes: 60
+  toml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: actions/cache@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-windows-run-examples-${{ hashFiles('**/Cargo.toml') }}
-
-      - name: Build bevy
-        shell: bash
-        # this uses the same command as when running the example to ensure build is reused
+          persist-credentials: false
+      - name: Install taplo
+        run: curl -fsSL https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin /usr/local/bin/taplo
+      - name: Run Taplo
+        id: taplo
+        run: taplo fmt --check --diff
+      - name: Taplo info
+        if: failure()
         run: |
-          WGPU_BACKEND=dx12 CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing"
+          echo 'To fix toml fmt, please run `taplo fmt`.'
+          echo 'To check for a diff, run `taplo fmt --check --diff`.'
+          echo 'You can find taplo here: https://taplo.tamasfe.dev/'
+          echo 'Or if you use VSCode, use the `Even Better Toml` extension.'
+          echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml'
 
-      - name: Run examples
-        shell: bash
+  typos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Check for typos
+        uses: crate-ci/typos@06d010dfe4c84fdab1a25ea02b57b3585018ba80 # v1.42.3
+      - name: Typos info
+        if: failure()
         run: |
-          for example in .github/example-run/*.ron; do
-            example_name=`basename $example .ron`
-            echo "running $example_name - "`date`
-            time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
-            sleep 10
-          done
+          echo 'To fix typos, please run `typos -w`'
+          echo 'To check for a diff, run `typos`'
+          echo 'You can find typos here: https://crates.io/crates/typos'
+          echo 'if you use VSCode, you can also install `Typos Spell Checker'
+          echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
 
   check-doc:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-check-doc-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
-        if: runner.os == 'linux'
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
+          x264: true
       - name: Build and check doc
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- doc
         env:
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: "-C debuginfo=0"
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
       # This currently report a lot of false positives
       # Enable it again once it's fixed - https://github.com/bevyengine/bevy/issues/1983
       # - name: Installs cargo-deadlinks
@@ -233,7 +430,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
       - name: check for missing metadata
         id: missing-metadata
         run: cargo run -p build-templated-pages -- check-missing examples
@@ -256,7 +458,7 @@ jobs:
       - name: log failed task - missing update
         if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
         run: touch ./missing-examples/missing-update
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: missing-examples
@@ -267,7 +469,12 @@ jobs:
     timeout-minutes: 30
     needs: check-missing-examples-in-docs
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
       - name: check for missing features
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
@@ -290,7 +497,7 @@ jobs:
       - name: log failed task - missing update
         if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
         run: touch ./missing-features/missing-update
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: missing-features
@@ -301,25 +508,36 @@ jobs:
     timeout-minutes: 30
     needs: build
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
+      - name: get MSRV
+        id: msrv
+        run: |
+          msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
+          echo "msrv=$msrv" >> $GITHUB_OUTPUT
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: ${{ steps.msrv.outputs.msrv }}
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-${{ steps.msrv.outputs.msrv }}--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/update-caches.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-${{ steps.msrv.outputs.msrv }}--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-${{ steps.msrv.outputs.msrv }}--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.toml') }}
-      - name: get MSRV
-        run: |
-          msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
-          echo "MSRV=$msrv" >> $GITHUB_ENV
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.MSRV }}
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
       - name: Run cargo check
         id: check
         run: cargo check
@@ -328,7 +546,7 @@ jobs:
         run: |
           mkdir -p ./msrv
           echo ${{ github.event.number }} > ./msrv/NR
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
         with:
           name: msrv
@@ -338,20 +556,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - name: Check for bevy_internal imports
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Check for internal Bevy imports
         shell: bash
         run: |
           errors=""
-          for file in $(find examples tests -name '*.rs'); do
-              if grep -q "use bevy_internal" "$file"; then
-                  errors+="ERROR: Detected 'use bevy_internal' in $file\n"
+          for file in $(find examples tests -name '*.rs' -not -path 'examples/mobile/*'); do
+              if grep -q "use bevy_" "$file"; then
+                  errors+="ERROR: Detected internal Bevy import in $file\n"
               fi
           done
           if [ -n "$errors" ]; then
               echo -e "$errors"
-              echo " Avoid importing bevy_internal, it should not be used directly"
-              echo " Fix the issue by replacing 'bevy_internal' with 'bevy'"
-              echo " Example: 'use bevy::sprite::MaterialMesh2dBundle;' instead of 'bevy_internal::sprite::MaterialMesh2dBundle;'"
+              echo " Avoid importing internal Bevy crates, they should not be used directly"
+              echo " Fix the issue by replacing 'bevy_*' with 'bevy'"
+              echo " Example: 'use bevy::sprite::Mesh2d;' instead of 'bevy_internal::sprite::Mesh2d;'"
               exit 1
-          fi                  
+          fi
+
+  check-release-content:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
+      - name: Check Release Content
+        shell: bash
+        run: |
+          cargo run --package export-content -- --check

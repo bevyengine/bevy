@@ -1,29 +1,50 @@
 //! Showcases wireframe rendering.
+//!
+//! Wireframes currently do not work when using webgl or webgpu.
+//! Supported platforms:
+//! - DX12
+//! - Vulkan
+//! - Metal
+//!
+//! This is a native only feature.
 
 use bevy::{
-    pbr::wireframe::{NoWireframe, Wireframe, WireframeConfig, WireframePlugin},
+    color::palettes::css::*,
+    pbr::wireframe::{NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframePlugin},
     prelude::*,
-    render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin},
+    render::{
+        render_resource::WgpuFeatures,
+        settings::{RenderCreation, WgpuSettings},
+        RenderPlugin,
+    },
 };
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(RenderPlugin {
-                render_creation: WgpuSettings {
+                render_creation: RenderCreation::Automatic(WgpuSettings {
+                    // WARN this is a native only feature. It will not work with webgl or webgpu
                     features: WgpuFeatures::POLYGON_MODE_LINE,
                     ..default()
-                }
-                .into(),
+                }),
+                ..default()
             }),
-            WireframePlugin,
+            // You need to add this plugin to enable wireframe rendering
+            WireframePlugin::default(),
         ))
-        .insert_resource(WireframeToggleTimer(Timer::from_seconds(
-            1.0,
-            TimerMode::Repeating,
-        )))
+        // Wireframes can be configured with this resource. This can be changed at runtime.
+        .insert_resource(WireframeConfig {
+            // The global wireframe config enables drawing of wireframes on every mesh,
+            // except those with `NoWireframe`. Meshes with `Wireframe` will always have a wireframe,
+            // regardless of the global configuration.
+            global: true,
+            // Controls the default color of all wireframes. Used as the default color for global wireframes.
+            // Can be changed per mesh using the `WireframeColor` component.
+            default_color: WHITE.into(),
+        })
         .add_systems(Startup, setup)
-        .add_systems(Update, toggle_global_wireframe_setting)
+        .add_systems(Update, update_colors)
         .run();
 }
 
@@ -33,66 +54,105 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane::from_size(5.0))),
-        material: materials.add(Color::rgb(0.3, 0.3, 0.5).into()),
-        ..default()
-    });
-
     // Red cube: Never renders a wireframe
-    commands
-        .spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(0.8, 0.1, 0.1).into()),
-            transform: Transform::from_xyz(-1.0, 0.5, -1.0),
-            ..default()
-        })
-        .insert(NoWireframe);
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(RED))),
+        Transform::from_xyz(-1.0, 0.5, -1.0),
+        NoWireframe,
+    ));
     // Orange cube: Follows global wireframe setting
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.8, 0.1).into()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(ORANGE))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
     // Green cube: Always renders a wireframe
-    commands
-        .spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(0.1, 0.8, 0.1).into()),
-            transform: Transform::from_xyz(1.0, 0.5, 1.0),
-            ..default()
-        })
-        .insert(Wireframe);
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(LIME))),
+        Transform::from_xyz(1.0, 0.5, 1.0),
+        Wireframe,
+        // This lets you configure the wireframe color of this entity.
+        // If not set, this will use the color in `WireframeConfig`
+        WireframeColor { color: LIME.into() },
+    ));
+
+    // plane
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(materials.add(Color::from(BLUE))),
+        // You can insert this component without the `Wireframe` component
+        // to override the color of the global wireframe for this mesh
+        WireframeColor {
+            color: BLACK.into(),
+        },
+    ));
 
     // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(2.0, 4.0, 2.0)));
+
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+
+    // Text used to show controls
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(12),
+            left: px(12),
+            ..default()
+        },
+    ));
 }
 
-/// This timer is used to periodically toggle the wireframe rendering.
-#[derive(Resource)]
-struct WireframeToggleTimer(Timer);
-
-/// Periodically turns the global wireframe setting on and off, to show the differences between
-/// [`Wireframe`], [`NoWireframe`], and just a mesh.
-fn toggle_global_wireframe_setting(
-    time: Res<Time>,
-    mut timer: ResMut<WireframeToggleTimer>,
-    mut wireframe_config: ResMut<WireframeConfig>,
+/// This system let's you toggle various wireframe settings
+fn update_colors(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut config: ResMut<WireframeConfig>,
+    mut wireframe_colors: Query<&mut WireframeColor, With<Wireframe>>,
+    mut text: Single<&mut Text>,
 ) {
-    if timer.0.tick(time.delta()).just_finished() {
-        // The global wireframe config enables drawing of wireframes on every mesh,
-        // except those with `NoWireframe`. Meshes with `Wireframe` will always have a wireframe,
-        // regardless of the global configuration.
-        wireframe_config.global = !wireframe_config.global;
+    text.0 = format!(
+        "Controls
+---------------
+Z - Toggle global
+X - Change global color
+C - Change color of the green cube wireframe
+
+WireframeConfig
+-------------
+Global: {}
+Color: {:?}",
+        config.global, config.default_color,
+    );
+
+    // Toggle showing a wireframe on all meshes
+    if keyboard_input.just_pressed(KeyCode::KeyZ) {
+        config.global = !config.global;
+    }
+
+    // Toggle the global wireframe color
+    if keyboard_input.just_pressed(KeyCode::KeyX) {
+        config.default_color = if config.default_color == WHITE.into() {
+            DEEP_PINK.into()
+        } else {
+            WHITE.into()
+        };
+    }
+
+    // Toggle the color of a wireframe using WireframeColor and not the global color
+    if keyboard_input.just_pressed(KeyCode::KeyC) {
+        for mut color in &mut wireframe_colors {
+            color.color = if color.color == LIME.into() {
+                RED.into()
+            } else {
+                LIME.into()
+            };
+        }
     }
 }

@@ -1,13 +1,17 @@
-// ! This example demonstrates how to create a custom mesh,
-// ! assign a custom UV mapping for a custom texture,
-// ! and how to change the UV mapping at run-time.
-use bevy::prelude::*;
-use bevy::render::mesh::Indices;
-use bevy::render::mesh::VertexAttributeValues;
-use bevy::render::render_resource::PrimitiveTopology;
+//! This example demonstrates how to create a custom mesh,
+//! assign a custom UV mapping for a custom texture,
+//! and how to change the UV mapping at run-time.
+
+use bevy::{
+    asset::RenderAssetUsages,
+    mesh::{Indices, VertexAttributeValues},
+    prelude::*,
+    render::render_resource::PrimitiveTopology,
+};
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
-// filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
+// filtering entities in queries with `With`, they're usually not queried directly since they don't
+// contain information within them.
 #[derive(Component)]
 struct CustomUV;
 
@@ -21,7 +25,7 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    asset_server: ResMut<AssetServer>,
+    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -30,16 +34,13 @@ fn setup(
     // Create and save a handle to the mesh.
     let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh());
 
-    // Render the mesh with the custom texture using a PbrBundle, add the marker.
+    // Render the mesh with the custom texture, and add the marker.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_mesh_handle,
-            material: materials.add(StandardMaterial {
-                base_color_texture: Some(custom_texture_handle),
-                ..default()
-            }),
+        Mesh3d(cube_mesh_handle),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color_texture: Some(custom_texture_handle),
             ..default()
-        },
+        })),
         CustomUV,
     ));
 
@@ -48,83 +49,67 @@ fn setup(
         Transform::from_xyz(1.8, 1.8, 1.8).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
-    commands.spawn(Camera3dBundle {
-        transform: camera_and_light_transform,
-        ..default()
-    });
+    commands.spawn((Camera3d::default(), camera_and_light_transform));
 
     // Light up the scene.
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1000.0,
-            range: 100.0,
-            ..default()
-        },
-        transform: camera_and_light_transform,
-        ..default()
-    });
+    commands.spawn((PointLight::default(), camera_and_light_transform));
 
     // Text to describe the controls.
-    commands.spawn(
-        TextBundle::from_section(
-            "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation"),
+        Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // System to receive input from the user,
 // check out examples/input/ for more examples about user input.
 fn input_handler(
-    keyboard_input: Res<Input<KeyCode>>,
-    mesh_query: Query<&Handle<Mesh>, With<CustomUV>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mesh_query: Query<&Mesh3d, With<CustomUV>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut query: Query<&mut Transform, With<CustomUV>>,
     time: Res<Time>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        let mesh_handle = mesh_query.get_single().expect("Query not successful");
+        let mesh_handle = mesh_query.single().expect("Query not successful");
         let mesh = meshes.get_mut(mesh_handle).unwrap();
         toggle_texture(mesh);
     }
-    if keyboard_input.pressed(KeyCode::X) {
+    if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {
-            transform.rotate_x(time.delta_seconds() / 1.2);
+            transform.rotate_x(time.delta_secs() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::Y) {
+    if keyboard_input.pressed(KeyCode::KeyY) {
         for mut transform in &mut query {
-            transform.rotate_y(time.delta_seconds() / 1.2);
+            transform.rotate_y(time.delta_secs() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::Z) {
+    if keyboard_input.pressed(KeyCode::KeyZ) {
         for mut transform in &mut query {
-            transform.rotate_z(time.delta_seconds() / 1.2);
+            transform.rotate_z(time.delta_secs() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::R) {
+    if keyboard_input.pressed(KeyCode::KeyR) {
         for mut transform in &mut query {
             transform.look_to(Vec3::NEG_Z, Vec3::Y);
         }
     }
 }
 
+#[rustfmt::skip]
 fn create_cube_mesh() -> Mesh {
-    let mut cube_mesh = Mesh::new(PrimitiveTopology::TriangleList);
-
-    #[rustfmt::skip]
-    cube_mesh.insert_attribute(
+    // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
+    .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.
+        // The camera coordinate space is right-handed x-right, y-up, z-back. This means "forward" is -Z.
         // Meshes always rotate around their local [0, 0, 0] when a rotation is applied to their Transform.
         // By centering our mesh around the origin, rotating the mesh preserves its center of mass.
         vec![
@@ -159,37 +144,33 @@ fn create_cube_mesh() -> Mesh {
             [0.5, 0.5, -0.5],
             [0.5, -0.5, -0.5],
         ],
-    );
-
-    // Set-up UV coordinated to point to the upper (V < 0.5), "dirt+grass" part of the texture.
+    )
+    // Set-up UV coordinates to point to the upper (V < 0.5), "dirt+grass" part of the texture.
     // Take a look at the custom image (assets/textures/array_texture.png)
     // so the UV coords will make more sense
     // Note: (0.0, 0.0) = Top-Left in UV mapping, (1.0, 1.0) = Bottom-Right in UV mapping
-    #[rustfmt::skip]
-    cube_mesh.insert_attribute(
+    .with_inserted_attribute(
         Mesh::ATTRIBUTE_UV_0,
         vec![
             // Assigning the UV coords for the top side.
-            [0.0, 0.2], [0.0, 0.0], [1.0, 0.0], [1.0, 0.25],
+            [0.0, 0.2], [0.0, 0.0], [1.0, 0.0], [1.0, 0.2],
             // Assigning the UV coords for the bottom side.
             [0.0, 0.45], [0.0, 0.25], [1.0, 0.25], [1.0, 0.45],
             // Assigning the UV coords for the right side.
             [1.0, 0.45], [0.0, 0.45], [0.0, 0.2], [1.0, 0.2],
-            // Assigning the UV coords for the left side. 
+            // Assigning the UV coords for the left side.
             [1.0, 0.45], [0.0, 0.45], [0.0, 0.2], [1.0, 0.2],
             // Assigning the UV coords for the back side.
             [0.0, 0.45], [0.0, 0.2], [1.0, 0.2], [1.0, 0.45],
             // Assigning the UV coords for the forward side.
             [0.0, 0.45], [0.0, 0.2], [1.0, 0.2], [1.0, 0.45],
         ],
-    );
-
+    )
     // For meshes with flat shading, normals are orthogonal (pointing out) from the direction of
     // the surface.
     // Normals are required for correct lighting calculations.
     // Each array represents a normalized vector, which length should be equal to 1.0.
-    #[rustfmt::skip]
-    cube_mesh.insert_attribute(
+    .with_inserted_attribute(
         Mesh::ATTRIBUTE_NORMAL,
         vec![
             // Normals for the top side (towards +y)
@@ -223,8 +204,7 @@ fn create_cube_mesh() -> Mesh {
             [0.0, 0.0, -1.0],
             [0.0, 0.0, -1.0],
         ],
-    );
-
+    )
     // Create the triangles out of the 24 vertices we created.
     // To construct a square, we need 2 triangles, therefore 12 triangles in total.
     // To construct a triangle, we need the indices of its 3 defined vertices, adding them one
@@ -232,17 +212,42 @@ fn create_cube_mesh() -> Mesh {
     // should appear counter-clockwise from the front of the triangle, in this case from outside the cube).
     // Read more about how to correctly build a mesh manually in the Bevy documentation of a Mesh,
     // further examples and the implementation of the built-in shapes.
-    #[rustfmt::skip]
-    cube_mesh.set_indices(Some(Indices::U32(vec![
+    //
+    // The first two defined triangles look like this (marked with the vertex indices,
+    // and the axis), when looking down at the top (+y) of the cube:
+    //   -Z
+    //   ^
+    // 0---1
+    // |  /|
+    // | / | -> +X
+    // |/  |
+    // 3---2
+    //
+    // The right face's (+x) triangles look like this, seen from the outside of the cube.
+    //   +Y
+    //   ^
+    // 10--11
+    // |  /|
+    // | / | -> -Z
+    // |/  |
+    // 9---8
+    //
+    // The back face's (+z) triangles look like this, seen from the outside of the cube.
+    //   +Y
+    //   ^
+    // 17--18
+    // |\  |
+    // | \ | -> +X
+    // |  \|
+    // 16--19
+    .with_inserted_indices(Indices::U32(vec![
         0,3,1 , 1,3,2, // triangles making up the top (+y) facing side.
-        4,5,7 , 5,6,7, // bottom (-y) 
+        4,5,7 , 5,6,7, // bottom (-y)
         8,11,9 , 9,11,10, // right (+x)
         12,13,15 , 13,14,15, // left (-x)
         16,19,17 , 17,19,18, // back (+z)
         20,21,23 , 21,22,23, // forward (-z)
-    ])));
-
-    cube_mesh
+    ]))
 }
 
 // Function that changes the UV mapping of the mesh, to apply the other texture.

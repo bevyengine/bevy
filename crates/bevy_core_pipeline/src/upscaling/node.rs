@@ -1,111 +1,102 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_camera::{CameraOutputMode, ClearColor, ClearColorConfig};
+use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{CameraOutputMode, ExtractedCamera},
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
-        TextureViewId,
-    },
-    renderer::RenderContext,
+    camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
+    render_resource::{BindGroup, PipelineCache, RenderPassDescriptor, TextureViewId},
+    renderer::{RenderContext, ViewQuery},
     view::ViewTarget,
 };
-use std::sync::Mutex;
 
 #[derive(Default)]
-pub struct UpscalingNode {
-    cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
+pub struct UpscalingBindGroupCache {
+    cached: Option<(TextureViewId, BindGroup)>,
 }
 
-impl ViewNode for UpscalingNode {
-    type ViewQuery = (
-        &'static ViewTarget,
-        &'static ViewUpscalingPipeline,
-        Option<&'static ExtractedCamera>,
-    );
+pub fn upscaling(
+    view: ViewQuery<(
+        &ViewTarget,
+        &ViewUpscalingPipeline,
+        Option<&ExtractedCamera>,
+    )>,
+    pipeline_cache: Res<PipelineCache>,
+    blit_pipeline: Res<BlitPipeline>,
+    clear_color_global: Res<ClearColor>,
+    mut cache: Local<UpscalingBindGroupCache>,
+    mut ctx: RenderContext,
+) {
+    let (target, upscaling_target, camera) = view.into_inner();
 
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (target, upscaling_target, camera): QueryItem<Self::ViewQuery>,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
-        let blit_pipeline = world.get_resource::<BlitPipeline>().unwrap();
+    let clear_color = if let Some(camera) = camera {
+        match camera.output_mode {
+            CameraOutputMode::Write { clear_color, .. } => clear_color,
+            CameraOutputMode::Skip => return,
+        }
+    } else {
+        ClearColorConfig::Default
+    };
+    let clear_color = match clear_color {
+        ClearColorConfig::Default => Some(clear_color_global.0),
+        ClearColorConfig::Custom(color) => Some(color),
+        ClearColorConfig::None => None,
+    };
+    let converted_clear_color = clear_color.map(Into::into);
 
-        let color_attachment_load_op = if let Some(camera) = camera {
-            match camera.output_mode {
-                CameraOutputMode::Write {
-                    color_attachment_load_op,
-                    ..
-                } => color_attachment_load_op,
-                CameraOutputMode::Skip => return Ok(()),
-            }
-        } else {
-            LoadOp::Clear(Default::default())
-        };
+    // texture to be upscaled to the output texture
+    let main_texture_view = target.main_texture_view();
 
-        let upscaled_texture = target.main_texture_view();
+    let bind_group = match &mut cache.cached {
+        Some((id, bind_group)) if main_texture_view.id() == *id => bind_group,
+        cached => {
+            let bind_group = blit_pipeline.create_bind_group(
+                ctx.render_device(),
+                main_texture_view,
+                &pipeline_cache,
+            );
 
-        let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
-        let bind_group = match &mut *cached_bind_group {
-            Some((id, bind_group)) if upscaled_texture.id() == *id => bind_group,
-            cached_bind_group => {
-                let sampler = render_context
-                    .render_device()
-                    .create_sampler(&SamplerDescriptor::default());
+            let (_, bind_group) = cached.insert((main_texture_view.id(), bind_group));
+            bind_group
+        }
+    };
 
-                let bind_group =
-                    render_context
-                        .render_device()
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &blit_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(upscaled_texture),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+    let pass_descriptor = RenderPassDescriptor {
+        label: Some("upscaling"),
+        color_attachments: &[Some(
+            target.out_texture_color_attachment(converted_clear_color),
+        )],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    };
 
-                let (_, bind_group) = cached_bind_group.insert((upscaled_texture.id(), bind_group));
-                bind_group
-            }
-        };
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(upscaling_target.0) else {
+        // we need to do some work on the swapchain to avoid pink screen uninit on macos
+        #[cfg(target_os = "macos")]
+        ctx.command_encoder().begin_render_pass(&pass_descriptor);
+        return;
+    };
 
-        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.0) {
-            Some(pipeline) => pipeline,
-            None => return Ok(()),
-        };
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "upscaling");
 
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("upscaling_pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: target.out_texture(),
-                resolve_target: None,
-                ops: Operations {
-                    load: color_attachment_load_op,
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: None,
-        };
+    {
+        let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
 
-        let mut render_pass = render_context
-            .command_encoder()
-            .begin_render_pass(&pass_descriptor);
+        if let Some(camera) = camera
+            && let Some(viewport) = &camera.viewport
+        {
+            let size = viewport.physical_size;
+            let position = viewport.physical_position;
+            render_pass.set_scissor_rect(position.x, position.y, size.x, size.y);
+        }
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.draw(0..3, 0..1);
-
-        Ok(())
     }
+
+    time_span.end(ctx.command_encoder());
 }

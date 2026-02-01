@@ -15,26 +15,26 @@ pub fn schedule(c: &mut Criterion) {
     struct E(f32);
 
     fn ab(mut query: Query<(&mut A, &mut B)>) {
-        query.for_each_mut(|(mut a, mut b)| {
-            std::mem::swap(&mut a.0, &mut b.0);
+        query.iter_mut().for_each(|(mut a, mut b)| {
+            core::mem::swap(&mut a.0, &mut b.0);
         });
     }
 
     fn cd(mut query: Query<(&mut C, &mut D)>) {
-        query.for_each_mut(|(mut c, mut d)| {
-            std::mem::swap(&mut c.0, &mut d.0);
+        query.iter_mut().for_each(|(mut c, mut d)| {
+            core::mem::swap(&mut c.0, &mut d.0);
         });
     }
 
     fn ce(mut query: Query<(&mut C, &mut E)>) {
-        query.for_each_mut(|(mut c, mut e)| {
-            std::mem::swap(&mut c.0, &mut e.0);
+        query.iter_mut().for_each(|(mut c, mut e)| {
+            core::mem::swap(&mut c.0, &mut e.0);
         });
     }
 
     let mut group = c.benchmark_group("schedule");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     group.bench_function("base", |b| {
         let mut world = World::default();
 
@@ -68,18 +68,18 @@ pub fn build_schedule(criterion: &mut Criterion) {
     struct DummySet;
 
     let mut group = criterion.benchmark_group("build_schedule");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(15));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(15));
 
     // Method: generate a set of `graph_size` systems which have a One True Ordering.
     // Add system to the schedule with full constraints. Hopefully this should be maximally
     // difficult for bevy to figure out.
-    let labels: Vec<_> = (0..1000).map(|i| NumSet(i)).collect();
+    let labels: Vec<_> = (0..1000).map(NumSet).collect();
 
     // Benchmark graphs of different sizes.
     for graph_size in [100, 500, 1000] {
         // Basic benchmark without constraints.
-        group.bench_function(format!("{graph_size}_schedule_noconstraints"), |bencher| {
+        group.bench_function(format!("{graph_size}_schedule_no_constraints"), |bencher| {
             bencher.iter(|| {
                 let mut app = App::new();
                 for _ in 0..graph_size {
@@ -115,6 +115,26 @@ pub fn build_schedule(criterion: &mut Criterion) {
             });
         });
     }
+
+    group.finish();
+}
+
+pub fn empty_schedule_run(criterion: &mut Criterion) {
+    let mut app = App::default();
+
+    let mut group = criterion.benchmark_group("run_empty_schedule");
+
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
+    group.bench_function("SingleThreaded", |bencher| {
+        bencher.iter(|| schedule.run(app.world_mut()));
+    });
+
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
+    group.bench_function("MultiThreaded", |bencher| {
+        bencher.iter(|| schedule.run(app.world_mut()));
+    });
 
     group.finish();
 }

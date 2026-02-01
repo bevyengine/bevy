@@ -1,0 +1,60 @@
+mod extract;
+mod node;
+mod prepare;
+
+use crate::SolariPlugins;
+use bevy_app::{App, Plugin};
+use bevy_asset::embedded_asset;
+use bevy_camera::Hdr;
+use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
+use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::{
+    renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+};
+use extract::extract_pathtracer;
+use node::{init_pathtracer_pipelines, pathtracer};
+use prepare::prepare_pathtracer_accumulation_texture;
+use tracing::warn;
+
+/// Non-realtime pathtracing.
+///
+/// This plugin is meant to generate reference screenshots to compare against,
+/// and is not intended to be used by games.
+pub struct PathtracingPlugin;
+
+impl Plugin for PathtracingPlugin {
+    fn build(&self, app: &mut App) {
+        embedded_asset!(app, "pathtracer.wgsl");
+    }
+
+    fn finish(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        let render_device = render_app.world().resource::<RenderDevice>();
+        let features = render_device.features();
+        if !features.contains(SolariPlugins::required_wgpu_features()) {
+            warn!(
+                "PathtracingPlugin not loaded. GPU lacks support for required features: {:?}.",
+                SolariPlugins::required_wgpu_features().difference(features)
+            );
+            return;
+        }
+
+        render_app
+            .add_systems(RenderStartup, init_pathtracer_pipelines)
+            .add_systems(ExtractSchedule, extract_pathtracer)
+            .add_systems(
+                Render,
+                prepare_pathtracer_accumulation_texture.in_set(RenderSystems::PrepareResources),
+            )
+            .add_systems(Core3d, pathtracer.after(Core3dSystems::MainPass));
+    }
+}
+
+#[derive(Component, Reflect, Default, Clone)]
+#[reflect(Component, Default, Clone)]
+#[require(Hdr)]
+pub struct Pathtracer {
+    pub reset: bool,
+}

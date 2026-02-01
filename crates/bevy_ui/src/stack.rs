@@ -1,9 +1,12 @@
 //! This module contains the systems that update the stored UI nodes stack
 
+use crate::{
+    experimental::{UiChildren, UiRootNodes},
+    ComputedNode, GlobalZIndex, ZIndex,
+};
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::prelude::*;
-
-use crate::{Node, ZIndex};
+use bevy_platform::collections::HashSet;
+use core::ops::Range;
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -11,107 +14,120 @@ use crate::{Node, ZIndex};
 /// while the last entry is the first node to receive interactions.
 #[derive(Debug, Resource, Default)]
 pub struct UiStack {
+    /// Partition of the `uinodes` list into disjoint slices of nodes that all share the same camera target.
+    pub partition: Vec<Range<usize>>,
     /// List of UI nodes ordered from back-to-front
     pub uinodes: Vec<Entity>,
 }
 
 #[derive(Default)]
-struct StackingContext {
-    pub entries: Vec<StackingContextEntry>,
+pub(crate) struct ChildBufferCache {
+    pub inner: Vec<Vec<(Entity, i32)>>,
 }
 
-struct StackingContextEntry {
-    pub z_index: i32,
-    pub entity: Entity,
-    pub stack: StackingContext,
+impl ChildBufferCache {
+    fn pop(&mut self) -> Vec<(Entity, i32)> {
+        self.inner.pop().unwrap_or_default()
+    }
+
+    fn push(&mut self, vec: Vec<(Entity, i32)>) {
+        self.inner.push(vec);
+    }
 }
 
 /// Generates the render stack for UI nodes.
 ///
-/// First generate a UI node tree (`StackingContext`) based on z-index.
-/// Then flatten that tree into back-to-front ordered `UiStack`.
+/// Create a list of root nodes from parentless entities and entities with a `GlobalZIndex` component.
+/// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
+/// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
+    mut cache: Local<ChildBufferCache>,
+    mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
+    mut visited_root_nodes: Local<HashSet<Entity>>,
     mut ui_stack: ResMut<UiStack>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    zindex_query: Query<&ZIndex, With<Node>>,
-    children_query: Query<&Children>,
+    ui_root_nodes: UiRootNodes,
+    root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
+    zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<ComputedNode>>,
+    ui_children: UiChildren,
+    zindex_query: Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
+    mut update_query: Query<&mut ComputedNode>,
 ) {
-    // Generate `StackingContext` tree
-    let mut global_context = StackingContext::default();
-    let mut total_entry_count: usize = 0;
+    ui_stack.partition.clear();
+    ui_stack.uinodes.clear();
+    visited_root_nodes.clear();
 
-    for entity in &root_node_query {
-        insert_context_hierarchy(
-            &zindex_query,
-            &children_query,
-            entity,
-            &mut global_context,
-            None,
-            &mut total_entry_count,
-        );
+    for (id, maybe_global_zindex, maybe_zindex) in root_node_query.iter_many(ui_root_nodes.iter()) {
+        root_nodes.push((
+            id,
+            (
+                maybe_global_zindex.map(|zindex| zindex.0).unwrap_or(0),
+                maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
+            ),
+        ));
+        visited_root_nodes.insert(id);
     }
 
-    // Flatten `StackingContext` into `UiStack`
-    ui_stack.uinodes.clear();
-    ui_stack.uinodes.reserve(total_entry_count);
-    fill_stack_recursively(&mut ui_stack.uinodes, &mut global_context);
-}
+    for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
+        if visited_root_nodes.contains(&id) {
+            continue;
+        }
 
-/// Generate z-index based UI node tree
-fn insert_context_hierarchy(
-    zindex_query: &Query<&ZIndex, With<Node>>,
-    children_query: &Query<&Children>,
-    entity: Entity,
-    global_context: &mut StackingContext,
-    parent_context: Option<&mut StackingContext>,
-    total_entry_count: &mut usize,
-) {
-    let mut new_context = StackingContext::default();
+        root_nodes.push((
+            id,
+            (
+                global_zindex.0,
+                maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
+            ),
+        ));
+    }
 
-    if let Ok(children) = children_query.get(entity) {
-        // Reserve space for all children. In practice, some may not get pushed since
-        // nodes with `ZIndex::Global` are pushed to the global (root) context.
-        new_context.entries.reserve_exact(children.len());
+    root_nodes.sort_by_key(|(_, z)| *z);
 
-        for entity in children {
-            insert_context_hierarchy(
-                zindex_query,
-                children_query,
-                *entity,
-                global_context,
-                Some(&mut new_context),
-                total_entry_count,
-            );
+    for (root_entity, _) in root_nodes.drain(..) {
+        let start = ui_stack.uinodes.len();
+        update_uistack_recursive(
+            &mut cache,
+            root_entity,
+            &ui_children,
+            &zindex_query,
+            &mut ui_stack.uinodes,
+        );
+        let end = ui_stack.uinodes.len();
+        ui_stack.partition.push(start..end);
+    }
+
+    for (i, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok(mut node) = update_query.get_mut(*entity) {
+            node.bypass_change_detection().stack_index = i as u32;
         }
     }
-
-    // The node will be added either to global/parent based on its z-index type: global/local.
-    let z_index = zindex_query.get(entity).unwrap_or(&ZIndex::Local(0));
-    let (entity_context, z_index) = match z_index {
-        ZIndex::Local(value) => (parent_context.unwrap_or(global_context), *value),
-        ZIndex::Global(value) => (global_context, *value),
-    };
-
-    *total_entry_count += 1;
-    entity_context.entries.push(StackingContextEntry {
-        z_index,
-        entity,
-        stack: new_context,
-    });
 }
 
-/// Flatten `StackingContext` (z-index based UI node tree) into back-to-front entities list
-fn fill_stack_recursively(result: &mut Vec<Entity>, stack: &mut StackingContext) {
-    // Sort entries by ascending z_index, while ensuring that siblings
-    // with the same local z_index will keep their ordering. This results
-    // in `back-to-front` ordering, low z_index = back; high z_index = front.
-    stack.entries.sort_by_key(|e| e.z_index);
+fn update_uistack_recursive(
+    cache: &mut ChildBufferCache,
+    node_entity: Entity,
+    ui_children: &UiChildren,
+    zindex_query: &Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
+    ui_stack: &mut Vec<Entity>,
+) {
+    ui_stack.push(node_entity);
 
-    for entry in &mut stack.entries {
-        // Parent node renders before/behind child nodes
-        result.push(entry.entity);
-        fill_stack_recursively(result, &mut entry.stack);
+    let mut child_buffer = cache.pop();
+    child_buffer.extend(
+        ui_children
+            .iter_ui_children(node_entity)
+            .filter_map(|child_entity| {
+                zindex_query
+                    .get(child_entity)
+                    .ok()
+                    .map(|zindex| (child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+            }),
+    );
+    child_buffer.sort_by_key(|k| k.1);
+    for (child_entity, _) in child_buffer.drain(..) {
+        update_uistack_recursive(cache, child_entity, ui_children, zindex_query, ui_stack);
     }
+    cache.push(child_buffer);
 }
 
 #[cfg(test)]
@@ -119,20 +135,39 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         schedule::Schedule,
-        system::{CommandQueue, Commands},
-        world::World,
+        system::Commands,
+        world::{CommandQueue, World},
     };
-    use bevy_hierarchy::BuildChildren;
 
-    use crate::{Node, UiStack, ZIndex};
+    use crate::{GlobalZIndex, Node, UiStack, ZIndex};
 
     use super::ui_stack_system;
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
 
-    fn node_with_zindex(name: &'static str, z_index: ZIndex) -> (Label, Node, ZIndex) {
-        (Label(name), Node::default(), z_index)
+    fn node_with_global_and_local_zindex(
+        name: &'static str,
+        global_zindex: i32,
+        local_zindex: i32,
+    ) -> (Label, Node, GlobalZIndex, ZIndex) {
+        (
+            Label(name),
+            Node::default(),
+            GlobalZIndex(global_zindex),
+            ZIndex(local_zindex),
+        )
+    }
+
+    fn node_with_global_zindex(
+        name: &'static str,
+        global_zindex: i32,
+    ) -> (Label, Node, GlobalZIndex) {
+        (Label(name), Node::default(), GlobalZIndex(global_zindex))
+    }
+
+    fn node_with_zindex(name: &'static str, zindex: i32) -> (Label, Node, ZIndex) {
+        (Label(name), Node::default(), ZIndex(zindex))
     }
 
     fn node_without_zindex(name: &'static str) -> (Label, Node) {
@@ -152,24 +187,24 @@ mod tests {
 
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
-        commands.spawn(node_with_zindex("0", ZIndex::Global(2)));
+        commands.spawn(node_with_global_zindex("0", 2));
 
         commands
-            .spawn(node_with_zindex("1", ZIndex::Local(1)))
+            .spawn(node_with_zindex("1", 1))
             .with_children(|parent| {
                 parent
                     .spawn(node_without_zindex("1-0"))
                     .with_children(|parent| {
                         parent.spawn(node_without_zindex("1-0-0"));
                         parent.spawn(node_without_zindex("1-0-1"));
-                        parent.spawn(node_with_zindex("1-0-2", ZIndex::Local(-1)));
+                        parent.spawn(node_with_zindex("1-0-2", -1));
                     });
                 parent.spawn(node_without_zindex("1-1"));
                 parent
-                    .spawn(node_with_zindex("1-2", ZIndex::Global(-1)))
+                    .spawn(node_with_global_zindex("1-2", -1))
                     .with_children(|parent| {
                         parent.spawn(node_without_zindex("1-2-0"));
-                        parent.spawn(node_with_zindex("1-2-1", ZIndex::Global(-3)));
+                        parent.spawn(node_with_global_zindex("1-2-1", -3));
                         parent
                             .spawn(node_without_zindex("1-2-2"))
                             .with_children(|_| ());
@@ -191,7 +226,7 @@ mod tests {
                     });
             });
 
-        commands.spawn(node_with_zindex("3", ZIndex::Global(-2)));
+        commands.spawn(node_with_global_zindex("3", -2));
 
         queue.apply(&mut world);
 
@@ -207,9 +242,9 @@ mod tests {
             .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
         let expected_result = vec![
-            (Label("1-2-1")), // ZIndex::Global(-3)
-            (Label("3")),     // ZIndex::Global(-2)
-            (Label("1-2")),   // ZIndex::Global(-1)
+            (Label("1-2-1")), // GlobalZIndex(-3)
+            (Label("3")),     // GlobalZIndex(-2)
+            (Label("1-2")),   // GlobalZIndex(-1)
             (Label("1-2-0")),
             (Label("1-2-2")),
             (Label("1-2-3")),
@@ -217,15 +252,90 @@ mod tests {
             (Label("2-0")),
             (Label("2-1")),
             (Label("2-1-0")),
-            (Label("1")), // ZIndex::Local(1)
+            (Label("1")), // ZIndex(1)
             (Label("1-0")),
-            (Label("1-0-2")), // ZIndex::Local(-1)
+            (Label("1-0-2")), // ZIndex(-1)
             (Label("1-0-0")),
             (Label("1-0-1")),
             (Label("1-1")),
             (Label("1-3")),
-            (Label("0")), // ZIndex::Global(2)
+            (Label("0")), // GlobalZIndex(2)
         ];
         assert_eq!(actual_result, expected_result);
+
+        // Test partitioning
+        let last_part = ui_stack.partition.last().unwrap();
+        assert_eq!(last_part.len(), 1);
+        let last_entity = ui_stack.uinodes[last_part.start];
+        assert_eq!(*query.get(&world, last_entity).unwrap(), Label("0"));
+
+        let actual_result = ui_stack.uinodes[ui_stack.partition[4].clone()]
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+        let expected_result = vec![
+            (Label("1")), // ZIndex(1)
+            (Label("1-0")),
+            (Label("1-0-2")), // ZIndex(-1)
+            (Label("1-0-0")),
+            (Label("1-0-1")),
+            (Label("1-1")),
+            (Label("1-3")),
+        ];
+        assert_eq!(actual_result, expected_result);
+    }
+
+    #[test]
+    fn test_with_equal_global_zindex_zindex_decides_order() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        commands.spawn(node_with_global_and_local_zindex("0", -1, 1));
+        commands.spawn(node_with_global_and_local_zindex("1", -1, 2));
+        commands.spawn(node_with_global_and_local_zindex("2", 1, 3));
+        commands.spawn(node_with_global_and_local_zindex("3", 1, -3));
+        commands
+            .spawn(node_without_zindex("4"))
+            .with_children(|builder| {
+                builder.spawn(node_with_global_and_local_zindex("5", 0, -1));
+                builder.spawn(node_with_global_and_local_zindex("6", 0, 1));
+                builder.spawn(node_with_global_and_local_zindex("7", -1, -1));
+                builder.spawn(node_with_global_zindex("8", 1));
+            });
+
+        queue.apply(&mut world);
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+        schedule.run(&mut world);
+
+        let mut query = world.query::<&Label>();
+        let ui_stack = world.resource::<UiStack>();
+        let actual_result = ui_stack
+            .uinodes
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+
+        let expected_result = vec![
+            (Label("7")),
+            (Label("0")),
+            (Label("1")),
+            (Label("5")),
+            (Label("4")),
+            (Label("6")),
+            (Label("3")),
+            (Label("8")),
+            (Label("2")),
+        ];
+
+        assert_eq!(actual_result, expected_result);
+
+        assert_eq!(ui_stack.partition.len(), expected_result.len());
+        for (i, part) in ui_stack.partition.iter().enumerate() {
+            assert_eq!(*part, i..i + 1);
+        }
     }
 }

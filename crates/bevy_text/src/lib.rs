@@ -1,115 +1,111 @@
-#![allow(clippy::type_complexity)]
+//! This crate provides the tools for positioning and rendering text in Bevy.
+//!
+//! # `Font`
+//!
+//! Fonts contain information for drawing glyphs, which are shapes that typically represent a single character,
+//! but in some cases part of a "character" (grapheme clusters) or more than one character (ligatures).
+//!
+//! A font *face* is part of a font family,
+//! and is distinguished by its style (e.g. italic), its weight (e.g. bold) and its stretch (e.g. condensed).
+//!
+//! In Bevy, [`Font`]s are loaded by the [`FontLoader`] as [assets](bevy_asset::AssetPlugin).
+//!
+//! # `TextPipeline`
+//!
+//! The [`TextPipeline`] resource does all of the heavy lifting for rendering text.
+//!
+//! UI `Text` is first measured by creating a [`TextMeasureInfo`] in [`TextPipeline::create_text_measure`],
+//! which is called by the `measure_text_system` system of `bevy_ui`.
+//!
+//! Note that text measurement is only relevant in a UI context.
+//!
+//! With the actual text bounds defined, the `bevy_ui::widget::text::text_system` system (in a UI context)
+//! or `bevy_sprite::text2d::update_text2d_layout` system (in a 2d world space context)
+//! passes it into [`TextPipeline::update_text_layout_info`], which:
+//!
+//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlas`]es if necessary.
+//! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
+//!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
+//! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
+//!    which contains all the information that downstream systems need for rendering.
 
+extern crate alloc;
+
+mod bounds;
 mod error;
 mod font;
 mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
-mod glyph_brush;
+mod glyph;
 mod pipeline;
 mod text;
-mod text2d;
+mod text_access;
 
+use bevy_asset::AssetEventSystems;
+pub use bounds::*;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
-pub use glyph_brush::*;
+pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
-pub use text2d::*;
+pub use text_access::*;
 
+/// The text prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Font, Text, Text2dBundle, TextAlignment, TextError, TextSection, TextStyle};
+    pub use crate::{
+        Font, FontHinting, FontSmoothing, FontSource, FontStyle, FontWeight, FontWidth, Justify,
+        LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError, TextFont, TextLayout,
+        TextSpan, Underline, UnderlineColor,
+    };
 }
 
 use bevy_app::prelude::*;
-#[cfg(feature = "default_font")]
-use bevy_asset::load_internal_binary_asset;
-use bevy_asset::{AssetApp, Handle};
+use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
-use bevy_render::{camera::CameraUpdateSystem, ExtractSchedule, RenderApp};
-use bevy_sprite::SpriteSystem;
-use std::num::NonZeroUsize;
 
+/// The raw data for the default font used by `bevy_text`
+#[cfg(feature = "default_font")]
+pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
+
+/// Adds text rendering support to an app.
+///
+/// When the `bevy_text` feature is enabled with the `bevy` crate, this
+/// plugin is included by default in the `DefaultPlugins`.
 #[derive(Default)]
 pub struct TextPlugin;
 
-/// [`TextPlugin`] settings
-#[derive(Resource)]
-pub struct TextSettings {
-    /// Maximum number of font atlases supported in a [`FontAtlasSet`].
-    pub max_font_atlases: NonZeroUsize,
-    /// Allows font size to be set dynamically exceeding the amount set in `max_font_atlases`.
-    /// Note each font size has to be generated which can have a strong performance impact.
-    pub allow_dynamic_font_size: bool,
-}
-
-impl Default for TextSettings {
-    fn default() -> Self {
-        Self {
-            max_font_atlases: NonZeroUsize::new(16).unwrap(),
-            allow_dynamic_font_size: false,
-        }
-    }
-}
-
-#[derive(Resource, Default)]
-pub struct FontAtlasWarning {
-    warned: bool,
-}
-
-/// Text is rendered for two different view projections, normal `Text2DBundle` is rendered with a
-/// `BottomToTop` y axis, and UI is rendered with a `TopToBottom` y axis. This matters for text because
-/// the glyph positioning is different in either layout.
-pub enum YAxisOrientation {
-    TopToBottom,
-    BottomToTop,
-}
+/// System set in [`PostUpdate`] where all 2d text update systems are executed.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct Text2dUpdateSystems;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
-            .register_type::<Text>()
-            .register_type::<Text2dBounds>()
-            .register_type::<TextSection>()
-            .register_type::<Vec<TextSection>>()
-            .register_type::<TextStyle>()
-            .register_type::<TextAlignment>()
-            .register_type::<BreakLineOn>()
             .init_asset_loader::<FontLoader>()
-            .init_resource::<TextSettings>()
-            .init_resource::<FontAtlasWarning>()
-            .init_resource::<FontAtlasSets>()
-            .insert_resource(TextPipeline::default())
+            .init_resource::<FontAtlasSet>()
+            .init_resource::<TextPipeline>()
+            .init_resource::<CosmicFontSystem>()
+            .init_resource::<SwashCache>()
+            .init_resource::<TextIterScratch>()
             .add_systems(
                 PostUpdate,
-                (
-                    update_text2d_layout
-                        // Potential conflict: `Assets<Image>`
-                        // In practice, they run independently since `bevy_render::camera_update_system`
-                        // will only ever observe its own render target, and `update_text2d_layout`
-                        // will never modify a pre-existing `Image` asset.
-                        .ambiguous_with(CameraUpdateSystem),
-                    font_atlas_set::remove_dropped_font_atlas_sets,
-                ),
-            );
-
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                ExtractSchedule,
-                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
-            );
-        }
+                load_font_assets_into_fontdb_system.after(AssetEventSystems),
+            )
+            .add_systems(Last, trim_cosmic_cache);
 
         #[cfg(feature = "default_font")]
-        load_internal_binary_asset!(
-            app,
-            Handle::default(),
-            "FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
-        );
+        {
+            use bevy_asset::{AssetId, Assets};
+            let mut assets = app.world_mut().resource_mut::<Assets<_>>();
+            let asset = Font::try_from_bytes(DEFAULT_FONT_DATA.to_vec()).unwrap();
+            assets.insert(AssetId::default(), asset).unwrap();
+        };
     }
 }

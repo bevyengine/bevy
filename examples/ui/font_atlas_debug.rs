@@ -1,7 +1,9 @@
 //! This example illustrates how `FontAtlas`'s are populated.
 //! Bevy uses `FontAtlas`'s under the hood to optimize text rendering.
 
-use bevy::{prelude::*, text::FontAtlasSets};
+use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSet};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
@@ -30,72 +32,79 @@ impl Default for State {
     }
 }
 
+#[derive(Resource, Deref, DerefMut)]
+struct SeededRng(ChaCha8Rng);
+
 fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
-    font_atlas_sets: Res<FontAtlasSets>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
+    font_atlas_set: Res<FontAtlasSet>,
+    images: Res<Assets<Image>>,
 ) {
-    if let Some(set) = font_atlas_sets.get(&state.handle) {
-        if let Some((_size, font_atlas)) = set.iter().next() {
-            let x_offset = state.atlas_count as f32;
-            if state.atlas_count == font_atlas.len() as u32 {
-                return;
-            }
-            let texture_atlas = texture_atlases
-                .get(&font_atlas[state.atlas_count as usize].texture_atlas)
-                .unwrap();
-            state.atlas_count += 1;
-            commands.spawn(ImageBundle {
-                image: texture_atlas.texture.clone().into(),
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    top: Val::ZERO,
-                    left: Val::Px(512.0 * x_offset),
-                    ..default()
-                },
-                ..default()
-            });
+    if let Some(font_atlases) = font_atlas_set.values().next() {
+        let x_offset = state.atlas_count as f32;
+        if state.atlas_count == font_atlases.len() as u32 {
+            return;
         }
+        let font_atlas = &font_atlases[state.atlas_count as usize];
+        let image = images.get(&font_atlas.texture).unwrap();
+        state.atlas_count += 1;
+        commands.spawn((
+            ImageNode::new(font_atlas.texture.clone()),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::ZERO,
+                left: px(image.width() as f32 * x_offset),
+                ..default()
+            },
+        ));
     }
 }
 
-fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {
-    if state.timer.tick(time.delta()).finished() {
-        for mut text in &mut query {
-            let c = rand::random::<u8>() as char;
-            let string = &mut text.sections[0].value;
-            if !string.contains(c) {
-                string.push(c);
-            }
-        }
+fn text_update_system(
+    mut state: ResMut<State>,
+    time: Res<Time>,
+    mut query: Query<&mut Text>,
+    mut seeded_rng: ResMut<SeededRng>,
+) {
+    if !state.timer.tick(time.delta()).just_finished() {
+        return;
+    }
 
-        state.timer.reset();
+    for mut text in &mut query {
+        let c = seeded_rng.random::<u8>() as char;
+        let string = &mut **text;
+        if !string.contains(c) {
+            string.push(c);
+        }
     }
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
-    let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
-    state.handle = font_handle.clone();
-    commands.spawn(Camera2dBundle::default());
+    state.handle = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = FontSource::from(state.handle.clone());
+    commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            background_color: Color::NONE.into(),
-            style: Style {
+        .spawn((
+            Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::ZERO,
                 ..default()
             },
-            ..default()
-        })
+            BackgroundColor(Color::NONE),
+        ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "a",
-                TextStyle {
-                    font: font_handle,
-                    font_size: 60.0,
-                    color: Color::YELLOW,
+            parent.spawn((
+                Text::new("a"),
+                TextFont {
+                    font,
+                    font_size: 50.0,
+                    ..default()
                 },
+                TextColor(YELLOW.into()),
             ));
         });
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    commands.insert_resource(SeededRng(ChaCha8Rng::seed_from_u64(19878367467713)));
 }

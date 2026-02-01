@@ -1,23 +1,28 @@
-#![warn(missing_docs)]
-
-use accesskit_winit::Adapter;
-use bevy_a11y::{
-    accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate},
-    AccessibilityRequested,
-};
+use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::entity::Entity;
 
-use bevy_utils::{tracing::warn, HashMap};
-use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
+use bevy_ecs::entity::EntityHashMap;
+use bevy_platform::collections::HashMap;
+use bevy_window::{
+    CursorGrabMode, CursorOptions, MonitorSelection, VideoModeSelection, Window, WindowMode,
+    WindowPosition, WindowResolution, WindowWrapper,
+};
+use tracing::warn;
 
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
-    monitor::MonitorHandle,
+    error::ExternalError,
+    event_loop::ActiveEventLoop,
+    monitor::{MonitorHandle, VideoModeHandle},
+    window::{CursorGrabMode as WinitCursorGrabMode, Fullscreen, Window as WinitWindow, WindowId},
 };
 
 use crate::{
-    accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers},
+    accessibility::{
+        prepare_accessibility_for_window, AccessKitAdapters, WinitActionRequestHandlers,
+    },
     converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
+    winit_monitors::WinitMonitors,
 };
 
 /// A resource mapping window entities to their `winit`-backend [`Window`](winit::window::Window)
@@ -25,11 +30,11 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct WinitWindows {
     /// Stores [`winit`] windows by window identifier.
-    pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
+    pub windows: HashMap<WindowId, WindowWrapper<WinitWindow>>,
     /// Maps entities to `winit` window identifiers.
-    pub entity_to_winit: HashMap<Entity, winit::window::WindowId>,
+    pub entity_to_winit: EntityHashMap<WindowId>,
     /// Maps `winit` window identifiers to entities.
-    pub winit_to_entity: HashMap<winit::window::WindowId, Entity>,
+    pub winit_to_entity: HashMap<WindowId, Entity>,
     // Many `winit` window functions (e.g. `set_window_icon`) can only be called on the main thread.
     // If they're called on other threads, the program might hang. This marker indicates that this
     // type is not thread-safe and will be `!Send` and `!Sync`.
@@ -37,66 +42,212 @@ pub struct WinitWindows {
 }
 
 impl WinitWindows {
+    /// Creates a new instance of `WinitWindows`.
+    pub const fn new() -> Self {
+        Self {
+            windows: HashMap::new(),
+            entity_to_winit: EntityHashMap::new(),
+            winit_to_entity: HashMap::new(),
+            _not_send_sync: core::marker::PhantomData,
+        }
+    }
+
     /// Creates a `winit` window and associates it with our entity.
     pub fn create_window(
         &mut self,
-        event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        event_loop: &ActiveEventLoop,
         entity: Entity,
         window: &Window,
+        cursor_options: &CursorOptions,
         adapters: &mut AccessKitAdapters,
-        handlers: &mut WinitActionHandlers,
+        handlers: &mut WinitActionRequestHandlers,
         accessibility_requested: &AccessibilityRequested,
-    ) -> &winit::window::Window {
-        let mut winit_window_builder = winit::window::WindowBuilder::new();
+        monitors: &WinitMonitors,
+    ) -> &WindowWrapper<WinitWindow> {
+        let mut winit_window_attributes = WinitWindow::default_attributes();
 
         // Due to a UIA limitation, winit windows need to be invisible for the
         // AccessKit adapter is initialized.
-        winit_window_builder = winit_window_builder.with_visible(false);
+        winit_window_attributes = winit_window_attributes.with_visible(false);
 
-        winit_window_builder = match window.mode {
-            WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
-                winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
-            )),
-            WindowMode::Fullscreen => {
-                winit_window_builder.with_fullscreen(Some(winit::window::Fullscreen::Exclusive(
-                    get_best_videomode(&event_loop.primary_monitor().unwrap()),
-                )))
+        let maybe_selected_monitor = &match window.mode {
+            WindowMode::BorderlessFullscreen(monitor_selection)
+            | WindowMode::Fullscreen(monitor_selection, _) => select_monitor(
+                monitors,
+                event_loop.primary_monitor(),
+                None,
+                &monitor_selection,
+            ),
+            WindowMode::Windowed => None,
+        };
+
+        winit_window_attributes = match window.mode {
+            WindowMode::BorderlessFullscreen(_) => winit_window_attributes
+                .with_fullscreen(Some(Fullscreen::Borderless(maybe_selected_monitor.clone()))),
+            WindowMode::Fullscreen(monitor_selection, video_mode_selection) => {
+                let select_monitor = &maybe_selected_monitor
+                    .clone()
+                    .expect("Unable to get monitor.");
+
+                if let Some(video_mode) =
+                    get_selected_videomode(select_monitor, &video_mode_selection)
+                {
+                    winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(video_mode)))
+                } else {
+                    warn!(
+                        "Could not find valid fullscreen video mode for {:?} {:?}",
+                        monitor_selection, video_mode_selection
+                    );
+                    winit_window_attributes
+                }
             }
-            WindowMode::SizedFullscreen => winit_window_builder.with_fullscreen(Some(
-                winit::window::Fullscreen::Exclusive(get_fitting_videomode(
-                    &event_loop.primary_monitor().unwrap(),
-                    window.width() as u32,
-                    window.height() as u32,
-                )),
-            )),
             WindowMode::Windowed => {
                 if let Some(position) = winit_window_position(
                     &window.position,
                     &window.resolution,
-                    event_loop.available_monitors(),
+                    monitors,
                     event_loop.primary_monitor(),
                     None,
                 ) {
-                    winit_window_builder = winit_window_builder.with_position(position);
+                    winit_window_attributes = winit_window_attributes.with_position(position);
                 }
-
                 let logical_size = LogicalSize::new(window.width(), window.height());
                 if let Some(sf) = window.resolution.scale_factor_override() {
-                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
+                    let inner_size = logical_size.to_physical::<f64>(sf.into());
+                    winit_window_attributes.with_inner_size(inner_size)
                 } else {
-                    winit_window_builder.with_inner_size(logical_size)
+                    winit_window_attributes.with_inner_size(logical_size)
                 }
             }
         };
 
-        winit_window_builder = winit_window_builder
+        // It's crucial to avoid setting the window's final visibility here;
+        // as explained above, the window must be invisible until the AccessKit
+        // adapter is created.
+        winit_window_attributes = winit_window_attributes
             .with_window_level(convert_window_level(window.window_level))
             .with_theme(window.window_theme.map(convert_window_theme))
             .with_resizable(window.resizable)
             .with_enabled_buttons(convert_enabled_buttons(window.enabled_buttons))
             .with_decorations(window.decorations)
             .with_transparent(window.transparent)
-            .with_visible(window.visible);
+            .with_active(window.focused);
+
+        #[cfg(target_os = "windows")]
+        {
+            use winit::platform::windows::WindowAttributesExtWindows;
+            winit_window_attributes =
+                winit_window_attributes.with_skip_taskbar(window.skip_taskbar);
+            winit_window_attributes =
+                winit_window_attributes.with_clip_children(window.clip_children);
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            use winit::platform::macos::WindowAttributesExtMacOS;
+            winit_window_attributes = winit_window_attributes
+                .with_movable_by_window_background(window.movable_by_window_background)
+                .with_fullsize_content_view(window.fullsize_content_view)
+                .with_has_shadow(window.has_shadow)
+                .with_titlebar_hidden(!window.titlebar_shown)
+                .with_titlebar_transparent(window.titlebar_transparent)
+                .with_title_hidden(!window.titlebar_show_title)
+                .with_titlebar_buttons_hidden(!window.titlebar_show_buttons);
+        }
+
+        #[cfg(target_os = "ios")]
+        {
+            use crate::converters::convert_screen_edge;
+            use winit::platform::ios::WindowAttributesExtIOS;
+
+            let preferred_edge =
+                convert_screen_edge(window.preferred_screen_edges_deferring_system_gestures);
+
+            winit_window_attributes = winit_window_attributes
+                .with_preferred_screen_edges_deferring_system_gestures(preferred_edge);
+            winit_window_attributes = winit_window_attributes
+                .with_prefers_home_indicator_hidden(window.prefers_home_indicator_hidden);
+            winit_window_attributes = winit_window_attributes
+                .with_prefers_status_bar_hidden(window.prefers_status_bar_hidden);
+        }
+
+        let display_info = DisplayInfo {
+            window_physical_resolution: (
+                window.resolution.physical_width(),
+                window.resolution.physical_height(),
+            ),
+            window_logical_resolution: (window.resolution.width(), window.resolution.height()),
+            monitor_name: maybe_selected_monitor
+                .as_ref()
+                .and_then(MonitorHandle::name),
+            scale_factor: maybe_selected_monitor
+                .as_ref()
+                .map(MonitorHandle::scale_factor),
+            refresh_rate_millihertz: maybe_selected_monitor
+                .as_ref()
+                .and_then(MonitorHandle::refresh_rate_millihertz),
+        };
+        bevy_log::debug!("{display_info}");
+
+        #[cfg(any(
+            all(
+                any(feature = "wayland", feature = "x11"),
+                any(
+                    target_os = "linux",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd",
+                )
+            ),
+            target_os = "windows"
+        ))]
+        if let Some(name) = &window.name {
+            #[cfg(all(
+                feature = "wayland",
+                any(
+                    target_os = "linux",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd"
+                )
+            ))]
+            {
+                winit_window_attributes =
+                    winit::platform::wayland::WindowAttributesExtWayland::with_name(
+                        winit_window_attributes,
+                        name.clone(),
+                        "",
+                    );
+            }
+
+            #[cfg(all(
+                feature = "x11",
+                any(
+                    target_os = "linux",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd"
+                )
+            ))]
+            {
+                winit_window_attributes = winit::platform::x11::WindowAttributesExtX11::with_name(
+                    winit_window_attributes,
+                    name.clone(),
+                    "",
+                );
+            }
+            #[cfg(target_os = "windows")]
+            {
+                winit_window_attributes =
+                    winit::platform::windows::WindowAttributesExtWindows::with_class_name(
+                        winit_window_attributes,
+                        name.clone(),
+                    );
+            }
+        }
 
         let constraints = window.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
@@ -108,111 +259,91 @@ impl WinitWindows {
             height: constraints.max_height,
         };
 
-        let winit_window_builder =
+        let winit_window_attributes =
             if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
-                winit_window_builder
+                winit_window_attributes
                     .with_min_inner_size(min_inner_size)
                     .with_max_inner_size(max_inner_size)
             } else {
-                winit_window_builder.with_min_inner_size(min_inner_size)
+                winit_window_attributes.with_min_inner_size(min_inner_size)
             };
 
-        #[allow(unused_mut)]
-        let mut winit_window_builder = winit_window_builder.with_title(window.title.as_str());
+        #[expect(clippy::allow_attributes, reason = "`unused_mut` is not always linted")]
+        #[allow(
+            unused_mut,
+            reason = "This variable needs to be mutable if `cfg(target_arch = \"wasm32\")`"
+        )]
+        let mut winit_window_attributes = winit_window_attributes.with_title(window.title.as_str());
 
         #[cfg(target_arch = "wasm32")]
         {
             use wasm_bindgen::JsCast;
-            use winit::platform::web::WindowBuilderExtWebSys;
+            use winit::platform::web::WindowAttributesExtWebSys;
 
             if let Some(selector) = &window.canvas {
                 let window = web_sys::window().unwrap();
                 let document = window.document().unwrap();
                 let canvas = document
-                    .query_selector(&selector)
+                    .query_selector(selector)
                     .expect("Cannot query for canvas element.");
                 if let Some(canvas) = canvas {
                     let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
-                    winit_window_builder = winit_window_builder.with_canvas(canvas);
+                    winit_window_attributes = winit_window_attributes.with_canvas(canvas);
                 } else {
-                    panic!("Cannot find element: {}.", selector);
+                    panic!("Cannot find element: {selector}.");
                 }
             }
 
-            winit_window_builder =
-                winit_window_builder.with_prevent_default(window.prevent_default_event_handling)
+            winit_window_attributes =
+                winit_window_attributes.with_prevent_default(window.prevent_default_event_handling);
+            winit_window_attributes = winit_window_attributes.with_append(true);
         }
 
-        let winit_window = winit_window_builder.build(event_loop).unwrap();
+        let winit_window = event_loop.create_window(winit_window_attributes).unwrap();
         let name = window.title.clone();
-
-        let mut root_builder = NodeBuilder::new(Role::Window);
-        root_builder.set_name(name.into_boxed_str());
-        let root = root_builder.build(&mut NodeClassSet::lock_global());
-
-        let accesskit_window_id = NodeId(entity.to_bits());
-        let handler = WinitActionHandler::default();
-        let accessibility_requested = accessibility_requested.clone();
-        let adapter = Adapter::with_action_handler(
+        prepare_accessibility_for_window(
+            event_loop,
             &winit_window,
-            move || {
-                accessibility_requested.set(true);
-                TreeUpdate {
-                    nodes: vec![(accesskit_window_id, root)],
-                    tree: Some(Tree::new(accesskit_window_id)),
-                    focus: accesskit_window_id,
-                }
-            },
-            Box::new(handler.clone()),
+            entity,
+            name,
+            accessibility_requested.clone(),
+            adapters,
+            handlers,
         );
-        adapters.insert(entity, adapter);
-        handlers.insert(entity, handler);
+
+        // Now that the AccessKit adapter is created, it's safe to show
+        // the window.
+        winit_window.set_visible(window.visible);
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
-        if window.cursor.grab_mode != CursorGrabMode::None {
-            attempt_grab(&winit_window, window.cursor.grab_mode);
+        if cursor_options.grab_mode != CursorGrabMode::None {
+            let _ = attempt_grab(&winit_window, cursor_options.grab_mode);
         }
 
-        winit_window.set_cursor_visible(window.cursor.visible);
+        winit_window.set_cursor_visible(cursor_options.visible);
 
         // Do not set the cursor hittest on window creation if it's false, as it will always fail on
         // some platforms and log an unfixable warning.
-        if !window.cursor.hit_test {
-            if let Err(err) = winit_window.set_cursor_hittest(window.cursor.hit_test) {
-                warn!(
-                    "Could not set cursor hit test for window {:?}: {:?}",
-                    window.title, err
-                );
-            }
+        if !cursor_options.hit_test
+            && let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test)
+        {
+            warn!(
+                "Could not set cursor hit test for window {}: {}",
+                window.title, err
+            );
         }
 
         self.entity_to_winit.insert(entity, winit_window.id());
         self.winit_to_entity.insert(winit_window.id(), entity);
 
-        #[cfg(target_arch = "wasm32")]
-        {
-            use winit::platform::web::WindowExtWebSys;
-
-            if window.canvas.is_none() {
-                let canvas = winit_window.canvas();
-
-                let window = web_sys::window().unwrap();
-                let document = window.document().unwrap();
-                let body = document.body().unwrap();
-
-                body.append_child(&canvas)
-                    .expect("Append canvas to HTML body.");
-            }
-        }
-
         self.windows
             .entry(winit_window.id())
-            .insert(winit_window)
+            .insert(WindowWrapper::new(winit_window))
             .into_mut()
     }
 
     /// Get the winit window that is associated with our entity.
-    pub fn get_window(&self, entity: Entity) -> Option<&winit::window::Window> {
+    pub fn get_window(&self, entity: Entity) -> Option<&WindowWrapper<WinitWindow>> {
         self.entity_to_winit
             .get(&entity)
             .and_then(|winit_id| self.windows.get(winit_id))
@@ -221,96 +352,94 @@ impl WinitWindows {
     /// Get the entity associated with the winit window id.
     ///
     /// This is mostly just an intermediary step between us and winit.
-    pub fn get_window_entity(&self, winit_id: winit::window::WindowId) -> Option<Entity> {
+    pub fn get_window_entity(&self, winit_id: WindowId) -> Option<Entity> {
         self.winit_to_entity.get(&winit_id).cloned()
     }
 
     /// Remove a window from winit.
     ///
     /// This should mostly just be called when the window is closing.
-    pub fn remove_window(&mut self, entity: Entity) -> Option<winit::window::Window> {
+    pub fn remove_window(&mut self, entity: Entity) -> Option<WindowWrapper<WinitWindow>> {
         let winit_id = self.entity_to_winit.remove(&entity)?;
-        // Don't remove from `winit_to_window_id` so we know the window used to exist.
+        self.winit_to_entity.remove(&winit_id);
         self.windows.remove(&winit_id)
     }
 }
 
-/// Gets the "best" video mode which fits the given dimensions.
-///
-/// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
-pub fn get_fitting_videomode(
-    monitor: &winit::monitor::MonitorHandle,
-    width: u32,
-    height: u32,
-) -> winit::monitor::VideoMode {
-    let mut modes = monitor.video_modes().collect::<Vec<_>>();
+/// Returns some [`winit::monitor::VideoModeHandle`] given a [`MonitorHandle`] and a
+/// [`VideoModeSelection`] or None if no valid matching video mode was found.
+pub fn get_selected_videomode(
+    monitor: &MonitorHandle,
+    selection: &VideoModeSelection,
+) -> Option<VideoModeHandle> {
+    match selection {
+        VideoModeSelection::Current => get_current_videomode(monitor),
+        VideoModeSelection::Specific(specified) => monitor.video_modes().find(|mode| {
+            mode.size().width == specified.physical_size.x
+                && mode.size().height == specified.physical_size.y
+                && mode.refresh_rate_millihertz() == specified.refresh_rate_millihertz
+                && mode.bit_depth() == specified.bit_depth
+        }),
+    }
+}
 
-    fn abs_diff(a: u32, b: u32) -> u32 {
-        if a > b {
-            return a - b;
-        }
-        b - a
+/// Gets a monitor's current video-mode.
+///
+/// TODO: When Winit 0.31 releases this function can be removed and replaced with
+/// `MonitorHandle::current_video_mode()`
+fn get_current_videomode(monitor: &MonitorHandle) -> Option<VideoModeHandle> {
+    monitor
+        .video_modes()
+        .filter(|mode| {
+            mode.size() == monitor.size()
+                && Some(mode.refresh_rate_millihertz()) == monitor.refresh_rate_millihertz()
+        })
+        .max_by_key(VideoModeHandle::bit_depth)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn pointer_supported() -> Result<bool, ExternalError> {
+    Ok(js_sys::Reflect::has(
+        web_sys::window()
+            .ok_or(ExternalError::Ignored)?
+            .document()
+            .ok_or(ExternalError::Ignored)?
+            .as_ref(),
+        &"exitPointerLock".into(),
+    )
+    .unwrap_or(false))
+}
+
+pub(crate) fn attempt_grab(
+    winit_window: &WinitWindow,
+    grab_mode: CursorGrabMode,
+) -> Result<(), ExternalError> {
+    // Do not attempt to grab on web if unsupported (e.g. mobile)
+    #[cfg(target_arch = "wasm32")]
+    if !pointer_supported()? {
+        return Err(ExternalError::Ignored);
     }
 
-    modes.sort_by(|a, b| {
-        use std::cmp::Ordering::*;
-        match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
-            Equal => {
-                match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
-                    Equal => b
-                        .refresh_rate_millihertz()
-                        .cmp(&a.refresh_rate_millihertz()),
-                    default => default,
-                }
-            }
-            default => default,
-        }
-    });
-
-    modes.first().unwrap().clone()
-}
-
-/// Gets the "best" videomode from a monitor.
-///
-/// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
-pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
-    let mut modes = monitor.video_modes().collect::<Vec<_>>();
-    modes.sort_by(|a, b| {
-        use std::cmp::Ordering::*;
-        match b.size().width.cmp(&a.size().width) {
-            Equal => match b.size().height.cmp(&a.size().height) {
-                Equal => b
-                    .refresh_rate_millihertz()
-                    .cmp(&a.refresh_rate_millihertz()),
-                default => default,
-            },
-            default => default,
-        }
-    });
-
-    modes.first().unwrap().clone()
-}
-
-pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: CursorGrabMode) {
     let grab_result = match grab_mode {
-        bevy_window::CursorGrabMode::None => {
-            winit_window.set_cursor_grab(winit::window::CursorGrabMode::None)
-        }
-        bevy_window::CursorGrabMode::Confined => winit_window
-            .set_cursor_grab(winit::window::CursorGrabMode::Confined)
-            .or_else(|_e| winit_window.set_cursor_grab(winit::window::CursorGrabMode::Locked)),
-        bevy_window::CursorGrabMode::Locked => winit_window
-            .set_cursor_grab(winit::window::CursorGrabMode::Locked)
-            .or_else(|_e| winit_window.set_cursor_grab(winit::window::CursorGrabMode::Confined)),
+        CursorGrabMode::None => winit_window.set_cursor_grab(WinitCursorGrabMode::None),
+        CursorGrabMode::Confined => winit_window
+            .set_cursor_grab(WinitCursorGrabMode::Confined)
+            .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::Locked)),
+        CursorGrabMode::Locked => winit_window
+            .set_cursor_grab(WinitCursorGrabMode::Locked)
+            .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::Confined)),
     };
 
     if let Err(err) = grab_result {
         let err_desc = match grab_mode {
-            bevy_window::CursorGrabMode::Confined | bevy_window::CursorGrabMode::Locked => "grab",
-            bevy_window::CursorGrabMode::None => "ungrab",
+            CursorGrabMode::Confined | CursorGrabMode::Locked => "grab",
+            CursorGrabMode::None => "ungrab",
         };
 
-        bevy_utils::tracing::error!("Unable to {} cursor: {}", err_desc, err);
+        tracing::error!("Unable to {} cursor: {}", err_desc, err);
+        Err(err)
+    } else {
+        Ok(())
     }
 }
 
@@ -320,34 +449,32 @@ pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: Curs
 pub fn winit_window_position(
     position: &WindowPosition,
     resolution: &WindowResolution,
-    mut available_monitors: impl Iterator<Item = MonitorHandle>,
+    monitors: &WinitMonitors,
     primary_monitor: Option<MonitorHandle>,
     current_monitor: Option<MonitorHandle>,
 ) -> Option<PhysicalPosition<i32>> {
     match position {
         WindowPosition::Automatic => {
-            /* Window manager will handle position */
+            // Window manager will handle position
             None
         }
         WindowPosition::Centered(monitor_selection) => {
-            use bevy_window::MonitorSelection::*;
-            let maybe_monitor = match monitor_selection {
-                Current => {
-                    if current_monitor.is_none() {
-                        warn!("Can't select current monitor on window creation or cannot find current monitor!");
-                    }
-                    current_monitor
-                }
-                Primary => primary_monitor,
-                Index(n) => available_monitors.nth(*n),
-            };
+            let maybe_monitor = select_monitor(
+                monitors,
+                primary_monitor,
+                current_monitor,
+                monitor_selection,
+            );
 
             if let Some(monitor) = maybe_monitor {
                 let screen_size = monitor.size();
 
-                // We use the monitors scale factor here since `WindowResolution.scale_factor` is
-                // not yet populated when windows are created during plugin setup.
-                let scale_factor = monitor.scale_factor();
+                let scale_factor = match resolution.scale_factor_override() {
+                    Some(scale_factor_override) => scale_factor_override as f64,
+                    // We use the monitors scale factor here since `WindowResolution.scale_factor` is
+                    // not yet populated when windows are created during plugin setup.
+                    None => monitor.scale_factor(),
+                };
 
                 // Logical to physical window size
                 let (width, height): (u32, u32) =
@@ -374,8 +501,59 @@ pub fn winit_window_position(
     }
 }
 
-// WARNING: this only works under the assumption that wasm runtime is single threaded
-#[cfg(target_arch = "wasm32")]
-unsafe impl Send for WinitWindows {}
-#[cfg(target_arch = "wasm32")]
-unsafe impl Sync for WinitWindows {}
+/// Selects a monitor based on the given [`MonitorSelection`].
+pub fn select_monitor(
+    monitors: &WinitMonitors,
+    primary_monitor: Option<MonitorHandle>,
+    current_monitor: Option<MonitorHandle>,
+    monitor_selection: &MonitorSelection,
+) -> Option<MonitorHandle> {
+    use bevy_window::MonitorSelection::*;
+
+    match monitor_selection {
+        Current => {
+            if current_monitor.is_none() {
+                warn!("Can't select current monitor on window creation or cannot find current monitor!");
+            }
+            current_monitor
+        }
+        Primary => primary_monitor,
+        Index(n) => monitors.nth(*n),
+        Entity(entity) => monitors.find_entity(*entity),
+    }
+}
+
+struct DisplayInfo {
+    window_physical_resolution: (u32, u32),
+    window_logical_resolution: (f32, f32),
+    monitor_name: Option<String>,
+    scale_factor: Option<f64>,
+    refresh_rate_millihertz: Option<u32>,
+}
+
+impl core::fmt::Display for DisplayInfo {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Display information:")?;
+        write!(
+            f,
+            "  Window physical resolution: {}x{}",
+            self.window_physical_resolution.0, self.window_physical_resolution.1
+        )?;
+        write!(
+            f,
+            "  Window logical resolution: {}x{}",
+            self.window_logical_resolution.0, self.window_logical_resolution.1
+        )?;
+        write!(
+            f,
+            "  Monitor name: {}",
+            self.monitor_name.as_deref().unwrap_or("")
+        )?;
+        write!(f, "  Scale factor: {}", self.scale_factor.unwrap_or(0.))?;
+        let millihertz = self.refresh_rate_millihertz.unwrap_or(0);
+        let hertz = millihertz / 1000;
+        let extra_millihertz = millihertz % 1000;
+        write!(f, "  Refresh rate (Hz): {hertz}.{extra_millihertz:03}")?;
+        Ok(())
+    }
+}

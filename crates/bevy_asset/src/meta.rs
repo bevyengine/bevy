@@ -1,9 +1,20 @@
-use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
-use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
-use bevy_log::error;
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
+use futures_lite::AsyncReadExt;
+
+use crate::{
+    io::{AssetReaderError, Reader},
+    loader::AssetLoader,
+    processor::Process,
+    Asset, AssetPath, DeserializeMetaError, VisitAssetDependencies,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 pub const META_FORMAT_VERSION: &str = "1.0";
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
@@ -71,7 +82,7 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
 pub struct ProcessedInfo {
     /// A hash of the asset bytes and the asset .meta data
     pub hash: AssetHash,
-    /// A hash of the asset bytes, the asset .meta data, and the `full_hash` of every process_dependency
+    /// A hash of the asset bytes, the asset .meta data, and the `full_hash` of every `process_dependency`
     pub full_hash: AssetHash,
     /// Information about the "process dependencies" used to process this asset.
     pub process_dependencies: Vec<ProcessDependencyInfo>,
@@ -96,7 +107,7 @@ pub struct AssetMetaMinimal {
     pub asset: AssetActionMinimal,
 }
 
-/// This is a minimal counterpart to [`AssetAction`] that exists to speed up (or enable) serialization in cases where the whole [`AssetActionMinimal`]
+/// This is a minimal counterpart to [`AssetAction`] that exists to speed up (or enable) serialization in cases where the whole [`AssetAction`]
 /// isn't necessary.
 #[derive(Serialize, Deserialize)]
 pub enum AssetActionMinimal {
@@ -119,6 +130,8 @@ pub trait AssetMetaDyn: Downcast + Send + Sync {
     fn loader_settings(&self) -> Option<&dyn Settings>;
     /// Returns a mutable reference to the [`AssetLoader`] settings, if they exist.
     fn loader_settings_mut(&mut self) -> Option<&mut dyn Settings>;
+    /// Returns a reference to the [`Process`] settings, if they exist.
+    fn process_settings(&self) -> Option<&dyn Settings>;
     /// Serializes the internal [`AssetMeta`].
     fn serialize(&self) -> Vec<u8>;
     /// Returns a reference to the [`ProcessedInfo`] if it exists.
@@ -128,11 +141,6 @@ pub trait AssetMetaDyn: Downcast + Send + Sync {
 }
 
 impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
-    fn serialize(&self) -> Vec<u8> {
-        ron::ser::to_string_pretty(&self, PrettyConfig::default())
-            .expect("type is convertible to ron")
-            .into_bytes()
-    }
     fn loader_settings(&self) -> Option<&dyn Settings> {
         if let AssetAction::Load { settings, .. } = &self.asset {
             Some(settings)
@@ -146,6 +154,23 @@ impl<L: AssetLoader, P: Process> AssetMetaDyn for AssetMeta<L, P> {
         } else {
             None
         }
+    }
+    fn process_settings(&self) -> Option<&dyn Settings> {
+        if let AssetAction::Process { settings, .. } = &self.asset {
+            Some(settings)
+        } else {
+            None
+        }
+    }
+    fn serialize(&self) -> Vec<u8> {
+        ron::ser::to_string_pretty(
+            &self,
+            // This defaults to \r\n on Windows, so hard-code it to \n so it's consistent for
+            // testing.
+            PrettyConfig::default().new_line("\n"),
+        )
+        .expect("type is convertible to ron")
+        .into_bytes()
     }
     fn processed_info(&self) -> &Option<ProcessedInfo> {
         &self.processed_info
@@ -171,12 +196,12 @@ impl Process for () {
     type Settings = ();
     type OutputLoader = ();
 
-    fn process<'a>(
-        &'a self,
-        _context: &'a mut bevy_asset::processor::ProcessContext,
-        _meta: AssetMeta<(), Self>,
-        _writer: &'a mut bevy_asset::io::Writer,
-    ) -> bevy_utils::BoxedFuture<'a, Result<(), bevy_asset::processor::ProcessError>> {
+    async fn process(
+        &self,
+        _context: &mut bevy_asset::processor::ProcessContext<'_>,
+        _settings: &Self::Settings,
+        _writer: &mut bevy_asset::io::Writer,
+    ) -> Result<(), bevy_asset::processor::ProcessError> {
         unreachable!()
     }
 }
@@ -194,12 +219,12 @@ impl AssetLoader for () {
     type Asset = ();
     type Settings = ();
     type Error = std::io::Error;
-    fn load<'a>(
-        &'a self,
-        _reader: &'a mut crate::io::Reader,
-        _settings: &'a Self::Settings,
-        _load_context: &'a mut crate::LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+    async fn load(
+        &self,
+        _reader: &mut dyn Reader,
+        _settings: &Self::Settings,
+        _load_context: &mut crate::LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
         unreachable!();
     }
 
@@ -208,32 +233,47 @@ impl AssetLoader for () {
     }
 }
 
+pub(crate) fn meta_transform_settings<S: Settings>(
+    meta: &mut dyn AssetMetaDyn,
+    settings: &(impl Fn(&mut S) + Send + Sync + 'static),
+) {
+    if let Some(loader_settings) = meta.loader_settings_mut() {
+        if let Some(loader_settings) = loader_settings.downcast_mut::<S>() {
+            settings(loader_settings);
+        } else {
+            error!(
+                "Configured settings type {} does not match AssetLoader settings type",
+                core::any::type_name::<S>(),
+            );
+        }
+    }
+}
+
 pub(crate) fn loader_settings_meta_transform<S: Settings>(
     settings: impl Fn(&mut S) + Send + Sync + 'static,
 ) -> MetaTransform {
-    Box::new(move |meta| {
-        if let Some(loader_settings) = meta.loader_settings_mut() {
-            if let Some(loader_settings) = loader_settings.downcast_mut::<S>() {
-                settings(loader_settings);
-            } else {
-                error!(
-                    "Configured settings type {} does not match AssetLoader settings type",
-                    std::any::type_name::<S>(),
-                );
-            }
-        }
-    })
+    Box::new(move |meta| meta_transform_settings(meta, &settings))
 }
 
-pub type AssetHash = [u8; 16];
+pub type AssetHash = [u8; 32];
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
-pub(crate) fn get_asset_hash(meta_bytes: &[u8], asset_bytes: &[u8]) -> AssetHash {
-    let mut context = md5::Context::new();
-    context.consume(meta_bytes);
-    context.consume(asset_bytes);
-    let digest = context.compute();
-    digest.0
+pub(crate) async fn get_asset_hash(
+    meta_bytes: &[u8],
+    asset_reader: &mut impl Reader,
+) -> Result<AssetHash, AssetReaderError> {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(meta_bytes);
+    let mut buffer = [0; blake3::CHUNK_LEN];
+    loop {
+        let bytes_read = asset_reader.read(&mut buffer).await?;
+        hasher.update(&buffer[..bytes_read]);
+        if bytes_read == 0 {
+            // This means we've reached EOF, so we're done consuming asset bytes.
+            break;
+        }
+    }
+    Ok(*hasher.finalize().as_bytes())
 }
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.
@@ -241,11 +281,10 @@ pub(crate) fn get_full_asset_hash(
     asset_hash: AssetHash,
     dependency_hashes: impl Iterator<Item = AssetHash>,
 ) -> AssetHash {
-    let mut context = md5::Context::new();
-    context.consume(asset_hash);
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&asset_hash);
     for hash in dependency_hashes {
-        context.consume(hash);
+        hasher.update(&hash);
     }
-    let digest = context.compute();
-    digest.0
+    *hasher.finalize().as_bytes()
 }

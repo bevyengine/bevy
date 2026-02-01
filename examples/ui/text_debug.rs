@@ -1,9 +1,13 @@
 //! Shows various text layout options.
 
+use std::{collections::VecDeque, time::Duration};
+
 use bevy::{
+    color::palettes::css::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowPlugin},
+    ui::widget::TextUiWriter,
+    window::PresentMode,
 };
 
 fn main() {
@@ -16,7 +20,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, infotext_system)
         .add_systems(Update, change_text_system)
@@ -27,141 +31,293 @@ fn main() {
 struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(
-        TextBundle::from_section(
-            "This is\ntext with\nline breaks\nin the top left",
-            TextStyle {
-                font: font.clone(),
-                font_size: 50.0,
-                color: Color::WHITE,
-            },
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(5.0),
-            left: Val::Px(15.0),
-            ..default()
-        }),
-    );
-    commands.spawn(TextBundle::from_section(
-            "This text is very long, has a limited width, is centered, is positioned in the top right and is also colored pink.",
-            TextStyle {
-                font: font.clone(),
-                font_size: 50.0,
-                color: Color::rgb(0.8, 0.2, 0.7),
-            },
-        )
-        .with_text_alignment(TextAlignment::Center)
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(5.0),
-            right: Val::Px(15.0),
-            max_width: Val::Px(400.),
+    let font = FontSource::from(asset_server.load("fonts/FiraSans-Bold.ttf"));
+    let background_color = MAROON.into();
+    commands.spawn(Camera2d);
+
+    let root_uinode = commands
+        .spawn(Node {
+            width: percent(100),
+            height: percent(100),
+            justify_content: JustifyContent::SpaceBetween,
             ..default()
         })
-    );
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new(
-                "This text changes in the bottom right",
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 30.0,
-                    color: Color::WHITE,
-                },
-            ),
-            TextSection::new(
-                "\nThis text changes in the bottom right - ",
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 30.0,
-                    color: Color::RED,
-                },
-            ),
-            TextSection::from_style(TextStyle {
-                font: font.clone(),
-                font_size: 30.0,
-                color: Color::ORANGE_RED,
-            }),
-            TextSection::new(
-                " fps, ",
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 30.0,
-                    color: Color::YELLOW,
-                },
-            ),
-            TextSection::from_style(TextStyle {
-                font: font.clone(),
-                font_size: 30.0,
-                color: Color::GREEN,
-            }),
-            TextSection::new(
-                " ms/frame",
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 30.0,
-                    color: Color::BLUE,
-                },
-            ),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            right: Val::Px(15.0),
+        .id();
+
+    let left_column = commands
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::Start,
+            flex_grow: 1.,
+            margin: UiRect::axes(px(15), px(5)),
             ..default()
-        }),
-        TextChanges,
-    ));
-    commands.spawn(
-        TextBundle::from_section(
-            "This\ntext has\nline breaks and also a set width in the bottom left",
-            TextStyle {
-                font,
-                font_size: 50.0,
-                color: Color::WHITE,
+        }).with_children(|builder| {
+        builder.spawn((
+            Text::new("This is\ntext with\nline breaks\nin the top left."),
+            TextFont {
+                font: font.clone(),
+                font_size: 25.0,
+                ..default()
             },
+            BackgroundColor(background_color)
+        ));
+        builder.spawn((
+            Text::new(
+                "This text is right-justified. The `Justify` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",
+            ),
+            TextFont {
+                font: font.clone(),
+                font_size: 25.0,
+                ..default()
+            },
+            TextColor(YELLOW.into()),
+            TextLayout::new_with_justify(Justify::Right),
+            Node {
+                max_width: px(300),
+                ..default()
+            },
+            BackgroundColor(background_color)
+        ));
+        builder.spawn((
+            Text::new(
+                "This\ntext has\nline breaks and also a set width in the bottom left."),
+            TextFont {
+                font: font.clone(),
+                font_size: 25.0,
+                ..default()
+            },
+            Node {
+                max_width: px(300),
+                ..default()
+            },
+            BackgroundColor(background_color)
         )
-        .with_style(Style {
-            align_self: AlignSelf::FlexEnd,
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            left: Val::Px(15.0),
-            width: Val::Px(200.0),
+        );
+    }).id();
+
+    let right_column = commands
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::End,
+            flex_grow: 1.,
+            margin: UiRect::axes(px(15), px(5)),
             ..default()
-        }),
-    );
+        })
+        .with_children(|builder| {
+            builder.spawn((
+                Text::new("This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink."),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 33.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.8, 0.2, 0.7)),
+                TextLayout::new_with_justify(Justify::Center),
+                Node {
+                    max_width: px(400),
+                    ..default()
+                },
+                BackgroundColor(background_color),
+            ));
+
+            builder.spawn((
+                Text::new("This text is left-justified and is vertically positioned to distribute the empty space equally above and below it."),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 29.0,
+                    ..default()
+                },
+                TextColor(YELLOW.into()),
+                TextLayout::new_with_justify(Justify::Left),
+                Node {
+                    max_width: px(300),
+                    ..default()
+                },
+                BackgroundColor(background_color),
+            ));
+
+            builder.spawn((
+                Text::new("This text is fully justified and is positioned in the same way."),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 29.0,
+                    ..default()
+                },
+                TextLayout::new_with_justify(Justify::Justified),
+                TextColor(GREEN_YELLOW.into()),
+                Node {
+                    max_width: px(300),
+                    ..default()
+                },
+                BackgroundColor(background_color),
+            ));
+
+            builder
+                .spawn((
+                    Text::default(),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 21.0,
+                        ..default()
+                    },
+                    TextChanges,
+                    BackgroundColor(background_color),
+                ))
+                .with_children(|p| {
+                    p.spawn((
+                        TextSpan::new("\nThis text changes in the bottom right"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 21.0,
+                            ..default()
+                        },
+                    ));
+                    p.spawn((
+                        TextSpan::new(" this text has zero font size"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 0.0,
+                            ..default()
+                        },
+                        TextColor(BLUE.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::new("\nThis text changes in the bottom right - "),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 21.0,
+                            ..default()
+                        },
+                        TextColor(RED.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::default(),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 21.0,
+                            ..default()
+                        },
+                        TextColor(ORANGE_RED.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::new(" fps, "),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 10.0,
+                            ..default()
+                        },
+                        TextColor(YELLOW.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::default(),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 21.0,
+                            ..default()
+                        },
+                        TextColor(LIME.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::new(" ms/frame"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 42.0,
+                            ..default()
+                        },
+                        TextColor(BLUE.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::new(" this text has negative font size"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: -42.0,
+                            ..default()
+                        },
+                        TextColor(BLUE.into()),
+                    ));
+                });
+        })
+        .id();
+    commands
+        .entity(root_uinode)
+        .add_children(&[left_column, right_column]);
 }
 
 fn change_text_system(
+    mut fps_history: Local<VecDeque<f64>>,
+    mut time_history: Local<VecDeque<Duration>>,
     time: Res<Time>,
     diagnostics: Res<DiagnosticsStore>,
-    mut query: Query<&mut Text, With<TextChanges>>,
+    query: Query<Entity, With<TextChanges>>,
+    mut writer: TextUiWriter,
 ) {
-    for mut text in &mut query {
+    time_history.push_front(time.elapsed());
+    time_history.truncate(120);
+    let avg_fps = (time_history.len() as f64)
+        / (time_history.front().copied().unwrap_or_default()
+            - time_history.back().copied().unwrap_or_default())
+        .as_secs_f64()
+        .max(0.0001);
+    fps_history.push_front(avg_fps);
+    fps_history.truncate(120);
+    let fps_variance = std_deviation(fps_history.make_contiguous()).unwrap_or_default();
+
+    for entity in &query {
         let mut fps = 0.0;
-        if let Some(fps_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(fps_smoothed) = fps_diagnostic.smoothed() {
-                fps = fps_smoothed;
-            }
-        }
-
-        let mut frame_time = time.delta_seconds_f64();
-        if let Some(frame_time_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FRAME_TIME)
+        if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
+            && let Some(fps_smoothed) = fps_diagnostic.smoothed()
         {
-            if let Some(frame_time_smoothed) = frame_time_diagnostic.smoothed() {
-                frame_time = frame_time_smoothed;
-            }
+            fps = fps_smoothed;
         }
 
-        text.sections[0].value = format!(
-            "This text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
+        let mut frame_time = time.delta_secs_f64();
+        if let Some(frame_time_diagnostic) =
+            diagnostics.get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
+            && let Some(frame_time_smoothed) = frame_time_diagnostic.smoothed()
+        {
+            frame_time = frame_time_smoothed;
+        }
+
+        *writer.text(entity, 0) =
+            format!("{avg_fps:.1} avg fps, {fps_variance:.1} frametime variance",);
+
+        *writer.text(entity, 1) = format!(
+            "\nThis text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
-        text.sections[2].value = format!("{fps:.1}");
+        *writer.text(entity, 4) = format!("{fps:.1}");
 
-        text.sections[4].value = format!("{frame_time:.3}");
+        *writer.text(entity, 6) = format!("{frame_time:.3}");
+    }
+}
+
+fn mean(data: &[f64]) -> Option<f64> {
+    let sum = data.iter().sum::<f64>();
+    let count = data.len();
+
+    match count {
+        positive if positive > 0 => Some(sum / count as f64),
+        _ => None,
+    }
+}
+
+fn std_deviation(data: &[f64]) -> Option<f64> {
+    match (mean(data), data.len()) {
+        (Some(data_mean), count) if count > 0 => {
+            let variance = data
+                .iter()
+                .map(|value| {
+                    let diff = data_mean - *value;
+
+                    diff * diff
+                })
+                .sum::<f64>()
+                / count as f64;
+
+            Some(variance.sqrt())
+        }
+        _ => None,
     }
 }

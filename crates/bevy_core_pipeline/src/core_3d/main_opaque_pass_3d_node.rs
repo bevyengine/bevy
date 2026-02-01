@@ -1,132 +1,113 @@
 use crate::{
-    clear_color::{ClearColor, ClearColorConfig},
-    core_3d::{Camera3d, Opaque3d},
-    prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    core_3d::Opaque3d,
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_camera::{MainPassResolutionOverride, Viewport};
+use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::RenderPhase,
-    render_resource::{
-        LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    },
-    renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    diagnostic::RecordDiagnostics,
+    render_phase::ViewBinnedRenderPhases,
+    render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
+    renderer::{RenderContext, ViewQuery},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
-use super::{AlphaMask3d, Camera3dDepthLoadOp};
+use super::AlphaMask3d;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`] [`RenderPhase`].
-#[derive(Default)]
-pub struct MainOpaquePass3dNode;
-impl ViewNode for MainOpaquePass3dNode {
-    type ViewQuery = (
-        &'static ExtractedCamera,
-        &'static RenderPhase<Opaque3d>,
-        &'static RenderPhase<AlphaMask3d>,
-        &'static Camera3d,
-        &'static ViewTarget,
-        &'static ViewDepthTexture,
-        Option<&'static DepthPrepass>,
-        Option<&'static NormalPrepass>,
-        Option<&'static MotionVectorPrepass>,
-        Option<&'static SkyboxPipelineId>,
-        Option<&'static SkyboxBindGroup>,
-        &'static ViewUniformOffset,
-    );
+pub fn main_opaque_pass_3d(
+    world: &World,
+    view: ViewQuery<(
+        &ExtractedCamera,
+        &ExtractedView,
+        &ViewTarget,
+        &ViewDepthTexture,
+        Option<&SkyboxPipelineId>,
+        Option<&SkyboxBindGroup>,
+        &ViewUniformOffset,
+        Option<&MainPassResolutionOverride>,
+    )>,
+    opaque_phases: Res<ViewBinnedRenderPhases<Opaque3d>>,
+    alpha_mask_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
+    pipeline_cache: Res<PipelineCache>,
+    mut ctx: RenderContext,
+) {
+    let view_entity = view.entity();
 
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (
-            camera,
-            opaque_phase,
-            alpha_mask_phase,
-            camera_3d,
-            target,
-            depth,
-            depth_prepass,
-            normal_prepass,
-            motion_vector_prepass,
-            skybox_pipeline,
-            skybox_bind_group,
-            view_uniform_offset,
-        ): QueryItem<Self::ViewQuery>,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        // Run the opaque pass, sorted front-to-back
-        // NOTE: Scoped to drop the mutable borrow of render_context
-        #[cfg(feature = "trace")]
-        let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
+    let (
+        camera,
+        extracted_view,
+        target,
+        depth,
+        skybox_pipeline,
+        skybox_bind_group,
+        view_uniform_offset,
+        resolution_override,
+    ) = view.into_inner();
 
-        // Setup render pass
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("main_opaque_pass_3d"),
-            // NOTE: The opaque pass loads the color
-            // buffer as well as writing to it.
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: match camera_3d.clear_color {
-                    ClearColorConfig::Default => {
-                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                    }
-                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                    ClearColorConfig::None => LoadOp::Load,
-                },
-                store: true,
-            }))],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &depth.view,
-                // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
-                depth_ops: Some(Operations {
-                    load: if depth_prepass.is_some()
-                        || normal_prepass.is_some()
-                        || motion_vector_prepass.is_some()
-                    {
-                        // if any prepass runs, it will generate a depth buffer so we should use it,
-                        // even if only the normal_prepass is used.
-                        Camera3dDepthLoadOp::Load
-                    } else {
-                        // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                        camera_3d.depth_load_op.clone()
-                    }
-                    .into(),
-                    store: true,
-                }),
-                stencil_ops: None,
-            }),
-        });
+    let (Some(opaque_phase), Some(alpha_mask_phase)) = (
+        opaque_phases.get(&extracted_view.retained_view_entity),
+        alpha_mask_phases.get(&extracted_view.retained_view_entity),
+    ) else {
+        return;
+    };
 
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
-        }
+    #[cfg(feature = "trace")]
+    let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
 
-        let view_entity = graph.view_entity();
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
 
-        // Opaque draws
-        opaque_phase.render(&mut render_pass, world, view_entity);
+    let color_attachments = [Some(target.get_color_attachment())];
+    let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
 
-        // Alpha draws
-        if !alpha_mask_phase.items.is_empty() {
-            alpha_mask_phase.render(&mut render_pass, world, view_entity);
-        }
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("main_opaque_pass_3d"),
+        color_attachments: &color_attachments,
+        depth_stencil_attachment,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    });
+    let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_3d");
 
-        // Draw the skybox using a fullscreen triangle
-        if let (Some(skybox_pipeline), Some(skybox_bind_group)) =
-            (skybox_pipeline, skybox_bind_group)
-        {
-            let pipeline_cache = world.resource::<PipelineCache>();
-            if let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_pipeline.0) {
-                render_pass.set_render_pipeline(pipeline);
-                render_pass.set_bind_group(0, &skybox_bind_group.0, &[view_uniform_offset.offset]);
-                render_pass.draw(0..3, 0..1);
-            }
-        }
-
-        Ok(())
+    if let Some(viewport) =
+        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+    {
+        render_pass.set_camera_viewport(&viewport);
     }
+
+    if !opaque_phase.is_empty() {
+        #[cfg(feature = "trace")]
+        let _opaque_main_pass_3d_span = info_span!("opaque_main_pass_3d").entered();
+        if let Err(err) = opaque_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the opaque phase {err:?}");
+        }
+    }
+
+    if !alpha_mask_phase.is_empty() {
+        #[cfg(feature = "trace")]
+        let _alpha_mask_main_pass_3d_span = info_span!("alpha_mask_main_pass_3d").entered();
+        if let Err(err) = alpha_mask_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the alpha mask phase {err:?}");
+        }
+    }
+
+    if let (Some(skybox_pipeline), Some(SkyboxBindGroup(skybox_bind_group))) =
+        (skybox_pipeline, skybox_bind_group)
+        && let Some(pipeline) = pipeline_cache.get_render_pipeline(skybox_pipeline.0)
+    {
+        render_pass.set_render_pipeline(pipeline);
+        render_pass.set_bind_group(
+            0,
+            &skybox_bind_group.0,
+            &[view_uniform_offset.offset, skybox_bind_group.1],
+        );
+        render_pass.draw(0..3, 0..1);
+    }
+
+    pass_span.end(&mut render_pass);
 }

@@ -1,6 +1,6 @@
 //! This example illustrates how to use `TextureAtlases` within ui
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -10,8 +10,6 @@ fn main() {
             // by linear filtering.
             ImagePlugin::default_nearest(),
         ))
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, increment_atlas_index)
         .run();
@@ -20,68 +18,62 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
-        color: Color::ANTIQUE_WHITE,
-        font_size: 20.,
-        ..default()
-    };
+    let text_font = TextFont::default();
 
     let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
-    let texture_atlas =
-        TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1, None, None);
+    let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     // root node
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                row_gap: Val::Px(text_style.font_size * 2.),
-                ..default()
-            },
+        .spawn(Node {
+            width: percent(100),
+            height: percent(100),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            row_gap: px(text_font.font_size * 2.),
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(AtlasImageBundle {
-                style: Style {
-                    width: Val::Px(256.),
-                    height: Val::Px(256.),
+            parent.spawn((
+                ImageNode::from_atlas_image(
+                    texture_handle,
+                    TextureAtlas::from(texture_atlas_handle),
+                ),
+                Node {
+                    width: px(256),
+                    height: px(256),
                     ..default()
                 },
-                texture_atlas: texture_atlas_handle,
-                texture_atlas_image: UiTextureAtlasImage::default(),
-                ..default()
-            });
-            parent.spawn(TextBundle::from_sections([
-                TextSection::new("press ".to_string(), text_style.clone()),
-                TextSection::new(
-                    "space".to_string(),
-                    TextStyle {
-                        color: Color::YELLOW,
-                        ..text_style.clone()
-                    },
-                ),
-                TextSection::new(" to advance frames".to_string(), text_style),
-            ]));
+                BackgroundColor(ANTIQUE_WHITE.into()),
+                Outline::new(px(8), Val::ZERO, CRIMSON.into()),
+            ));
+            parent
+                .spawn((Text::new("press "), text_font.clone()))
+                .with_child((
+                    TextSpan::new("space"),
+                    TextColor(YELLOW.into()),
+                    text_font.clone(),
+                ))
+                .with_child((TextSpan::new(" to advance frames"), text_font));
         });
 }
 
 fn increment_atlas_index(
-    mut atlas_images: Query<&mut UiTextureAtlasImage>,
-    keyboard: Res<Input<KeyCode>>,
+    mut image_nodes: Query<&mut ImageNode>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
-        for mut atlas_image in &mut atlas_images {
-            atlas_image.index = (atlas_image.index + 1) % 6;
+        for mut image_node in &mut image_nodes {
+            if let Some(atlas) = &mut image_node.texture_atlas {
+                atlas.index = (atlas.index + 1) % 6;
+            }
         }
     }
 }

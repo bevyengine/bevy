@@ -19,8 +19,10 @@ use bevy::{
 
 fn main() {
     App::new()
-        // We can modify the reporting strategy for system execution order ambiguities on a per-schedule basis
-        .edit_schedule(Main, |schedule| {
+        // We can modify the reporting strategy for system execution order ambiguities on a per-schedule basis.
+        // You must do this for each schedule you want to inspect; child schedules executed within an inspected
+        // schedule do not inherit this modification.
+        .edit_schedule(Update, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {
                 ambiguity_detection: LogLevel::Warn,
                 ..default()
@@ -87,7 +89,7 @@ fn doubles_b(mut b: ResMut<B>) {
 fn reads_b(b: Res<B>) {
     // This invariant is always true,
     // because we've fixed the system order so doubling always occurs after adding.
-    assert!((b.0 % 2 == 0) || (b.0 == usize::MAX));
+    assert!((b.0.is_multiple_of(2)) || (b.0 == usize::MAX));
 }
 
 fn reads_a_and_b(a: Res<A>, b: Res<B>) {

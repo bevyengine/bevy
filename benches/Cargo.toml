@@ -1,63 +1,105 @@
 [package]
 name = "benches"
-version = "0.1.0"
-edition = "2021"
-description = "Benchmarks for Bevy engine"
+edition = "2024"
+description = "Benchmarks that test Bevy's performance"
 publish = false
 license = "MIT OR Apache-2.0"
+# Do not automatically discover benchmarks, we specify them manually instead.
+autobenches = false
+
+[dependencies]
+# The primary crate that runs and analyzes our benchmarks. This is a regular dependency because the
+# `bench!` macro refers to it in its documentation.
+criterion = { version = "0.8.0", features = ["html_reports"] }
+seq-macro = "0.3.6"
 
 [dev-dependencies]
-glam = "0.24.1"
-rand = "0.8"
-rand_chacha = "0.3"
-criterion = { version = "0.3", features = ["html_reports"] }
+# Bevy crates
 bevy_app = { path = "../crates/bevy_app" }
-bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi-threaded"] }
-bevy_reflect = { path = "../crates/bevy_reflect" }
-bevy_tasks = { path = "../crates/bevy_tasks" }
-bevy_utils = { path = "../crates/bevy_utils" }
+bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi_threaded"] }
 bevy_math = { path = "../crates/bevy_math" }
+bevy_picking = { path = "../crates/bevy_picking", features = ["mesh_picking"] }
+bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
+bevy_camera = { path = "../crates/bevy_camera" }
+bevy_mesh = { path = "../crates/bevy_mesh" }
+bevy_asset = { path = "../crates/bevy_asset" }
+bevy_render = { path = "../crates/bevy_render" }
+bevy_tasks = { path = "../crates/bevy_tasks" }
+bevy_platform = { path = "../crates/bevy_platform", default-features = false, features = [
+  "std",
+] }
 
-[profile.release]
-opt-level = 3
-lto = true
+# Other crates
+glam = { version = "0.31.0", default-features = false, features = [
+  "std",
+  "rand",
+] }
+rand = "0.9"
+rand_chacha = "0.9"
+nonmax = { version = "0.5", default-features = false }
 
-[[bench]]
-name = "change_detection"
-path = "benches/bevy_ecs/change_detection.rs"
-harness = false
+[lints.clippy]
+doc_markdown = "warn"
+manual_let_else = "warn"
+match_same_arms = "warn"
+redundant_closure_for_method_calls = "warn"
+redundant_else = "warn"
+semicolon_if_nothing_returned = "warn"
+type_complexity = "allow"
+undocumented_unsafe_blocks = "warn"
+unwrap_or_default = "warn"
+needless_lifetimes = "allow"
+too_many_arguments = "allow"
+nonstandard_macro_braces = "warn"
+
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+ref_as_ptr = "warn"
+
+# see: https://github.com/bevyengine/bevy/pull/15375#issuecomment-2366966219
+too_long_first_doc_paragraph = "allow"
+
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
+
+[lib]
+# This fixes the "Unrecognized Option" error when running commands like
+# `cargo bench -- --save-baseline before` by disabling the default benchmark harness.
+# See <https://bheisler.github.io/criterion.rs/book/faq.html#cargo-bench-gives-unrecognized-option-errors-for-valid-command-line-options>
+# for more information.
+bench = false
 
 [[bench]]
 name = "ecs"
-path = "benches/bevy_ecs/benches.rs"
+path = "benches/bevy_ecs/main.rs"
 harness = false
 
 [[bench]]
-name = "reflect_list"
-path = "benches/bevy_reflect/list.rs"
+name = "math"
+path = "benches/bevy_math/main.rs"
 harness = false
 
 [[bench]]
-name = "reflect_map"
-path = "benches/bevy_reflect/map.rs"
+name = "picking"
+path = "benches/bevy_picking/main.rs"
 harness = false
 
 [[bench]]
-name = "reflect_struct"
-path = "benches/bevy_reflect/struct.rs"
+name = "reflect"
+path = "benches/bevy_reflect/main.rs"
 harness = false
 
 [[bench]]
-name = "parse_reflect_path"
-path = "benches/bevy_reflect/path.rs"
+name = "render"
+path = "benches/bevy_render/main.rs"
 harness = false
 
 [[bench]]
-name = "iter"
-path = "benches/bevy_tasks/iter.rs"
-harness = false
-
-[[bench]]
-name = "bezier"
-path = "benches/bevy_math/bezier.rs"
+name = "tasks"
+path = "benches/bevy_tasks/main.rs"
 harness = false

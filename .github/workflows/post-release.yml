@@ -8,11 +8,16 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  ci:
+  bump:
     if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: true
 
       - name: Install cargo-release
         run: cargo install cargo-release
@@ -27,9 +32,9 @@ jobs:
           # Read the current version from Cargo.toml
           current_version=$(cargo metadata --format-version 1 --no-deps | \
             jq --raw-output '.packages | .[] | select(.name == "bevy").version')
-          # Sanity check: current version should be 0.X.Y
-          if ! grep -q '^0\.[0-9]\+\.[0-9]\+$' <<< "${current_version}"; then
-            echo "Invalid version (not in 0.X.Y format): ${current_version}"
+          # Sanity check: current version should be 0.X.Y-dev
+          if ! grep -q '^0\.[0-9]\+\.[0-9]\+-dev$' <<< "${current_version}"; then
+            echo "Invalid version (not in 0.X.Y-dev format): ${current_version}"
             exit 1
           fi
           minor_version=$(sed 's/^0\.\([0-9]\+\).*/\1/' <<< "${current_version}")
@@ -46,10 +51,16 @@ jobs:
             --exclude ci \
             --exclude errors \
             --exclude bevy_mobile_example \
-            --exclude build-wasm-example
+            --exclude build-wasm-example \
+            --exclude no_std_library \
+            --exclude export-content \
+            --exclude auto_register_static
+            --exclude mipmap_generator \
+            --exclude caldera_hotel \
+            --exclude bistro
 
       - name: Create PR
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
         with:
           delete-branch: true
           base: "main"

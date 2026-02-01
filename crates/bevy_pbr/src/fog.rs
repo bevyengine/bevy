@@ -1,8 +1,9 @@
-use crate::ReflectComponent;
-use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_math::Vec3;
-use bevy_reflect::Reflect;
-use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Camera};
+use bevy_camera::Camera;
+use bevy_color::{Color, ColorToComponents, LinearRgba};
+use bevy_ecs::prelude::*;
+use bevy_math::{ops, Vec3};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::extract_component::ExtractComponent;
 
 /// Configures the “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect,
 /// in which objects appear progressively more covered in atmospheric haze the further away they are from the camera.
@@ -23,17 +24,15 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::prelude::*;
-/// # use bevy_core_pipeline::prelude::*;
+/// # use bevy_camera::prelude::*;
 /// # use bevy_pbr::prelude::*;
+/// # use bevy_color::Color;
 /// # fn system(mut commands: Commands) {
 /// commands.spawn((
 ///     // Setup your camera as usual
-///     Camera3dBundle {
-///         // ... camera options
-/// #       ..Default::default()
-///     },
+///     Camera3d::default(),
 ///     // Add fog to the same entity
-///     FogSettings {
+///     DistanceFog {
 ///         color: Color::WHITE,
 ///         falloff: FogFalloff::Exponential { density: 1e-3 },
 ///         ..Default::default()
@@ -47,9 +46,10 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 ///
 /// Once enabled for a specific camera, the fog effect can also be disabled for individual
 /// [`StandardMaterial`](crate::StandardMaterial) instances via the `fog_enabled` flag.
-#[derive(Debug, Clone, Component, Reflect)]
-#[reflect(Component)]
-pub struct FogSettings {
+#[derive(Debug, Clone, Component, Reflect, ExtractComponent)]
+#[extract_component_filter(With<Camera>)]
+#[reflect(Component, Default, Debug, Clone)]
+pub struct DistanceFog {
     /// The color of the fog effect.
     ///
     /// **Tip:** The alpha channel of the color can be used to “modulate” the fog effect without
@@ -95,6 +95,7 @@ pub struct FogSettings {
 ///     - [`FogFalloff::from_visibility_contrast_color()`]
 ///     - [`FogFalloff::from_visibility_contrast_colors()`]
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Clone)]
 pub enum FogFalloff {
     /// A linear fog falloff that grows in intensity between `start` and `end` distances.
     ///
@@ -142,12 +143,12 @@ pub enum FogFalloff {
     /// ## Tips
     ///
     /// - Use the [`FogFalloff::from_visibility()`] convenience method to create an exponential falloff with the proper
-    /// density for a desired visibility distance in world units;
+    ///   density for a desired visibility distance in world units;
     /// - It's not _unusual_ to have very large or very small values for the density, depending on the scene
-    /// scale. Typically, for scenes with objects in the scale of thousands of units, you might want density values
-    /// in the ballpark of `0.001`. Conversely, for really small scale scenes you might want really high values of
-    /// density;
-    /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
+    ///   scale. Typically, for scenes with objects in the scale of thousands of units, you might want density values
+    ///   in the ballpark of `0.001`. Conversely, for really small scale scenes you might want really high values of
+    ///   density;
+    /// - Combine the `density` parameter with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
     ///
@@ -194,15 +195,15 @@ pub enum FogFalloff {
     /// ## Tips
     ///
     /// - Use the [`FogFalloff::from_visibility_squared()`] convenience method to create an exponential squared falloff
-    /// with the proper density for a desired visibility distance in world units;
-    /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
+    ///   with the proper density for a desired visibility distance in world units;
+    /// - Combine the `density` parameter with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
     ///
     /// The fog intensity for a given point in the scene is determined by the following formula:
     ///
     /// ```text
-    /// let fog_intensity = 1.0 - 1.0 / (distance * density).powi(2).exp();
+    /// let fog_intensity = 1.0 - 1.0 / (distance * density).squared().exp();
     /// ```
     ///
     /// <svg width="370" height="212" viewBox="0 0 370 212" fill="none">
@@ -240,9 +241,9 @@ pub enum FogFalloff {
     /// ## Tips
     ///
     /// - Use the [`FogFalloff::from_visibility_colors()`] or [`FogFalloff::from_visibility_color()`] convenience methods
-    /// to create an atmospheric falloff with the proper densities for a desired visibility distance in world units and
-    /// extinction and inscattering colors;
-    /// - Combine the atmospheric fog parameters with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
+    ///   to create an atmospheric falloff with the proper densities for a desired visibility distance in world units and
+    ///   extinction and inscattering colors;
+    /// - Combine the atmospheric fog parameters with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
     ///
@@ -404,25 +405,25 @@ impl FogFalloff {
         extinction_color: Color,
         inscattering_color: Color,
     ) -> FogFalloff {
-        use std::f32::consts::E;
+        use core::f32::consts::E;
 
-        let [r_e, g_e, b_e, a_e] = extinction_color.as_linear_rgba_f32();
-        let [r_i, g_i, b_i, a_i] = inscattering_color.as_linear_rgba_f32();
+        let [r_e, g_e, b_e, a_e] = LinearRgba::from(extinction_color).to_f32_array();
+        let [r_i, g_i, b_i, a_i] = LinearRgba::from(inscattering_color).to_f32_array();
 
         FogFalloff::Atmospheric {
             extinction: Vec3::new(
                 // Values are subtracted from 1.0 here to preserve the intuitive/artistic meaning of
                 // colors, since they're later subtracted. (e.g. by giving a blue extinction color, you
                 // get blue and _not_ yellow results)
-                (1.0 - r_e).powf(E),
-                (1.0 - g_e).powf(E),
-                (1.0 - b_e).powf(E),
+                ops::powf(1.0 - r_e, E),
+                ops::powf(1.0 - g_e, E),
+                ops::powf(1.0 - b_e, E),
             ) * FogFalloff::koschmieder(visibility, contrast_threshold)
-                * a_e.powf(E),
+                * ops::powf(a_e, E),
 
-            inscattering: Vec3::new(r_i.powf(E), g_i.powf(E), b_i.powf(E))
+            inscattering: Vec3::new(ops::powf(r_i, E), ops::powf(g_i, E), ops::powf(b_i, E))
                 * FogFalloff::koschmieder(visibility, contrast_threshold)
-                * a_i.powf(E),
+                * ops::powf(a_i, E),
         }
     }
 
@@ -457,14 +458,14 @@ impl FogFalloff {
     /// - <https://en.wikipedia.org/wiki/Visibility>
     /// - <https://www.biral.com/wp-content/uploads/2015/02/Introduction_to_visibility-v2-2.pdf>
     pub fn koschmieder(v: f32, c_t: f32) -> f32 {
-        -c_t.ln() / v
+        -ops::ln(c_t) / v
     }
 }
 
-impl Default for FogSettings {
+impl Default for DistanceFog {
     fn default() -> Self {
-        FogSettings {
-            color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+        DistanceFog {
+            color: Color::WHITE,
             falloff: FogFalloff::Linear {
                 start: 0.0,
                 end: 100.0,
@@ -472,15 +473,5 @@ impl Default for FogSettings {
             directional_light_color: Color::NONE,
             directional_light_exponent: 8.0,
         }
-    }
-}
-
-impl ExtractComponent for FogSettings {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-    type Out = Self;
-
-    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self::Out> {
-        Some(item.clone())
     }
 }

@@ -1,9 +1,9 @@
 [package]
 name = "bevy_encase_derive"
-version = "0.12.0-dev"
-edition = "2021"
+version = "0.19.0-dev"
+edition = "2024"
 description = "Bevy derive macro for encase"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -12,5 +12,12 @@ keywords = ["bevy"]
 proc-macro = true
 
 [dependencies]
-bevy_macro_utils = { path = "../bevy_macro_utils", version = "0.12.0-dev" }
-encase_derive_impl = "0.6.1"
+bevy_macro_utils = { path = "../bevy_macro_utils", version = "0.19.0-dev" }
+encase_derive_impl = "0.12"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+all-features = true

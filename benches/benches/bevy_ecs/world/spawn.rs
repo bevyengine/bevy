@@ -2,22 +2,52 @@ use bevy_ecs::prelude::*;
 use criterion::Criterion;
 use glam::*;
 
-#[derive(Component)]
+use crate::world_builder::WorldBuilder;
+
+#[derive(Component, Clone)]
 struct A(Mat4);
-#[derive(Component)]
+#[derive(Component, Clone)]
 struct B(Vec4);
 
 pub fn world_spawn(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("spawn_world");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
-    for entity_count in (0..5).map(|i| 10_u32.pow(i)) {
-        group.bench_function(format!("{}_entities", entity_count), |bencher| {
-            let mut world = World::default();
+    for entity_count in [1, 100, 10_000] {
+        group.bench_function(format!("{entity_count}_entities"), |bencher| {
+            let mut world = WorldBuilder::new()
+                .with_max_expected_entities(entity_count)
+                .warm_up_entity_allocator()
+                .build();
             bencher.iter(|| {
                 for _ in 0..entity_count {
                     world.spawn((A(Mat4::default()), B(Vec4::default())));
+                }
+            });
+        });
+    }
+
+    group.finish();
+}
+
+pub fn world_spawn_batch(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("spawn_world_batch");
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+
+    for batch_count in [1, 100, 1000, 10_000] {
+        group.bench_function(format!("{batch_count}_entities"), |bencher| {
+            let mut world = WorldBuilder::new()
+                .with_max_expected_entities(batch_count)
+                .warm_up_entity_allocator()
+                .build();
+            bencher.iter(|| {
+                for _ in 0..(10_000 / batch_count) {
+                    world.spawn_batch(std::iter::repeat_n(
+                        (A(Mat4::default()), B(Vec4::default())),
+                        batch_count as usize,
+                    ));
                 }
             });
         });

@@ -3,24 +3,52 @@ name: Deploy Docs
 on:
   push:
     branches:
-      - 'main'
+      - "main"
+  # Allows running the action manually.
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
   RUSTDOCFLAGS: --html-in-header header.html
+  # If nightly is breaking CI, modify this variable to target a specific nightly version.
+  NIGHTLY_TOOLCHAIN: nightly
+
+# Sets the permissions to allow deploying to Github pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only allow one deployment to run at a time, however it will not cancel in-progress runs.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # Only run this job when on the main Bevy repository. Without this, it would also run on forks
+    # where developers work on the main branch but have not enabled Github Pages.
+    if: ${{ github.repository == 'bevyengine/bevy' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
 
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
+          x264: true
 
       #  This does the following:
       #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io
@@ -31,25 +59,41 @@ jobs:
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
 
       - name: Build docs
-        run: cargo doc --all-features --no-deps -p bevy
+        env:
+          # needs to be in sync with [package.metadata.docs.rs]
+          RUSTFLAGS: --cfg docsrs_dep
+          RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --generate-link-to-definition --html-after-content docs-rs/trait-tags.html
+        run: |
+          cargo doc \
+            -Zunstable-options \
+            -Zrustdoc-scrape-examples \
+            --all-features \
+            --workspace \
+            --no-deps \
+            --document-private-items \
+            --exclude ci \
+            --exclude errors \
+            --exclude bevy_mobile_example \
+            --exclude build-wasm-example \
+            --exclude build-templated-pages \
+            --exclude example-showcase
 
       #  This adds the following:
       #   - A top level redirect to the bevy crate documentation
       #   - A CNAME file for redirecting the docs domain to the API reference
       #   - A robots.txt file to forbid any crawling of the site (to defer to the docs.rs site on search engines).
-      #   - A .nojekyll file to disable Jekyll GitHub Pages builds.
       - name: Finalize documentation
         run: |
           echo "<meta http-equiv=\"refresh\" content=\"0; url=bevy/index.html\">" > target/doc/index.html
-          echo "dev-docs.bevyengine.org" > target/doc/CNAME
-          echo "User-Agent: *\nDisallow: /" > target/doc/robots.txt
-          touch target/doc/.nojekyll
+          echo "dev-docs.bevy.org" > target/doc/CNAME
+          echo $'User-Agent: *\nDisallow: /' > target/doc/robots.txt
+          rm target/doc/.lock
 
-      - name: Deploy
-        if: github.repository == 'bevyengine/bevy'
-        uses: JamesIves/github-pages-deploy-action@v4
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
-          branch: gh-pages
-          folder: target/doc
-          single-commit: true
-          force: true
+          path: target/doc
+
+      - name: Deploy to Github Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

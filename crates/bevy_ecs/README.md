@@ -1,7 +1,9 @@
 # Bevy ECS
 
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
 [![Crates.io](https://img.shields.io/crates/v/bevy_ecs.svg)](https://crates.io/crates/bevy_ecs)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bevyengine/bevy/blob/HEAD/LICENSE)
+[![Downloads](https://img.shields.io/crates/d/bevy_ecs.svg)](https://crates.io/crates/bevy_ecs)
+[![Docs](https://docs.rs/bevy_ecs/badge.svg)](https://docs.rs/bevy_ecs/latest/bevy_ecs/)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
 ## What is Bevy ECS?
@@ -35,7 +37,7 @@ struct Position { x: f32, y: f32 }
 
 ### Worlds
 
-Entities, Components, and Resources are stored in a `World`. Worlds, much like Rust std collections like HashSet and Vec, expose operations to insert, read, write, and remove the data they store.
+Entities, Components, and Resources are stored in a `World`. Worlds, much like `std::collections`'s `HashSet` and `Vec`, expose operations to insert, read, write, and remove the data they store.
 
 ```rust
 use bevy_ecs::world::World;
@@ -78,7 +80,7 @@ struct Position { x: f32, y: f32 }
 
 fn print_position(query: Query<(Entity, &Position)>) {
     for (entity, position) in &query {
-        println!("Entity {:?} is at position: x {}, y {}", entity, position.x, position.y);
+        println!("Entity {} is at position: x {}, y {}", entity, position.x, position.y);
     }
 }
 ```
@@ -106,8 +108,6 @@ fn print_time(time: Res<Time>) {
     println!("{}", time.seconds);
 }
 ```
-
-The [`resources.rs`](examples/resources.rs) example illustrates how to read and write a Counter resource from Systems.
 
 ### Schedules
 
@@ -172,7 +172,7 @@ struct Player;
 struct Alive;
 
 // Gets the Position component of all Entities with Player component and without the Alive
-// component. 
+// component.
 fn system(query: Query<&Position, (With<Player>, Without<Alive>)>) {
     for position in &query {
     }
@@ -221,8 +221,6 @@ fn system(time: Res<Time>) {
     }
 }
 ```
-
-The [`change_detection.rs`](examples/change_detection.rs) example shows how to query only for updated entities and react on changes in resources.
 
 ### Component Storage
 
@@ -279,30 +277,74 @@ world.spawn(PlayerBundle {
 });
 ```
 
-### Events
+### Messages
 
-Events offer a communication channel between one or more systems. Events can be sent using the system parameter `EventWriter` and received with `EventReader`.
+Messages offer a communication channel between one or more systems.
+They can be sent using the `MessageWriter` system parameter and received with `MessageReader`.
+
+```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Message)]
+struct Message(String);
+
+fn writer(mut writer: MessageWriter<Message>) {
+    writer.write(Message("Hello!".to_string()));
+}
+
+fn reader(mut reader: MessageReader<Message>) {
+    for Message(message) in reader.read() {
+        println!("{}", message);
+    }
+}
+```
+
+### Observers
+
+Observers are systems that watch for a "trigger" of a specific `Event`:
 
 ```rust
 use bevy_ecs::prelude::*;
 
 #[derive(Event)]
-struct MyEvent {
-    message: String,
+struct Speak {
+    message: String
 }
 
-fn writer(mut writer: EventWriter<MyEvent>) {
-    writer.send(MyEvent {
-        message: "hello!".to_string(),
-    });
-}
+let mut world = World::new();
 
-fn reader(mut reader: EventReader<MyEvent>) {
-    for event in reader.iter() {
-    }
-}
+world.add_observer(|event: On<Speak>| {
+    println!("{}", event.message);
+});
+
+world.trigger(Speak {
+    message: "Hello!".to_string(),
+});
 ```
 
-A minimal set up using events can be seen in [`events.rs`](examples/events.rs).
+These differ from `MessageReader` and `MessageWriter` in that they are "reactive".
+Rather than happening at a specific point in a schedule, they happen _immediately_ whenever a trigger happens.
+Triggers can trigger other triggers, and they all will be evaluated at the same time!
 
-[bevy]: https://bevyengine.org/
+If the event is an `EntityEvent`, it can also be triggered to target specific entities:
+
+```rust
+use bevy_ecs::prelude::*;
+
+#[derive(EntityEvent)]
+struct Explode {
+    entity: Entity,
+}
+
+let mut world = World::new();
+let entity = world.spawn_empty().id();
+
+world.add_observer(|explode: On<Explode>, mut commands: Commands| {
+    println!("Entity {} goes BOOM!", explode.entity);
+    commands.entity(explode.entity).despawn();
+});
+
+world.trigger(Explode { entity });
+```
+
+[bevy]: https://bevy.org/

@@ -1,13 +1,13 @@
-use crate::{define_atomic_id, render_resource::resource_macros::render_resource_wrapper};
-use std::ops::{Bound, Deref, RangeBounds};
+use crate::renderer::WgpuWrapper;
+use bevy_utils::define_atomic_id;
+use core::ops::{Deref, RangeBounds};
 
 define_atomic_id!(BufferId);
-render_resource_wrapper!(ErasedBuffer, wgpu::Buffer);
 
 #[derive(Clone, Debug)]
 pub struct Buffer {
     id: BufferId,
-    value: ErasedBuffer,
+    value: WgpuWrapper<wgpu::Buffer>,
 }
 
 impl Buffer {
@@ -16,15 +16,9 @@ impl Buffer {
         self.id
     }
 
-    pub fn slice(&self, bounds: impl RangeBounds<wgpu::BufferAddress>) -> BufferSlice {
+    pub fn slice(&self, bounds: impl RangeBounds<wgpu::BufferAddress>) -> BufferSlice<'_> {
         BufferSlice {
             id: self.id,
-            // need to compute and store this manually because wgpu doesn't export offset on wgpu::BufferSlice
-            offset: match bounds.start_bound() {
-                Bound::Included(&bound) => bound,
-                Bound::Excluded(&bound) => bound + 1,
-                Bound::Unbounded => 0,
-            },
             value: self.value.slice(bounds),
         }
     }
@@ -39,7 +33,7 @@ impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
         Buffer {
             id: BufferId::new(),
-            value: ErasedBuffer::new(value),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -56,7 +50,6 @@ impl Deref for Buffer {
 #[derive(Clone, Debug)]
 pub struct BufferSlice<'a> {
     id: BufferId,
-    offset: wgpu::BufferAddress,
     value: wgpu::BufferSlice<'a>,
 }
 
@@ -64,11 +57,6 @@ impl<'a> BufferSlice<'a> {
     #[inline]
     pub fn id(&self) -> BufferId {
         self.id
-    }
-
-    #[inline]
-    pub fn offset(&self) -> wgpu::BufferAddress {
-        self.offset
     }
 }
 

@@ -1,31 +1,32 @@
+use super::RenderQueue;
 use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
-use bevy_ecs::system::Resource;
-use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
-
-use super::RenderQueue;
-
-use crate::render_resource::resource_macros::*;
-
-render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
+use crate::renderer::WgpuWrapper;
+use bevy_ecs::resource::Resource;
+use wgpu::{
+    util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, PollError, PollStatus,
+};
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
 pub struct RenderDevice {
-    device: ErasedRenderDevice,
+    device: WgpuWrapper<wgpu::Device>,
 }
 
 impl From<wgpu::Device> for RenderDevice {
     fn from(device: wgpu::Device) -> Self {
-        Self {
-            device: ErasedRenderDevice::new(device),
-        }
+        Self::new(WgpuWrapper::new(device))
     }
 }
 
 impl RenderDevice {
+    pub fn new(device: WgpuWrapper<wgpu::Device>) -> Self {
+        Self { device }
+    }
+
     /// List all [`Features`](wgpu::Features) that may be used with this device.
     ///
     /// Functions may panic if you use unsupported features.
@@ -43,8 +44,69 @@ impl RenderDevice {
     }
 
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    ///
+    /// # Safety
+    ///
+    /// Creates a shader module with user-customizable runtime checks which allows shaders to
+    /// perform operations which can lead to undefined behavior like indexing out of bounds,
+    /// To avoid UB, ensure any unchecked shaders are sound!
+    /// This method should never be called for user-supplied shaders.
     #[inline]
-    pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+    pub unsafe fn create_shader_module(
+        &self,
+        desc: wgpu::ShaderModuleDescriptor,
+    ) -> wgpu::ShaderModule {
+        #[cfg(feature = "spirv_shader_passthrough")]
+        match &desc.source {
+            wgpu::ShaderSource::SpirV(source)
+                if self
+                    .features()
+                    .contains(wgpu::Features::EXPERIMENTAL_PASSTHROUGH_SHADERS) =>
+            {
+                // SAFETY:
+                // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
+                // No attempt is made to ensure that data is valid SPIR-V.
+                unsafe {
+                    self.device.create_shader_module_passthrough(
+                        wgpu::ShaderModuleDescriptorPassthrough {
+                            label: desc.label,
+                            spirv: Some(source.clone()),
+                            ..Default::default()
+                        },
+                    )
+                }
+            }
+            // SAFETY:
+            //
+            // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
+            // No attempt is made to ensure that data is valid SPIR-V.
+            _ => unsafe {
+                self.device
+                    .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
+            },
+        }
+        #[cfg(not(feature = "spirv_shader_passthrough"))]
+        // SAFETY: the caller is responsible for upholding the safety requirements
+        unsafe {
+            self.device
+                .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
+        }
+    }
+
+    /// Creates and validates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    ///
+    /// See [`ValidateShader`](bevy_shader::ValidateShader) for more information on the tradeoffs involved with shader validation.
+    #[inline]
+    pub fn create_and_validate_shader_module(
+        &self,
+        desc: wgpu::ShaderModuleDescriptor,
+    ) -> wgpu::ShaderModule {
+        #[cfg(feature = "spirv_shader_passthrough")]
+        match &desc.source {
+            wgpu::ShaderSource::SpirV(_source) => panic!("no safety checks are performed for spirv shaders. use `create_shader_module` instead"),
+            _ => self.device.create_shader_module(desc),
+        }
+        #[cfg(not(feature = "spirv_shader_passthrough"))]
         self.device.create_shader_module(desc)
     }
 
@@ -58,7 +120,7 @@ impl RenderDevice {
     ///
     /// no-op on the web, device is automatically polled.
     #[inline]
-    pub fn poll(&self, maintain: wgpu::Maintain) -> bool {
+    pub fn poll(&self, maintain: wgpu::PollType) -> Result<PollStatus, PollError> {
         self.device.poll(maintain)
     }
 
@@ -76,24 +138,40 @@ impl RenderDevice {
     pub fn create_render_bundle_encoder(
         &self,
         desc: &wgpu::RenderBundleEncoderDescriptor,
-    ) -> wgpu::RenderBundleEncoder {
+    ) -> wgpu::RenderBundleEncoder<'_> {
         self.device.create_render_bundle_encoder(desc)
     }
 
     /// Creates a new [`BindGroup`](wgpu::BindGroup).
     #[inline]
-    pub fn create_bind_group(&self, desc: &wgpu::BindGroupDescriptor) -> BindGroup {
-        let wgpu_bind_group = self.device.create_bind_group(desc);
+    pub fn create_bind_group<'a>(
+        &self,
+        label: impl Into<wgpu::Label<'a>>,
+        layout: &'a BindGroupLayout,
+        entries: &'a [BindGroupEntry<'a>],
+    ) -> BindGroup {
+        let wgpu_bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+            label: label.into(),
+            layout,
+            entries,
+        });
         BindGroup::from(wgpu_bind_group)
     }
 
     /// Creates a [`BindGroupLayout`](wgpu::BindGroupLayout).
     #[inline]
-    pub fn create_bind_group_layout(
+    pub fn create_bind_group_layout<'a>(
         &self,
-        desc: &wgpu::BindGroupLayoutDescriptor,
+        label: impl Into<wgpu::Label<'a>>,
+        entries: &'a [BindGroupLayoutEntry],
     ) -> BindGroupLayout {
-        BindGroupLayout::from(self.device.create_bind_group_layout(desc))
+        BindGroupLayout::from(
+            self.device
+                .create_bind_group_layout(&BindGroupLayoutDescriptor {
+                    label: label.into(),
+                    entries,
+                }),
+        )
     }
 
     /// Creates a [`PipelineLayout`](wgpu::PipelineLayout).
@@ -142,11 +220,12 @@ impl RenderDevice {
         &self,
         render_queue: &RenderQueue,
         desc: &wgpu::TextureDescriptor,
+        order: wgpu::util::TextureDataOrder,
         data: &[u8],
     ) -> Texture {
-        let wgpu_texture = self
-            .device
-            .create_texture_with_data(render_queue.as_ref(), desc, data);
+        let wgpu_texture =
+            self.device
+                .create_texture_with_data(render_queue.as_ref(), desc, order, data);
         Texture::from(wgpu_texture)
     }
 
@@ -190,10 +269,16 @@ impl RenderDevice {
         buffer.map_async(map_mode, callback);
     }
 
-    pub fn align_copy_bytes_per_row(row_bytes: usize) -> usize {
+    // Rounds up `row_bytes` to be a multiple of [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
+    pub const fn align_copy_bytes_per_row(row_bytes: usize) -> usize {
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
-        let padded_bytes_per_row_padding = (align - row_bytes % align) % align;
-        row_bytes + padded_bytes_per_row_padding
+
+        // If row_bytes is aligned calculate a value just under the next aligned value.
+        // Otherwise calculate a value greater than the next aligned value.
+        let over_aligned = row_bytes + align - 1;
+
+        // Round the number *down* to the nearest aligned value.
+        (over_aligned / align) * align
     }
 
     pub fn get_supported_read_only_binding_type(
@@ -205,5 +290,21 @@ impl RenderDevice {
         } else {
             BufferBindingType::Uniform
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn align_copy_bytes_per_row() {
+        // Test for https://github.com/bevyengine/bevy/issues/16992
+        let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
+
+        assert_eq!(RenderDevice::align_copy_bytes_per_row(0), 0);
+        assert_eq!(RenderDevice::align_copy_bytes_per_row(1), align);
+        assert_eq!(RenderDevice::align_copy_bytes_per_row(align + 1), align * 2);
+        assert_eq!(RenderDevice::align_copy_bytes_per_row(align), align);
     }
 }

@@ -1,18 +1,19 @@
 use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
-    view::ViewVisibility,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    sync_component::SyncComponentPlugin,
+    sync_world::RenderEntity,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, Handle};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
+    bundle::NoBundleEffect,
     component::Component,
     prelude::*,
-    query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
-    system::lifetimeless::Read,
+    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
 };
-use std::{marker::PhantomData, ops::Deref};
+use core::{marker::PhantomData, ops::Deref};
 
 pub use bevy_render_macros::ExtractComponent;
 
@@ -35,16 +36,17 @@ impl<C: Component> DynamicUniformIndex<C> {
 /// Therefore the component is transferred from the "app world" into the "render world"
 /// in the [`ExtractSchedule`] step.
 pub trait ExtractComponent: Component {
-    /// ECS [`WorldQuery`] to fetch the components to extract.
-    type Query: WorldQuery + ReadOnlyWorldQuery;
+    /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
+    type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
-    type Filter: WorldQuery + ReadOnlyWorldQuery;
+    type QueryFilter: QueryFilter;
 
     /// The output from extraction.
     ///
-    /// Returning `None` based on the queried item can allow early optimization,
-    /// for example if there is an `enabled: bool` field on `Self`, or by only accepting
-    /// values within certain thresholds.
+    /// Returning `None` based on the queried item will remove the component from the entity in
+    /// the render world. This can be used, for example, to conditionally extract camera settings
+    /// in order to disable a rendering feature on the basis of those settings, without removing
+    /// the component from the entity in the main world.
     ///
     /// The output may be different from the queried component.
     /// This can be useful for example if only a subset of the fields are useful
@@ -52,13 +54,13 @@ pub trait ExtractComponent: Component {
     ///
     /// `Out` has a [`Bundle`] trait bound instead of a [`Component`] trait bound in order to allow use cases
     /// such as tuples of components as output.
-    type Out: Bundle;
+    type Out: Bundle<Effect: NoBundleEffect>;
 
     // TODO: https://github.com/rust-lang/rust/issues/29661
     // type Out: Component = Self;
 
     /// Defines how the component is transferred into the "render world".
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self::Out>;
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out>;
 }
 
 /// This plugin prepares the components of the corresponding type for the GPU
@@ -68,7 +70,7 @@ pub trait ExtractComponent: Component {
 /// For referencing the newly created uniforms a [`DynamicUniformIndex`] is inserted
 /// for every processed entity.
 ///
-/// Therefore it sets up the [`RenderSet::Prepare`] step
+/// Therefore it sets up the [`RenderSystems::Prepare`] step
 /// for the specified [`ExtractComponent`].
 pub struct UniformComponentPlugin<C>(PhantomData<fn() -> C>);
 
@@ -80,12 +82,12 @@ impl<C> Default for UniformComponentPlugin<C> {
 
 impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .insert_resource(ComponentUniforms::<C>::default())
                 .add_systems(
                     Render,
-                    prepare_uniform_components::<C>.in_set(RenderSet::PrepareResources),
+                    prepare_uniform_components::<C>.in_set(RenderSystems::PrepareResources),
                 );
         }
     }
@@ -123,14 +125,14 @@ impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
 
 /// This system prepares all components of the corresponding component type.
 /// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
-fn prepare_uniform_components<C: Component>(
+fn prepare_uniform_components<C>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
     components: Query<(Entity, &C)>,
 ) where
-    C: ShaderType + WriteInto + Clone,
+    C: Component + ShaderType + WriteInto + Clone,
 {
     let components_iter = components.iter();
     let count = components_iter.len();
@@ -152,13 +154,12 @@ fn prepare_uniform_components<C: Component>(
             )
         })
         .collect::<Vec<_>>();
-    commands.insert_or_spawn_batch(entities);
+    commands.try_insert_batch(entities);
 }
 
-/// This plugin extracts the components into the "render world".
+/// This plugin extracts the components into the render world for synced entities.
 ///
-/// Therefore it sets up the [`ExtractSchedule`] step
-/// for the specified [`ExtractComponent`].
+/// To do so, it sets up the [`ExtractSchedule`] step for the specified [`ExtractComponent`].
 pub struct ExtractComponentPlugin<C, F = ()> {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (C, F)>,
@@ -184,7 +185,9 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        app.add_plugins(SyncComponentPlugin::<C>::default());
+
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
                 render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
             } else {
@@ -194,47 +197,40 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     }
 }
 
-impl<T: Asset> ExtractComponent for Handle<T> {
-    type Query = Read<Handle<T>>;
-    type Filter = ();
-    type Out = Handle<T>;
-
-    #[inline]
-    fn extract_component(handle: QueryItem<'_, Self::Query>) -> Option<Self::Out> {
-        Some(handle.clone_weak())
-    }
-}
-
-/// This system extracts all components of the corresponding [`ExtractComponent`] type.
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, C::Query), C::Filter>>,
+    query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
         if let Some(component) = C::extract_component(query_item) {
             values.push((entity, component));
+        } else {
+            commands.entity(entity).remove::<C::Out>();
         }
     }
     *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.try_insert_batch(values);
 }
 
-/// This system extracts all visible components of the corresponding [`ExtractComponent`] type.
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &ViewVisibility, C::Query), C::Filter>>,
+    query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {
         if view_visibility.get() {
             if let Some(component) = C::extract_component(query_item) {
                 values.push((entity, component));
+            } else {
+                commands.entity(entity).remove::<C::Out>();
             }
         }
     }
     *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.try_insert_batch(values);
 }

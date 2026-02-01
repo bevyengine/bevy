@@ -1,16 +1,23 @@
 name: Dependencies
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     paths:
-      - '**/Cargo.toml'
-      - 'deny.toml'
+      - "**/Cargo.toml"
+      - "deny.toml"
   push:
     paths:
-      - '**/Cargo.toml'
-      - 'deny.toml'
+      - "**/Cargo.toml"
+      - "deny.toml"
     branches:
       - main
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,8 +26,12 @@ jobs:
   check-advisories:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for security advisories and unmaintained crates
@@ -29,43 +40,26 @@ jobs:
   check-bans:
     runs-on: ubuntu-latest
     steps:
-      # on main, prepare a new cargo tree output and cache it
-      - name: On main, prepare new cargo tree cache
-        if: github.ref == 'refs/heads/main'
-        run: cargo tree --depth 3 > cargo-tree-from-main
-      - name: On main, save the new cargo tree cache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          path: cargo-tree-from-main
-          key: cargo-tree-from-main    
-      # on other branch, restore the cached cargo tree output
-      - name: On PR, restore cargo tree cache
-        uses: actions/cache/restore@v3
-        if: github.ref != 'refs/heads/main'
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
-          path: cargo-tree-from-main
-          key: cargo-tree-from-main
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      # if not on main, check that the cargo tree output is unchanged
-      - name: Check if the cargo tree changed from main
-        if: github.ref != 'refs/heads/main'
-        continue-on-error: true
-        id: cargo-tree-changed
-        run: diff cargo-tree-from-main <(cargo tree --depth 3)
+          toolchain: stable
       - name: Install cargo-deny
         run: cargo install cargo-deny
-      # if the check was not a success (either skipped because on main or failed because of a change), run the check
       - name: Check for banned and duplicated dependencies
-        if: steps.cargo-tree-changed.outcome != 'success'
         run: cargo deny check bans
 
   check-licenses:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for unauthorized licenses
@@ -74,8 +68,12 @@ jobs:
   check-sources:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Checked for unauthorized crate sources

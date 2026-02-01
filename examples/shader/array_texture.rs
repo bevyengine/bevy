@@ -1,12 +1,23 @@
+//! This example illustrates how to create a texture for use with a
+//! `texture_2d_array<f32>` shader uniform variable and then how to sample from
+//! that texture in the shader by using a `MeshTag` component on the mesh
+//! entity.
+
 use bevy::{
-    asset::LoadState,
+    image::{ImageArrayLayout, ImageLoaderSettings},
+    mesh::MeshTag,
     prelude::*,
     reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::render_resource::AsBindGroup,
+    shader::ShaderRef,
 };
 
-/// This example illustrates how to create a texture for use with a `texture_2d_array<f32>` shader
-/// uniform variable.
+/// This example uses a shader source file from the assets subdirectory.
+const SHADER_ASSET_PATH: &str = "shaders/array_texture.wgsl";
+
+/// Corresponds to the number of layers in the array texture.
+const TEXTURE_COUNT: u32 = 4;
+
 fn main() {
     App::new()
         .add_plugins((
@@ -14,80 +25,66 @@ fn main() {
             MaterialPlugin::<ArrayTextureMaterial>::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, create_array_texture)
+        .add_systems(Update, update_mesh_tags)
         .run();
 }
 
-#[derive(Resource)]
-struct LoadingTexture {
-    is_loaded: bool,
-    handle: Handle<Image>,
-}
-
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Start loading the texture.
-    commands.insert_resource(LoadingTexture {
-        is_loaded: false,
-        handle: asset_server.load("textures/array_texture.png"),
-    });
-
-    // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 3000.0,
-            ..Default::default()
-        },
-        transform: Transform::from_xyz(-3.0, 2.0, -1.0),
-        ..Default::default()
-    });
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 3000.0,
-            ..Default::default()
-        },
-        transform: Transform::from_xyz(3.0, 2.0, 1.0),
-        ..Default::default()
-    });
-
-    // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
-        ..Default::default()
-    });
-}
-
-fn create_array_texture(
+fn setup(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut loading_texture: ResMut<LoadingTexture>,
-    mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ArrayTextureMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
-    if loading_texture.is_loaded
-        || asset_server.load_state(loading_texture.handle.clone()) != LoadState::Loaded
-    {
-        return;
-    }
-    loading_texture.is_loaded = true;
-    let image = images.get_mut(&loading_texture.handle).unwrap();
+    // Load the texture.
+    let array_texture = asset_server.load_with_settings(
+        "textures/array_texture.png",
+        |settings: &mut ImageLoaderSettings| {
+            settings.array_layout = Some(ImageArrayLayout::RowCount {
+                rows: TEXTURE_COUNT,
+            });
+        },
+    );
 
-    // Create a new array texture asset from the loaded texture.
-    let array_layers = 4;
-    image.reinterpret_stacked_2d_as_array(array_layers);
+    // light
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(3.0, 2.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
-    // Spawn some cubes using the array texture
-    let mesh_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
-    let material_handle = materials.add(ArrayTextureMaterial {
-        array_texture: loading_texture.handle.clone(),
-    });
+    // camera
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
+    ));
+
+    // Spawn some cubes using the array texture.
+    let mesh_handle = meshes.add(Cuboid::default());
+    let material_handle = materials.add(ArrayTextureMaterial { array_texture });
     for x in -5..=5 {
-        commands.spawn(MaterialMeshBundle {
-            mesh: mesh_handle.clone(),
-            material: material_handle.clone(),
-            transform: Transform::from_xyz(x as f32 + 0.5, 0.0, 0.0),
-            ..Default::default()
-        });
+        commands.spawn((
+            Mesh3d(mesh_handle.clone()),
+            MeshMaterial3d(material_handle.clone()),
+            // Pass a different mesh tag to allow selecting different layers of
+            // the array texture in the shader.
+            MeshTag(x as u32 % TEXTURE_COUNT),
+            Transform::from_xyz(x as f32 + 0.5, 0.0, 0.0),
+        ));
+    }
+}
+
+fn update_mesh_tags(time: Res<Time>, mut query: Query<&mut MeshTag>, mut timer: Local<Timer>) {
+    // Initialize the timer on the first run.
+    if timer.duration().is_zero() {
+        *timer = Timer::from_seconds(1.5, TimerMode::Repeating);
+    }
+
+    timer.tick(time.delta());
+    if timer.just_finished() {
+        for mut tag in query.iter_mut() {
+            // Cycle through the texture layers to demonstrate that we can
+            // select different layers of the array texture at runtime.
+            tag.0 = (tag.0 + 1) % TEXTURE_COUNT;
+        }
     }
 }
 
@@ -100,6 +97,6 @@ struct ArrayTextureMaterial {
 
 impl Material for ArrayTextureMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/array_texture.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

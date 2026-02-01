@@ -19,7 +19,7 @@ pub fn derive_deref(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #impl_generics ::std::ops::Deref for #ident #ty_generics #where_clause {
+        impl #impl_generics ::core::ops::Deref for #ident #ty_generics #where_clause {
             type Target = #field_type;
 
             fn deref(&self) -> &Self::Target {
@@ -42,7 +42,7 @@ pub fn derive_deref_mut(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #impl_generics ::std::ops::DerefMut for #ident #ty_generics #where_clause {
+        impl #impl_generics ::core::ops::DerefMut for #ident #ty_generics #where_clause {
             fn deref_mut(&mut self) -> &mut Self::Target {
                 &mut self.#field_member
             }

@@ -1,84 +1,92 @@
-mod graph_runner;
+#[cfg(feature = "raw_vulkan_init")]
+pub mod raw_vulkan_init;
+mod render_context;
 mod render_device;
+mod wgpu_wrapper;
 
-use bevy_derive::{Deref, DerefMut};
-use bevy_utils::tracing::{error, info, info_span};
-pub use graph_runner::*;
+pub use render_context::{
+    CurrentView, FlushCommands, PendingCommandBuffers, RenderContext, RenderContextState, ViewQuery,
+};
 pub use render_device::*;
+pub use wgpu_wrapper::WgpuWrapper;
 
 use crate::{
-    render_graph::RenderGraph,
-    render_phase::TrackedRenderPass,
-    render_resource::RenderPassDescriptor,
-    settings::{WgpuSettings, WgpuSettingsPriority},
+    settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
-use bevy_ecs::prelude::*;
+use alloc::sync::Arc;
+use bevy_camera::NormalizedRenderTarget;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::schedule::ScheduleLabel;
+use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_log::{debug, info, info_span, warn};
+use bevy_platform::time::Instant;
+use bevy_render::camera::ExtractedCamera;
 use bevy_time::TimeSender;
-use bevy_utils::Instant;
-use std::sync::Arc;
+use bevy_window::RawHandleWrapperHolder;
 use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+    Adapter, AdapterInfo, Backends, DeviceType, Instance, Queue, RequestAdapterOptions, Trace,
 };
 
-/// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
-pub fn render_system(world: &mut World) {
-    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
-        graph.update(world);
-    });
-    let graph = world.resource::<RenderGraph>();
-    let render_device = world.resource::<RenderDevice>();
-    let render_queue = world.resource::<RenderQueue>();
+/// Schedule label for the root render graph schedule. This schedule runs once per frame
+/// in the [`render_system`] system and is responsible for driving the entire rendering process.
+#[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct RenderGraph;
 
-    if let Err(e) = RenderGraphRunner::run(
-        graph,
-        render_device.clone(), // TODO: is this clone really necessary?
-        &render_queue.0,
-        world,
-        |encoder| {
-            crate::view::screenshot::submit_screenshot_commands(world, encoder);
-        },
-    ) {
-        error!("Error running render graph:");
-        {
-            let mut src: &dyn std::error::Error = &e;
-            loop {
-                error!("> {}", src);
-                match src.source() {
-                    Some(s) => src = s,
-                    None => break,
-                }
-            }
-        }
+impl RenderGraph {
+    pub fn base_schedule() -> Schedule {
+        Schedule::new(Self)
+    }
+}
 
-        panic!("Error running render graph: {e}");
+/// The main render system that drives the rendering process. This system runs the [`RenderGraph`]
+/// schedule, runs any finalization commands like screenshot captures and GPU readbacks, and
+/// calls present on swap chains that need to be presented.
+pub fn render_system(
+    world: &mut World,
+    state: &mut SystemState<Query<(&ViewTarget, &ExtractedCamera)>>,
+) {
+    #[cfg(feature = "trace")]
+    let _span = info_span!("main_render_schedule").entered();
+
+    world.run_schedule(RenderGraph);
+
+    {
+        let render_device = world.resource::<RenderDevice>();
+        let render_queue = world.resource::<RenderQueue>();
+
+        let mut encoder =
+            render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+
+        crate::view::screenshot::submit_screenshot_commands(world, &mut encoder);
+        crate::gpu_readback::submit_readback_commands(world, &mut encoder);
+
+        render_queue.submit([encoder.finish()]);
     }
 
     {
         let _span = info_span!("present_frames").entered();
 
-        // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
-        // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
-        let view_entities = world
-            .query_filtered::<Entity, With<ViewTarget>>()
-            .iter(world)
-            .collect::<Vec<_>>();
-        for view_entity in view_entities {
-            world.entity_mut(view_entity).remove::<ViewTarget>();
-        }
+        world.resource_scope(|world, mut windows: Mut<ExtractedWindows>| {
+            let views = state.get(world);
+            for window in windows.values_mut() {
+                let view_needs_present = views.iter().any(|(view_target, camera)| {
+                    matches!(
+                        camera.target,
+                        Some(NormalizedRenderTarget::Window(w)) if w.entity() == window.entity
+                    ) && view_target.needs_present()
+                });
 
-        let mut windows = world.resource_mut::<ExtractedWindows>();
-        for window in windows.values_mut() {
-            if let Some(wrapped_texture) = window.swap_chain_texture.take() {
-                if let Some(surface_texture) = wrapped_texture.try_unwrap() {
-                    surface_texture.present();
+                if view_needs_present || window.needs_initial_present {
+                    window.present();
+                    window.needs_initial_present = false;
                 }
             }
-        }
+        });
 
         #[cfg(feature = "tracing-tracy")]
-        bevy_utils::tracing::event!(
-            bevy_utils::tracing::Level::INFO,
+        bevy_log::event!(
+            bevy_log::Level::INFO,
             message = "finished frame",
             tracy.frame_mark = true
         );
@@ -91,7 +99,7 @@ pub fn render_system(world: &mut World) {
     if let Err(error) = time_sender.0.try_send(Instant::now()) {
         match error {
             bevy_time::TrySendError::Full(_) => {
-                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
+                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.");
             }
             bevy_time::TrySendError::Disconnected(_) => {
                 // ignore disconnected errors, the main world probably just got dropped during shutdown
@@ -102,21 +110,21 @@ pub fn render_system(world: &mut World) {
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderQueue(pub Arc<Queue>);
+pub struct RenderQueue(pub Arc<WgpuWrapper<Queue>>);
 
 /// The handle to the physical device being used for rendering.
-/// See [`wgpu::Adapter`] for more info.
+/// See [`Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
-pub struct RenderAdapter(pub Arc<Adapter>);
+pub struct RenderAdapter(pub Arc<WgpuWrapper<Adapter>>);
 
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderInstance(pub Arc<Instance>);
+pub struct RenderInstance(pub Arc<WgpuWrapper<Instance>>);
 
 /// The [`AdapterInfo`] of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderAdapterInfo(pub AdapterInfo);
+pub struct RenderAdapterInfo(pub WgpuWrapper<AdapterInfo>);
 
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
@@ -124,49 +132,171 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers!"
 };
 
+#[cfg(not(target_family = "wasm"))]
+async fn find_adapter_by_name(
+    instance: &Instance,
+    options: &WgpuSettings,
+    compatible_surface: Option<&wgpu::Surface<'_>>,
+    adapter_name: &str,
+) -> Option<Adapter> {
+    for adapter in instance
+        .enumerate_adapters(options.backends.expect(
+            "The `backends` field of `WgpuSettings` must be set to use a specific adapter.",
+        ))
+        .await
+    {
+        bevy_log::trace!("Checking adapter: {:?}", adapter.get_info());
+        let info = adapter.get_info();
+        if let Some(surface) = compatible_surface
+            && !adapter.is_surface_supported(surface)
+        {
+            continue;
+        }
+
+        if info
+            .name
+            .to_lowercase()
+            .contains(&adapter_name.to_lowercase())
+        {
+            return Some(adapter);
+        }
+    }
+    None
+}
+
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
-    instance: &Instance,
+    backends: Backends,
+    primary_window: Option<RawHandleWrapperHolder>,
     options: &WgpuSettings,
-    request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
-    let adapter = instance
-        .request_adapter(request_adapter_options)
-        .await
-        .expect(GPU_NOT_FOUND_ERROR_MESSAGE);
+    #[cfg(feature = "raw_vulkan_init")]
+    raw_vulkan_init_settings: raw_vulkan_init::RawVulkanInitSettings,
+) -> RenderResources {
+    let instance_descriptor = wgpu::InstanceDescriptor {
+        backends,
+        flags: options.instance_flags,
+        memory_budget_thresholds: options.instance_memory_budget_thresholds,
+        backend_options: wgpu::BackendOptions {
+            gl: wgpu::GlBackendOptions {
+                gles_minor_version: options.gles3_minor_version,
+                fence_behavior: wgpu::GlFenceBehavior::Normal,
+            },
+            dx12: wgpu::Dx12BackendOptions {
+                shader_compiler: options.dx12_shader_compiler.clone(),
+                presentation_system: wgpu::wgt::Dx12SwapchainKind::from_env().unwrap_or_default(),
+                latency_waitable_object: wgpu::wgt::Dx12UseFrameLatencyWaitableObject::from_env()
+                    .unwrap_or_default(),
+            },
+            noop: wgpu::NoopBackendOptions { enable: false },
+        },
+    };
 
+    #[cfg(not(feature = "raw_vulkan_init"))]
+    let instance = Instance::new(&instance_descriptor);
+    #[cfg(feature = "raw_vulkan_init")]
+    let mut additional_vulkan_features = raw_vulkan_init::AdditionalVulkanFeatures::default();
+    #[cfg(feature = "raw_vulkan_init")]
+    let instance = raw_vulkan_init::create_raw_vulkan_instance(
+        &instance_descriptor,
+        &raw_vulkan_init_settings,
+        &mut additional_vulkan_features,
+    );
+
+    let surface = primary_window.and_then(|wrapper| {
+        let maybe_handle = wrapper
+            .0
+            .lock()
+            .expect("Couldn't get the window handle in time for renderer initialization");
+        if let Some(wrapper) = maybe_handle.as_ref() {
+            // SAFETY: Plugins should be set up on the main thread.
+            let handle = unsafe { wrapper.get_handle() };
+            Some(
+                instance
+                    .create_surface(handle)
+                    .expect("Failed to create wgpu surface"),
+            )
+        } else {
+            None
+        }
+    });
+
+    let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
+        .map_or(options.force_fallback_adapter, |v| {
+            !(v.is_empty() || v == "0" || v == "false")
+        });
+
+    let desired_adapter_name = std::env::var("WGPU_ADAPTER_NAME")
+        .as_deref()
+        .map_or(options.adapter_name.clone(), |x| Some(x.to_lowercase()));
+
+    let request_adapter_options = RequestAdapterOptions {
+        power_preference: options.power_preference,
+        compatible_surface: surface.as_ref(),
+        force_fallback_adapter,
+    };
+
+    #[cfg(not(target_family = "wasm"))]
+    let mut selected_adapter = if let Some(adapter_name) = desired_adapter_name {
+        find_adapter_by_name(
+            &instance,
+            options,
+            request_adapter_options.compatible_surface,
+            &adapter_name,
+        )
+        .await
+    } else {
+        None
+    };
+    #[cfg(target_family = "wasm")]
+    let mut selected_adapter = None;
+
+    #[cfg(target_family = "wasm")]
+    if desired_adapter_name.is_some() {
+        warn!("Choosing an adapter is not supported on wasm.");
+    }
+
+    if selected_adapter.is_none() {
+        debug!(
+            "Searching for adapter with options: {:?}",
+            request_adapter_options
+        );
+        selected_adapter = instance
+            .request_adapter(&request_adapter_options)
+            .await
+            .ok();
+    }
+
+    let adapter = selected_adapter.expect(GPU_NOT_FOUND_ERROR_MESSAGE);
     let adapter_info = adapter.get_info();
     info!("{:?}", adapter_info);
 
-    #[cfg(feature = "wgpu_trace")]
-    let trace_path = {
-        let path = std::path::Path::new("wgpu_trace");
-        // ignore potential error, wgpu will log it
-        let _ = std::fs::create_dir(path);
-        Some(path)
-    };
-    #[cfg(not(feature = "wgpu_trace"))]
-    let trace_path = None;
+    if adapter_info.device_type == DeviceType::Cpu {
+        warn!(
+            "The selected adapter is using a driver that only supports software rendering. \
+             This is likely to be very slow. See https://bevy.org/learn/errors/b0006/"
+        );
+    }
 
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
     let mut limits = options.limits.clone();
     if matches!(options.priority, WgpuSettingsPriority::Functionality) {
         features = adapter.features();
-        if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
+        if adapter_info.device_type == DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
             // discrete GPUs due to having to transfer data across the PCI-E bus and so it
             // should not be automatically enabled in this case. It is however beneficial for
             // integrated GPUs.
-            features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
+            features.remove(wgpu::Features::MAPPABLE_PRIMARY_BUFFERS);
         }
+
         limits = adapter.limits();
     }
 
     // Enforce the disabled features
     if let Some(disabled_features) = options.disabled_features {
-        features -= disabled_features;
+        features.remove(disabled_features);
     }
     // NOTE: |= is used here to ensure that any explicitly-enabled features are respected.
     features |= options.features;
@@ -215,6 +345,12 @@ pub async fn initialize_renderer(
             max_uniform_buffers_per_shader_stage: limits
                 .max_uniform_buffers_per_shader_stage
                 .min(constrained_limits.max_uniform_buffers_per_shader_stage),
+            max_binding_array_elements_per_shader_stage: limits
+                .max_binding_array_elements_per_shader_stage
+                .min(constrained_limits.max_binding_array_elements_per_shader_stage),
+            max_binding_array_sampler_elements_per_shader_stage: limits
+                .max_binding_array_sampler_elements_per_shader_stage
+                .min(constrained_limits.max_binding_array_sampler_elements_per_shader_stage),
             max_uniform_buffer_binding_size: limits
                 .max_uniform_buffer_binding_size
                 .min(constrained_limits.max_uniform_buffer_binding_size),
@@ -230,9 +366,9 @@ pub async fn initialize_renderer(
             max_vertex_buffer_array_stride: limits
                 .max_vertex_buffer_array_stride
                 .min(constrained_limits.max_vertex_buffer_array_stride),
-            max_push_constant_size: limits
-                .max_push_constant_size
-                .min(constrained_limits.max_push_constant_size),
+            max_immediate_size: limits
+                .max_immediate_size
+                .min(constrained_limits.max_immediate_size),
             min_uniform_buffer_offset_alignment: limits
                 .min_uniform_buffer_offset_alignment
                 .max(constrained_limits.min_uniform_buffer_offset_alignment),
@@ -266,97 +402,100 @@ pub async fn initialize_renderer(
             max_bindings_per_bind_group: limits
                 .max_bindings_per_bind_group
                 .min(constrained_limits.max_bindings_per_bind_group),
+            max_non_sampler_bindings: limits
+                .max_non_sampler_bindings
+                .min(constrained_limits.max_non_sampler_bindings),
+            max_blas_primitive_count: limits
+                .max_blas_primitive_count
+                .min(constrained_limits.max_blas_primitive_count),
+            max_blas_geometry_count: limits
+                .max_blas_geometry_count
+                .min(constrained_limits.max_blas_geometry_count),
+            max_tlas_instance_count: limits
+                .max_tlas_instance_count
+                .min(constrained_limits.max_tlas_instance_count),
+            max_color_attachments: limits
+                .max_color_attachments
+                .min(constrained_limits.max_color_attachments),
+            max_color_attachment_bytes_per_sample: limits
+                .max_color_attachment_bytes_per_sample
+                .min(constrained_limits.max_color_attachment_bytes_per_sample),
+            max_task_mesh_workgroup_total_count: limits
+                .max_task_mesh_workgroup_total_count
+                .min(constrained_limits.max_task_mesh_workgroup_total_count),
+            max_task_mesh_workgroups_per_dimension: limits
+                .max_task_mesh_workgroups_per_dimension
+                .min(constrained_limits.max_task_mesh_workgroups_per_dimension),
+            max_task_invocations_per_workgroup: limits
+                .max_task_invocations_per_workgroup
+                .min(constrained_limits.max_task_invocations_per_workgroup),
+            max_task_invocations_per_dimension: limits
+                .max_task_invocations_per_dimension
+                .min(constrained_limits.max_task_invocations_per_dimension),
+            max_mesh_invocations_per_workgroup: limits
+                .max_mesh_invocations_per_workgroup
+                .min(constrained_limits.max_mesh_invocations_per_workgroup),
+            max_mesh_invocations_per_dimension: limits
+                .max_mesh_invocations_per_dimension
+                .min(constrained_limits.max_mesh_invocations_per_dimension),
+            max_task_payload_size: limits
+                .max_task_payload_size
+                .min(constrained_limits.max_task_payload_size),
+            max_mesh_output_vertices: limits
+                .max_mesh_output_vertices
+                .min(constrained_limits.max_mesh_output_vertices),
+            max_mesh_output_primitives: limits
+                .max_mesh_output_primitives
+                .min(constrained_limits.max_mesh_output_primitives),
+            max_mesh_output_layers: limits
+                .max_mesh_output_layers
+                .min(constrained_limits.max_mesh_output_layers),
+            max_mesh_multiview_view_count: limits
+                .max_mesh_multiview_view_count
+                .min(constrained_limits.max_mesh_multiview_view_count),
+            max_acceleration_structures_per_shader_stage: limits
+                .max_acceleration_structures_per_shader_stage
+                .min(constrained_limits.max_acceleration_structures_per_shader_stage),
+            max_multiview_view_count: limits
+                .max_multiview_view_count
+                .min(constrained_limits.max_multiview_view_count),
         };
     }
 
-    let (device, queue) = adapter
-        .request_device(
-            &wgpu::DeviceDescriptor {
-                label: options.device_label.as_ref().map(|a| a.as_ref()),
-                features,
-                limits,
-            },
-            trace_path,
-        )
-        .await
-        .unwrap();
-    let queue = Arc::new(queue);
-    let adapter = Arc::new(adapter);
-    (
-        RenderDevice::from(device),
-        RenderQueue(queue),
-        RenderAdapterInfo(adapter_info),
-        RenderAdapter(adapter),
+    let device_descriptor = wgpu::DeviceDescriptor {
+        label: options.device_label.as_ref().map(AsRef::as_ref),
+        required_features: features,
+        required_limits: limits,
+        // SAFETY: TODO, see https://github.com/bevyengine/bevy/issues/22082
+        experimental_features: unsafe { wgpu::ExperimentalFeatures::enabled() },
+        memory_hints: options.memory_hints.clone(),
+        // See https://github.com/gfx-rs/wgpu/issues/5974
+        trace: Trace::Off,
+    };
+
+    #[cfg(not(feature = "raw_vulkan_init"))]
+    let (device, queue) = adapter.request_device(&device_descriptor).await.unwrap();
+
+    #[cfg(feature = "raw_vulkan_init")]
+    let (device, queue) = raw_vulkan_init::create_raw_device(
+        &adapter,
+        &device_descriptor,
+        &raw_vulkan_init_settings,
+        &mut additional_vulkan_features,
     )
-}
+    .await
+    .unwrap();
 
-/// The context with all information required to interact with the GPU.
-///
-/// The [`RenderDevice`] is used to create render resources and the
-/// the [`CommandEncoder`] is used to record a series of GPU operations.
-pub struct RenderContext {
-    render_device: RenderDevice,
-    command_encoder: Option<CommandEncoder>,
-    command_buffers: Vec<CommandBuffer>,
-}
+    debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
+    debug!("Configured wgpu adapter Features: {:#?}", device.features());
 
-impl RenderContext {
-    /// Creates a new [`RenderContext`] from a [`RenderDevice`].
-    pub fn new(render_device: RenderDevice) -> Self {
-        Self {
-            render_device,
-            command_encoder: None,
-            command_buffers: Vec::new(),
-        }
-    }
-
-    /// Gets the underlying [`RenderDevice`].
-    pub fn render_device(&self) -> &RenderDevice {
-        &self.render_device
-    }
-
-    /// Gets the current [`CommandEncoder`].
-    pub fn command_encoder(&mut self) -> &mut CommandEncoder {
-        self.command_encoder.get_or_insert_with(|| {
-            self.render_device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
-        })
-    }
-
-    /// Creates a new [`TrackedRenderPass`] for the context,
-    /// configured using the provided `descriptor`.
-    pub fn begin_tracked_render_pass<'a>(
-        &'a mut self,
-        descriptor: RenderPassDescriptor<'a, '_>,
-    ) -> TrackedRenderPass<'a> {
-        // Cannot use command_encoder() as we need to split the borrow on self
-        let command_encoder = self.command_encoder.get_or_insert_with(|| {
-            self.render_device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
-        });
-        let render_pass = command_encoder.begin_render_pass(&descriptor);
-        TrackedRenderPass::new(&self.render_device, render_pass)
-    }
-
-    /// Append a [`CommandBuffer`] to the queue.
-    ///
-    /// If present, this will flush the currently unflushed [`CommandEncoder`]
-    /// into a [`CommandBuffer`] into the queue before append the provided
-    /// buffer.
-    pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
-        self.flush_encoder();
-        self.command_buffers.push(command_buffer);
-    }
-
-    /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
-    pub fn finish(mut self) -> Vec<CommandBuffer> {
-        self.flush_encoder();
-        self.command_buffers
-    }
-
-    fn flush_encoder(&mut self) {
-        if let Some(encoder) = self.command_encoder.take() {
-            self.command_buffers.push(encoder.finish());
-        }
-    }
+    RenderResources(
+        RenderDevice::from(device),
+        RenderQueue(Arc::new(WgpuWrapper::new(queue))),
+        RenderAdapterInfo(WgpuWrapper::new(adapter_info)),
+        RenderAdapter(Arc::new(WgpuWrapper::new(adapter))),
+        RenderInstance(Arc::new(WgpuWrapper::new(instance))),
+        #[cfg(feature = "raw_vulkan_init")]
+        additional_vulkan_features,
+    )
 }

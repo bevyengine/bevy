@@ -1,32 +1,28 @@
+use crate::renderer::WgpuWrapper;
 use crate::{
-    render_resource::{PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView},
+    render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    texture::TextureFormatPixelInfo,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
-use bevy_utils::{default, tracing::debug, HashMap, HashSet};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_log::{debug, info, warn};
+use bevy_platform::collections::HashSet;
+use bevy_utils::default;
 use bevy_window::{
-    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
+    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
-use std::{
+use core::{
+    num::NonZero,
     ops::{Deref, DerefMut},
-    sync::PoisonError,
 };
-use wgpu::{BufferUsages, TextureFormat, TextureUsages, TextureViewDescriptor};
+use wgpu::{
+    SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
+};
 
 pub mod screenshot;
 
-use screenshot::{
-    ScreenshotManager, ScreenshotPlugin, ScreenshotPreparedState, ScreenshotToScreenPipeline,
-};
-
-use super::Msaa;
-
-/// Token to ensure a system runs on the main thread.
-#[derive(Resource, Default)]
-pub struct NonSendMarker;
+use screenshot::ScreenshotPlugin;
 
 pub struct WindowRenderPlugin;
 
@@ -34,19 +30,18 @@ impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
-                .init_non_send_resource::<NonSendMarker>()
                 .add_systems(ExtractSchedule, extract_windows)
-                .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ScreenshotToScreenPipeline>();
+                .add_systems(
+                    Render,
+                    create_surfaces
+                        .run_if(need_surface_configuration)
+                        .before(prepare_windows),
+                )
+                .add_systems(Render, prepare_windows.in_set(RenderSystems::ManageViews));
         }
     }
 }
@@ -58,23 +53,29 @@ pub struct ExtractedWindow {
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
+    pub desired_maximum_frame_latency: Option<NonZero<u32>>,
     /// Note: this will not always be the swap chain texture view. When taking a screenshot,
     /// this will point to an alternative texture instead to allow for copying the render result
     /// to CPU memory.
     pub swap_chain_texture_view: Option<TextureView>,
     pub swap_chain_texture: Option<SurfaceTexture>,
     pub swap_chain_texture_format: Option<TextureFormat>,
-    pub screenshot_memory: Option<ScreenshotPreparedState>,
+    pub swap_chain_texture_view_format: Option<TextureFormat>,
     pub size_changed: bool,
     pub present_mode_changed: bool,
     pub alpha_mode: CompositeAlphaMode,
-    pub screenshot_func: Option<screenshot::ScreenshotFn>,
+    /// Whether this window needs an initial buffer commit.
+    ///
+    /// On Wayland, windows must present at least once before they are shown.
+    /// See <https://wayland.app/protocols/xdg-shell#xdg_surface>
+    pub needs_initial_present: bool,
 }
 
 impl ExtractedWindow {
     fn set_swapchain_texture(&mut self, frame: wgpu::SurfaceTexture) {
+        self.swap_chain_texture_view_format = Some(frame.texture.format().add_srgb_suffix());
         let texture_view_descriptor = TextureViewDescriptor {
-            format: Some(frame.texture.format().add_srgb_suffix()),
+            format: self.swap_chain_texture_view_format,
             ..default()
         };
         self.swap_chain_texture_view = Some(TextureView::from(
@@ -82,16 +83,30 @@ impl ExtractedWindow {
         ));
         self.swap_chain_texture = Some(SurfaceTexture::from(frame));
     }
+
+    fn has_swapchain_texture(&self) -> bool {
+        self.swap_chain_texture_view.is_some() && self.swap_chain_texture.is_some()
+    }
+
+    pub fn present(&mut self) {
+        if let Some(surface_texture) = self.swap_chain_texture.take() {
+            // TODO(clean): winit docs recommends calling pre_present_notify before this.
+            // though `present()` doesn't present the frame, it schedules it to be presented
+            // by wgpu.
+            // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
+            surface_texture.present();
+        }
+    }
 }
 
 #[derive(Default, Resource)]
 pub struct ExtractedWindows {
     pub primary: Option<Entity>,
-    pub windows: HashMap<Entity, ExtractedWindow>,
+    pub windows: EntityHashMap<ExtractedWindow>,
 }
 
 impl Deref for ExtractedWindows {
-    type Target = HashMap<Entity, ExtractedWindow>;
+    type Target = EntityHashMap<ExtractedWindow>;
 
     fn deref(&self) -> &Self::Target {
         &self.windows
@@ -106,8 +121,7 @@ impl DerefMut for ExtractedWindows {
 
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
-    screenshot_manager: Extract<Res<ScreenshotManager>>,
-    mut closed: Extract<EventReader<WindowClosed>>,
+    mut closing: Extract<MessageReader<WindowClosing>>,
     windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
@@ -128,18 +142,24 @@ fn extract_windows(
             physical_width: new_width,
             physical_height: new_height,
             present_mode: window.present_mode,
+            desired_maximum_frame_latency: window.desired_maximum_frame_latency,
             swap_chain_texture: None,
             swap_chain_texture_view: None,
             size_changed: false,
             swap_chain_texture_format: None,
+            swap_chain_texture_view_format: None,
             present_mode_changed: false,
             alpha_mode: window.composite_alpha_mode,
-            screenshot_func: None,
-            screenshot_memory: None,
+            needs_initial_present: true,
         });
 
-        // NOTE: Drop the swap chain frame here
-        extracted_window.swap_chain_texture_view = None;
+        if extracted_window.swap_chain_texture.is_none() {
+            // If we called present on the previous swap-chain texture last update,
+            // then drop the swap chain frame here, otherwise we can keep it for the
+            // next update as an optimization. `prepare_windows` will only acquire a new
+            // swap chain texture if needed.
+            extracted_window.swap_chain_texture_view = None;
+        }
         extracted_window.size_changed = new_width != extracted_window.physical_width
             || new_height != extracted_window.physical_height;
         extracted_window.present_mode_changed =
@@ -166,38 +186,26 @@ fn extract_windows(
         }
     }
 
-    for closed_window in closed.read() {
-        extracted_windows.remove(&closed_window.window);
-        window_surfaces.remove(&closed_window.window);
+    for closing_window in closing.read() {
+        extracted_windows.remove(&closing_window.window);
+        window_surfaces.remove(&closing_window.window);
     }
     for removed_window in removed.read() {
         extracted_windows.remove(&removed_window);
         window_surfaces.remove(&removed_window);
     }
-    // This lock will never block because `callbacks` is `pub(crate)` and this is the singular callsite where it's locked.
-    // Even if a user had multiple copies of this system, since the system has a mutable resource access the two systems would never run
-    // at the same time
-    // TODO: since this is guaranteed, should the lock be replaced with an UnsafeCell to remove the overhead, or is it minor enough to be ignored?
-    for (window, screenshot_func) in screenshot_manager
-        .callbacks
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .drain()
-    {
-        if let Some(window) = extracted_windows.get_mut(&window) {
-            window.screenshot_func = Some(screenshot_func);
-        }
-    }
 }
 
 struct SurfaceData {
-    surface: wgpu::Surface,
-    format: TextureFormat,
+    // TODO: what lifetime should this be?
+    surface: WgpuWrapper<wgpu::Surface<'static>>,
+    configuration: SurfaceConfiguration,
+    texture_view_format: Option<TextureFormat>,
 }
 
 #[derive(Resource, Default)]
 pub struct WindowSurfaces {
-    surfaces: HashMap<Entity, SurfaceData>,
+    surfaces: EntityHashMap<SurfaceData>,
     /// List of windows that we have already called the initial `configure_surface` for
     configured_windows: HashSet<Entity>,
 }
@@ -209,7 +217,7 @@ impl WindowSurfaces {
     }
 }
 
-/// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
+/// (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
 /// the performance bottleneck. This can be seen in profiles as multiple prepare-set systems all
@@ -226,109 +234,25 @@ impl WindowSurfaces {
 ///   `DirectX 11` is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
 ///   it may be that a software renderer called "Microsoft Basic Render Driver" using `DirectX 12`
 ///   will be chosen and performance will be very poor. This is visible in a log message that is
-///   output during renderer initialization. Future versions of wgpu will support `DirectX 11`, but
-///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
-///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
-///   later.
-#[allow(clippy::too_many_arguments)]
+///   output during renderer initialization.
+///   Another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
+///   [`Backends::GL`](crate::settings::Backends::GL) with the `gles` feature enabled if your
+///   GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or later.
 pub fn prepare_windows(
-    // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
-    // which is necessary for some OS s
-    _marker: NonSend<NonSendMarker>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
-    render_instance: Res<RenderInstance>,
-    render_adapter: Res<RenderAdapter>,
-    screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
-    mut msaa: ResMut<Msaa>,
+    #[cfg(target_os = "linux")] render_instance: Res<RenderInstance>,
 ) {
     for window in windows.windows.values_mut() {
         let window_surfaces = window_surfaces.deref_mut();
-        let surface_data = window_surfaces
-            .surfaces
-            .entry(window.entity)
-            .or_insert_with(|| unsafe {
-                // NOTE: On some OSes this MUST be called from the main thread.
-                // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                let surface = render_instance
-                    .create_surface(&window.handle.get_handle())
-                    .expect("Failed to create wgpu surface");
-                let caps = surface.get_capabilities(&render_adapter);
-                let formats = caps.formats;
-                // For future HDR output support, we'll need to request a format that supports HDR,
-                // but as of wgpu 0.15 that is not yet supported.
-                // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
-                let mut format = *formats.get(0).expect("No supported formats for surface");
-                for available_format in formats {
-                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
-                    if available_format == TextureFormat::Rgba8UnormSrgb
-                        || available_format == TextureFormat::Bgra8UnormSrgb
-                    {
-                        format = available_format;
-                        break;
-                    }
-                }
-
-                SurfaceData { surface, format }
-            });
-
-        let surface_configuration = wgpu::SurfaceConfiguration {
-            format: surface_data.format,
-            width: window.physical_width,
-            height: window.physical_height,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            present_mode: match window.present_mode {
-                PresentMode::Fifo => wgpu::PresentMode::Fifo,
-                PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
-                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
-                PresentMode::Immediate => wgpu::PresentMode::Immediate,
-                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
-                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
-            },
-            alpha_mode: match window.alpha_mode {
-                CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
-                CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
-                CompositeAlphaMode::PreMultiplied => wgpu::CompositeAlphaMode::PreMultiplied,
-                CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
-                CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
-            },
-            view_formats: if !surface_data.format.is_srgb() {
-                vec![surface_data.format.add_srgb_suffix()]
-            } else {
-                vec![]
-            },
+        let Some(surface_data) = window_surfaces.surfaces.get(&window.entity) else {
+            continue;
         };
 
-        // This is an ugly hack to work around drivers that don't support MSAA.
-        // This should be removed once https://github.com/bevyengine/bevy/issues/7194 lands and we're doing proper
-        // feature detection for MSAA.
-        // When removed, we can also remove the `.after(prepare_windows)` of `prepare_core_3d_depth_textures` and `prepare_prepass_textures`
-        let sample_flags = render_adapter
-            .get_texture_format_features(surface_configuration.format)
-            .flags;
-
-        if !sample_flags.sample_count_supported(msaa.samples()) {
-            let fallback = if sample_flags.sample_count_supported(Msaa::default().samples()) {
-                Msaa::default()
-            } else {
-                Msaa::Off
-            };
-
-            let fallback_str = if fallback == Msaa::Off {
-                "disabling MSAA".to_owned()
-            } else {
-                format!("MSAA {}x", fallback.samples())
-            };
-
-            bevy_log::warn!(
-                "MSAA {}x is not supported on this device. Falling back to {}.",
-                msaa.samples(),
-                fallback_str,
-            );
-            *msaa = fallback;
+        // We didn't present the previous frame, so we can keep using our existing swapchain texture.
+        if window.has_swapchain_texture() && !window.size_changed && !window.present_mode_changed {
+            continue;
         }
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
@@ -340,97 +264,225 @@ pub fn prepare_windows(
         // and https://github.com/gfx-rs/wgpu/issues/1218
         #[cfg(target_os = "linux")]
         let may_erroneously_timeout = || {
-            render_instance
-                .enumerate_adapters(wgpu::Backends::VULKAN)
-                .any(|adapter| {
-                    let name = adapter.get_info().name;
-                    name.starts_with("AMD") || name.starts_with("Intel")
-                })
+            bevy_tasks::IoTaskPool::get().scope(|scope| {
+                scope.spawn(async {
+                    render_instance
+                        .enumerate_adapters(wgpu::Backends::VULKAN)
+                        .await
+                        .iter()
+                        .any(|adapter| {
+                            let name = adapter.get_info().name;
+                            name.starts_with("Radeon")
+                                || name.starts_with("AMD")
+                                || name.starts_with("Intel")
+                        })
+                });
+            })[0]
         };
-
-        let not_already_configured = window_surfaces.configured_windows.insert(window.entity);
 
         let surface = &surface_data.surface;
-        if not_already_configured || window.size_changed || window.present_mode_changed {
-            render_device.configure_surface(surface, &surface_configuration);
-            let frame = surface
-                .get_current_texture()
-                .expect("Error configuring surface");
-            window.set_swapchain_texture(frame);
-        } else {
-            match surface.get_current_texture() {
-                Ok(frame) => {
-                    window.set_swapchain_texture(frame);
-                }
-                Err(wgpu::SurfaceError::Outdated) => {
-                    render_device.configure_surface(surface, &surface_configuration);
-                    let frame = surface
-                        .get_current_texture()
-                        .expect("Error reconfiguring surface");
-                    window.set_swapchain_texture(frame);
-                }
-                #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
-                    bevy_utils::tracing::trace!(
-                        "Couldn't get swap chain texture. This is probably a quirk \
-                        of your Linux GPU driver, so it can be safely ignored."
-                    );
-                }
-                Err(err) => {
-                    panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
-                }
+        match surface.get_current_texture() {
+            Ok(frame) => {
+                window.set_swapchain_texture(frame);
             }
-        };
-        window.swap_chain_texture_format = Some(surface_data.format);
+            Err(wgpu::SurfaceError::Outdated) => {
+                render_device.configure_surface(surface, &surface_data.configuration);
+                let frame = match surface.get_current_texture() {
+                    Ok(frame) => frame,
+                    Err(err) => {
+                        // This is a common occurrence on X11 and Xwayland with NVIDIA drivers
+                        // when opening and resizing the window.
+                        warn!("Couldn't get swap chain texture after configuring. Cause: '{err}'");
+                        continue;
+                    }
+                };
+                window.set_swapchain_texture(frame);
+            }
+            #[cfg(target_os = "linux")]
+            Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
+                bevy_log::trace!(
+                    "Couldn't get swap chain texture. This is probably a quirk \
+                        of your Linux GPU driver, so it can be safely ignored."
+                );
+            }
+            Err(err) => {
+                panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
+            }
+        }
+        window.swap_chain_texture_format = Some(surface_data.configuration.format);
+    }
+}
 
-        if window.screenshot_func.is_some() {
-            let texture = render_device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("screenshot-capture-rendertarget"),
-                size: wgpu::Extent3d {
-                    width: surface_configuration.width,
-                    height: surface_configuration.height,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: surface_configuration.format.add_srgb_suffix(),
-                usage: TextureUsages::RENDER_ATTACHMENT
-                    | TextureUsages::COPY_SRC
-                    | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            });
-            let texture_view = texture.create_view(&Default::default());
-            let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("screenshot-transfer-buffer"),
-                size: screenshot::get_aligned_size(
-                    window.physical_width,
-                    window.physical_height,
-                    surface_data.format.pixel_size() as u32,
-                ) as u64,
-                usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-            let bind_group = render_device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("screenshot-to-screen-bind-group"),
-                layout: &screenshot_pipeline.bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                }],
-            });
-            let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
-                &screenshot_pipeline,
-                surface_configuration.format,
-            );
-            window.swap_chain_texture_view = Some(texture_view);
-            window.screenshot_memory = Some(ScreenshotPreparedState {
-                texture,
-                buffer,
-                bind_group,
-                pipeline_id,
-            });
+pub fn need_surface_configuration(
+    windows: Res<ExtractedWindows>,
+    window_surfaces: Res<WindowSurfaces>,
+) -> bool {
+    for window in windows.windows.values() {
+        if !window_surfaces.configured_windows.contains(&window.entity)
+            || window.size_changed
+            || window.present_mode_changed
+        {
+            return true;
         }
     }
+    false
+}
+
+// 2 is wgpu's default/what we've been using so far.
+// 1 is the minimum, but may cause lower framerates due to the cpu waiting for the gpu to finish
+// all work for the previous frame before starting work on the next frame, which then means the gpu
+// has to wait for the cpu to finish to start on the next frame.
+const DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY: u32 = 2;
+
+/// Creates window surfaces.
+pub fn create_surfaces(
+    // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
+    // which is necessary for some OS's
+    #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: bevy_ecs::system::NonSendMarker,
+    mut windows: ResMut<ExtractedWindows>,
+    mut window_surfaces: ResMut<WindowSurfaces>,
+    render_instance: Res<RenderInstance>,
+    render_adapter: Res<RenderAdapter>,
+    render_device: Res<RenderDevice>,
+) {
+    for window in windows.windows.values_mut() {
+        let data = window_surfaces
+            .surfaces
+            .entry(window.entity)
+            .or_insert_with(|| {
+                let surface_target = SurfaceTargetUnsafe::RawHandle {
+                    raw_display_handle: window.handle.get_display_handle(),
+                    raw_window_handle: window.handle.get_window_handle(),
+                };
+                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
+                let surface = unsafe {
+                    // NOTE: On some OSes this MUST be called from the main thread.
+                    // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                    render_instance
+                        .create_surface_unsafe(surface_target)
+                        .expect("Failed to create wgpu surface")
+                };
+                let caps = surface.get_capabilities(&render_adapter);
+                let present_mode = present_mode(window, &caps);
+                let formats = caps.formats;
+                // For future HDR output support, we'll need to request a format that supports HDR,
+                // but as of wgpu 0.15 that is not yet supported.
+                // Prefer sRGB formats for surfaces, but fall back to first available format if no sRGB formats are available.
+                let mut format = *formats.first().expect("No supported formats for surface");
+                for available_format in formats {
+                    // Rgba8UnormSrgb and Bgra8UnormSrgb and the only sRGB formats wgpu exposes that we can use for surfaces.
+                    if available_format == TextureFormat::Rgba8UnormSrgb
+                        || available_format == TextureFormat::Bgra8UnormSrgb
+                    {
+                        format = available_format;
+                        break;
+                    }
+                }
+
+                let texture_view_format = if !format.is_srgb() {
+                    Some(format.add_srgb_suffix())
+                } else {
+                    None
+                };
+                let configuration = SurfaceConfiguration {
+                    format,
+                    width: window.physical_width,
+                    height: window.physical_height,
+                    usage: TextureUsages::RENDER_ATTACHMENT,
+                    present_mode,
+                    desired_maximum_frame_latency: window
+                        .desired_maximum_frame_latency
+                        .map(NonZero::<u32>::get)
+                        .unwrap_or(DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY),
+                    alpha_mode: match window.alpha_mode {
+                        CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
+                        CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
+                        CompositeAlphaMode::PreMultiplied => {
+                            wgpu::CompositeAlphaMode::PreMultiplied
+                        }
+                        CompositeAlphaMode::PostMultiplied => {
+                            wgpu::CompositeAlphaMode::PostMultiplied
+                        }
+                        CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
+                    },
+                    view_formats: match texture_view_format {
+                        Some(format) => vec![format],
+                        None => vec![],
+                    },
+                };
+
+                render_device.configure_surface(&surface, &configuration);
+
+                SurfaceData {
+                    surface: WgpuWrapper::new(surface),
+                    configuration,
+                    texture_view_format,
+                }
+            });
+
+        if window.size_changed || window.present_mode_changed {
+            // normally this is dropped on present but we double check here to be safe as failure to
+            // drop it will cause validation errors in wgpu
+            drop(window.swap_chain_texture.take());
+            #[cfg_attr(
+                target_arch = "wasm32",
+                expect(clippy::drop_non_drop, reason = "texture views are not drop on wasm")
+            )]
+            drop(window.swap_chain_texture_view.take());
+
+            data.configuration.width = window.physical_width;
+            data.configuration.height = window.physical_height;
+            let caps = data.surface.get_capabilities(&render_adapter);
+            data.configuration.present_mode = present_mode(window, &caps);
+            render_device.configure_surface(&data.surface, &data.configuration);
+        }
+
+        window_surfaces.configured_windows.insert(window.entity);
+    }
+}
+
+fn present_mode(
+    window: &mut ExtractedWindow,
+    caps: &wgpu::SurfaceCapabilities,
+) -> wgpu::PresentMode {
+    let present_mode = match window.present_mode {
+        PresentMode::Fifo => wgpu::PresentMode::Fifo,
+        PresentMode::FifoRelaxed => wgpu::PresentMode::FifoRelaxed,
+        PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+        PresentMode::Immediate => wgpu::PresentMode::Immediate,
+        PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+        PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+    };
+    let fallbacks = match present_mode {
+        wgpu::PresentMode::AutoVsync => {
+            &[wgpu::PresentMode::FifoRelaxed, wgpu::PresentMode::Fifo][..]
+        }
+        wgpu::PresentMode::AutoNoVsync => &[
+            wgpu::PresentMode::Immediate,
+            wgpu::PresentMode::Mailbox,
+            wgpu::PresentMode::Fifo,
+        ][..],
+        wgpu::PresentMode::Mailbox => &[
+            wgpu::PresentMode::Mailbox,
+            wgpu::PresentMode::Immediate,
+            wgpu::PresentMode::Fifo,
+        ][..],
+        // Always end in FIFO to make sure it's always supported
+        x => &[x, wgpu::PresentMode::Fifo][..],
+    };
+    let new_present_mode = fallbacks
+        .iter()
+        .copied()
+        .find(|fallback| caps.present_modes.contains(fallback))
+        .unwrap_or_else(|| {
+            unreachable!(
+                "Fallback system failed to choose present mode. \
+                            This is a bug. Mode: {:?}, Options: {:?}",
+                window.present_mode, &caps.present_modes
+            );
+        });
+    if new_present_mode != present_mode && fallbacks.contains(&present_mode) {
+        info!("PresentMode {present_mode:?} requested but not available. Falling back to {new_present_mode:?}");
+    }
+    new_present_mode
 }

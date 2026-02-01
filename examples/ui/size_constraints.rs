@@ -1,25 +1,25 @@
 //! Demonstrates how the to use the size constraints to control the size of a UI node.
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_event::<ButtonActivatedEvent>()
+        .add_message::<ButtonActivated>()
         .add_systems(Startup, setup)
         .add_systems(Update, (update_buttons, update_radio_buttons_colors))
         .run();
 }
 
-const ACTIVE_BORDER_COLOR: Color = Color::ANTIQUE_WHITE;
+const ACTIVE_BORDER_COLOR: Color = Color::Srgba(ANTIQUE_WHITE);
 const INACTIVE_BORDER_COLOR: Color = Color::BLACK;
 
 const ACTIVE_INNER_COLOR: Color = Color::WHITE;
-const INACTIVE_INNER_COLOR: Color = Color::NAVY;
+const INACTIVE_INNER_COLOR: Color = Color::Srgba(NAVY);
 
 const ACTIVE_TEXT_COLOR: Color = Color::BLACK;
 const HOVERED_TEXT_COLOR: Color = Color::WHITE;
-const UNHOVERED_TEXT_COLOR: Color = Color::GRAY;
+const UNHOVERED_TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 
 #[derive(Component)]
 struct Bar;
@@ -35,65 +35,64 @@ enum Constraint {
 #[derive(Copy, Clone, Component)]
 struct ButtonValue(Val);
 
-#[derive(Event)]
-struct ButtonActivatedEvent(Entity);
+#[derive(Message)]
+struct ButtonActivated(Entity);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
-        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-        font_size: 40.0,
-        color: Color::rgb(0.9, 0.9, 0.9),
-    };
+    let text_font = (
+        TextFont {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+            font_size: 33.0,
+            ..Default::default()
+        },
+        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+    );
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+        .spawn((
+            Node {
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
-            background_color: Color::BLACK.into(),
-            ..Default::default()
-        })
+            BackgroundColor(Color::BLACK),
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..Default::default()
-                    },
-                    ..Default::default()
+                .spawn(Node {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(
-                        TextBundle::from_section("Size Constraints Example", text_style.clone())
-                            .with_style(Style {
-                                margin: UiRect::bottom(Val::Px(25.)),
-                                ..Default::default()
-                            }),
-                    );
+                    parent.spawn((
+                        Text::new("Size Constraints Example"),
+                        text_font.clone(),
+                        Node {
+                            margin: UiRect::bottom(px(25)),
+                            ..Default::default()
+                        },
+                    ));
 
                     spawn_bar(parent);
 
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
+                        .spawn((
+                            Node {
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::Stretch,
-                                padding: UiRect::all(Val::Px(10.)),
-                                margin: UiRect::top(Val::Px(50.)),
-                                ..Default::default()
+                                padding: UiRect::all(px(10)),
+                                margin: UiRect::top(px(50)),
+                                ..default()
                             },
-                            background_color: Color::YELLOW.into(),
-                            ..Default::default()
-                        })
+                            BackgroundColor(YELLOW.into()),
+                        ))
                         .with_children(|parent| {
                             for constraint in [
                                 Constraint::MinWidth,
@@ -101,54 +100,47 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Constraint::Width,
                                 Constraint::MaxWidth,
                             ] {
-                                spawn_button_row(parent, constraint, text_style.clone());
+                                spawn_button_row(parent, constraint, text_font.clone());
                             }
                         });
                 });
         });
 }
 
-fn spawn_bar(parent: &mut ChildBuilder) {
+fn spawn_bar(parent: &mut ChildSpawnerCommands) {
     parent
-        .spawn(NodeBundle {
-            style: Style {
-                flex_basis: Val::Percent(100.0),
+        .spawn((
+            Node {
+                flex_basis: percent(100),
                 align_self: AlignSelf::Stretch,
-                padding: UiRect::all(Val::Px(10.)),
-                ..Default::default()
+                padding: UiRect::all(px(10)),
+                ..default()
             },
-            background_color: Color::YELLOW.into(),
-            ..Default::default()
-        })
+            BackgroundColor(YELLOW.into()),
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         align_items: AlignItems::Stretch,
-                        width: Val::Percent(100.),
-                        height: Val::Px(100.),
-                        padding: UiRect::all(Val::Px(4.)),
-                        ..Default::default()
+                        width: percent(100),
+                        height: px(100),
+                        padding: UiRect::all(px(4)),
+                        ..default()
                     },
-                    background_color: Color::BLACK.into(),
-                    ..Default::default()
-                })
+                    BackgroundColor(Color::BLACK),
+                ))
                 .with_children(|parent| {
-                    parent.spawn((
-                        NodeBundle {
-                            style: Style {
-                                ..Default::default()
-                            },
-                            background_color: Color::WHITE.into(),
-                            ..Default::default()
-                        },
-                        Bar,
-                    ));
+                    parent.spawn((Node::default(), BackgroundColor(Color::WHITE), Bar));
                 });
         });
 }
 
-fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_style: TextStyle) {
+fn spawn_button_row(
+    parent: &mut ChildSpawnerCommands,
+    constraint: Constraint,
+    text_style: (TextFont, TextColor),
+) {
     let label = match constraint {
         Constraint::FlexBasis => "flex_basis",
         Constraint::Width => "size",
@@ -157,140 +149,110 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
     };
 
     parent
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::all(Val::Px(2.)),
+                padding: UiRect::all(px(2)),
                 align_items: AlignItems::Stretch,
-                ..Default::default()
+                ..default()
             },
-            background_color: Color::BLACK.into(),
-            ..Default::default()
-        })
+            BackgroundColor(Color::BLACK),
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::End,
-                        padding: UiRect::all(Val::Px(2.)),
-                        ..Default::default()
-                    },
-                    //background_color: Color::RED.into(),
-                    ..Default::default()
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::End,
+                    padding: UiRect::all(px(2)),
+                    ..default()
                 })
                 .with_children(|parent| {
                     // spawn row label
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                min_width: Val::Px(200.),
-                                max_width: Val::Px(200.),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        })
-                        .with_children(|parent| {
-                            parent.spawn(TextBundle {
-                                text: Text::from_section(label.to_string(), text_style.clone()),
-                                ..Default::default()
-                            });
-                        });
+                        .spawn((Node {
+                            min_width: px(200),
+                            max_width: px(200),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },))
+                        .with_child((Text::new(label), text_style.clone()));
 
                     // spawn row buttons
-                    parent
-                        .spawn(NodeBundle {
-                            // background_color: Color::DARK_GREEN.into(),
-                            ..Default::default()
-                        })
-                        .with_children(|parent| {
+                    parent.spawn(Node::default()).with_children(|parent| {
+                        spawn_button(
+                            parent,
+                            constraint,
+                            ButtonValue(auto()),
+                            "Auto".to_string(),
+                            text_style.clone(),
+                            true,
+                        );
+                        for percent_value in [0, 25, 50, 75, 100, 125] {
                             spawn_button(
                                 parent,
                                 constraint,
-                                ButtonValue(Val::Auto),
-                                "Auto".to_string(),
+                                ButtonValue(percent(percent_value)),
+                                format!("{percent_value}%"),
                                 text_style.clone(),
-                                true,
+                                false,
                             );
-                            for percent in [0., 25., 50., 75., 100., 125.] {
-                                spawn_button(
-                                    parent,
-                                    constraint,
-                                    ButtonValue(Val::Percent(percent)),
-                                    format!("{percent}%"),
-                                    text_style.clone(),
-                                    false,
-                                );
-                            }
-                        });
+                        }
+                    });
                 });
         });
 }
 
 fn spawn_button(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     constraint: Constraint,
     action: ButtonValue,
     label: String,
-    text_style: TextStyle,
+    text_style: (TextFont, TextColor),
     active: bool,
 ) {
     parent
         .spawn((
-            ButtonBundle {
-                style: Style {
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border: UiRect::all(Val::Px(2.)),
-                    margin: UiRect::horizontal(Val::Px(2.)),
-                    ..Default::default()
-                },
-                background_color: if active {
-                    ACTIVE_BORDER_COLOR
-                } else {
-                    INACTIVE_BORDER_COLOR
-                }
-                .into(),
+            Button,
+            Node {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(2)),
+                margin: UiRect::horizontal(px(2)),
                 ..Default::default()
             },
+            BorderColor::all(if active {
+                ACTIVE_BORDER_COLOR
+            } else {
+                INACTIVE_BORDER_COLOR
+            }),
             constraint,
             action,
         ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Px(100.),
+                .spawn((
+                    Node {
+                        width: px(100),
                         justify_content: JustifyContent::Center,
-                        ..Default::default()
+                        ..default()
                     },
-                    background_color: if active {
+                    BackgroundColor(if active {
                         ACTIVE_INNER_COLOR
                     } else {
                         INACTIVE_INNER_COLOR
-                    }
-                    .into(),
-                    ..Default::default()
-                })
-                .with_children(|parent| {
-                    parent.spawn(TextBundle {
-                        text: Text::from_section(
-                            label,
-                            TextStyle {
-                                color: if active {
-                                    ACTIVE_TEXT_COLOR
-                                } else {
-                                    UNHOVERED_TEXT_COLOR
-                                },
-                                ..text_style
-                            },
-                        )
-                        .with_alignment(TextAlignment::Center),
-                        ..Default::default()
-                    });
-                });
+                    }),
+                ))
+                .with_child((
+                    Text::new(label),
+                    text_style.0,
+                    TextColor(if active {
+                        ACTIVE_TEXT_COLOR
+                    } else {
+                        UNHOVERED_TEXT_COLOR
+                    }),
+                    TextLayout::new_with_justify(Justify::Center),
+                ));
         });
 }
 
@@ -299,28 +261,27 @@ fn update_buttons(
         (Entity, &Interaction, &Constraint, &ButtonValue),
         Changed<Interaction>,
     >,
-    mut bar_query: Query<&mut Style, With<Bar>>,
-    mut text_query: Query<&mut Text>,
+    mut bar_node: Single<&mut Node, With<Bar>>,
+    mut text_query: Query<&mut TextColor>,
     children_query: Query<&Children>,
-    mut button_activated_event: EventWriter<ButtonActivatedEvent>,
+    mut button_activated_writer: MessageWriter<ButtonActivated>,
 ) {
-    let mut style = bar_query.single_mut();
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
             Interaction::Pressed => {
-                button_activated_event.send(ButtonActivatedEvent(button_id));
+                button_activated_writer.write(ButtonActivated(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
-                        style.flex_basis = value.0;
+                        bar_node.flex_basis = value.0;
                     }
                     Constraint::Width => {
-                        style.width = value.0;
+                        bar_node.width = value.0;
                     }
                     Constraint::MinWidth => {
-                        style.min_width = value.0;
+                        bar_node.min_width = value.0;
                     }
                     Constraint::MaxWidth => {
-                        style.max_width = value.0;
+                        bar_node.max_width = value.0;
                     }
                 }
             }
@@ -329,10 +290,10 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                    if text.sections[0].style.color != ACTIVE_TEXT_COLOR {
-                                        text.sections[0].style.color = HOVERED_TEXT_COLOR;
-                                    }
+                                if let Ok(mut text_color) = text_query.get_mut(grandchild)
+                                    && text_color.0 != ACTIVE_TEXT_COLOR
+                                {
+                                    text_color.0 = HOVERED_TEXT_COLOR;
                                 }
                             }
                         }
@@ -344,10 +305,10 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                    if text.sections[0].style.color != ACTIVE_TEXT_COLOR {
-                                        text.sections[0].style.color = UNHOVERED_TEXT_COLOR;
-                                    }
+                                if let Ok(mut text_color) = text_query.get_mut(grandchild)
+                                    && text_color.0 != ACTIVE_TEXT_COLOR
+                                {
+                                    text_color.0 = UNHOVERED_TEXT_COLOR;
                                 }
                             }
                         }
@@ -359,17 +320,18 @@ fn update_buttons(
 }
 
 fn update_radio_buttons_colors(
-    mut event_reader: EventReader<ButtonActivatedEvent>,
+    mut button_activated_reader: MessageReader<ButtonActivated>,
     button_query: Query<(Entity, &Constraint, &Interaction)>,
+    mut border_query: Query<&mut BorderColor>,
     mut color_query: Query<&mut BackgroundColor>,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<&mut TextColor>,
     children_query: Query<&Children>,
 ) {
-    for &ButtonActivatedEvent(button_id) in event_reader.read() {
-        let target_constraint = button_query.get_component::<Constraint>(button_id).unwrap();
+    for &ButtonActivated(button_id) in button_activated_reader.read() {
+        let (_, target_constraint, _) = button_query.get(button_id).unwrap();
         for (id, constraint, interaction) in button_query.iter() {
             if target_constraint == constraint {
-                let (border_color, inner_color, text_color) = if id == button_id {
+                let (border_color, inner_color, label_color) = if id == button_id {
                     (ACTIVE_BORDER_COLOR, ACTIVE_INNER_COLOR, ACTIVE_TEXT_COLOR)
                 } else {
                     (
@@ -383,16 +345,12 @@ fn update_radio_buttons_colors(
                     )
                 };
 
-                color_query.get_mut(id).unwrap().0 = border_color;
-                if let Ok(children) = children_query.get(id) {
-                    for &child in children {
-                        color_query.get_mut(child).unwrap().0 = inner_color;
-                        if let Ok(grand_children) = children_query.get(child) {
-                            for &grandchild in grand_children {
-                                if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                    text.sections[0].style.color = text_color;
-                                }
-                            }
+                *border_query.get_mut(id).unwrap() = BorderColor::all(border_color);
+                for &child in children_query.get(id).into_iter().flatten() {
+                    color_query.get_mut(child).unwrap().0 = inner_color;
+                    for &grandchild in children_query.get(child).into_iter().flatten() {
+                        if let Ok(mut text_color) = text_query.get_mut(grandchild) {
+                            text_color.0 = label_color;
                         }
                     }
                 }

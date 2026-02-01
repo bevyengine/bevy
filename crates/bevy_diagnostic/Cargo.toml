@@ -1,33 +1,92 @@
 [package]
 name = "bevy_diagnostic"
-version = "0.12.0-dev"
-edition = "2021"
+version = "0.19.0-dev"
+edition = "2024"
 description = "Provides diagnostic functionality for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-# Disables diagnostics that are unsupported when Bevy is dynamically linked
+default = ["std", "bevy_ecs/default"]
+
+# Functionality
+
+## Adds serialization support through `serde`.
+serialize = [
+  "dep:serde",
+  "bevy_ecs/serialize",
+  "bevy_time/serialize",
+  "bevy_platform/serialize",
+]
+
+## Disables diagnostics that are unsupported when Bevy is dynamically linked
 dynamic_linking = []
+
+## Adds integration with `sysinfo`.
+sysinfo_plugin = ["sysinfo"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "serde?/std",
+  "bevy_ecs/std",
+  "bevy_app/std",
+  "bevy_platform/std",
+  "bevy_time/std",
+]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  "bevy_ecs/critical-section",
+  "bevy_app/critical-section",
+  "bevy_platform/critical-section",
+  "bevy_time/critical-section",
+]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.12.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.12.0-dev" }
-bevy_time = { path = "../bevy_time", version = "0.12.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.12.0-dev" }
-
-# MacOS
-[target.'cfg(all(target_os="macos"))'.dependencies]
-# Some features of sysinfo are not supported by apple. This will disable those features on apple devices
-sysinfo = { version = "0.29.0", default-features = false, features = [
-    "apple-app-store",
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev", default-features = false }
+bevy_time = { path = "../bevy_time", version = "0.19.0-dev", default-features = false }
+bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-features = false, features = [
+  "alloc",
 ] }
 
-# Only include when not bevy_dynamic_plugin and on linux/windows/android
-[target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android"))'.dependencies]
-sysinfo = { version = "0.29.0", default-features = false }
+# other
+atomic-waker = { version = "1", default-features = false }
+const-fnv1a-hash = "1.1.0"
+serde = { version = "1.0", default-features = false, features = [
+  "alloc",
+], optional = true }
+log = { version = "0.4", default-features = false }
+
+# macOS
+[target.'cfg(all(target_os="macos"))'.dependencies]
+# Some features of sysinfo are not supported by apple. This will disable those features on apple devices
+sysinfo = { version = "0.38.0", optional = true, default-features = false, features = [
+  "apple-app-store",
+  "system",
+] }
+
+# Only include when on linux/windows/android/freebsd/netbsd
+[target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android", target_os = "freebsd", target_os = "netbsd"))'.dependencies]
+sysinfo = { version = "0.38.0", optional = true, default-features = false, features = [
+  "system",
+] }
+
+[dev-dependencies]
+serde_test = "1.0"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+all-features = true

@@ -3,7 +3,10 @@
 //! It uses colored boxes with different z-index values to demonstrate how it can affect the order of
 //! depth of nodes compared to their siblings, but also compared to the entire UI.
 
-use bevy::prelude::*;
+use bevy::{
+    color::palettes::basic::{BLUE, GRAY, LIME, PURPLE, RED, YELLOW},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -14,113 +17,104 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // spawn the container with default z-index.
-    // the default z-index value is `ZIndex::Local(0)`.
+    // the default z-index value is `ZIndex(0)`.
     // because this is a root UI node, using local or global values will do the same thing.
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
+        .spawn(Node {
+            width: percent(100),
+            height: percent(100),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             ..default()
         })
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    background_color: Color::GRAY.into(),
-                    style: Style {
-                        width: Val::Px(180.0),
-                        height: Val::Px(100.0),
+                .spawn((
+                    Node {
+                        width: px(180),
+                        height: px(100),
                         ..default()
                     },
-                    ..default()
-                })
+                    BackgroundColor(GRAY.into()),
+                ))
                 .with_children(|parent| {
                     // spawn a node with default z-index.
-                    parent.spawn(NodeBundle {
-                        background_color: Color::RED.into(),
-                        style: Style {
+                    parent.spawn((
+                        Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(10.0),
-                            bottom: Val::Px(40.0),
-                            width: Val::Px(100.0),
-                            height: Val::Px(50.0),
+                            left: px(10),
+                            bottom: px(40),
+                            width: px(100),
+                            height: px(50),
                             ..default()
                         },
-                        ..default()
-                    });
+                        BackgroundColor(RED.into()),
+                    ));
 
                     // spawn a node with a positive local z-index of 2.
                     // it will show above other nodes in the gray container.
-                    parent.spawn(NodeBundle {
-                        z_index: ZIndex::Local(2),
-                        background_color: Color::BLUE.into(),
-                        style: Style {
+                    parent.spawn((
+                        Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(45.0),
-                            bottom: Val::Px(30.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(50.),
+                            left: px(45),
+                            bottom: px(30),
+                            width: px(100),
+                            height: px(50),
                             ..default()
                         },
-                        ..default()
-                    });
+                        ZIndex(2),
+                        BackgroundColor(BLUE.into()),
+                    ));
 
                     // spawn a node with a negative local z-index.
                     // it will show under other nodes in the gray container.
-                    parent.spawn(NodeBundle {
-                        z_index: ZIndex::Local(-1),
-                        background_color: Color::GREEN.into(),
-                        style: Style {
+                    parent.spawn((
+                        Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(70.0),
-                            bottom: Val::Px(20.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(75.),
+                            left: px(70),
+                            bottom: px(20),
+                            width: px(100),
+                            height: px(75),
                             ..default()
                         },
-                        ..default()
-                    });
+                        ZIndex(-1),
+                        BackgroundColor(LIME.into()),
+                    ));
 
                     // spawn a node with a positive global z-index of 1.
                     // it will show above all other nodes, because it's the highest global z-index in this example.
                     // by default, boxes all share the global z-index of 0 that the gray container is added to.
-                    parent.spawn(NodeBundle {
-                        z_index: ZIndex::Global(1),
-                        background_color: Color::PURPLE.into(),
-                        style: Style {
+                    parent.spawn((
+                        Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(15.0),
-                            bottom: Val::Px(10.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(60.),
+                            left: px(15),
+                            bottom: px(10),
+                            width: px(100),
+                            height: px(60),
                             ..default()
                         },
-                        ..default()
-                    });
+                        BackgroundColor(PURPLE.into()),
+                        GlobalZIndex(1),
+                    ));
 
                     // spawn a node with a negative global z-index of -1.
                     // this will show under all other nodes including its parent, because it's the lowest global z-index
                     // in this example.
-                    parent.spawn(NodeBundle {
-                        z_index: ZIndex::Global(-1),
-                        background_color: Color::YELLOW.into(),
-                        style: Style {
+                    parent.spawn((
+                        Node {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(-15.0),
-                            bottom: Val::Px(-15.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(125.),
+                            left: px(-15),
+                            bottom: px(-15),
+                            width: px(100),
+                            height: px(125),
                             ..default()
                         },
-                        ..default()
-                    });
+                        BackgroundColor(YELLOW.into()),
+                        GlobalZIndex(-1),
+                    ));
                 });
         });
 }

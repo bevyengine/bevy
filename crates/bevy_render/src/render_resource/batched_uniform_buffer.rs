@@ -3,19 +3,23 @@ use crate::{
     render_resource::DynamicUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_utils::nonmax::NonMaxU32;
+use core::{marker::PhantomData, num::NonZero};
 use encase::{
     private::{ArrayMetadata, BufferMut, Metadata, RuntimeSizedArray, WriteInto, Writer},
     ShaderType,
 };
-use std::{marker::PhantomData, num::NonZeroU64};
+use nonmax::NonMaxU32;
 use wgpu::{BindingResource, Limits};
 
 // 1MB else we will make really large arrays on macOS which reports very large
 // `max_uniform_buffer_binding_size`. On macOS this ends up being the minimum
 // size of the uniform buffer as well as the size of each chunk of data at a
 // dynamic offset.
-#[cfg(any(not(feature = "webgl"), not(target_arch = "wasm32")))]
+#[cfg(any(
+    not(feature = "webgl"),
+    not(target_arch = "wasm32"),
+    feature = "webgpu"
+))]
 const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 20;
 
 // WebGL2 quirk: using uniform buffers larger than 4KB will cause extremely
@@ -23,7 +27,7 @@ const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 20;
 // This is due to older shader compilers/GPUs that don't support dynamically
 // indexing uniform buffers, and instead emulate it with large switch statements
 // over buffer indices that take a long time to compile.
-#[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 12;
 
 /// Similar to [`DynamicUniformBuffer`], except every N elements (depending on size)
@@ -65,7 +69,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn size(&self) -> NonZeroU64 {
+    pub fn size(&self) -> NonZero<u64> {
         self.temp.size()
     }
 
@@ -77,7 +81,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
 
     pub fn push(&mut self, component: T) -> GpuArrayBufferIndex<T> {
         let result = GpuArrayBufferIndex {
-            index: NonMaxU32::new(self.temp.0.len() as u32).unwrap(),
+            index: self.temp.0.len() as u32,
             dynamic_offset: NonMaxU32::new(self.current_offset),
             element_type: PhantomData,
         };
@@ -89,7 +93,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     }
 
     pub fn flush(&mut self) {
-        self.uniforms.push(self.temp.clone());
+        self.uniforms.push(&self.temp);
 
         self.current_offset +=
             align_to_next(self.temp.size().get(), self.dynamic_offset_alignment as u64) as u32;
@@ -105,7 +109,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         let mut binding = self.uniforms.binding();
         if let Some(BindingResource::Buffer(binding)) = &mut binding {
             // MaxCapacityArray is runtime-sized so can't use T::min_size()
@@ -117,7 +121,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
 
 #[inline]
 fn align_to_next(value: u64, alignment: u64) -> u64 {
-    debug_assert!(alignment & (alignment - 1) == 0);
+    debug_assert!(alignment.is_power_of_two());
     ((value - 1) | (alignment - 1)) + 1
 }
 
@@ -137,7 +141,7 @@ where
 
     const METADATA: Metadata<Self::ExtraMetadata> = T::METADATA;
 
-    fn size(&self) -> ::core::num::NonZeroU64 {
+    fn size(&self) -> NonZero<u64> {
         Self::METADATA.stride().mul(self.1.max(1) as u64).0
     }
 }

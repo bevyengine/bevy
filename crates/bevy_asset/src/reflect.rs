@@ -1,9 +1,12 @@
-use std::any::{Any, TypeId};
+use alloc::boxed::Box;
+use core::any::{Any, TypeId};
 
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
-use bevy_reflect::{FromReflect, FromType, Reflect};
+use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
 
-use crate::{Asset, Assets, Handle, UntypedAssetId, UntypedHandle};
+use crate::{
+    Asset, AssetId, Assets, Handle, InvalidGenerationError, UntypedAssetId, UntypedHandle,
+};
 
 /// Type data for the [`TypeRegistry`](bevy_reflect::TypeRegistry) used to operate on reflected [`Asset`]s.
 ///
@@ -17,16 +20,17 @@ pub struct ReflectAsset {
     handle_type_id: TypeId,
     assets_resource_type_id: TypeId,
 
-    get: fn(&World, UntypedHandle) -> Option<&dyn Reflect>,
+    get: fn(&World, UntypedAssetId) -> Option<&dyn Reflect>,
     // SAFETY:
     // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
-    get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedHandle) -> Option<&mut dyn Reflect>,
-    add: fn(&mut World, &dyn Reflect) -> UntypedHandle,
-    insert: fn(&mut World, UntypedHandle, &dyn Reflect),
+    get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedAssetId) -> Option<&mut dyn Reflect>,
+    add: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
+    insert:
+        fn(&mut World, UntypedAssetId, &dyn PartialReflect) -> Result<(), InvalidGenerationError>,
     len: fn(&World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
-    remove: fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect>>,
+    remove: fn(&mut World, UntypedAssetId) -> Option<Box<dyn Reflect>>,
 }
 
 impl ReflectAsset {
@@ -41,18 +45,28 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::get`]
-    pub fn get<'w>(&self, world: &'w World, handle: UntypedHandle) -> Option<&'w dyn Reflect> {
-        (self.get)(world, handle)
+    pub fn get<'w>(
+        &self,
+        world: &'w World,
+        asset_id: impl Into<UntypedAssetId>,
+    ) -> Option<&'w dyn Reflect> {
+        (self.get)(world, asset_id.into())
     }
 
     /// Equivalent of [`Assets::get_mut`]
     pub fn get_mut<'w>(
         &self,
         world: &'w mut World,
-        handle: UntypedHandle,
+        asset_id: impl Into<UntypedAssetId>,
     ) -> Option<&'w mut dyn Reflect> {
+        #[expect(
+            unsafe_code,
+            reason = "Use of unsafe `Self::get_unchecked_mut()` function."
+        )]
         // SAFETY: unique world access
-        unsafe { (self.get_unchecked_mut)(world.as_unsafe_world_cell(), handle) }
+        unsafe {
+            (self.get_unchecked_mut)(world.as_unsafe_world_cell(), asset_id.into())
+        }
     }
 
     /// Equivalent of [`Assets::get_mut`], but works with an [`UnsafeWorldCell`].
@@ -61,7 +75,7 @@ impl ReflectAsset {
     /// Furthermore, this does *not* allow you to have look up two distinct handles,
     /// you can only have at most one alive at the same time.
     /// This means that this is *not allowed*:
-    /// ```rust,no_run
+    /// ```no_run
     /// # use bevy_asset::{ReflectAsset, UntypedHandle};
     /// # use bevy_ecs::prelude::World;
     /// # let reflect_asset: ReflectAsset = unimplemented!();
@@ -69,8 +83,8 @@ impl ReflectAsset {
     /// # let handle_1: UntypedHandle = unimplemented!();
     /// # let handle_2: UntypedHandle = unimplemented!();
     /// let unsafe_world_cell = world.as_unsafe_world_cell();
-    /// let a = unsafe { reflect_asset.get_unchecked_mut(unsafe_world_cell, handle_1).unwrap() };
-    /// let b = unsafe { reflect_asset.get_unchecked_mut(unsafe_world_cell, handle_2).unwrap() };
+    /// let a = unsafe { reflect_asset.get_unchecked_mut(unsafe_world_cell, &handle_1).unwrap() };
+    /// let b = unsafe { reflect_asset.get_unchecked_mut(unsafe_world_cell, &handle_2).unwrap() };
     /// // ^ not allowed, two mutable references through the same asset resource, even though the
     /// // handles are distinct
     ///
@@ -82,31 +96,43 @@ impl ReflectAsset {
     /// violating Rust's aliasing rules. To avoid this:
     /// * Only call this method if you know that the [`UnsafeWorldCell`] may be used to access the corresponding `Assets<T>`
     /// * Don't call this method more than once in the same scope.
+    #[expect(
+        unsafe_code,
+        reason = "This function calls unsafe code and has safety requirements."
+    )]
     pub unsafe fn get_unchecked_mut<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
-        handle: UntypedHandle,
+        asset_id: impl Into<UntypedAssetId>,
     ) -> Option<&'w mut dyn Reflect> {
         // SAFETY: requirements are deferred to the caller
-        (self.get_unchecked_mut)(world, handle)
+        unsafe { (self.get_unchecked_mut)(world, asset_id.into()) }
     }
 
     /// Equivalent of [`Assets::add`]
-    pub fn add(&self, world: &mut World, value: &dyn Reflect) -> UntypedHandle {
+    pub fn add(&self, world: &mut World, value: &dyn PartialReflect) -> UntypedHandle {
         (self.add)(world, value)
     }
     /// Equivalent of [`Assets::insert`]
-    pub fn insert(&self, world: &mut World, handle: UntypedHandle, value: &dyn Reflect) {
-        (self.insert)(world, handle, value);
+    pub fn insert(
+        &self,
+        world: &mut World,
+        asset_id: impl Into<UntypedAssetId>,
+        value: &dyn PartialReflect,
+    ) -> Result<(), InvalidGenerationError> {
+        (self.insert)(world, asset_id.into(), value)
     }
 
     /// Equivalent of [`Assets::remove`]
-    pub fn remove(&self, world: &mut World, handle: UntypedHandle) -> Option<Box<dyn Reflect>> {
-        (self.remove)(world, handle)
+    pub fn remove(
+        &self,
+        world: &mut World,
+        asset_id: impl Into<UntypedAssetId>,
+    ) -> Option<Box<dyn Reflect>> {
+        (self.remove)(world, asset_id.into())
     }
 
     /// Equivalent of [`Assets::len`]
-    #[allow(clippy::len_without_is_empty)] // clippy expects the `is_empty` method to have the signature `(&self) -> bool`
     pub fn len(&self, world: &World) -> usize {
         (self.len)(world)
     }
@@ -127,16 +153,17 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
         ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),
             assets_resource_type_id: TypeId::of::<Assets<A>>(),
-            get: |world, handle| {
+            get: |world, asset_id| {
                 let assets = world.resource::<Assets<A>>();
-                let asset = assets.get(&handle.typed_debug_checked());
+                let asset = assets.get(asset_id.typed_debug_checked());
                 asset.map(|asset| asset as &dyn Reflect)
             },
-            get_unchecked_mut: |world, handle| {
+            get_unchecked_mut: |world, asset_id| {
                 // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
                 // and must ensure to only have at most one reference to it live at all times.
+                #[expect(unsafe_code, reason = "Uses `UnsafeWorldCell::get_resource_mut()`.")]
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
-                let asset = assets.get_mut(&handle.typed_debug_checked());
+                let asset = assets.get_mut(asset_id.typed_debug_checked());
                 asset.map(|asset| asset as &mut dyn Reflect)
             },
             add: |world, value| {
@@ -145,11 +172,11 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                     .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::add`");
                 assets.add(value).untyped()
             },
-            insert: |world, handle, value| {
+            insert: |world, asset_id, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();
                 let value: A = FromReflect::from_reflect(value)
                     .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::set`");
-                assets.insert(handle.typed_debug_checked(), value);
+                assets.insert(asset_id.typed_debug_checked(), value)
             },
             len: |world| {
                 let assets = world.resource::<Assets<A>>();
@@ -157,11 +184,11 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             },
             ids: |world| {
                 let assets = world.resource::<Assets<A>>();
-                Box::new(assets.ids().map(|i| i.untyped()))
+                Box::new(assets.ids().map(AssetId::untyped))
             },
-            remove: |world, handle| {
+            remove: |world, asset_id| {
                 let mut assets = world.resource_mut::<Assets<A>>();
-                let value = assets.remove(handle.typed_debug_checked());
+                let value = assets.remove(asset_id.typed_debug_checked());
                 value.map(|value| Box::new(value) as Box<dyn Reflect>)
             },
         }
@@ -176,7 +203,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 /// the [`ReflectAsset`] type data on the corresponding `T` asset type:
 ///
 ///
-/// ```rust,no_run
+/// ```no_run
 /// # use bevy_reflect::{TypeRegistry, prelude::*};
 /// # use bevy_ecs::prelude::*;
 /// use bevy_asset::{ReflectHandle, ReflectAsset};
@@ -189,7 +216,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 ///     let reflect_asset = type_registry.get_type_data::<ReflectAsset>(reflect_handle.asset_type_id()).unwrap();
 ///
 ///     let handle = reflect_handle.downcast_handle_untyped(handle.as_any()).unwrap();
-///     let value = reflect_asset.get(world, handle).unwrap();
+///     let value = reflect_asset.get(world, &handle).unwrap();
 ///     println!("{value:?}");
 /// }
 /// ```
@@ -199,6 +226,7 @@ pub struct ReflectHandle {
     downcast_handle_untyped: fn(&dyn Any) -> Option<UntypedHandle>,
     typed: fn(UntypedHandle) -> Box<dyn Reflect>,
 }
+
 impl ReflectHandle {
     /// The [`TypeId`] of the asset
     pub fn asset_type_id(&self) -> TypeId {
@@ -233,13 +261,12 @@ impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
 
 #[cfg(test)]
 mod tests {
-    use std::any::TypeId;
+    use alloc::{string::String, vec::Vec};
+    use core::any::TypeId;
 
-    use crate as bevy_asset;
-    use crate::{Asset, AssetApp, AssetPlugin, ReflectAsset, UntypedHandle};
-    use bevy_app::App;
+    use crate::{tests::create_app, Asset, AssetApp, ReflectAsset};
     use bevy_ecs::reflect::AppTypeRegistry;
-    use bevy_reflect::{Reflect, ReflectMut};
+    use bevy_reflect::Reflect;
 
     #[derive(Asset, Reflect)]
     struct AssetType {
@@ -248,13 +275,12 @@ mod tests {
 
     #[test]
     fn test_reflect_asset_operations() {
-        let mut app = App::new();
-        app.add_plugins(AssetPlugin::default())
-            .init_asset::<AssetType>()
+        let mut app = create_app().0;
+        app.init_asset::<AssetType>()
             .register_asset_reflect::<AssetType>();
 
         let reflect_asset = {
-            let type_registry = app.world.resource::<AppTypeRegistry>();
+            let type_registry = app.world().resource::<AppTypeRegistry>();
             let type_registry = type_registry.read();
 
             type_registry
@@ -267,33 +293,28 @@ mod tests {
             field: "test".into(),
         };
 
-        let handle = reflect_asset.add(&mut app.world, &value);
-        let strukt = match reflect_asset
-            .get_mut(&mut app.world, handle)
+        let handle = reflect_asset.add(app.world_mut(), &value);
+        // struct is a reserved keyword, so we can't use it here
+        let strukt = reflect_asset
+            .get_mut(app.world_mut(), &handle)
             .unwrap()
             .reflect_mut()
-        {
-            ReflectMut::Struct(s) => s,
-            _ => unreachable!(),
-        };
+            .as_struct()
+            .unwrap();
         strukt
             .field_mut("field")
             .unwrap()
             .apply(&String::from("edited"));
 
-        assert_eq!(reflect_asset.len(&app.world), 1);
-        let ids: Vec<_> = reflect_asset.ids(&app.world).collect();
+        assert_eq!(reflect_asset.len(app.world()), 1);
+        let ids: Vec<_> = reflect_asset.ids(app.world()).collect();
         assert_eq!(ids.len(), 1);
+        let id = ids[0];
 
-        let fetched_handle = UntypedHandle::Weak(ids[0]);
-        let asset = reflect_asset
-            .get(&app.world, fetched_handle.clone_weak())
-            .unwrap();
+        let asset = reflect_asset.get(app.world(), id).unwrap();
         assert_eq!(asset.downcast_ref::<AssetType>().unwrap().field, "edited");
 
-        reflect_asset
-            .remove(&mut app.world, fetched_handle)
-            .unwrap();
-        assert_eq!(reflect_asset.len(&app.world), 0);
+        reflect_asset.remove(app.world_mut(), id).unwrap();
+        assert_eq!(reflect_asset.len(app.world()), 0);
     }
 }

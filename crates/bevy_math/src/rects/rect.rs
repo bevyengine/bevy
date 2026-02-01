@@ -1,5 +1,10 @@
 use crate::{IRect, URect, Vec2};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A rectangle defined by two opposite corners.
 ///
 /// The rectangle is axis aligned, and defined by its minimum and maximum coordinates,
@@ -11,6 +16,15 @@ use crate::{IRect, URect, Vec2};
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default, Clone)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Rect {
     /// The minimum corner point of the rect.
     pub min: Vec2,
@@ -19,6 +33,15 @@ pub struct Rect {
 }
 
 impl Rect {
+    /// An empty `Rect`, represented by maximum and minimum corner points
+    /// at `Vec2::NEG_INFINITY` and `Vec2::INFINITY`, respectively.
+    /// This is so the `Rect` has a infinitely negative size.
+    /// This is useful, because when taking a union B of a non-empty `Rect` A and
+    /// this empty `Rect`, B will simply equal A.
+    pub const EMPTY: Self = Self {
+        max: Vec2::NEG_INFINITY,
+        min: Vec2::INFINITY,
+    };
     /// Create a new rectangle from two corner points.
     ///
     /// The two points do not need to be the minimum and/or maximum corners.
@@ -26,7 +49,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::Rect;
     /// let r = Rect::new(0., 4., 10., 6.); // w=10 h=2
     /// let r = Rect::new(2., 3., 5., -1.); // w=3 h=4
@@ -43,7 +66,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// // Unit rect from [0,0] to [1,1]
     /// let r = Rect::from_corners(Vec2::ZERO, Vec2::ONE); // w=1 h=1
@@ -66,7 +89,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::from_center_size(Vec2::ZERO, Vec2::ONE); // w=1 h=1
     /// assert!(r.min.abs_diff_eq(Vec2::splat(-0.5), 1e-5));
@@ -87,7 +110,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::from_center_half_size(Vec2::ZERO, Vec2::ONE); // w=2 h=2
     /// assert!(r.min.abs_diff_eq(Vec2::splat(-1.), 1e-5));
@@ -109,7 +132,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::from_corners(Vec2::ZERO, Vec2::new(0., 1.)); // w=0 h=1
     /// assert!(r.is_empty());
@@ -123,7 +146,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::Rect;
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!((r.width() - 5.).abs() <= 1e-5);
@@ -137,7 +160,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::Rect;
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!((r.height() - 1.).abs() <= 1e-5);
@@ -151,7 +174,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!(r.size().abs_diff_eq(Vec2::new(5., 1.), 1e-5));
@@ -165,7 +188,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!(r.half_size().abs_diff_eq(Vec2::new(2.5, 0.5), 1e-5));
@@ -179,7 +202,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!(r.center().abs_diff_eq(Vec2::new(2.5, 0.5), 1e-5));
@@ -193,7 +216,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::Rect;
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!(r.contains(r.center()));
@@ -211,7 +234,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r1 = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// let r2 = Rect::new(1., -1., 3., 3.); // w=2 h=4
@@ -234,7 +257,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// let u = r.union_point(Vec2::new(3., 6.));
@@ -257,7 +280,7 @@ impl Rect {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r1 = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// let r2 = Rect::new(1., -1., 3., 3.); // w=2 h=4
@@ -277,36 +300,74 @@ impl Rect {
         r
     }
 
-    /// Create a new rectangle with a constant inset.
+    /// Create a new rectangle by expanding it evenly on all sides.
     ///
-    /// The inset is the extra border on all sides. A positive inset produces a larger rectangle,
-    /// while a negative inset is allowed and produces a smaller rectangle. If the inset is negative
-    /// and its absolute value is larger than the rectangle half-size, the created rectangle is empty.
+    /// A positive expansion value produces a larger rectangle,
+    /// while a negative expansion value produces a smaller rectangle.
+    /// If this would result in zero or negative width or height, [`Rect::EMPTY`] is returned instead.
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
-    /// let r2 = r.inset(3.); // w=11 h=7
+    /// let r2 = r.inflate(3.); // w=11 h=7
     /// assert!(r2.min.abs_diff_eq(Vec2::splat(-3.), 1e-5));
     /// assert!(r2.max.abs_diff_eq(Vec2::new(8., 4.), 1e-5));
     ///
     /// let r = Rect::new(0., -1., 6., 7.); // w=6 h=8
-    /// let r2 = r.inset(-2.); // w=11 h=7
+    /// let r2 = r.inflate(-2.); // w=11 h=7
     /// assert!(r2.min.abs_diff_eq(Vec2::new(2., 1.), 1e-5));
     /// assert!(r2.max.abs_diff_eq(Vec2::new(4., 5.), 1e-5));
     /// ```
     #[inline]
-    pub fn inset(&self, inset: f32) -> Self {
+    pub fn inflate(&self, expansion: f32) -> Self {
         let mut r = Self {
-            min: self.min - inset,
-            max: self.max + inset,
+            min: self.min - expansion,
+            max: self.max + expansion,
         };
         // Collapse min over max to enforce invariants and ensure e.g. width() or
         // height() never return a negative value.
         r.min = r.min.min(r.max);
         r
+    }
+
+    /// Build a new rectangle from this one with its coordinates expressed
+    /// relative to `other` in a normalized ([0..1] x [0..1]) coordinate system.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::{Rect, Vec2};
+    /// let r = Rect::new(2., 3., 4., 6.);
+    /// let s = Rect::new(0., 0., 10., 10.);
+    /// let n = r.normalize(s);
+    ///
+    /// assert_eq!(n.min.x, 0.2);
+    /// assert_eq!(n.min.y, 0.3);
+    /// assert_eq!(n.max.x, 0.4);
+    /// assert_eq!(n.max.y, 0.6);
+    /// ```
+    pub fn normalize(&self, other: Self) -> Self {
+        let outer_size = other.size();
+        Self {
+            min: (self.min - other.min) / outer_size,
+            max: (self.max - other.min) / outer_size,
+        }
+    }
+
+    /// Return the area of this rectangle.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_math::Rect;
+    /// let r = Rect::new(0., 0., 10., 10.); // w=10 h=10
+    /// assert_eq!(r.area(), 100.0);
+    /// ```
+    #[inline]
+    pub fn area(&self) -> f32 {
+        self.width() * self.height()
     }
 
     /// Returns self as [`IRect`] (i32)
@@ -324,6 +385,8 @@ impl Rect {
 
 #[cfg(test)]
 mod tests {
+    use crate::ops;
+
     use super::*;
 
     #[test]
@@ -335,8 +398,8 @@ mod tests {
 
         assert!(r.center().abs_diff_eq(Vec2::new(3., -5.), 1e-5));
 
-        assert!((r.width() - 8.).abs() <= 1e-5);
-        assert!((r.height() - 11.).abs() <= 1e-5);
+        assert!(ops::abs(r.width() - 8.) <= 1e-5);
+        assert!(ops::abs(r.height() - 11.) <= 1e-5);
         assert!(r.size().abs_diff_eq(Vec2::new(8., 11.), 1e-5));
         assert!(r.half_size().abs_diff_eq(Vec2::new(4., 5.5), 1e-5));
 
@@ -436,10 +499,10 @@ mod tests {
     }
 
     #[test]
-    fn rect_inset() {
+    fn rect_inflate() {
         let r = Rect::from_center_size(Vec2::ZERO, Vec2::ONE); // [-0.5,-0.5] - [0.5,0.5]
 
-        let r2 = r.inset(0.3);
+        let r2 = r.inflate(0.3);
         assert!(r2.min.abs_diff_eq(Vec2::new(-0.8, -0.8), 1e-5));
         assert!(r2.max.abs_diff_eq(Vec2::new(0.8, 0.8), 1e-5));
     }

@@ -1,161 +1,179 @@
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
+)]
+#![no_std]
 
-//! Input functionality for the [Bevy game engine](https://bevyengine.org/).
+//! Input functionality for the [Bevy game engine](https://bevy.org/).
 //!
 //! # Supported input devices
 //!
 //! `bevy` currently supports keyboard, mouse, gamepad, and touch inputs.
 
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
+
 mod axis;
+mod button_input;
 /// Common run conditions
 pub mod common_conditions;
+
+#[cfg(feature = "gamepad")]
 pub mod gamepad;
-mod input;
+
+#[cfg(feature = "gestures")]
+pub mod gestures;
+
+#[cfg(feature = "keyboard")]
 pub mod keyboard;
+
+#[cfg(feature = "mouse")]
 pub mod mouse;
+
+#[cfg(feature = "touch")]
 pub mod touch;
-pub mod touchpad;
 
 pub use axis::*;
-pub use input::*;
+pub use button_input::*;
 
-/// Most commonly used re-exported types.
+/// The input prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        gamepad::{
-            Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, Gamepads,
-        },
-        keyboard::{KeyCode, ScanCode},
-        mouse::MouseButton,
-        touch::{TouchInput, Touches},
-        Axis, Input,
-    };
+    pub use crate::{Axis, ButtonInput};
+
+    #[doc(hidden)]
+    #[cfg(feature = "gamepad")]
+    pub use crate::gamepad::{Gamepad, GamepadAxis, GamepadButton, GamepadSettings};
+
+    #[doc(hidden)]
+    #[cfg(feature = "keyboard")]
+    pub use crate::keyboard::KeyCode;
+
+    #[doc(hidden)]
+    #[cfg(feature = "mouse")]
+    pub use crate::mouse::MouseButton;
+
+    #[doc(hidden)]
+    #[cfg(feature = "touch")]
+    pub use crate::touch::{TouchInput, Touches};
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
+
+#[cfg(feature = "gestures")]
+use gestures::*;
+
+#[cfg(feature = "keyboard")]
+use keyboard::{keyboard_input_system, Key, KeyCode, KeyboardFocusLost, KeyboardInput};
+
+#[cfg(feature = "mouse")]
 use mouse::{
-    mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit,
+    accumulate_mouse_motion_system, accumulate_mouse_scroll_system, mouse_button_input_system,
+    AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseButtonInput, MouseMotion,
     MouseWheel,
 };
-use touch::{touch_screen_input_system, ForceTouch, TouchInput, TouchPhase, Touches};
-use touchpad::{TouchpadMagnify, TouchpadRotate};
 
+#[cfg(feature = "touch")]
+use touch::{touch_screen_input_system, TouchInput, Touches};
+
+#[cfg(feature = "gamepad")]
 use gamepad::{
-    gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-    gamepad_event_system, AxisSettings, ButtonAxisSettings, ButtonSettings, Gamepad, GamepadAxis,
-    GamepadAxisChangedEvent, GamepadAxisType, GamepadButton, GamepadButtonChangedEvent,
-    GamepadButtonInput, GamepadButtonType, GamepadConnection, GamepadConnectionEvent, GamepadEvent,
-    GamepadRumbleRequest, GamepadSettings, Gamepads,
+    gamepad_connection_system, gamepad_event_processing_system, GamepadAxisChangedEvent,
+    GamepadButtonChangedEvent, GamepadButtonStateChangedEvent, GamepadConnectionEvent,
+    GamepadEvent, GamepadRumbleRequest, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
+    RawGamepadEvent,
 };
 
-#[cfg(feature = "serialize")]
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// Adds keyboard and mouse input to an App
+/// Adds input from various sources to an App
 #[derive(Default)]
 pub struct InputPlugin;
 
 /// Label for systems that update the input data.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
-pub struct InputSystem;
+pub struct InputSystems;
 
 impl Plugin for InputPlugin {
+    #[expect(clippy::allow_attributes, reason = "this is only sometimes unused")]
+    #[allow(unused, reason = "all features could be disabled")]
     fn build(&self, app: &mut App) {
-        app
-            // keyboard
-            .add_event::<KeyboardInput>()
-            .init_resource::<Input<KeyCode>>()
-            .init_resource::<Input<ScanCode>>()
-            .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystem))
-            // mouse
-            .add_event::<MouseButtonInput>()
-            .add_event::<MouseMotion>()
-            .add_event::<MouseWheel>()
-            .init_resource::<Input<MouseButton>>()
-            .add_systems(PreUpdate, mouse_button_input_system.in_set(InputSystem))
-            .add_event::<TouchpadMagnify>()
-            .add_event::<TouchpadRotate>()
-            // gamepad
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<GamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonInput>()
-            .add_event::<GamepadAxisChangedEvent>()
-            .add_event::<GamepadEvent>()
-            .add_event::<GamepadRumbleRequest>()
-            .init_resource::<GamepadSettings>()
-            .init_resource::<Gamepads>()
-            .init_resource::<Input<GamepadButton>>()
-            .init_resource::<Axis<GamepadAxis>>()
-            .init_resource::<Axis<GamepadButton>>()
+        #[cfg(feature = "keyboard")]
+        app.add_message::<KeyboardInput>()
+            .add_message::<KeyboardFocusLost>()
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<ButtonInput<Key>>()
+            .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystems));
+
+        #[cfg(feature = "mouse")]
+        app.add_message::<MouseButtonInput>()
+            .add_message::<MouseMotion>()
+            .add_message::<MouseWheel>()
+            .init_resource::<AccumulatedMouseMotion>()
+            .init_resource::<AccumulatedMouseScroll>()
+            .init_resource::<ButtonInput<MouseButton>>()
             .add_systems(
                 PreUpdate,
                 (
-                    gamepad_event_system,
-                    gamepad_connection_system.after(gamepad_event_system),
-                    gamepad_button_event_system
-                        .after(gamepad_event_system)
-                        .after(gamepad_connection_system),
-                    gamepad_axis_event_system
-                        .after(gamepad_event_system)
-                        .after(gamepad_connection_system),
+                    mouse_button_input_system,
+                    accumulate_mouse_motion_system,
+                    accumulate_mouse_scroll_system,
                 )
-                    .in_set(InputSystem),
-            )
-            // touch
-            .add_event::<TouchInput>()
+                    .in_set(InputSystems),
+            );
+
+        #[cfg(feature = "gestures")]
+        app.add_message::<PinchGesture>()
+            .add_message::<RotationGesture>()
+            .add_message::<DoubleTapGesture>()
+            .add_message::<PanGesture>();
+
+        #[cfg(feature = "gamepad")]
+        app.add_message::<GamepadEvent>()
+            .add_message::<GamepadConnectionEvent>()
+            .add_message::<GamepadButtonChangedEvent>()
+            .add_message::<GamepadButtonStateChangedEvent>()
+            .add_message::<GamepadAxisChangedEvent>()
+            .add_message::<RawGamepadEvent>()
+            .add_message::<RawGamepadAxisChangedEvent>()
+            .add_message::<RawGamepadButtonChangedEvent>()
+            .add_message::<GamepadRumbleRequest>()
+            .add_systems(
+                PreUpdate,
+                (
+                    gamepad_connection_system,
+                    gamepad_event_processing_system.after(gamepad_connection_system),
+                )
+                    .in_set(InputSystems),
+            );
+
+        #[cfg(feature = "touch")]
+        app.add_message::<TouchInput>()
             .init_resource::<Touches>()
-            .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystem));
-
-        // Register common types
-        app.register_type::<ButtonState>();
-
-        // Register keyboard types
-        app.register_type::<KeyboardInput>()
-            .register_type::<KeyCode>()
-            .register_type::<ScanCode>();
-
-        // Register mouse types
-        app.register_type::<MouseButtonInput>()
-            .register_type::<MouseButton>()
-            .register_type::<MouseMotion>()
-            .register_type::<MouseScrollUnit>()
-            .register_type::<MouseWheel>();
-
-        // Register touchpad types
-        app.register_type::<TouchpadMagnify>()
-            .register_type::<TouchpadRotate>();
-
-        // Register touch types
-        app.register_type::<TouchInput>()
-            .register_type::<ForceTouch>()
-            .register_type::<TouchPhase>();
-
-        // Register gamepad types
-        app.register_type::<Gamepad>()
-            .register_type::<GamepadConnection>()
-            .register_type::<GamepadButtonType>()
-            .register_type::<GamepadButton>()
-            .register_type::<GamepadButtonInput>()
-            .register_type::<GamepadAxisType>()
-            .register_type::<GamepadAxis>()
-            .register_type::<GamepadSettings>()
-            .register_type::<ButtonSettings>()
-            .register_type::<AxisSettings>()
-            .register_type::<ButtonAxisSettings>();
+            .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystems));
     }
 }
 
 /// The current "press" state of an element
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum ButtonState {

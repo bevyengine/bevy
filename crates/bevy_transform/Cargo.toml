@@ -1,24 +1,99 @@
 [package]
 name = "bevy_transform"
-version = "0.12.0-dev"
-edition = "2021"
+version = "0.19.0-dev"
+edition = "2024"
 description = "Provides transform functionality for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.12.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.12.0-dev", features = ["bevy_reflect"] }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.12.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.12.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.12.0-dev", features = ["bevy"] }
-serde = { version = "1", features = ["derive"], optional = true }
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false, optional = true }
+bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev", default-features = false, optional = true }
+bevy_log = { path = "../bevy_log", version = "0.19.0-dev", default-features = false, optional = true }
+bevy_math = { path = "../bevy_math", version = "0.19.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-features = false, optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev", default-features = false }
+bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev", default-features = false, optional = true }
+serde = { version = "1", default-features = false, features = [
+  "derive",
+], optional = true }
+thiserror = { version = "2", default-features = false }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 
 [dev-dependencies]
-bevy_tasks = { path = "../bevy_tasks", version = "0.12.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.19.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.19.0-dev", default-features = false, features = [
+  "approx",
+] }
+approx = "0.5.1"
 
 [features]
+# Turning off default features leaves you with a barebones
+# definition of transform.
+default = ["std", "bevy-support", "bevy_reflect", "async_executor"]
+
+# Functionality
+
+## Adds normal Bevy impls like deriving components, bundles, reflection, as well as adding
+## systems for transform propagation and more.
+## This exists because it allows opting out of all of this, leaving only a bare-bones transform struct,
+## which enables users to depend on that without needing the larger Bevy dependency tree.
+bevy-support = ["alloc", "dep:bevy_app", "dep:bevy_ecs"]
+
+## Adds serialization support through `serde`.
 serialize = ["dep:serde", "bevy_math/serialize"]
+
+## Adds runtime reflection support using `bevy_reflect`.
+bevy_reflect = [
+  "bevy-support",
+  "dep:bevy_reflect",
+  "bevy_math/bevy_reflect",
+  "bevy_ecs/bevy_reflect",
+  "bevy_app/bevy_reflect",
+]
+
+# Executor Backend
+
+## Uses `async-executor` as a task execution backend.
+## This backend is incompatible with `no_std` targets.
+async_executor = ["std", "bevy_tasks/async_executor"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "alloc",
+  "bevy_app?/std",
+  "bevy_log",
+  "bevy_ecs?/std",
+  "bevy_math/std",
+  "bevy_reflect?/std",
+  "bevy_utils/parallel",
+  "serde?/std",
+]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  "bevy_app?/critical-section",
+  "bevy_ecs?/critical-section",
+  "bevy_reflect?/critical-section",
+]
+
+## Allows access to the `alloc` crate.
+alloc = ["serde?/alloc"]
+
+## Uses the `libm` maths library instead of the one provided in `std` and `core`.
+libm = ["bevy_math/libm"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+all-features = true

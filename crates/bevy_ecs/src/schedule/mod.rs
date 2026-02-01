@@ -1,36 +1,47 @@
 //! Contains APIs for ordering systems and executing them on a [`World`](crate::world::World)
 
+mod auto_insert_apply_deferred;
 mod condition;
 mod config;
+mod error;
 mod executor;
-mod graph_utils;
-#[allow(clippy::module_inception)]
+mod node;
+mod pass;
 mod schedule;
 mod set;
-mod state;
+mod stepping;
 
-pub use self::condition::*;
-pub use self::config::*;
-pub use self::executor::*;
-use self::graph_utils::*;
-pub use self::schedule::*;
-pub use self::set::*;
-pub use self::state::*;
+pub use self::graph::GraphInfo;
+pub use self::{condition::*, config::*, error::*, executor::*, node::*, schedule::*, set::*};
+pub use pass::ScheduleBuildPass;
 
-pub use self::graph_utils::NodeId;
+/// An implementation of a graph data structure.
+pub mod graph;
+
+/// Included optional schedule build passes.
+pub mod passes {
+    pub use crate::schedule::auto_insert_apply_deferred::*;
+}
+
+use self::graph::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU32, Ordering};
+    #[cfg(feature = "trace")]
+    use alloc::string::ToString;
+    use alloc::{vec, vec::Vec};
+    use core::sync::atomic::{AtomicU32, Ordering};
 
-    pub use crate as bevy_ecs;
-    pub use crate::schedule::{IntoSystemSetConfigs, Schedule, SystemSet};
-    pub use crate::system::{Res, ResMut};
-    pub use crate::{prelude::World, system::Resource};
+    pub use crate::{
+        prelude::World,
+        resource::Resource,
+        schedule::{Schedule, SystemSet},
+        system::{Res, ResMut},
+    };
 
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-    enum TestSet {
+    enum TestSystems {
         A,
         B,
         C,
@@ -42,10 +53,10 @@ mod tests {
     struct SystemOrder(Vec<u32>);
 
     #[derive(Resource, Default)]
-    struct RunConditionBool(pub bool);
+    struct RunConditionBool(bool);
 
     #[derive(Resource, Default)]
-    struct Counter(pub AtomicU32);
+    struct Counter(AtomicU32);
 
     fn make_exclusive_system(tag: u32) -> impl FnMut(&mut World) {
         move |world| world.resource_mut::<SystemOrder>().0.push(tag)
@@ -99,12 +110,13 @@ mod tests {
         #[test]
         #[cfg(not(miri))]
         fn parallel_execution() {
+            use alloc::sync::Arc;
             use bevy_tasks::{ComputeTaskPool, TaskPool};
-            use std::sync::{Arc, Barrier};
+            use std::sync::Barrier;
 
             let mut world = World::default();
             let mut schedule = Schedule::default();
-            let thread_count = ComputeTaskPool::init(TaskPool::default).thread_num();
+            let thread_count = ComputeTaskPool::get_or_init(TaskPool::default).thread_num();
 
             let barrier = Arc::new(Barrier::new(thread_count));
 
@@ -134,7 +146,7 @@ mod tests {
                 make_function_system(1).before(named_system),
                 make_function_system(0)
                     .after(named_system)
-                    .in_set(TestSet::A),
+                    .in_set(TestSystems::A),
             ));
             schedule.run(&mut world);
 
@@ -145,12 +157,12 @@ mod tests {
             assert_eq!(world.resource::<SystemOrder>().0, vec![]);
 
             // modify the schedule after it's been initialized and test ordering with sets
-            schedule.configure_sets(TestSet::A.after(named_system));
+            schedule.configure_sets(TestSystems::A.after(named_system));
             schedule.add_systems((
                 make_function_system(3)
-                    .before(TestSet::A)
+                    .before(TestSystems::A)
                     .after(named_system),
-                make_function_system(4).after(TestSet::A),
+                make_function_system(4).after(TestSystems::A),
             ));
             schedule.run(&mut world);
 
@@ -239,17 +251,21 @@ mod tests {
                 partially_ordered == [8, 9, 10] || partially_ordered == [10, 8, 9],
                 "partially_ordered must be [8, 9, 10] or [10, 8, 9]"
             );
-            assert!(order.len() == 11, "must have exactly 11 order entries");
+            assert_eq!(order.len(), 11, "must have exactly 11 order entries");
         }
     }
 
     mod conditions {
-        use crate::change_detection::DetectChanges;
+
+        use crate::{
+            change_detection::DetectChanges,
+            error::{ignore, DefaultErrorHandler, Result},
+        };
 
         use super::*;
 
         #[test]
-        fn system_with_condition() {
+        fn system_with_condition_bool() {
             let mut world = World::default();
             let mut schedule = Schedule::default();
 
@@ -266,6 +282,28 @@ mod tests {
             world.resource_mut::<RunConditionBool>().0 = true;
             schedule.run(&mut world);
             assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
+        }
+
+        #[test]
+        fn system_with_condition_result_bool() {
+            let mut world = World::default();
+            world.insert_resource(DefaultErrorHandler(ignore));
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<SystemOrder>();
+
+            schedule.add_systems((
+                make_function_system(0).run_if(|| -> Result<bool> { Err(core::fmt::Error.into()) }),
+                make_function_system(1).run_if(|| -> Result<bool> { Ok(false) }),
+            ));
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![]);
+
+            schedule.add_systems(make_function_system(2).run_if(|| -> Result<bool> { Ok(true) }));
+
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<SystemOrder>().0, vec![2]);
         }
 
         #[test]
@@ -339,14 +377,14 @@ mod tests {
 
             world.init_resource::<Counter>();
 
-            schedule.configure_sets(TestSet::A.run_if(|| false).run_if(|| false));
-            schedule.add_systems(counting_system.in_set(TestSet::A));
-            schedule.configure_sets(TestSet::B.run_if(|| true).run_if(|| false));
-            schedule.add_systems(counting_system.in_set(TestSet::B));
-            schedule.configure_sets(TestSet::C.run_if(|| false).run_if(|| true));
-            schedule.add_systems(counting_system.in_set(TestSet::C));
-            schedule.configure_sets(TestSet::D.run_if(|| true).run_if(|| true));
-            schedule.add_systems(counting_system.in_set(TestSet::D));
+            schedule.configure_sets(TestSystems::A.run_if(|| false).run_if(|| false));
+            schedule.add_systems(counting_system.in_set(TestSystems::A));
+            schedule.configure_sets(TestSystems::B.run_if(|| true).run_if(|| false));
+            schedule.add_systems(counting_system.in_set(TestSystems::B));
+            schedule.configure_sets(TestSystems::C.run_if(|| false).run_if(|| true));
+            schedule.add_systems(counting_system.in_set(TestSystems::C));
+            schedule.configure_sets(TestSystems::D.run_if(|| true).run_if(|| true));
+            schedule.add_systems(counting_system.in_set(TestSystems::D));
 
             schedule.run(&mut world);
             assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
@@ -359,14 +397,14 @@ mod tests {
 
             world.init_resource::<Counter>();
 
-            schedule.configure_sets(TestSet::A.run_if(|| false));
-            schedule.add_systems(counting_system.in_set(TestSet::A).run_if(|| false));
-            schedule.configure_sets(TestSet::B.run_if(|| true));
-            schedule.add_systems(counting_system.in_set(TestSet::B).run_if(|| false));
-            schedule.configure_sets(TestSet::C.run_if(|| false));
-            schedule.add_systems(counting_system.in_set(TestSet::C).run_if(|| true));
-            schedule.configure_sets(TestSet::D.run_if(|| true));
-            schedule.add_systems(counting_system.in_set(TestSet::D).run_if(|| true));
+            schedule.configure_sets(TestSystems::A.run_if(|| false));
+            schedule.add_systems(counting_system.in_set(TestSystems::A).run_if(|| false));
+            schedule.configure_sets(TestSystems::B.run_if(|| true));
+            schedule.add_systems(counting_system.in_set(TestSystems::B).run_if(|| false));
+            schedule.configure_sets(TestSystems::C.run_if(|| false));
+            schedule.add_systems(counting_system.in_set(TestSystems::C).run_if(|| true));
+            schedule.configure_sets(TestSystems::D.run_if(|| true));
+            schedule.add_systems(counting_system.in_set(TestSystems::D).run_if(|| true));
 
             schedule.run(&mut world);
             assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
@@ -432,12 +470,12 @@ mod tests {
             let mut schedule = Schedule::default();
 
             schedule.configure_sets(
-                TestSet::A
+                TestSystems::A
                     .run_if(|res1: Res<RunConditionBool>| res1.is_changed())
                     .run_if(|res2: Res<Bool2>| res2.is_changed()),
             );
 
-            schedule.add_systems(counting_system.in_set(TestSet::A));
+            schedule.add_systems(counting_system.in_set(TestSystems::A));
 
             // both resource were just added.
             schedule.run(&mut world);
@@ -481,13 +519,14 @@ mod tests {
             world.init_resource::<Bool2>();
             let mut schedule = Schedule::default();
 
-            schedule
-                .configure_sets(TestSet::A.run_if(|res1: Res<RunConditionBool>| res1.is_changed()));
+            schedule.configure_sets(
+                TestSystems::A.run_if(|res1: Res<RunConditionBool>| res1.is_changed()),
+            );
 
             schedule.add_systems(
                 counting_system
                     .run_if(|res2: Res<Bool2>| res2.is_changed())
-                    .in_set(TestSet::A),
+                    .in_set(TestSystems::A),
             );
 
             // both resource were just added.
@@ -526,10 +565,31 @@ mod tests {
         use super::*;
 
         #[test]
-        #[should_panic]
         fn dependency_loop() {
             let mut schedule = Schedule::default();
-            schedule.configure_sets(TestSet::X.after(TestSet::X));
+            schedule.configure_sets(TestSystems::X.after(TestSystems::X));
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::DependencySort(
+                    DiGraphToposortError::Loop(_)
+                ))
+            ));
+        }
+
+        #[test]
+        fn dependency_loop_from_chain() {
+            let mut schedule = Schedule::default();
+            schedule.configure_sets((TestSystems::X, TestSystems::X).chain());
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::DependencySort(
+                    DiGraphToposortError::Loop(_)
+                ))
+            ));
         }
 
         #[test]
@@ -537,13 +597,15 @@ mod tests {
             let mut world = World::new();
             let mut schedule = Schedule::default();
 
-            schedule.configure_sets(TestSet::A.after(TestSet::B));
-            schedule.configure_sets(TestSet::B.after(TestSet::A));
+            schedule.configure_sets(TestSystems::A.after(TestSystems::B));
+            schedule.configure_sets(TestSystems::B.after(TestSystems::A));
 
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::DependencyCycle(_))
+                Err(ScheduleBuildError::DependencySort(
+                    DiGraphToposortError::Cycle(_)
+                ))
             ));
 
             fn foo() {}
@@ -556,15 +618,24 @@ mod tests {
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::DependencyCycle(_))
+                Err(ScheduleBuildError::FlatDependencySort(
+                    DiGraphToposortError::Cycle(_)
+                ))
             ));
         }
 
         #[test]
-        #[should_panic]
         fn hierarchy_loop() {
             let mut schedule = Schedule::default();
-            schedule.configure_sets(TestSet::X.in_set(TestSet::X));
+            schedule.configure_sets(TestSystems::X.in_set(TestSystems::X));
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::HierarchySort(
+                    DiGraphToposortError::Loop(_)
+                ))
+            ));
         }
 
         #[test]
@@ -572,11 +643,16 @@ mod tests {
             let mut world = World::new();
             let mut schedule = Schedule::default();
 
-            schedule.configure_sets(TestSet::A.in_set(TestSet::B));
-            schedule.configure_sets(TestSet::B.in_set(TestSet::A));
+            schedule.configure_sets(TestSystems::A.in_set(TestSystems::B));
+            schedule.configure_sets(TestSystems::B.in_set(TestSystems::A));
 
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::HierarchyCycle(_))));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::HierarchySort(
+                    DiGraphToposortError::Cycle(_)
+                ))
+            ));
         }
 
         #[test]
@@ -639,19 +715,21 @@ mod tests {
             });
 
             // Add `A`.
-            schedule.configure_sets(TestSet::A);
+            schedule.configure_sets(TestSystems::A);
 
             // Add `B` as child of `A`.
-            schedule.configure_sets(TestSet::B.in_set(TestSet::A));
+            schedule.configure_sets(TestSystems::B.in_set(TestSystems::A));
 
             // Add `X` as child of both `A` and `B`.
-            schedule.configure_sets(TestSet::X.in_set(TestSet::A).in_set(TestSet::B));
+            schedule.configure_sets(TestSystems::X.in_set(TestSystems::A).in_set(TestSystems::B));
 
             // `X` cannot be the `A`'s child and grandchild at the same time.
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::HierarchyRedundancy(_))
+                Err(ScheduleBuildError::Elevated(
+                    ScheduleBuildWarning::HierarchyRedundancy(_)
+                ))
             ));
         }
 
@@ -661,12 +739,12 @@ mod tests {
             let mut schedule = Schedule::default();
 
             // Add `B` and give it both kinds of relationships with `A`.
-            schedule.configure_sets(TestSet::B.in_set(TestSet::A));
-            schedule.configure_sets(TestSet::B.after(TestSet::A));
+            schedule.configure_sets(TestSystems::B.in_set(TestSystems::A));
+            schedule.configure_sets(TestSystems::B.after(TestSystems::A));
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::CrossDependency(_, _))
+                Err(ScheduleBuildError::CrossDependency(_))
             ));
         }
 
@@ -678,20 +756,20 @@ mod tests {
             fn foo() {}
 
             // Add `foo` to both `A` and `C`.
-            schedule.add_systems(foo.in_set(TestSet::A).in_set(TestSet::C));
+            schedule.add_systems(foo.in_set(TestSystems::A).in_set(TestSystems::C));
 
             // Order `A -> B -> C`.
             schedule.configure_sets((
-                TestSet::A,
-                TestSet::B.after(TestSet::A),
-                TestSet::C.after(TestSet::B),
+                TestSystems::A,
+                TestSystems::B.after(TestSystems::A),
+                TestSystems::C.after(TestSystems::B),
             ));
 
             let result = schedule.initialize(&mut world);
             // `foo` can't be in both `A` and `C` because they can't run at the same time.
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::SetsHaveOrderButIntersect(_, _))
+                Err(ScheduleBuildError::SetsHaveOrderButIntersect(_))
             ));
         }
 
@@ -713,17 +791,20 @@ mod tests {
 
             schedule.add_systems((res_ref, res_mut));
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::Ambiguity(_))));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::Elevated(
+                    ScheduleBuildWarning::Ambiguity(_)
+                ))
+            ));
         }
     }
 
     mod system_ambiguity {
-        use std::collections::BTreeSet;
+        #[cfg(feature = "trace")]
+        use alloc::collections::BTreeSet;
 
         use super::*;
-        // Required to make the derive macro behave
-        use crate as bevy_ecs;
-        use crate::event::Events;
         use crate::prelude::*;
 
         #[derive(Resource)]
@@ -735,8 +816,7 @@ mod tests {
         #[derive(Component)]
         struct B;
 
-        // An event type
-        #[derive(Event)]
+        #[derive(Message)]
         struct E;
 
         fn empty_system() {}
@@ -748,9 +828,11 @@ mod tests {
         fn write_component_system(_query: Query<&mut A>) {}
         fn with_filtered_component_system(_query: Query<&mut A, With<B>>) {}
         fn without_filtered_component_system(_query: Query<&mut A, Without<B>>) {}
-        fn event_reader_system(_reader: EventReader<E>) {}
-        fn event_writer_system(_writer: EventWriter<E>) {}
-        fn event_resource_system(_events: ResMut<Events<E>>) {}
+        fn entity_ref_system(_query: Query<EntityRef>) {}
+        fn entity_mut_system(_query: Query<EntityMut>) {}
+        fn message_reader_system(_reader: MessageReader<E>) {}
+        fn message_writer_system(_writer: MessageWriter<E>) {}
+        fn message_resource_system(_events: ResMut<Messages<E>>) {}
         fn read_world_system(_world: &World) {}
         fn write_world_system(_world: &mut World) {}
 
@@ -761,12 +843,12 @@ mod tests {
             let mut world = World::new();
             world.insert_resource(R);
             world.spawn(A);
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule
                 // nonsendmut system deliberately conflicts with resmut system
-                .add_systems((resmut_system, write_component_system, event_writer_system));
+                .add_systems((resmut_system, write_component_system, message_writer_system));
 
             let _ = schedule.initialize(&mut world);
 
@@ -778,7 +860,7 @@ mod tests {
             let mut world = World::new();
             world.insert_resource(R);
             world.spawn(A);
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule.add_systems((
@@ -790,8 +872,10 @@ mod tests {
                 nonsend_system,
                 read_component_system,
                 read_component_system,
-                event_reader_system,
-                event_reader_system,
+                entity_ref_system,
+                entity_ref_system,
+                message_reader_system,
+                message_reader_system,
                 read_world_system,
                 read_world_system,
             ));
@@ -806,13 +890,13 @@ mod tests {
             let mut world = World::new();
             world.insert_resource(R);
             world.spawn(A);
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule.add_systems((
                 resmut_system,
                 write_component_system,
-                event_writer_system,
+                message_writer_system,
                 read_world_system,
             ));
 
@@ -861,7 +945,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "Known failing but fix is non-trivial: https://github.com/bevyengine/bevy/issues/4381"]
         fn filtered_components() {
             let mut world = World::new();
             world.spawn(A);
@@ -880,14 +963,14 @@ mod tests {
         #[test]
         fn events() {
             let mut world = World::new();
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule.add_systems((
                 // All of these systems clash
-                event_reader_system,
-                event_writer_system,
-                event_resource_system,
+                message_reader_system,
+                message_writer_system,
+                message_resource_system,
             ));
 
             let _ = schedule.initialize(&mut world);
@@ -896,11 +979,63 @@ mod tests {
         }
 
         #[test]
+        fn resource_mut_and_entity_ref() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((resmut_system, entity_ref_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 0);
+        }
+
+        #[test]
+        fn resource_and_entity_mut() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((res_system, nonsend_system, entity_mut_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 0);
+        }
+
+        #[test]
+        fn write_component_and_entity_ref() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((write_component_system, entity_ref_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
+        }
+
+        #[test]
+        fn read_component_and_entity_mut() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((read_component_system, entity_mut_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
+        }
+
+        #[test]
         fn exclusive() {
             let mut world = World::new();
             world.insert_resource(R);
             world.spawn(A);
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule.add_systems((
@@ -919,13 +1054,13 @@ mod tests {
         #[test]
         fn before_and_after() {
             let mut world = World::new();
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule.add_systems((
-                event_reader_system.before(event_writer_system),
-                event_writer_system,
-                event_resource_system.after(event_writer_system),
+                message_reader_system.before(message_writer_system),
+                message_writer_system,
+                message_resource_system.after(message_writer_system),
             ));
 
             let _ = schedule.initialize(&mut world);
@@ -989,6 +1124,7 @@ mod tests {
 
         // Tests that the correct ambiguities were reported in the correct order.
         #[test]
+        #[cfg(feature = "trace")]
         fn correct_ambiguities() {
             fn system_a(_res: ResMut<R>) {}
             fn system_b(_res: ResMut<R>) {}
@@ -1009,37 +1145,46 @@ mod tests {
             ));
 
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule.graph_mut().build_schedule(
-                world.components(),
-                &TestSchedule.dyn_clone(),
-                &BTreeSet::new(),
-            );
+            let _ = schedule
+                .graph_mut()
+                .build_schedule(&mut world, &BTreeSet::new());
 
             let ambiguities: Vec<_> = schedule
                 .graph()
-                .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
+                .conflicting_systems()
+                .to_string(schedule.graph(), world.components())
+                .map(|item| {
+                    (
+                        item.0,
+                        item.1,
+                        item.2
+                            .into_iter()
+                            .map(|name| name.to_string())
+                            .collect::<Vec<_>>(),
+                    )
+                })
                 .collect();
 
             let expected = &[
                 (
                     "system_d".to_string(),
                     "system_a".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
+                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
                 ),
                 (
                     "system_d".to_string(),
                     "system_e".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
+                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
                 ),
                 (
                     "system_b".to_string(),
                     "system_a".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
+                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
                 ),
                 (
                     "system_b".to_string(),
                     "system_e".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
+                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
                 ),
             ];
 
@@ -1052,21 +1197,31 @@ mod tests {
         // Test that anonymous set names work properly
         // Related issue https://github.com/bevyengine/bevy/issues/9641
         #[test]
+        #[cfg(feature = "trace")]
         fn anonymous_set_name() {
             let mut schedule = Schedule::new(TestSchedule);
             schedule.add_systems((resmut_system, resmut_system).run_if(|| true));
 
             let mut world = World::new();
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule.graph_mut().build_schedule(
-                world.components(),
-                &TestSchedule.dyn_clone(),
-                &BTreeSet::new(),
-            );
+            let _ = schedule
+                .graph_mut()
+                .build_schedule(&mut world, &BTreeSet::new());
 
             let ambiguities: Vec<_> = schedule
                 .graph()
-                .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
+                .conflicting_systems()
+                .to_string(schedule.graph(), world.components())
+                .map(|item| {
+                    (
+                        item.0,
+                        item.1,
+                        item.2
+                            .into_iter()
+                            .map(|name| name.to_string())
+                            .collect::<Vec<_>>(),
+                    )
+                })
                 .collect();
 
             assert_eq!(
@@ -1074,7 +1229,7 @@ mod tests {
                 (
                     "resmut_system (in set (resmut_system, resmut_system))".to_string(),
                     "resmut_system (in set (resmut_system, resmut_system))".to_string(),
-                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R"],
+                    vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
                 )
             );
         }
@@ -1086,7 +1241,7 @@ mod tests {
             world.allow_ambiguous_resource::<R>();
             let mut schedule = Schedule::new(TestSchedule);
 
-            //check resource
+            // check resource
             schedule.add_systems((resmut_system, res_system));
             schedule.initialize(&mut world).unwrap();
             assert!(schedule.graph().conflicting_systems().is_empty());
@@ -1096,6 +1251,56 @@ mod tests {
             schedule.add_systems((write_component_system, read_component_system));
             schedule.initialize(&mut world).unwrap();
             assert!(schedule.graph().conflicting_systems().is_empty());
+        }
+    }
+
+    #[cfg(feature = "bevy_debug_stepping")]
+    mod stepping {
+        use super::*;
+        use bevy_ecs::system::SystemState;
+
+        #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+        pub struct TestSchedule;
+
+        macro_rules! assert_executor_supports_stepping {
+            ($executor:expr) => {
+                // create a test schedule
+                let mut schedule = Schedule::new(TestSchedule);
+                schedule
+                    .set_executor_kind($executor)
+                    .add_systems(|| -> () { panic!("Executor ignored Stepping") });
+
+                // Add our schedule to stepping & and enable stepping; this should
+                // prevent any systems in the schedule from running
+                let mut stepping = Stepping::default();
+                stepping.add_schedule(TestSchedule).enable();
+
+                // create a world, and add the stepping resource
+                let mut world = World::default();
+                world.insert_resource(stepping);
+
+                // start a new frame by running ihe begin_frame() system
+                let mut system_state: SystemState<Option<ResMut<Stepping>>> =
+                    SystemState::new(&mut world);
+                let res = system_state.get_mut(&mut world);
+                Stepping::begin_frame(res);
+
+                // now run the schedule; this will panic if the executor doesn't
+                // handle stepping
+                schedule.run(&mut world);
+            };
+        }
+
+        /// verify the [`SingleThreadedExecutor`] supports stepping
+        #[test]
+        fn single_threaded_executor() {
+            assert_executor_supports_stepping!(ExecutorKind::SingleThreaded);
+        }
+
+        /// verify the [`MultiThreadedExecutor`] supports stepping
+        #[test]
+        fn multi_threaded_executor() {
+            assert_executor_supports_stepping!(ExecutorKind::MultiThreaded);
         }
     }
 }

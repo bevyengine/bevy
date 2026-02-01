@@ -1,84 +1,62 @@
-#![allow(clippy::type_complexity)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![doc(
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
+)]
 
 pub mod blit;
-pub mod bloom;
-pub mod clear_color;
-pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
-pub mod fullscreen_vertex_shader;
-pub mod fxaa;
-pub mod msaa_writeback;
+pub mod deferred;
+pub mod fullscreen_material;
+pub mod mip_generation;
+pub mod oit;
 pub mod prepass;
-mod skybox;
-mod taa;
+pub mod schedule;
 pub mod tonemapping;
 pub mod upscaling;
 
-pub use skybox::Skybox;
+pub use bevy_light::Skybox;
+pub use fullscreen_vertex_shader::FullscreenShader;
+pub use schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
 
-/// Experimental features that are not yet finished. Please report any issues you encounter!
-pub mod experimental {
-    pub mod taa {
-        pub use crate::taa::*;
-    }
-}
+mod fullscreen_vertex_shader;
+mod skybox;
 
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{
-        clear_color::ClearColor,
-        core_2d::{Camera2d, Camera2dBundle},
-        core_3d::{Camera3d, Camera3dBundle},
-    };
-}
-
+use crate::schedule::camera_driver;
 use crate::{
-    blit::BlitPlugin,
-    bloom::BloomPlugin,
-    clear_color::{ClearColor, ClearColorConfig},
-    contrast_adaptive_sharpening::CASPlugin,
-    core_2d::Core2dPlugin,
-    core_3d::Core3dPlugin,
-    fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
-    fxaa::FxaaPlugin,
-    msaa_writeback::MsaaWritebackPlugin,
-    prepass::{DepthPrepass, NormalPrepass},
-    tonemapping::TonemappingPlugin,
-    upscaling::UpscalingPlugin,
+    blit::BlitPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
+    deferred::copy_lighting_id::CopyDeferredLightingIdPlugin, mip_generation::MipGenerationPlugin,
+    tonemapping::TonemappingPlugin, upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::load_internal_asset;
-use bevy_render::{extract_resource::ExtractResourcePlugin, prelude::Shader};
+use bevy_asset::embedded_asset;
+use bevy_render::renderer::RenderGraph;
+use bevy_render::RenderApp;
+use oit::OrderIndependentTransparencyPlugin;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            FULLSCREEN_SHADER_HANDLE,
-            "fullscreen_vertex_shader/fullscreen.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "fullscreen_vertex_shader/fullscreen.wgsl");
 
-        app.register_type::<ClearColor>()
-            .register_type::<ClearColorConfig>()
-            .register_type::<DepthPrepass>()
-            .register_type::<NormalPrepass>()
-            .init_resource::<ClearColor>()
+        app.add_plugins((Core2dPlugin, Core3dPlugin, CopyDeferredLightingIdPlugin))
             .add_plugins((
-                ExtractResourcePlugin::<ClearColor>::default(),
-                Core2dPlugin,
-                Core3dPlugin,
                 BlitPlugin,
-                MsaaWritebackPlugin,
                 TonemappingPlugin,
                 UpscalingPlugin,
-                BloomPlugin,
-                FxaaPlugin,
-                CASPlugin,
+                OrderIndependentTransparencyPlugin,
+                MipGenerationPlugin,
             ));
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app
+            .init_resource::<FullscreenShader>()
+            .add_systems(RenderGraph, camera_driver);
     }
 }

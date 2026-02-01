@@ -1,53 +1,71 @@
 //! Loads animations from a skinned glTF, spawns many of them, and plays the
 //! animation to stress test skinned meshes.
 
-use std::f32::consts::PI;
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
+use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::CascadeShadowConfigBuilder,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
-    window::{PresentMode, WindowPlugin},
+    scene::SceneInstanceReady,
+    window::{PresentMode, WindowResolution},
+    winit::WinitSettings,
 };
+
+#[derive(FromArgs, Resource)]
+/// `many_foxes` stress test
+struct Args {
+    /// whether all foxes run in sync.
+    #[argh(switch)]
+    sync: bool,
+
+    /// total number of foxes.
+    #[argh(option, default = "1000")]
+    count: usize,
+}
 
 #[derive(Resource)]
 struct Foxes {
     count: usize,
     speed: f32,
     moving: bool,
+    sync: bool,
 }
 
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     App::new()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
                     present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
+        .insert_resource(StaticTransformOptimizations::disabled())
+        .insert_resource(WinitSettings::continuous())
         .insert_resource(Foxes {
-            count: std::env::args()
-                .nth(1)
-                .map_or(1000, |s| s.parse::<usize>().unwrap()),
+            count: args.count,
             speed: 2.0,
             moving: true,
-        })
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0,
+            sync: args.sync,
         })
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
-                setup_scene_once_loaded,
                 keyboard_animation_control,
                 update_fox_rings.after(keyboard_animation_control),
             ),
@@ -56,7 +74,10 @@ fn main() {
 }
 
 #[derive(Resource)]
-struct Animations(Vec<Handle<AnimationClip>>);
+struct Animations {
+    node_indices: Vec<AnimationNodeIndex>,
+    graph: Handle<AnimationGraph>,
+}
 
 const RING_SPACING: f32 = 2.0;
 const FOX_SPACING: f32 = 2.0;
@@ -86,23 +107,33 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     foxes: Res<Foxes>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
     // Insert a resource with the current scene information
-    commands.insert_resource(Animations(vec![
-        asset_server.load("models/animated/Fox.glb#Animation2"),
-        asset_server.load("models/animated/Fox.glb#Animation1"),
-        asset_server.load("models/animated/Fox.glb#Animation0"),
-    ]));
+    let animation_clips = [
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
+    ];
+    let mut animation_graph = AnimationGraph::new();
+    let node_indices = animation_graph
+        .add_clips(animation_clips, 1.0, animation_graph.root)
+        .collect();
+    commands.insert_resource(Animations {
+        node_indices,
+        graph: animation_graphs.add(animation_graph),
+    });
 
     // Foxes
     // Concentric rings of foxes, running in opposite directions. The rings are spaced at 2m radius intervals.
     // The foxes in each ring are spaced at least 2m apart around its circumference.'
 
     // NOTE: This fox model faces +z
-    let fox_handle = asset_server.load("models/animated/Fox.glb#Scene0");
+    let fox_handle =
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
 
     let ring_directions = [
         (
@@ -122,7 +153,8 @@ fn setup(
         let (base_rotation, ring_direction) = ring_directions[ring_index % 2];
         let ring_parent = commands
             .spawn((
-                SpatialBundle::INHERITED_IDENTITY,
+                Transform::default(),
+                Visibility::default(),
                 ring_direction,
                 Ring { radius },
             ))
@@ -134,17 +166,18 @@ fn setup(
 
         for fox_i in 0..foxes_in_ring {
             let fox_angle = fox_i as f32 * fox_spacing_angle;
-            let (s, c) = fox_angle.sin_cos();
+            let (s, c) = ops::sin_cos(fox_angle);
             let (x, z) = (radius * c, radius * s);
 
             commands.entity(ring_parent).with_children(|builder| {
-                builder.spawn(SceneBundle {
-                    scene: fox_handle.clone(),
-                    transform: Transform::from_xyz(x, 0.0, z)
-                        .with_scale(Vec3::splat(0.01))
-                        .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
-                    ..default()
-                });
+                builder
+                    .spawn((
+                        SceneRoot(fox_handle.clone()),
+                        Transform::from_xyz(x, 0.0, z)
+                            .with_scale(Vec3::splat(0.01))
+                            .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
+                    ))
+                    .observe(setup_scene_once_loaded);
             });
         }
 
@@ -160,34 +193,32 @@ fn setup(
         radius * 0.5 * zoom,
         radius * 1.5 * zoom,
     );
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_translation(translation)
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
-        ..default()
-    });
+    ));
 
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5000.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
     // Light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        directional_light: DirectionalLight {
-            shadows_enabled: true,
+    commands.spawn((
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        DirectionalLight {
+            shadow_maps_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             first_cascade_far_bound: 0.9 * radius,
             maximum_distance: 2.8 * radius,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     println!("Animation controls:");
     println!("  - spacebar: play / pause");
@@ -198,16 +229,24 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
+    scene_ready: On<SceneInstanceReady>,
     animations: Res<Animations>,
     foxes: Res<Foxes>,
-    mut player: Query<&mut AnimationPlayer>,
-    mut done: Local<bool>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    mut players: Query<&mut AnimationPlayer>,
 ) {
-    if !*done && player.iter().len() == foxes.count {
-        for mut player in &mut player {
-            player.play(animations.0[0].clone_weak()).repeat();
+    for child in children.iter_descendants(scene_ready.entity) {
+        if let Ok(mut player) = players.get_mut(child) {
+            let playing_animation = player.play(animations.node_indices[0]).repeat();
+            if !foxes.sync {
+                playing_animation.seek_to(scene_ready.entity.index_u32() as f32 / 10.0);
+            }
+            commands.entity(child).insert((
+                AnimationGraphHandle(animations.graph.clone()),
+                AnimationTransitions::default(),
+            ));
         }
-        *done = true;
     }
 }
 
@@ -220,7 +259,7 @@ fn update_fox_rings(
         return;
     }
 
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
     for (ring, rotation_direction, mut transform) in &mut rings {
         let angular_velocity = foxes.speed / ring.radius;
         transform.rotate_y(rotation_direction.sign() * angular_velocity * dt);
@@ -228,8 +267,8 @@ fn update_fox_rings(
 }
 
 fn keyboard_animation_control(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut animation_player: Query<&mut AnimationPlayer>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut animation_player: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
     mut foxes: ResMut<Foxes>,
@@ -238,51 +277,48 @@ fn keyboard_animation_control(
         foxes.moving = !foxes.moving;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Up) {
+    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
         foxes.speed *= 1.25;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Down) {
+    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
         foxes.speed *= 0.8;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Return) {
-        *current_animation = (*current_animation + 1) % animations.0.len();
+    if keyboard_input.just_pressed(KeyCode::Enter) {
+        *current_animation = (*current_animation + 1) % animations.node_indices.len();
     }
 
-    for mut player in &mut animation_player {
+    for (mut player, mut transitions) in &mut animation_player {
         if keyboard_input.just_pressed(KeyCode::Space) {
-            if player.is_paused() {
-                player.resume();
+            if player.all_paused() {
+                player.resume_all();
             } else {
-                player.pause();
+                player.pause_all();
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::Up) {
-            let speed = player.speed();
-            player.set_speed(speed * 1.25);
+        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+            player.adjust_speeds(1.25);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Down) {
-            let speed = player.speed();
-            player.set_speed(speed * 0.8);
+        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+            player.adjust_speeds(0.8);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Left) {
-            let elapsed = player.seek_time();
-            player.seek_to(elapsed - 0.1);
+        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+            player.seek_all_by(-0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Right) {
-            let elapsed = player.seek_time();
-            player.seek_to(elapsed + 0.1);
+        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+            player.seek_all_by(0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
-            player
-                .play_with_transition(
-                    animations.0[*current_animation].clone_weak(),
+        if keyboard_input.just_pressed(KeyCode::Enter) {
+            transitions
+                .play(
+                    &mut player,
+                    animations.node_indices[*current_animation],
                     Duration::from_millis(250),
                 )
                 .repeat();

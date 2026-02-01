@@ -1,9 +1,12 @@
+use bevy_ptr::move_as_ptr;
+
 use crate::{
-    bundle::{Bundle, BundleSpawner},
-    entity::Entity,
+    bundle::{Bundle, BundleSpawner, NoBundleEffect},
+    change_detection::MaybeLocation,
+    entity::{AllocEntitiesIterator, Entity, EntitySetIterator},
     world::World,
 };
-use std::iter::FusedIterator;
+use core::iter::FusedIterator;
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
@@ -12,44 +15,36 @@ use std::iter::FusedIterator;
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     inner: I,
-    spawner: BundleSpawner<'w, 'w>,
+    spawner: BundleSpawner<'w>,
+    allocator: AllocEntitiesIterator<'w>,
+    caller: MaybeLocation,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     #[inline]
-    pub(crate) fn new(world: &'w mut World, iter: I) -> Self {
-        // Ensure all entity allocations are accounted for so `self.entities` can realloc if
-        // necessary
-        world.flush();
-
+    #[track_caller]
+    pub(crate) fn new(world: &'w mut World, iter: I, caller: MaybeLocation) -> Self {
         let change_tick = world.change_tick();
 
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
 
-        let bundle_info = world
-            .bundles
-            .init_info::<I::Item>(&mut world.components, &mut world.storages);
-        world.entities.reserve(length as u32);
-        let mut spawner = bundle_info.get_bundle_spawner(
-            &mut world.entities,
-            &mut world.archetypes,
-            &world.components,
-            &mut world.storages,
-            change_tick,
-        );
+        let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick);
         spawner.reserve_storage(length);
+        let allocator = spawner.allocator().alloc_many(length as u32);
 
         Self {
             inner: iter,
+            allocator,
             spawner,
+            caller,
         }
     }
 }
@@ -57,24 +52,37 @@ where
 impl<I> Drop for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     fn drop(&mut self) {
-        for _ in self {}
+        // Iterate through self in order to spawn remaining bundles.
+        for _ in &mut *self {}
+        // Apply any commands from those operations.
+        // SAFETY: `self.spawner` will be dropped immediately after this call.
+        unsafe { self.spawner.flush_commands() };
     }
 }
 
 impl<I> Iterator for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
-        // SAFETY: bundle matches spawner type
-        unsafe { Some(self.spawner.spawn(bundle)) }
+        move_as_ptr!(bundle);
+        Some(if let Some(bulk) = self.allocator.next() {
+            // SAFETY: bundle matches spawner type and we just allocated it
+            unsafe {
+                self.spawner.spawn_at(bulk, bundle, self.caller);
+            }
+            bulk
+        } else {
+            // SAFETY: bundle matches spawner type
+            unsafe { self.spawner.spawn(bundle, self.caller) }
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -85,7 +93,7 @@ where
 impl<I, T> ExactSizeIterator for SpawnBatchIter<'_, I>
 where
     I: ExactSizeIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
     fn len(&self) -> usize {
         self.inner.len()
@@ -95,6 +103,14 @@ where
 impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
+{
+}
+
+// SAFETY: Newly spawned entities are unique.
+unsafe impl<I: Iterator, T> EntitySetIterator for SpawnBatchIter<'_, I>
+where
+    I: FusedIterator<Item = T>,
+    T: Bundle<Effect: NoBundleEffect>,
 {
 }

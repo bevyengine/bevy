@@ -1,8 +1,9 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 pub use bevy_render_macros::ExtractResource;
+use bevy_utils::once;
 
 use crate::{Extract, ExtractSchedule, RenderApp};
 
@@ -31,8 +32,13 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_resource::<R>);
+        } else {
+            once!(bevy_log::error!(
+                "Render app did not exist when trying to add `extract_resource` for <{}>.",
+                core::any::type_name::<R>()
+            ));
         }
     }
 }
@@ -40,24 +46,25 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
 /// This system extracts the resource of the corresponding [`Resource`] type
 pub fn extract_resource<R: ExtractResource>(
     mut commands: Commands,
-    main_resource: Extract<Res<R::Source>>,
+    main_resource: Extract<Option<Res<R::Source>>>,
     target_resource: Option<ResMut<R>>,
-    #[cfg(debug_assertions)] mut has_warned_on_remove: Local<bool>,
 ) {
-    if let Some(mut target_resource) = target_resource {
-        if main_resource.is_changed() {
-            *target_resource = R::extract_resource(&main_resource);
-        }
-    } else {
-        #[cfg(debug_assertions)]
-        if !main_resource.is_added() && !*has_warned_on_remove {
-            *has_warned_on_remove = true;
-            bevy_log::warn!(
-                "Removing resource {} from render world not expected, adding using `Commands`.
+    if let Some(main_resource) = main_resource.as_ref() {
+        if let Some(mut target_resource) = target_resource {
+            if main_resource.is_changed() {
+                *target_resource = R::extract_resource(main_resource);
+            }
+        } else {
+            #[cfg(debug_assertions)]
+            if !main_resource.is_added() {
+                once!(bevy_log::warn!(
+                    "Removing resource {} from render world not expected, adding using `Commands`.
                 This may decrease performance",
-                std::any::type_name::<R>()
-            );
+                    core::any::type_name::<R>()
+                ));
+            }
+
+            commands.insert_resource(R::extract_resource(main_resource));
         }
-        commands.insert_resource(R::extract_resource(&main_resource));
     }
 }

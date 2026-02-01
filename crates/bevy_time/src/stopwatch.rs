@@ -1,9 +1,10 @@
-use bevy_reflect::prelude::*;
-use bevy_reflect::Reflect;
-use bevy_utils::Duration;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
+use core::time::Duration;
 
-/// A Stopwatch is a struct that track elapsed time when started.
+/// A Stopwatch is a struct that tracks elapsed time when started.
 ///
+/// Note that in order to advance the stopwatch [`tick`](Stopwatch::tick) **MUST** be called.
 /// # Examples
 ///
 /// ```
@@ -20,15 +21,19 @@ use bevy_utils::Duration;
 /// assert_eq!(stopwatch.elapsed_secs(), 1.0);
 ///
 /// stopwatch.reset(); // reset the stopwatch
-/// assert!(stopwatch.paused());
+/// assert!(stopwatch.is_paused());
 /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
 /// ```
-#[derive(Clone, Debug, Default, PartialEq, Eq, Reflect)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
-#[reflect(Default)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Clone, PartialEq)
+)]
 pub struct Stopwatch {
     elapsed: Duration,
-    paused: bool,
+    is_paused: bool,
 }
 
 impl Stopwatch {
@@ -39,7 +44,7 @@ impl Stopwatch {
     /// # use bevy_time::*;
     /// let stopwatch = Stopwatch::new();
     /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
-    /// assert_eq!(stopwatch.paused(), false);
+    /// assert_eq!(stopwatch.is_paused(), false);
     /// ```
     pub fn new() -> Self {
         Default::default()
@@ -127,8 +132,8 @@ impl Stopwatch {
     /// assert_eq!(stopwatch.elapsed_secs(), 1.5);
     /// ```
     pub fn tick(&mut self, delta: Duration) -> &Self {
-        if !self.paused() {
-            self.elapsed += delta;
+        if !self.is_paused() {
+            self.elapsed = self.elapsed.saturating_add(delta);
         }
         self
     }
@@ -143,12 +148,12 @@ impl Stopwatch {
     /// let mut stopwatch = Stopwatch::new();
     /// stopwatch.pause();
     /// stopwatch.tick(Duration::from_secs_f32(1.5));
-    /// assert!(stopwatch.paused());
+    /// assert!(stopwatch.is_paused());
     /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
     /// ```
     #[inline]
     pub fn pause(&mut self) {
-        self.paused = true;
+        self.is_paused = true;
     }
 
     /// Unpauses the stopwatch. Resume the effect of ticking on elapsed time.
@@ -162,12 +167,12 @@ impl Stopwatch {
     /// stopwatch.tick(Duration::from_secs_f32(1.0));
     /// stopwatch.unpause();
     /// stopwatch.tick(Duration::from_secs_f32(1.0));
-    /// assert!(!stopwatch.paused());
+    /// assert!(!stopwatch.is_paused());
     /// assert_eq!(stopwatch.elapsed_secs(), 1.0);
     /// ```
     #[inline]
     pub fn unpause(&mut self) {
-        self.paused = false;
+        self.is_paused = false;
     }
 
     /// Returns `true` if the stopwatch is paused.
@@ -176,15 +181,15 @@ impl Stopwatch {
     /// ```
     /// # use bevy_time::*;
     /// let mut stopwatch = Stopwatch::new();
-    /// assert!(!stopwatch.paused());
+    /// assert!(!stopwatch.is_paused());
     /// stopwatch.pause();
-    /// assert!(stopwatch.paused());
+    /// assert!(stopwatch.is_paused());
     /// stopwatch.unpause();
-    /// assert!(!stopwatch.paused());
+    /// assert!(!stopwatch.is_paused());
     /// ```
     #[inline]
-    pub fn paused(&self) -> bool {
-        self.paused
+    pub fn is_paused(&self) -> bool {
+        self.is_paused
     }
 
     /// Resets the stopwatch. The reset doesn't affect the paused state of the stopwatch.

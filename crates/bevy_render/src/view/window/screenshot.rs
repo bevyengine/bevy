@@ -1,71 +1,141 @@
-use std::{borrow::Cow, path::Path, sync::PoisonError};
-
-use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle};
-use bevy_ecs::prelude::*;
-use bevy_log::{error, info, info_span};
-use bevy_tasks::AsyncComputeTaskPool;
-use bevy_utils::HashMap;
-use std::sync::Mutex;
-use thiserror::Error;
-use wgpu::{
-    CommandEncoder, Extent3d, ImageDataLayout, TextureFormat, COPY_BYTES_PER_ROW_ALIGNMENT,
-};
-
+use super::ExtractedWindows;
 use crate::{
-    prelude::{Image, Shader},
+    gpu_readback,
+    render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupLayout, Buffer, CachedRenderPipelineId, FragmentState, PipelineCache,
-        RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines, Texture,
-        VertexState,
+        BindGroup, BindGroupEntries, Buffer, BufferUsages, PipelineCache,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
-    texture::TextureFormatPixelInfo,
-    RenderApp,
+    texture::{GpuImage, ManualTextureViews, OutputColorAttachment},
+    view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use alloc::{borrow::Cow, sync::Arc};
+use bevy_app::{First, Plugin, Update};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle, RenderAssetUsages};
+use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget, RenderTarget};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{
+    entity::EntityHashMap, message::message_update_system, prelude::*, system::SystemState,
+};
+use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
+use bevy_log::{error, info, warn};
+use bevy_material::{
+    bind_group_layout_entries::{binding_types::texture_2d, BindGroupLayoutEntries},
+    descriptor::{
+        BindGroupLayoutDescriptor, CachedRenderPipelineId, FragmentState, RenderPipelineDescriptor,
+        VertexState,
+    },
+};
+use bevy_platform::collections::HashSet;
+use bevy_reflect::Reflect;
+use bevy_shader::Shader;
+use bevy_tasks::AsyncComputeTaskPool;
+use bevy_utils::default;
+use bevy_window::{PrimaryWindow, WindowRef};
+use core::ops::Deref;
+use std::{
+    path::Path,
+    sync::{
+        mpsc::{Receiver, Sender},
+        Mutex,
+    },
+};
+use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
-use super::ExtractedWindows;
-
-pub type ScreenshotFn = Box<dyn FnOnce(Image) + Send + Sync>;
-
-/// A resource which allows for taking screenshots of the window.
-#[derive(Resource, Default)]
-pub struct ScreenshotManager {
-    // this is in a mutex to enable extraction with only an immutable reference
-    pub(crate) callbacks: Mutex<HashMap<Entity, ScreenshotFn>>,
+#[derive(EntityEvent, Reflect, Deref, DerefMut, Debug)]
+#[reflect(Debug)]
+pub struct ScreenshotCaptured {
+    pub entity: Entity,
+    #[deref]
+    pub image: Image,
 }
 
-#[derive(Error, Debug)]
-#[error("A screenshot for this window has already been requested.")]
-pub struct ScreenshotAlreadyRequestedError;
+/// A component that signals to the renderer to capture a screenshot this frame.
+///
+/// This component should be spawned on a new entity with an observer that will trigger
+/// with [`ScreenshotCaptured`] when the screenshot is ready.
+///
+/// Screenshots are captured asynchronously and may not be available immediately after the frame
+/// that the component is spawned on. The observer should be used to handle the screenshot when it
+/// is ready.
+///
+/// Note that the screenshot entity will be despawned after the screenshot is captured and the
+/// observer is triggered.
+///
+/// # Usage
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_render::view::screenshot::{save_to_disk, Screenshot};
+///
+/// fn take_screenshot(mut commands: Commands) {
+///    commands.spawn(Screenshot::primary_window())
+///       .observe(save_to_disk("screenshot.png"));
+/// }
+/// ```
+#[derive(Component, Deref, DerefMut, Reflect, Debug)]
+#[reflect(Component, Debug)]
+pub struct Screenshot(pub RenderTarget);
 
-impl ScreenshotManager {
-    /// Signals the renderer to take a screenshot of this frame.
-    ///
-    /// The given callback will eventually be called on one of the [`AsyncComputeTaskPool`]s threads.
-    pub fn take_screenshot(
-        &mut self,
-        window: Entity,
-        callback: impl FnOnce(Image) + Send + Sync + 'static,
-    ) -> Result<(), ScreenshotAlreadyRequestedError> {
-        self.callbacks
-            .get_mut()
-            .unwrap_or_else(PoisonError::into_inner)
-            .try_insert(window, Box::new(callback))
-            .map(|_| ())
-            .map_err(|_| ScreenshotAlreadyRequestedError)
+/// A marker component that indicates that a screenshot is currently being captured.
+#[derive(Component, Default)]
+pub struct Capturing;
+
+/// A marker component that indicates that a screenshot has been captured, the image is ready, and
+/// the screenshot entity can be despawned.
+#[derive(Component, Default)]
+pub struct Captured;
+
+impl Screenshot {
+    /// Capture a screenshot of the provided window entity.
+    pub fn window(window: Entity) -> Self {
+        Self(RenderTarget::Window(WindowRef::Entity(window)))
     }
 
-    /// Signals the renderer to take a screenshot of this frame.
-    ///
-    /// The screenshot will eventually be saved to the given path, and the format will be derived from the extension.
-    pub fn save_screenshot_to_disk(
-        &mut self,
-        window: Entity,
-        path: impl AsRef<Path>,
-    ) -> Result<(), ScreenshotAlreadyRequestedError> {
-        let path = path.as_ref().to_owned();
-        self.take_screenshot(window, move |img| match img.try_into_dynamic() {
+    /// Capture a screenshot of the primary window, if one exists.
+    pub fn primary_window() -> Self {
+        Self(RenderTarget::Window(WindowRef::Primary))
+    }
+
+    /// Capture a screenshot of the provided render target image.
+    pub fn image(image: Handle<Image>) -> Self {
+        Self(RenderTarget::Image(image.into()))
+    }
+
+    /// Capture a screenshot of the provided manual texture view.
+    pub fn texture_view(texture_view: ManualTextureViewHandle) -> Self {
+        Self(RenderTarget::TextureView(texture_view))
+    }
+}
+
+struct ScreenshotPreparedState {
+    pub texture: Texture,
+    pub buffer: Buffer,
+    pub bind_group: BindGroup,
+    pub pipeline_id: CachedRenderPipelineId,
+    pub size: Extent3d,
+}
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct CapturedScreenshots(pub Arc<Mutex<Receiver<(Entity, Image)>>>);
+
+#[derive(Resource, Deref, DerefMut, Default)]
+struct RenderScreenshotTargets(EntityHashMap<NormalizedRenderTarget>);
+
+#[derive(Resource, Deref, DerefMut, Default)]
+struct RenderScreenshotsPrepared(EntityHashMap<ScreenshotPreparedState>);
+
+#[derive(Resource, Deref, DerefMut)]
+struct RenderScreenshotsSender(Sender<(Entity, Image)>);
+
+/// Saves the captured screenshot to disk at the provided path.
+pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>) {
+    let path = path.as_ref().to_owned();
+    move |screenshot_captured| {
+        let img = screenshot_captured.image.clone();
+        match img.try_into_dynamic() {
             Ok(dyn_img) => match image::ImageFormat::from_path(&path) {
                 Ok(format) => {
                     // discard the alpha channel which stores brightness values when HDR is enabled to make sure
@@ -79,18 +149,20 @@ impl ScreenshotManager {
 
                     #[cfg(target_arch = "wasm32")]
                     {
-                        match (|| {
+                        let save_screenshot = || {
                             use image::EncodableLayout;
                             use wasm_bindgen::{JsCast, JsValue};
 
                             let mut image_buffer = std::io::Cursor::new(Vec::new());
                             img.write_to(&mut image_buffer, format)
                                 .map_err(|e| JsValue::from_str(&format!("{e}")))?;
-                            // SAFETY: `image_buffer` only exist in this closure, and is not used after this line
-                            let parts = js_sys::Array::of1(&unsafe {
-                                js_sys::Uint8Array::view(image_buffer.into_inner().as_bytes())
-                                    .into()
-                            });
+
+                            let parts = js_sys::Array::of1(
+                                &js_sys::Uint8Array::new_from_slice(
+                                    image_buffer.into_inner().as_bytes(),
+                                )
+                                .into(),
+                            );
                             let blob = web_sys::Blob::new_with_u8_array_sequence(&parts)?;
                             let url = web_sys::Url::create_object_url_with_blob(&blob)?;
                             let window = web_sys::window().unwrap();
@@ -107,7 +179,9 @@ impl ScreenshotManager {
                             html_element.click();
                             web_sys::Url::revoke_object_url(&url)?;
                             Ok::<(), JsValue>(())
-                        })() {
+                        };
+
+                        match (save_screenshot)() {
                             Ok(_) => info!("Screenshot saved to {}", path.display()),
                             Err(e) => error!("Cannot save screenshot, error: {e:?}"),
                         };
@@ -116,107 +190,276 @@ impl ScreenshotManager {
                 Err(e) => error!("Cannot save screenshot, requested format not recognized: {e}"),
             },
             Err(e) => error!("Cannot save screenshot, screen format cannot be understood: {e}"),
-        })
+        }
     }
+}
+
+fn clear_screenshots(mut commands: Commands, screenshots: Query<Entity, With<Captured>>) {
+    for entity in screenshots.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
+pub fn trigger_screenshots(
+    mut commands: Commands,
+    captured_screenshots: ResMut<CapturedScreenshots>,
+) {
+    let captured_screenshots = captured_screenshots.lock().unwrap();
+    while let Ok((entity, image)) = captured_screenshots.try_recv() {
+        commands.entity(entity).insert(Captured);
+        commands.trigger(ScreenshotCaptured { image, entity });
+    }
+}
+
+fn extract_screenshots(
+    mut targets: ResMut<RenderScreenshotTargets>,
+    mut main_world: ResMut<MainWorld>,
+    mut system_state: Local<
+        Option<
+            SystemState<(
+                Commands,
+                Query<Entity, With<PrimaryWindow>>,
+                Query<(Entity, &Screenshot), Without<Capturing>>,
+            )>,
+        >,
+    >,
+    mut seen_targets: Local<HashSet<NormalizedRenderTarget>>,
+) {
+    if system_state.is_none() {
+        *system_state = Some(SystemState::new(&mut main_world));
+    }
+    let system_state = system_state.as_mut().unwrap();
+    let (mut commands, primary_window, screenshots) = system_state.get_mut(&mut main_world);
+
+    targets.clear();
+    seen_targets.clear();
+
+    let primary_window = primary_window.iter().next();
+
+    for (entity, screenshot) in screenshots.iter() {
+        let render_target = screenshot.0.clone();
+        let Some(render_target) = render_target.normalize(primary_window) else {
+            warn!(
+                "Unknown render target for screenshot, skipping: {:?}",
+                render_target
+            );
+            continue;
+        };
+        if seen_targets.contains(&render_target) {
+            warn!(
+                "Duplicate render target for screenshot, skipping entity {}: {:?}",
+                entity, render_target
+            );
+            // If we don't despawn the entity here, it will be captured again in the next frame
+            commands.entity(entity).despawn();
+            continue;
+        }
+        seen_targets.insert(render_target.clone());
+        targets.insert(entity, render_target);
+        commands.entity(entity).insert(Capturing);
+    }
+
+    system_state.apply(&mut main_world);
+}
+
+fn prepare_screenshots(
+    targets: Res<RenderScreenshotTargets>,
+    mut prepared: ResMut<RenderScreenshotsPrepared>,
+    window_surfaces: Res<WindowSurfaces>,
+    render_device: Res<RenderDevice>,
+    screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
+    pipeline_cache: Res<PipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
+    images: Res<RenderAssets<GpuImage>>,
+    manual_texture_views: Res<ManualTextureViews>,
+    mut view_target_attachments: ResMut<ViewTargetAttachments>,
+) {
+    prepared.clear();
+    for (entity, target) in targets.iter() {
+        match target {
+            NormalizedRenderTarget::Window(window) => {
+                let window = window.entity();
+                let Some(surface_data) = window_surfaces.surfaces.get(&window) else {
+                    warn!("Unknown window for screenshot, skipping: {}", window);
+                    continue;
+                };
+                let view_format = surface_data
+                    .texture_view_format
+                    .unwrap_or(surface_data.configuration.format);
+                let size = Extent3d {
+                    width: surface_data.configuration.width,
+                    height: surface_data.configuration.height,
+                    ..default()
+                };
+                let (texture_view, state) = prepare_screenshot_state(
+                    size,
+                    view_format,
+                    &render_device,
+                    &screenshot_pipeline,
+                    &pipeline_cache,
+                    &mut pipelines,
+                );
+                prepared.insert(*entity, state);
+                view_target_attachments.insert(
+                    target.clone(),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
+                );
+            }
+            NormalizedRenderTarget::Image(image) => {
+                let Some(gpu_image) = images.get(&image.handle) else {
+                    warn!("Unknown image for screenshot, skipping: {:?}", image);
+                    continue;
+                };
+                let view_format = gpu_image.view_format();
+                let (texture_view, state) = prepare_screenshot_state(
+                    gpu_image.texture_descriptor.size,
+                    view_format,
+                    &render_device,
+                    &screenshot_pipeline,
+                    &pipeline_cache,
+                    &mut pipelines,
+                );
+                prepared.insert(*entity, state);
+                view_target_attachments.insert(
+                    target.clone(),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
+                );
+            }
+            NormalizedRenderTarget::TextureView(texture_view) => {
+                let Some(manual_texture_view) = manual_texture_views.get(texture_view) else {
+                    warn!(
+                        "Unknown manual texture view for screenshot, skipping: {:?}",
+                        texture_view
+                    );
+                    continue;
+                };
+                let view_format = manual_texture_view.view_format;
+                let size = manual_texture_view.size.to_extents();
+                let (texture_view, state) = prepare_screenshot_state(
+                    size,
+                    view_format,
+                    &render_device,
+                    &screenshot_pipeline,
+                    &pipeline_cache,
+                    &mut pipelines,
+                );
+                prepared.insert(*entity, state);
+                view_target_attachments.insert(
+                    target.clone(),
+                    OutputColorAttachment::new(texture_view.clone(), view_format),
+                );
+            }
+            NormalizedRenderTarget::None { .. } => {
+                // Nothing to screenshot!
+            }
+        }
+    }
+}
+
+fn prepare_screenshot_state(
+    size: Extent3d,
+    format: TextureFormat,
+    render_device: &RenderDevice,
+    pipeline: &ScreenshotToScreenPipeline,
+    pipeline_cache: &PipelineCache,
+    pipelines: &mut SpecializedRenderPipelines<ScreenshotToScreenPipeline>,
+) -> (TextureView, ScreenshotPreparedState) {
+    let texture = render_device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("screenshot-capture-rendertarget"),
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format,
+        usage: TextureUsages::RENDER_ATTACHMENT
+            | TextureUsages::COPY_SRC
+            | TextureUsages::TEXTURE_BINDING,
+        view_formats: &[],
+    });
+    let texture_view = texture.create_view(&Default::default());
+    let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("screenshot-transfer-buffer"),
+        size: gpu_readback::get_aligned_size(size, format.pixel_size().unwrap_or(0) as u32) as u64,
+        usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let bind_group = render_device.create_bind_group(
+        "screenshot-to-screen-bind-group",
+        &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
+        &BindGroupEntries::single(&texture_view),
+    );
+    let pipeline_id = pipelines.specialize(pipeline_cache, pipeline, format);
+
+    (
+        texture_view,
+        ScreenshotPreparedState {
+            texture,
+            buffer,
+            bind_group,
+            pipeline_id,
+            size,
+        },
+    )
 }
 
 pub struct ScreenshotPlugin;
 
-const SCREENSHOT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11918575842344596158);
-
 impl Plugin for ScreenshotPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.init_resource::<ScreenshotManager>();
+        embedded_asset!(app, "screenshot.wgsl");
 
-        load_internal_asset!(
-            app,
-            SCREENSHOT_SHADER_HANDLE,
-            "screenshot.wgsl",
-            Shader::from_wgsl
-        );
-    }
+        let (tx, rx) = std::sync::mpsc::channel();
+        app.insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
+            .add_systems(
+                First,
+                clear_screenshots
+                    .after(message_update_system)
+                    .before(ApplyDeferred),
+            )
+            .add_systems(Update, trigger_screenshots);
 
-    fn finish(&self, app: &mut bevy_app::App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
-        }
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
 
-        #[cfg(feature = "bevy_ci_testing")]
-        if app
-            .world
-            .contains_resource::<bevy_app::ci_testing::CiTestingConfig>()
-        {
-            app.add_systems(bevy_app::Update, ci_testing_screenshot_at);
-        }
-    }
-}
-
-#[cfg(feature = "bevy_ci_testing")]
-fn ci_testing_screenshot_at(
-    mut current_frame: bevy_ecs::prelude::Local<u32>,
-    ci_testing_config: bevy_ecs::prelude::Res<bevy_app::ci_testing::CiTestingConfig>,
-    mut screenshot_manager: ResMut<ScreenshotManager>,
-    main_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
-) {
-    if ci_testing_config
-        .screenshot_frames
-        .contains(&*current_frame)
-    {
-        info!("Taking a screenshot at frame {}.", *current_frame);
-        let path = format!("./screenshot-{}.png", *current_frame);
-        screenshot_manager
-            .save_screenshot_to_disk(main_window.single(), path)
-            .unwrap();
-    }
-    *current_frame += 1;
-}
-
-pub(crate) fn align_byte_size(value: u32) -> u32 {
-    value + (COPY_BYTES_PER_ROW_ALIGNMENT - (value % COPY_BYTES_PER_ROW_ALIGNMENT))
-}
-
-pub(crate) fn get_aligned_size(width: u32, height: u32, pixel_size: u32) -> u32 {
-    height * align_byte_size(width * pixel_size)
-}
-
-pub(crate) fn layout_data(width: u32, height: u32, format: TextureFormat) -> ImageDataLayout {
-    ImageDataLayout {
-        bytes_per_row: if height > 1 {
-            // 1 = 1 row
-            Some(get_aligned_size(width, 1, format.pixel_size() as u32))
-        } else {
-            None
-        },
-        rows_per_image: None,
-        ..Default::default()
+        render_app
+            .insert_resource(RenderScreenshotsSender(tx))
+            .init_resource::<RenderScreenshotTargets>()
+            .init_resource::<RenderScreenshotsPrepared>()
+            .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
+            .add_systems(RenderStartup, init_screenshot_to_screen_pipeline)
+            .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
+            .add_systems(
+                Render,
+                prepare_screenshots
+                    .after(prepare_view_attachments)
+                    .before(prepare_view_targets)
+                    .in_set(RenderSystems::ManageViews),
+            );
     }
 }
 
 #[derive(Resource)]
 pub struct ScreenshotToScreenPipeline {
-    pub bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayoutDescriptor,
+    pub shader: Handle<Shader>,
 }
 
-impl FromWorld for ScreenshotToScreenPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        let device = render_world.resource::<RenderDevice>();
+pub fn init_screenshot_to_screen_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
+        "screenshot-to-screen-bgl",
+        &BindGroupLayoutEntries::single(
+            wgpu::ShaderStages::FRAGMENT,
+            texture_2d(wgpu::TextureSampleType::Float { filterable: false }),
+        ),
+    );
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("screenshot-to-screen-bgl"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            }],
-        });
+    let shader = load_embedded_asset!(asset_server.as_ref(), "screenshot.wgsl");
 
-        Self { bind_group_layout }
-    }
+    commands.insert_resource(ScreenshotToScreenPipeline {
+        bind_group_layout,
+        shader,
+    });
 }
 
 impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
@@ -227,138 +470,215 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
             label: Some(Cow::Borrowed("screenshot-to-screen")),
             layout: vec![self.bind_group_layout.clone()],
             vertex: VertexState {
-                buffers: vec![],
-                shader_defs: vec![],
-                entry_point: Cow::Borrowed("vs_main"),
-                shader: SCREENSHOT_SHADER_HANDLE,
+                shader: self.shader.clone(),
+                ..default()
             },
             primitive: wgpu::PrimitiveState {
                 cull_mode: Some(wgpu::Face::Back),
                 ..Default::default()
             },
-            depth_stencil: None,
             multisample: Default::default(),
             fragment: Some(FragmentState {
-                shader: SCREENSHOT_SHADER_HANDLE,
-                entry_point: Cow::Borrowed("fs_main"),
-                shader_defs: vec![],
+                shader: self.shader.clone(),
                 targets: vec![Some(wgpu::ColorTargetState {
                     format: key,
                     blend: None,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            push_constant_ranges: Vec::new(),
+            ..default()
         }
     }
 }
 
-pub struct ScreenshotPreparedState {
-    pub texture: Texture,
-    pub buffer: Buffer,
-    pub bind_group: BindGroup,
-    pub pipeline_id: CachedRenderPipelineId,
-}
-
 pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEncoder) {
-    let windows = world.resource::<ExtractedWindows>();
+    let targets = world.resource::<RenderScreenshotTargets>();
+    let prepared = world.resource::<RenderScreenshotsPrepared>();
     let pipelines = world.resource::<PipelineCache>();
+    let gpu_images = world.resource::<RenderAssets<GpuImage>>();
+    let windows = world.resource::<ExtractedWindows>();
+    let manual_texture_views = world.resource::<ManualTextureViews>();
 
-    for window in windows.values() {
-        if let Some(memory) = &window.screenshot_memory {
-            let width = window.physical_width;
-            let height = window.physical_height;
-            let texture_format = window.swap_chain_texture_format.unwrap();
-
-            encoder.copy_texture_to_buffer(
-                memory.texture.as_image_copy(),
-                wgpu::ImageCopyBuffer {
-                    buffer: &memory.buffer,
-                    layout: crate::view::screenshot::layout_data(width, height, texture_format),
-                },
-                Extent3d {
+    for (entity, render_target) in targets.iter() {
+        match render_target {
+            NormalizedRenderTarget::Window(window) => {
+                let window = window.entity();
+                let Some(window) = windows.get(&window) else {
+                    continue;
+                };
+                let width = window.physical_width;
+                let height = window.physical_height;
+                let Some(texture_format) = window.swap_chain_texture_view_format else {
+                    continue;
+                };
+                let Some(swap_chain_texture_view) = window.swap_chain_texture_view.as_ref() else {
+                    continue;
+                };
+                render_screenshot(
+                    encoder,
+                    prepared,
+                    pipelines,
+                    entity,
                     width,
                     height,
-                    ..Default::default()
-                },
-            );
-            if let Some(pipeline) = pipelines.get_render_pipeline(memory.pipeline_id) {
-                let true_swapchain_texture_view = window
-                    .swap_chain_texture
-                    .as_ref()
-                    .unwrap()
-                    .texture
-                    .create_view(&Default::default());
-                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("screenshot_to_screen_pass"),
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &true_swapchain_texture_view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Load,
-                            store: true,
-                        },
-                    })],
-                    depth_stencil_attachment: None,
-                });
-                pass.set_pipeline(pipeline);
-                pass.set_bind_group(0, &memory.bind_group, &[]);
-                pass.draw(0..3, 0..1);
+                    texture_format,
+                    swap_chain_texture_view,
+                );
             }
+            NormalizedRenderTarget::Image(image) => {
+                let Some(gpu_image) = gpu_images.get(&image.handle) else {
+                    warn!("Unknown image for screenshot, skipping: {:?}", image);
+                    continue;
+                };
+                let width = gpu_image.texture_descriptor.size.width;
+                let height = gpu_image.texture_descriptor.size.height;
+                let texture_format = gpu_image.texture_descriptor.format;
+                let texture_view = gpu_image.texture_view.deref();
+                render_screenshot(
+                    encoder,
+                    prepared,
+                    pipelines,
+                    entity,
+                    width,
+                    height,
+                    texture_format,
+                    texture_view,
+                );
+            }
+            NormalizedRenderTarget::TextureView(texture_view) => {
+                let Some(texture_view) = manual_texture_views.get(texture_view) else {
+                    warn!(
+                        "Unknown manual texture view for screenshot, skipping: {:?}",
+                        texture_view
+                    );
+                    continue;
+                };
+                let width = texture_view.size.x;
+                let height = texture_view.size.y;
+                let texture_format = texture_view.view_format;
+                let texture_view = texture_view.texture_view.deref();
+                render_screenshot(
+                    encoder,
+                    prepared,
+                    pipelines,
+                    entity,
+                    width,
+                    height,
+                    texture_format,
+                    texture_view,
+                );
+            }
+            NormalizedRenderTarget::None { .. } => {
+                // Nothing to screenshot!
+            }
+        };
+    }
+}
+
+fn render_screenshot(
+    encoder: &mut CommandEncoder,
+    prepared: &RenderScreenshotsPrepared,
+    pipelines: &PipelineCache,
+    entity: &Entity,
+    width: u32,
+    height: u32,
+    texture_format: TextureFormat,
+    texture_view: &wgpu::TextureView,
+) {
+    if let Some(prepared_state) = &prepared.get(entity) {
+        let extent = Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+        encoder.copy_texture_to_buffer(
+            prepared_state.texture.as_image_copy(),
+            wgpu::TexelCopyBufferInfo {
+                buffer: &prepared_state.buffer,
+                layout: gpu_readback::layout_data(extent, texture_format),
+            },
+            extent,
+        );
+
+        if let Some(pipeline) = pipelines.get_render_pipeline(prepared_state.pipeline_id) {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("screenshot_to_screen_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: texture_view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            pass.set_pipeline(pipeline);
+            pass.set_bind_group(0, &prepared_state.bind_group, &[]);
+            pass.draw(0..3, 0..1);
         }
     }
 }
 
 pub(crate) fn collect_screenshots(world: &mut World) {
-    let _span = info_span!("collect_screenshots");
+    #[cfg(feature = "trace")]
+    let _span = bevy_log::info_span!("collect_screenshots").entered();
 
-    let mut windows = world.resource_mut::<ExtractedWindows>();
-    for window in windows.values_mut() {
-        if let Some(screenshot_func) = window.screenshot_func.take() {
-            let width = window.physical_width;
-            let height = window.physical_height;
-            let texture_format = window.swap_chain_texture_format.unwrap();
-            let pixel_size = texture_format.pixel_size();
-            let ScreenshotPreparedState { buffer, .. } = window.screenshot_memory.take().unwrap();
+    let sender = world.resource::<RenderScreenshotsSender>().deref().clone();
+    let prepared = world.resource::<RenderScreenshotsPrepared>();
 
-            let finish = async move {
-                let (tx, rx) = async_channel::bounded(1);
-                let buffer_slice = buffer.slice(..);
-                // The polling for this map call is done every frame when the command queue is submitted.
-                buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                    let err = result.err();
-                    if err.is_some() {
-                        panic!("{}", err.unwrap().to_string());
-                    }
-                    tx.try_send(()).unwrap();
-                });
-                rx.recv().await.unwrap();
-                let data = buffer_slice.get_mapped_range();
-                // we immediately move the data to CPU memory to avoid holding the mapped view for long
-                let mut result = Vec::from(&*data);
-                drop(data);
-                drop(buffer);
+    for (entity, prepared) in prepared.iter() {
+        let entity = *entity;
+        let sender = sender.clone();
+        let width = prepared.size.width;
+        let height = prepared.size.height;
+        let texture_format = prepared.texture.format();
+        let Ok(pixel_size) = texture_format.pixel_size() else {
+            continue;
+        };
+        let buffer = prepared.buffer.clone();
 
-                if result.len() != ((width * height) as usize * pixel_size) {
-                    // Our buffer has been padded because we needed to align to a multiple of 256.
-                    // We remove this padding here
-                    let initial_row_bytes = width as usize * pixel_size;
-                    let buffered_row_bytes = align_byte_size(width * pixel_size as u32) as usize;
-
-                    let mut take_offset = buffered_row_bytes;
-                    let mut place_offset = initial_row_bytes;
-                    for _ in 1..height {
-                        result.copy_within(
-                            take_offset..take_offset + buffered_row_bytes,
-                            place_offset,
-                        );
-                        take_offset += buffered_row_bytes;
-                        place_offset += initial_row_bytes;
-                    }
-                    result.truncate(initial_row_bytes * height as usize);
+        let finish = async move {
+            let (tx, rx) = async_channel::bounded(1);
+            let buffer_slice = buffer.slice(..);
+            // The polling for this map call is done every frame when the command queue is submitted.
+            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                if let Err(err) = result {
+                    panic!("{}", err.to_string());
                 }
+                tx.try_send(()).unwrap();
+            });
+            rx.recv().await.unwrap();
+            let data = buffer_slice.get_mapped_range();
+            // we immediately move the data to CPU memory to avoid holding the mapped view for long
+            let mut result = Vec::from(&*data);
+            drop(data);
 
-                screenshot_func(Image::new(
+            if result.len() != ((width * height) as usize * pixel_size) {
+                // Our buffer has been padded because we needed to align to a multiple of 256.
+                // We remove this padding here
+                let initial_row_bytes = width as usize * pixel_size;
+                let buffered_row_bytes =
+                    gpu_readback::align_byte_size(width * pixel_size as u32) as usize;
+
+                let mut take_offset = buffered_row_bytes;
+                let mut place_offset = initial_row_bytes;
+                for _ in 1..height {
+                    result.copy_within(take_offset..take_offset + buffered_row_bytes, place_offset);
+                    take_offset += buffered_row_bytes;
+                    place_offset += initial_row_bytes;
+                }
+                result.truncate(initial_row_bytes * height as usize);
+            }
+
+            if let Err(e) = sender.send((
+                entity,
+                Image::new(
                     Extent3d {
                         width,
                         height,
@@ -367,10 +687,13 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                     wgpu::TextureDimension::D2,
                     result,
                     texture_format,
-                ));
-            };
+                    RenderAssetUsages::RENDER_WORLD,
+                ),
+            )) {
+                error!("Failed to send screenshot: {}", e);
+            }
+        };
 
-            AsyncComputeTaskPool::get().spawn(finish).detach();
-        }
+        AsyncComputeTaskPool::get().spawn(finish).detach();
     }
 }

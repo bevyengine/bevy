@@ -1,5 +1,8 @@
-use std::{fmt, num::ParseIntError, str::from_utf8_unchecked};
-
+use core::{
+    fmt::{self, Write},
+    num::ParseIntError,
+    str::from_utf8_unchecked,
+};
 use thiserror::Error;
 
 use super::{Access, ReflectPathError};
@@ -35,6 +38,7 @@ pub(super) struct PathParser<'a> {
     path: &'a str,
     remaining: &'a [u8],
 }
+
 impl<'a> PathParser<'a> {
     pub(super) fn new(path: &'a str) -> Self {
         let remaining = path.as_bytes();
@@ -55,6 +59,10 @@ impl<'a> PathParser<'a> {
         // If we do not find a subsequent token, we are at the end of the parse string.
         let ident_len = to_parse.iter().position(|t| Token::SYMBOLS.contains(t));
         let (ident, remaining) = to_parse.split_at(ident_len.unwrap_or(to_parse.len()));
+        #[expect(
+            unsafe_code,
+            reason = "We have fulfilled the Safety requirements for `from_utf8_unchecked`."
+        )]
         // SAFETY: This relies on `self.remaining` always remaining valid UTF8:
         // - self.remaining is a slice derived from self.path (valid &str)
         // - The slice's end is either the same as the valid &str or
@@ -96,18 +104,22 @@ impl<'a> PathParser<'a> {
         self.path.len() - self.remaining.len()
     }
 }
+
 impl<'a> Iterator for PathParser<'a> {
     type Item = (Result<Access<'a>, ReflectPathError<'a>>, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         let token = self.next_token()?;
         let offset = self.offset();
-        let err = |error| ReflectPathError::ParseError {
+        Some((
+            self.access_following(token)
+                .map_err(|error| ReflectPathError::ParseError {
+                    offset,
+                    path: self.path,
+                    error: ParseError(error),
+                }),
             offset,
-            path: self.path,
-            error: ParseError(error),
-        };
-        Some((self.access_following(token).map_err(err), offset))
+        ))
     }
 }
 
@@ -139,18 +151,19 @@ enum Token<'a> {
     CloseBracket = b']',
     Ident(Ident<'a>),
 }
+
 impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let text = match self {
-            Token::Dot => ".",
-            Token::Pound => "#",
-            Token::OpenBracket => "[",
-            Token::CloseBracket => "]",
-            Token::Ident(ident) => ident.0,
-        };
-        f.write_str(text)
+        match self {
+            Token::Dot => f.write_char('.'),
+            Token::Pound => f.write_char('#'),
+            Token::OpenBracket => f.write_char('['),
+            Token::CloseBracket => f.write_char(']'),
+            Token::Ident(ident) => f.write_str(ident.0),
+        }
     }
 }
+
 impl<'a> Token<'a> {
     const SYMBOLS: &'static [u8] = b".#[]";
     fn symbol_from_byte(byte: u8) -> Option<Self> {
