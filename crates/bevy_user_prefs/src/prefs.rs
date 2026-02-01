@@ -15,7 +15,7 @@ pub use crate::{PreferencesFile, PreferencesFileContent};
 // IOError
 
 /// Abstracts the storage location of the preferences files. This could be a directory on disk,
-/// a database, or some other respository.
+/// a database, or some other repository.
 pub trait PreferencesStore {
     /// Returns true if preferences path is valid.
     fn is_valid(&self) -> bool;
