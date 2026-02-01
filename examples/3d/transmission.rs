@@ -490,34 +490,34 @@ fn example_control_system(
     }
 
     if input.just_pressed(KeyCode::KeyO)
-        && transmission.screen_space_specular_transmission_steps > 0
+        && transmission.steps > 0
     {
-        transmission.screen_space_specular_transmission_steps -= 1;
+        transmission.steps -= 1;
     }
 
     if input.just_pressed(KeyCode::KeyP)
-        && transmission.screen_space_specular_transmission_steps < 4
+        && transmission.steps < 4
     {
-        transmission.screen_space_specular_transmission_steps += 1;
+        transmission.steps += 1;
     }
 
     if input.just_pressed(KeyCode::KeyJ) {
-        transmission.screen_space_specular_transmission_quality =
+        transmission.quality =
             ScreenSpaceTransmissionQuality::Low;
     }
 
     if input.just_pressed(KeyCode::KeyK) {
-        transmission.screen_space_specular_transmission_quality =
+        transmission.quality =
             ScreenSpaceTransmissionQuality::Medium;
     }
 
     if input.just_pressed(KeyCode::KeyL) {
-        transmission.screen_space_specular_transmission_quality =
+        transmission.quality =
             ScreenSpaceTransmissionQuality::High;
     }
 
     if input.just_pressed(KeyCode::Semicolon) {
-        transmission.screen_space_specular_transmission_quality =
+        transmission.quality =
             ScreenSpaceTransmissionQuality::Ultra;
     }
 
@@ -565,8 +565,8 @@ fn example_control_system(
             "             D  Depth Prepass: {}\n",
             "             T  TAA: {}\n",
         ),
-        transmission.screen_space_specular_transmission_quality,
-        transmission.screen_space_specular_transmission_steps,
+        transmission.quality,
+        transmission.steps,
         state.diffuse_transmission,
         state.specular_transmission,
         state.thickness,

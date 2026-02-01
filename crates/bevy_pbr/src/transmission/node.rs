@@ -67,18 +67,14 @@ pub fn main_transmissive_pass_3d(
     };
 
     if !transmissive_phase.items.is_empty() {
-        let screen_space_specular_transmission_steps =
-            transmission_settings.screen_space_specular_transmission_steps;
-        if screen_space_specular_transmission_steps > 0 {
+        let steps = transmission_settings.steps;
+        if steps > 0 {
             let transmission =
                 transmission.expect("`ViewTransmissionTexture` should exist at this point");
 
-            // `transmissive_phase.items` are depth sorted, so we split them into N = `screen_space_specular_transmission_steps`
+            // `transmissive_phase.items` are depth sorted, so we split them into N = `steps`
             // ranges, rendering them back-to-front in multiple steps, allowing multiple levels of transparency.
-            for range in split_range(
-                0..transmissive_phase.items.len(),
-                screen_space_specular_transmission_steps,
-            ) {
+            for range in split_range(0..transmissive_phase.items.len(), steps) {
                 // Copy the main texture to the transmission texture
                 ctx.command_encoder().copy_texture_to_texture(
                     target.main_texture().as_image_copy(),
