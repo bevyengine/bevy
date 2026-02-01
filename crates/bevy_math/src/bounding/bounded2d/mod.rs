@@ -871,10 +871,10 @@ impl BoundingVolume for Obb2d {
 
     #[inline]
     fn contains(&self, other: &Self) -> bool {
-        // Convert the corners of `other` into this OBB's coordinate system.
         let other_corners = other.get_corners();
         // Check whether all corners are within the bounds of this OBB
         other_corners.iter().all(|&point| {
+            // Transform the corner into this OBB's coordinate system.
             let local_corner = self.isometry.inverse().transform_point(point);
             local_corner.x <= self.half_size.x
                 && local_corner.x >= -self.half_size.x
@@ -1012,6 +1012,7 @@ impl IntersectsVolume<Self> for Obb2d {
     }
 }
 
+#[inline]
 fn projections_have_overlap(
     normal: &Vec2,
     self_points: &[Vec2; 4],
