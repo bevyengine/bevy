@@ -149,7 +149,8 @@ fn cause_error(error: If<Res<RenderError>>, device: Res<RenderDevice>, queue: Re
             let sm = device.create_and_validate_shader_module(ShaderModuleDescriptor {
                 label: Some("shader"),
                 source: ShaderSource::Wgsl(
-                    "@compute @workgroup_size(1, 1, 1) fn main() { loop {} }".into(),
+                    "@compute @workgroup_size(1, 1, 1) fn main() { loop { workgroupBarrier(); } }"
+                        .into(),
                 ),
             });
 
