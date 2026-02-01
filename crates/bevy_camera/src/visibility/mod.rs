@@ -653,12 +653,13 @@ pub fn check_visibility(
         &GlobalTransform,
         Has<NoFrustumCulling>,
         Has<VisibilityRange>,
+        Has<NoCpuCulling>,
     )>,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
-    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
+    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling_camera) in
         &mut view_query
     {
         if !camera.is_active {
@@ -680,6 +681,7 @@ pub fn check_visibility(
                     transform,
                     no_frustum_culling,
                     has_visibility_range,
+                    no_cpu_culling_entity,
                 ) = query_item;
 
                 // Skip computing visibility for entities that are configured to be hidden.
@@ -704,7 +706,8 @@ pub fn check_visibility(
 
                 // If we have an aabb, do frustum culling
                 if !no_frustum_culling
-                    && !no_cpu_culling
+                    && !no_cpu_culling_camera
+                    && !no_cpu_culling_entity
                     && let Some(model_aabb) = maybe_model_aabb
                 {
                     let world_from_local = transform.affine();
