@@ -2956,6 +2956,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "reflect_convert"
+path = "examples/reflection/convert.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.reflect_convert]
+name = "FromReflect Convert"
+description = "Demonstrates FromReflect with conversions."
+category = "Reflection"
+wasm = true
+
+[[example]]
 name = "serialization"
 path = "examples/reflection/serialization.rs"
 doc-scrape-examples = true

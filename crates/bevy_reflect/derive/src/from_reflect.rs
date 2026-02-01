@@ -28,28 +28,34 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_from_reflect_clause = WhereClauseOptions::new(meta).extend_where_clause(where_clause);
 
-    let downcast = match meta.remote_ty() {
+    let exact_match = match meta.remote_ty() {
         Some(remote) => {
             let remote_ty = remote.type_path();
+
             quote! {
-                <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(
-                    #FQClone::clone(
-                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#remote_ty>(reflect)?
-                    )
-                )
+                if let #FQOption::Some(value) =
+                    <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#remote_ty>(reflect) {
+                        return #FQOption::Some(
+                            <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(#FQClone::clone(value))
+                        );
+                    }
             }
         }
         None => quote! {
-            #FQClone::clone(
-                <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect)?
-            )
+            if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect) {
+                return #FQOption::Some(#FQClone::clone(value))
+            }
         },
     };
+
+    let conversions = get_conversions(meta);
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                #FQOption::Some(#downcast)
+                #exact_match
+                #conversions
+                #FQOption::None
             }
         }
     }
@@ -87,19 +93,28 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         .where_clause_options()
         .extend_where_clause(where_clause);
 
+    let exact_match = quote! {
+        return if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) =
+            #bevy_reflect_path::PartialReflect::reflect_ref(#ref_value)
+        {
+            match #bevy_reflect_path::enums::Enum::variant_name(#ref_value) {
+                #match_branches
+                name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
+            }
+        } else {
+            #FQOption::None
+        };
+    };
+
+    let conversions = get_conversions(reflect_enum.meta());
+
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #enum_path #ty_generics #where_from_reflect_clause  {
+            #[allow(unreachable_code, reason = "enum with no variants will always panic")]
             fn from_reflect(#ref_value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) =
-                    #bevy_reflect_path::PartialReflect::reflect_ref(#ref_value)
-                {
-                    match #bevy_reflect_path::enums::Enum::variant_name(#ref_value) {
-                        #match_branches
-                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
-                    }
-                } else {
-                    #FQOption::None
-                }
+                #exact_match
+                #conversions
+                #FQOption::None
             }
         }
     }
@@ -178,7 +193,6 @@ fn impl_struct_internal(
                     #__this.#active_members = __field;
                 }
             )*
-            #FQOption::Some(#retval)
         }
     } else {
         let MemberValuePair(ignored_members, ignored_values) = get_ignored_fields(reflect_struct);
@@ -188,7 +202,15 @@ fn impl_struct_internal(
                 #(#active_members: #active_values?,)*
                 #(#ignored_members: #ignored_values,)*
             };
-            #FQOption::Some(#retval)
+        }
+    };
+
+    let exact_type = quote! {
+        if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct)
+                    = #bevy_reflect_path::PartialReflect::reflect_ref(reflect)
+        {
+            #constructor
+            return #FQOption::Some(#retval)
         }
     };
 
@@ -203,16 +225,14 @@ fn impl_struct_internal(
         .where_clause_options()
         .extend_where_clause(where_clause);
 
+    let conversions = get_conversions(reflect_struct.meta());
+
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_path #ty_generics #where_from_reflect_clause {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct)
-                    = #bevy_reflect_path::PartialReflect::reflect_ref(reflect)
-                {
-                    #constructor
-                } else {
-                    #FQOption::None
-                }
+                #exact_type
+                #conversions
+                #FQOption::None
             }
         }
     }
@@ -295,16 +315,45 @@ fn get_active_fields(
                     }
                 };
 
+                let conversions: Vec<_> = field
+                    .attrs
+                    .conversions
+                    .iter()
+                    .map(|conversion| {
+                        let path = &conversion.path;
+
+                        let get_value = into_remote(quote! {
+                            <#path as #bevy_reflect_path::FromReflect>::from_reflect(field)
+                        });
+
+                        match &conversion.func {
+                            Some(func) => quote! {
+                                if let #FQOption::Some(field) = #get_value {
+                                    Some((#func)(field).into())
+                                }
+                            },
+                            None => quote! {
+                                if let #FQOption::Some(field) = #get_value {
+                                    Some(field.into())
+                                }
+                            },
+                        }
+                    })
+                    .collect();
+
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => {
                         let value = into_remote(quote! {
                             <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                         });
+
                         quote! {
-                            if let #FQOption::Some(field) = #get_field {
-                                #value
-                            } else {
-                                #FQOption::Some(#path())
+                            {
+                                if let #FQOption::Some(field) = #get_field {
+                                    #(#conversions else)* { #value }
+                                } else {
+                                    #FQOption::Some(#path())
+                                }
                             }
                         }
                     }
@@ -312,20 +361,26 @@ fn get_active_fields(
                         let value = into_remote(quote! {
                             <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                         });
+
                         quote! {
-                            if let #FQOption::Some(field) = #get_field {
-                                #value
-                            } else {
-                                #FQOption::Some(#FQDefault::default())
+                            {
+                                if let #FQOption::Some(field) = #get_field {
+                                    #(#conversions else)* { #value }
+                                } else {
+                                    #FQOption::Some(#FQDefault::default())
+                                }
                             }
                         }
                     }
                     DefaultBehavior::Required => {
                         let value = into_remote(quote! {
-                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?)
+                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                         });
                         quote! {
-                            #value
+                            {
+                                let field = #get_field?;
+                                #(#conversions else)* { #value }
+                            }
                         }
                     }
                 };
@@ -350,4 +405,38 @@ fn get_field_accessor(field: &Field, index: usize, is_tuple: bool) -> Lit {
             .map(|ident| Lit::Str(LitStr::new(&ident.to_string(), Span::call_site())))
             .unwrap_or_else(|| Lit::Str(LitStr::new(&index.to_string(), Span::call_site())))
     }
+}
+
+fn get_conversions(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+    let bevy_reflect_path = meta.bevy_reflect_path();
+    meta.attrs().conversions().iter().fold(
+        proc_macro2::TokenStream::new(),
+        |mut token_stream, conversion| {
+            let path = &conversion.path;
+            let func = conversion.func.as_ref().map(|func| quote! { (#func) });
+            let conversion = match meta.remote_ty() {
+                Some(remote) => {
+                    let remote_ty = remote.type_path();
+
+                    quote! {
+                        if let #FQOption::Some(value) =
+                            <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#remote_ty>(reflect) {
+                                return #FQOption::Some(
+                                    <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(#FQClone::clone(#func(value).into()))
+                                );
+                            }
+                    }
+                }
+                None => quote! {
+                    if let #FQOption::Some(value) =
+                    <#path as #bevy_reflect_path::FromReflect>::from_reflect(reflect) {
+                        return #FQOption::Some(#func(value).into())
+                    }
+                },
+            };
+
+            token_stream.extend(conversion);
+            token_stream
+        },
+    )
 }

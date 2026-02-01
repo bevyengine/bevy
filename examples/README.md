@@ -433,6 +433,7 @@ Example | Description
 [Automatic types registration](../examples/reflection/auto_register_static/src/lib.rs) | Demonstrates how to set up automatic reflect types registration for platforms without `inventory` support
 [Custom Attributes](../examples/reflection/custom_attributes.rs) | Registering and accessing custom attributes on reflected types
 [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection
+[FromReflect Convert](../examples/reflection/convert.rs) | Demonstrates FromReflect with conversions.
 [Function Reflection](../examples/reflection/function_reflection.rs) | Demonstrates how functions can be called dynamically using reflection
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types

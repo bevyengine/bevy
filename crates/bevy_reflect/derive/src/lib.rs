@@ -17,6 +17,7 @@
 extern crate proc_macro;
 
 mod container_attributes;
+mod conversion;
 mod custom_attributes;
 mod derive_data;
 #[cfg(feature = "reflect_documentation")]
