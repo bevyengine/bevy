@@ -111,8 +111,8 @@ fn input(input: Res<ButtonInput<Key>>, mut error: ResMut<RenderError>) {
     }
 }
 
-fn cause_error(error: Res<RenderError>, device: Res<RenderDevice>, queue: Res<RenderQueue>) {
-    match *error {
+fn cause_error(error: If<Res<RenderError>>, device: Res<RenderDevice>, queue: Res<RenderQueue>) {
+    match **error {
         RenderError::None => {}
         RenderError::OutOfMemory => {
             let mut textures = Vec::new();
