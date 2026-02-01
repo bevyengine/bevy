@@ -8,12 +8,13 @@ use wgpu_types::error::ErrorType;
 use crate::{
     insert_future_resources,
     render_resource::PipelineCache,
-    renderer::RenderDevice,
+    renderer::{RenderDevice, WgpuWrapper},
     settings::{RenderCreation, WgpuSettings},
     FutureRenderResources,
 };
 
 /// Resource to indicate renderer behavior upon error.
+#[expect(clippy::large_enum_variant, reason = "ergonomics")]
 #[derive(Resource, Default)]
 pub enum RenderErrorPolicy {
     /// Panics on error.
@@ -30,12 +31,12 @@ pub enum RenderErrorPolicy {
 /// The current state of the renderer.
 #[derive(Resource, Debug)]
 pub(crate) enum RenderState {
-    /// Just started, [`RenderStartup`] will run in this state.
+    /// Just started, [`crate::RenderStartup`] will run in this state.
     Initializing,
     /// Everything is okay and we are rendering stuff every frame.
     Ready,
     /// An error was encountered, and we may decide how to handle it.
-    Errored(ErrorType, String, Option<ErrorSource>),
+    Errored(ErrorType, String, Option<WgpuWrapper<ErrorSource>>),
     /// We are recreating the render context after an error to recover.
     Reinitializing,
 }
@@ -90,7 +91,7 @@ impl RenderErrorHandler {
                     description,
                 } => (ErrorType::Internal, description, source),
             };
-            return RenderState::Errored(ty, str, Some(source));
+            return RenderState::Errored(ty, str, Some(WgpuWrapper::new(source)));
         }
         // Device lost is more important so we let it take precedence; every error gets logged anyways.
         if let Some((_, str)) = self.device_lost.lock().unwrap().take() {
