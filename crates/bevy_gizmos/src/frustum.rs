@@ -8,7 +8,7 @@ use bevy_ecs::{
     entity::Entity,
     query::Without,
     reflect::ReflectComponent,
-    schedule::IntoScheduleConfigs,
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectFromReflect};
@@ -23,6 +23,10 @@ use crate::{
 /// A [`Plugin`] that provides visualization of [`Frustum`]s for debugging.
 pub struct FrustumGizmoPlugin;
 
+/// Frustum Gizmo system set. This exists in [`PostUpdate`].
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct FrustumGizmoSystems;
+
 impl Plugin for FrustumGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_gizmo_group::<FrustumGizmoConfigGroup>()
@@ -34,6 +38,7 @@ impl Plugin for FrustumGizmoPlugin {
                         config.config::<FrustumGizmoConfigGroup>().1.draw_all
                     }),
                 )
+                    .in_set(FrustumGizmoSystems)
                     .after(VisibilitySystems::UpdateFrusta),
             );
     }
