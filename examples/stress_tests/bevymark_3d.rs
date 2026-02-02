@@ -212,7 +212,7 @@ fn setup(
     };
 
     let font = TextFont {
-        font_size: 40.0,
+        font_size: FontSize::Px(40.0),
         ..Default::default()
     };
 

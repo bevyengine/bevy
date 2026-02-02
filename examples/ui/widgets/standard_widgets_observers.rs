@@ -149,7 +149,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
             Text::new("Button"),
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                font_size: 33.0,
+                font_size: FontSize::Px(33.0),
                 ..default()
             },
             TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -380,7 +380,7 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
                 Text::new(caption),
                 TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                    font_size: 20.0,
+                    font_size: FontSize::Px(20.0),
                     ..default()
                 },
             )),

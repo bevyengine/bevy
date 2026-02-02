@@ -72,7 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Text Example"),
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                                    font_size: 25.0,
+                                    font_size: FontSize::Px(25.0),
                                     ..default()
                                 },
                                 // Because this is a distinct label widget and
@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     Text::new("V: toggle UI root's visibility"),
                                     TextFont {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                                        font_size: 12.,
+                                        font_size: FontSize::Px(12.),
                                         ..default()
                                     },
                                     Label,
@@ -107,7 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     Text::new("S: toggle outlines for hidden nodes"),
                                     TextFont {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                                        font_size: 12.,
+                                        font_size: FontSize::Px(12.),
                                         ..default()
                                     },
                                     Label,
@@ -116,7 +116,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     Text::new("C: toggle outlines for clipped nodes"),
                                     TextFont {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                                        font_size: 12.,
+                                        font_size: FontSize::Px(12.),
                                         ..default()
                                     },
                                     Label,
@@ -148,7 +148,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text::new("Scrolling list"),
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: 21.,
+                            font_size: FontSize::Px(21.),
                             ..default()
                         },
                         Label,

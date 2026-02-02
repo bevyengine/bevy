@@ -165,7 +165,7 @@ fn init_loading_text(mut commands: Commands) {
             parent.spawn((
                 Text::new(""),
                 TextFont {
-                    font_size: 18.0,
+                    font_size: FontSize::Px(18.0),
                     ..default()
                 },
                 TextColor(Color::BLACK),
@@ -176,7 +176,7 @@ fn init_loading_text(mut commands: Commands) {
         parent.spawn((
             Text::new(""),
             TextFont {
-                font_size: 18.0,
+                font_size: FontSize::Px(18.0),
                 ..default()
             },
             TextColor(Color::WHITE),
