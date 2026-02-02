@@ -100,7 +100,7 @@ use crate::{AnimationClip, AnimationTargetId};
 /// continue to be depicted as holding the object.
 ///
 /// Blend graphs are assets and can be serialized to and loaded from [RON]
-/// files. Canonically, such files have an `.animgraph.ron` extension.
+/// files. Canonically, such files have an `.blendgraph.ron` extension.
 ///
 /// The blend graph implements [RFC 51]. See that document for more
 /// information.
@@ -793,7 +793,7 @@ impl AssetLoader for BlendGraphAssetLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["animgraph", "animgraph.ron"]
+        &["blendgraph", "blendgraph.ron"]
     }
 }
 

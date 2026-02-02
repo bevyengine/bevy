@@ -22,7 +22,7 @@ use {
 };
 
 /// Where to find the serialized blend graph.
-static blend_graph_PATH: &str = "blend_graphs/Fox.animgraph.ron";
+static blend_graph_PATH: &str = "blend_graphs/Fox.blendgraph.ron";
 
 /// The indices of the nodes containing animation clips in the graph.
 static CLIP_NODE_INDICES: [u32; 3] = [2, 3, 4];
