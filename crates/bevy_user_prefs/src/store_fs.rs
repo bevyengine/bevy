@@ -2,10 +2,9 @@ use bevy_log::{debug, error, warn};
 use bevy_tasks::IoTaskPool;
 use std::{fs, path::PathBuf};
 
-use dirs::preference_dir;
-
 use crate::{
-    prefs::PreferencesStore, prefs_file::serialize_table, PreferencesFile, PreferencesFileContent,
+    dirs::preferences_dir, prefs::PreferencesStore, prefs_file::serialize_table, PreferencesFile,
+    PreferencesFileContent,
 };
 
 /// Persistent storage which uses the local filesystem. Preferences will be located in the
@@ -24,7 +23,7 @@ impl StoreFs {
     ///   "com.example.myapp".
     pub(crate) fn new(app_name: &str) -> Self {
         Self {
-            base_path: if let Some(base_dir) = preference_dir() {
+            base_path: if let Some(base_dir) = preferences_dir() {
                 let prefs_path = base_dir.join(app_name);
                 debug!("Preferences path: {:?}", prefs_path);
                 Some(prefs_path)

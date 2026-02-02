@@ -164,6 +164,7 @@ mod autosave;
 
 pub use autosave::{AutosavePrefsPlugin, StartAutosaveTimer};
 
+mod dirs;
 mod prefs;
 mod prefs_file;
 
