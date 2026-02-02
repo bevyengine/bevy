@@ -135,6 +135,9 @@ struct LightProbe {
     // The falloff region, specified as a fraction of the light probe's
     // bounding box.
     falloff: vec3<f32>,
+    // The boundaries of the simulated space used for parallax correction,
+    // specified as *half* extents in light probe space.
+    parallax_correction_bounds: vec3<f32>,
     cubemap_index: i32,
     intensity: f32,
     // Various flags that apply to this light probe.

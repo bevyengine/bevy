@@ -13,7 +13,7 @@
 use bevy::{
     camera::{Exposure, Hdr},
     core_pipeline::tonemapping::Tonemapping,
-    light::{NoParallaxCorrection, Skybox},
+    light::{ParallaxCorrection, Skybox},
     pbr::generate::generate_environment_map_light,
     prelude::*,
     render::render_resource::TextureUsages,
@@ -164,7 +164,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
         Transform::from_scale(Vec3::splat(2.0)),
         // Disable parallax correction because the reflected scene is quite
         // distant.
-        NoParallaxCorrection,
+        ParallaxCorrection::None,
     ));
 }
 

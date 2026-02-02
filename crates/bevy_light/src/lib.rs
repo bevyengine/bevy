@@ -1,6 +1,6 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{App, Plugin, PostUpdate, Update};
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
@@ -30,8 +30,9 @@ use bevy_camera::visibility::SetViewVisibility;
 
 mod probe;
 pub use probe::{
-    AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
-    IrradianceVolume, LightProbe, NoParallaxCorrection, Skybox,
+    automatically_add_parallax_correction_components, AtmosphereEnvironmentMapLight,
+    EnvironmentMapLight, GeneratedEnvironmentMapLight, IrradianceVolume, LightProbe,
+    ParallaxCorrection, Skybox,
 };
 mod volumetric;
 pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
@@ -154,6 +155,7 @@ impl Plugin for LightPlugin {
                 SimulationLightSystems::CheckLightVisibility
                     .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
             )
+            .add_systems(Update, automatically_add_parallax_correction_components)
             .add_systems(
                 PostUpdate,
                 (

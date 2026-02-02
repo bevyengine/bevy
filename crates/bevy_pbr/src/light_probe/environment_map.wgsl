@@ -24,10 +24,21 @@ struct EnvironmentMapRadiances {
 }
 
 // Computes the direction at which to sample the reflection probe.
+//
+// * `light_from_world` is the matrix that transforms world space into light
+//   probe space (a 1×1×1 cube centered on the origin).
+//
+// * `parallax_correction_bounds` is the half-extents of the simulated
+//   reflection boundaries used for parallax correction, in light probe space.
+//   It's ignored if the `parallax_correct` parameter is false.
+//
+// * `parallax_correct` is true if parallax correction is to be applied and
+//   false otherwise.
 fn compute_cubemap_sample_dir(
     world_ray_origin: vec3<f32>,
     world_ray_direction: vec3<f32>,
     light_from_world: mat4x4<f32>,
+    parallax_correction_bounds: vec3<f32>,
     parallax_correct: bool
 ) -> vec3<f32> {
     var sample_dir: vec3<f32>;
@@ -44,8 +55,8 @@ fn compute_cubemap_sample_dir(
         // Since our light probe is a 1×1×1 cube centered at the origin in light
         // probe space, the faces of the cube are at X = ±0.5, Y = ±0.5, and Z =
         // ±0.5.
-        var t0 = (vec3(-0.5) - ray_origin) / ray_direction;
-        var t1 = (vec3(0.5) - ray_origin) / ray_direction;
+        var t0 = (-parallax_correction_bounds - ray_origin) / ray_direction;
+        var t1 = (parallax_correction_bounds - ray_origin) / ray_direction;
 
         // We're shooting the rays forward, so we need to rule out negative time
         // values. So, if t is negative, make it a large value so that we won't
@@ -121,6 +132,7 @@ fn compute_radiances(
                 vec4(0.0, 0.0, 1.0, 0.0),
                 vec4(0.0, 0.0, 0.0, 1.0)
             );
+            query_result.parallax_correction_bounds = vec3(0.0);
             if light_probes.view_environment_map_affects_lightmapped_mesh_diffuse != 0u {
                 query_result.flags = LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
             } else {
@@ -153,6 +165,7 @@ fn compute_radiances(
                 world_position,
                 N,
                 query_result.light_from_world,
+                query_result.parallax_correction_bounds,
                 parallax_correct
             );
             radiances.irradiance = textureSampleLevel(
@@ -167,6 +180,7 @@ fn compute_radiances(
             world_position,
             radiance_sample_dir,
             query_result.light_from_world,
+            query_result.parallax_correction_bounds,
             parallax_correct
         );
         radiances.radiance +=

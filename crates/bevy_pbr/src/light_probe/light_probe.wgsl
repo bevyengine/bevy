@@ -22,6 +22,7 @@ struct LightProbeQueryResult {
     // Transform from world space to the light probe model space. In light probe
     // model space, the light probe is a 1×1×1 cube centered on the origin.
     light_from_world: mat4x4<f32>,
+    parallax_correction_bounds: vec3<f32>,
     // The weight of this light probe, determined by the position of the
     // fragment within the falloff range. The sum of the weights of all light
     // probes affecting a fragment need not be 1.
@@ -141,6 +142,7 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
         result.texture_index = light_probe.cubemap_index;
         result.intensity = light_probe.intensity;
         result.light_from_world = light_from_world;
+        result.parallax_correction_bounds = light_probe.parallax_correction_bounds;
         result.flags = light_probe.flags;
         result.weight = weight;
         return result;
@@ -236,6 +238,7 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
         result.texture_index = light_probe.cubemap_index;
         result.intensity = light_probe.intensity;
         result.light_from_world = light_from_world;
+        result.parallax_correction_bounds = light_probe.parallax_correction_bounds;
         result.flags = light_probe.flags;
         result.weight = weight;
         return result;

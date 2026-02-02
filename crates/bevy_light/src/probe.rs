@@ -354,8 +354,7 @@ impl Default for IrradianceVolume {
     }
 }
 
-/// Add this component to a reflection probe to opt out of *parallax
-/// correction*.
+/// Add this component to a reflection probe to customize *parallax correction*.
 ///
 /// For environment maps added directly to a camera, Bevy renders the reflected
 /// scene that a cubemap captures as though it were infinitely far away. This is
@@ -373,11 +372,78 @@ impl Default for IrradianceVolume {
 /// (1) apply to the objects inside the room and (2) take the positions of those
 /// objects into account in order to create a realistic reflection.
 ///
+/// Instead of having the simulated boundaries of the reflected area coincide
+/// with the boundaries of the light probe, it's also possible to specify
+/// *custom* parallax correction boundaries, so that the region of influence of
+/// the light probe doesn't correspond with the simulated boundaries used for
+/// parallax correction. This is commonly used when the boundaries of the light
+/// probe are slightly larger than the room that the light probe contains, for
+/// instance in order to avoid artifacts along the edges of the room that occur
+/// due to rounding error, or else when the *falloff* feature is used that
+/// blends reflection probes into adjacent ones.
+///
 /// Place this component on an entity that has a [`LightProbe`] and
-/// [`EnvironmentMapLight`] component in order to opt out of parallax
+/// [`EnvironmentMapLight`] component in order to either (1) opt out of parallax
+/// correction via [`ParallaxCorrection::None`] or (2) specify custom parallax
+/// correction boundaries via [`ParallaxCorrection::Custom`]. If you don't
+/// manually place this component on a reflection probe, Bevy will automatically
+/// add a [`ParallaxCorrection::Auto`] component so that the boundaries of the
+/// light probe will coincide with the simulated boundaries used for parallax
 /// correction.
 ///
-/// See the `pccm` example for an example of usage.
+/// See the `pccm` example for an example of usage of parallax-corrected
+/// cubemaps and the `light_probe_blending` example for an example of use of
+/// custom parallax correction boundaries.
 #[derive(Clone, Copy, Default, Component, Reflect)]
 #[reflect(Clone, Default, Component)]
-pub struct NoParallaxCorrection;
+pub enum ParallaxCorrection {
+    /// No parallax correction is used.
+    ///
+    /// This component causes Bevy to render the reflection as though the
+    /// reflected surface were infinitely distant.
+    None,
+
+    /// The parallax correction boundaries correspond with the boundaries of the
+    /// light probe.
+    ///
+    /// This is the default value. Bevy automatically adds this component value
+    /// to reflection probes that don't have a [`ParallaxCorrection`] component.
+    /// It's equivalent to `ParallaxCorrection::Custom(Vec3::splat(0.5))`.
+    #[default]
+    Auto,
+
+    /// The parallax correction boundaries are specified manually.
+    ///
+    /// The simulated reflection boundaries are specified as an axis-aligned
+    /// cube *in light probe space* with the given *half* extents. Thus, for
+    /// example, if you set the parallax correction boundaries to `vec3(0.5,
+    /// 1.0, 2.0)` and the scale of the light probe is `vec3(3.0, 3.0, 3.0)`,
+    /// then the simulated boundaries of the reflected area used for parallax
+    /// correction will be centered on the reflection probe with a width of 3.0
+    /// m, a height of 6.0 m, and a depth of 12.0 m.
+    Custom(Vec3),
+}
+
+/// A system that automatically adds a [`ParallaxCorrection::Auto`] component to
+/// any reflection probe that doesn't already have a [`ParallaxCorrection`]
+/// component.
+///
+/// A reflection probe is any entity with both an [`EnvironmentMapLight`] and a
+/// [`LightProbe`] component.
+pub fn automatically_add_parallax_correction_components(
+    mut commands: Commands,
+    query: Query<
+        Entity,
+        (
+            With<EnvironmentMapLight>,
+            With<LightProbe>,
+            Without<ParallaxCorrection>,
+        ),
+    >,
+) {
+    for entity in &query {
+        commands
+            .entity(entity)
+            .insert(ParallaxCorrection::default());
+    }
+}

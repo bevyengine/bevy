@@ -8,11 +8,36 @@ use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
     camera::Hdr,
-    color::palettes::css::WHITE,
+    color::palettes::css::{CORNFLOWER_BLUE, CRIMSON, TAN, WHITE},
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll},
+    light::ParallaxCorrection,
     math::ops::{cos, sin},
     prelude::*,
 };
+
+use crate::widgets::{WidgetClickEvent, WidgetClickSender};
+
+#[path = "../helpers/widgets.rs"]
+mod widgets;
+
+/// The settings that the user has chosen.
+#[derive(Resource, Default)]
+struct AppStatus {
+    /// Whether the gizmos that show the boundaries of the light probe regions
+    /// are to be shown.
+    gizmos_enabled: GizmosEnabled,
+}
+
+/// Whether the gizmos that show the boundaries of the light probe regions are
+/// to be shown.
+#[derive(Clone, Copy, Default, PartialEq)]
+enum GizmosEnabled {
+    /// The gizmos are shown.
+    #[default]
+    On,
+    /// The gizmos are hidden.
+    Off,
+}
 
 /// A marker component for the reflective sphere.
 #[derive(Clone, Copy, Component, Debug)]
@@ -25,6 +50,9 @@ struct ReflectiveSphere;
 /// other side per second.
 const SPHERE_MOVEMENT_SPEED: f32 = 0.3;
 
+/// The side length of each room, in meters.
+const ROOM_SIDE_LENGTH: f32 = 10.0;
+
 /// The number of meters that separates the center of each room.
 const ROOM_SEPARATION: f32 = 11.0;
 
@@ -34,6 +62,17 @@ const LIGHT_PROBE_SIDE_LENGTH: f32 = 15.0;
 /// The distance over which the light probe fades out, expressed as a fraction
 /// of the side length of the probe.
 const LIGHT_PROBE_FALLOFF: f32 = 0.5;
+
+/// The side length of the simulated reflected area for each light probe,
+/// specified as a half-extent in light probe space.
+///
+/// We want this side length, in world space, to be half of the world-space room
+/// side length. Since the light probe is scaled by `LIGHT_PROBE_SIDE_LENGTH`,
+/// we divide the room side length by the light probe side length to get this
+/// value. That way, when Bevy applies the `LIGHT_PROBE_SIDE_LENGTH` scale, the
+/// light probe side length factor cancels, and we're left with a parallax
+/// correction side length of `ROOM_SIDE_LENGTH` in world space.
+const LIGHT_PROBE_PARALLAX_CORRECTION_SIDE_LENGTH: f32 = ROOM_SIDE_LENGTH / LIGHT_PROBE_SIDE_LENGTH;
 
 /// The number of radians of inclination (pitch) that one pixel of mouse
 /// movement corresponds to.
@@ -74,8 +113,17 @@ fn main() {
             }),
             ..default()
         }))
+        .init_resource::<AppStatus>()
+        .add_message::<WidgetClickEvent<GizmosEnabled>>()
         .add_systems(Startup, setup)
         .add_systems(Update, (move_sphere, orbit_camera).chain())
+        .add_systems(Update, widgets::handle_ui_interactions::<GizmosEnabled>)
+        .add_systems(
+            Update,
+            (handle_gizmos_enabled_change, update_radio_buttons)
+                .after(widgets::handle_ui_interactions::<GizmosEnabled>),
+        )
+        .add_systems(Update, draw_gizmos)
         .run();
 }
 
@@ -85,12 +133,26 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut gizmo_config_store: ResMut<GizmoConfigStore>,
 ) {
+    adjust_gizmo_settings(&mut gizmo_config_store);
+
     spawn_camera(&mut commands);
     spawn_gltf_scene(&mut commands, &asset_server);
     spawn_reflective_sphere(&mut commands, &mut meshes, &mut materials);
     spawn_light_probes(&mut commands, &asset_server);
+    spawn_buttons(&mut commands);
     spawn_help_text(&mut commands);
+}
+
+/// Adjusts the gizmo settings so that the gizmos appear on top of all other
+/// geometry.
+///
+/// If we didn't do this, then the rooms would cover up many of the gizmos.
+fn adjust_gizmo_settings(gizmo_config_store: &mut GizmoConfigStore) {
+    for (_, gizmo_config, _) in &mut gizmo_config_store.iter_mut() {
+        gizmo_config.depth_bias = -1.0;
+    }
 }
 
 /// Spawns the orbital pan/zoom camera.
@@ -161,6 +223,7 @@ fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
             ..default()
         },
         Transform::from_scale(Vec3::splat(LIGHT_PROBE_SIDE_LENGTH)),
+        ParallaxCorrection::Custom(Vec3::splat(LIGHT_PROBE_PARALLAX_CORRECTION_SIDE_LENGTH)),
     ));
 
     // Spawn the second room's light probe.
@@ -182,13 +245,34 @@ fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
             0.0,
             -ROOM_SEPARATION,
         )),
+        ParallaxCorrection::Custom(Vec3::splat(LIGHT_PROBE_PARALLAX_CORRECTION_SIDE_LENGTH)),
+    ));
+}
+
+/// Spawns the radio buttons at the bottom of the screen.
+fn spawn_buttons(commands: &mut Commands) {
+    commands.spawn((
+        widgets::main_ui_node(),
+        children![widgets::option_buttons(
+            "Gizmos",
+            &[(GizmosEnabled::On, "On"), (GizmosEnabled::Off, "Off"),]
+        )],
     ));
 }
 
 /// Spawns the help text at the top of the screen.
 fn spawn_help_text(commands: &mut Commands) {
     commands.spawn((
-        Text::new("Click and drag to orbit the camera\nUse the mouse wheel to zoom"),
+        Text::new(
+            "\
+Click and drag to orbit the camera
+Use the mouse wheel to zoom
+
+Gizmos:
+Tan: Light probe bounds
+Red: Light probe falloff bounds
+Blue: Parallax correction bounds",
+        ),
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
@@ -256,5 +340,77 @@ fn orbit_camera(
         *camera_transform =
             Transform::from_translation(new_translation + sphere_transform.translation)
                 .looking_at(sphere_transform.translation, Vec3::Y);
+    }
+}
+
+/// A system that toggles gizmos on or off when the user clicks on one of the
+/// radio buttons.
+fn handle_gizmos_enabled_change(
+    mut app_status: ResMut<AppStatus>,
+    mut messages: MessageReader<WidgetClickEvent<GizmosEnabled>>,
+) {
+    for message in messages.read() {
+        app_status.gizmos_enabled = **message;
+    }
+}
+
+/// A system that updates the radio buttons at the bottom of the screen to
+/// reflect whether gizmos are enabled or not.
+fn update_radio_buttons(
+    mut widgets_query: Query<(
+        Entity,
+        Option<&mut BackgroundColor>,
+        Has<Text>,
+        &WidgetClickSender<GizmosEnabled>,
+    )>,
+    app_status: Res<AppStatus>,
+    mut text_ui_writer: TextUiWriter,
+) {
+    for (entity, maybe_bg_color, has_text, sender) in &mut widgets_query {
+        let selected = app_status.gizmos_enabled == **sender;
+        if let Some(mut bg_color) = maybe_bg_color {
+            widgets::update_ui_radio_button(&mut bg_color, selected);
+        }
+        if has_text {
+            widgets::update_ui_radio_button_text(entity, &mut text_ui_writer, selected);
+        }
+    }
+}
+
+/// Draws gizmos that show the boundaries of the various boxes associated with
+/// the light probes in the scene.
+fn draw_gizmos(
+    light_probes: Query<(&LightProbe, &ParallaxCorrection, &Transform)>,
+    app_status: Res<AppStatus>,
+    mut gizmos: Gizmos,
+) {
+    // If the user has gizmos disabled, bail.
+    if matches!(app_status.gizmos_enabled, GizmosEnabled::Off) {
+        return;
+    }
+
+    for (light_probe, parallax_correction, transform) in &light_probes {
+        // Draw light probe bounds.
+        gizmos.cube(*transform, TAN);
+
+        // Draw light probe falloff.
+        gizmos.cube(
+            Transform {
+                scale: transform.scale * (Vec3::ONE - light_probe.falloff),
+                ..*transform
+            },
+            CRIMSON,
+        );
+
+        // Draw light probe parallax correction bounds.
+        if let ParallaxCorrection::Custom(parallax_correction_bounds) = *parallax_correction {
+            gizmos.cube(
+                Transform {
+                    scale: transform.scale * parallax_correction_bounds,
+                    ..*transform
+                },
+                CORNFLOWER_BLUE,
+            );
+        }
     }
 }
