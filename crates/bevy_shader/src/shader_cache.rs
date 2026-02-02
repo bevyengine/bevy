@@ -10,8 +10,8 @@ use wgpu_types::{DownlevelFlags, Features};
 
 /// Fully composed source code of a shader module, with all shader defs applied.
 ///
-/// This is roughly equivalent to `wgpu::ShaderSource`, but with less variants
-/// and more concrete types instead of `Cow`.
+/// This is roughly equivalent to [`wgpu::ShaderSource`](https://docs.rs/wgpu/latest/wgpu/enum.ShaderSource.html),
+/// but with less variants and more concrete types instead of [`Cow`](alloc::borrow::Cow).
 ///
 /// This source will be parsed and validated by the renderer.
 ///
@@ -35,8 +35,8 @@ pub enum ShaderCacheSource<'a> {
     Naga(naga::Module),
 }
 
-/// An id of a pipeline, typically in the `bevy_render::PipelineCache`
-/// Typically corresponds to a unique combination of `Shader` and `ShaderDefVal`s.
+/// An id of a pipeline, typically in the [`PipelineCache`](https://docs.rs/bevy/latest/bevy/render/render_resource/struct.PipelineCache.html)
+/// Typically corresponds to a unique combination of [`Shader`] and [`ShaderDefVal`]s.
 pub type CachedPipelineId = usize;
 
 struct ShaderData<ShaderModule> {
@@ -408,6 +408,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
     }
 }
 
+/// A Wesl import resolver. Maps module paths to actual Wesl shader source.
 #[cfg(feature = "shader_format_wesl")]
 pub struct ShaderResolver<'a> {
     module_path_to_asset_id: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
@@ -416,6 +417,9 @@ pub struct ShaderResolver<'a> {
 
 #[cfg(feature = "shader_format_wesl")]
 impl<'a> ShaderResolver<'a> {
+    /// Creates a shader resolver with the given map of module paths to shader asset ids,
+    /// and map of shader asset ids to shader source. This resolver is not meant to be
+    /// long living.
     pub fn new(
         module_path_to_asset_id: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
         shaders: &'a HashMap<AssetId<Shader>, Shader>,
