@@ -12,7 +12,7 @@
 //! - The user's login name for a network game (but not password!)
 //! - "Do not show this dialog again" checkbox settings.
 //!
-//! Preferences are _NOT_ the same thing saved games, assets, or platform config files.
+//! Preferences are _NOT_ the same thing as saved games, assets, or platform config files.
 //!
 //! ## Supported Features
 //!
@@ -110,9 +110,9 @@
 //! app.insert_resource(preferences);
 //! ```
 //!
-//! ### Saving Preferences
+//! ### Setting Preferences
 //!
-//! To save preferences, you can use the `mut` versions of the preference methods:
+//! To add or modify preferences, you can use the `mut` versions of the preference methods:
 //!
 //! ```rust,ignore
 //! let mut app_prefs = preferences.get_mut("app").unwrap();
@@ -127,7 +127,9 @@
 //! - They will compare with the previous value, and mark the preference file as changed
 //!   if the new value is different.
 //!
-//! However, setting the value only changes the preferences setting in memory, it does not automatically
+//! ### Saving Preferences
+//!
+//! Setting the preference value only changes the preferences setting in memory, it does not automatically
 //! save the changes to disk. To trigger a save, you can issue a `SavePreferences` command:
 //!
 //! ```rust,ignore
@@ -164,7 +166,9 @@ mod autosave;
 
 pub use autosave::{AutosavePrefsPlugin, StartAutosaveTimer};
 
+#[cfg(not(target_arch = "wasm32"))]
 mod dirs;
+
 mod prefs;
 mod prefs_file;
 

@@ -12,6 +12,9 @@ pub(crate) fn serialize_table(table: &toml::Table) -> String {
 #[derive(Debug, Default)]
 pub struct PreferencesFile {
     pub(crate) table: toml::Table,
+    // Note: we're using atomic bool here because it's the simplest and cheapest way to get
+    // interior mutability, not because of thread safety. Because this data lives inside a resource
+    // it can't be accessed from multiple threads, so concurrency is not an issue.
     changed: AtomicBool,
 }
 
