@@ -204,7 +204,7 @@ pub enum SavePreferencesSync {
 
 impl Command for SavePreferencesSync {
     fn apply(self, world: &mut World) {
-        let prefs = world.get_resource::<Preferences>().unwrap();
+        let mut prefs = world.get_resource_mut::<Preferences>().unwrap();
         prefs.save(self == SavePreferencesSync::Always);
     }
 }
@@ -222,7 +222,7 @@ pub enum SavePreferences {
 
 impl Command for SavePreferences {
     fn apply(self, world: &mut World) {
-        let prefs = world.get_resource::<Preferences>().unwrap();
+        let mut prefs = world.get_resource_mut::<Preferences>().unwrap();
         prefs.save_async(self == SavePreferences::Always);
     }
 }

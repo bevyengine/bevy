@@ -1,7 +1,10 @@
 use super::windows::Win32::UI::Shell;
+use std::path::PathBuf;
 
 // From https://github.com/dirs-dev/dirs-sys-rs/blob/main/src/lib.rs
 fn known_folder(folder_id: windows::core::GUID) -> Option<PathBuf> {
+    // SAFETY: SHGetKnownFolderPath allocates path_ptr which must be freed with CoTaskMemFree.
+    // The returned wide string is valid for the specified length.
     unsafe {
         let mut path_ptr: windows::core::PWSTR = std::ptr::null_mut();
         let result =

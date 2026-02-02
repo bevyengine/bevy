@@ -1,4 +1,3 @@
-use core::sync::atomic::AtomicBool;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Save a preferences file to disk in TOML format.
@@ -15,7 +14,7 @@ pub struct PreferencesFile {
     // Note: we're using atomic bool here because it's the simplest and cheapest way to get
     // interior mutability, not because of thread safety. Because this data lives inside a resource
     // it can't be accessed from multiple threads, so concurrency is not an issue.
-    changed: AtomicBool,
+    changed: bool,
 }
 
 impl PreferencesFile {
@@ -28,7 +27,7 @@ impl PreferencesFile {
     pub(crate) fn from_table(table: toml::Table) -> Self {
         Self {
             table,
-            changed: AtomicBool::new(false),
+            changed: false,
         }
     }
 
@@ -54,20 +53,18 @@ impl PreferencesFile {
     }
 
     /// Mark the preferences group as changed.
-    pub fn set_changed(&self) {
-        self.changed
-            .store(true, core::sync::atomic::Ordering::Relaxed);
+    pub fn set_changed(&mut self) {
+        self.changed = true;
     }
 
     /// Clear the changed flag for the preferences group.
-    pub fn clear_changed(&self) {
-        self.changed
-            .store(false, core::sync::atomic::Ordering::Relaxed);
+    pub fn clear_changed(&mut self) {
+        self.changed = false;
     }
 
     /// Check if the preferences group has been changed.
     pub fn is_changed(&self) -> bool {
-        self.changed.load(core::sync::atomic::Ordering::Relaxed)
+        self.changed
     }
 
     /// Return a cloned copy of the content, for async saving.
@@ -88,7 +85,7 @@ pub struct PreferencesGroup<'a> {
 /// Represents a logical section in the TOML file (mutable version).
 pub struct PreferencesGroupMut<'a> {
     table: &'a mut toml::Table,
-    changed: &'a AtomicBool,
+    changed: &'a mut bool,
 }
 
 impl PreferencesGroup<'_> {
@@ -116,8 +113,7 @@ impl PreferencesGroupMut<'_> {
     /// Delete a key from the preferences group.
     pub fn remove(&mut self, key: &str) {
         if self.table.remove(key).is_some() {
-            self.changed
-                .store(true, core::sync::atomic::Ordering::Relaxed);
+            *self.changed = true;
         }
     }
 
@@ -135,8 +131,7 @@ impl PreferencesGroupMut<'_> {
     pub fn set<S: Serialize>(&mut self, key: &str, value: S) {
         let value = toml::Value::try_from(value).unwrap();
         self.table.insert(key.to_owned(), value);
-        self.changed
-            .store(true, core::sync::atomic::Ordering::Relaxed);
+        *self.changed = true;
     }
 
     /// Convert `value` into a TOML value. If it is different than the current value, set the key
@@ -147,8 +142,7 @@ impl PreferencesGroupMut<'_> {
             Some(v) if v == &value => (),
             _ => {
                 self.table.insert(key.to_owned(), value);
-                self.changed
-                    .store(true, core::sync::atomic::Ordering::Relaxed);
+                *self.changed = true;
             }
         }
     }
@@ -166,8 +160,7 @@ impl PreferencesGroupMut<'_> {
     /// does not exist.
     pub fn get_group_mut<'a>(&'a mut self, key: &str) -> Option<PreferencesGroupMut<'a>> {
         let entry = self.table.entry(key.to_owned()).or_insert_with(|| {
-            self.changed
-                .store(true, core::sync::atomic::Ordering::Relaxed);
+            *self.changed = true;
             toml::Value::Table(toml::Table::new())
         });
         entry.as_table_mut().map(|table| PreferencesGroupMut {
@@ -329,144 +322,144 @@ mod tests {
     #[test]
     fn test_preferences_group_mut_set_bool() {
         let mut table = toml::Table::new();
-        let changed = AtomicBool::new(false);
+        let mut changed = false;
         let mut group = PreferencesGroupMut {
             table: &mut table,
-            changed: &changed,
+            changed: &mut changed,
         };
         group.set("key", true);
         assert!(group.get::<bool>("key").unwrap());
-        assert!(changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(*group.changed);
 
-        changed.store(false, core::sync::atomic::Ordering::Relaxed);
+        *group.changed = false;
         group.set_if_changed("key", true);
         assert!(group.get::<bool>("key").unwrap());
-        assert!(!changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(!changed);
     }
 
     #[test]
     fn test_preferences_group_mut_set_string() {
         let mut table = toml::Table::new();
-        let changed = AtomicBool::new(false);
+        let mut changed = false;
         let mut group = PreferencesGroupMut {
             table: &mut table,
-            changed: &changed,
+            changed: &mut changed,
         };
         group.set("key", "value");
         assert_eq!(group.get::<String>("key").unwrap(), "value");
-        assert!(changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(changed);
     }
 
     #[test]
     fn test_preferences_group_mut_set_integer() {
         let mut table = toml::Table::new();
-        let changed = AtomicBool::new(false);
+        let mut changed = false;
         let mut group = PreferencesGroupMut {
             table: &mut table,
-            changed: &changed,
+            changed: &mut changed,
         };
         group.set("key", 42);
         assert_eq!(group.get::<i32>("key").unwrap(), 42);
-        assert!(changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(changed);
     }
 
     #[test]
     fn test_preferences_group_mut_set_float() {
         let mut table = toml::Table::new();
-        let changed = AtomicBool::new(false);
+        let mut changed = false;
         let mut group = PreferencesGroupMut {
             table: &mut table,
-            changed: &changed,
+            changed: &mut changed,
         };
         group.set("key", 3.1);
         assert_eq!(group.get::<f64>("key").unwrap(), 3.1);
-        assert!(changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(changed);
     }
 
     #[test]
     fn test_preferences_group_mut_set_ivec2() {
         let mut table = toml::Table::new();
-        let changed = AtomicBool::new(false);
+        let mut changed = false;
         let mut group = PreferencesGroupMut {
             table: &mut table,
-            changed: &changed,
+            changed: &mut changed,
         };
         group.set("key", IVec2::new(1, 2));
         assert_eq!(group.get::<IVec2>("key").unwrap(), IVec2::new(1, 2));
-        assert!(changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(changed);
     }
 
     #[test]
     fn test_preferences_group_mut_set_uvec2() {
         let mut table = toml::Table::new();
-        let changed = AtomicBool::new(false);
+        let mut changed = false;
         let mut group = PreferencesGroupMut {
             table: &mut table,
-            changed: &changed,
+            changed: &mut changed,
         };
         group.set::<UVec2>("key", UVec2::new(1, 2));
         assert_eq!(group.get::<UVec2>("key").unwrap(), UVec2::new(1, 2));
-        assert!(changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(changed);
     }
 
     #[test]
     fn test_preferences_group_mut_set_vec2() {
         let mut table = toml::Table::new();
-        let changed = AtomicBool::new(false);
+        let mut changed = false;
         let mut group = PreferencesGroupMut {
             table: &mut table,
-            changed: &changed,
+            changed: &mut changed,
         };
         group.set("key", Vec2::new(1.0, 2.0));
         assert_eq!(group.get::<Vec2>("key").unwrap(), Vec2::new(1.0, 2.0));
-        assert!(changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(changed);
     }
 
     #[test]
     fn test_preferences_group_mut_set_ivec3() {
         let mut table = toml::Table::new();
-        let changed = AtomicBool::new(false);
+        let mut changed = false;
         let mut group = PreferencesGroupMut {
             table: &mut table,
-            changed: &changed,
+            changed: &mut changed,
         };
         group.set("key", IVec3::new(1, 2, 3));
         assert_eq!(group.get::<IVec3>("key").unwrap(), IVec3::new(1, 2, 3));
-        assert!(changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(changed);
     }
 
     #[test]
     fn test_preferences_group_mut_set_uvec3() {
         let mut table = toml::Table::new();
-        let changed = AtomicBool::new(false);
+        let mut changed = false;
         let mut group = PreferencesGroupMut {
             table: &mut table,
-            changed: &changed,
+            changed: &mut changed,
         };
         group.set("key", UVec3::new(1, 2, 3));
         assert_eq!(group.get::<UVec3>("key").unwrap(), UVec3::new(1, 2, 3));
-        assert!(changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(changed);
     }
 
     #[test]
     fn test_preferences_group_mut_set_vec3() {
         let mut table = toml::Table::new();
-        let changed = AtomicBool::new(false);
+        let mut changed = false;
         let mut group = PreferencesGroupMut {
             table: &mut table,
-            changed: &changed,
+            changed: &mut changed,
         };
         group.set("key", Vec3::new(1.0, 2.0, 3.0));
         assert_eq!(group.get::<Vec3>("key").unwrap(), Vec3::new(1.0, 2.0, 3.0));
-        assert!(changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(*group.changed);
 
-        changed.store(false, core::sync::atomic::Ordering::Relaxed);
+        *group.changed = false;
         group.set_if_changed("key", Vec3::new(1.0, 2.0, 3.0));
         assert_eq!(group.get::<Vec3>("key").unwrap(), Vec3::new(1.0, 2.0, 3.0));
-        assert!(!changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(!*group.changed);
 
         group.set_if_changed("key", Vec3::new(3.0, 2.0, 1.0));
         assert_eq!(group.get::<Vec3>("key").unwrap(), Vec3::new(3.0, 2.0, 1.0));
-        assert!(changed.load(core::sync::atomic::Ordering::Relaxed));
+        assert!(changed);
     }
 }

@@ -76,8 +76,8 @@ impl Preferences {
     ///
     /// # Arguments
     /// * `force` - If true, all preferences will be saved, even if they have not changed.
-    pub fn save(&self, force: bool) {
-        for (filename, file) in self.files.iter() {
+    pub fn save(&mut self, force: bool) {
+        for (filename, file) in self.files.iter_mut() {
             if file.is_changed() || force {
                 file.clear_changed();
                 self.store.save(filename, file);
@@ -89,8 +89,8 @@ impl Preferences {
     ///
     /// # Arguments
     /// * `force` - If true, all preferences will be saved, even if they have not changed.
-    pub fn save_async(&self, force: bool) {
-        for (filename, file) in self.files.iter() {
+    pub fn save_async(&mut self, force: bool) {
+        for (filename, file) in self.files.iter_mut() {
             if file.is_changed() || force {
                 file.clear_changed();
                 self.store.save_async(filename, file.content());
