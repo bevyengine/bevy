@@ -795,7 +795,7 @@ impl EntityAllocator {
     /// See [`AllocEntitiesIterator`] docs for more.
     pub fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
         let current_len = self.free_len.fetch_sub(count as usize, Ordering::Relaxed);
-        let current_len = if current_len < self.free.len() {
+        let current_len = if current_len <= self.free.len() {
             current_len
         } else {
             0
@@ -1551,5 +1551,35 @@ mod tests {
         entities.sort();
         entities.dedup();
         assert_eq!(pre_len, entities.len());
+    }
+
+    #[test]
+    fn alloc_many_reuses_freed_entities() {
+        let mut allocator = EntityAllocator::default();
+
+        // Allocate 5 entities
+        let first_batch: Vec<_> = allocator.alloc_many(5).collect();
+        assert_eq!(first_batch.len(), 5);
+
+        // Record the indices
+        let first_indices: Vec<_> = first_batch.iter().map(|e| e.index_u32()).collect();
+
+        // Free all entities
+        for e in &first_batch {
+            allocator.free(*e);
+        }
+
+        // Allocate 5 entities again - this should reuse all freed indices
+        let second_batch: Vec<_> = allocator.alloc_many(5).collect();
+        assert_eq!(second_batch.len(), 5);
+
+        // Compute intersection between the two batches
+        let intersection = first_indices
+            .iter()
+            .filter(|idx| second_batch.iter().any(|e| e.index_u32() == **idx))
+            .count();
+
+        // All 5 indices should be reused
+        assert_eq!(intersection, 5);
     }
 }
