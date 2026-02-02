@@ -1,4 +1,34 @@
 //! Module for the drawing of [`Frustum`]s.
+//!
+//! Camera entities are spawned with a [`Frustum`] component,
+//! which describes a camera's field of vision. With this module,
+//! a camera's frustum can be drawn with gizmos. This is useful
+//! for debugging what a camera can see and what entities in the scene
+//! will be subject to the camera's frustum culling, especially when
+//! combined with drawing [`Aabb`](bevy_camera::primitives::Aabb)
+//! [`gizmos`](crate::aabb).
+//!
+//! There are two ways to enable gizmo drawing of a [`Frustum`]:
+//! 1) The [`ShowFrustumGizmo`] component can be added to individual camera
+//!    entities.
+//! ```rust
+//! # use bevy_gizmos::frustum::ShowFrustumGizmo;
+//! # use bevy_camera::Camera2d;
+//! # use bevy_ecs::system::Commands;
+//! fn setup(mut commands: Commands) {
+//!     commands.spawn((Camera2d, ShowFrustumGizmo::default()));
+//! }
+//! ```
+//! 2) Setting the [`FrustumGizmoConfigGroup`] configuration's `draw_all`
+//!    field to `true` will draw every frustum. Note that this will include
+//!    drawing `bevy_light` `SpotLight` [`Frustum`]s.
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_gizmos::prelude::*;
+//! fn turn_on_frustum_gizmos(mut config: ResMut<GizmoConfigStore>) {
+//!    config.config_mut::<FrustumGizmoConfigGroup>().1.draw_all = true;
+//! }
+//! ```
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_camera::{primitives::Frustum, visibility::VisibilitySystems};
