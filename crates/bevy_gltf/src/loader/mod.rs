@@ -56,9 +56,8 @@ use tracing::{error, info_span, warn};
 
 use crate::{
     convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
-    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
-    GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
-    GltfSkinnedMeshBoundsPolicy,
+    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
+    GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin, GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -675,7 +674,6 @@ impl GltfLoader {
                     &texture_handles,
                     false,
                     load_context.path().clone(),
-                    load_context,
                 );
                 let handle = load_context.add_labeled_asset(label.clone(), gltf_material.clone());
 
@@ -685,7 +683,13 @@ impl GltfLoader {
 
                 // let extensions handle material data
                 for extension in extensions.iter_mut() {
-                    extension.on_material(load_context, &material, handle.clone(), &gltf_material, &label.clone());
+                    extension.on_material(
+                        load_context,
+                        &material,
+                        handle.clone(),
+                        &gltf_material,
+                        &label.clone(),
+                    );
                 }
 
                 materials.push(handle);
@@ -1208,7 +1212,6 @@ fn load_material(
     textures: &[Handle<Image>],
     is_scale_inverted: bool,
     asset_path: AssetPath<'_>,
-    _load_context: &mut LoadContext,
 ) -> (String, GltfMaterial) {
     let pbr = material.pbr_metallic_roughness();
 
@@ -1449,9 +1452,10 @@ fn load_material(
         specular_tint_texture: specular.specular_color_texture,
     };
 
-    let mat_label = material_label(material, is_scale_inverted);
-
-    (mat_label.to_string(), gltf_material)
+    (
+        material_label(material, is_scale_inverted).to_string(),
+        gltf_material,
+    )
 }
 
 /// Loads a glTF node.
@@ -1593,7 +1597,6 @@ fn load_node(
                         textures,
                         is_scale_inverted,
                         load_context.path().clone(),
-                        load_context,
                     );
                     // TODO: maybe move this into `load_material` ?
                     load_context.add_labeled_asset(label, material);
@@ -2466,8 +2469,6 @@ mod test {
         assert_eq!(skinned_node.children.len(), 2);
         assert_eq!(skinned_node.skin.as_ref(), Some(&gltf_root.skins[0]));
     }
-
-    // TODO: add a test for translator
 
     fn test_app_custom_asset_source() -> (App, Dir) {
         let dir = Dir::default();

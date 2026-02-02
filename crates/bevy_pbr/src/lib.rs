@@ -58,16 +58,14 @@ use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
 use bevy_asset::LoadContext;
-use bevy_gltf::{GltfAssetLabel, GltfMaterial, gltf};
+use bevy_gltf::{gltf, GltfMaterial};
 use bevy_light::{
     AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SimulationLightSystems,
     SpotLight,
 };
-use bevy_platform::sync::Arc;
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use components::*;
-use core::{error::Error, fmt};
 pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
 pub use fog::*;
@@ -83,7 +81,6 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-use tracing::warn;
 pub use transmission::*;
 pub use volumetric_fog::VolumetricFogPlugin;
 
@@ -147,6 +144,8 @@ pub struct PbrPlugin {
     pub use_gpu_instance_buffer_builder: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
+    /// Renders GLTFs with PBR.
+    pub gltf_render_enabled: bool,
 }
 
 impl Default for PbrPlugin {
@@ -156,6 +155,7 @@ impl Default for PbrPlugin {
             add_default_deferred_lighting_plugin: true,
             use_gpu_instance_buffer_builder: true,
             debug_flags: RenderDebugFlags::default(),
+            gltf_render_enabled: true,
         }
     }
 }
@@ -166,17 +166,6 @@ pub struct Bluenoise {
     /// Texture handle for spatio-temporal blue noise
     pub texture: Handle<Image>,
 }
-
-#[derive(Debug)]
-struct PbrGltfError;
-
-impl fmt::Display for PbrGltfError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "unable to convert gltf to pbr")
-    }
-}
-
-impl Error for PbrGltfError {}
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
@@ -248,21 +237,23 @@ impl Plugin for PbrPlugin {
                     .chain(),
             );
 
-        #[cfg(target_family = "wasm")]
-        bevy::tasks::block_on(async {
+        if self.gltf_render_enabled {
+            #[cfg(target_family = "wasm")]
+            bevy::tasks::block_on(async {
+                app.world_mut()
+                    .resource_mut::<GltfExtensionHandlers>()
+                    .0
+                    .write()
+                    .await
+                    .push(Box::new(GltfExtensionHandlerToMesh3d))
+            });
+            #[cfg(not(target_family = "wasm"))]
             app.world_mut()
                 .resource_mut::<GltfExtensionHandlers>()
                 .0
-                .write()
-                .await
-                .push(Box::new(GltfExtensionHandlerToMesh3d))
-        });
-        #[cfg(not(target_family = "wasm"))]
-        app.world_mut()
-            .resource_mut::<GltfExtensionHandlers>()
-            .0
-            .write_blocking()
-            .push(Box::new(GltfExtensionHandlerToMesh3d));
+                .write_blocking()
+                .push(Box::new(GltfExtensionHandlerToMesh3d));
+        }
 
         if self.add_default_deferred_lighting_plugin {
             app.add_plugins(DeferredPbrLightingPlugin);
@@ -456,8 +447,8 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh3d {
     fn on_material(
         &mut self,
         load_context: &mut LoadContext<'_>,
-        gltf_material: &gltf::Material,
-        material: Handle<GltfMaterial>,
+        _gltf_material: &gltf::Material,
+        _material: Handle<GltfMaterial>,
         material2: &GltfMaterial,
         label: &String,
     ) {
@@ -465,7 +456,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh3d {
 
         let std_label = format!("{:?}#std", label);
 
-        let t = load_context.labeled_asset_scope::<_, ()>(std_label, |_load_context| {
+        let _t = load_context.labeled_asset_scope::<_, ()>(std_label, |_load_context| {
             Ok(standard_material_from_gltf_material(material2))
         });
     }
@@ -482,10 +473,9 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh3d {
         if let Some(mesh3d) = entity.get::<Mesh3d>() {
             // let material_handle =
             //     load_context.add_labeled_asset("AColorMaterial".to_string(), CustomMaterial {});
-            let mesh_handle = mesh3d.0.clone();
+            let _mesh_handle = mesh3d.0.clone();
             // entity
             //     .insert((Mesh3d(mesh_handle), MeshMaterial3d<StandardMaterial>(material_handle.clone())));
-
 
             let std_label = format!("{:?}#std", label);
             let handle = load_context.get_label_handle::<StandardMaterial>(std_label);

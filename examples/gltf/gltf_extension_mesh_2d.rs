@@ -1,15 +1,7 @@
 //! Uses glTF extension processing to convert incoming 3d Meshes to 2d Meshes
 
 use bevy::{
-    asset::LoadContext,
-    gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers},
-    gltf::GltfPlugin,
-    mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
-    prelude::*,
-    reflect::TypePath,
-    render::render_resource::*,
-    shader::ShaderRef,
-    sprite_render::{Material2d, Material2dKey, Material2dPlugin},
+    asset::LoadContext, gltf::{GltfPlugin, extensions::{GltfExtensionHandler, GltfExtensionHandlers}}, mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef}, pbr::PbrPlugin, prelude::*, reflect::TypePath, render::render_resource::*, shader::ShaderRef, sprite_render::{Material2d, Material2dKey, Material2dPlugin}
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -24,6 +16,9 @@ const ATTRIBUTE_BARYCENTRIC: MeshVertexAttribute =
     MeshVertexAttribute::new("Barycentric", 2137464976, VertexFormat::Float32x3);
 
 fn main() {
+    let mut pbr = PbrPlugin::default();
+    pbr.gltf_render_enabled = false;
+    
     App::new()
         .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
@@ -38,6 +33,8 @@ fn main() {
                     // underscores: __BARYCENTRIC
                     // One is stripped to do the comparison here.
                     .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
+            ).set(
+                pbr
             ),
             GltfToMesh2dPlugin,
         ))
@@ -95,15 +92,14 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
         _mesh: &gltf::Mesh,
         _material: &gltf::Material,
         entity: &mut EntityWorldMut,
+        _label: &String,
     ) {
-        if let Some(mesh3d) = entity.get::<Mesh3d>()
-            && let Some(_) = entity.get::<MeshMaterial3d<StandardMaterial>>()
-        {
+        if let Some(mesh3d) = entity.get::<Mesh3d>() {
             let material_handle =
                 load_context.add_labeled_asset("AColorMaterial".to_string(), CustomMaterial {});
             let mesh_handle = mesh3d.0.clone();
             entity
-                .remove::<(Mesh3d, MeshMaterial3d<StandardMaterial>)>()
+                .remove::<Mesh3d>()
                 .insert((Mesh2d(mesh_handle), MeshMaterial2d(material_handle.clone())));
         }
     }
