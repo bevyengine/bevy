@@ -22,7 +22,7 @@ use {
 };
 
 /// Where to find the serialized blend graph.
-static blend_graph_PATH: &str = "blend_graphs/Fox.blendgraph.ron";
+static BLEND_GRAPH_PATH: &str = "blend_graphs/Fox.blendgraph.ron";
 
 /// The indices of the nodes containing animation clips in the graph.
 static CLIP_NODE_INDICES: [u32; 3] = [2, 3, 4];
@@ -191,7 +191,7 @@ fn setup_assets_programmatically(
                         .expect("Failed to serialize the blend graph");
                 let mut blend_graph_writer = File::create(Path::join(
                     &FileAssetReader::get_base_path(),
-                    Path::join(Path::new("assets"), Path::new(blend_graph_PATH)),
+                    Path::join(Path::new("assets"), Path::new(BLEND_GRAPH_PATH)),
                 ))
                 .expect("Failed to open the blend graph asset");
                 blend_graph_writer
@@ -212,7 +212,7 @@ fn setup_assets_via_serialized_blend_graph(
     commands: &mut Commands,
     asset_server: &mut AssetServer,
 ) {
-    commands.insert_resource(ExampleBlendGraph(asset_server.load(blend_graph_PATH)));
+    commands.insert_resource(ExampleBlendGraph(asset_server.load(BLEND_GRAPH_PATH)));
 }
 
 /// Spawns the animated fox.
@@ -460,8 +460,7 @@ fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights
             }
 
             // Set the weight.
-            if let Some(active_animation) =
-                animation_player.animation_mut(blend_node_index.into())
+            if let Some(active_animation) = animation_player.animation_mut(blend_node_index.into())
             {
                 active_animation.set_weight(animation_weight);
             }

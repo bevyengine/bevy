@@ -184,8 +184,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
         let (graph, index) = BlendGraph::from_clip(self.clip.clone().unwrap());
         // Store the blend graph as an asset with an arbitrary label
         // We only have one graph, so this label will be unique
-        let graph_handle =
-            load_context.add_labeled_asset("MyBlendGraphLabel".to_string(), graph);
+        let graph_handle = load_context.add_labeled_asset("MyBlendGraphLabel".to_string(), graph);
 
         // Create a component that stores a reference to our animation
         let animation_to_play = AnimationToPlay {
