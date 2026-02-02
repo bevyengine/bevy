@@ -106,7 +106,7 @@ struct ExampleAssets {
     // The graph containing the animation that the fox will play.
     fox_blend_graph: Handle<BlendGraph>,
 
-    // The node within the animation graph containing the animation.
+    // The node within the blend graph containing the animation.
     fox_animation_node: AnimationNodeIndex,
 
     // The voxel cube mesh.

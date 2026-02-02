@@ -84,7 +84,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut graphs: ResMut<Assets<BlendGraph>>,
 ) {
-    // Build the animation graph
+    // Build the blend graph
     let (graph, index) = BlendGraph::from_clip(
         // We specifically want the "run" animation, which is the third one.
         asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),

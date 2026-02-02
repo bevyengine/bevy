@@ -68,7 +68,7 @@ fn play_animation_when_ready(
         // `animated_mesh_control.rs` example.
         player.play(animation_to_play.index).repeat();
 
-        // Add the animation graph. This only needs to be done once to
+        // Add the blend graph. This only needs to be done once to
         // connect the animation player to the mesh.
         commands
             .entity(child)
@@ -182,7 +182,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
     ) {
         // Create an BlendGraph from the desired clip
         let (graph, index) = BlendGraph::from_clip(self.clip.clone().unwrap());
-        // Store the animation graph as an asset with an arbitrary label
+        // Store the blend graph as an asset with an arbitrary label
         // We only have one graph, so this label will be unique
         let graph_handle =
             load_context.add_labeled_asset("MyBlendGraphLabel".to_string(), graph);

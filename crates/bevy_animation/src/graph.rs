@@ -1,4 +1,4 @@
-//! The animation graph, which allows animations to be blended together.
+//! The blend graph, which allows animations to be blended together.
 
 use core::{
     fmt::Write,
@@ -37,7 +37,7 @@ use crate::{AnimationClip, AnimationTargetId};
 ///
 /// Applications frequently want to be able to play multiple animations at once
 /// and to fine-tune the influence that animations have on a skinned mesh. Bevy
-/// uses an *animation graph* to store this information. Animation graphs are a
+/// uses an *blend graph* to store this information. Blend graphs are a
 /// directed acyclic graph (DAG) that describes how animations are to be
 /// weighted and combined together. Every frame, Bevy evaluates the graph from
 /// the root and blends the animations together in a bottom-up fashion to
@@ -81,7 +81,7 @@ use crate::{AnimationClip, AnimationTargetId};
 /// animation targets that the node and its descendants affect. Each bit in the
 /// mask corresponds to a *mask group*, which is a set of animation targets
 /// (bones). An animation target can belong to any number of mask groups within
-/// the context of an animation graph.
+/// the context of an blend graph.
 ///
 /// When the appropriate bit is set in a node's mask, neither the node nor its
 /// descendants will animate any animation targets belonging to that mask group.
@@ -99,10 +99,10 @@ use crate::{AnimationClip, AnimationTargetId};
 /// animations will continue to play but will not affect the hand, which will
 /// continue to be depicted as holding the object.
 ///
-/// Animation graphs are assets and can be serialized to and loaded from [RON]
+/// Blend graphs are assets and can be serialized to and loaded from [RON]
 /// files. Canonically, such files have an `.animgraph.ron` extension.
 ///
-/// The animation graph implements [RFC 51]. See that document for more
+/// The blend graph implements [RFC 51]. See that document for more
 /// information.
 ///
 /// [RON]: https://github.com/ron-rs/ron
@@ -114,7 +114,7 @@ pub struct BlendGraph {
     /// The `petgraph` data structure that defines the blend graph.
     pub graph: BlendDiGraph,
 
-    /// The index of the root node in the animation graph.
+    /// The index of the root node in the blend graph.
     pub root: NodeIndex,
 
     /// The mask groups that each animation target (bone) belongs to.
@@ -150,14 +150,14 @@ impl From<&BlendGraphHandle> for AssetId<BlendGraph> {
 /// graph.
 pub type BlendDiGraph = DiGraph<BlendGraphNode, (), u32>;
 
-/// The index of either an animation or blend node in the animation graph.
+/// The index of either an animation or blend node in the blend graph.
 ///
 /// These indices are the way that [animation players] identify each animation.
 ///
 /// [animation players]: crate::AnimationPlayer
 pub type AnimationNodeIndex = NodeIndex<u32>;
 
-/// An individual node within an animation graph.
+/// An individual node within an blend graph.
 ///
 /// The [`BlendGraphNode::node_type`] field specifies the type of node: one
 /// of a *clip node*, a *blend node*, or an *add node*. Clip nodes, the leaves
@@ -241,7 +241,7 @@ pub enum AnimationNodeType {
 #[derive(Default, TypePath)]
 pub struct BlendGraphAssetLoader;
 
-/// Errors that can occur when serializing animation graphs to RON.
+/// Errors that can occur when serializing blend graphs to RON.
 #[derive(Error, Debug)]
 pub enum BlendGraphSaveError {
     /// An I/O error occurred.
@@ -255,7 +255,7 @@ pub enum BlendGraphSaveError {
     ConvertToSerialized(#[from] NonPathHandleError),
 }
 
-/// Errors that can occur when deserializing animation graphs from RON.
+/// Errors that can occur when deserializing blend graphs from RON.
 #[derive(Error, Debug)]
 pub enum BlendGraphLoadError {
     /// An I/O error occurred.
@@ -277,7 +277,7 @@ pub enum BlendGraphLoadError {
     GraphContainsLegacyAssetId,
 }
 
-/// Acceleration structures for animation graphs that allows Bevy to evaluate
+/// Acceleration structures for blend graphs that allows Bevy to evaluate
 /// them quickly.
 ///
 /// These are kept up to date as [`BlendGraph`] instances are added,
@@ -374,7 +374,7 @@ pub struct ThreadedBlendGraph {
 /// is typically not sufficient to identify the clips, since the
 /// [`bevy_asset::AssetServer`] assigns IDs in unpredictable ways. That fact
 /// motivates this type, which replaces the `Handle<AnimationClip>` with an
-/// asset path.  Loading an animation graph via the [`bevy_asset::AssetServer`]
+/// asset path.  Loading an blend graph via the [`bevy_asset::AssetServer`]
 /// actually loads a serialized instance of this type, as does serializing an
 /// [`BlendGraph`] through `serde`.
 #[derive(Serialize, Deserialize)]
@@ -417,11 +417,11 @@ pub enum SerializedBlendNodeType {
 /// Bit N corresponds to mask group N.
 ///
 /// Because this is a 64-bit value, there is currently a limitation of 64 mask
-/// groups per animation graph.
+/// groups per blend graph.
 pub type AnimationMask = u64;
 
 impl BlendGraph {
-    /// Creates a new animation graph with a root node and no other nodes.
+    /// Creates a new blend graph with a root node and no other nodes.
     pub fn new() -> Self {
         let mut graph = DiGraph::default();
         let root = graph.add_node(BlendGraphNode::default());
@@ -460,7 +460,7 @@ impl BlendGraph {
         (graph, indices)
     }
 
-    /// Adds an [`AnimationClip`] to the animation graph with the given weight
+    /// Adds an [`AnimationClip`] to the blend graph with the given weight
     /// and returns its index.
     ///
     /// The animation clip will be the child of the given parent. The resulting
@@ -480,7 +480,7 @@ impl BlendGraph {
         node_index
     }
 
-    /// Adds an [`AnimationClip`] to the animation graph with the given weight
+    /// Adds an [`AnimationClip`] to the blend graph with the given weight
     /// and mask, and returns its index.
     ///
     /// The animation clip will be the child of the given parent.
@@ -522,7 +522,7 @@ impl BlendGraph {
             .map(move |clip| self.add_clip(clip, weight, parent))
     }
 
-    /// Adds a blend node to the animation graph with the given weight and
+    /// Adds a blend node to the blend graph with the given weight and
     /// returns its index.
     ///
     /// The blend node will be placed under the supplied `parent` node. During
@@ -539,7 +539,7 @@ impl BlendGraph {
         node_index
     }
 
-    /// Adds a blend node to the animation graph with the given weight and
+    /// Adds a blend node to the blend graph with the given weight and
     /// returns its index.
     ///
     /// The blend node will be placed under the supplied `parent` node. During
@@ -562,7 +562,7 @@ impl BlendGraph {
         node_index
     }
 
-    /// Adds a blend node to the animation graph with the given weight and
+    /// Adds a blend node to the blend graph with the given weight and
     /// returns its index.
     ///
     /// The blend node will be placed under the supplied `parent` node. During
@@ -583,7 +583,7 @@ impl BlendGraph {
         node_index
     }
 
-    /// Adds a blend node to the animation graph with the given weight and
+    /// Adds a blend node to the blend graph with the given weight and
     /// returns its index.
     ///
     /// The blend node will be placed under the supplied `parent` node. During
@@ -646,7 +646,7 @@ impl BlendGraph {
         self.graph.node_indices()
     }
 
-    /// Serializes the animation graph to the given [`Write`]r in RON format.
+    /// Serializes the blend graph to the given [`Write`]r in RON format.
     ///
     /// If writing to a file, it can later be loaded with the
     /// [`BlendGraphAssetLoader`] to reconstruct the graph.
@@ -856,7 +856,7 @@ pub(crate) fn thread_blend_graphs(
             AssetEvent::Added { id }
             | AssetEvent::Modified { id }
             | AssetEvent::LoadedWithDependencies { id } => {
-                // Fetch the animation graph.
+                // Fetch the blend graph.
                 let Some(blend_graph) = blend_graphs.get(id) else {
                     continue;
                 };

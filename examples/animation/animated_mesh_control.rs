@@ -33,14 +33,14 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut graphs: ResMut<Assets<BlendGraph>>,
 ) {
-    // Build the animation graph
+    // Build the blend graph
     let (graph, node_indices) = BlendGraph::from_clips([
         asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
         asset_server.load(GltfAssetLabel::Animation(1).from_asset(FOX_PATH)),
         asset_server.load(GltfAssetLabel::Animation(0).from_asset(FOX_PATH)),
     ]);
 
-    // Keep our animation graph in a Resource so that it can be inserted onto
+    // Keep our blend graph in a Resource so that it can be inserted onto
     // the correct entity once the scene actually loads.
     let graph_handle = graphs.add(graph);
     commands.insert_resource(Animations {

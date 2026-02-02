@@ -1,6 +1,6 @@
-//! Demonstrates animation blending with animation graphs.
+//! Demonstrates animation blending with blend graphs.
 //!
-//! The animation graph is shown on screen. You can change the weights of the
+//! The blend graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
 use bevy::{
@@ -21,7 +21,7 @@ use {
     std::{fs::File, path::Path},
 };
 
-/// Where to find the serialized animation graph.
+/// Where to find the serialized blend graph.
 static blend_graph_PATH: &str = "blend_graphs/Fox.animgraph.ron";
 
 /// The indices of the nodes containing animation clips in the graph.
@@ -76,7 +76,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Bevy Animation Graph Example".into(),
+                title: "Bevy Blend Graph Example".into(),
                 ..default()
             }),
             ..default()
@@ -96,10 +96,10 @@ fn main() {
         .run();
 }
 
-/// Demonstrates animation blending with animation graphs
+/// Demonstrates animation blending with blend graphs
 #[derive(FromArgs, Resource)]
 struct Args {
-    /// disables loading of the animation graph asset from disk
+    /// disables loading of the blend graph asset from disk
     #[argh(switch)]
     no_load: bool,
     /// regenerates the asset file; implies `--no-load`
@@ -145,7 +145,7 @@ fn setup_ui(mut commands: Commands) {
     setup_node_lines(&mut commands);
 }
 
-/// Creates the assets programmatically, including the animation graph.
+/// Creates the assets programmatically, including the blend graph.
 /// Optionally saves them to disk if `save` is present (corresponding to the
 /// `--save` option).
 fn setup_assets_programmatically(
@@ -184,19 +184,19 @@ fn setup_assets_programmatically(
 
                 let blend_graph: SerializedBlendGraph = blend_graph
                     .try_into()
-                    .expect("The animation graph failed to convert to its serialized form");
+                    .expect("The blend graph failed to convert to its serialized form");
 
                 let serialized_graph =
                     ron::ser::to_string_pretty(&blend_graph, PrettyConfig::default())
-                        .expect("Failed to serialize the animation graph");
+                        .expect("Failed to serialize the blend graph");
                 let mut blend_graph_writer = File::create(Path::join(
                     &FileAssetReader::get_base_path(),
                     Path::join(Path::new("assets"), Path::new(blend_graph_PATH)),
                 ))
-                .expect("Failed to open the animation graph asset");
+                .expect("Failed to open the blend graph asset");
                 blend_graph_writer
                     .write_all(serialized_graph.as_bytes())
-                    .expect("Failed to write the animation graph");
+                    .expect("Failed to write the blend graph");
             })
             .detach();
     }
@@ -373,7 +373,7 @@ fn setup_node_lines(commands: &mut Commands) {
     }
 }
 
-/// Attaches the animation graph to the scene, and plays all three animations.
+/// Attaches the blend graph to the scene, and plays all three animations.
 fn init_animations(
     mut commands: Commands,
     mut query: Query<(Entity, &mut AnimationPlayer)>,

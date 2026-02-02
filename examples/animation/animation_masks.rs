@@ -335,7 +335,7 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
     )
 }
 
-// Builds up the animation graph, including the mask groups, and adds it to the
+// Builds up the blend graph, including the mask groups, and adds it to the
 // entity with the `AnimationPlayer` that the glTF loader created.
 fn setup_blend_graph_once_loaded(
     mut commands: Commands,
@@ -379,7 +379,7 @@ fn setup_blend_graph_once_loaded(
             }
         }
 
-        // We're doing constructing the animation graph. Add it as an asset.
+        // We're doing constructing the blend graph. Add it as an asset.
         let blend_graph = blend_graphs.add(blend_graph);
         commands
             .entity(entity)
@@ -432,7 +432,7 @@ fn handle_button_toggles(
         // Now grab the animation player. (There's only one in our case, but we
         // iterate just for clarity's sake.)
         for blend_graph_handle in animation_players.iter_mut() {
-            // The animation graph needs to have loaded.
+            // The blend graph needs to have loaded.
             let Some(blend_graph) = blend_graphs.get_mut(blend_graph_handle) else {
                 continue;
             };

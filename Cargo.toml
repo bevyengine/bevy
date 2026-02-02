@@ -1715,7 +1715,7 @@ path = "examples/animation/blend_graph.rs"
 doc-scrape-examples = false
 
 [package.metadata.example.blend_graph]
-name = "Animation Graph"
+name = "Blend Graph"
 description = "Blends multiple animations together with a graph"
 category = "Animation"
 wasm = true

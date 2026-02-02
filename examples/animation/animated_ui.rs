@@ -12,7 +12,7 @@ struct AnimationInfo {
     target_name: Name,
     // The ID of the animation target, derived from the name.
     target_id: AnimationTargetId,
-    // The animation graph asset.
+    // The blend graph asset.
     graph: Handle<BlendGraph>,
     // The index of the node within that graph.
     node_index: AnimationNodeIndex,
@@ -81,7 +81,7 @@ impl AnimationInfo {
         // Save our animation clip as an asset.
         let animation_clip_handle = animation_clips.add(animation_clip);
 
-        // Create an animation graph with that clip.
+        // Create an blend graph with that clip.
         let (blend_graph, animation_node_index) = BlendGraph::from_clip(animation_clip_handle);
         let blend_graph_handle = blend_graphs.add(blend_graph);
 

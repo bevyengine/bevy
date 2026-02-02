@@ -40,7 +40,7 @@ fn setup_mesh_and_animation(
         asset_server.load(GltfAssetLabel::Animation(2).from_asset(GLTF_PATH)),
     );
 
-    // Store the animation graph as an asset.
+    // Store the blend graph as an asset.
     let graph_handle = graphs.add(graph);
 
     // Create a component that stores a reference to our animation.
@@ -84,7 +84,7 @@ fn play_animation_when_ready(
                 // `animated_mesh_control.rs` example.
                 player.play(animation_to_play.index).repeat();
 
-                // Add the animation graph. This only needs to be done once to
+                // Add the blend graph. This only needs to be done once to
                 // connect the animation player to the mesh.
                 commands
                     .entity(child)
