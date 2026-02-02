@@ -45,25 +45,25 @@ pub struct Vignette {
     ///
     /// Range: `0.0` (No effect) to `1.0` (Fully black corners)
     ///
-    /// The default value is 0.50
+    /// The default value is 1.00
     pub intensity: f32,
     /// The size of the unvignetted center area.
     ///
     /// Range: `0.0` (Tiny center) to `2.0+` (Large center)
     ///
-    /// The default value is 1.00
+    /// The default value is 0.75
     pub radius: f32,
     /// The softness of the edge between the clear and dark areas.
     ///
     /// Range: `0.01` (Sharp edge) to `1.0+` (Very soft edge)
     ///
-    /// The default value is 0.50
+    /// The default value is 5.0
     pub smoothness: f32,
     /// The shape of the vignette.
     ///
     /// `1.0` represents a perfect circle.
     ///
-    /// The default value is 0.75
+    /// The default value is 1.00
     pub roundness: f32,
     /// The center of the vignette in UV coordinates (0.0 to 1.0).
     ///
