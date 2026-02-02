@@ -45,6 +45,10 @@ webgpu = ["wgpu/webgpu"]
 vulkan-portability = ["wgpu/vulkan-portability"]
 gles = ["wgpu/gles"]
 detailed_trace = []
+# Pre-populate buffer labels with buffer types for debugging.
+type_label_buffers = []
+# Enables collecting extra information for debugging.
+debug = ["type_label_buffers"]
 ## Adds serialization support through `serde`.
 serialize = ["bevy_mesh/serialize"]
 
@@ -63,6 +67,7 @@ bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.19.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
 bevy_material = { path = "../bevy_material", version = "0.19.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.19.0-dev" }
 bevy_material_macros = { path = "../bevy_material/macros", version = "0.19.0-dev" }
 bevy_render_macros = { path = "../bevy_render/macros", version = "0.19.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.19.0-dev" }
@@ -87,7 +92,7 @@ image = { version = "0.25.2", default-features = false }
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "27", default-features = false, features = [
+wgpu = { version = "28", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
@@ -95,13 +100,14 @@ wgpu = { version = "27", default-features = false, features = [
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { version = "27", features = ["wgsl-in"] }
+wgpu-types = { version = "28", default-features = false }
+naga = { version = "28", features = ["wgsl-in"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 encase = "0.12"
-glam = { version = "0.30.7", default-features = false, features = [
+glam = { version = "0.31.0", default-features = false, features = [
   "std",
   "encase",
 ] }
@@ -114,7 +120,6 @@ nonmax = "0.5"
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 offset-allocator = "0.2"
 variadics_please = "1.1"
-tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracy-client = { version = "0.18.3", optional = true }
 indexmap = { version = "2" }
 fixedbitset = { version = "0.5" }

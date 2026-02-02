@@ -4,8 +4,14 @@
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
 #import bevy_pbr::mesh_view_bindings::environment_map_uniform
+#import bevy_pbr::mesh_view_types::{
+    LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE, LIGHT_PROBE_FLAG_PARALLAX_CORRECT
+}
 #import bevy_pbr::lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT}
 #import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
+
+// The maximum representable value in a 32-bit floating point number.
+const FLOAT_MAX: f32 = 3.40282347e+38;
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -15,6 +21,56 @@ struct EnvironmentMapLight {
 struct EnvironmentMapRadiances {
     irradiance: vec3<f32>,
     radiance: vec3<f32>,
+}
+
+// Computes the direction at which to sample the reflection probe.
+fn compute_cubemap_sample_dir(
+    world_ray_origin: vec3<f32>,
+    world_ray_direction: vec3<f32>,
+    light_from_world: mat4x4<f32>,
+    parallax_correct: bool
+) -> vec3<f32> {
+    var sample_dir: vec3<f32>;
+
+    // If we're supposed to parallax correct, then intersect with the light cube.
+    if (parallax_correct) {
+        // Compute the direction of the ray bouncing off the surface, in light
+        // probe space.
+        // Recall that light probe space is a 1×1×1 cube centered at the origin.
+        let ray_origin = (light_from_world * vec4(world_ray_origin, 1.0)).xyz;
+        let ray_direction = (light_from_world * vec4(world_ray_direction, 0.0)).xyz;
+
+        // Solve for the intersection of that ray with each side of the cube.
+        // Since our light probe is a 1×1×1 cube centered at the origin in light
+        // probe space, the faces of the cube are at X = ±0.5, Y = ±0.5, and Z =
+        // ±0.5.
+        var t0 = (vec3(-0.5) - ray_origin) / ray_direction;
+        var t1 = (vec3(0.5) - ray_origin) / ray_direction;
+
+        // We're shooting the rays forward, so we need to rule out negative time
+        // values. So, if t is negative, make it a large value so that we won't
+        // choose it below.
+        // We would use infinity here but WGSL forbids it:
+        // https://github.com/gfx-rs/wgpu/issues/5515
+        t0 = select(vec3(FLOAT_MAX), t0, t0 >= vec3(0.0));
+        t1 = select(vec3(FLOAT_MAX), t1, t1 >= vec3(0.0));
+
+        // Choose the minimum valid time value to find the intersection of the
+        // first cube face.
+        let t_min = min(t0, t1);
+        let t = min(min(t_min.x, t_min.y), t_min.z);
+
+        // Compute the sample direction. (It doesn't have to be normalized.)
+        sample_dir = ray_origin + ray_direction * t;
+    } else {
+        // We treat the reflection as infinitely far away in the non-parallax
+        // case, so the ray origin is irrelevant.
+        sample_dir = (light_from_world * vec4(world_ray_direction, 0.0)).xyz;
+    }
+
+    // Cubemaps are left-handed, so we negate the Z coordinate.
+    sample_dir.z = -sample_dir.z;
+    return sample_dir;
 }
 
 // Define two versions of this function, one for the case in which there are
@@ -48,8 +104,17 @@ fn compute_radiances(
     if (query_result.texture_index < 0) {
         query_result.texture_index = light_probes.view_cubemap_index;
         query_result.intensity = light_probes.intensity_for_view;
-        query_result.affects_lightmapped_mesh_diffuse =
-            light_probes.view_environment_map_affects_lightmapped_mesh_diffuse != 0u;
+        query_result.light_from_world = mat4x4(
+            vec4(1.0, 0.0, 0.0, 0.0),
+            vec4(0.0, 1.0, 0.0, 0.0),
+            vec4(0.0, 0.0, 1.0, 0.0),
+            vec4(0.0, 0.0, 0.0, 1.0)
+        );
+        if light_probes.view_environment_map_affects_lightmapped_mesh_diffuse != 0u {
+            query_result.flags = LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
+        } else {
+            query_result.flags = 0u;
+        }
     }
 
     // If there's no cubemap, bail out.
@@ -67,16 +132,19 @@ fn compute_radiances(
     // environment map, note that.
     var enable_diffuse = !found_diffuse_indirect;
 #ifdef LIGHTMAP
-    enable_diffuse = enable_diffuse && query_result.affects_lightmapped_mesh_diffuse;
+    enable_diffuse = enable_diffuse &&
+        (query_result.flags & LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE) != 0u;
 #endif  // LIGHTMAP
 
+    let parallax_correct = (query_result.flags & LIGHT_PROBE_FLAG_PARALLAX_CORRECT) != 0u;
+
     if (enable_diffuse) {
-        var irradiance_sample_dir = N;
-        // Rotating the world space ray direction by the environment light map transform matrix, it is
-        // equivalent to rotating the diffuse environment cubemap itself.
-        irradiance_sample_dir = (environment_map_uniform.transform * vec4(irradiance_sample_dir, 1.0)).xyz;
-        // Cube maps are left-handed so we negate the z coordinate.
-        irradiance_sample_dir.z = -irradiance_sample_dir.z;
+        let irradiance_sample_dir = compute_cubemap_sample_dir(
+            world_position,
+            N,
+            query_result.light_from_world,
+            parallax_correct
+        );
         radiances.irradiance = textureSampleLevel(
             bindings::diffuse_environment_maps[query_result.texture_index],
             bindings::environment_map_sampler,
@@ -85,11 +153,13 @@ fn compute_radiances(
     }
 
     var radiance_sample_dir = radiance_sample_direction(N, R, roughness);
-    // Rotating the world space ray direction by the environment light map transform matrix, it is
-    // equivalent to rotating the specular environment cubemap itself.
-    radiance_sample_dir = (environment_map_uniform.transform * vec4(radiance_sample_dir, 1.0)).xyz;
-    // Cube maps are left-handed so we negate the z coordinate.
-    radiance_sample_dir.z = -radiance_sample_dir.z;
+    radiance_sample_dir = compute_cubemap_sample_dir(
+        world_position,
+        radiance_sample_dir,
+        query_result.light_from_world,
+        parallax_correct
+    );
+
     radiances.radiance = textureSampleLevel(
         bindings::specular_environment_maps[query_result.texture_index],
         bindings::environment_map_sampler,

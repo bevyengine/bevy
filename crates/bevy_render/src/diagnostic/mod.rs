@@ -17,12 +17,10 @@ use bevy_app::{App, Plugin, PreUpdate};
 
 use crate::{renderer::RenderAdapterInfo, RenderApp};
 
-use self::internal::{
-    sync_diagnostics, DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp,
-};
+use self::internal::{sync_diagnostics, Pass, RenderDiagnosticsMutex, WriteTimestamp};
 pub use self::{
     erased_render_asset_diagnostic_plugin::ErasedRenderAssetDiagnosticPlugin,
-    mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
+    internal::DiagnosticsRecorder, mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
     render_asset_diagnostic_plugin::RenderAssetDiagnosticPlugin,
 };
 
@@ -46,7 +44,7 @@ use crate::renderer::{RenderDevice, RenderQueue};
 ///     ```ignore
 ///     let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
 ///     ```
-///  3. End the span, providing the same encoder.
+///  3. End the span, providing the encoder (or the same render/compute pass).
 ///     ```ignore
 ///     time_span.end(render_context.command_encoder());
 ///     ```
@@ -151,7 +149,7 @@ pub struct TimeSpanGuard<'a, R: ?Sized, E> {
 }
 
 impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanGuard<'_, R, E> {
-    /// End the span. You have to provide the same encoder which was used to begin the span.
+    /// End the span.
     pub fn end(self, encoder: &mut E) {
         self.recorder.end_time_span(encoder);
         core::mem::forget(self);
@@ -226,6 +224,50 @@ impl<T: RecordDiagnostics> RecordDiagnostics for Option<Arc<T>> {
 
     fn end_pass_span<P: Pass>(&self, pass: &mut P) {
         if let Some(recorder) = &self {
+            recorder.end_pass_span(pass);
+        }
+    }
+}
+
+impl<'a, T: RecordDiagnostics> RecordDiagnostics for Option<&'a T> {
+    fn record_f32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        if let Some(recorder) = self {
+            recorder.record_f32(command_encoder, buffer, name);
+        }
+    }
+
+    fn record_u32<N>(&self, command_encoder: &mut CommandEncoder, buffer: &BufferSlice, name: N)
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        if let Some(recorder) = self {
+            recorder.record_u32(command_encoder, buffer, name);
+        }
+    }
+
+    fn begin_time_span<E: WriteTimestamp>(&self, encoder: &mut E, name: Cow<'static, str>) {
+        if let Some(recorder) = self {
+            recorder.begin_time_span(encoder, name);
+        }
+    }
+
+    fn end_time_span<E: WriteTimestamp>(&self, encoder: &mut E) {
+        if let Some(recorder) = self {
+            recorder.end_time_span(encoder);
+        }
+    }
+
+    fn begin_pass_span<P: Pass>(&self, pass: &mut P, name: Cow<'static, str>) {
+        if let Some(recorder) = self {
+            recorder.begin_pass_span(pass, name);
+        }
+    }
+
+    fn end_pass_span<P: Pass>(&self, pass: &mut P) {
+        if let Some(recorder) = self {
             recorder.end_pass_span(pass);
         }
     }

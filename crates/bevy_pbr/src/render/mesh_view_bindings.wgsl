@@ -29,12 +29,12 @@
 #endif  // PCSS_SAMPLERS_AVAILABLE
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-@group(0) @binding(8) var<storage> clusterable_objects: types::ClusterableObjects;
-@group(0) @binding(9) var<storage> clusterable_object_index_lists: types::ClusterLightIndexLists;
+@group(0) @binding(8) var<storage> clustered_lights: types::ClusteredLights;
+@group(0) @binding(9) var<storage> clusterable_object_index_lists: types::ClusterableObjectIndexLists;
 @group(0) @binding(10) var<storage> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
 #else
-@group(0) @binding(8) var<uniform> clusterable_objects: types::ClusterableObjects;
-@group(0) @binding(9) var<uniform> clusterable_object_index_lists: types::ClusterLightIndexLists;
+@group(0) @binding(8) var<uniform> clustered_lights: types::ClusteredLights;
+@group(0) @binding(9) var<uniform> clusterable_object_index_lists: types::ClusterableObjectIndexLists;
 @group(0) @binding(10) var<uniform> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
 #endif
 

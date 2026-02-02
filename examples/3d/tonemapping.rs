@@ -2,6 +2,7 @@
 
 use bevy::{
     asset::UnapprovedPathMode,
+    camera::Hdr,
     core_pipeline::tonemapping::Tonemapping,
     light::CascadeShadowConfigBuilder,
     platform::collections::HashMap,
@@ -9,7 +10,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         render_resource::AsBindGroup,
-        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
+        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
     },
     shader::ShaderRef,
 };

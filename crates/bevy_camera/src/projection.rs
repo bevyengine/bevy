@@ -4,7 +4,7 @@ use core::ops::{Deref, DerefMut};
 use crate::{primitives::Frustum, visibility::VisibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
-use bevy_math::{ops, vec4, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
+use bevy_math::{ops, primitives::ViewFrustum, vec4, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use derive_more::derive::From;
@@ -69,12 +69,12 @@ pub trait CameraProjection {
     /// for each camera to update its frustum.
     fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
         let clip_from_world = self.get_clip_from_view() * camera_transform.affine().inverse();
-        Frustum::from_clip_from_world_custom_far(
+        Frustum(ViewFrustum::from_clip_from_world_custom_far(
             &clip_from_world,
             &camera_transform.translation(),
             &camera_transform.back(),
             self.far(),
-        )
+        ))
     }
 }
 

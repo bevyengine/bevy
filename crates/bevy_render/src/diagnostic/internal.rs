@@ -557,7 +557,7 @@ impl FrameData {
         let is_mapped = self.is_mapped.clone();
         read_buffer.slice(..).map_async(MapMode::Read, move |res| {
             if let Err(e) = res {
-                tracing::warn!("Failed to download render statistics buffer: {e}");
+                bevy_log::warn!("Failed to download render statistics buffer: {e}");
                 return;
             }
 

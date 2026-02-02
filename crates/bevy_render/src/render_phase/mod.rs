@@ -67,13 +67,13 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+use bevy_log::warn;
 pub use bevy_material::labels::DrawFunctionId;
 pub use bevy_material_macros::DrawFunctionLabel;
 pub use bevy_material_macros::ShaderLabel;
 use bevy_render::renderer::RenderAdapterInfo;
 use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;
-use tracing::warn;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.

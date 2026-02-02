@@ -97,7 +97,7 @@ use unsafe_world_cell::UnsafeWorldCell;
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
-    pub(crate) allocator: EntityAllocator,
+    pub(crate) entity_allocator: EntityAllocator,
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
     pub(crate) archetypes: Archetypes,
@@ -117,7 +117,7 @@ impl Default for World {
         let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
-            allocator: EntityAllocator::default(),
+            entity_allocator: EntityAllocator::default(),
             components: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
@@ -213,14 +213,14 @@ impl World {
 
     /// Retrieves this world's [`EntityAllocator`] collection.
     #[inline]
-    pub fn entities_allocator(&self) -> &EntityAllocator {
-        &self.allocator
+    pub fn entity_allocator(&self) -> &EntityAllocator {
+        &self.entity_allocator
     }
 
     /// Retrieves this world's [`EntityAllocator`] collection mutably.
     #[inline]
-    pub fn entities_allocator_mut(&mut self) -> &mut EntityAllocator {
-        &mut self.allocator
+    pub fn entity_allocator_mut(&mut self) -> &mut EntityAllocator {
+        &mut self.entity_allocator
     }
 
     /// Retrieves this world's [`Entities`] collection mutably.
@@ -301,7 +301,7 @@ impl World {
         unsafe {
             Commands::new_raw_from_entities(
                 self.command_queue.clone(),
-                &self.allocator,
+                &self.entity_allocator,
                 &self.entities,
             )
         }
@@ -1026,7 +1026,7 @@ impl World {
         let raw_queue = unsafe { cell.get_raw_command_queue() };
         // SAFETY: `&mut self` ensures the commands does not outlive the world.
         let commands = unsafe {
-            Commands::new_raw_from_entities(raw_queue, cell.entities_allocator(), cell.entities())
+            Commands::new_raw_from_entities(raw_queue, cell.entity_allocator(), cell.entities())
         };
 
         (fetcher, commands)
@@ -1234,7 +1234,7 @@ impl World {
         bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
-        let entity = self.allocator.alloc();
+        let entity = self.entity_allocator.alloc();
         // This was just spawned from null, so it shouldn't panic.
         self.spawn_at_unchecked(entity, bundle, caller)
     }
@@ -1270,7 +1270,7 @@ impl World {
     }
 
     pub(crate) fn spawn_empty_with_caller(&mut self, caller: MaybeLocation) -> EntityWorldMut<'_> {
-        let entity = self.allocator.alloc();
+        let entity = self.entity_allocator.alloc();
         // This was just spawned from null, so it shouldn't panic.
         self.spawn_empty_at_unchecked(entity, caller)
     }
@@ -2705,6 +2705,12 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
+    ///
+    /// # Note
+    ///
+    /// If the world's resource metadata is cleared within the scope, such as by calling
+    /// [`World::clear_resources`] or [`World::clear_all`], the resource will *not* be re-inserted
+    /// at the end of the scope.
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
         self.try_resource_scope(f)
@@ -2718,6 +2724,12 @@ impl World {
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
     ///
     /// See also [`resource_scope`](Self::resource_scope).
+    ///
+    /// # Note
+    ///
+    /// If the world's resource metadata is cleared within the scope, such as by calling
+    /// [`World::clear_resources`] or [`World::clear_all`], the resource will *not* be re-inserted
+    /// at the end of the scope.
     pub fn try_resource_scope<R: Resource, U>(
         &mut self,
         f: impl FnOnce(&mut World, Mut<R>) -> U,
@@ -2742,7 +2754,6 @@ impl World {
             value: ManuallyDrop<R>,
             ticks: ComponentTicks,
             caller: MaybeLocation,
-            was_successful: &'a mut bool,
         }
         impl<R> Drop for ReinsertGuard<'_, R> {
             fn drop(&mut self) {
@@ -2796,44 +2807,31 @@ impl World {
                         resource_data.insert_with_ticks(ptr, self.ticks, self.caller);
                     }
                 });
-
-                *self.was_successful = true;
             }
         }
 
-        // used to track whether the guard's drop impl was able to successfully reinsert the value into the world.
-        // an alternative way to track success would be to have a separate `guard.apply()` method used
-        // in the happy path -- however this would require two code paths for panicking vs regular control flow
-        // which would have suboptimal codegen. `resource_scope` is a widely used primitive, both throughout the
-        // engine and in user code, so this measure is likely worth it.
-        let mut was_successful = false;
-        let result = {
-            let mut guard = ReinsertGuard {
-                world: self,
-                component_id,
-                value: ManuallyDrop::new(value),
-                ticks,
-                caller,
-                was_successful: &mut was_successful,
-            };
-
-            let value_mut = Mut {
-                value: &mut *guard.value,
-                ticks: ComponentTicksMut {
-                    added: &mut guard.ticks.added,
-                    changed: &mut guard.ticks.changed,
-                    changed_by: guard.caller.as_mut(),
-                    last_run: last_change_tick,
-                    this_run: change_tick,
-                },
-            };
-
-            f(guard.world, value_mut)
-
-            // guard's drop impl runs here
+        let mut guard = ReinsertGuard {
+            world: self,
+            component_id,
+            value: ManuallyDrop::new(value),
+            ticks,
+            caller,
         };
 
-        was_successful.then_some(result)
+        let value_mut = Mut {
+            value: &mut *guard.value,
+            ticks: ComponentTicksMut {
+                added: &mut guard.ticks.added,
+                changed: &mut guard.ticks.changed,
+                changed_by: guard.caller.as_mut(),
+                last_run: last_change_tick,
+                this_run: change_tick,
+            },
+        };
+
+        let result = f(guard.world, value_mut);
+
+        Some(result)
     }
 
     /// Writes a [`Message`].
@@ -3205,7 +3203,7 @@ impl World {
         self.storages.sparse_sets.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();
-        self.allocator.restart();
+        self.entity_allocator.restart();
     }
 
     /// Clears all resources in this [`World`].

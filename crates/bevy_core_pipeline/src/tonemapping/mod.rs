@@ -27,7 +27,7 @@ use tracing::error;
 mod node;
 
 use bevy_utils::default;
-pub use node::TonemappingNode;
+pub use node::tonemapping;
 
 use crate::FullscreenShader;
 

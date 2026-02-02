@@ -15,7 +15,7 @@
     mesh_functions::mesh_position_local_to_world,
 }
 #import bevy_render::maths::affine3_to_square
-var<push_constant> meshlet_raster_cluster_rightmost_slot: u32;
+var<immediate> meshlet_raster_cluster_rightmost_slot: u32;
 
 /// Vertex/fragment shader for rasterizing large clusters into a visibility buffer.
 

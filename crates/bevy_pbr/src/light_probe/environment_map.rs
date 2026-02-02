@@ -45,9 +45,12 @@
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
 use bevy_asset::AssetId;
-use bevy_ecs::{query::QueryItem, system::lifetimeless::Read};
+use bevy_ecs::{
+    query::{Has, QueryData, QueryItem},
+    system::lifetimeless::Read,
+};
 use bevy_image::Image;
-use bevy_light::EnvironmentMapLight;
+use bevy_light::{EnvironmentMapLight, NoParallaxCorrection};
 use bevy_render::{
     extract_instances::ExtractInstance,
     render_asset::RenderAssets,
@@ -64,7 +67,7 @@ use core::{num::NonZero, ops::Deref};
 
 use crate::{
     add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform,
-    MAX_VIEW_LIGHT_PROBES,
+    RenderLightProbeFlags, MAX_VIEW_LIGHT_PROBES,
 };
 
 use super::{LightProbeComponent, RenderViewLightProbes};
@@ -179,6 +182,7 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
         render_adapter: &RenderAdapter,
     ) -> RenderViewEnvironmentMapBindGroupEntries<'a> {
         if binding_arrays_are_usable(render_device, render_adapter) {
+            // Initialize the diffuse and specular texture views with the fallback texture.
             let mut diffuse_texture_views = vec![];
             let mut specular_texture_views = vec![];
             let mut sampler = None;
@@ -242,6 +246,8 @@ impl LightProbeComponent for EnvironmentMapLight {
     // view.
     type ViewLightProbeInfo = EnvironmentMapViewLightProbeInfo;
 
+    type QueryData = Has<NoParallaxCorrection>;
+
     fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
         if image_assets.get(&self.diffuse_map).is_none()
             || image_assets.get(&self.specular_map).is_none()
@@ -259,8 +265,18 @@ impl LightProbeComponent for EnvironmentMapLight {
         self.intensity
     }
 
-    fn affects_lightmapped_mesh_diffuse(&self) -> bool {
-        self.affects_lightmapped_mesh_diffuse
+    fn flags(
+        &self,
+        no_parallax_correction: <Self::QueryData as QueryData>::Item<'_, '_>,
+    ) -> RenderLightProbeFlags {
+        let mut flags = RenderLightProbeFlags::empty();
+        if self.affects_lightmapped_mesh_diffuse {
+            flags.insert(RenderLightProbeFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE);
+        }
+        if !no_parallax_correction {
+            flags.insert(RenderLightProbeFlags::ENABLE_PARALLAX_CORRECTION);
+        }
+        flags
     }
 
     fn create_render_view_light_probes(
@@ -283,15 +299,19 @@ impl LightProbeComponent for EnvironmentMapLight {
                 image_assets.get(specular_map_handle),
             )
         {
-            render_view_light_probes.view_light_probe_info = EnvironmentMapViewLightProbeInfo {
-                cubemap_index: render_view_light_probes.get_or_insert_cubemap(&EnvironmentMapIds {
-                    diffuse: diffuse_map_handle.id(),
-                    specular: specular_map_handle.id(),
-                }) as i32,
-                smallest_specular_mip_level: specular_map.mip_level_count - 1,
-                intensity: *intensity,
-                affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
-            };
+            render_view_light_probes.view_light_probe_info =
+                Some(EnvironmentMapViewLightProbeInfo {
+                    cubemap_index: render_view_light_probes.get_or_insert_cubemap(
+                        &EnvironmentMapIds {
+                            diffuse: diffuse_map_handle.id(),
+                            specular: specular_map_handle.id(),
+                        },
+                    ) as i32,
+                    smallest_specular_mip_level: specular_map.texture_descriptor.mip_level_count
+                        - 1,
+                    intensity: *intensity,
+                    affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
+                });
         };
 
         render_view_light_probes

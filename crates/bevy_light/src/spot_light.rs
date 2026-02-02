@@ -6,7 +6,7 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Vec3};
+use bevy_math::{primitives::ViewFrustum, Affine3A, Dir3, Mat3, Mat4, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -232,11 +232,11 @@ pub fn update_spot_light_frusta(
             spot_light_clip_from_view(spot_light.outer_angle, spot_light.shadow_map_near_z);
         let clip_from_world = spot_clip_from_view * spot_world_from_view.inverse();
 
-        *frustum = Frustum::from_clip_from_world_custom_far(
+        *frustum = Frustum(ViewFrustum::from_clip_from_world_custom_far(
             &clip_from_world,
             &transform.translation(),
             &view_backward,
             spot_light.range,
-        );
+        ));
     }
 }
