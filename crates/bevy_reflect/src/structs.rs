@@ -68,12 +68,6 @@ pub trait Struct: PartialReflect {
     /// Gets the name of the field with index `index`.
     fn name_at(&self, index: usize) -> Option<&str>;
 
-    /// Gets the name of the field, if it exists.
-    fn name_of(&self, field: &dyn PartialReflect) -> Option<&str>;
-
-    /// Gets the index of the field
-    fn index_of(&self, value: &dyn PartialReflect) -> Option<usize>;
-
     /// Gets the index of the field with the given name.
     fn index_of_name(&self, name: &str) -> Option<usize>;
 
@@ -448,21 +442,6 @@ impl Struct for DynamicStruct {
     #[inline]
     fn name_at(&self, index: usize) -> Option<&str> {
         self.field_names.get(index).map(AsRef::as_ref)
-    }
-
-    #[inline]
-    fn name_of(&self, field: &dyn PartialReflect) -> Option<&str> {
-        if let Some(index) = self.index_of(field) {
-            self.name_at(index)
-        } else {
-            None
-        }
-    }
-
-    // Gets the index of the field.
-    #[inline]
-    fn index_of(&self, field: &dyn PartialReflect) -> Option<usize> {
-        self.fields.iter().position(|v| core::ptr::eq(&**v, field))
     }
 
     /// Gets the index of the field with the given name.
@@ -866,11 +845,8 @@ mod tests {
         assert_eq!(s.field_len(), 3);
 
         let field_3_name = s
-            .name_of(
-                s.field_at(2)
-                    .expect("Invalid index for `s.field_at(index)`"),
-            )
-            .expect("Invalid field for `s.name_of(field)")
+            .name_at(2)
+            .expect("Invalid index for `s.field_at(index)`")
             .to_owned();
         let field_3 = s
             .remove_if(|(name, _field)| name == field_3_name)
@@ -888,8 +864,8 @@ mod tests {
 
         let field_2 = s
             .remove_at(
-                s.index_of(s.field("b").expect("Invalid name for `s.field(name)`"))
-                    .expect("Invalid field for `s.index_of(field)`"),
+                s.index_of_name("b")
+                    .expect("Invalid name for `s.index_of_name(name)`"),
             )
             .expect("Invalid index for `s.remove_at(index)`");
 
@@ -897,12 +873,10 @@ mod tests {
         assert_eq!(field_2.0, "b");
 
         let field_3_name = s
-            .name_of(
-                s.field_at(1)
-                    .expect("Invalid index for `s.field_at(index)`"),
-            )
-            .expect("Invalid field for `s.name_of(field)`")
+            .name_at(2)
+            .expect("Invalid name for s.name_at(index)")
             .to_owned();
+
         let field_3 = s
             .remove_by_name(field_3_name.as_ref())
             .expect("Invalid name for `s.remove_by_name(name)`");

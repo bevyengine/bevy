@@ -115,16 +115,6 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 }
             }
 
-            fn name_of(&self, field: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<&str> {
-                #(if #bevy_reflect_path::PartialReflect::reflect_partial_eq(#fields_ref, field).unwrap_or(false) { return #fqoption::Some(#field_names) })*
-                #FQOption::None
-            }
-
-            fn index_of(&self, field: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<usize> {
-                #(if #bevy_reflect_path::PartialReflect::reflect_partial_eq(#fields_ref, field).unwrap_or(false) { return #fqoption::Some(#field_indices) })*
-                #FQOption::None
-            }
-
             fn index_of_name(&self, name: &str) -> #FQOption<usize> {
                 match name {
                     #(#field_names => #fqoption::Some(#field_indices),)*
