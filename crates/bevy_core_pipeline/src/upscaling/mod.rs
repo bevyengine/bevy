@@ -9,7 +9,7 @@ use bevy_render::{
 
 mod node;
 
-pub use node::UpscalingNode;
+pub use node::upscaling;
 
 pub struct UpscalingPlugin;
 

@@ -330,6 +330,66 @@ impl DynamicStruct {
         self.insert_boxed(name, Box::new(value));
     }
 
+    /// Removes a field at `index`.
+    pub fn remove_at(
+        &mut self,
+        index: usize,
+    ) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)> {
+        let mut i: usize = 0;
+        let mut extract = self.field_names.extract_if(0..self.field_names.len(), |n| {
+            let mut result = false;
+            if i == index {
+                self.field_indices
+                    .remove(n)
+                    .expect("Invalid name for `field_indices.remove(name)`");
+                result = true;
+            } else if i > index {
+                *self
+                    .field_indices
+                    .get_mut(n)
+                    .expect("Invalid name for `field_indices.get_mut(name)`") -= 1;
+            }
+            i += 1;
+            result
+        });
+
+        let name = extract
+            .nth(0)
+            .expect("Invalid index for `extract.nth(index)`");
+        extract.for_each(drop); // Fully evaluate the rest of the iterator, so we don't short-circuit the extract.
+
+        Some((name, self.fields.remove(index)))
+    }
+
+    /// Removes the first field that satisfies the given predicate, `f`.
+    pub fn remove_if<F>(&mut self, mut f: F) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)>
+    where
+        F: FnMut((&str, &dyn PartialReflect)) -> bool,
+    {
+        if let Some(index) = self
+            .field_names
+            .iter()
+            .zip(self.fields.iter())
+            .position(|(name, field)| f((name.as_ref(), field.as_ref())))
+        {
+            self.remove_at(index)
+        } else {
+            None
+        }
+    }
+
+    /// Removes a field by `name`.
+    pub fn remove_by_name(
+        &mut self,
+        name: &str,
+    ) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)> {
+        if let Some(index) = self.index_of(name) {
+            self.remove_at(index)
+        } else {
+            None
+        }
+    }
+
     /// Gets the index of the field with the given name.
     pub fn index_of(&self, name: &str) -> Option<usize> {
         self.field_indices.get(name).copied()
@@ -686,12 +746,125 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> core::fmt
 #[cfg(test)]
 mod tests {
     use crate::{structs::*, *};
+    use alloc::borrow::ToOwned;
     #[derive(Reflect, Default)]
     struct MyStruct {
         a: (),
         b: (),
         c: (),
     }
+
+    #[test]
+    fn dynamic_struct_remove_at() {
+        let mut my_struct = MyStruct::default().to_dynamic_struct();
+
+        assert_eq!(my_struct.field_len(), 3);
+
+        let field_2 = my_struct
+            .remove_at(1)
+            .expect("Invalid index for `my_struct.remove_at(index)`");
+
+        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(field_2.0, "b");
+
+        let field_3 = my_struct
+            .remove_at(0)
+            .expect("Invalid index for `my_struct.remove_at(index)`");
+
+        assert_eq!(my_struct.field_len(), 1);
+        assert_eq!(field_3.0, "a");
+
+        let field_1 = my_struct
+            .remove_at(0)
+            .expect("Invalid index for `my_struct.remove_at(index)`");
+
+        assert_eq!(my_struct.field_len(), 0);
+        assert_eq!(field_1.0, "c");
+    }
+
+    #[test]
+    fn dynamic_struct_remove_by_name() {
+        let mut my_struct = MyStruct::default().to_dynamic_struct();
+
+        assert_eq!(my_struct.field_len(), 3);
+
+        let field_3 = my_struct
+            .remove_by_name("b")
+            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+
+        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(field_3.0, "b");
+
+        let field_2 = my_struct
+            .remove_by_name("c")
+            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+
+        assert_eq!(my_struct.field_len(), 1);
+        assert_eq!(field_2.0, "c");
+
+        let field_1 = my_struct
+            .remove_by_name("a")
+            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+
+        assert_eq!(my_struct.field_len(), 0);
+        assert_eq!(field_1.0, "a");
+    }
+
+    #[test]
+    fn dynamic_struct_remove_if() {
+        let mut my_struct = MyStruct::default().to_dynamic_struct();
+
+        assert_eq!(my_struct.field_len(), 3);
+
+        let field_3_name = "c";
+        let field_3 = my_struct
+            .remove_if(|(name, _field)| name == field_3_name)
+            .expect("No valid name/field found for `my_struct.remove_with(|(name, field)|{})");
+
+        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(field_3.0, "c");
+    }
+
+    #[test]
+    fn dynamic_struct_remove_combo() {
+        let mut my_struct = MyStruct::default().to_dynamic_struct();
+
+        assert_eq!(my_struct.field_len(), 3);
+
+        let field_2 = my_struct
+            .remove_at(
+                my_struct
+                    .index_of("b")
+                    .expect("Invalid field for `my_struct.index_of(field)`"),
+            )
+            .expect("Invalid index for `my_struct.remove_at(index)`");
+
+        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(field_2.0, "b");
+
+        let field_3_name = my_struct
+            .name_at(1)
+            .expect("Invalid field for `my_struct.name_of(field)`")
+            .to_owned();
+        let field_3 = my_struct
+            .remove_by_name(field_3_name.as_ref())
+            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+
+        assert_eq!(my_struct.field_len(), 1);
+        assert_eq!(field_3.0, "c");
+
+        let field_1_name = my_struct
+            .name_at(0)
+            .expect("Invalid name for `my_struct.name_at(name)`")
+            .to_owned();
+        let field_1 = my_struct
+            .remove_if(|(name, _field)| name == field_1_name)
+            .expect("No valid name/field found for `my_struct.remove_with(|(name, field)|{})`");
+
+        assert_eq!(my_struct.field_len(), 0);
+        assert_eq!(field_1.0, "a");
+    }
+
     #[test]
     fn next_index_increment() {
         let my_struct = MyStruct::default();

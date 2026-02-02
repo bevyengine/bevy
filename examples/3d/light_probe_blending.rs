@@ -171,9 +171,9 @@ fn spawn_camera(commands: &mut Commands) {
 
 /// Spawns the glTF scene that contains the two rooms.
 fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/two_rooms.glb")),
-    ));
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset(get_web_asset_url("two_rooms.glb")),
+    )));
 }
 
 /// Spawns the reflective sphere, creating its mesh and material in the process.
@@ -214,10 +214,8 @@ fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
             falloff: Vec3::splat(LIGHT_PROBE_FALLOFF),
         },
         EnvironmentMapLight {
-            diffuse_map: asset_server
-                .load("textures/light_probe_blending_example/diffuse_room1.ktx2"),
-            specular_map: asset_server
-                .load("textures/light_probe_blending_example/specular_room1.ktx2"),
+            diffuse_map: asset_server.load(get_web_asset_url("diffuse_room1.ktx2")),
+            specular_map: asset_server.load(get_web_asset_url("specular_room1.ktx2")),
             intensity: LIGHT_PROBE_INTENSITY,
             rotation: light_probe_rotation,
             ..default()
@@ -232,10 +230,8 @@ fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
             falloff: Vec3::splat(LIGHT_PROBE_FALLOFF),
         },
         EnvironmentMapLight {
-            diffuse_map: asset_server
-                .load("textures/light_probe_blending_example/diffuse_room2.ktx2"),
-            specular_map: asset_server
-                .load("textures/light_probe_blending_example/specular_room2.ktx2"),
+            diffuse_map: asset_server.load(get_web_asset_url("diffuse_room2.ktx2")),
+            specular_map: asset_server.load(get_web_asset_url("specular_room2.ktx2")),
             intensity: LIGHT_PROBE_INTENSITY,
             rotation: light_probe_rotation,
             ..default()
@@ -413,4 +409,18 @@ fn draw_gizmos(
             );
         }
     }
+}
+
+/// Returns the GitHub download URL for the given asset.
+///
+/// The files are expected to be in the `light_probe_blending` directory in the
+/// [repository].
+///
+/// [repository]: https://github.com/bevyengine/bevy_asset_files
+fn get_web_asset_url(name: &str) -> String {
+    format!(
+        "https://raw.githubusercontent.com/bevyengine/bevy_asset_files/refs/heads/main/\
+light_probe_blending/{}",
+        name
+    )
 }
