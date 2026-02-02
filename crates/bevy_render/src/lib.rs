@@ -51,7 +51,6 @@ pub mod occlusion_culling;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
 pub mod render_asset;
-pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
@@ -91,16 +90,15 @@ use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
 };
-use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use bitflags::bitflags;
-use core::ops::{Deref, DerefMut};
 use globals::GlobalsPlugin;
 use occlusion_culling::OcclusionCullingPlugin;
 use render_asset::{
@@ -261,32 +259,11 @@ pub struct ExtractSchedule;
 /// This resource is only available during [`ExtractSchedule`] and not
 /// during command application of that schedule.
 /// See [`Extract`] for more details.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Deref, DerefMut)]
 pub struct MainWorld(World);
 
-impl Deref for MainWorld {
-    type Target = World;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for MainWorld {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-pub mod graph {
-    use crate::render_graph::RenderLabel;
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub struct CameraDriverLabel;
-}
-
-#[derive(Resource)]
-struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
+#[derive(Resource, Default, Clone, Deref)]
+pub(crate) struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
 /// A label for the rendering sub-app.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
@@ -297,65 +274,13 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
+        load_shader_library!(app, "maths.wgsl");
+        load_shader_library!(app, "color_operations.wgsl");
+        load_shader_library!(app, "bindless.wgsl");
 
-        match &self.render_creation {
-            RenderCreation::Manual(resources) => {
-                let future_render_resources_wrapper = Arc::new(Mutex::new(Some(resources.clone())));
-                app.insert_resource(FutureRenderResources(
-                    future_render_resources_wrapper.clone(),
-                ));
-                // SAFETY: Plugins should be set up on the main thread.
-                unsafe { initialize_render_app(app) };
-            }
-            RenderCreation::Automatic(render_creation) => {
-                if let Some(backends) = render_creation.backends {
-                    let future_render_resources_wrapper = Arc::new(Mutex::new(None));
-                    app.insert_resource(FutureRenderResources(
-                        future_render_resources_wrapper.clone(),
-                    ));
-
-                    let primary_window = app
-                        .world_mut()
-                        .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
-                        .single(app.world())
-                        .ok()
-                        .cloned();
-
-                    let settings = render_creation.clone();
-
-                    #[cfg(feature = "raw_vulkan_init")]
-                    let raw_vulkan_init_settings = app
-                        .world_mut()
-                        .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
-                        .cloned()
-                        .unwrap_or_default();
-
-                    let async_renderer = async move {
-                        let render_resources = renderer::initialize_renderer(
-                            backends,
-                            primary_window,
-                            &settings,
-                            #[cfg(feature = "raw_vulkan_init")]
-                            raw_vulkan_init_settings,
-                        )
-                        .await;
-
-                        *future_render_resources_wrapper.lock().unwrap() = Some(render_resources);
-                    };
-
-                    // In wasm, spawn a task and detach it for execution
-                    #[cfg(target_arch = "wasm32")]
-                    bevy_tasks::IoTaskPool::get()
-                        .spawn_local(async_renderer)
-                        .detach();
-                    // Otherwise, just block for it to complete
-                    #[cfg(not(target_arch = "wasm32"))]
-                    bevy_tasks::block_on(async_renderer);
-
-                    // SAFETY: Plugins should be set up on the main thread.
-                    unsafe { initialize_render_app(app) };
-                }
-            }
+        if insert_future_resources(&self.render_creation, app.world_mut()) {
+            // SAFETY: Plugins should be set up on the main thread.
+            unsafe { initialize_render_app(app) };
         };
 
         app.add_plugins((
@@ -391,55 +316,65 @@ impl Plugin for RenderPlugin {
     }
 
     fn ready(&self, app: &App) -> bool {
+        // This is a little tricky. `FutureRenderResources` is added in `build`, which runs synchronously before `ready`.
+        // It is only added if there is a wgpu backend and thus the renderer can be created.
+        // Hence, if we try and get the resource and it is not present, that means we are ready, because we dont need it.
+        // On the other hand, if the resource is present, then we try and lock on it. The lock can fail, in which case
+        // we currently can assume that means the `FutureRenderResources` is in the act of being populated, because
+        // that is the only other place the lock may be held. If it is being populated, we can assume we're ready. This
+        // happens via the `and_then` falling through to the same `unwrap_or(true)` case as when there's no resource.
+        // If the lock succeeds, we can straightforwardly check if it is populated. If it is not, then we're not ready.
         app.world()
             .get_resource::<FutureRenderResources>()
-            .and_then(|frr| frr.0.try_lock().map(|locked| locked.is_some()).ok())
+            .and_then(|frr| frr.try_lock().map(|locked| locked.is_some()).ok())
             .unwrap_or(true)
     }
 
     fn finish(&self, app: &mut App) {
-        load_shader_library!(app, "maths.wgsl");
-        load_shader_library!(app, "color_operations.wgsl");
-        load_shader_library!(app, "bindless.wgsl");
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
+            let bevy_app::SubApps { main, sub_apps } = app.sub_apps_mut();
+            let render = sub_apps.get_mut(&RenderApp.intern()).unwrap();
             let render_resources = future_render_resources.0.lock().unwrap().take().unwrap();
-            let RenderResources(device, queue, adapter_info, render_adapter, instance, ..) =
-                render_resources;
 
-            let compressed_image_format_support = CompressedImageFormatSupport(
-                CompressedImageFormats::from_features(device.features()),
+            render_resources.unpack_into(
+                main.world_mut(),
+                render.world_mut(),
+                self.synchronous_pipeline_compilation,
             );
-
-            app.insert_resource(device.clone())
-                .insert_resource(queue.clone())
-                .insert_resource(adapter_info.clone())
-                .insert_resource(render_adapter.clone())
-                .insert_resource(compressed_image_format_support);
-
-            let render_app = app.sub_app_mut(RenderApp);
-
-            #[cfg(feature = "raw_vulkan_init")]
-            {
-                let additional_vulkan_features: renderer::raw_vulkan_init::AdditionalVulkanFeatures =
-                    render_resources.5;
-                render_app.insert_resource(additional_vulkan_features);
-            }
-
-            render_app
-                .insert_resource(instance)
-                .insert_resource(PipelineCache::new(
-                    device.clone(),
-                    render_adapter.clone(),
-                    self.synchronous_pipeline_compilation,
-                ))
-                .insert_resource(device)
-                .insert_resource(queue)
-                .insert_resource(render_adapter)
-                .insert_resource(adapter_info);
         }
     }
+}
+
+/// Inserts a [`FutureRenderResources`] created from this [`RenderCreation`].
+///
+/// Returns true if creation was successful, false otherwise.
+fn insert_future_resources(render_creation: &RenderCreation, main_world: &mut World) -> bool {
+    let primary_window = main_world
+        .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
+        .single(main_world)
+        .ok()
+        .cloned();
+
+    #[cfg(feature = "raw_vulkan_init")]
+    let raw_vulkan_init_settings = main_world
+        .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
+        .cloned()
+        .unwrap_or_default();
+
+    let future_resources = FutureRenderResources::default();
+    let success = render_creation.create_render(
+        future_resources.clone(),
+        primary_window,
+        #[cfg(feature = "raw_vulkan_init")]
+        raw_vulkan_init_settings,
+    );
+    if success {
+        // Note that `future_resources` is not necessarily populated here yet.
+        main_world.insert_resource(future_resources);
+    }
+    success
 }
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
@@ -482,7 +417,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app
         .add_schedule(extract_schedule)
         .add_schedule(Render::base_schedule())
-        .init_resource::<render_graph::RenderGraph>()
+        .init_resource::<renderer::PendingCommandBuffers>()
         .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
         .add_systems(

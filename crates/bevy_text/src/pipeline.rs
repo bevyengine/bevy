@@ -161,9 +161,13 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
+        logical_viewport_size: Vec2,
+        base_rem_size: f32,
     ) -> Result<(), TextError> {
         computed.entities.clear();
         computed.needs_rerender = false;
+        computed.uses_rem_sizes = false;
+        computed.uses_viewport_sizes = false;
 
         if scale_factor <= 0.0 {
             warn_once!("Text scale factor is <= 0.0. No text will be displayed.",);
@@ -184,6 +188,15 @@ impl TextPipeline {
             for (span_index, (entity, depth, span, text_font, _color, line_height)) in
                 text_spans.enumerate()
             {
+                match text_font.font_size {
+                    crate::FontSize::Vw(_)
+                    | crate::FontSize::Vh(_)
+                    | crate::FontSize::VMin(_)
+                    | crate::FontSize::VMax(_) => computed.uses_viewport_sizes = true,
+                    crate::FontSize::Rem(_) => computed.uses_rem_sizes = true,
+                    _ => (),
+                };
+
                 // Save this span entity in the computed text block.
                 computed.entities.push(TextEntity {
                     entity,
@@ -208,8 +221,12 @@ impl TextPipeline {
                     FontSource::Monospace => Family::Monospace,
                 };
 
+                let font_size = text_font
+                    .font_size
+                    .eval(logical_viewport_size, base_rem_size);
+
                 // Save spans that aren't zero-sized.
-                if text_font.font_size <= 0.0 {
+                if font_size <= 0.0 {
                     warn_once!(
                         "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
                     );
@@ -218,17 +235,24 @@ impl TextPipeline {
                 }
 
                 const WARN_FONT_SIZE: f32 = 1000.0;
-                if text_font.font_size * scale_factor > WARN_FONT_SIZE {
+                if font_size > WARN_FONT_SIZE {
                     warn_once!(
                         "Text span {entity} has an excessively large font size ({} with scale factor {}). \
                         Extremely large font sizes will cause performance issues with font atlas \
                         generation and high memory usage.",
-                        text_font.font_size,
+                        font_size,
                         scale_factor,
                     );
                 }
 
-                let attrs = get_attrs(span_index, text_font, line_height, family, scale_factor);
+                let attrs = get_attrs(
+                    span_index,
+                    text_font,
+                    font_size,
+                    line_height,
+                    family,
+                    scale_factor,
+                );
 
                 sections.push((span, attrs));
             }
@@ -290,6 +314,8 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
+        logical_viewport_size: Vec2,
+        base_rem_size: f32,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
@@ -307,6 +333,8 @@ impl TextPipeline {
             computed,
             font_system,
             hinting,
+            logical_viewport_size,
+            base_rem_size,
         )?;
 
         let buffer = &mut computed.buffer;
@@ -588,11 +616,12 @@ impl TextMeasureInfo {
 fn get_attrs<'a>(
     span_index: usize,
     text_font: &TextFont,
+    font_size: f32,
     line_height: LineHeight,
     family: Family<'a>,
     scale_factor: f32,
 ) -> Attrs<'a> {
-    let font_size = (text_font.font_size * scale_factor).round();
+    let font_size = (font_size * scale_factor).round();
     let line_height = match line_height {
         LineHeight::Px(px) => px * scale_factor,
         LineHeight::RelativeToFont(s) => s * font_size,
