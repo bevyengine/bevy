@@ -719,7 +719,7 @@ impl PipelineCache {
         self.waiting_pipelines.insert(id);
     }
 
-    fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
+    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
         cache.process_queue();
     }
 
