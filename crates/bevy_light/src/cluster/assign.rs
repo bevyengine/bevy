@@ -1,7 +1,7 @@
 //! Assigning objects to clusters.
 
 use bevy_camera::{
-    primitives::{Aabb, Frustum, HalfSpace, Sphere},
+    primitives::{Aabb, Frustum, Sphere},
     visibility::{RenderLayers, ViewVisibility},
     Camera,
 };
@@ -12,6 +12,7 @@ use bevy_ecs::{
 };
 use bevy_math::{
     ops::{self, sin_cos},
+    primitives::HalfSpace,
     Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
 };
 use bevy_transform::components::GlobalTransform;

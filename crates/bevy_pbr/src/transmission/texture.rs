@@ -1,4 +1,4 @@
-use bevy_core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d};
+use bevy_core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -18,7 +18,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
 };
 
-use crate::ScreenSpaceTransmission;
+use crate::{ScreenSpaceTransmission, Transmissive3d};
 
 #[derive(Component)]
 pub struct ViewTransmissionTexture {

@@ -7,6 +7,7 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
+use bevy_math::primitives::ViewFrustum;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
 use tracing::warn;
@@ -237,7 +238,7 @@ pub fn update_directional_light_frusta(
                     *view,
                     cascades
                         .iter()
-                        .map(|c| Frustum::from_clip_from_world(&c.clip_from_world))
+                        .map(|c| Frustum(ViewFrustum::from_clip_from_world(&c.clip_from_world)))
                         .collect::<Vec<_>>(),
                 )
             })
