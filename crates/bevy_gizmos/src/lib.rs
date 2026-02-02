@@ -347,7 +347,7 @@ impl Default for GizmoAsset {
     }
 }
 
-/// Used by aabb and frustum gizmos for line color
-pub(crate) fn color_from_entity(entity: Entity) -> Color {
+/// Generates a random, well-dispersed color seeded by the provided `Entity`.
+pub fn color_from_entity(entity: Entity) -> Color {
     Oklcha::sequential_dispersed(entity.index_u32()).into()
 }
