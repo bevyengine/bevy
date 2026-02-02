@@ -869,7 +869,7 @@ mod tests {
         assert_eq!(field_2.0, "b");
 
         let field_3_name = s
-            .name_at(2)
+            .name_at(1)
             .expect("Invalid name for s.name_at(index)")
             .to_owned();
 
