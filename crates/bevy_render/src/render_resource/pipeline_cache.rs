@@ -482,7 +482,8 @@ impl PipelineCache {
             .get(&self.device, bind_group_layout_descriptor.clone())
     }
 
-    fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
+    /// Inserts a [`Shader`] into this cache with the provided [`AssetId`].
+    pub fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
         let pipelines_to_queue = shader_cache.set_shader(id, shader);
         for cached_pipeline in pipelines_to_queue {
@@ -491,7 +492,8 @@ impl PipelineCache {
         }
     }
 
-    fn remove_shader(&mut self, shader: AssetId<Shader>) {
+    /// Removes a [`Shader`] from this cache if it exists.
+    pub fn remove_shader(&mut self, shader: AssetId<Shader>) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
         let pipelines_to_queue = shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
