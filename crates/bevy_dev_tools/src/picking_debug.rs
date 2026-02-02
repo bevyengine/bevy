@@ -256,7 +256,7 @@ pub fn debug_draw(
 
         for (camera, _, _) in camera_query.iter().filter(|(_, _, render_target)| {
             render_target
-                .normalize(primary_window.single().ok())
+                .normalize(primary_window.single().ok(), None)
                 .is_some_and(|target| target == pointer_location.target)
         }) {
             let mut pointer_pos = pointer_location.position;

@@ -192,7 +192,7 @@ pub fn ui_focus_system(
         .filter_map(|(entity, camera, render_target)| {
             // Interactions are only supported for cameras rendering to a window.
             let Some(NormalizedRenderTarget::Window(window_ref)) =
-                render_target.normalize(primary_window)
+                render_target.normalize(primary_window, None)
             else {
                 return None;
             };

@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera::Exposure,
+    camera::{CameraMainColorTargetConfig, Exposure},
     color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
     image::{
@@ -127,7 +127,7 @@ fn setup_camera_fog(
             ambient_intensity: 0.0,
             ..default()
         },
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
         TemporalAntiAliasing::default(),
         ScreenSpaceReflections::default(),
     ));

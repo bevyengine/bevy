@@ -1,6 +1,8 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.z
 
+#[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+use bevy::camera::CameraMainColorTargetConfig;
 use bevy::{
     image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     math::ops,
@@ -29,7 +31,7 @@ fn setup_camera(mut commands: Commands) {
         },
         // MSAA and Motion Blur together are not compatible on WebGL
         #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
     ));
 }
 

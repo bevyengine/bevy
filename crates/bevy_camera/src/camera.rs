@@ -1,8 +1,8 @@
-use crate::primitives::Frustum;
+use crate::{color_target::MAIN_COLOR_TARGET_DEFAULT_USAGES, primitives::Frustum};
 
 use super::{
     visibility::{Visibility, VisibleEntities},
-    ClearColorConfig, MsaaWriteback,
+    ClearColorConfig,
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
@@ -15,7 +15,7 @@ use bevy_window::{NormalizedWindowRef, WindowRef};
 use core::ops::Range;
 use derive_more::derive::From;
 use thiserror::Error;
-use wgpu_types::{BlendState, TextureUsages};
+use wgpu_types::{BlendState, TextureFormat, TextureUsages};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -80,17 +80,13 @@ impl Viewport {
         }
     }
 
-    pub fn from_viewport_and_override(
-        viewport: Option<&Self>,
+    pub fn from_main_pass_resolution_override(
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
     ) -> Option<Self> {
-        if let Some(override_size) = main_pass_resolution_override {
-            let mut vp = viewport.map_or_else(Self::default, Self::clone);
-            vp.physical_size = **override_size;
-            Some(vp)
-        } else {
-            viewport.cloned()
-        }
+        main_pass_resolution_override.map(|override_size| Viewport {
+            physical_size: **override_size,
+            ..Default::default()
+        })
     }
 }
 
@@ -338,14 +334,7 @@ pub enum ViewportConversionError {
 /// [`Camera3d`]: crate::Camera3d
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(
-    Frustum,
-    CameraMainTextureUsages,
-    VisibleEntities,
-    Transform,
-    Visibility,
-    RenderTarget
-)]
+#[require(Frustum, VisibleEntities, Transform, Visibility, RenderTarget)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
@@ -359,9 +348,6 @@ pub struct Camera {
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
     pub output_mode: CameraOutputMode,
-    /// Controls when MSAA writeback occurs for this camera.
-    /// See [`MsaaWriteback`] for available options.
-    pub msaa_writeback: MsaaWriteback,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
     /// Whether to switch culling mode so that materials that request backface
@@ -385,7 +371,6 @@ impl Default for Camera {
             viewport: None,
             computed: Default::default(),
             output_mode: Default::default(),
-            msaa_writeback: MsaaWriteback::default(),
             clear_color: Default::default(),
             invert_culling: false,
             sub_camera_view: None,
@@ -817,6 +802,8 @@ pub enum RenderTarget {
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
+    /// [`MainColorTarget`](crate::color_target::MainColorTarget) to which the camera's view is rendered.
+    MainColorTarget(Entity),
     /// The camera won't render to any color target.
     ///
     /// This is useful when you want a camera that *only* renders prepasses, for
@@ -841,13 +828,23 @@ impl RenderTarget {
 
 impl RenderTarget {
     /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
-    pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
+    pub fn normalize(
+        &self,
+        primary_window: Option<Entity>,
+        main_color_target_render_entity: Option<Entity>,
+    ) -> Option<NormalizedRenderTarget> {
         match self {
             RenderTarget::Window(window_ref) => window_ref
                 .normalize(primary_window)
                 .map(NormalizedRenderTarget::Window),
             RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
             RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+            RenderTarget::MainColorTarget(entity) => {
+                Some(NormalizedRenderTarget::MainColorTarget {
+                    entity: *entity,
+                    render_entity: main_color_target_render_entity,
+                })
+            }
             RenderTarget::None { size } => Some(NormalizedRenderTarget::None {
                 width: size.x,
                 height: size.y,
@@ -869,6 +866,11 @@ pub enum NormalizedRenderTarget {
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
+    /// [`MainColorTarget`](crate::color_target::MainColorTarget) to which the camera's view is rendered.
+    MainColorTarget {
+        entity: Entity,
+        render_entity: Option<Entity>,
+    },
     /// The camera won't render to any color target.
     ///
     /// This is useful when you want a camera that *only* renders prepasses, for
@@ -883,7 +885,7 @@ pub enum NormalizedRenderTarget {
 
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
 ///
-/// See `ManualTextureViews` in `bevy_camera` for more details.
+/// See `ManualTextureViews` in `bevy_render` for more details.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);
@@ -949,25 +951,42 @@ impl Default for RenderTarget {
     }
 }
 
-/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
+/// If there is no [`NoAutoConfiguredMainColorTarget`](crate::color_target::NoAutoConfiguredMainColorTarget), controls the main color targets generated for the camera.
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(opaque)]
 #[reflect(Component, Default, Clone)]
-pub struct CameraMainTextureUsages(pub TextureUsages);
+pub struct CameraMainColorTargetConfig {
+    pub size: CameraMainColorTargetsSize,
+    pub sample_count: u32,
+    pub format: Option<TextureFormat>,
+    pub usage: TextureUsages,
+}
 
-impl Default for CameraMainTextureUsages {
+#[derive(Clone, Copy)]
+pub enum CameraMainColorTargetsSize {
+    Factor(Vec2),
+    Fixed(UVec2),
+}
+
+impl Default for CameraMainColorTargetConfig {
     fn default() -> Self {
-        Self(
-            TextureUsages::RENDER_ATTACHMENT
-                | TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_SRC,
-        )
+        Self {
+            size: CameraMainColorTargetsSize::Factor(Vec2::ONE),
+            sample_count: 4,
+            format: None,
+            usage: MAIN_COLOR_TARGET_DEFAULT_USAGES,
+        }
     }
 }
 
-impl CameraMainTextureUsages {
-    pub fn with(mut self, usages: TextureUsages) -> Self {
-        self.0 |= usages;
+impl CameraMainColorTargetConfig {
+    pub fn with_usage(mut self, usages: TextureUsages) -> Self {
+        self.usage |= usages;
+        self
+    }
+
+    pub fn with_msaa_off(mut self) -> Self {
+        self.sample_count = 1;
         self
     }
 }

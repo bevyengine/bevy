@@ -32,7 +32,7 @@ use bevy_render::{
         TextureSampleType, TextureViewId,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    view::ViewTarget,
+    view::{ExtractedView, ViewTarget},
     RenderApp, RenderStartup,
 };
 use bevy_shader::ShaderRef;
@@ -161,7 +161,7 @@ fn init_pipeline<T: FullscreenMaterial>(
     desc.fragment.as_mut().unwrap().targets[0]
         .as_mut()
         .unwrap()
-        .format = ViewTarget::TEXTURE_FORMAT_HDR;
+        .format = TextureFormat::Rgba16Float;
     let pipeline_id_hdr = pipeline_cache.queue_render_pipeline(desc);
 
     commands.insert_resource(FullscreenMaterialPipeline::<T> {
@@ -179,7 +179,7 @@ struct FullscreenMaterialBindGroupCache {
 }
 
 fn fullscreen_material_system<T: FullscreenMaterial>(
-    view: ViewQuery<(&ViewTarget, &DynamicUniformIndex<T>)>,
+    view: ViewQuery<(&ExtractedView, &ViewTarget, &DynamicUniformIndex<T>)>,
     fullscreen_pipeline: Option<Res<FullscreenMaterialPipeline<T>>>,
     pipeline_cache: Res<PipelineCache>,
     data_uniforms: Res<ComponentUniforms<T>>,
@@ -190,9 +190,9 @@ fn fullscreen_material_system<T: FullscreenMaterial>(
         return;
     };
 
-    let (view_target, settings_index) = view.into_inner();
+    let (view, view_target, settings_index) = view.into_inner();
 
-    let pipeline_id = if view_target.is_hdr() {
+    let pipeline_id = if view.hdr {
         fullscreen_pipeline.pipeline_id_hdr
     } else {
         fullscreen_pipeline.pipeline_id

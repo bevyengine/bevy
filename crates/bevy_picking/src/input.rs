@@ -133,7 +133,7 @@ pub fn mouse_pick_events(
             WindowEvent::CursorMoved(event) => {
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(event.window))
-                        .normalize(primary_window.single().ok())
+                        .normalize(primary_window.single().ok(), None)
                     {
                         Some(target) => target,
                         None => continue,
@@ -153,7 +153,7 @@ pub fn mouse_pick_events(
             WindowEvent::MouseButtonInput(input) => {
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(input.window))
-                        .normalize(primary_window.single().ok())
+                        .normalize(primary_window.single().ok(), None)
                     {
                         Some(target) => target,
                         None => continue,
@@ -177,7 +177,7 @@ pub fn mouse_pick_events(
 
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(window))
-                        .normalize(primary_window.single().ok())
+                        .normalize(primary_window.single().ok(), None)
                     {
                         Some(target) => target,
                         None => continue,
@@ -210,7 +210,7 @@ pub fn touch_pick_events(
             let pointer = PointerId::Touch(touch.id);
             let location = Location {
                 target: match RenderTarget::Window(WindowRef::Entity(touch.window))
-                    .normalize(primary_window.single().ok())
+                    .normalize(primary_window.single().ok(), None)
                 {
                     Some(target) => target,
                     None => continue,

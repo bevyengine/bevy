@@ -1,22 +1,20 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
-use bevy_camera::{Camera3d, RenderTarget};
+use bevy_camera::Camera3d;
 use bevy_ecs::{component::*, lifecycle::ComponentHook, prelude::*};
 use bevy_math::UVec2;
-use bevy_platform::collections::HashSet;
 use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::view::ExtractedView;
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, ShaderType, TextureUsages},
     renderer::{RenderDevice, RenderQueue},
-    view::Msaa,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
-use bevy_window::PrimaryWindow;
 use resolve::{node::oit_resolve, OitResolvePlugin};
 use tracing::{trace, warn};
 
@@ -103,7 +101,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
             OitResolvePlugin,
         ))
         .add_systems(Update, check_msaa)
-        .add_systems(Last, configure_depth_texture_usages);
+        .add_systems(Last, configure_camera_depth_usages);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -125,40 +123,23 @@ impl Plugin for OrderIndependentTransparencyPlugin {
     }
 }
 
-// WARN This should only happen for cameras with the [`OrderIndependentTransparencySettings`] component
-// but when multiple cameras are present on the same window
-// bevy reuses the same depth texture so we need to set this on all cameras with the same render target.
-fn configure_depth_texture_usages(
-    p: Query<Entity, With<PrimaryWindow>>,
-    cameras: Query<(&RenderTarget, Has<OrderIndependentTransparencySettings>)>,
-    mut new_cameras: Query<(&mut Camera3d, &RenderTarget), Added<Camera3d>>,
+fn configure_camera_depth_usages(
+    mut cameras: Query<
+        &mut Camera3d,
+        (
+            Changed<Camera3d>,
+            With<OrderIndependentTransparencySettings>,
+        ),
+    >,
 ) {
-    if new_cameras.is_empty() {
-        return;
-    }
-
-    // Find all the render target that potentially uses OIT
-    let primary_window = p.single().ok();
-    let mut render_target_has_oit = <HashSet<_>>::default();
-    for (render_target, has_oit) in &cameras {
-        if has_oit {
-            render_target_has_oit.insert(render_target.normalize(primary_window));
-        }
-    }
-
-    // Update the depth texture usage for cameras with a render target that has OIT
-    for (mut camera_3d, render_target) in &mut new_cameras {
-        if render_target_has_oit.contains(&render_target.normalize(primary_window)) {
-            let mut usages = TextureUsages::from(camera_3d.depth_texture_usages);
-            usages |= TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
-            camera_3d.depth_texture_usages = usages.into();
-        }
+    for mut camera in &mut cameras {
+        camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
 }
 
-fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>) {
-    for msaa in &cameras {
-        if msaa.samples() > 1 {
+fn check_msaa(cameras: Query<&ExtractedView, With<OrderIndependentTransparencySettings>>) {
+    for view in &cameras {
+        if view.msaa_samples > 1 {
             panic!("MSAA is not supported when using OrderIndependentTransparency");
         }
     }
@@ -231,9 +212,7 @@ pub fn prepare_oit_buffers(
     let mut max_layer_ids_size = usize::MIN;
     let mut max_layers_size = usize::MIN;
     for (camera, settings) in &cameras {
-        let Some(size) = camera.physical_target_size else {
-            continue;
-        };
+        let size = camera.main_color_target_size;
 
         let layer_count = settings.layer_count as usize;
         let size = (size.x * size.y) as usize;

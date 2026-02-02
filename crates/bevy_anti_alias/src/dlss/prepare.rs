@@ -1,5 +1,5 @@
 use super::{Dlss, DlssFeature, DlssSdk};
-use bevy_camera::{Camera3d, CameraMainTextureUsages, MainPassResolutionOverride};
+use bevy_camera::{Camera3d, MainPassResolutionOverride};
 use bevy_core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
@@ -32,7 +32,6 @@ pub fn prepare_dlss<F: DlssFeature>(
             &ExtractedView,
             &Dlss<F>,
             &mut Camera3d,
-            &mut CameraMainTextureUsages,
             &mut TemporalJitter,
             &mut MipBias,
             Option<&mut DlssRenderContext<F>>,
@@ -50,19 +49,9 @@ pub fn prepare_dlss<F: DlssFeature>(
     frame_count: Res<FrameCount>,
     mut commands: Commands,
 ) {
-    for (
-        entity,
-        view,
-        dlss,
-        mut camera_3d,
-        mut camera_main_texture_usages,
-        mut temporal_jitter,
-        mut mip_bias,
-        mut dlss_context,
-    ) in &mut query
+    for (entity, view, dlss, mut camera_3d, mut temporal_jitter, mut mip_bias, mut dlss_context) in
+        &mut query
     {
-        camera_main_texture_usages.0 |= TextureUsages::STORAGE_BINDING;
-
         let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
         depth_texture_usages |= TextureUsages::TEXTURE_BINDING;
         camera_3d.depth_texture_usages = depth_texture_usages.into();

@@ -11,7 +11,7 @@ use wgpu::{
 #[derive(Clone)]
 pub struct ColorAttachment {
     pub texture: CachedTexture,
-    pub resolve_target: Option<CachedTexture>,
+    pub multisampled: Option<CachedTexture>,
     pub previous_frame_texture: Option<CachedTexture>,
     clear_color: Option<LinearRgba>,
     is_first_call: Arc<AtomicBool>,
@@ -20,13 +20,13 @@ pub struct ColorAttachment {
 impl ColorAttachment {
     pub fn new(
         texture: CachedTexture,
-        resolve_target: Option<CachedTexture>,
+        multisampled: Option<CachedTexture>,
         previous_frame_texture: Option<CachedTexture>,
         clear_color: Option<LinearRgba>,
     ) -> Self {
         Self {
             texture,
-            resolve_target,
+            multisampled,
             previous_frame_texture,
             clear_color,
             is_first_call: Arc::new(AtomicBool::new(true)),
@@ -38,11 +38,11 @@ impl ColorAttachment {
     ///
     /// The returned attachment will always have writing enabled (`store: StoreOp::Load`).
     pub fn get_attachment(&self) -> RenderPassColorAttachment<'_> {
-        if let Some(resolve_target) = self.resolve_target.as_ref() {
+        if let Some(multisampled) = self.multisampled.as_ref() {
             let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
             RenderPassColorAttachment {
-                view: &resolve_target.default_view,
+                view: &multisampled.default_view,
                 depth_slice: None,
                 resolve_target: Some(&self.texture.default_view),
                 ops: Operations {

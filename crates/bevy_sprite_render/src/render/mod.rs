@@ -17,7 +17,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{BevyDefault, Image, TextureAtlasLayout};
+use bevy_image::{Image, TextureAtlasLayout};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
@@ -35,7 +35,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract,
 };
 use bevy_shader::{Shader, ShaderDefVal};
@@ -104,6 +104,18 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_R8UNORM = 0 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RG8UNORM = 1  << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RGBA8UNORM = 2 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RGBA8UNORMSRGB = 3 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_BGRA8UNORM = 4 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_BGRA8UNORMSRGB = 5 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_R16FLOAT = 6 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RG16FLOAT = 7 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RGBA16FLOAT = 8 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RB11B10FLOAT = 9 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+        const COLOR_TARGET_FORMAT_RGB10A2UNORM = 10 << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
     }
 }
 
@@ -113,6 +125,9 @@ impl SpritePipelineKey {
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::MSAA_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+    const COLOR_TARGET_FORMAT_MASK_BITS: u32 = 0b1111;
+    const COLOR_TARGET_FORMAT_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::COLOR_TARGET_FORMAT_MASK_BITS.count_ones();
 
     #[inline]
     pub const fn from_msaa_samples(msaa_samples: u32) -> Self {
@@ -126,12 +141,54 @@ impl SpritePipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
+    /// Create a pipeline key from view target format.
     #[inline]
-    pub const fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            SpritePipelineKey::HDR
+    pub fn from_color_target_format(format: TextureFormat) -> Self {
+        match format {
+            TextureFormat::R8Unorm => Self::COLOR_TARGET_FORMAT_R8UNORM,
+            TextureFormat::Rg8Unorm => Self::COLOR_TARGET_FORMAT_RG8UNORM,
+            TextureFormat::Rgba8Unorm => Self::COLOR_TARGET_FORMAT_RGBA8UNORM,
+            TextureFormat::Rgba8UnormSrgb => Self::COLOR_TARGET_FORMAT_RGBA8UNORMSRGB,
+            TextureFormat::Bgra8Unorm => Self::COLOR_TARGET_FORMAT_BGRA8UNORM,
+            TextureFormat::Bgra8UnormSrgb => Self::COLOR_TARGET_FORMAT_BGRA8UNORMSRGB,
+            TextureFormat::R16Float => Self::COLOR_TARGET_FORMAT_R16FLOAT,
+            TextureFormat::Rg16Float => Self::COLOR_TARGET_FORMAT_RG16FLOAT,
+            TextureFormat::Rgba16Float => Self::COLOR_TARGET_FORMAT_RGBA16FLOAT,
+            TextureFormat::Rg11b10Ufloat => Self::COLOR_TARGET_FORMAT_RB11B10FLOAT,
+            TextureFormat::Rgb10a2Unorm => Self::COLOR_TARGET_FORMAT_RGB10A2UNORM,
+            _ => unreachable!("Unsupported view target format"),
+        }
+    }
+
+    /// Get the view target format of this pipeline key.
+    #[inline]
+    pub fn color_target_format(&self) -> TextureFormat {
+        let target_format = *self & Self::COLOR_TARGET_FORMAT_RESERVED_BITS;
+
+        if target_format == Self::COLOR_TARGET_FORMAT_R8UNORM {
+            TextureFormat::R8Unorm
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RG8UNORM {
+            TextureFormat::Rg8Unorm
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RGBA8UNORM {
+            TextureFormat::Rgba8Unorm
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RGBA8UNORMSRGB {
+            TextureFormat::Rgba8UnormSrgb
+        } else if target_format == Self::COLOR_TARGET_FORMAT_BGRA8UNORM {
+            TextureFormat::Bgra8Unorm
+        } else if target_format == Self::COLOR_TARGET_FORMAT_BGRA8UNORMSRGB {
+            TextureFormat::Bgra8UnormSrgb
+        } else if target_format == Self::COLOR_TARGET_FORMAT_R16FLOAT {
+            TextureFormat::R16Float
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RG16FLOAT {
+            TextureFormat::Rg16Float
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RGBA16FLOAT {
+            TextureFormat::Rgba16Float
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RB11B10FLOAT {
+            TextureFormat::Rg11b10Ufloat
+        } else if target_format == Self::COLOR_TARGET_FORMAT_RGB10A2UNORM {
+            TextureFormat::Rgb10a2Unorm
         } else {
-            SpritePipelineKey::NONE
+            unreachable!("Unsupported view target format")
         }
     }
 }
@@ -178,11 +235,6 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 shader_defs.push("DEBAND_DITHER".into());
             }
         }
-
-        let format = match key.contains(SpritePipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
 
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
             array_stride: 80,
@@ -232,7 +284,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.color_target_format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -479,21 +531,21 @@ pub fn queue_sprites(
     mut views: Query<(
         &RenderVisibleEntities,
         &ExtractedView,
-        &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (visible_entities, view, msaa, tonemapping, dither) in &mut views {
+    for (visible_entities, view, tonemapping, dither) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
 
-        let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-        let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
+        let msaa_key = SpritePipelineKey::from_msaa_samples(view.msaa_samples);
+        let mut view_key =
+            SpritePipelineKey::from_color_target_format(view.color_target_format) | msaa_key;
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {

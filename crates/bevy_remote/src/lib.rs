@@ -225,7 +225,6 @@
 //!        "bevy_camera::Camera": {
 //!          "clear_color": "Default",
 //!          "is_active": true,
-//!          "msaa_writeback": true,
 //!          "order": 0,
 //!          "sub_camera_view": null,
 //!          "target": {
@@ -244,7 +243,6 @@
 //!        "bevy_camera::primitives::Frustum": {},
 //!     "bevy_render::sync_world::RenderEntity": 4294967291,
 //!        "bevy_render::sync_world::SyncToRenderWorld": {},
-//!        "bevy_render::view::Msaa": "Sample4",
 //!        "bevy_camera::visibility::InheritedVisibility": true,
 //!        "bevy_camera::visibility::ViewVisibility": false,
 //!        "bevy_camera::visibility::Visibility": "Inherited",

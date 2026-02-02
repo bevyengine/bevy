@@ -50,7 +50,6 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
-    prelude::Msaa,
     render_phase::{
         sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
@@ -66,7 +65,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
-use tracing::warn;
 
 use crate::deferred::copy_lighting_id::copy_deferred_lighting_id;
 use crate::deferred::node::{early_deferred_prepass, late_deferred_prepass};
@@ -617,13 +615,13 @@ pub fn prepare_core_3d_depth_textures(
     views_3d: Query<(
         Entity,
         &ExtractedCamera,
+        &ExtractedView,
         Option<&DepthPrepass>,
         &Camera3d,
-        &Msaa,
     )>,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
-    for (_, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
+    for (_, camera, _view, depth_prepass, camera_3d) in &views_3d {
         // Default usage required to write to the depth texture
         let mut usage: TextureUsages = camera_3d.depth_texture_usages.into();
         if depth_prepass.is_some() {
@@ -631,30 +629,30 @@ pub fn prepare_core_3d_depth_textures(
             usage |= TextureUsages::COPY_SRC;
         }
         render_target_usage
-            .entry(camera.target.clone())
+            .entry(camera.output_color_target.clone())
             .and_modify(|u| *u |= usage)
             .or_insert_with(|| usage);
     }
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, _, camera_3d, msaa) in &views_3d {
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
+    for (entity, camera, view, _depth_prepass, camera_3d) in &views_3d {
+        let usage = *render_target_usage
+            .get(&camera.output_color_target.clone())
+            .expect("The depth texture usage should already exist for this target");
         let cached_texture = textures
-            .entry((camera.target.clone(), msaa))
+            .entry((
+                camera.output_color_target.clone(),
+                camera.main_color_target_size,
+                usage,
+                view.msaa_samples,
+            ))
             .or_insert_with(|| {
-                let usage = *render_target_usage
-                    .get(&camera.target.clone())
-                    .expect("The depth texture usage should already exist for this target");
-
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: physical_target_size.to_extents(),
+                    size: camera.main_color_target_size.to_extents(),
                     mip_level_count: 1,
-                    sample_count: msaa.samples(),
+                    sample_count: view.msaa_samples,
                     dimension: TextureDimension::D2,
                     format: CORE_3D_DEPTH_FORMAT,
                     usage,
@@ -696,15 +694,13 @@ fn configure_occlusion_culling_view_targets(
     }
 }
 
-// Disable MSAA and warn if using deferred rendering
-pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<DeferredPrepass>)>) {
-    for mut msaa in deferred_views.iter_mut() {
-        match *msaa {
-            Msaa::Off => (),
-            _ => {
-                warn!("MSAA is incompatible with deferred rendering and has been disabled.");
-                *msaa = Msaa::Off;
-            }
+// Check MSAA and panic if using deferred rendering
+pub fn check_msaa(
+    mut deferred_views: Query<&ExtractedView, (With<Camera>, With<DeferredPrepass>)>,
+) {
+    for view in deferred_views.iter_mut() {
+        if view.msaa_samples > 1 {
+            panic!("MSAA is incompatible with deferred rendering.");
         };
     }
 }
@@ -723,7 +719,6 @@ pub fn prepare_prepass_textures(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
-        &Msaa,
         Has<DepthPrepass>,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
@@ -743,7 +738,6 @@ pub fn prepare_prepass_textures(
         entity,
         camera,
         view,
-        msaa,
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
@@ -761,21 +755,17 @@ pub fn prepare_prepass_textures(
             continue;
         };
 
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
-        let size = physical_target_size.to_extents();
+        let size = camera.main_color_target_size.to_extents();
 
         let cached_depth_texture1 = depth_prepass.then(|| {
             depth_textures1
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
                         label: Some("prepass_depth_texture_1"),
                         size,
                         mip_level_count: 1,
-                        sample_count: msaa.samples(),
+                        sample_count: view.msaa_samples,
                         dimension: TextureDimension::D2,
                         format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
@@ -790,13 +780,13 @@ pub fn prepare_prepass_textures(
 
         let cached_depth_texture2 = depth_prepass_double_buffer.then(|| {
             depth_textures2
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
                         label: Some("prepass_depth_texture_2"),
                         size,
                         mip_level_count: 1,
-                        sample_count: msaa.samples(),
+                        sample_count: view.msaa_samples,
                         dimension: TextureDimension::D2,
                         format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
@@ -811,7 +801,7 @@ pub fn prepare_prepass_textures(
 
         let cached_normals_texture = normal_prepass.then(|| {
             normal_textures
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -819,7 +809,7 @@ pub fn prepare_prepass_textures(
                             label: Some("prepass_normal_texture"),
                             size,
                             mip_level_count: 1,
-                            sample_count: msaa.samples(),
+                            sample_count: view.msaa_samples,
                             dimension: TextureDimension::D2,
                             format: NORMAL_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
@@ -833,7 +823,7 @@ pub fn prepare_prepass_textures(
 
         let cached_motion_vectors_texture = motion_vector_prepass.then(|| {
             motion_vectors_textures
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -841,7 +831,7 @@ pub fn prepare_prepass_textures(
                             label: Some("prepass_motion_vectors_textures"),
                             size,
                             mip_level_count: 1,
-                            sample_count: msaa.samples(),
+                            sample_count: view.msaa_samples,
                             dimension: TextureDimension::D2,
                             format: MOTION_VECTOR_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
@@ -855,7 +845,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_texture1 = deferred_prepass.then(|| {
             deferred_textures1
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -877,7 +867,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_texture2 = deferred_prepass_double_buffer.then(|| {
             deferred_textures2
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -899,7 +889,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
             deferred_lighting_id_textures
-                .entry(camera.target.clone())
+                .entry(camera.output_color_target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,

@@ -124,7 +124,7 @@ pub fn camera_driver(world: &mut World) {
         };
 
         let schedule = camera.schedule;
-        let target = camera.target.clone();
+        let target = camera.output_color_target.clone();
 
         let mut run_schedule = true;
         if let Some(NormalizedRenderTarget::Window(window_ref)) = &target {

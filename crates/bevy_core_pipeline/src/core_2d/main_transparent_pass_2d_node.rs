@@ -1,7 +1,6 @@
 use crate::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
@@ -14,17 +13,12 @@ use tracing::info_span;
 
 pub fn main_transparent_pass_2d(
     world: &World,
-    view: ViewQuery<(
-        &ExtractedCamera,
-        &ExtractedView,
-        &ViewTarget,
-        &ViewDepthTexture,
-    )>,
+    view: ViewQuery<(&ExtractedView, &ViewTarget, &ViewDepthTexture)>,
     transparent_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
-    let (camera, extracted_view, target, depth) = view.into_inner();
+    let (extracted_view, target, depth) = view.into_inner();
 
     let Some(transparent_phase) = transparent_phases.get(&extracted_view.retained_view_entity)
     else {
@@ -57,10 +51,6 @@ pub fn main_transparent_pass_2d(
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_2d");
 
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
-        }
-
         if !transparent_phase.items.is_empty() {
             #[cfg(feature = "trace")]
             let _transparent_span = info_span!("transparent_main_pass_2d").entered();
@@ -70,22 +60,5 @@ pub fn main_transparent_pass_2d(
         }
 
         pass_span.end(&mut render_pass);
-    }
-
-    // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
-    // reset for the next render pass so add an empty render pass without a custom viewport
-    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    if camera.viewport.is_some() {
-        #[cfg(feature = "trace")]
-        let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();
-
-        let _reset_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("reset_viewport_pass_2d"),
-            color_attachments: &[Some(target.get_color_attachment())],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
-        });
     }
 }

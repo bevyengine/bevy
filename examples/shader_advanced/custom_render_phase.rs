@@ -12,7 +12,7 @@
 
 use std::ops::Range;
 
-use bevy::camera::Viewport;
+use bevy::camera::{CameraMainColorTargetConfig, Viewport};
 use bevy::math::Affine3Ext;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
@@ -35,7 +35,6 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData,
         },
-        camera::ExtractedCamera,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
@@ -102,7 +101,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.0, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         // disable msaa for simplicity
-        Msaa::Off,
+        CameraMainColorTargetConfig::default().with_msaa_off(),
     ));
 }
 
@@ -497,10 +496,10 @@ fn queue_custom_meshes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     mut custom_render_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
-    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     has_marker: Query<(), With<DrawStencil>>,
 ) {
-    for (view, visible_entities, msaa) in &mut views {
+    for (view, visible_entities) in &mut views {
         let Some(custom_phase) = custom_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
@@ -508,8 +507,8 @@ fn queue_custom_meshes(
 
         // Create the key based on the view.
         // In this case we only care about MSAA and HDR
-        let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let view_key = MeshPipelineKey::from_msaa_samples(view.msaa_samples)
+            | MeshPipelineKey::from_color_target_format(view.color_target_format);
 
         let rangefinder = view.rangefinder3d();
         // Since our phase can work on any 3d mesh we can reuse the default mesh 3d filter
@@ -566,7 +565,6 @@ fn queue_custom_meshes(
 fn custom_draw_system(
     world: &World,
     view: ViewQuery<(
-        &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
         Option<&MainPassResolutionOverride>,
@@ -575,7 +573,7 @@ fn custom_draw_system(
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
-    let (camera, extracted_view, target, resolution_override) = view.into_inner();
+    let (extracted_view, target, resolution_override) = view.into_inner();
 
     let Some(stencil_phase) = stencil_phases.get(&extracted_view.retained_view_entity) else {
         return;
@@ -594,9 +592,7 @@ fn custom_draw_system(
         multiview_mask: None,
     });
 
-    if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 

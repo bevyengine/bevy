@@ -1,6 +1,11 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+extern crate alloc;
+extern crate core;
+
 mod camera;
+
 mod clear_color;
+pub mod color_target;
 mod components;
 pub mod primitives;
 mod projection;
@@ -34,8 +39,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         visibility::{InheritedVisibility, ViewVisibility, Visibility},
-        Camera, Camera2d, Camera3d, ClearColor, ClearColorConfig, MsaaWriteback,
-        OrthographicProjection, PerspectiveProjection, Projection,
+        Camera, Camera2d, Camera3d, ClearColor, ClearColorConfig, OrthographicProjection,
+        PerspectiveProjection, Projection,
     };
 }
 

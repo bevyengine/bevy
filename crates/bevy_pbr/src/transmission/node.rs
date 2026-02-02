@@ -47,10 +47,6 @@ pub fn main_transmissive_pass_3d(
         return;
     };
 
-    let Some(physical_target_size) = camera.physical_target_size else {
-        return;
-    };
-
     #[cfg(feature = "trace")]
     let _main_transmissive_pass_3d_span = info_span!("main_transmissive_pass_3d").entered();
 
@@ -83,16 +79,12 @@ pub fn main_transmissive_pass_3d(
                 ctx.command_encoder().copy_texture_to_texture(
                     target.main_texture().as_image_copy(),
                     transmission.texture.as_image_copy(),
-                    physical_target_size.to_extents(),
+                    camera.main_color_target_size.to_extents(),
                 );
 
                 let mut render_pass = ctx.begin_tracked_render_pass(render_pass_descriptor.clone());
                 let pass_span =
                     diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
-
-                if let Some(viewport) = camera.viewport.as_ref() {
-                    render_pass.set_camera_viewport(viewport);
-                }
 
                 if let Err(err) =
                     transmissive_phase.render_range(&mut render_pass, world, view_entity, range)
@@ -107,7 +99,7 @@ pub fn main_transmissive_pass_3d(
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
             if let Some(viewport) =
-                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+                Viewport::from_main_pass_resolution_override(resolution_override)
             {
                 render_pass.set_camera_viewport(&viewport);
             }

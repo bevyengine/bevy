@@ -2,7 +2,7 @@
 
 use argh::FromArgs;
 use bevy::{
-    camera::CameraMainTextureUsages,
+    camera::CameraMainColorTargetConfig,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore},
     gltf::GltfMaterialName,
@@ -145,9 +145,10 @@ fn setup_pica_pica(
         Transform::from_translation(Vec3::new(0.219417, 2.5764852, 6.9718704)).with_rotation(
             Quat::from_xyzw(-0.1466768, 0.013738206, 0.002037309, 0.989087),
         ),
-        // Msaa::Off and CameraMainTextureUsages with STORAGE_BINDING are required for Solari
-        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
-        Msaa::Off,
+        // MSAA off and STORAGE_BINDING are required for Solari
+        CameraMainColorTargetConfig::default()
+            .with_msaa_off()
+            .with_usage(TextureUsages::STORAGE_BINDING),
     ));
 
     if args.pathtracer == Some(true) {
@@ -322,9 +323,10 @@ fn setup_many_lights(
         Transform::from_translation(Vec3::new(0.0919233, 7.5015035, 28.449198)).with_rotation(
             Quat::from_xyzw(-0.18394549, 0.0019948867, 0.0003733214, 0.98293436),
         ),
-        // Msaa::Off and CameraMainTextureUsages with STORAGE_BINDING are required for Solari
-        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
-        Msaa::Off,
+        // MSAA off and STORAGE_BINDING are required for Solari
+        CameraMainColorTargetConfig::default()
+            .with_msaa_off()
+            .with_usage(TextureUsages::STORAGE_BINDING),
         Bloom {
             intensity: 0.1,
             ..Bloom::NATURAL

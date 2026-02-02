@@ -5,7 +5,6 @@ use crate::{
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_phase::ViewBinnedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
@@ -21,7 +20,6 @@ use super::AlphaMask3d;
 pub fn main_opaque_pass_3d(
     world: &World,
     view: ViewQuery<(
-        &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
         &ViewDepthTexture,
@@ -38,7 +36,6 @@ pub fn main_opaque_pass_3d(
     let view_entity = view.entity();
 
     let (
-        camera,
         extracted_view,
         target,
         depth,
@@ -74,9 +71,7 @@ pub fn main_opaque_pass_3d(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_3d");
 
-    if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 

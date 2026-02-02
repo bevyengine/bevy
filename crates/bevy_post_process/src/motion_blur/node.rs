@@ -8,7 +8,7 @@ use bevy_render::{
         RenderPassDescriptor,
     },
     renderer::{RenderContext, ViewQuery},
-    view::{Msaa, ViewTarget},
+    view::{ExtractedView, ViewTarget},
 };
 
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
@@ -20,11 +20,11 @@ use super::{
 
 pub fn motion_blur(
     view: ViewQuery<(
+        &ExtractedView,
         &ViewTarget,
         &MotionBlurPipelineId,
         &ViewPrepassTextures,
         &MotionBlurUniform,
-        &Msaa,
     )>,
     motion_blur_pipeline: Res<MotionBlurPipeline>,
     pipeline_cache: Res<PipelineCache>,
@@ -32,7 +32,7 @@ pub fn motion_blur(
     globals_buffer: Res<GlobalsBuffer>,
     mut ctx: RenderContext,
 ) {
-    let (view_target, pipeline_id, prepass_textures, motion_blur_uniform, msaa) = view.into_inner();
+    let (view, view_target, pipeline_id, prepass_textures, motion_blur_uniform) = view.into_inner();
 
     if motion_blur_uniform.samples == 0 || motion_blur_uniform.shutter_angle <= 0.0 {
         return; // We can skip running motion blur in these cases.
@@ -56,7 +56,7 @@ pub fn motion_blur(
 
     let post_process = view_target.post_process_write();
 
-    let layout = if msaa.samples() == 1 {
+    let layout = if view.msaa_samples == 1 {
         &motion_blur_pipeline.layout
     } else {
         &motion_blur_pipeline.layout_msaa

@@ -29,7 +29,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::Image;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::ExtractComponentPlugin,
@@ -355,11 +355,7 @@ pub fn prepare_post_processing_pipelines(
             &pipeline_cache,
             &post_processing_pipeline,
             PostProcessingPipelineKey {
-                texture_format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                texture_format: view.color_target_format,
             },
         );
 
