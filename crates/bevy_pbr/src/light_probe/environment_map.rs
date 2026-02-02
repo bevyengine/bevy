@@ -275,7 +275,7 @@ impl LightProbeComponent for EnvironmentMapLight {
             flags.insert(RenderLightProbeFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE);
         }
         if maybe_parallax_correction.is_some_and(|parallax_correction| {
-            matches!(*parallax_correction, ParallaxCorrection::None)
+            !matches!(*parallax_correction, ParallaxCorrection::None)
         }) {
             flags.insert(RenderLightProbeFlags::ENABLE_PARALLAX_CORRECTION);
         }

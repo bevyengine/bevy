@@ -22,6 +22,8 @@ struct LightProbeQueryResult {
     // Transform from world space to the light probe model space. In light probe
     // model space, the light probe is a 1×1×1 cube centered on the origin.
     light_from_world: mat4x4<f32>,
+    // The boundaries of the simulated space used for parallax correction,
+    // specified as *half* extents in light probe space.
     parallax_correction_bounds: vec3<f32>,
     // The weight of this light probe, determined by the position of the
     // fragment within the falloff range. The sum of the weights of all light
