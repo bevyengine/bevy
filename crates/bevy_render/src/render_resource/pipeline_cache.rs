@@ -440,7 +440,8 @@ impl PipelineCache {
             .get(&self.device, bind_group_layout_descriptor.clone())
     }
 
-    fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
+    /// Inserts a [`Shader`] into this cache and assigns links it to this [`AssetId`].
+    pub fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
         let pipelines_to_queue = shader_cache.set_shader(id, shader);
         for cached_pipeline in pipelines_to_queue {
@@ -449,7 +450,8 @@ impl PipelineCache {
         }
     }
 
-    fn remove_shader(&mut self, shader: AssetId<Shader>) {
+    /// Removes a [`Shader`] from this cache if it exists.
+    pub fn remove_shader(&mut self, shader: AssetId<Shader>) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
         let pipelines_to_queue = shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
@@ -717,7 +719,13 @@ impl PipelineCache {
         self.waiting_pipelines.insert(id);
     }
 
-    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
+    /// Process the pipeline queue and create all pending pipelines if possible.
+    ///
+    /// This is generally called automatically during the [`RenderSystems::Render`] step, but can
+    /// be called manually to force creation at a different time.
+    ///
+    /// [`RenderSystems::Render`]: crate::RenderSystems::Render
+    pub fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
         cache.process_queue();
     }
 
