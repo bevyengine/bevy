@@ -1,7 +1,18 @@
 //! Uses glTF extension processing to convert incoming 3d Meshes to 2d Meshes
 
 use bevy::{
-    asset::LoadContext, gltf::{GltfPlugin, extensions::{GltfExtensionHandler, GltfExtensionHandlers}}, mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef}, pbr::PbrPlugin, prelude::*, reflect::TypePath, render::render_resource::*, shader::ShaderRef, sprite_render::{Material2d, Material2dKey, Material2dPlugin}
+    asset::LoadContext,
+    gltf::{
+        extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+        GltfPlugin,
+    },
+    mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
+    pbr::PbrPlugin,
+    prelude::*,
+    reflect::TypePath,
+    render::render_resource::*,
+    shader::ShaderRef,
+    sprite_render::{Material2d, Material2dKey, Material2dPlugin},
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -18,7 +29,7 @@ const ATTRIBUTE_BARYCENTRIC: MeshVertexAttribute =
 fn main() {
     let mut pbr = PbrPlugin::default();
     pbr.gltf_render_enabled = false;
-    
+
     App::new()
         .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
@@ -26,16 +37,16 @@ fn main() {
             ..default()
         })
         .add_plugins((
-            DefaultPlugins.set(
-                GltfPlugin::default()
-                    // Map a custom glTF attribute name to a `MeshVertexAttribute`.
-                    // The glTF file used here has an attribute name with *two*
-                    // underscores: __BARYCENTRIC
-                    // One is stripped to do the comparison here.
-                    .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
-            ).set(
-                pbr
-            ),
+            DefaultPlugins
+                .set(
+                    GltfPlugin::default()
+                        // Map a custom glTF attribute name to a `MeshVertexAttribute`.
+                        // The glTF file used here has an attribute name with *two*
+                        // underscores: __BARYCENTRIC
+                        // One is stripped to do the comparison here.
+                        .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
+                )
+                .set(pbr),
             GltfToMesh2dPlugin,
         ))
         .add_systems(Startup, setup)
