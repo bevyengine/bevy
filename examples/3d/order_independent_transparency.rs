@@ -3,39 +3,137 @@
 //! See [`OrderIndependentTransparencyPlugin`] for the trade-offs of using OIT.
 //!
 //! [`OrderIndependentTransparencyPlugin`]: bevy::core_pipeline::oit::OrderIndependentTransparencyPlugin
+
+use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
 use bevy::{
     camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
     core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
     prelude::*,
+    window::{PresentMode, PrimaryWindow},
 };
+use bevy_ecs::system::SystemParam;
+
+#[path = "../helpers/widgets.rs"]
+#[allow(unused)]
+mod widgets;
+
+/// Scene construction functions
+const SCENES: &[(&str, &str, fn(&mut Commands, &mut SceneResources))] = &[
+    ("1", "Three balls", spawn_spheres),
+    ("2", "Stacked quads", spawn_quads),
+    ("3", "Opaque occlusion test", spawn_occlusion_test),
+    ("4", "Auto instancing test", spawn_auto_instancing_test),
+];
+
+/// Application state
+#[derive(Resource)]
+struct AppState {
+    /// Current OIT settings
+    oit_settings: OrderIndependentTransparencySettings,
+    /// Whether to use OIT or standard mesh sorting
+    use_oit: bool,
+    /// Using a depth prepass helps cull transparent fragment against opaque ones earlier
+    use_depth_prepass: bool,
+    /// Disable VSync to better assess performance
+    enable_vsync: bool,
+    /// The current scene being displayed
+    current_scene_id: usize,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            oit_settings: Default::default(),
+            use_oit: true,
+            use_depth_prepass: true,
+            enable_vsync: true,
+            current_scene_id: 0,
+        }
+    }
+}
+
+/// Tweakable settings
+#[derive(Clone)]
+enum AppSetting {
+    /// Change whether OIT is used or not
+    EnableOIT(bool),
+    /// Change whether DepthPrepass is used or not
+    UseDepthPrepass(bool),
+    /// Enable or diable VSync on the window
+    EnableVsync(bool),
+    /// Change the displayed scene
+    ChangeScene(usize),
+}
+
+/// This struct bundles up the resources used by the scene creation functions.
+/// Derives SystemParam to be able to pass it in systems.
+#[derive(SystemParam)]
+struct SceneResources<'w> {
+    meshes: ResMut<'w, Assets<Mesh>>,
+    materials: ResMut<'w, Assets<StandardMaterial>>,
+    asset_server: Res<'w, AssetServer>,
+}
+
+/// This message is similar to WidgetClickEvent<AppSetting>, only for events generated
+/// by the app.
+#[derive(Clone, Message, Deref, DerefMut)]
+struct AppEvent(AppSetting);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: if AppState::default().enable_vsync {
+                    PresentMode::AutoVsync
+                } else {
+                    PresentMode::AutoNoVsync
+                },
+                ..default()
+            }),
+            ..default()
+        }))
+        .init_resource::<AppState>()
+        .add_message::<WidgetClickEvent<AppSetting>>()
+        .add_message::<AppEvent>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (toggle_oit, cycle_scenes))
+        .add_systems(Update, handle_keyboard_shortcuts)
+        .add_systems(Update, scene_change_watcher)
+        .add_systems(
+            Update,
+            (
+                widgets::handle_ui_interactions::<AppSetting>,
+                update_radio_buttons.after(widgets::handle_ui_interactions::<AppSetting>),
+                handle_setting_change.after(widgets::handle_ui_interactions::<AppSetting>),
+            ),
+        )
         .run();
 }
 
-/// set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+/// Sets up the base scene
+fn setup(mut commands: Commands, mut resources: SceneResources, app_state: Res<AppState>) {
+    spawn_ui(&mut commands);
+
     // camera
-    commands.spawn((
+    let mut camera = commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // Add this component to this camera to render transparent meshes using OIT
-        OrderIndependentTransparencySettings::default(),
         RenderLayers::layer(1),
         // Msaa currently doesn't work with OIT
         Msaa::Off,
-        // Optional: depth prepass can help OIT filter out fragments occluded by opaque objects
-        DepthPrepass,
     ));
+
+    if app_state.use_oit {
+        // Add this component to the camera to render transparent meshes using OIT
+        camera.insert(OrderIndependentTransparencySettings {
+            ..app_state.oit_settings
+        });
+    }
+
+    if app_state.use_depth_prepass {
+        // Optional: depth prepass can help OIT filter out fragments occluded by opaque objects
+        camera.insert(DepthPrepass);
+    }
 
     // light
     commands.spawn((
@@ -47,95 +145,191 @@ fn setup(
         RenderLayers::layer(1),
     ));
 
-    // spawn help text
-    commands.spawn((
-        Text::default(),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(12),
-            left: px(12),
-            ..default()
-        },
-        RenderLayers::layer(1),
-        children![
-            TextSpan::new("Press T to toggle OIT\n"),
-            TextSpan::new("OIT Enabled"),
-            TextSpan::new("\nPress C to cycle test scenes"),
-        ],
-    ));
-
-    // spawn default scene
-    spawn_spheres(&mut commands, &mut meshes, &mut materials);
+    // spawn the default scene
+    SCENES[0].2(&mut commands, &mut resources); //&mut meshes, &mut materials);
 }
 
-fn toggle_oit(
-    mut commands: Commands,
-    text: Single<Entity, With<Text>>,
+/// Watches for key presses and queues corresponding AppEvent's
+fn handle_keyboard_shortcuts(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    q: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
-    mut text_writer: TextUiWriter,
+    mut app_state: ResMut<AppState>,
+    mut messages: MessageWriter<AppEvent>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::KeyT) {
-        let (e, has_oit) = *q;
-        *text_writer.text(*text, 2) = if has_oit {
-            // Removing the component will completely disable OIT for this camera
-            commands
-                .entity(e)
-                .remove::<OrderIndependentTransparencySettings>();
-            "OIT disabled".to_string()
+    if keyboard_input.just_pressed(KeyCode::Tab) {
+        let n = app_state.current_scene_id + SCENES.len();
+        if keyboard_input.pressed(KeyCode::ShiftLeft) {
+            app_state.current_scene_id = (n - 1) % SCENES.len();
         } else {
-            // Adding the component to the camera will render any transparent meshes
-            // with OIT instead of alpha blending
-            commands
-                .entity(e)
-                .insert(OrderIndependentTransparencySettings::default());
-            "OIT enabled".to_string()
-        };
+            app_state.current_scene_id = (n + 1) % SCENES.len();
+        }
+        // There is a dedicated scene change watcher, so no need to push an AppEvent
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyT) {
+        messages.write(AppEvent(AppSetting::EnableOIT(!app_state.use_oit)));
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyD) {
+        messages.write(AppEvent(AppSetting::UseDepthPrepass(
+            !app_state.use_depth_prepass,
+        )));
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyV) {
+        messages.write(AppEvent(AppSetting::EnableVsync(!app_state.enable_vsync)));
     }
 }
 
-fn cycle_scenes(
-    mut commands: Commands,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    q: Query<Entity, With<Mesh3d>>,
-    mut scene_id: Local<usize>,
-    asset_server: Res<AssetServer>,
+fn spawn_ui(commands: &mut Commands) {
+    commands.spawn((
+        widgets::main_ui_node(),
+        children![
+            widgets::option_buttons::<AppSetting>(
+                "Scene",
+                &(SCENES
+                    .iter()
+                    .enumerate()
+                    .map(|(i, scene)| (AppSetting::ChangeScene(i), scene.0))
+                    .collect::<Vec<_>>())
+            ),
+            widgets::option_buttons(
+                "Order Independent [T]ransparency",
+                &[
+                    (AppSetting::EnableOIT(true), "On"),
+                    (AppSetting::EnableOIT(false), "Off")
+                ]
+            ),
+            widgets::option_buttons(
+                "[D]epth Prepass",
+                &[
+                    (AppSetting::UseDepthPrepass(true), "On"),
+                    (AppSetting::UseDepthPrepass(false), "Off")
+                ]
+            ),
+            widgets::option_buttons(
+                "Enable [V]Sync",
+                &[
+                    (AppSetting::EnableVsync(true), "On"),
+                    (AppSetting::EnableVsync(false), "Off")
+                ]
+            ),
+        ],
+    ));
+}
+
+fn update_radio_buttons(
+    mut widgets: Query<
+        (
+            Entity,
+            Option<&mut BackgroundColor>,
+            Has<Text>,
+            &WidgetClickSender<AppSetting>,
+        ),
+        Or<(With<RadioButton>, With<RadioButtonText>)>,
+    >,
+    app_state: Res<AppState>,
+    mut writer: TextUiWriter,
 ) {
-    if keyboard_input.just_pressed(KeyCode::KeyC) {
-        // despawn current scene
-        for e in &q {
+    for (entity, background_color, has_text, sender) in widgets.iter_mut() {
+        let selected = match **sender {
+            AppSetting::EnableOIT(value) => value == app_state.use_oit,
+            AppSetting::UseDepthPrepass(value) => value == app_state.use_depth_prepass,
+            AppSetting::EnableVsync(value) => value == app_state.enable_vsync,
+            AppSetting::ChangeScene(scene_id) => scene_id == app_state.current_scene_id,
+        };
+
+        if let Some(mut background_color) = background_color {
+            widgets::update_ui_radio_button(&mut background_color, selected);
+        }
+        if has_text {
+            widgets::update_ui_radio_button_text(entity, &mut writer, selected);
+        }
+    }
+}
+
+/// Runs through the messages (either WidgetClickEvent or AppEvent), updates the AppState,
+/// and performs the actual required changes
+fn handle_setting_change(
+    mut commands: Commands,
+    mut click_events: MessageReader<WidgetClickEvent<AppSetting>>,
+    mut app_events: MessageReader<AppEvent>,
+    mut app_state: ResMut<AppState>,
+    camera: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
+    mut window: Single<&mut Window, With<PrimaryWindow>>,
+) {
+    // Chain the two message iterators to handle both WidgetCliockEvent and AppEvent
+    // This works because both can be derefed to AppSetting
+    for event in click_events
+        .read()
+        .map(|e| &**e)
+        .chain(app_events.read().map(|e| &**e))
+    {
+        match *event {
+            AppSetting::EnableOIT(value) => {
+                app_state.use_oit = value;
+                if app_state.use_oit {
+                    commands
+                        .entity(camera.0)
+                        .insert(app_state.oit_settings.clone());
+                } else {
+                    commands
+                        .entity(camera.0)
+                        .remove::<OrderIndependentTransparencySettings>();
+                }
+            }
+            AppSetting::UseDepthPrepass(value) => {
+                app_state.use_depth_prepass = value;
+
+                if app_state.use_depth_prepass {
+                    commands.entity(camera.0).insert(DepthPrepass);
+                } else {
+                    commands.entity(camera.0).remove::<DepthPrepass>();
+                }
+            }
+            AppSetting::EnableVsync(value) => {
+                app_state.enable_vsync = value;
+
+                window.present_mode = if app_state.enable_vsync {
+                    PresentMode::AutoVsync
+                } else {
+                    PresentMode::AutoNoVsync
+                };
+            }
+            AppSetting::ChangeScene(id) => {
+                if id != app_state.current_scene_id {
+                    app_state.current_scene_id = id;
+                }
+                // The actual scene change is handled by scene_change_watcher()
+            }
+        }
+    }
+}
+
+/// Watches changes on the AppState and loads the appropriate scene
+fn scene_change_watcher(
+    app_state: Res<AppState>,
+    mut prev_scene_id: Local<usize>,
+    entities: Query<Entity, With<Mesh3d>>,
+    mut resources: SceneResources<'_>,
+    mut commands: Commands,
+) {
+    if app_state.is_changed() && *prev_scene_id != app_state.current_scene_id {
+        // Despawn the current scene
+        for e in &entities {
             commands.entity(e).despawn();
         }
-        // increment scene_id
-        *scene_id = (*scene_id + 1) % 4;
-        // spawn next scene
-        match *scene_id {
-            0 => spawn_spheres(&mut commands, &mut meshes, &mut materials),
-            1 => spawn_quads(&mut commands, &mut meshes, &mut materials),
-            2 => spawn_occlusion_test(&mut commands, &mut meshes, &mut materials),
-            3 => {
-                spawn_auto_instancing_test(
-                    &mut commands,
-                    &mut meshes,
-                    &mut materials,
-                    asset_server,
-                );
-            }
-            _ => unreachable!(),
-        }
+        SCENES[app_state.current_scene_id].2(&mut commands, &mut resources);
+        *prev_scene_id = app_state.current_scene_id;
     }
 }
 
 /// Spawns 3 overlapping spheres
 /// Technically, when using `alpha_to_coverage` with MSAA this particular example wouldn't break,
 /// but it breaks when disabling MSAA and is enough to show the difference between OIT enabled vs disabled.
-fn spawn_spheres(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-) {
+fn spawn_spheres(commands: &mut Commands, resources: &mut SceneResources) {
+    let meshes = &mut resources.meshes;
+    let materials = &mut resources.materials;
+
     let pos_a = Vec3::new(-1.0, 0.75, 0.0);
     let pos_b = Vec3::new(0.0, -0.75, 0.0);
     let pos_c = Vec3::new(1.0, 0.75, 0.0);
@@ -180,11 +374,12 @@ fn spawn_spheres(
     ));
 }
 
-fn spawn_quads(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-) {
+/// Spawns a stack of transparent quads, which better illustrates the shortcomings
+/// of the standard mesh sorted transparency.
+fn spawn_quads(commands: &mut Commands, resources: &mut SceneResources) {
+    let meshes = &mut resources.meshes;
+    let materials = &mut resources.materials;
+
     let quad_handle = meshes.add(Rectangle::new(3.0, 3.0).mesh());
     let render_layers = RenderLayers::layer(1);
     let xform = |x, y, z| {
@@ -243,14 +438,13 @@ fn spawn_quads(
     ));
 }
 
-/// Spawn a combination of opaque cubes and transparent spheres.
+/// Spawns a combination of opaque cubes and transparent spheres.
 /// This is useful to make sure transparent meshes drawn with OIT
 /// are properly occluded by opaque meshes.
-fn spawn_occlusion_test(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-) {
+fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources) {
+    let meshes = &mut resources.meshes;
+    let materials = &mut resources.materials;
+
     let sphere_handle = meshes.add(Sphere::new(1.0).mesh());
     let cube_handle = meshes.add(Cuboid::from_size(Vec3::ONE).mesh());
     let cube_material = materials.add(Color::srgb(0.8, 0.7, 0.6));
@@ -314,12 +508,13 @@ fn spawn_occlusion_test(
     ));
 }
 
-fn spawn_auto_instancing_test(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-    asset_server: Res<AssetServer>,
-) {
+/// Spawns multiple entities with the same Mesh+Material. They should automatically be drawn using
+/// instancing (when GPU preprocessing is not active) or MultiDrawIndirect (when it is).
+fn spawn_auto_instancing_test(commands: &mut Commands, resources: &mut SceneResources) {
+    let meshes = &mut resources.meshes;
+    let materials = &mut resources.materials;
+    let asset_server = &mut resources.asset_server;
+
     let render_layers = RenderLayers::layer(1);
 
     let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
