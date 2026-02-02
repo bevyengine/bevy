@@ -40,7 +40,7 @@ pub fn oit_resolve(
     let depth_bind_group = ctx.render_device().create_bind_group(
         "oit_resolve_depth_bind_group",
         &pipeline_cache.get_bind_group_layout(&resolve_pipeline.oit_depth_bind_group_layout),
-        &BindGroupEntries::single(depth.view()),
+        &BindGroupEntries::single(depth.depth_only_view()),
     );
 
     let diagnostics = ctx.diagnostic_recorder();

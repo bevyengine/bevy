@@ -817,7 +817,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    view_depth_texture.depth_only_view(),
                     postprocess.source,
                     &auxiliary_dof_texture.default_view,
                 )),
@@ -828,7 +828,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(&view_bind_group_layouts.single_input),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    view_depth_texture.depth_only_view(),
                     postprocess.source,
                 )),
             )

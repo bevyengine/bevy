@@ -150,18 +150,19 @@ fn copy_depth_texture_system(
 
     let command_encoder = ctx.command_encoder();
     command_encoder.push_debug_group("copy depth to demo texture");
+    // WebGPU spec: source aspect and destination aspect must both refer to all aspects.
     command_encoder.copy_texture_to_texture(
         TexelCopyTextureInfo {
-            texture: &depth_texture.texture,
+            texture: depth_texture.texture(),
             mip_level: 0,
             origin: Origin3d::default(),
-            aspect: TextureAspect::DepthOnly,
+            aspect: TextureAspect::All,
         },
         TexelCopyTextureInfo {
             texture: &demo_depth_image.texture,
             mip_level: 0,
             origin: Origin3d::default(),
-            aspect: TextureAspect::DepthOnly,
+            aspect: TextureAspect::All,
         },
         Extent3d {
             width: DEPTH_TEXTURE_SIZE,

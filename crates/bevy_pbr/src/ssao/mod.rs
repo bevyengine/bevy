@@ -679,7 +679,7 @@ fn prepare_ssao_bind_groups(
             "ssao_preprocess_depth_bind_group",
             &pipeline_cache.get_bind_group_layout(&pipelines.preprocess_depth_bind_group_layout),
             &BindGroupEntries::sequential((
-                prepass_textures.depth_view().unwrap(),
+                prepass_textures.depth_only_view().unwrap(),
                 &create_depth_view(0),
                 &create_depth_view(1),
                 &create_depth_view(2),

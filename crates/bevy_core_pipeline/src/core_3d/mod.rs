@@ -34,7 +34,7 @@ use bevy_render::{
     mesh::allocator::SlabId,
     occlusion_culling::OcclusionCulling,
     render_phase::PhaseItemBatchSetKey,
-    texture::CachedTexture,
+    texture::{CachedTexture, DepthAttachment},
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
 pub use main_opaque_pass_3d_node::*;
@@ -920,7 +920,7 @@ pub fn prepare_prepass_textures(
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
-            depth: package_double_buffered_texture(
+            depth: package_double_buffered_depth_texture(
                 cached_depth_texture1,
                 cached_depth_texture2,
                 frame_count.0,
@@ -968,6 +968,21 @@ fn package_double_buffered_texture(
             Some(t1),
             Some(LinearRgba::BLACK),
         )),
+        _ => None,
+    }
+}
+
+fn package_double_buffered_depth_texture(
+    texture1: Option<CachedTexture>,
+    texture2: Option<CachedTexture>,
+    frame_count: u32,
+) -> Option<DepthAttachment> {
+    match (texture1, texture2) {
+        (Some(t1), None) => Some(DepthAttachment::new(t1, None, Some(0.0))),
+        (Some(t1), Some(t2)) if frame_count.is_multiple_of(2) => {
+            Some(DepthAttachment::new(t1, Some(t2), Some(0.0)))
+        }
+        (Some(t1), Some(t2)) => Some(DepthAttachment::new(t2, Some(t1), Some(0.0))),
         _ => None,
     }
 }

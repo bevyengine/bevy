@@ -665,8 +665,21 @@ pub(crate) fn remove_light_view_entities(
 
 #[derive(Component)]
 pub struct ShadowView {
-    pub depth_attachment: DepthAttachment,
+    pub depth_view: TextureView,
     pub pass_name: String,
+}
+
+impl ShadowView {
+    pub fn get_attachment(&self) -> RenderPassDepthStencilAttachment<'_> {
+        RenderPassDepthStencilAttachment {
+            view: &self.depth_view,
+            depth_ops: Some(Operations {
+                load: LoadOp::Load,
+                store: StoreOp::Store,
+            }),
+            stencil_ops: None,
+        }
+    }
 }
 
 #[derive(Component)]
@@ -1043,8 +1056,8 @@ pub fn prepare_lights(
 
     live_shadow_mapping_lights.clear();
 
-    let mut point_light_depth_attachments = HashMap::<u32, DepthAttachment>::default();
-    let mut directional_light_depth_attachments = HashMap::<u32, DepthAttachment>::default();
+    let mut point_light_depth_views = HashMap::<u32, TextureView>::default();
+    let mut directional_light_depth_views = HashMap::<u32, TextureView>::default();
 
     let point_light_depth_texture = texture_cache.get(
         &render_device,
@@ -1321,27 +1334,24 @@ pub fn prepare_lights(
                 let mut first = false;
                 let base_array_layer = (light_index * 6 + face_index) as u32;
 
-                let depth_attachment = point_light_depth_attachments
+                let depth_view = point_light_depth_views
                     .entry(base_array_layer)
                     .or_insert_with(|| {
                         first = true;
 
-                        let depth_texture_view =
-                            point_light_depth_texture
-                                .texture
-                                .create_view(&TextureViewDescriptor {
-                                    label: Some("point_light_shadow_map_texture_view"),
-                                    format: None,
-                                    dimension: Some(TextureViewDimension::D2),
-                                    usage: None,
-                                    aspect: TextureAspect::All,
-                                    base_mip_level: 0,
-                                    mip_level_count: None,
-                                    base_array_layer,
-                                    array_layer_count: Some(1u32),
-                                });
-
-                        DepthAttachment::new(depth_texture_view, Some(0.0))
+                        point_light_depth_texture
+                            .texture
+                            .create_view(&TextureViewDescriptor {
+                                label: Some("point_light_shadow_map_texture_view"),
+                                format: None,
+                                dimension: Some(TextureViewDimension::D2),
+                                usage: None,
+                                aspect: TextureAspect::All,
+                                base_mip_level: 0,
+                                mip_level_count: None,
+                                base_array_layer,
+                                array_layer_count: Some(1u32),
+                            })
                     })
                     .clone();
 
@@ -1353,7 +1363,7 @@ pub fn prepare_lights(
 
                 commands.entity(view_light_entity).insert((
                     ShadowView {
-                        depth_attachment,
+                        depth_view,
                         pass_name: format!(
                             "shadow_point_light_{}_{}",
                             light_index,
@@ -1426,13 +1436,14 @@ pub fn prepare_lights(
             let mut first = false;
             let base_array_layer = (num_directional_cascades_enabled + light_index) as u32;
 
-            let depth_attachment = directional_light_depth_attachments
+            let depth_view = directional_light_depth_views
                 .entry(base_array_layer)
                 .or_insert_with(|| {
                     first = true;
 
-                    let depth_texture_view = directional_light_depth_texture.texture.create_view(
-                        &TextureViewDescriptor {
+                    directional_light_depth_texture
+                        .texture
+                        .create_view(&TextureViewDescriptor {
                             label: Some("spot_light_shadow_map_texture_view"),
                             format: None,
                             dimension: Some(TextureViewDimension::D2),
@@ -1442,10 +1453,7 @@ pub fn prepare_lights(
                             mip_level_count: None,
                             base_array_layer,
                             array_layer_count: Some(1u32),
-                        },
-                    );
-
-                    DepthAttachment::new(depth_texture_view, Some(0.0))
+                        })
                 })
                 .clone();
 
@@ -1460,7 +1468,7 @@ pub fn prepare_lights(
 
             commands.entity(view_light_entity).insert((
                 ShadowView {
-                    depth_attachment,
+                    depth_view,
                     pass_name: format!("shadow_spot_light_{light_index}"),
                 },
                 ExtractedView {
@@ -1587,7 +1595,7 @@ pub fn prepare_lights(
                 // NOTE: For point and spotlights, we reuse the same depth attachment for all views.
                 // However, for directional lights, we want a new depth attachment for each view,
                 // so that the view is cleared for each view.
-                let depth_attachment = DepthAttachment::new(depth_texture_view.clone(), Some(0.0));
+                let depth_view = depth_texture_view.clone();
 
                 directional_depth_texture_array_index += 1;
 
@@ -1607,7 +1615,7 @@ pub fn prepare_lights(
 
                 commands.entity(view_light_entity).insert((
                     ShadowView {
-                        depth_attachment,
+                        depth_view,
                         pass_name: format!(
                             "shadow_directional_light_{light_index}_cascade_{cascade_index}"
                         ),
@@ -2304,8 +2312,7 @@ pub fn shadow_pass<const IS_LATE: bool>(
         #[cfg(feature = "trace")]
         let _shadow_pass_span = info_span!("", "{}", view_light.pass_name).entered();
 
-        let depth_stencil_attachment =
-            Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
+        let depth_stencil_attachment = Some(view_light.get_attachment());
 
         let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some(&view_light.pass_name),

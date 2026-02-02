@@ -257,7 +257,7 @@ fn run_prepass_system(
         && let Some(prepass_depth_texture) = &view_prepass_textures.depth
     {
         ctx.command_encoder().copy_texture_to_texture(
-            view_depth_texture.texture.as_image_copy(),
+            view_depth_texture.texture().as_image_copy(),
             prepass_depth_texture.texture.texture.as_image_copy(),
             view_prepass_textures.size,
         );

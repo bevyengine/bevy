@@ -42,7 +42,8 @@ use core::{
 };
 use wgpu::{
     BufferUsages, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    TextureViewDescriptor,
 };
 
 /// The matrix that converts from the RGB to the LMS color space.
@@ -875,24 +876,33 @@ impl ViewTarget {
 
 #[derive(Component)]
 pub struct ViewDepthTexture {
-    pub texture: Texture,
     attachment: DepthAttachment,
+    depth_only_view: TextureView,
 }
 
 impl ViewDepthTexture {
     pub fn new(texture: CachedTexture, clear_value: Option<f32>) -> Self {
+        let depth_only_view = texture.texture.create_view(&TextureViewDescriptor {
+            aspect: TextureAspect::DepthOnly,
+            ..Default::default()
+        });
         Self {
-            texture: texture.texture,
-            attachment: DepthAttachment::new(texture.default_view, clear_value),
+            depth_only_view,
+            attachment: DepthAttachment::new(texture, None, clear_value),
         }
+    }
+
+    pub fn texture(&self) -> &Texture {
+        &self.attachment.texture.texture
     }
 
     pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
         self.attachment.get_attachment(store)
     }
 
-    pub fn view(&self) -> &TextureView {
-        &self.attachment.view
+    /// Depth only aspect without stencil of the texture. Supports binding as shadow sampler `texture_depth_2d` or unfilterable `texture_2d<f32>` in shaders.
+    pub fn depth_only_view(&self) -> &TextureView {
+        &self.depth_only_view
     }
 }
 

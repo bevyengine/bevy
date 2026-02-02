@@ -5,6 +5,7 @@ use bevy_color::LinearRgba;
 use core::sync::atomic::{AtomicBool, Ordering};
 use wgpu::{
     LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+    TextureViewDescriptor,
 };
 
 /// A wrapper for a [`CachedTexture`] that is used as a [`RenderPassColorAttachment`].
@@ -84,18 +85,38 @@ impl ColorAttachment {
     }
 }
 
-/// A wrapper for a [`TextureView`] that is used as a depth-only [`RenderPassDepthStencilAttachment`].
+/// A wrapper for a [`CachedTexture`] that is used as a depth-only [`RenderPassDepthStencilAttachment`].
 #[derive(Clone)]
 pub struct DepthAttachment {
-    pub view: TextureView,
+    pub texture: CachedTexture,
+    pub previous_frame_texture: Option<CachedTexture>,
+    pub depth_only_view: TextureView,
+    pub previous_frame_depth_only_view: Option<TextureView>,
     clear_value: Option<f32>,
     is_first_call: Arc<AtomicBool>,
 }
 
 impl DepthAttachment {
-    pub fn new(view: TextureView, clear_value: Option<f32>) -> Self {
+    pub fn new(
+        texture: CachedTexture,
+        previous_frame_texture: Option<CachedTexture>,
+        clear_value: Option<f32>,
+    ) -> Self {
+        let depth_only_view = texture.texture.create_view(&TextureViewDescriptor {
+            aspect: wgpu::TextureAspect::DepthOnly,
+            ..Default::default()
+        });
+        let previous_frame_depth_only_view = previous_frame_texture.as_ref().map(|t| {
+            t.texture.create_view(&TextureViewDescriptor {
+                aspect: wgpu::TextureAspect::DepthOnly,
+                ..Default::default()
+            })
+        });
         Self {
-            view,
+            texture,
+            previous_frame_texture,
+            depth_only_view,
+            previous_frame_depth_only_view,
             clear_value,
             is_first_call: Arc::new(AtomicBool::new(clear_value.is_some())),
         }
@@ -110,7 +131,7 @@ impl DepthAttachment {
             .fetch_and(store != StoreOp::Store, Ordering::SeqCst);
 
         RenderPassDepthStencilAttachment {
-            view: &self.view,
+            view: &self.texture.default_view,
             depth_ops: Some(Operations {
                 load: if first_call {
                     // If first_call is true, then a clear value will always have been provided in the constructor
