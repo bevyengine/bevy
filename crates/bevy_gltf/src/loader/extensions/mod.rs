@@ -21,7 +21,7 @@ use {
     bevy_platform::collections::{HashMap, HashSet},
 };
 
-use crate::{GltfMaterial, GltfMesh};
+use crate::{GltfAssetLabel, GltfMaterial, GltfMesh};
 
 pub(crate) use self::{
     khr_materials_anisotropy::AnisotropyExtension, khr_materials_clearcoat::ClearcoatExtension,
@@ -114,6 +114,8 @@ pub trait GltfExtensionHandler: Send + Sync {
         load_context: &mut LoadContext<'_>,
         gltf_material: &gltf::Material,
         material: Handle<GltfMaterial>,
+        material2: &GltfMaterial,
+        label: &String,
     ) {
     }
 
@@ -144,6 +146,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         mesh: &gltf::Mesh,
         material: &gltf::Material,
         entity: &mut EntityWorldMut,
+        label: &String,
     ) {
     }
 

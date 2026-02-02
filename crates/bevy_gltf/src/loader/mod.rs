@@ -57,7 +57,7 @@ use tracing::{error, info_span, warn};
 use crate::{
     convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
     GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
-    GltfMaterialTranslator, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
+    GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
     GltfSkinnedMeshBoundsPolicy,
 };
 
@@ -163,8 +163,6 @@ pub struct GltfLoader {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
-    ///  Converts `GltfMaterial` to something the renderer understands
-    pub material_translator: GltfMaterialTranslator,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -672,24 +670,22 @@ impl GltfLoader {
         if !settings.load_materials.is_empty() {
             // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
             for material in gltf.materials() {
-                let handle = {
-                    let (label, material) = load_material(
-                        &material,
-                        &texture_handles,
-                        false,
-                        load_context.path().clone(),
-                        &loader.material_translator.clone(),
-                        load_context,
-                    );
-                    load_context.add_labeled_asset(label, material)
-                };
+                let (label, gltf_material) = load_material(
+                    &material,
+                    &texture_handles,
+                    false,
+                    load_context.path().clone(),
+                    load_context,
+                );
+                let handle = load_context.add_labeled_asset(label.clone(), gltf_material.clone());
+
                 if let Some(name) = material.name() {
                     named_materials.insert(name.into(), handle.clone());
                 }
 
                 // let extensions handle material data
                 for extension in extensions.iter_mut() {
-                    extension.on_material(load_context, &material, handle.clone());
+                    extension.on_material(load_context, &material, handle.clone(), &gltf_material, &label.clone());
                 }
 
                 materials.push(handle);
@@ -1020,7 +1016,6 @@ impl GltfLoader {
                             &convert_coordinates,
                             &mut extensions,
                             skinned_mesh_bounds_policy,
-                            &loader.material_translator,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -1208,14 +1203,12 @@ async fn load_image<'a, 'b>(
 }
 
 /// Loads a glTF material as a bevy [`GltfMaterial`] and returns the label and material.
-/// Uses the `material_translator` to load a second asset via the `load_context`.
 fn load_material(
     material: &Material,
     textures: &[Handle<Image>],
     is_scale_inverted: bool,
     asset_path: AssetPath<'_>,
-    material_translator: &GltfMaterialTranslator,
-    load_context: &mut LoadContext,
+    _load_context: &mut LoadContext,
 ) -> (String, GltfMaterial) {
     let pbr = material.pbr_metallic_roughness();
 
@@ -1458,10 +1451,6 @@ fn load_material(
 
     let mat_label = material_label(material, is_scale_inverted);
 
-    let _k = (material_translator.load_material)(&gltf_material, &mat_label, load_context);
-    // TODO: at least log an error here
-    // TODO: could consider changing `load_material` to return a result
-
     (mat_label.to_string(), gltf_material)
 }
 
@@ -1489,7 +1478,6 @@ fn load_node(
     convert_coordinates: &GltfConvertCoordinates,
     extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
     skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
-    material_translator: &GltfMaterialTranslator,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
@@ -1605,7 +1593,6 @@ fn load_node(
                         textures,
                         is_scale_inverted,
                         load_context.path().clone(),
-                        material_translator,
                         load_context,
                     );
                     // TODO: maybe move this into `load_material` ?
@@ -1629,14 +1616,6 @@ fn load_node(
                     // TODO: could add the `GltfMaterial` here
                     mesh_entity_transform,
                 ));
-
-                if let Err(err) = (material_translator.insert_material)(
-                    &mat_label,
-                    load_context,
-                    &mut mesh_entity,
-                ) {
-                    warn!("gltf material_translator insert_material error: {:?}", err);
-                }
 
                 if gltf_node.skin().is_some() {
                     match skinned_mesh_bounds_policy {
@@ -1725,6 +1704,7 @@ fn load_node(
                         &mesh,
                         &material,
                         &mut mesh_entity,
+                        &mat_label.to_string(),
                     );
                 }
             }
@@ -1828,7 +1808,6 @@ fn load_node(
                 convert_coordinates,
                 extensions,
                 skinned_mesh_bounds_policy,
-                material_translator,
             ) {
                 gltf_error = Some(err);
                 return;
@@ -2050,7 +2029,7 @@ struct MorphTargetNames {
 mod test {
     use std::path::Path;
 
-    use crate::{Gltf, GltfAssetLabel, GltfMaterial, GltfMaterialTranslator, GltfNode, GltfSkin};
+    use crate::{Gltf, GltfAssetLabel, GltfMaterial, GltfNode, GltfSkin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
@@ -2079,20 +2058,6 @@ mod test {
             AssetSourceId::Default,
             AssetSourceBuilder::new(move || Box::new(reader.clone())),
         )
-        .insert_resource(GltfMaterialTranslator {
-            load_material: Arc::new(
-                |_gltf_material: &GltfMaterial,
-                 _label: &GltfAssetLabel,
-                 _load_context: &mut LoadContext| {
-                    Err(BevyError::from("No translator"))
-                },
-            ),
-            insert_material: Arc::new(
-                |_label: &GltfAssetLabel,
-                 _load_context: &mut LoadContext,
-                 _entity: &mut EntityWorldMut| { Ok(()) },
-            ),
-        })
         .add_plugins((
             LogPlugin::default(),
             TaskPoolPlugin::default(),
@@ -2522,20 +2487,6 @@ mod test {
             "custom",
             AssetSourceBuilder::new(move || Box::new(custom_reader.clone())),
         )
-        .insert_resource(GltfMaterialTranslator {
-            load_material: Arc::new(
-                |_gltf_material: &GltfMaterial,
-                 _label: &GltfAssetLabel,
-                 _load_context: &mut LoadContext| {
-                    Err(BevyError::from("No translator"))
-                },
-            ),
-            insert_material: Arc::new(
-                |_label: &GltfAssetLabel,
-                 _load_context: &mut LoadContext,
-                 _entity: &mut EntityWorldMut| { Ok(()) },
-            ),
-        })
         .add_plugins((
             LogPlugin::default(),
             TaskPoolPlugin::default(),

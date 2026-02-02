@@ -7,7 +7,7 @@ use bevy_reflect::TypePath;
 use wgpu_types::Face;
 
 /// Data to build a Gltf Material
-#[derive(Asset, Debug, TypePath)]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfMaterial {
     // TODO: copy comments from standard material?
     /// A

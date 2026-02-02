@@ -28,6 +28,8 @@ mod atmosphere;
 mod cluster;
 mod components;
 pub mod contact_shadows;
+use bevy_gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers};
+use bevy_mesh::Mesh3d;
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -56,7 +58,7 @@ use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
 use bevy_asset::LoadContext;
-use bevy_gltf::{GltfAssetLabel, GltfMaterial, GltfMaterialTranslator};
+use bevy_gltf::{GltfAssetLabel, GltfMaterial, gltf};
 use bevy_light::{
     AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SimulationLightSystems,
     SpotLight,
@@ -246,39 +248,21 @@ impl Plugin for PbrPlugin {
                     .chain(),
             );
 
-        let gltf_material_translator = GltfMaterialTranslator {
-            load_material: Arc::new(
-                |gltf_material: &GltfMaterial,
-                 label: &GltfAssetLabel,
-                 load_context: &mut LoadContext| {
-                    let std_label = format!("{:?}#std", label.to_string());
-
-                    let t = load_context.labeled_asset_scope::<_, ()>(std_label, |_load_context| {
-                        Ok(standard_material_from_gltf_material(gltf_material))
-                    });
-
-                    if let Ok(tt) = t {
-                        Ok(tt.untyped())
-                    } else {
-                        warn!("translator load_material got error");
-                        Err(BevyError::from(PbrGltfError))
-                    }
-                },
-            ),
-            insert_material: Arc::new(
-                |label: &GltfAssetLabel,
-                 load_context: &mut LoadContext,
-                 entity: &mut EntityWorldMut| {
-                    let std_label = format!("{:?}#std", label.to_string());
-                    let handle = load_context.get_label_handle::<StandardMaterial>(std_label);
-
-                    entity.insert(MeshMaterial3d(handle));
-                    Ok(())
-                },
-            ),
-        };
-
-        app.insert_resource(gltf_material_translator);
+        #[cfg(target_family = "wasm")]
+        bevy::tasks::block_on(async {
+            app.world_mut()
+                .resource_mut::<GltfExtensionHandlers>()
+                .0
+                .write()
+                .await
+                .push(Box::new(GltfExtensionHandlerToMesh3d))
+        });
+        #[cfg(not(target_family = "wasm"))]
+        app.world_mut()
+            .resource_mut::<GltfExtensionHandlers>()
+            .0
+            .write_blocking()
+            .push(Box::new(GltfExtensionHandlerToMesh3d));
 
         if self.add_default_deferred_lighting_plugin {
             app.add_plugins(DeferredPbrLightingPlugin);
@@ -458,5 +442,55 @@ fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMate
         alpha_mode: material.alpha_mode,
         uv_transform: material.uv_transform,
         ..Default::default()
+    }
+}
+
+#[derive(Default, Clone)]
+struct GltfExtensionHandlerToMesh3d;
+
+impl GltfExtensionHandler for GltfExtensionHandlerToMesh3d {
+    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+        Box::new((*self).clone())
+    }
+
+    fn on_material(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_material: &gltf::Material,
+        material: Handle<GltfMaterial>,
+        material2: &GltfMaterial,
+        label: &String,
+    ) {
+        // build StandardMaterial from GltfMaterial
+
+        let std_label = format!("{:?}#std", label);
+
+        let t = load_context.labeled_asset_scope::<_, ()>(std_label, |_load_context| {
+            Ok(standard_material_from_gltf_material(material2))
+        });
+    }
+
+    fn on_spawn_mesh_and_material(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        _primitive: &gltf::Primitive,
+        _mesh: &gltf::Mesh,
+        _material: &gltf::Material,
+        entity: &mut EntityWorldMut,
+        label: &String,
+    ) {
+        if let Some(mesh3d) = entity.get::<Mesh3d>() {
+            // let material_handle =
+            //     load_context.add_labeled_asset("AColorMaterial".to_string(), CustomMaterial {});
+            let mesh_handle = mesh3d.0.clone();
+            // entity
+            //     .insert((Mesh3d(mesh_handle), MeshMaterial3d<StandardMaterial>(material_handle.clone())));
+
+
+            let std_label = format!("{:?}#std", label);
+            let handle = load_context.get_label_handle::<StandardMaterial>(std_label);
+
+            entity.insert(MeshMaterial3d(handle));
+        }
     }
 }
