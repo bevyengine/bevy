@@ -959,9 +959,11 @@ impl Allocator {
     /// Frees the entities allowing them to be reused.
     #[inline]
     pub(super) fn free_many(&mut self, entities: &[Entity]) {
-        // SAFETY: We have `&mut self`.
-        unsafe {
-            self.shared.free.free(entities);
+        if self.local_free.try_extend_from_slice(entities).is_err() {
+            // SAFETY: We have `&mut self`.
+            unsafe {
+                self.shared.free.free(entities);
+            }
         }
     }
 }
