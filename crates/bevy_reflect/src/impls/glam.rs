@@ -416,6 +416,14 @@ impl_reflect!(
 impl_reflect!(
     #[reflect(Clone, Debug, PartialEq, Default, Deserialize, Serialize)]
     #[type_path = "glam"]
+    struct Affine3 {
+        matrix3: Mat3,
+        translation: Vec3,
+    }
+);
+impl_reflect!(
+    #[reflect(Clone, Debug, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
     struct Affine3A {
         matrix3: Mat3A,
         translation: Vec3A,

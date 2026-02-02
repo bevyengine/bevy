@@ -6,9 +6,10 @@ use std::{
 };
 
 use bevy::{
+    camera::Hdr,
     light::CascadeShadowConfigBuilder,
     prelude::*,
-    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
+    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
 };
 use std::fmt::Display;
 

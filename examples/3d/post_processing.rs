@@ -8,10 +8,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Hdr,
     light::CascadeShadowConfigBuilder,
     post_process::effect_stack::{ChromaticAberration, Vignette},
     prelude::*,
-    render::view::Hdr,
 };
 
 /// The number of units per frame to add to or subtract from intensity when the

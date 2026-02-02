@@ -92,11 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextColor::BLACK,
             Node {
                 grid_row: GridPlacement::span(1),
-                padding: UiRect::all(px(6)),
-                ..default()
-            },
-            UiDebugOptions {
-                enabled: false,
+                padding: px(6).all(),
                 ..default()
             },
             UiDebugOptions {
@@ -114,7 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 grid_row: GridPlacement::span(1),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::SpaceAround,
-                padding: UiRect::all(Val::Px(10.)),
+                padding: px(10.).all(),
                 ..default()
             },
             BackgroundColor(Color::BLACK),
@@ -128,8 +124,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         display: Display::Flex,
                         justify_content: JustifyContent::Start,
-                        width: Val::Percent(IMAGE_GROUP_BOX_INIT_WIDTH),
-                        height: Val::Percent(IMAGE_GROUP_BOX_INIT_HEIGHT),
+                        width: percent(IMAGE_GROUP_BOX_INIT_WIDTH),
+                        height: percent(IMAGE_GROUP_BOX_INIT_HEIGHT),
                         ..default()
                     },
                     BackgroundColor(Color::from(tailwind::BLUE_100)),
@@ -154,8 +150,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         display: Display::Flex,
                         justify_content: JustifyContent::Start,
-                        width: Val::Percent(IMAGE_GROUP_BOX_INIT_WIDTH),
-                        height: Val::Percent(IMAGE_GROUP_BOX_INIT_HEIGHT),
+                        width: percent(IMAGE_GROUP_BOX_INIT_WIDTH),
+                        height: percent(IMAGE_GROUP_BOX_INIT_HEIGHT),
                         ..default()
                     },
                     BackgroundColor(Color::from(tailwind::BLUE_100)),
@@ -164,8 +160,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     for width in [10., 20., 30., 40.] {
                         parent.spawn((
                             Node {
-                                height: Val::Percent(100.),
-                                width: Val::Percent(width),
+                                height: percent(100),
+                                width: percent(width),
                                 ..default()
                             },
                             ImageNode {
@@ -251,27 +247,23 @@ fn on_trigger_image_group(event: On<ImageGroupResize>, query: Query<&mut Node, W
     for mut node in query {
         match event.event() {
             ImageGroupResize::HeightGrow => {
-                if let Val::Percent(val) = node.height {
-                    let new_val = (val + MIN_RESIZE_VAL).min(IMAGE_GROUP_BOX_MAX_HEIGHT);
-                    node.height = Val::Percent(new_val);
+                if let Val::Percent(val) = &mut node.height {
+                    *val = (*val + MIN_RESIZE_VAL).min(IMAGE_GROUP_BOX_MAX_HEIGHT);
                 }
             }
             ImageGroupResize::HeightShrink => {
-                if let Val::Percent(val) = node.height {
-                    let new_val = (val - MIN_RESIZE_VAL).max(IMAGE_GROUP_BOX_MIN_HEIGHT);
-                    node.height = Val::Percent(new_val);
+                if let Val::Percent(val) = &mut node.height {
+                    *val = (*val - MIN_RESIZE_VAL).max(IMAGE_GROUP_BOX_MIN_HEIGHT);
                 }
             }
             ImageGroupResize::WidthGrow => {
-                if let Val::Percent(val) = node.width {
-                    let new_val = (val + MIN_RESIZE_VAL).min(IMAGE_GROUP_BOX_MAX_WIDTH);
-                    node.width = Val::Percent(new_val);
+                if let Val::Percent(val) = &mut node.width {
+                    *val = (*val + MIN_RESIZE_VAL).min(IMAGE_GROUP_BOX_MAX_WIDTH);
                 }
             }
             ImageGroupResize::WidthShrink => {
-                if let Val::Percent(val) = node.width {
-                    let new_val = (val - MIN_RESIZE_VAL).max(IMAGE_GROUP_BOX_MIN_WIDTH);
-                    node.width = Val::Percent(new_val);
+                if let Val::Percent(val) = &mut node.width {
+                    *val = (*val - MIN_RESIZE_VAL).max(IMAGE_GROUP_BOX_MIN_WIDTH);
                 }
             }
         }

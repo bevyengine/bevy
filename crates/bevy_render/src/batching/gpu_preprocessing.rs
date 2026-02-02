@@ -860,11 +860,6 @@ impl UntypedPhaseIndirectParametersBuffers {
     pub fn new(
         allow_copies_from_indirect_parameter_buffers: bool,
     ) -> UntypedPhaseIndirectParametersBuffers {
-        let mut indirect_parameter_buffer_usages = BufferUsages::STORAGE | BufferUsages::INDIRECT;
-        if allow_copies_from_indirect_parameter_buffers {
-            indirect_parameter_buffer_usages |= BufferUsages::COPY_SRC;
-        }
-
         UntypedPhaseIndirectParametersBuffers {
             non_indexed: MeshClassIndirectParametersBuffers::new(
                 allow_copies_from_indirect_parameter_buffers,
