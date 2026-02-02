@@ -450,18 +450,18 @@ fn update_ui(
 /// playing animation.
 fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights)>) {
     for (mut animation_player, animation_weights) in query.iter_mut() {
-        for (&animation_node_index, &animation_weight) in CLIP_NODE_INDICES
+        for (&blend_node_index, &animation_weight) in CLIP_NODE_INDICES
             .iter()
             .zip(animation_weights.weights.iter())
         {
             // If the animation happens to be no longer active, restart it.
-            if !animation_player.is_playing_animation(animation_node_index.into()) {
-                animation_player.play(animation_node_index.into());
+            if !animation_player.is_playing_animation(blend_node_index.into()) {
+                animation_player.play(blend_node_index.into());
             }
 
             // Set the weight.
             if let Some(active_animation) =
-                animation_player.animation_mut(animation_node_index.into())
+                animation_player.animation_mut(blend_node_index.into())
             {
                 active_animation.set_weight(animation_weight);
             }

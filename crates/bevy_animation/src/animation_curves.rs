@@ -92,7 +92,7 @@ use core::{
 #[cfg(feature = "bevy_mesh")]
 pub use crate::morph::*;
 use crate::{
-    graph::AnimationNodeIndex,
+    graph::BlendNodeIndex,
     prelude::{BlendInput, Blendable},
     AnimationEntityMut, AnimationEvaluationError,
 };
@@ -373,7 +373,7 @@ where
         curve_evaluator: &mut dyn AnimationCurveEvaluator,
         t: f32,
         weight: f32,
-        graph_node: AnimationNodeIndex,
+        graph_node: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
         let curve_evaluator = curve_evaluator
             .downcast_mut::<BlendableCurveEvaluator<P::Property>>()
@@ -392,18 +392,18 @@ where
 }
 
 impl<B: Blendable> AnimationCurveEvaluator for BlendableCurveEvaluator<B> {
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+    fn blend(&mut self, graph_node: BlendNodeIndex) -> Result<(), AnimationEvaluationError> {
         self.evaluator.combine(graph_node, /*additive=*/ false)
     }
 
-    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+    fn add(&mut self, graph_node: BlendNodeIndex) -> Result<(), AnimationEvaluationError> {
         self.evaluator.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
         &mut self,
         weight: f32,
-        graph_node: AnimationNodeIndex,
+        graph_node: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
         self.evaluator.push_blend_register(weight, graph_node)
     }
@@ -437,7 +437,7 @@ where
 {
     value: A,
     weight: f32,
-    graph_node: AnimationNodeIndex,
+    graph_node: BlendNodeIndex,
 }
 
 impl<A> Default for BasicAnimationCurveEvaluator<A>
@@ -458,7 +458,7 @@ where
 {
     fn combine(
         &mut self,
-        graph_node: AnimationNodeIndex,
+        graph_node: BlendNodeIndex,
         additive: bool,
     ) -> Result<(), AnimationEvaluationError> {
         let Some(top) = self.stack.last() else {
@@ -531,7 +531,7 @@ where
     fn push_blend_register(
         &mut self,
         weight: f32,
-        graph_node: AnimationNodeIndex,
+        graph_node: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
         if let Some((value, _)) = self.blend_register.take() {
             self.stack.push(BasicAnimationCurveEvaluatorStackElement {
@@ -598,7 +598,7 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
         curve_evaluator: &mut dyn AnimationCurveEvaluator,
         t: f32,
         weight: f32,
-        graph_node: AnimationNodeIndex,
+        graph_node: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError>;
 }
 
@@ -656,7 +656,7 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     ///    register to wₘ + wₙ.
     ///
     /// 4. Return success.
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError>;
+    fn blend(&mut self, graph_node: BlendNodeIndex) -> Result<(), AnimationEvaluationError>;
 
     /// Additively blends the top element of the stack with the blend register.
     ///
@@ -672,7 +672,7 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     ///    Then, set the value of the blend register to vₙ + vₘwₘ.
     ///
     /// 4. Return success.
-    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError>;
+    fn add(&mut self, graph_node: BlendNodeIndex) -> Result<(), AnimationEvaluationError>;
 
     /// Pushes the current value of the blend register onto the stack.
     ///
@@ -685,7 +685,7 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     fn push_blend_register(
         &mut self,
         weight: f32,
-        graph_node: AnimationNodeIndex,
+        graph_node: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError>;
 
     /// Pops the top value off the stack and writes it into the appropriate

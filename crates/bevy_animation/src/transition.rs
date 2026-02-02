@@ -12,7 +12,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use core::time::Duration;
 
-use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
+use crate::{graph::BlendNodeIndex, ActiveAnimation, AnimationPlayer};
 
 /// Manages fade-out of animation blend factors, allowing for smooth transitions
 /// between animations.
@@ -31,7 +31,7 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct AnimationTransitions {
-    main_animation: Option<AnimationNodeIndex>,
+    main_animation: Option<BlendNodeIndex>,
     transitions: Vec<AnimationTransition>,
 }
 
@@ -59,7 +59,7 @@ pub struct AnimationTransition {
     /// How much to decrease `current_weight` per second
     weight_decline_per_sec: f32,
     /// The animation that is being faded out
-    animation: AnimationNodeIndex,
+    animation: BlendNodeIndex,
 }
 
 impl AnimationTransitions {
@@ -78,7 +78,7 @@ impl AnimationTransitions {
     pub fn play<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,
-        new_animation: AnimationNodeIndex,
+        new_animation: BlendNodeIndex,
         transition_duration: Duration,
     ) -> &'p mut ActiveAnimation {
         if let Some(old_animation_index) = self.main_animation.replace(new_animation)
@@ -101,7 +101,7 @@ impl AnimationTransitions {
     }
 
     /// Obtain the currently playing main animation.
-    pub fn get_main_animation(&self) -> Option<AnimationNodeIndex> {
+    pub fn get_main_animation(&self) -> Option<BlendNodeIndex> {
         self.main_animation
     }
 }

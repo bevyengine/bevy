@@ -628,14 +628,14 @@ fn play_fox_animation(
     }
 
     let fox_animation = asset_server.load(GltfAssetLabel::Animation(0).from_asset(FOX_ASSET_PATH));
-    let (fox_blend_graph, fox_animation_node) = BlendGraph::from_clip(fox_animation.clone());
+    let (fox_blend_graph, fox_blend_node) = BlendGraph::from_clip(fox_animation.clone());
     let fox_blend_graph = blend_graphs.add(fox_blend_graph);
 
     for (entity, mut animation_player) in animation_players_query.iter_mut() {
         commands
             .entity(entity)
             .insert(BlendGraphHandle(fox_blend_graph.clone()));
-        animation_player.play(fox_animation_node).repeat();
+        animation_player.play(fox_blend_node).repeat();
     }
 }
 

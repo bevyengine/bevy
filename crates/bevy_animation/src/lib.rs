@@ -29,7 +29,7 @@ use core::{
     hash::{Hash, Hasher},
     iter, slice,
 };
-use graph::AnimationNodeType;
+use graph::BlendNodeType;
 use prelude::AnimationCurveEvaluator;
 
 use crate::{
@@ -64,7 +64,7 @@ pub mod prelude {
 
 use crate::{
     animation_curves::AnimationCurve,
-    graph::{BlendGraph, BlendGraphAssetLoader, AnimationNodeIndex},
+    graph::{BlendGraph, BlendGraphAssetLoader, BlendNodeIndex},
     transition::{advance_transitions, expire_completed_transitions},
 };
 use alloc::sync::Arc;
@@ -677,7 +677,7 @@ impl ActiveAnimation {
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct AnimationPlayer {
-    active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
+    active_animations: HashMap<BlendNodeIndex, ActiveAnimation>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -803,20 +803,20 @@ impl CurrentEvaluators {
 
 impl AnimationPlayer {
     /// Start playing an animation, restarting it if necessary.
-    pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
+    pub fn start(&mut self, animation: BlendNodeIndex) -> &mut ActiveAnimation {
         let playing_animation = self.active_animations.entry(animation).or_default();
         playing_animation.replay();
         playing_animation
     }
 
     /// Start playing an animation, unless the requested animation is already playing.
-    pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
+    pub fn play(&mut self, animation: BlendNodeIndex) -> &mut ActiveAnimation {
         self.active_animations.entry(animation).or_default()
     }
 
     /// Stops playing the given animation, removing it from the list of playing
     /// animations.
-    pub fn stop(&mut self, animation: AnimationNodeIndex) -> &mut Self {
+    pub fn stop(&mut self, animation: BlendNodeIndex) -> &mut Self {
         self.active_animations.remove(&animation);
         self
     }
@@ -831,7 +831,7 @@ impl AnimationPlayer {
     /// currently playing.
     pub fn playing_animations(
         &self,
-    ) -> impl Iterator<Item = (&AnimationNodeIndex, &ActiveAnimation)> {
+    ) -> impl Iterator<Item = (&BlendNodeIndex, &ActiveAnimation)> {
         self.active_animations.iter()
     }
 
@@ -839,13 +839,13 @@ impl AnimationPlayer {
     /// currently playing, mutably.
     pub fn playing_animations_mut(
         &mut self,
-    ) -> impl Iterator<Item = (&AnimationNodeIndex, &mut ActiveAnimation)> {
+    ) -> impl Iterator<Item = (&BlendNodeIndex, &mut ActiveAnimation)> {
         self.active_animations.iter_mut()
     }
 
     /// Returns true if the animation is currently playing or paused, or false
     /// if the animation is stopped.
-    pub fn is_playing_animation(&self, animation: AnimationNodeIndex) -> bool {
+    pub fn is_playing_animation(&self, animation: BlendNodeIndex) -> bool {
         self.active_animations.contains_key(&animation)
     }
 
@@ -919,15 +919,15 @@ impl AnimationPlayer {
     /// node if it's currently playing.
     ///
     /// If the animation isn't currently active, returns `None`.
-    pub fn animation(&self, animation: AnimationNodeIndex) -> Option<&ActiveAnimation> {
+    pub fn animation(&self, animation: BlendNodeIndex) -> Option<&ActiveAnimation> {
         self.active_animations.get(&animation)
     }
 
     /// Returns a mutable reference to the [`ActiveAnimation`] associated with
-    /// the given animation node if it's currently active.
+    /// the given blend node if it's currently active.
     ///
     /// If the animation isn't currently active, returns `None`.
-    pub fn animation_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut ActiveAnimation> {
+    pub fn animation_mut(&mut self, animation: BlendNodeIndex) -> Option<&mut ActiveAnimation> {
         self.active_animations.get_mut(&animation)
     }
 }
@@ -953,8 +953,8 @@ fn trigger_untargeted_animation_events(
             let Some(clip) = graph
                 .get(*index)
                 .and_then(|node| match &node.node_type {
-                    AnimationNodeType::Clip(handle) => Some(handle),
-                    AnimationNodeType::Blend | AnimationNodeType::Add => None,
+                    BlendNodeType::Clip(handle) => Some(handle),
+                    BlendNodeType::Blend | BlendNodeType::Add => None,
                 })
                 .and_then(|id| clips.get(id))
             else {
@@ -1002,7 +1002,7 @@ pub fn advance_animations(
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     // Tick the animation if necessary.
                     if !active_animation.paused
-                        && let AnimationNodeType::Clip(ref clip_handle) = node.node_type
+                        && let BlendNodeType::Clip(ref clip_handle) = node.node_type
                         && let Some(clip) = animation_clips.get(clip_handle)
                     {
                         active_animation.update(delta_seconds, clip.duration);
@@ -1082,7 +1082,7 @@ pub fn animate_targets(
                 };
 
                 match blend_graph_node.node_type {
-                    AnimationNodeType::Blend => {
+                    BlendNodeType::Blend => {
                         // This is a blend node.
                         for edge_index in threaded_blend_graph.sorted_edge_ranges
                             [blend_graph_node_index.index()]
@@ -1103,7 +1103,7 @@ pub fn animate_targets(
                         }
                     }
 
-                    AnimationNodeType::Add => {
+                    BlendNodeType::Add => {
                         // This is an additive blend node.
                         for edge_index in threaded_blend_graph.sorted_edge_ranges
                             [blend_graph_node_index.index()]
@@ -1124,7 +1124,7 @@ pub fn animate_targets(
                         }
                     }
 
-                    AnimationNodeType::Clip(ref animation_clip_handle) => {
+                    BlendNodeType::Clip(ref animation_clip_handle) => {
                         // This is a clip node.
                         let Some(active_animation) = animation_player
                             .active_animations
@@ -1307,7 +1307,7 @@ impl AnimationEvaluationState {
     /// The given `node_index` is the node that we're evaluating.
     fn blend_all(
         &mut self,
-        node_index: AnimationNodeIndex,
+        node_index: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
         for curve_evaluator_type in self.current_evaluators.keys() {
             self.evaluators
@@ -1322,7 +1322,7 @@ impl AnimationEvaluationState {
     /// that we've been building up for a single target.
     ///
     /// The given `node_index` is the node that we're evaluating.
-    fn add_all(&mut self, node_index: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+    fn add_all(&mut self, node_index: BlendNodeIndex) -> Result<(), AnimationEvaluationError> {
         for curve_evaluator_type in self.current_evaluators.keys() {
             self.evaluators
                 .get_mut(curve_evaluator_type)
@@ -1341,7 +1341,7 @@ impl AnimationEvaluationState {
     fn push_blend_register_all(
         &mut self,
         weight: f32,
-        node_index: AnimationNodeIndex,
+        node_index: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
         for curve_evaluator_type in self.current_evaluators.keys() {
             self.evaluators
@@ -1657,10 +1657,10 @@ mod tests {
     }
 
     #[test]
-    fn test_animation_node_index_as_key_of_dynamic_map() {
+    fn test_blend_node_index_as_key_of_dynamic_map() {
         let mut map = DynamicMap::default();
         map.insert_boxed(
-            Box::new(AnimationNodeIndex::new(0)),
+            Box::new(BlendNodeIndex::new(0)),
             Box::new(ActiveAnimation::default()),
         );
     }

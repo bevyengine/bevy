@@ -22,7 +22,7 @@ fn main() {
 
 #[derive(Resource)]
 struct Animations {
-    animations: Vec<AnimationNodeIndex>,
+    animations: Vec<BlendNodeIndex>,
     graph_handle: Handle<BlendGraph>,
 }
 

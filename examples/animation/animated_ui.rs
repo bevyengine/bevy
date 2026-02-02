@@ -15,7 +15,7 @@ struct AnimationInfo {
     // The blend graph asset.
     graph: Handle<BlendGraph>,
     // The index of the node within that graph.
-    node_index: AnimationNodeIndex,
+    node_index: BlendNodeIndex,
 }
 
 // The entry point.
@@ -82,14 +82,14 @@ impl AnimationInfo {
         let animation_clip_handle = animation_clips.add(animation_clip);
 
         // Create an blend graph with that clip.
-        let (blend_graph, animation_node_index) = BlendGraph::from_clip(animation_clip_handle);
+        let (blend_graph, blend_node_index) = BlendGraph::from_clip(animation_clip_handle);
         let blend_graph_handle = blend_graphs.add(blend_graph);
 
         AnimationInfo {
             target_name: animation_target_name,
             target_id: animation_target_id,
             graph: blend_graph_handle,
-            node_index: animation_node_index,
+            node_index: blend_node_index,
         }
     }
 }
@@ -106,12 +106,12 @@ fn setup(
         target_name: animation_target_name,
         target_id: animation_target_id,
         graph: blend_graph,
-        node_index: animation_node_index,
+        node_index: blend_node_index,
     } = AnimationInfo::create(&mut blend_graphs, &mut animation_clips);
 
     // Build an animation player that automatically plays the UI animation.
     let mut animation_player = AnimationPlayer::default();
-    animation_player.play(animation_node_index).repeat();
+    animation_player.play(blend_node_index).repeat();
 
     // Add a camera.
     commands.spawn(Camera2d);

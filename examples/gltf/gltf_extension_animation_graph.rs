@@ -37,7 +37,7 @@ fn main() {
 #[reflect(Component)]
 struct AnimationToPlay {
     graph_handle: Handle<BlendGraph>,
-    index: AnimationNodeIndex,
+    index: BlendNodeIndex,
 }
 
 fn setup_mesh_and_animation(mut commands: Commands, asset_server: Res<AssetServer>) {

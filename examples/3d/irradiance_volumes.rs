@@ -107,7 +107,7 @@ struct ExampleAssets {
     fox_blend_graph: Handle<BlendGraph>,
 
     // The node within the blend graph containing the animation.
-    fox_animation_node: AnimationNodeIndex,
+    fox_blend_node: BlendNodeIndex,
 
     // The voxel cube mesh.
     voxel_cube: Handle<Mesh>,
@@ -485,7 +485,7 @@ impl FromWorld for ExampleAssets {
     fn from_world(world: &mut World) -> Self {
         let fox_animation =
             world.load_asset(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb"));
-        let (fox_blend_graph, fox_animation_node) =
+        let (fox_blend_graph, fox_blend_node) =
             BlendGraph::from_clip(fox_animation.clone());
 
         ExampleAssets {
@@ -498,7 +498,7 @@ impl FromWorld for ExampleAssets {
             ),
             irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
             fox_blend_graph: world.add_asset(fox_blend_graph),
-            fox_animation_node,
+            fox_blend_node,
             voxel_cube: world.add_asset(Cuboid::default()),
             // Just use a specular map for the skybox since it's not too blurry.
             // In reality you wouldn't do this--you'd use a real skybox texture--but
@@ -518,7 +518,7 @@ fn play_animations(
         commands
             .entity(entity)
             .insert(BlendGraphHandle(assets.fox_blend_graph.clone()));
-        player.play(assets.fox_animation_node).repeat();
+        player.play(assets.fox_blend_node).repeat();
     }
 }
 

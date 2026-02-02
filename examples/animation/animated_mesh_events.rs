@@ -35,7 +35,7 @@ struct SeededRng(ChaCha8Rng);
 
 #[derive(Resource)]
 struct Animations {
-    index: AnimationNodeIndex,
+    index: BlendNodeIndex,
     graph_handle: Handle<BlendGraph>,
 }
 
@@ -146,13 +146,13 @@ fn setup_scene_once_loaded(
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
     fn get_clip<'a>(
-        node: AnimationNodeIndex,
+        node: BlendNodeIndex,
         graph: &BlendGraph,
         clips: &'a mut Assets<AnimationClip>,
     ) -> &'a mut AnimationClip {
         let node = graph.get(node).unwrap();
         let clip = match &node.node_type {
-            AnimationNodeType::Clip(handle) => clips.get_mut(handle),
+            BlendNodeType::Clip(handle) => clips.get_mut(handle),
             _ => unreachable!(),
         };
         clip.unwrap()

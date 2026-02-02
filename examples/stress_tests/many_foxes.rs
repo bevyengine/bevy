@@ -75,7 +75,7 @@ fn main() {
 
 #[derive(Resource)]
 struct Animations {
-    node_indices: Vec<AnimationNodeIndex>,
+    node_indices: Vec<BlendNodeIndex>,
     graph: Handle<BlendGraph>,
 }
 

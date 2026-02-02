@@ -81,7 +81,7 @@ enum AnimationLabel {
 }
 
 #[derive(Clone, Debug, Resource)]
-struct AnimationNodes([AnimationNodeIndex; 3]);
+struct BlendNodes([BlendNodeIndex; 3]);
 
 #[derive(Clone, Copy, Debug, Resource)]
 struct AppState([MaskGroupState; 6]);
@@ -349,7 +349,7 @@ fn setup_blend_graph_once_loaded(
         let mut blend_graph = BlendGraph::new();
         let blend_node = blend_graph.add_additive_blend(1.0, blend_graph.root);
 
-        let blend_graph_nodes: [AnimationNodeIndex; 3] =
+        let blend_graph_nodes: [BlendNodeIndex; 3] =
             std::array::from_fn(|animation_index| {
                 let handle = asset_server.load(
                     GltfAssetLabel::Animation(animation_index)
@@ -403,7 +403,7 @@ fn setup_blend_graph_once_loaded(
         }
 
         // Record the graph nodes.
-        commands.insert_resource(AnimationNodes(blend_graph_nodes));
+        commands.insert_resource(BlendNodes(blend_graph_nodes));
     }
 }
 
@@ -413,10 +413,10 @@ fn handle_button_toggles(
     mut interactions: Query<(&Interaction, &mut AnimationControl), Changed<Interaction>>,
     mut animation_players: Query<&BlendGraphHandle, With<AnimationPlayer>>,
     mut blend_graphs: ResMut<Assets<BlendGraph>>,
-    mut animation_nodes: Option<ResMut<AnimationNodes>>,
+    mut blend_nodes: Option<ResMut<BlendNodes>>,
     mut app_state: ResMut<AppState>,
 ) {
-    let Some(ref mut animation_nodes) = animation_nodes else {
+    let Some(ref mut blend_nodes) = blend_nodes else {
         return;
     };
 
@@ -437,15 +437,15 @@ fn handle_button_toggles(
                 continue;
             };
 
-            for (clip_index, &animation_node_index) in animation_nodes.0.iter().enumerate() {
-                let Some(animation_node) = blend_graph.get_mut(animation_node_index) else {
+            for (clip_index, &blend_node_index) in blend_nodes.0.iter().enumerate() {
+                let Some(blend_node) = blend_graph.get_mut(blend_node_index) else {
                     continue;
                 };
 
                 if animation_control.label as usize == clip_index {
-                    animation_node.mask &= !(1 << animation_control.group_id);
+                    blend_node.mask &= !(1 << animation_control.group_id);
                 } else {
-                    animation_node.mask |= 1 << animation_control.group_id;
+                    blend_node.mask |= 1 << animation_control.group_id;
                 }
             }
         }

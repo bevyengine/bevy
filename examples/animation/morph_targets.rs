@@ -22,7 +22,7 @@ fn main() {
 #[derive(Component)]
 struct AnimationToPlay {
     graph_handle: Handle<BlendGraph>,
-    index: AnimationNodeIndex,
+    index: BlendNodeIndex,
 }
 
 fn setup(

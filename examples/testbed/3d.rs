@@ -272,7 +272,7 @@ mod animation {
 
     #[derive(Resource)]
     struct Animation {
-        animation: AnimationNodeIndex,
+        animation: BlendNodeIndex,
         graph: Handle<BlendGraph>,
     }
 

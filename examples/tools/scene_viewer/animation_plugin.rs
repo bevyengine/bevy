@@ -8,12 +8,12 @@ use crate::scene_viewer_plugin::SceneHandle;
 /// Controls animation clips for a unique entity.
 #[derive(Component)]
 struct Clips {
-    nodes: Vec<AnimationNodeIndex>,
+    nodes: Vec<BlendNodeIndex>,
     current: usize,
 }
 
 impl Clips {
-    fn new(clips: Vec<AnimationNodeIndex>) -> Self {
+    fn new(clips: Vec<BlendNodeIndex>) -> Self {
         Clips {
             nodes: clips,
             current: 0,
@@ -22,7 +22,7 @@ impl Clips {
     /// # Panics
     ///
     /// When no clips are present.
-    fn current(&self) -> AnimationNodeIndex {
+    fn current(&self) -> BlendNodeIndex {
         self.nodes[self.current]
     }
     fn advance_to_next(&mut self) {
@@ -70,7 +70,7 @@ fn assign_clips(
     // is considered to belong to an animation player if all targets of the clip
     // refer to entities whose nearest ancestor player is that animation player.
 
-    let mut player_to_graph: EntityHashMap<(BlendGraph, Vec<AnimationNodeIndex>)> =
+    let mut player_to_graph: EntityHashMap<(BlendGraph, Vec<BlendNodeIndex>)> =
         EntityHashMap::default();
 
     for (clip_id, clip) in clips.iter() {

@@ -155,7 +155,7 @@ pub type BlendDiGraph = DiGraph<BlendGraphNode, (), u32>;
 /// These indices are the way that [animation players] identify each animation.
 ///
 /// [animation players]: crate::AnimationPlayer
-pub type AnimationNodeIndex = NodeIndex<u32>;
+pub type BlendNodeIndex = NodeIndex<u32>;
 
 /// An individual node within an blend graph.
 ///
@@ -166,11 +166,11 @@ pub type AnimationNodeIndex = NodeIndex<u32>;
 #[derive(Clone, Reflect, Debug)]
 #[reflect(Clone)]
 pub struct BlendGraphNode {
-    /// Animation node data specific to the type of node (clip, blend, or add).
+    /// Blend node data specific to the type of node (clip, blend, or add).
     ///
     /// In the case of clip nodes, this contains the actual animation clip
     /// associated with the node.
-    pub node_type: AnimationNodeType,
+    pub node_type: BlendNodeType,
 
     /// A bitfield specifying the mask groups that this node and its descendants
     /// will not affect.
@@ -195,19 +195,19 @@ pub struct BlendGraphNode {
     /// For animation clips, this weight is also multiplied by the [active animation weight]
     /// before being applied.
     ///
-    /// [Blend]: AnimationNodeType::Blend
-    /// [Add]: AnimationNodeType::Add
+    /// [Blend]: BlendNodeType::Blend
+    /// [Add]: BlendNodeType::Add
     /// [active animation weight]: crate::ActiveAnimation::weight
     pub weight: f32,
 }
 
-/// Animation node data specific to the type of node (clip, blend, or add).
+/// Blend node data specific to the type of node (clip, blend, or add).
 ///
 /// In the case of clip nodes, this contains the actual animation clip
 /// associated with the node.
 #[derive(Clone, Default, Reflect, Debug)]
 #[reflect(Clone)]
-pub enum AnimationNodeType {
+pub enum BlendNodeType {
     /// A *clip node*, which plays an animation clip.
     ///
     /// These are always the leaves of the graph.
@@ -347,7 +347,7 @@ pub struct ThreadedBlendGraph {
     /// | 10   | 1    | Blend 4    |                         | 2 ⊕ 3 ⊕ 4      |
     /// | 11   | 1    | Push Blend | 1                       |                |
     /// | 12   |      | Commit     |                         |                |
-    pub threaded_graph: Vec<AnimationNodeIndex>,
+    pub threaded_graph: Vec<BlendNodeIndex>,
 
     /// A mapping from each parent node index to the range within
     /// [`Self::sorted_edges`].
@@ -358,7 +358,7 @@ pub struct ThreadedBlendGraph {
     pub sorted_edge_ranges: Vec<Range<u32>>,
 
     /// A list of the children of each node, sorted in ascending order.
-    pub sorted_edges: Vec<AnimationNodeIndex>,
+    pub sorted_edges: Vec<BlendNodeIndex>,
 
     /// A mapping from node index to a bitfield specifying the mask groups that
     /// this node masks *out* (i.e. doesn't animate).
@@ -370,7 +370,7 @@ pub struct ThreadedBlendGraph {
 
 /// A version of [`BlendGraph`] suitable for serializing as an asset.
 ///
-/// Animation nodes can refer to external animation clips, and the [`AssetId`]
+/// Blend nodes can refer to external animation clips, and the [`AssetId`]
 /// is typically not sufficient to identify the clips, since the
 /// [`bevy_asset::AssetServer`] assigns IDs in unpredictable ways. That fact
 /// motivates this type, which replaces the `Handle<AnimationClip>` with an
@@ -400,15 +400,15 @@ pub struct SerializedBlendGraphNode {
     pub weight: f32,
 }
 
-/// A version of [`AnimationNodeType`] suitable for serializing as part of a
+/// A version of [`BlendNodeType`] suitable for serializing as part of a
 /// [`SerializedBlendGraphNode`] asset.
 #[derive(Serialize, Deserialize)]
 pub enum SerializedBlendNodeType {
-    /// Corresponds to [`AnimationNodeType::Clip`].
+    /// Corresponds to [`BlendNodeType::Clip`].
     Clip(AssetPath<'static>),
-    /// Corresponds to [`AnimationNodeType::Blend`].
+    /// Corresponds to [`BlendNodeType::Blend`].
     Blend,
-    /// Corresponds to [`AnimationNodeType::Add`].
+    /// Corresponds to [`BlendNodeType::Add`].
     Add,
 }
 
@@ -437,7 +437,7 @@ impl BlendGraph {
     ///
     /// The clip will be a direct child of the root with weight 1.0. Both the
     /// graph and the index of the added node are returned as a tuple.
-    pub fn from_clip(clip: Handle<AnimationClip>) -> (Self, AnimationNodeIndex) {
+    pub fn from_clip(clip: Handle<AnimationClip>) -> (Self, BlendNodeIndex) {
         let mut graph = Self::new();
         let node_index = graph.add_clip(clip, 1.0, graph.root);
         (graph, node_index)
@@ -450,7 +450,7 @@ impl BlendGraph {
     /// weight 1.0.
     ///
     /// Returns the graph and indices of the new nodes.
-    pub fn from_clips<'a, I>(clips: I) -> (Self, Vec<AnimationNodeIndex>)
+    pub fn from_clips<'a, I>(clips: I) -> (Self, Vec<BlendNodeIndex>)
     where
         I: IntoIterator<Item = Handle<AnimationClip>>,
         <I as IntoIterator>::IntoIter: 'a,
@@ -469,10 +469,10 @@ impl BlendGraph {
         &mut self,
         clip: Handle<AnimationClip>,
         weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> AnimationNodeIndex {
+        parent: BlendNodeIndex,
+    ) -> BlendNodeIndex {
         let node_index = self.graph.add_node(BlendGraphNode {
-            node_type: AnimationNodeType::Clip(clip),
+            node_type: BlendNodeType::Clip(clip),
             mask: 0,
             weight,
         });
@@ -489,10 +489,10 @@ impl BlendGraph {
         clip: Handle<AnimationClip>,
         mask: AnimationMask,
         weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> AnimationNodeIndex {
+        parent: BlendNodeIndex,
+    ) -> BlendNodeIndex {
         let node_index = self.graph.add_node(BlendGraphNode {
-            node_type: AnimationNodeType::Clip(clip),
+            node_type: BlendNodeType::Clip(clip),
             mask,
             weight,
         });
@@ -511,8 +511,8 @@ impl BlendGraph {
         &'a mut self,
         clips: I,
         weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> impl Iterator<Item = AnimationNodeIndex> + 'a
+        parent: BlendNodeIndex,
+    ) -> impl Iterator<Item = BlendNodeIndex> + 'a
     where
         I: IntoIterator<Item = Handle<AnimationClip>>,
         <I as IntoIterator>::IntoIter: 'a,
@@ -529,9 +529,9 @@ impl BlendGraph {
     /// animation evaluation, the descendants of this blend node will have their
     /// weights multiplied by the weight of the blend. The blend node will have
     /// no mask.
-    pub fn add_blend(&mut self, weight: f32, parent: AnimationNodeIndex) -> AnimationNodeIndex {
+    pub fn add_blend(&mut self, weight: f32, parent: BlendNodeIndex) -> BlendNodeIndex {
         let node_index = self.graph.add_node(BlendGraphNode {
-            node_type: AnimationNodeType::Blend,
+            node_type: BlendNodeType::Blend,
             mask: 0,
             weight,
         });
@@ -551,10 +551,10 @@ impl BlendGraph {
         &mut self,
         mask: AnimationMask,
         weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> AnimationNodeIndex {
+        parent: BlendNodeIndex,
+    ) -> BlendNodeIndex {
         let node_index = self.graph.add_node(BlendGraphNode {
-            node_type: AnimationNodeType::Blend,
+            node_type: BlendNodeType::Blend,
             mask,
             weight,
         });
@@ -572,10 +572,10 @@ impl BlendGraph {
     pub fn add_additive_blend(
         &mut self,
         weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> AnimationNodeIndex {
+        parent: BlendNodeIndex,
+    ) -> BlendNodeIndex {
         let node_index = self.graph.add_node(BlendGraphNode {
-            node_type: AnimationNodeType::Add,
+            node_type: BlendNodeType::Add,
             mask: 0,
             weight,
         });
@@ -595,10 +595,10 @@ impl BlendGraph {
         &mut self,
         mask: AnimationMask,
         weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> AnimationNodeIndex {
+        parent: BlendNodeIndex,
+    ) -> BlendNodeIndex {
         let node_index = self.graph.add_node(BlendGraphNode {
-            node_type: AnimationNodeType::Add,
+            node_type: BlendNodeType::Add,
             mask,
             weight,
         });
@@ -629,7 +629,7 @@ impl BlendGraph {
     /// Returns the [`BlendGraphNode`] associated with the given index.
     ///
     /// If no node with the given index exists, returns `None`.
-    pub fn get(&self, animation: AnimationNodeIndex) -> Option<&BlendGraphNode> {
+    pub fn get(&self, animation: BlendNodeIndex) -> Option<&BlendGraphNode> {
         self.graph.node_weight(animation)
     }
 
@@ -637,12 +637,12 @@ impl BlendGraph {
     /// with the given index.
     ///
     /// If no node with the given index exists, returns `None`.
-    pub fn get_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut BlendGraphNode> {
+    pub fn get_mut(&mut self, animation: BlendNodeIndex) -> Option<&mut BlendGraphNode> {
         self.graph.node_weight_mut(animation)
     }
 
     /// Returns an iterator over the [`BlendGraphNode`]s in this graph.
-    pub fn nodes(&self) -> impl Iterator<Item = AnimationNodeIndex> {
+    pub fn nodes(&self) -> impl Iterator<Item = BlendNodeIndex> {
         self.graph.node_indices()
     }
 
@@ -709,16 +709,16 @@ impl BlendGraphNode {
     }
 }
 
-impl Index<AnimationNodeIndex> for BlendGraph {
+impl Index<BlendNodeIndex> for BlendGraph {
     type Output = BlendGraphNode;
 
-    fn index(&self, index: AnimationNodeIndex) -> &Self::Output {
+    fn index(&self, index: BlendNodeIndex) -> &Self::Output {
         &self.graph[index]
     }
 }
 
-impl IndexMut<AnimationNodeIndex> for BlendGraph {
-    fn index_mut(&mut self, index: AnimationNodeIndex) -> &mut Self::Output {
+impl IndexMut<BlendNodeIndex> for BlendGraph {
+    fn index_mut(&mut self, index: BlendNodeIndex) -> &mut Self::Output {
         &mut self.graph[index]
     }
 }
@@ -773,10 +773,10 @@ impl AssetLoader for BlendGraphAssetLoader {
             blend_graph.add_node(BlendGraphNode {
                 node_type: match serialized_node.node_type {
                     SerializedBlendNodeType::Clip(ref path) => {
-                        AnimationNodeType::Clip(load_context.load(path.clone()))
+                        BlendNodeType::Clip(load_context.load(path.clone()))
                     }
-                    SerializedBlendNodeType::Blend => AnimationNodeType::Blend,
-                    SerializedBlendNodeType::Add => AnimationNodeType::Add,
+                    SerializedBlendNodeType::Blend => BlendNodeType::Blend,
+                    SerializedBlendNodeType::Add => BlendNodeType::Add,
                 },
                 mask: serialized_node.mask,
                 weight: serialized_node.weight,
@@ -814,12 +814,12 @@ impl TryFrom<BlendGraph> for SerializedBlendGraph {
                 weight: node.weight,
                 mask: node.mask,
                 node_type: match node.node_type {
-                    AnimationNodeType::Clip(ref clip) => match clip.path() {
+                    BlendNodeType::Clip(ref clip) => match clip.path() {
                         Some(path) => SerializedBlendNodeType::Clip(path.clone()),
                         None => return Err(NonPathHandleError),
                     },
-                    AnimationNodeType::Blend => SerializedBlendNodeType::Blend,
-                    AnimationNodeType::Add => SerializedBlendNodeType::Add,
+                    BlendNodeType::Blend => SerializedBlendNodeType::Blend,
+                    BlendNodeType::Add => SerializedBlendNodeType::Add,
                 },
             });
         }
@@ -913,13 +913,13 @@ impl ThreadedBlendGraph {
     /// `mask` specifies the computed mask of the parent node. (It could be
     /// fetched from the [`Self::computed_masks`] field, but we pass it
     /// explicitly as a micro-optimization.)
-    fn build_from(&mut self, graph: &BlendDiGraph, node_index: AnimationNodeIndex, mut mask: u64) {
+    fn build_from(&mut self, graph: &BlendDiGraph, node_index: BlendNodeIndex, mut mask: u64) {
         // Accumulate the mask.
         mask |= graph.node_weight(node_index).unwrap().mask;
         self.computed_masks[node_index.index()] = mask;
 
         // Gather up the indices of our children, and sort them.
-        let mut kids: SmallVec<[AnimationNodeIndex; 8]> = graph
+        let mut kids: SmallVec<[BlendNodeIndex; 8]> = graph
             .neighbors_directed(node_index, Direction::Outgoing)
             .collect();
         kids.sort_unstable();

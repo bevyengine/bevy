@@ -58,7 +58,7 @@ fn setup(mut commands: Commands) {
 struct PendingScene(Handle<Gltf>);
 
 #[derive(Component, Debug, Default)]
-struct PendingAnimation((Handle<BlendGraph>, AnimationNodeIndex));
+struct PendingAnimation((Handle<BlendGraph>, BlendNodeIndex));
 
 fn load_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
