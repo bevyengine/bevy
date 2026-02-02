@@ -45,7 +45,7 @@
 //! ### Preferences Structure
 //!
 //! The `Preferences` object represents the container for preferences files. Within this container
-//! you can create individual `PreferenceFile` objects, each one backed by a separate file such as
+//! you can create individual [`PreferencesFile`] objects, each one backed by a separate file such as
 //! "prefs.toml" (on the web, each file is stored as a separate key item in `LocalStorage`).
 //!
 //! Each preferences file contains one or more `PreferenceGroups` which represents a section within

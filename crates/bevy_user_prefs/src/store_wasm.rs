@@ -41,7 +41,7 @@ impl PreferencesStore for StoreWasm {
         PreferencesFile::new()
     }
 
-    /// Save a [`PreferenceFile`] to browser storage, synchronously.
+    /// Save a [`PreferencesFile`] to browser storage, synchronously.
     ///
     /// # Arguments
     /// * `filename` - the name of the file to be saved
@@ -55,7 +55,7 @@ impl PreferencesStore for StoreWasm {
         }
     }
 
-    /// Save the content of a [`PreferenceFile`] to disk, in another thread.
+    /// Save the content of a [`PreferencesFile`] to disk, in another thread.
     ///
     /// # Arguments
     /// * `filename` - the name of the file to be saved

@@ -87,21 +87,18 @@ fn change_count(
         changed = true;
     }
 
-    if changed {
-        if let Some(app_prefs) = prefs.get_mut("prefs") {
-            let mut counter_prefs = app_prefs.get_group_mut("counter").unwrap();
-            counter_prefs.set("count", counter.0);
-            commands.queue(StartAutosaveTimer);
-        }
+    if changed && let Some(app_prefs) = prefs.get_mut("prefs") {
+        let mut counter_prefs = app_prefs.get_group_mut("counter").unwrap();
+        counter_prefs.set("count", counter.0);
+        commands.queue(StartAutosaveTimer);
     }
 }
 
 fn on_window_close(mut close: MessageReader<WindowCloseRequested>, mut commands: Commands) {
     // Save preferences immediately, then quit.
-    for _close_event in close.read() {
+    if let Some(_close_event) = close.read().next() {
         commands.queue(SavePreferencesSync::IfChanged);
         commands.queue(ExitAfterSave);
-        break;
     }
 }
 

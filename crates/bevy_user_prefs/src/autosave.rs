@@ -13,16 +13,16 @@ use crate::SavePreferences;
 #[derive(Resource, Default)]
 struct AutosaveTimer(f32);
 
-/// Plugin which automatically saves preferences when they change. This uses a delay timer
-/// to prevent saving preferences too frequently, for example when the user is dragging an audio
-/// volume slider you probably don't want to save the preferences on every mouse move.
+/// Plugin which automatically saves preferences when they change. This uses a delay timer to
+/// prevent saving preferences too frequently, for example when the user is dragging an audio volume
+/// slider you probably don't want to save the preferences on every mouse move.
 ///
 /// Preferences will be automatically saved 1 second after they have been marked as changed.
 ///
-/// It's possible for preference changes to be lost if the app exits before the save timer goes
-/// off. For this reason, it's a good idea to also try and intercept the [`AppExit`] event and
-/// save preferences at that time; however, because the OS can sometimes terminate the app in
-/// ways that do not generate an [`AppExit`] it's best if both methods are used.
+/// It's possible for preference changes to be lost if the app exits before the save timer goes off.
+/// For this reason, it's a good idea to also try and intercept the [`bevy_app::AppExit`] event and
+/// save preferences at that time; however, because the OS can sometimes terminate the app in ways
+/// that do not generate an [`bevy_app::AppExit`] it's best if both methods are used.
 pub struct AutosavePrefsPlugin;
 
 impl Plugin for AutosavePrefsPlugin {

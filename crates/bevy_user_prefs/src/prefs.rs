@@ -72,7 +72,7 @@ impl Preferences {
         self.store.is_valid()
     }
 
-    /// Save all changed `PreferenceFile`s to disk
+    /// Save all changed [`PreferencesFile`]s to disk
     ///
     /// # Arguments
     /// * `force` - If true, all preferences will be saved, even if they have not changed.
@@ -85,7 +85,7 @@ impl Preferences {
         }
     }
 
-    /// Save all changed `PreferenceFile`s to disk, in another thread.
+    /// Save all changed [`PreferencesFile`]s to disk, in another thread.
     ///
     /// # Arguments
     /// * `force` - If true, all preferences will be saved, even if they have not changed.

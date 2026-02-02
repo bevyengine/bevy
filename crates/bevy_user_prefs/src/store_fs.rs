@@ -2,7 +2,7 @@ use bevy_log::{debug, error, warn};
 use bevy_tasks::IoTaskPool;
 use std::{fs, path::PathBuf};
 
-use directories::BaseDirs;
+use dirs::preference_dir;
 
 use crate::{
     prefs::PreferencesStore, prefs_file::serialize_table, PreferencesFile, PreferencesFileContent,
@@ -24,8 +24,8 @@ impl StoreFs {
     ///   "com.example.myapp".
     pub(crate) fn new(app_name: &str) -> Self {
         Self {
-            base_path: if let Some(base_dirs) = BaseDirs::new() {
-                let prefs_path = base_dirs.preference_dir().join(app_name);
+            base_path: if let Some(base_dir) = preference_dir() {
+                let prefs_path = base_dir.join(app_name);
                 debug!("Preferences path: {:?}", prefs_path);
                 Some(prefs_path)
             } else {
@@ -46,7 +46,7 @@ impl PreferencesStore for StoreFs {
         PreferencesFile::new()
     }
 
-    /// Save a [`PreferenceFile`] to disk.
+    /// Save a [`PreferencesFile`] to disk.
     ///
     /// # Arguments
     /// * `filename` - the name of the file to be saved
@@ -75,7 +75,7 @@ impl PreferencesStore for StoreFs {
         }
     }
 
-    /// Save the contents of a [`PreferenceFile`] to disk in another thread.
+    /// Save the contents of a [`PreferencesFile`] to disk in another thread.
     ///
     /// # Arguments
     /// * `filename` - the name of the file to be saved
