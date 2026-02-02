@@ -349,15 +349,13 @@ fn setup_blend_graph_once_loaded(
         let mut blend_graph = BlendGraph::new();
         let blend_node = blend_graph.add_additive_blend(1.0, blend_graph.root);
 
-        let blend_graph_nodes: [BlendNodeIndex; 3] =
-            std::array::from_fn(|animation_index| {
-                let handle = asset_server.load(
-                    GltfAssetLabel::Animation(animation_index)
-                        .from_asset("models/animated/Fox.glb"),
-                );
-                let mask = if animation_index == 0 { 0 } else { 0x3f };
-                blend_graph.add_clip_with_mask(handle, mask, 1.0, blend_node)
-            });
+        let blend_graph_nodes: [BlendNodeIndex; 3] = std::array::from_fn(|animation_index| {
+            let handle = asset_server.load(
+                GltfAssetLabel::Animation(animation_index).from_asset("models/animated/Fox.glb"),
+            );
+            let mask = if animation_index == 0 { 0 } else { 0x3f };
+            blend_graph.add_clip_with_mask(handle, mask, 1.0, blend_node)
+        });
 
         // Create each mask group.
         let mut all_animation_target_ids = HashSet::new();
@@ -373,8 +371,7 @@ fn setup_blend_graph_once_loaded(
                 let animation_target_id = AnimationTargetId::from_names(
                     prefix.iter().chain(suffix[0..chain_length].iter()),
                 );
-                blend_graph
-                    .add_target_to_mask_group(animation_target_id, mask_group_index as u32);
+                blend_graph.add_target_to_mask_group(animation_target_id, mask_group_index as u32);
                 all_animation_target_ids.insert(animation_target_id);
             }
         }

@@ -569,11 +569,7 @@ impl BlendGraph {
     /// animation evaluation, the descendants of this blend node will have their
     /// weights multiplied by the weight of the blend. The blend node will have
     /// no mask.
-    pub fn add_additive_blend(
-        &mut self,
-        weight: f32,
-        parent: BlendNodeIndex,
-    ) -> BlendNodeIndex {
+    pub fn add_additive_blend(&mut self, weight: f32, parent: BlendNodeIndex) -> BlendNodeIndex {
         let node_index = self.graph.add_node(BlendGraphNode {
             node_type: BlendNodeType::Add,
             mask: 0,

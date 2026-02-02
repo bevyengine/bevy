@@ -311,7 +311,7 @@ where
     P: BlendableProperty,
     C: AnimationCompatibleCurve<P::Property>,
 {
-    /// Create an [`BlendableCurve`] (and thus an [`BlendableCurve`]) from a curve
+    /// Create an [`BlendableCurve`] (and thus an [`AnimationCurve`]) from a curve
     /// valued in an [blendable property].
     ///
     /// [blendable property]: BlendableProperty::Property

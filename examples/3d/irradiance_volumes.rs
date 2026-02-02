@@ -485,8 +485,7 @@ impl FromWorld for ExampleAssets {
     fn from_world(world: &mut World) -> Self {
         let fox_animation =
             world.load_asset(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb"));
-        let (fox_blend_graph, fox_blend_node) =
-            BlendGraph::from_clip(fox_animation.clone());
+        let (fox_blend_graph, fox_blend_node) = BlendGraph::from_clip(fox_animation.clone());
 
         ExampleAssets {
             main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),

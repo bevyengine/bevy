@@ -9,8 +9,8 @@
 
 extern crate alloc;
 
-pub mod blendable;
 pub mod animation_curves;
+pub mod blendable;
 pub mod gltf_curves;
 pub mod graph;
 #[cfg(feature = "bevy_mesh")]
@@ -57,8 +57,8 @@ use uuid::Uuid;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        blendable::*, animation_curves::*, graph::*, transition::*, AnimationClip,
-        AnimationPlayer, AnimationPlugin, VariableCurve,
+        animation_curves::*, blendable::*, graph::*, transition::*, AnimationClip, AnimationPlayer,
+        AnimationPlugin, VariableCurve,
     };
 }
 
@@ -829,9 +829,7 @@ impl AnimationPlayer {
 
     /// Iterates through all animations that this [`AnimationPlayer`] is
     /// currently playing.
-    pub fn playing_animations(
-        &self,
-    ) -> impl Iterator<Item = (&BlendNodeIndex, &ActiveAnimation)> {
+    pub fn playing_animations(&self) -> impl Iterator<Item = (&BlendNodeIndex, &ActiveAnimation)> {
         self.active_animations.iter()
     }
 
@@ -1058,9 +1056,7 @@ pub fn animate_targets(
                 return;
             };
 
-            let Some(threaded_blend_graph) =
-                threaded_blend_graphs.0.get(&blend_graph_id)
-            else {
+            let Some(threaded_blend_graph) = threaded_blend_graphs.0.get(&blend_graph_id) else {
                 return;
             };
 
@@ -1076,8 +1072,7 @@ pub fn animate_targets(
 
             // Evaluate the graph.
             for &blend_graph_node_index in threaded_blend_graph.threaded_graph.iter() {
-                let Some(blend_graph_node) = blend_graph.get(blend_graph_node_index)
-                else {
+                let Some(blend_graph_node) = blend_graph.get(blend_graph_node_index) else {
                     continue;
                 };
 
@@ -1088,9 +1083,9 @@ pub fn animate_targets(
                             [blend_graph_node_index.index()]
                         .clone()
                         {
-                            if let Err(err) = evaluation_state.blend_all(
-                                threaded_blend_graph.sorted_edges[edge_index as usize],
-                            ) {
+                            if let Err(err) = evaluation_state
+                                .blend_all(threaded_blend_graph.sorted_edges[edge_index as usize])
+                            {
                                 warn!("Failed to blend animation: {:?}", err);
                             }
                         }
@@ -1305,10 +1300,7 @@ impl AnimationEvaluationState {
     /// that we've been building up for a single target.
     ///
     /// The given `node_index` is the node that we're evaluating.
-    fn blend_all(
-        &mut self,
-        node_index: BlendNodeIndex,
-    ) -> Result<(), AnimationEvaluationError> {
+    fn blend_all(&mut self, node_index: BlendNodeIndex) -> Result<(), AnimationEvaluationError> {
         for curve_evaluator_type in self.current_evaluators.keys() {
             self.evaluators
                 .get_mut(curve_evaluator_type)

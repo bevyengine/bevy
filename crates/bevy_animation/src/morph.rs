@@ -1,6 +1,6 @@
 use crate::{
-    blendable::Blendable,
     animation_curves::{AnimationCurve, AnimationCurveEvaluator, EvaluatorId},
+    blendable::Blendable,
     graph::BlendNodeIndex,
     AnimationEntityMut, AnimationEvaluationError,
 };
