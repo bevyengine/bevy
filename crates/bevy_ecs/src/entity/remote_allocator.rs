@@ -885,8 +885,11 @@ impl SharedAllocator {
 /// If this were cloned, that assumption would be broken, leading to undefined behavior.
 /// This is in contrast to the [`RemoteAllocator`], which may be cloned freely.
 pub(super) struct Allocator {
+    /// The shared allocator state, which we share with any [`RemoteAllocator`]s.
     shared: Arc<SharedAllocator>,
-    quick_free: ArrayVec<Entity, 64>,
+    /// The local free list.
+    /// We use this to amortize the cost of freeing to the shared allocator since that is expensive.
+    local_free: ArrayVec<Entity, 64>,
 }
 
 impl Default for Allocator {
@@ -900,7 +903,7 @@ impl Allocator {
     pub(super) fn new() -> Self {
         Self {
             shared: Arc::new(SharedAllocator::new()),
-            quick_free: ArrayVec::new(),
+            local_free: ArrayVec::new(),
         }
     }
 
@@ -924,25 +927,25 @@ impl Allocator {
         self.shared.free.num_free()
     }
 
-    /// Flushes the [`quick_free`](Self::quick_free) list to the shared allocator.
+    /// Flushes the [`local_free`](Self::local_free) list to the shared allocator.
     #[inline]
     fn flush_freed(&mut self) {
         // SAFETY: We have `&mut self`.
         unsafe {
-            self.shared.free.free(self.quick_free.as_slice());
+            self.shared.free.free(self.local_free.as_slice());
         }
-        self.quick_free.clear();
+        self.local_free.clear();
     }
 
     /// Frees the entity allowing it to be reused.
     #[inline]
     pub(super) fn free(&mut self, entity: Entity) {
-        if self.quick_free.is_full() {
+        if self.local_free.is_full() {
             self.flush_freed();
         }
         // SAFETY: The `ArrayVec` is not full or has just been cleared.
         unsafe {
-            self.quick_free.push_unchecked(entity);
+            self.local_free.push_unchecked(entity);
         }
     }
 
