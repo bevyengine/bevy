@@ -66,14 +66,14 @@ impl ViewFrustum {
     pub fn corners(&self) -> Option<[Vec3; 8]> {
         let [left, right, top, bottom, near, far] = self.half_spaces;
         Some([
-            HalfSpace::intersect(top, left, near)?,
-            HalfSpace::intersect(top, right, near)?,
-            HalfSpace::intersect(bottom, right, near)?,
-            HalfSpace::intersect(bottom, left, near)?,
-            HalfSpace::intersect(top, left, far)?,
-            HalfSpace::intersect(top, right, far)?,
-            HalfSpace::intersect(bottom, right, far)?,
-            HalfSpace::intersect(bottom, left, far)?,
+            HalfSpace::intersection_point(top, left, near)?,
+            HalfSpace::intersection_point(top, right, near)?,
+            HalfSpace::intersection_point(bottom, right, near)?,
+            HalfSpace::intersection_point(bottom, left, near)?,
+            HalfSpace::intersection_point(top, left, far)?,
+            HalfSpace::intersection_point(top, right, far)?,
+            HalfSpace::intersection_point(bottom, right, far)?,
+            HalfSpace::intersection_point(bottom, left, far)?,
         ])
     }
 

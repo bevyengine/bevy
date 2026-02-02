@@ -76,9 +76,9 @@ impl HalfSpace {
         self.normal_d
     }
 
-    /// Returns the intersection position if the three halfspaces all intersect at a single point.
+    /// Returns the intersection point if the three halfspaces all intersect at a single point.
     #[inline]
-    pub fn intersect(a: HalfSpace, b: HalfSpace, c: HalfSpace) -> Option<Vec3> {
+    pub fn intersection_point(a: HalfSpace, b: HalfSpace, c: HalfSpace) -> Option<Vec3> {
         let an = a.normal();
         let bn = b.normal();
         let cn = c.normal();
