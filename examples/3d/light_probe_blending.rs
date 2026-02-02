@@ -8,6 +8,7 @@ use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
     camera::Hdr,
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::{CORNFLOWER_BLUE, CRIMSON, TAN, WHITE},
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll},
     light::ParallaxCorrection,
@@ -26,6 +27,8 @@ struct AppStatus {
     /// Whether the gizmos that show the boundaries of the light probe regions
     /// are to be shown.
     gizmos_enabled: GizmosEnabled,
+    object_to_show: ObjectToShow,
+    camera_mode: CameraMode,
 }
 
 /// Whether the gizmos that show the boundaries of the light probe regions are
@@ -39,9 +42,27 @@ enum GizmosEnabled {
     Off,
 }
 
+#[derive(Clone, Copy, Default, PartialEq)]
+enum ObjectToShow {
+    #[default]
+    Sphere,
+    Prism,
+}
+
+#[derive(Clone, Copy, Default, PartialEq)]
+enum CameraMode {
+    #[default]
+    Orbit,
+    Free,
+}
+
 /// A marker component for the reflective sphere.
 #[derive(Clone, Copy, Component, Debug)]
 struct ReflectiveSphere;
+
+/// A marker component for the reflective prism.
+#[derive(Clone, Copy, Component, Debug)]
+struct ReflectivePrism;
 
 /// The speed at which the sphere moves, as a ratio of the total distance it
 /// travels to seconds.
@@ -113,15 +134,43 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(FreeCameraPlugin)
         .init_resource::<AppStatus>()
         .add_message::<WidgetClickEvent<GizmosEnabled>>()
+        .add_message::<WidgetClickEvent<ObjectToShow>>()
+        .add_message::<WidgetClickEvent<CameraMode>>()
         .add_systems(Startup, setup)
         .add_systems(Update, (move_sphere, orbit_camera).chain())
-        .add_systems(Update, widgets::handle_ui_interactions::<GizmosEnabled>)
         .add_systems(
             Update,
-            (handle_gizmos_enabled_change, update_radio_buttons)
-                .after(widgets::handle_ui_interactions::<GizmosEnabled>),
+            (
+                widgets::handle_ui_interactions::<GizmosEnabled>,
+                handle_gizmos_enabled_change,
+            )
+                .chain(),
+        )
+        .add_systems(
+            Update,
+            (
+                widgets::handle_ui_interactions::<ObjectToShow>,
+                handle_object_to_show_change,
+            )
+                .chain(),
+        )
+        .add_systems(
+            Update,
+            (
+                widgets::handle_ui_interactions::<CameraMode>,
+                handle_camera_mode_change,
+            )
+                .chain(),
+        )
+        .add_systems(
+            Update,
+            update_radio_buttons
+                .after(widgets::handle_ui_interactions::<GizmosEnabled>)
+                .after(widgets::handle_ui_interactions::<ObjectToShow>)
+                .after(widgets::handle_ui_interactions::<CameraMode>),
         )
         .add_systems(Update, draw_gizmos)
         .run();
@@ -137,9 +186,12 @@ fn setup(
 ) {
     adjust_gizmo_settings(&mut gizmo_config_store);
 
+    let reflective_material = create_reflective_material(&mut materials);
+
     spawn_camera(&mut commands);
     spawn_gltf_scene(&mut commands, &asset_server);
-    spawn_reflective_sphere(&mut commands, &mut meshes, &mut materials);
+    spawn_reflective_sphere(&mut commands, &mut meshes, reflective_material.clone());
+    spawn_reflective_prism(&mut commands, &mut meshes, reflective_material);
     spawn_light_probes(&mut commands, &asset_server);
     spawn_buttons(&mut commands);
     spawn_help_text(&mut commands);
@@ -153,6 +205,17 @@ fn adjust_gizmo_settings(gizmo_config_store: &mut GizmoConfigStore) {
     for (_, gizmo_config, _) in &mut gizmo_config_store.iter_mut() {
         gizmo_config.depth_bias = -1.0;
     }
+}
+
+fn create_reflective_material(
+    materials: &mut Assets<StandardMaterial>,
+) -> Handle<StandardMaterial> {
+    materials.add(StandardMaterial {
+        base_color: WHITE.into(),
+        metallic: 1.0,
+        perceptual_roughness: 0.0,
+        ..default()
+    })
 }
 
 /// Spawns the orbital pan/zoom camera.
@@ -176,22 +239,14 @@ fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
     )));
 }
 
-/// Spawns the reflective sphere, creating its mesh and material in the process.
+/// Spawns the reflective sphere, creating its mesh in the process.
 fn spawn_reflective_sphere(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
+    material: Handle<StandardMaterial>,
 ) {
     // Create a mesh.
     let sphere = meshes.add(Sphere::default().mesh().uv(32, 18));
-
-    // Create a reflective material.
-    let material = materials.add(StandardMaterial {
-        base_color: WHITE.into(),
-        metallic: 1.0,
-        perceptual_roughness: 0.0,
-        ..default()
-    });
 
     // Spawn the sphere.
     commands.spawn((
@@ -199,6 +254,31 @@ fn spawn_reflective_sphere(
         MeshMaterial3d(material),
         Transform::IDENTITY,
         ReflectiveSphere,
+    ));
+}
+
+fn spawn_reflective_prism(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    material: Handle<StandardMaterial>,
+) {
+    // Create a mesh.
+    let cube = meshes.add(
+        Cuboid {
+            half_size: vec3(2.0, 1.0, 10.0),
+        }
+        .mesh()
+        .build()
+        .with_duplicated_vertices()
+        .with_computed_flat_normals(),
+    );
+
+    // Spawn the cube.
+    commands.spawn((
+        Mesh3d(cube),
+        MeshMaterial3d(material),
+        Transform::IDENTITY,
+        ReflectivePrism,
     ));
 }
 
@@ -249,10 +329,23 @@ fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn((
         widgets::main_ui_node(),
-        children![widgets::option_buttons(
-            "Gizmos",
-            &[(GizmosEnabled::On, "On"), (GizmosEnabled::Off, "Off"),]
-        )],
+        children![
+            widgets::option_buttons(
+                "Gizmos",
+                &[(GizmosEnabled::On, "On"), (GizmosEnabled::Off, "Off"),]
+            ),
+            widgets::option_buttons(
+                "Object to Show",
+                &[
+                    (ObjectToShow::Sphere, "Sphere"),
+                    (ObjectToShow::Prism, "Prism"),
+                ]
+            ),
+            widgets::option_buttons(
+                "Camera Mode",
+                &[(CameraMode::Orbit, "Orbit"), (CameraMode::Free, "Free"),]
+            ),
+        ],
     ));
 }
 
@@ -347,6 +440,63 @@ fn handle_gizmos_enabled_change(
 ) {
     for message in messages.read() {
         app_status.gizmos_enabled = **message;
+    }
+}
+
+fn handle_object_to_show_change(
+    mut spheres_query: Query<&mut Visibility, (With<ReflectiveSphere>, Without<ReflectivePrism>)>,
+    mut prisms_query: Query<&mut Visibility, (With<ReflectivePrism>, Without<ReflectiveSphere>)>,
+    mut app_status: ResMut<AppStatus>,
+    mut messages: MessageReader<WidgetClickEvent<ObjectToShow>>,
+) {
+    for message in messages.read() {
+        app_status.object_to_show = **message;
+
+        for mut sphere_visibility in &mut spheres_query {
+            *sphere_visibility = match **message {
+                ObjectToShow::Sphere => Visibility::Inherited,
+                ObjectToShow::Prism => Visibility::Hidden,
+            }
+        }
+        for mut prism_visibility in &mut prisms_query {
+            *prism_visibility = match **message {
+                ObjectToShow::Sphere => Visibility::Hidden,
+                ObjectToShow::Prism => Visibility::Inherited,
+            }
+        }
+    }
+}
+
+fn handle_camera_mode_change(
+    mut commands: Commands,
+    cameras_query: Query<Entity, With<Camera>>,
+    mut app_status: ResMut<AppStatus>,
+    mut messages: MessageReader<WidgetClickEvent<CameraMode>>,
+) {
+    for message in messages.read() {
+        app_status.camera_mode = **message;
+
+        for camera in &cameras_query {
+            match app_status.camera_mode {
+                CameraMode::Orbit => {
+                    // TODO: Go from Cartesian coordinates to spherical coordinates.
+                    commands
+                        .entity(camera)
+                        .remove::<FreeCamera>()
+                        .insert(OrbitCamera {
+                            radius: 3.0,
+                            inclination: 7.0 * FRAC_PI_4,
+                            azimuth: FRAC_PI_4,
+                        });
+                }
+                CameraMode::Free => {
+                    commands
+                        .entity(camera)
+                        .remove::<OrbitCamera>()
+                        .insert(FreeCamera::default());
+                }
+            }
+        }
     }
 }
 
