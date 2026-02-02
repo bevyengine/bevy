@@ -153,7 +153,7 @@ use downcast_rs::{impl_downcast, Downcast};
 /// You can then create an [`BlendableCurve`] to animate this property like so:
 ///
 ///     # use bevy_animation::{VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
-///     # use bevy_animation::prelude::{BlendableProperty, AnimatableKeyframeCurve, BlendableCurve};
+///     # use bevy_animation::prelude::{BlendableProperty, BlendableKeyframeCurve, BlendableCurve};
 ///     # use bevy_ecs::{name::Name, component::Component};
 ///     # use std::any::TypeId;
 ///     # #[derive(Component)]
@@ -182,7 +182,7 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     # }
 ///     BlendableCurve::new(
 ///         PowerLevelProperty,
-///         AnimatableKeyframeCurve::new([
+///         BlendableKeyframeCurve::new([
 ///             (0.0, 0.0),
 ///             (1.0, 9001.0),
 ///         ]).expect("Failed to create power level curve")
@@ -197,7 +197,7 @@ pub trait BlendableProperty: Send + Sync + 'static {
         entity: &'a mut AnimationEntityMut,
     ) -> Result<&'a mut Self::Property, AnimationEvaluationError>;
 
-    /// The [`EvaluatorId`] used to look up the [`AnimationCurveEvaluator`] for this [`AnimatableProperty`].
+    /// The [`EvaluatorId`] used to look up the [`AnimationCurveEvaluator`] for this [`BlendableProperty`].
     /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
     fn evaluator_id(&self) -> EvaluatorId<'_>;
 }
@@ -207,7 +207,7 @@ pub trait BlendableProperty: Send + Sync + 'static {
 ///
 /// The best way to create an instance of this type is via the [`animated_field`] macro.
 ///
-/// `C` is the component being animated, `A` is the type of the [`Animatable`] field on the component, and `F` is an accessor
+/// `C` is the component being animated, `A` is the type of the [`Blendable`] field on the component, and `F` is an accessor
 /// function that accepts a reference to `C` and retrieves the field `A`.
 ///
 /// [`animated_field`]: crate::animated_field
@@ -312,7 +312,7 @@ where
     C: AnimationCompatibleCurve<P::Property>,
 {
     /// Create an [`BlendableCurve`] (and thus an [`BlendableCurve`]) from a curve
-    /// valued in an [animatable property].
+    /// valued in an [blendable property].
     ///
     /// [blendable property]: BlendableProperty::Property
     pub fn new(property: P, curve: C) -> Self {
@@ -602,7 +602,7 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
     ) -> Result<(), AnimationEvaluationError>;
 }
 
-/// The [`EvaluatorId`] is used to look up the [`AnimationCurveEvaluator`] for an [`AnimatableProperty`].
+/// The [`EvaluatorId`] is used to look up the [`AnimationCurveEvaluator`] for an [`BlendableProperty`].
 /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
 #[derive(Clone)]
 pub enum EvaluatorId<'a> {
@@ -614,7 +614,7 @@ pub enum EvaluatorId<'a> {
     // Switching the field index `usize` for something like a field name `String` would probably be too expensive to justify
     ComponentField(&'a Hashed<(TypeId, usize)>),
     /// Corresponds to a custom property of a given type. This should be the [`TypeId`]
-    /// of the custom [`AnimatableProperty`].
+    /// of the custom [`BlendableProperty`].
     Type(TypeId),
 }
 
@@ -705,12 +705,12 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
 
 impl_downcast!(AnimationCurveEvaluator);
 
-/// A [curve] defined by keyframes with values in an [animatable] type.
+/// A [curve] defined by keyframes with values in an [blendable] type.
 ///
 /// The keyframes are interpolated using the type's [`Blendable::interpolate`] implementation.
 ///
 /// [curve]: Curve
-/// [animatable]: Blendable
+/// [blendable]: Blendable
 #[derive(Debug, Clone, Reflect)]
 pub struct BlendableKeyframeCurve<T> {
     core: UnevenCore<T>,

@@ -16,7 +16,7 @@ pub struct BlendInput<T> {
     pub additive: bool,
 }
 
-/// An animatable value type.
+/// An blendable value type.
 pub trait Blendable: Reflect + Sized + Send + Sync + 'static {
     /// Interpolates between `a` and `b` with  a interpolation factor of `time`.
     ///
@@ -29,7 +29,7 @@ pub trait Blendable: Reflect + Sized + Send + Sync + 'static {
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self;
 }
 
-macro_rules! impl_float_animatable {
+macro_rules! impl_float_blendable {
     ($ty: ty, $base: ty) => {
         impl Blendable for $ty {
             #[inline]
@@ -54,7 +54,7 @@ macro_rules! impl_float_animatable {
     };
 }
 
-macro_rules! impl_color_animatable {
+macro_rules! impl_color_blendable {
     ($ty: ident) => {
         impl Blendable for $ty {
             #[inline]
@@ -79,21 +79,21 @@ macro_rules! impl_color_animatable {
     };
 }
 
-impl_float_animatable!(f32, f32);
-impl_float_animatable!(Vec2, f32);
-impl_float_animatable!(Vec3A, f32);
-impl_float_animatable!(Vec4, f32);
+impl_float_blendable!(f32, f32);
+impl_float_blendable!(Vec2, f32);
+impl_float_blendable!(Vec3A, f32);
+impl_float_blendable!(Vec4, f32);
 
-impl_float_animatable!(f64, f64);
-impl_float_animatable!(DVec2, f64);
-impl_float_animatable!(DVec3, f64);
-impl_float_animatable!(DVec4, f64);
+impl_float_blendable!(f64, f64);
+impl_float_blendable!(DVec2, f64);
+impl_float_blendable!(DVec3, f64);
+impl_float_blendable!(DVec4, f64);
 
-impl_color_animatable!(LinearRgba);
-impl_color_animatable!(Laba);
-impl_color_animatable!(Oklaba);
-impl_color_animatable!(Srgba);
-impl_color_animatable!(Xyza);
+impl_color_blendable!(LinearRgba);
+impl_color_blendable!(Laba);
+impl_color_blendable!(Oklaba);
+impl_color_blendable!(Srgba);
+impl_color_blendable!(Xyza);
 
 // Vec3 is special cased to use Vec3A internally for blending
 impl Blendable for Vec3 {

@@ -153,7 +153,7 @@ fn setup(
 
 // A type that represents the color of the first text section.
 //
-// We implement `AnimatableProperty` on this to define custom property accessor logic
+// We implement `BlendableProperty` on this to define custom property accessor logic
 #[derive(Clone)]
 struct TextColorProperty;
 
