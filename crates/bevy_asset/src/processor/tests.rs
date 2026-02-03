@@ -1520,6 +1520,8 @@ fn only_reprocesses_wrong_hash_on_startup() {
             }
             asset.text.push(' ');
             asset.text.push_str(&asset.embedded);
+            // Clear the embedded text so that saving doesn't break.
+            asset.embedded.clear();
         }
     }
 

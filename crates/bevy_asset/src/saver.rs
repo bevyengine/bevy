@@ -507,6 +507,9 @@ pub(crate) mod tests {
             asset: SavedAsset<'_, '_, Self::Asset>,
             _: &Self::Settings,
         ) -> Result<(), Self::Error> {
+            // NOTE: We can't handle embedded dependencies in any way, since we need to write to
+            // another file to do so.
+            assert!(asset.embedded.is_empty());
             let ron = CoolTextRon {
                 text: asset.text.clone(),
                 sub_texts: asset
@@ -519,8 +522,6 @@ pub(crate) mod tests {
                     .map(|handle| handle.path().unwrap().path())
                     .map(|path| path.to_str().unwrap().to_string())
                     .collect(),
-                // NOTE: We can't handle embedded dependencies in any way, since we need to write to
-                // another file to do so.
                 embedded_dependencies: vec![],
             };
             let ron = ron::ser::to_string_pretty(&ron, PrettyConfig::new().new_line("\n")).unwrap();
