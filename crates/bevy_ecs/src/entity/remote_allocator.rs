@@ -588,7 +588,8 @@ impl FreeList {
 
         // Append onto the buffer
         let mut len = state.length();
-        entities.iter().copied().for_each(|entity| {
+        // `for_each` is typically faster than `for` here.
+        entities.iter().for_each(|&entity| {
             // SAFETY: Caller ensures this does not conflict with `free` or `alloc` calls,
             // and we just disabled remote allocation with a strict memory ordering.
             // We only call `set` during a free, and the caller ensures that is not called concurrently.
