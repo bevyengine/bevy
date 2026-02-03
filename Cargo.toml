@@ -5455,7 +5455,7 @@ wasm = true
 name = "light_probe_blending"
 path = "examples/3d/light_probe_blending.rs"
 doc-scrape-examples = true
-required-features = ["https"]
+required-features = ["free_camera", "https"]
 
 [package.metadata.example.light_probe_blending]
 name = "Light Probe Blending"
