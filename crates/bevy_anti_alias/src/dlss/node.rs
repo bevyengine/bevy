@@ -50,9 +50,9 @@ pub fn dlss_super_resolution(
         bias: None,                                       // TODO
         dlss_output: &view_target.destination,
         reset: dlss.reset,
-        jitter_offset: -temporal_jitter.offset,
-        partial_texture_size: Some(render_resolution),
-        motion_vector_scale: Some(-render_resolution.as_vec2()),
+        jitter_offset: (-temporal_jitter.offset).to_array(),
+        partial_texture_size: Some(render_resolution.to_array()),
+        motion_vector_scale: Some((-render_resolution.as_vec2()).to_array()),
     };
 
     let diagnostics = ctx.diagnostic_recorder();
@@ -117,9 +117,9 @@ pub fn dlss_ray_reconstruction(
         bias: None,                                     // TODO
         dlss_output: &view_target.destination,
         reset: dlss.reset,
-        jitter_offset: -temporal_jitter.offset,
-        partial_texture_size: Some(render_resolution),
-        motion_vector_scale: Some(-render_resolution.as_vec2()),
+        jitter_offset: (-temporal_jitter.offset).to_array(),
+        partial_texture_size: Some(render_resolution.to_array()),
+        motion_vector_scale: Some((-render_resolution.as_vec2()).to_array()),
     };
 
     let diagnostics = ctx.diagnostic_recorder();
