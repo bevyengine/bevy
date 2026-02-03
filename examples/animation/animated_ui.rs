@@ -188,7 +188,7 @@ impl BlendableProperty for TextColorProperty {
 #[derive(Clone)]
 struct TextFontSizeProperty;
 
-impl AnimatableProperty for TextFontSizeProperty {
+impl BlendableProperty for TextFontSizeProperty {
     type Property = f32;
 
     fn evaluator_id(&self) -> EvaluatorId<'_> {

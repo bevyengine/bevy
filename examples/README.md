@@ -216,8 +216,8 @@ Example | Description
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
 [Animated UI](../examples/animation/animated_ui.rs) | Shows how to use animation clips to animate UI properties
 [Animation Events](../examples/animation/animation_events.rs) | Demonstrate how to use animation events
-[Blend Graph](../examples/animation/blend_graph.rs) | Blends multiple animations together with a graph
 [Animation Masks](../examples/animation/animation_masks.rs) | Demonstrates animation masks
+[Blend Graph](../examples/animation/blend_graph.rs) | Blends multiple animations together with a graph
 [Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces
 [Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
 [Eased Motion](../examples/animation/eased_motion.rs) | Demonstrates the application of easing curves to animate an object
