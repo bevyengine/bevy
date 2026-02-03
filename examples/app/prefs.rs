@@ -57,7 +57,7 @@ fn setup(mut commands: Commands) {
             parent.spawn((
                 Text::new("---"),
                 TextFont {
-                    font_size: 33.0,
+                    font_size: FontSize::Px(33.0),
                     ..default()
                 },
                 CounterDisplay,
@@ -66,7 +66,7 @@ fn setup(mut commands: Commands) {
             parent.spawn((
                 Text::new("Press SPACE to increment"),
                 TextFont {
-                    font_size: 20.0,
+                    font_size: FontSize::Px(20.0),
                     ..default()
                 },
             ));
