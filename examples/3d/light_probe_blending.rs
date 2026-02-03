@@ -123,7 +123,7 @@ struct OrbitCamera {
 }
 
 /// The brightness of the light probe.
-const LIGHT_PROBE_INTENSITY: f32 = 5000.0;
+const LIGHT_PROBE_INTENSITY: f32 = 500.0;
 
 /// The entry point.
 fn main() {
