@@ -33,7 +33,7 @@
 use arrayvec::ArrayVec;
 use bevy_platform::{
     cell::SyncUnsafeCell,
-    prelude::Vec,
+    prelude::{Box, Vec},
     sync::{
         atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU64, Ordering},
         Arc,
@@ -890,7 +890,7 @@ pub(super) struct Allocator {
     shared: Arc<SharedAllocator>,
     /// The local free list.
     /// We use this to amortize the cost of freeing to the shared allocator since that is expensive.
-    local_free: ArrayVec<Entity, 64>,
+    local_free: Box<ArrayVec<Entity, 128>>,
 }
 
 impl Default for Allocator {
@@ -904,7 +904,7 @@ impl Allocator {
     pub(super) fn new() -> Self {
         Self {
             shared: Arc::new(SharedAllocator::new()),
-            local_free: ArrayVec::new(),
+            local_free: Box::new(ArrayVec::new()),
         }
     }
 
