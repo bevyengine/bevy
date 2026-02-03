@@ -3,7 +3,7 @@ title: "Invert `bevy_gltf` dependency with `bevy_pbr`"
 pull_requests: [22569]
 ---
 
-Previously, `bevy_gltf` depends on `bevy_pbr` , with a tight coupling between the scene definition and the rendering of the scene. This has been inverted.
+Previously, `bevy_gltf` depended on `bevy_pbr`. This meant scene definition was tightly coupled to rendering. This dependency has been inverted, to allow `bevy_gltf` to function without any of the rendering stack present.
 
 You can disable PBR rendering by initializing `PbrPlugin` as so:
 
