@@ -488,7 +488,7 @@ pub fn calculate_bounds(
 ) {
     for (entity, mesh_handle) in &new_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
-            && let Some(aabb) = mesh.compute_aabb()
+            && let Some(aabb) = mesh.get_aabb()
         {
             commands.entity(entity).try_insert(aabb);
         }
@@ -497,7 +497,7 @@ pub fn calculate_bounds(
     update_aabb
         .par_iter_mut()
         .for_each(|(mesh_handle, mut old_aabb)| {
-            if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
+            if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::get_aabb) {
                 *old_aabb = aabb;
             }
         });

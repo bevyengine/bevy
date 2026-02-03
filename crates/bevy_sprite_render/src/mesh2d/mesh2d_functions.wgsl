@@ -47,3 +47,40 @@ fn mesh2d_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: 
 fn get_tag(instance_index: u32) -> u32 {
     return mesh[instance_index].tag;
 }
+
+fn decompress_vertex_position(instance_index: u32, compressed_position: vec4<f32>) -> vec3<f32> {
+    let aabb_center = bevy_sprite::mesh2d_bindings::mesh[instance_index].aabb_center;
+    let aabb_half_extents = bevy_sprite::mesh2d_bindings::mesh[instance_index].aabb_half_extents;
+    return aabb_center + aabb_half_extents * compressed_position.xyz;
+}
+
+fn decompress_vertex_normal(compressed_normal: vec2<f32>) -> vec3<f32> {
+    return octahedral_decode_signed(compressed_normal);
+}
+
+fn decompress_vertex_tangent(compressed_tangent: vec2<f32>) -> vec4<f32> {
+    return octahedral_decode_tangent(compressed_tangent);
+}
+
+fn decompress_vertex_uv(instance_index: u32, compressed_uv: vec2<f32>) -> vec2<f32> {
+    let uv_range = bevy_sprite::mesh2d_bindings::mesh[instance_index].uv0_range;
+    return uv_range.xy + uv_range.zw * compressed_uv;
+}
+
+// For decoding normals or unit direction vectors from octahedral coordinates. Input is [-1, 1].
+fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
+    var n = vec3(v.xy, 1.0 - abs(v.x) - abs(v.y));
+    let t = saturate(-n.z);
+    let w = select(vec2(t), vec2(-t), n.xy >= vec2(0.0));
+    n = vec3(n.xy + w, n.z);
+    return normalize(n);
+}
+
+// Decode tangent vectors from octahedral coordinates and return the sign. Input is [-1, 1]. The y component should have been mapped to always be positive and then encoded the sign.
+fn octahedral_decode_tangent(v: vec2<f32>) -> vec4<f32> {
+    let sign = select(-1.0, 1.0, v.y >= 0.0);
+    var f = v;
+    f.y = abs(f.y);
+    f.y = f.y * 2.0 - 1.0;
+    return vec4<f32>(octahedral_decode_signed(f), sign);
+}

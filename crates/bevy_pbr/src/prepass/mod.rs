@@ -26,7 +26,7 @@ use bevy_material::{
     AlphaMode, MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
 use bevy_math::{Affine3A, Mat4, Vec4};
-use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
+use bevy_mesh::{Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -429,6 +429,13 @@ impl PrepassPipeline {
         }
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
         // For directional light shadow map views, use unclipped depth via either the native GPU feature,
@@ -450,11 +457,25 @@ impl PrepassPipeline {
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_A".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV0)
+            {
+                shader_defs.push("VERTEX_UVS_A_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV1)
+            {
+                shader_defs.push("VERTEX_UVS_B_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(2));
         }
         if mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
@@ -465,6 +486,13 @@ impl PrepassPipeline {
             shader_defs.push("NORMAL_PREPASS_OR_DEFERRED_PREPASS".into());
             if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
                 shader_defs.push("VERTEX_NORMALS".into());
+                if layout
+                    .0
+                    .get_attribute_compression()
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL)
+                {
+                    shader_defs.push("VERTEX_NORMALS_COMPRESSED".into());
+                }
                 vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(3));
             } else if mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
                 warn!(
@@ -473,6 +501,13 @@ impl PrepassPipeline {
             }
             if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
                 shader_defs.push("VERTEX_TANGENTS".into());
+                if layout
+                    .0
+                    .get_attribute_compression()
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT)
+                {
+                    shader_defs.push("VERTEX_TANGENTS_COMPRESSED".into());
+                }
                 vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
             }
         }

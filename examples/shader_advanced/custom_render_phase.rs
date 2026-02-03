@@ -13,7 +13,7 @@
 use std::ops::Range;
 
 use bevy::camera::Viewport;
-use bevy::math::Affine3Ext;
+use bevy::mesh::MeshAttributeCompressionFlags;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     camera::MainPassResolutionOverride,
@@ -178,9 +178,18 @@ impl SpecializedMeshPipeline for StencilPipeline {
         key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut shader_defs = Vec::new();
         // We will only use the position of the mesh in our shader so we only need to specify that
         let mut vertex_attributes = Vec::new();
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
+            // Handle compressed vertex positions.
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             // Make sure this matches the shader location
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
@@ -203,11 +212,13 @@ impl SpecializedMeshPipeline for StencilPipeline {
             ],
             vertex: VertexState {
                 shader: self.shader_handle.clone(),
+                shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
+                shader_defs,
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: None,
@@ -336,7 +347,7 @@ impl GetBatchData for StencilPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, _render_assets, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, meshes, mesh_allocator): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -352,24 +363,15 @@ impl GetBatchData for StencilPipeline {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
-        let mesh_uniform = {
-            let mesh_transforms = &mesh_instance.transforms;
-            let (local_from_world_transpose_a, local_from_world_transpose_b) =
-                mesh_transforms.world_from_local.inverse_transpose_3x3();
-            MeshUniform {
-                world_from_local: mesh_transforms.world_from_local.to_transpose(),
-                previous_world_from_local: mesh_transforms.previous_world_from_local.to_transpose(),
-                lightmap_uv_rect: UVec2::ZERO,
-                local_from_world_transpose_a,
-                local_from_world_transpose_b,
-                flags: mesh_transforms.flags,
-                first_vertex_index,
-                current_skin_index: u32::MAX,
-                material_and_lightmap_bind_group_slot: 0,
-                tag: 0,
-                pad: 0,
-            }
-        };
+        let mesh_uniform = MeshUniform::new(
+            &mesh_instance.transforms,
+            first_vertex_index,
+            mesh_instance.material_bindings_index.slot,
+            None,
+            None,
+            Some(mesh_instance.tag),
+            meshes.get(mesh_instance.mesh_asset_id),
+        );
         Some((mesh_uniform, None))
     }
 }
@@ -419,6 +421,7 @@ impl GetFullBatchData for StencilPipeline {
             &mesh_instance.transforms,
             first_vertex_index,
             mesh_instance.material_bindings_index.slot,
+            None,
             None,
             None,
             None,

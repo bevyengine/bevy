@@ -21,8 +21,11 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_image::BevyDefault;
-use bevy_math::{Affine3, Affine3Ext, Vec4};
-use bevy_mesh::{Mesh, Mesh2d, MeshTag, MeshVertexBufferLayoutRef};
+use bevy_math::{
+    bounding::{Aabb2d, BoundingVolume},
+    Affine3, Affine3Ext, Vec3, Vec4,
+};
+use bevy_mesh::{Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshTag, MeshVertexBufferLayoutRef};
 use bevy_render::prelude::Msaa;
 use bevy_render::RenderSystems::PrepareAssets;
 use bevy_render::{
@@ -204,23 +207,45 @@ pub struct Mesh2dUniform {
     //   [1].yz, [2].xy
     //   [2].z
     pub local_from_world_transpose_a: [Vec4; 2],
+    /// AABB for decompressing positions.
+    pub aabb_center: Vec3,
     pub local_from_world_transpose_b: f32,
+    /// AABB for decompressing positions.
+    pub aabb_half_extents: Vec3,
     pub flags: u32,
+    /// UVs range for decompressing UVs coordinates. xy is the min UV value, zw is the length of range.
+    pub uv0_range: Vec4,
     pub tag: u32,
 }
 
 impl Mesh2dUniform {
-    fn from_components(mesh_transforms: &Mesh2dTransforms, tag: u32) -> Self {
+    fn from_components(
+        mesh_transforms: &Mesh2dTransforms,
+        tag: u32,
+        mesh: Option<&RenderMesh>,
+    ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
+        let (aabb, uv_range) = mesh.map(|m| (m.aabb, m.uv0_range)).unwrap_or_default();
         Self {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
             local_from_world_transpose_a,
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
             tag,
+            aabb_center: aabb.map(|aabb| aabb.center().into()).unwrap_or(Vec3::ZERO),
+            aabb_half_extents: aabb
+                .map(|aabb| aabb.half_size().into())
+                .unwrap_or(Vec3::ZERO),
+            uv0_range: uv_range_to_vec4(uv_range),
         }
     }
+}
+
+fn uv_range_to_vec4(range: Option<Aabb2d>) -> Vec4 {
+    range
+        .map(|r| Vec4::new(r.min.x, r.min.y, r.max.x - r.min.x, r.max.y - r.min.y))
+        .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
 }
 
 // NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/mesh2d.wgsl!
@@ -336,12 +361,16 @@ impl GetBatchData for Mesh2dPipeline {
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
-        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, meshes, _): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((
-            Mesh2dUniform::from_components(&mesh_instance.transforms, mesh_instance.tag),
+            Mesh2dUniform::from_components(
+                &mesh_instance.transforms,
+                mesh_instance.tag,
+                meshes.get(mesh_instance.mesh_asset_id),
+            ),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
@@ -354,13 +383,14 @@ impl GetFullBatchData for Mesh2dPipeline {
     type BufferInputData = ();
 
     fn get_binned_batch_data(
-        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, meshes, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
     ) -> Option<Self::BufferData> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
         Some(Mesh2dUniform::from_components(
             &mesh_instance.transforms,
             mesh_instance.tag,
+            meshes.get(mesh_instance.mesh_asset_id),
         ))
     }
 
@@ -504,21 +534,49 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
             shader_defs.push("VERTEX_NORMALS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL)
+            {
+                shader_defs.push("VERTEX_NORMALS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV0)
+            {
+                shader_defs.push("VERTEX_UVS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push("VERTEX_TANGENTS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT)
+            {
+                shader_defs.push("VERTEX_TANGENTS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
