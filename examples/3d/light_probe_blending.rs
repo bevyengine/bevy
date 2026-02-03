@@ -93,7 +93,8 @@ const LIGHT_PROBE_FALLOFF: f32 = 0.5;
 /// value. That way, when Bevy applies the `LIGHT_PROBE_SIDE_LENGTH` scale, the
 /// light probe side length factor cancels, and we're left with a parallax
 /// correction side length of `ROOM_SIDE_LENGTH` in world space.
-const LIGHT_PROBE_PARALLAX_CORRECTION_SIDE_LENGTH: f32 = ROOM_SIDE_LENGTH / LIGHT_PROBE_SIDE_LENGTH;
+const LIGHT_PROBE_PARALLAX_CORRECTION_SIDE_LENGTH: f32 =
+    ROOM_SIDE_LENGTH / LIGHT_PROBE_SIDE_LENGTH * 0.5 + 0.01;
 
 /// The number of radians of inclination (pitch) that one pixel of mouse
 /// movement corresponds to.
@@ -213,6 +214,7 @@ fn create_reflective_material(
     materials.add(StandardMaterial {
         base_color: WHITE.into(),
         metallic: 1.0,
+        reflectance: 1.0,
         perceptual_roughness: 0.0,
         ..default()
     })
@@ -277,17 +279,14 @@ fn spawn_reflective_prism(
     commands.spawn((
         Mesh3d(cube),
         MeshMaterial3d(material),
-        Transform::IDENTITY,
+        Transform::from_xyz(0.0, -4.0, -5.5),
         ReflectivePrism,
+        Visibility::Hidden,
     ));
 }
 
 /// Spawns the two light probes, one for each room.
 fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
-    // The cubemaps were baked with a different coordinate system than the
-    // default Bevy one, so account for this.
-    let light_probe_rotation = Quat::from_rotation_y(PI);
-
     // Spawn the first room's light probe.
     commands.spawn((
         LightProbe {
@@ -297,10 +296,10 @@ fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
             diffuse_map: asset_server.load(get_web_asset_url("diffuse_room1.ktx2")),
             specular_map: asset_server.load(get_web_asset_url("specular_room1.ktx2")),
             intensity: LIGHT_PROBE_INTENSITY,
-            rotation: light_probe_rotation,
             ..default()
         },
-        Transform::from_scale(Vec3::splat(LIGHT_PROBE_SIDE_LENGTH)),
+        Transform::from_scale(vec3(1.0, -1.0, 1.0) * LIGHT_PROBE_SIDE_LENGTH)
+            .with_rotation(Quat::from_rotation_x(PI)),
         ParallaxCorrection::Custom(Vec3::splat(LIGHT_PROBE_PARALLAX_CORRECTION_SIDE_LENGTH)),
     ));
 
@@ -313,14 +312,11 @@ fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
             diffuse_map: asset_server.load(get_web_asset_url("diffuse_room2.ktx2")),
             specular_map: asset_server.load(get_web_asset_url("specular_room2.ktx2")),
             intensity: LIGHT_PROBE_INTENSITY,
-            rotation: light_probe_rotation,
             ..default()
         },
-        Transform::from_scale(Vec3::splat(LIGHT_PROBE_SIDE_LENGTH)).with_translation(vec3(
-            0.0,
-            0.0,
-            -ROOM_SEPARATION,
-        )),
+        Transform::from_scale(vec3(1.0, -1.0, 1.0) * LIGHT_PROBE_SIDE_LENGTH)
+            .with_rotation(Quat::from_rotation_x(PI))
+            .with_translation(vec3(0.0, 0.0, -ROOM_SEPARATION)),
         ParallaxCorrection::Custom(Vec3::splat(LIGHT_PROBE_PARALLAX_CORRECTION_SIDE_LENGTH)),
     ));
 }
