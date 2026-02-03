@@ -38,12 +38,17 @@ fn main() {
 #[derive(Resource)]
 struct Counter(i32);
 
+#[derive(Component)]
+struct CounterDisplay;
+
 fn setup(mut commands: Commands) {
     commands.spawn((Camera::default(), Camera2d));
     commands
         .spawn(Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
@@ -55,12 +60,20 @@ fn setup(mut commands: Commands) {
                     font_size: 33.0,
                     ..default()
                 },
+                CounterDisplay,
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            ));
+            parent.spawn((
+                Text::new("Press SPACE to increment"),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
             ));
         });
 }
 
-fn show_count(mut query: Query<&mut Text>, counter: Res<Counter>) {
+fn show_count(mut query: Query<&mut Text, With<CounterDisplay>>, counter: Res<Counter>) {
     if counter.is_changed() {
         for mut text in query.iter_mut() {
             text.0 = format!("Count: {}", counter.0);
