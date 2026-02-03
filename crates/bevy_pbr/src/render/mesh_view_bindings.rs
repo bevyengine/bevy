@@ -486,35 +486,12 @@ impl FromWorld for MeshPipelineViewLayouts {
         let visibility_ranges_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
-        Self(Arc::new(array::from_fn(|i| {
-            let key = MeshPipelineViewLayoutKey::from_bits_truncate(i as u32);
-            let entries = layout_entries(
-                clustered_forward_buffer_binding_type,
-                visibility_ranges_buffer_binding_type,
-                key,
-                render_device,
-                render_adapter,
-            );
-            #[cfg(debug_assertions)]
-            let texture_count: usize = entries
-                .iter()
-                .flat_map(|e| {
-                    e.iter()
-                        .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
-                })
-                .count();
-
-            MeshPipelineViewLayout {
-                main_layout: BindGroupLayoutDescriptor::new(key.label(), &entries[0]),
-                binding_array_layout: BindGroupLayoutDescriptor::new(
-                    format!("{}_binding_array", key.label()),
-                    &entries[1],
-                ),
-                empty_layout: BindGroupLayoutDescriptor::new(format!("{}_empty", key.label()), &[]),
-                #[cfg(debug_assertions)]
-                texture_count,
-            }
-        })))
+        Self(Arc::new(generate_view_layouts(
+            render_device,
+            render_adapter,
+            clustered_forward_buffer_binding_type,
+            visibility_ranges_buffer_binding_type,
+        )))
     }
 }
 
