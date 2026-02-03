@@ -30,9 +30,7 @@ use crate::{
     specialize::{BaseSpecializeFn, PrepassSpecializeFn, UserSpecializeFn},
 };
 
-pub use crate::{
-    alpha::AlphaMode, opaque::OpaqueRendererMethod, phase::RenderPhaseType,
-};
+pub use crate::{alpha::AlphaMode, opaque::OpaqueRendererMethod, phase::RenderPhaseType};
 
 mod alpha;
 pub mod bind_group_layout_entries;
