@@ -26,7 +26,7 @@ pub struct GltfMaterial {
     /// The UV channel to use for the [`GltfMaterial::emissive_texture`].
     pub emissive_channel: UvChannel,
 
-    /// The emissive map, multiplies pixels with [`emissive`]
+    /// The emissive map, multiplies pixels with [`GltfMaterial::emissive`]
     /// to get the final "emitting" color of a surface.
     pub emissive_texture: Option<Handle<Image>>,
 

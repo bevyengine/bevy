@@ -103,7 +103,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
         _mesh: &gltf::Mesh,
         _material: &gltf::Material,
         entity: &mut EntityWorldMut,
-        _label: &str,
+        _material_label: &str,
     ) {
         if let Some(mesh3d) = entity.get::<Mesh3d>() {
             let material_handle =

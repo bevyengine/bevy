@@ -54,7 +54,7 @@ pub enum GltfAssetLabel {
     },
     /// `Texture{}`: glTF Texture as a Bevy [`Image`](bevy_image::prelude::Image)
     Texture(usize),
-    /// `Material{}`: glTF Material
+    /// `Material{}`: glTF Material as Bevy [`GltfMaterial`](crate::GltfMaterial)
     Material {
         /// Index of this material
         index: usize,

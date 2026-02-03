@@ -114,8 +114,8 @@ pub trait GltfExtensionHandler: Send + Sync {
         load_context: &mut LoadContext<'_>,
         gltf_material: &gltf::Material,
         material: Handle<GltfMaterial>,
-        material2: &GltfMaterial,
-        label: &str,
+        material_asset: &GltfMaterial,
+        material_label: &str,
     ) {
     }
 
@@ -146,7 +146,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         mesh: &gltf::Mesh,
         material: &gltf::Material,
         entity: &mut EntityWorldMut,
-        label: &str,
+        material_label: &str,
     ) {
     }
 

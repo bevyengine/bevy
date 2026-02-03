@@ -29,7 +29,6 @@ mod cluster;
 mod components;
 pub mod contact_shadows;
 use bevy_gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers};
-use bevy_mesh::Mesh3d;
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -245,14 +244,15 @@ impl Plugin for PbrPlugin {
                     .0
                     .write()
                     .await
-                    .push(Box::new(GltfExtensionHandlerToMesh3d))
+                    .push(Box::new(GltfExtensionHandlerPbr))
             });
+
             #[cfg(not(target_family = "wasm"))]
             app.world_mut()
                 .resource_mut::<GltfExtensionHandlers>()
                 .0
                 .write_blocking()
-                .push(Box::new(GltfExtensionHandlerToMesh3d));
+                .push(Box::new(GltfExtensionHandlerPbr));
         }
 
         if self.add_default_deferred_lighting_plugin {
@@ -437,9 +437,9 @@ fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMate
 }
 
 #[derive(Default, Clone)]
-struct GltfExtensionHandlerToMesh3d;
+struct GltfExtensionHandlerPbr;
 
-impl GltfExtensionHandler for GltfExtensionHandlerToMesh3d {
+impl GltfExtensionHandler for GltfExtensionHandlerPbr {
     fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
         Box::new((*self).clone())
     }
@@ -449,15 +449,13 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh3d {
         load_context: &mut LoadContext<'_>,
         _gltf_material: &gltf::Material,
         _material: Handle<GltfMaterial>,
-        material2: &GltfMaterial,
-        label: &str,
+        material_asset: &GltfMaterial,
+        material_label: &str,
     ) {
-        // build StandardMaterial from GltfMaterial
-
-        let std_label = format!("{:?}#std", label);
+        let std_label = format!("{:?}#std", material_label);
 
         let _t = load_context.labeled_asset_scope::<_, ()>(std_label, |_load_context| {
-            Ok(standard_material_from_gltf_material(material2))
+            Ok(standard_material_from_gltf_material(material_asset))
         });
     }
 
@@ -468,15 +466,11 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh3d {
         _mesh: &gltf::Mesh,
         _material: &gltf::Material,
         entity: &mut EntityWorldMut,
-        label: &str,
+        material_label: &str,
     ) {
-        if let Some(mesh3d) = entity.get::<Mesh3d>() {
-            let _mesh_handle = mesh3d.0.clone();
+        let std_label = format!("{:?}#std", material_label);
+        let handle = load_context.get_label_handle::<StandardMaterial>(std_label);
 
-            let std_label = format!("{:?}#std", label);
-            let handle = load_context.get_label_handle::<StandardMaterial>(std_label);
-
-            entity.insert(MeshMaterial3d(handle));
-        }
+        entity.insert(MeshMaterial3d(handle));
     }
 }
