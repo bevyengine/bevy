@@ -3,8 +3,9 @@ use crate::{
     ptr::PtrMut,
     resource::Resource,
 };
-use bevy_ptr::{Ptr, UnsafeCellDeref};
+use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use core::{
+    cell::UnsafeCell,
     ops::{Deref, DerefMut},
     panic::Location,
 };
@@ -39,6 +40,160 @@ impl<'w> ComponentTicksRef<'w> {
             last_run,
             this_run,
         }
+    }
+}
+
+/// Data type storing contiguously lying ticks.
+///
+/// Retrievable via [`ContiguousRef::split`] and probably only useful if you want to use the following
+/// methods:
+/// - [`ContiguousComponentTicksRef::is_changed_iter`],
+/// - [`ContiguousComponentTicksRef::is_added_iter`]
+#[derive(Clone)]
+pub struct ContiguousComponentTicksRef<'w> {
+    pub(crate) added: &'w [Tick],
+    pub(crate) changed: &'w [Tick],
+    pub(crate) changed_by: MaybeLocation<&'w [&'static Location<'static>]>,
+    pub(crate) last_run: Tick,
+    pub(crate) this_run: Tick,
+}
+
+impl<'w> ContiguousComponentTicksRef<'w> {
+    /// # Safety
+    /// - The caller must have permission for all given ticks to be read.
+    /// - `len` must be the length of `added`, `changed` and `changed_by` (unless none) slices.
+    pub(crate) unsafe fn from_slice_ptrs(
+        added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
+        len: usize,
+        this_run: Tick,
+        last_run: Tick,
+    ) -> Self {
+        Self {
+            // SAFETY:
+            // - The caller ensures that `len` is the length of the slice.
+            // - The caller ensures we have permission to read the data.
+            added: unsafe { added.cast().as_slice_unchecked(len) },
+            // SAFETY: see above.
+            changed: unsafe { changed.cast().as_slice_unchecked(len) },
+            // SAFETY: see above.
+            changed_by: changed_by.map(|v| unsafe { v.cast().as_slice_unchecked(len) }),
+            last_run,
+            this_run,
+        }
+    }
+
+    /// Creates a new `ContiguousComponentTicksRef` using provided values or returns [`None`] if lengths of
+    /// `added`, `changed` and `changed_by` do not match    
+    ///
+    /// This is an advanced feature, `ContiguousComponentTicksRef`s are designed to be _created_ by
+    /// engine-internal code and _consumed_ by end-user code.
+    ///
+    /// - `added` - [`Tick`]s that store the tick when the wrapped value was created.
+    /// - `changed` - [`Tick`]s that store the last time the wrapped value was changed.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
+    ///   as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
+    /// - `caller` - [`Location`]s that store the location when the wrapper value was changed.
+    pub fn new(
+        added: &'w [Tick],
+        changed: &'w [Tick],
+        last_run: Tick,
+        this_run: Tick,
+        caller: MaybeLocation<&'w [&'static Location<'static>]>,
+    ) -> Option<Self> {
+        let eq = added.len() == changed.len()
+            && caller
+                .map(|v| v.len() == added.len())
+                .into_option()
+                .unwrap_or(true);
+        eq.then_some(Self {
+            added,
+            changed,
+            changed_by: caller,
+            last_run,
+            this_run,
+        })
+    }
+
+    /// Returns added ticks' slice.
+    pub fn added(&self) -> &'w [Tick] {
+        self.added
+    }
+
+    /// Returns changed ticks' slice.
+    pub fn changed(&self) -> &'w [Tick] {
+        self.changed
+    }
+
+    /// Returns changed by locations' slice.
+    pub fn changed_by(&self) -> MaybeLocation<&[&'static Location<'static>]> {
+        self.changed_by.as_deref()
+    }
+
+    /// Returns the tick the system last ran.
+    pub fn last_run(&self) -> Tick {
+        self.last_run
+    }
+
+    /// Returns the tick of the current system's run.
+    pub fn this_run(&self) -> Tick {
+        self.this_run
+    }
+
+    /// Returns an iterator where the i-th item corresponds to whether the i-th component was
+    /// marked as changed. If the value equals [`prim@true`], then the component was changed.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct A(pub i32);
+    ///
+    /// fn some_system(mut query: Query<Ref<A>>) {
+    ///     for a in query.contiguous_iter().unwrap() {
+    ///         let (a_values, a_ticks) = ContiguousRef::split(a);
+    ///         for (value, is_changed) in a_values.iter().zip(a_ticks.is_changed_iter()) {
+    ///             if is_changed {
+    ///                 // do something
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn is_changed_iter(&self) -> impl Iterator<Item = bool> {
+        self.changed
+            .iter()
+            .map(|v| v.is_newer_than(self.last_run, self.this_run))
+    }
+
+    /// Returns an iterator where the i-th item corresponds to whether the i-th component was
+    /// marked as added. If the value equals [`prim@true`], then the component was added.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct A(pub i32);
+    ///
+    /// fn some_system(mut query: Query<Ref<A>>) {
+    ///     for a in query.contiguous_iter().unwrap() {
+    ///         let (a_values, a_ticks) = ContiguousRef::split(a);
+    ///         for (value, is_added) in a_values.iter().zip(a_ticks.is_added_iter()) {
+    ///             if is_added {
+    ///                 // do something
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn is_added_iter(&self) -> impl Iterator<Item = bool> {
+        self.added
+            .iter()
+            .map(|v| v.is_newer_than(self.last_run, self.this_run))
     }
 }
 
@@ -82,6 +237,213 @@ impl<'w> From<ComponentTicksMut<'w>> for ComponentTicksRef<'w> {
             changed_by: ticks.changed_by.map(|changed_by| &*changed_by),
             last_run: ticks.last_run,
             this_run: ticks.this_run,
+        }
+    }
+}
+
+/// Data type storing contiguously lying ticks, which may be accessed to mutate.
+///
+/// Retrievable via [`ContiguousMut::split`] and probably only useful if you want to use the following
+/// methods:
+/// - [`ContiguousComponentTicksMut::is_changed_iter`],
+/// - [`ContiguousComponentTicksMut::is_added_iter`]
+pub struct ContiguousComponentTicksMut<'w> {
+    pub(crate) added: &'w mut [Tick],
+    pub(crate) changed: &'w mut [Tick],
+    pub(crate) changed_by: MaybeLocation<&'w mut [&'static Location<'static>]>,
+    pub(crate) last_run: Tick,
+    pub(crate) this_run: Tick,
+}
+
+impl<'w> ContiguousComponentTicksMut<'w> {
+    /// # Safety
+    /// - The caller must have permission to use all given ticks to be mutated.
+    /// - `len` must be the length of `added`, `changed` and `changed_by` (unless none) slices.
+    pub(crate) unsafe fn from_slice_ptrs(
+        added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
+        len: usize,
+        this_run: Tick,
+        last_run: Tick,
+    ) -> Self {
+        Self {
+            // SAFETY:
+            // - The caller ensures that `len` is the length of the slice.
+            // - The caller ensures we have permission to mutate the data.
+            added: unsafe { added.as_mut_slice_unchecked(len) },
+            // SAFETY: see above.
+            changed: unsafe { changed.as_mut_slice_unchecked(len) },
+            // SAFETY: see above.
+            changed_by: changed_by.map(|v| unsafe { v.as_mut_slice_unchecked(len) }),
+            last_run,
+            this_run,
+        }
+    }
+
+    /// Creates a new `ContiguousComponentTicksMut` using provided values or returns [`None`] if lengths of
+    /// `added`, `changed` and `changed_by` do not match    
+    ///
+    /// This is an advanced feature, `ContiguousComponentTicksMut`s are designed to be _created_ by
+    /// engine-internal code and _consumed_ by end-user code.
+    ///
+    /// - `added` - [`Tick`]s that store the tick when the wrapped value was created.
+    /// - `changed` - [`Tick`]s that store the last time the wrapped value was changed.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
+    ///   as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
+    /// - `caller` - [`Location`]s that store the location when the wrapper value was changed.
+    pub fn new(
+        added: &'w mut [Tick],
+        changed: &'w mut [Tick],
+        last_run: Tick,
+        this_run: Tick,
+        caller: MaybeLocation<&'w mut [&'static Location<'static>]>,
+    ) -> Option<Self> {
+        let eq = added.len() == changed.len()
+            && caller
+                .as_ref()
+                .map(|v| v.len() == added.len())
+                .into_option()
+                .unwrap_or(true);
+        eq.then_some(Self {
+            added,
+            changed,
+            changed_by: caller,
+            last_run,
+            this_run,
+        })
+    }
+
+    /// Returns added ticks' slice.
+    pub fn added(&self) -> &[Tick] {
+        self.added
+    }
+
+    /// Returns changed ticks' slice.
+    pub fn changed(&self) -> &[Tick] {
+        self.changed
+    }
+
+    /// Returns changed by locations' slice.
+    pub fn changed_by(&self) -> MaybeLocation<&[&'static Location<'static>]> {
+        self.changed_by.as_deref()
+    }
+
+    /// Returns mutable added ticks' slice.
+    pub fn added_mut(&mut self) -> &mut [Tick] {
+        self.added
+    }
+
+    /// Returns mutable changed ticks' slice.
+    pub fn changed_mut(&mut self) -> &mut [Tick] {
+        self.changed
+    }
+
+    /// Returns mutable changed by locations' slice.
+    pub fn changed_by_mut(&mut self) -> MaybeLocation<&mut [&'static Location<'static>]> {
+        self.changed_by.as_deref_mut()
+    }
+
+    /// Returns the tick the system last ran.
+    pub fn last_run(&self) -> Tick {
+        self.last_run
+    }
+
+    /// Returns the tick of the current system's run.
+    pub fn this_run(&self) -> Tick {
+        self.this_run
+    }
+
+    /// Returns an iterator where the i-th item corresponds to whether the i-th component was
+    /// marked as changed. If the value equals [`prim@true`], then the component was changed.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct A(pub i32);
+    ///
+    /// fn some_system(mut query: Query<&mut A>) {
+    ///     for a in query.contiguous_iter_mut().unwrap() {
+    ///         let (a_values, a_ticks) = ContiguousMut::split(a);
+    ///         for (value, is_changed) in a_values.iter_mut().zip(a_ticks.is_changed_iter()) {
+    ///             if is_changed {
+    ///                 value.0 *= 10;
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn is_changed_iter(&self) -> impl Iterator<Item = bool> {
+        self.changed
+            .iter()
+            .map(|v| v.is_newer_than(self.last_run, self.this_run))
+    }
+
+    /// Returns an iterator where the i-th item corresponds to whether the i-th component was
+    /// marked as added. If the value equals [`prim@true`], then the component was added.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct A(pub i32);
+    ///
+    /// fn some_system(mut query: Query<&mut A>) {
+    ///     for a in query.contiguous_iter_mut().unwrap() {
+    ///         let (a_values, a_ticks) = ContiguousMut::split(a);
+    ///         for (value, is_added) in a_values.iter_mut().zip(a_ticks.is_added_iter()) {
+    ///             if is_added {
+    ///                 value.0 = 10;
+    ///             }
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn is_added_iter(&self) -> impl Iterator<Item = bool> {
+        self.added
+            .iter()
+            .map(|v| v.is_newer_than(self.last_run, self.this_run))
+    }
+
+    /// Marks every tick as changed.
+    pub fn mark_all_as_changed(&mut self) {
+        let this_run = self.this_run;
+
+        self.changed_by.as_mut().map(|v| {
+            for v in v.iter_mut() {
+                *v = Location::caller();
+            }
+        });
+
+        for t in self.changed.iter_mut() {
+            *t = this_run;
+        }
+    }
+
+    /// Returns a `ContiguousComponentTicksMut` with a smaller lifetime.
+    pub fn reborrow(&mut self) -> ContiguousComponentTicksMut<'_> {
+        ContiguousComponentTicksMut {
+            added: self.added,
+            changed: self.changed,
+            changed_by: self.changed_by.as_deref_mut(),
+            last_run: self.last_run,
+            this_run: self.this_run,
+        }
+    }
+}
+
+impl<'w> From<ContiguousComponentTicksMut<'w>> for ContiguousComponentTicksRef<'w> {
+    fn from(value: ContiguousComponentTicksMut<'w>) -> Self {
+        Self {
+            added: value.added,
+            changed: value.changed,
+            changed_by: value.changed_by.map(|v| &*v),
+            last_run: value.last_run,
+            this_run: value.this_run,
         }
     }
 }
@@ -362,6 +724,125 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     }
 }
 
+/// Contiguous equivalent of [`Ref<T>`].
+///
+/// Data type returned by [`ContiguousQueryData::fetch_contiguous`](crate::query::ContiguousQueryData::fetch_contiguous) for [`Ref<T>`].
+#[derive(Clone)]
+pub struct ContiguousRef<'w, T> {
+    pub(crate) value: &'w [T],
+    pub(crate) ticks: ContiguousComponentTicksRef<'w>,
+}
+
+impl<'w, T> ContiguousRef<'w, T> {
+    /// Returns the reference wrapped by this type. The reference is allowed to outlive `self`, which makes this method more flexible than simply borrowing `self`.
+    pub fn into_inner(self) -> &'w [T] {
+        self.value
+    }
+
+    /// Returns the added ticks.
+    #[inline]
+    pub fn added_ticks_slice(&self) -> &'w [Tick] {
+        self.ticks.added
+    }
+
+    /// Returns the changed ticks.
+    #[inline]
+    pub fn changed_ticks_slice(&self) -> &'w [Tick] {
+        self.ticks.changed
+    }
+
+    /// Returns the changed by ticks.
+    #[inline]
+    pub fn changed_by_ticks_slice(&self) -> MaybeLocation<&[&'static Location<'static>]> {
+        self.ticks.changed_by.as_deref()
+    }
+
+    /// Returns the tick when the system last ran.
+    #[inline]
+    pub fn last_run_tick(&self) -> Tick {
+        self.ticks.last_run
+    }
+
+    /// Returns the tick of the system's current run.
+    #[inline]
+    pub fn this_run_tick(&self) -> Tick {
+        self.ticks.this_run
+    }
+
+    /// Creates a new `ContiguousRef` using provided values or returns [`None`] if lengths of
+    /// `value`, `added`, `changed` and `changed_by` do not match    
+    ///
+    /// This is an advanced feature, `ContiguousRef`s are designed to be _created_ by
+    /// engine-internal code and _consumed_ by end-user code.
+    ///
+    /// - `value` - The values wrapped by `ContiguousRef`.
+    /// - `added` - [`Tick`]s that store the tick when the wrapped value was created.
+    /// - `changed` - [`Tick`]s that store the last time the wrapped value was changed.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
+    ///   as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
+    /// - `caller` - [`Location`]s that store the location when the wrapper value was changed.
+    pub fn new(
+        value: &'w [T],
+        added: &'w [Tick],
+        changed: &'w [Tick],
+        last_run: Tick,
+        this_run: Tick,
+        caller: MaybeLocation<&'w [&'static Location<'static>]>,
+    ) -> Option<Self> {
+        (value.len() == added.len())
+            .then(|| ContiguousComponentTicksRef::new(added, changed, last_run, this_run, caller))
+            .flatten()
+            .map(|ticks| Self { value, ticks })
+    }
+
+    /// Splits [`ContiguousRef`] into it's inner data types.
+    pub fn split(this: Self) -> (&'w [T], ContiguousComponentTicksRef<'w>) {
+        (this.value, this.ticks)
+    }
+
+    /// Reverse of [`ContiguousRef::split`], constructing a [`ContiguousRef`] using components'
+    /// values and ticks.
+    ///
+    /// Returns [`None`] if lengths of `value` and `ticks` do not match, which doesn't happen if
+    /// `ticks` and `value` come from the same [`Self::split`] call.
+    pub fn from_parts(value: &'w [T], ticks: ContiguousComponentTicksRef<'w>) -> Option<Self> {
+        (value.len() == ticks.changed.len()).then_some(Self { value, ticks })
+    }
+}
+
+impl<'w, T> Deref for ContiguousRef<'w, T> {
+    type Target = [T];
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.value
+    }
+}
+
+impl<'w, T> AsRef<[T]> for ContiguousRef<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &[T] {
+        self.deref()
+    }
+}
+
+impl<'w, T> IntoIterator for ContiguousRef<'w, T> {
+    type Item = &'w T;
+
+    type IntoIter = core::slice::Iter<'w, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.iter()
+    }
+}
+
+impl<'w, T: core::fmt::Debug> core::fmt::Debug for ContiguousRef<'w, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("ContiguousRef").field(&self.value).finish()
+    }
+}
+
 impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>
 where
     &'a T: IntoIterator,
@@ -460,6 +941,229 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     pub fn set_ticks(&mut self, last_run: Tick, this_run: Tick) {
         self.ticks.last_run = last_run;
         self.ticks.this_run = this_run;
+    }
+}
+
+/// Data type returned by [`ContiguousQueryData::fetch_contiguous`](crate::query::ContiguousQueryData::fetch_contiguous)
+/// for [`Mut<T>`] and `&mut T`
+///
+/// # Warning
+/// Implementations of [`DerefMut`], [`AsMut`] and [`IntoIterator`] update change ticks, which may effect performance.
+pub struct ContiguousMut<'w, T> {
+    pub(crate) value: &'w mut [T],
+    pub(crate) ticks: ContiguousComponentTicksMut<'w>,
+}
+
+impl<'w, T> ContiguousMut<'w, T> {
+    /// Manually bypasses change detection, allowing you to mutate the underlying values without updating the change tick,
+    /// which may be useful to reduce amount of work to be done.
+    ///
+    /// # Warning
+    /// This is a risky operation, that can have unexpected consequences on any system relying on this code.
+    /// However, it can be an essential escape hatch when, for example,
+    /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
+    #[inline]
+    pub fn bypass_change_detection(&mut self) -> &mut [T] {
+        self.value
+    }
+
+    /// Returns the immutable added ticks' slice.
+    #[inline]
+    pub fn added_ticks_slice(&self) -> &[Tick] {
+        self.ticks.added
+    }
+
+    /// Returns the immutable changed ticks' slice.
+    #[inline]
+    pub fn changed_ticks_slice(&self) -> &[Tick] {
+        self.ticks.changed
+    }
+
+    /// Returns the mutable changed by ticks' slice
+    #[inline]
+    pub fn changed_by_ticks_mut(&self) -> MaybeLocation<&[&'static Location<'static>]> {
+        self.ticks.changed_by.as_deref()
+    }
+
+    /// Returns the tick when the system last ran.
+    #[inline]
+    pub fn last_run_tick(&self) -> Tick {
+        self.ticks.last_run
+    }
+
+    /// Returns the tick of the system's current run.
+    #[inline]
+    pub fn this_run_tick(&self) -> Tick {
+        self.ticks.this_run
+    }
+
+    /// Returns the mutable added ticks' slice.
+    #[inline]
+    pub fn added_ticks_slice_mut(&mut self) -> &mut [Tick] {
+        self.ticks.added
+    }
+
+    /// Returns the mutable changed ticks' slice.
+    #[inline]
+    pub fn changed_ticks_slice_mut(&mut self) -> &mut [Tick] {
+        self.ticks.changed
+    }
+
+    /// Returns the mutable changed by ticks' slice
+    #[inline]
+    pub fn changed_by_ticks_slice_mut(
+        &mut self,
+    ) -> MaybeLocation<&mut [&'static Location<'static>]> {
+        self.ticks.changed_by.as_deref_mut()
+    }
+
+    /// Marks all components as changed.
+    ///
+    /// **Runs in O(n), where n is the amount of rows**
+    #[inline]
+    pub fn mark_all_as_changed(&mut self) {
+        self.ticks.mark_all_as_changed();
+    }
+
+    /// Creates a new `ContiguousMut` using provided values or returns [`None`] if lengths of
+    /// `value`, `added`, `changed` and `changed_by` do not match    
+    ///
+    /// This is an advanced feature, `ContiguousMut`s are designed to be _created_ by
+    /// engine-internal code and _consumed_ by end-user code.
+    ///
+    /// - `value` - The values wrapped by `ContiguousMut`.
+    /// - `added` - [`Tick`]s that store the tick when the wrapped value was created.
+    /// - `changed` - [`Tick`]s that store the last time the wrapped value was changed.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
+    ///   as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
+    /// - `caller` - [`Location`]s that store the location when the wrapper value was changed.
+    pub fn new(
+        value: &'w mut [T],
+        added: &'w mut [Tick],
+        changed: &'w mut [Tick],
+        last_run: Tick,
+        this_run: Tick,
+        caller: MaybeLocation<&'w mut [&'static Location<'static>]>,
+    ) -> Option<Self> {
+        (value.len() == added.len())
+            .then(|| ContiguousComponentTicksMut::new(added, changed, last_run, this_run, caller))
+            .flatten()
+            .map(|ticks| Self { value, ticks })
+    }
+
+    /// Returns a `ContiguousMut<T>` with a smaller lifetime.
+    pub fn reborrow(&mut self) -> ContiguousMut<'_, T> {
+        ContiguousMut {
+            value: self.value,
+            ticks: self.ticks.reborrow(),
+        }
+    }
+
+    /// Splits [`ContiguousMut`] into it's inner data types. It may be useful, when you want to
+    /// have an iterator over component values and check ticks simultaneously (using
+    /// [`ContiguousComponentTicksMut::is_changed_iter`] and
+    /// [`ContiguousComponentTicksMut::is_added_iter`]).
+    ///
+    /// Variant of [`Self::split`] which bypasses change detection: [`Self::bypass_change_detection_split`].
+    ///
+    /// Reverse of [`Self::split`] is [`Self::from_parts`].
+    ///
+    /// # Warning
+    /// This version updates changed ticks **before** returning, hence
+    /// [`ContiguousComponentTicksMut::is_changed_iter`] will be useless (the iterator will be filled with
+    /// [`prim@true`]s).
+    // NOTE: `ticks_since_insert` will be 0 (because `this.mark_all_as_changed` makes all changed ticks `this_run`),
+    // `ticks_since_system` won't be 0, `tick` is newer if
+    // `ticks_since_system` > `ticks_since_insert`, hence it will always be true.
+    pub fn split(mut this: Self) -> (&'w mut [T], ContiguousComponentTicksMut<'w>) {
+        this.mark_all_as_changed();
+        (this.value, this.ticks)
+    }
+
+    /// Splits [`ContiguousMut`] into it's inner data types. It may be useful, when you want to
+    /// have an iterator over component values and check ticks simultaneously (using
+    /// [`ContiguousComponentTicksMut::is_changed_iter`] and
+    /// [`ContiguousComponentTicksMut::is_added_iter`]).
+    ///
+    /// Variant of [`Self::bypass_change_detection_split`] which **does not** bypass change detection: [`Self::split`].
+    ///
+    /// Reverse of [`Self::bypass_change_detection_split`] is [`Self::from_parts`].
+    ///
+    /// # Warning
+    /// **Bypasses change detection**, call [`Self::split`] if you don't want to bypass it.
+    ///
+    /// See [`Self::bypass_change_detection`] for further explanations.
+    pub fn bypass_change_detection_split(
+        this: Self,
+    ) -> (&'w mut [T], ContiguousComponentTicksMut<'w>) {
+        (this.value, this.ticks)
+    }
+
+    /// Reverse of [`ContiguousMut::split`] and [`ContiguousMut::bypass_change_detection_split`],
+    /// constructing a [`ContiguousMut`] using components' values and ticks.
+    ///
+    /// Returns [`None`] if lengths of `value` and `ticks` do not match, which doesn't happen if
+    /// `ticks` and `value` come from the same [`Self::split`] or [`Self::bypass_change_detection_split`] call.
+    pub fn from_parts(value: &'w mut [T], ticks: ContiguousComponentTicksMut<'w>) -> Option<Self> {
+        (value.len() == ticks.changed.len()).then_some(Self { value, ticks })
+    }
+}
+
+impl<'w, T> Deref for ContiguousMut<'w, T> {
+    type Target = [T];
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.value
+    }
+}
+
+impl<'w, T> DerefMut for ContiguousMut<'w, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.mark_all_as_changed();
+        self.value
+    }
+}
+
+impl<'w, T> AsRef<[T]> for ContiguousMut<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &[T] {
+        self.deref()
+    }
+}
+
+impl<'w, T> AsMut<[T]> for ContiguousMut<'w, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut [T] {
+        self.deref_mut()
+    }
+}
+
+impl<'w, T> IntoIterator for ContiguousMut<'w, T> {
+    type Item = &'w mut T;
+
+    type IntoIter = core::slice::IterMut<'w, T>;
+
+    fn into_iter(mut self) -> Self::IntoIter {
+        self.mark_all_as_changed();
+        self.value.iter_mut()
+    }
+}
+
+impl<'w, T: core::fmt::Debug> core::fmt::Debug for ContiguousMut<'w, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("ContiguousMut").field(&self.value).finish()
+    }
+}
+
+impl<'w, T> From<ContiguousMut<'w, T>> for ContiguousRef<'w, T> {
+    fn from(value: ContiguousMut<'w, T>) -> Self {
+        Self {
+            value: value.value,
+            ticks: value.ticks.into(),
+        }
     }
 }
 

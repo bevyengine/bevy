@@ -279,7 +279,7 @@ fn setup_node_rects(commands: &mut Commands) {
             .spawn((
                 Text::new(node_string),
                 TextFont {
-                    font_size: 16.0,
+                    font_size: FontSize::Px(16.0),
                     ..default()
                 },
                 TextColor(ANTIQUE_WHITE.into()),
