@@ -8,12 +8,13 @@ use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
     camera::Hdr,
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    camera_controller::free_camera::{self, FreeCamera, FreeCameraPlugin},
     color::palettes::css::{CORNFLOWER_BLUE, CRIMSON, TAN, WHITE},
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll},
     light::ParallaxCorrection,
-    math::ops::{cos, sin},
+    math::ops::{atan2, cos, sin},
     prelude::*,
+    window::{CursorGrabMode, CursorOptions},
 };
 
 use crate::widgets::{WidgetClickEvent, WidgetClickSender};
@@ -27,7 +28,9 @@ struct AppStatus {
     /// Whether the gizmos that show the boundaries of the light probe regions
     /// are to be shown.
     gizmos_enabled: GizmosEnabled,
+    /// Which object to show: either a reflective sphere or a reflective prism.
     object_to_show: ObjectToShow,
+    /// Whether to use an orbital pan/zoom camera or a free camera.
     camera_mode: CameraMode,
 }
 
@@ -42,17 +45,26 @@ enum GizmosEnabled {
     Off,
 }
 
+/// Which reflective object to show.
 #[derive(Clone, Copy, Default, PartialEq)]
 enum ObjectToShow {
+    /// A reflective sphere that moves between rooms.
     #[default]
     Sphere,
+    /// A reflective prism that is static and stretches across the length of the
+    /// two rooms.
     Prism,
 }
 
+/// How the user can control the camera.
 #[derive(Clone, Copy, Default, PartialEq)]
 enum CameraMode {
+    /// The camera is a pan/zoom orbital camera controllable with dragging and
+    /// the mouse wheel.
     #[default]
     Orbit,
+    /// The camera is a free camera controllable by clicking and dragging and
+    /// using the WASDEQ controls.
     Free,
 }
 
@@ -63,6 +75,10 @@ struct ReflectiveSphere;
 /// A marker component for the reflective prism.
 #[derive(Clone, Copy, Component, Debug)]
 struct ReflectivePrism;
+
+/// A marker component for the help text at the top of the screen.
+#[derive(Clone, Copy, Component, Debug)]
+struct HelpText;
 
 /// The speed at which the sphere moves, as a ratio of the total distance it
 /// travels to seconds.
@@ -90,9 +106,14 @@ const LIGHT_PROBE_FALLOFF: f32 = 0.5;
 /// We want this side length, in world space, to be half of the world-space room
 /// side length. Since the light probe is scaled by `LIGHT_PROBE_SIDE_LENGTH`,
 /// we divide the room side length by the light probe side length to get this
-/// value. That way, when Bevy applies the `LIGHT_PROBE_SIDE_LENGTH` scale, the
-/// light probe side length factor cancels, and we're left with a parallax
-/// correction side length of `ROOM_SIDE_LENGTH` in world space.
+/// value, and multiply by 0.5 to convert from a full extent to a half-extent.
+/// That way, when Bevy applies the `LIGHT_PROBE_SIDE_LENGTH` scale, the light
+/// probe side length factor cancels, and we're left with a parallax correction
+/// side length of `ROOM_SIDE_LENGTH` in world space.
+///
+/// A small epsilon value of 0.01 is added in order to ensure that the light
+/// probe parallax bounds encompass the entire room. Otherwise, unsightly
+/// Z-fighting can occur on the room walls.
 const LIGHT_PROBE_PARALLAX_CORRECTION_SIDE_LENGTH: f32 =
     ROOM_SIDE_LENGTH / LIGHT_PROBE_SIDE_LENGTH * 0.5 + 0.01;
 
@@ -164,7 +185,8 @@ fn main() {
                 widgets::handle_ui_interactions::<CameraMode>,
                 handle_camera_mode_change,
             )
-                .chain(),
+                .chain()
+                .after(free_camera::run_freecamera_controller),
         )
         .add_systems(
             Update,
@@ -208,6 +230,7 @@ fn adjust_gizmo_settings(gizmo_config_store: &mut GizmoConfigStore) {
     }
 }
 
+/// Creates the perfectly-reflective material that the sphere and prism use.
 fn create_reflective_material(
     materials: &mut Assets<StandardMaterial>,
 ) -> Handle<StandardMaterial> {
@@ -259,6 +282,10 @@ fn spawn_reflective_sphere(
     ));
 }
 
+/// Spawns the reflective prism, creating its mesh in the process.
+///
+/// The reflective prism starts invisible, but the user can toggle it on and off
+/// as desired.
 fn spawn_reflective_prism(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
@@ -271,6 +298,7 @@ fn spawn_reflective_prism(
         }
         .mesh()
         .build()
+        // We use flat normals so that the surface appears flat, not curved.
         .with_duplicated_vertices()
         .with_computed_flat_normals(),
     );
@@ -348,22 +376,14 @@ fn spawn_buttons(commands: &mut Commands) {
 /// Spawns the help text at the top of the screen.
 fn spawn_help_text(commands: &mut Commands) {
     commands.spawn((
-        Text::new(
-            "\
-Click and drag to orbit the camera
-Use the mouse wheel to zoom
-
-Gizmos:
-Tan: Light probe bounds
-Red: Light probe falloff bounds
-Blue: Parallax correction bounds",
-        ),
+        Text::new(""),
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
             left: px(12),
             ..default()
         },
+        HelpText,
     ));
 }
 
@@ -429,16 +449,25 @@ fn orbit_camera(
 }
 
 /// A system that toggles gizmos on or off when the user clicks on one of the
-/// radio buttons.
+/// corresponding radio buttons.
 fn handle_gizmos_enabled_change(
+    mut help_text_query: Query<&mut Text, With<HelpText>>,
     mut app_status: ResMut<AppStatus>,
     mut messages: MessageReader<WidgetClickEvent<GizmosEnabled>>,
 ) {
+    let mut any_changes = false;
     for message in messages.read() {
         app_status.gizmos_enabled = **message;
+        any_changes = true;
+    }
+
+    if any_changes {
+        set_help_text(&app_status, &mut help_text_query);
     }
 }
 
+/// A system that toggles object visibility when the user clicks on one of the
+/// corresponding radio buttons.
 fn handle_object_to_show_change(
     mut spheres_query: Query<&mut Visibility, (With<ReflectiveSphere>, Without<ReflectivePrism>)>,
     mut prisms_query: Query<&mut Visibility, (With<ReflectivePrism>, Without<ReflectiveSphere>)>,
@@ -463,35 +492,74 @@ fn handle_object_to_show_change(
     }
 }
 
+/// A system that toggles the camera mode when the user clicks on one of the
+/// corresponding radio buttons.
 fn handle_camera_mode_change(
     mut commands: Commands,
-    cameras_query: Query<Entity, With<Camera>>,
+    mut cameras_query: Query<(Entity, &mut Transform), With<Camera3d>>,
+    sphere_query: Query<&Transform, (With<ReflectiveSphere>, Without<Camera3d>)>,
+    mut help_text_query: Query<&mut Text, With<HelpText>>,
+    mut windows_query: Query<&mut CursorOptions>,
     mut app_status: ResMut<AppStatus>,
     mut messages: MessageReader<WidgetClickEvent<CameraMode>>,
 ) {
+    let Some(sphere_transform) = sphere_query.iter().next() else {
+        return;
+    };
+
+    let mut any_changes = false;
     for message in messages.read() {
         app_status.camera_mode = **message;
 
-        for camera in &cameras_query {
-            match app_status.camera_mode {
-                CameraMode::Orbit => {
-                    // TODO: Go from Cartesian coordinates to spherical coordinates.
+        match **message {
+            CameraMode::Orbit => {
+                for (camera_entity, mut camera_transform) in &mut cameras_query {
+                    // Convert from Cartesian coordinates back to spherical
+                    // coordinates.
+                    let relative_camera_position =
+                        camera_transform.translation - sphere_transform.translation;
+                    let radius = relative_camera_position.length();
+                    let inclination = atan2(
+                        relative_camera_position.xz().length() / radius,
+                        relative_camera_position.y / radius,
+                    );
+                    let azimuth = atan2(
+                        relative_camera_position.z * relative_camera_position.xz().length_recip(),
+                        relative_camera_position.x * relative_camera_position.xz().length_recip(),
+                    );
+
                     commands
-                        .entity(camera)
+                        .entity(camera_entity)
                         .remove::<FreeCamera>()
                         .insert(OrbitCamera {
-                            radius: 3.0,
-                            inclination: 7.0 * FRAC_PI_4,
-                            azimuth: FRAC_PI_4,
+                            radius,
+                            inclination,
+                            azimuth,
                         });
                 }
-                CameraMode::Free => {
+            }
+
+            CameraMode::Free => {
+                for (camera_entity, _) in &mut cameras_query {
                     commands
-                        .entity(camera)
+                        .entity(camera_entity)
                         .remove::<OrbitCamera>()
                         .insert(FreeCamera::default());
                 }
             }
+        }
+
+        any_changes = true;
+    }
+
+    if any_changes {
+        set_help_text(&app_status, &mut help_text_query);
+
+        // Reset the cursor grab mode, because the free camera controller may
+        // have enabled it, and we don't want the cursor to disappear.
+        for mut cursor_options in &mut windows_query {
+            cursor_options.grab_mode = CursorGrabMode::None;
+            cursor_options.visible = true;
         }
     }
 }
@@ -503,13 +571,32 @@ fn update_radio_buttons(
         Entity,
         Option<&mut BackgroundColor>,
         Has<Text>,
-        &WidgetClickSender<GizmosEnabled>,
+        AnyOf<(
+            &WidgetClickSender<GizmosEnabled>,
+            &WidgetClickSender<ObjectToShow>,
+            &WidgetClickSender<CameraMode>,
+        )>,
     )>,
     app_status: Res<AppStatus>,
     mut text_ui_writer: TextUiWriter,
 ) {
-    for (entity, maybe_bg_color, has_text, sender) in &mut widgets_query {
-        let selected = app_status.gizmos_enabled == **sender;
+    for (
+        entity,
+        maybe_bg_color,
+        has_text,
+        (maybe_gizmos_enabled, maybe_object_to_show, maybe_camera_mode),
+    ) in &mut widgets_query
+    {
+        let selected = if let Some(sender) = maybe_gizmos_enabled {
+            app_status.gizmos_enabled == **sender
+        } else if let Some(sender) = maybe_object_to_show {
+            app_status.object_to_show == **sender
+        } else if let Some(sender) = maybe_camera_mode {
+            app_status.camera_mode == **sender
+        } else {
+            continue;
+        };
+
         if let Some(mut bg_color) = maybe_bg_color {
             widgets::update_ui_radio_button(&mut bg_color, selected);
         }
@@ -554,6 +641,43 @@ fn draw_gizmos(
                 CORNFLOWER_BLUE,
             );
         }
+    }
+}
+
+/// Updates the help text at the top of the screen to reflect a change in camera
+/// or gizmo application settings.
+fn set_help_text(
+    app_status: &AppStatus,
+    mut help_text_query: &mut Query<&mut Text, With<HelpText>>,
+) {
+    for mut ui_text in help_text_query {
+        let mut help_text = String::new();
+        match app_status.camera_mode {
+            CameraMode::Orbit => {
+                help_text.push_str(
+                    "Click and drag to orbit the camera\nUse the mouse wheel to zoom the camera\n",
+                );
+            }
+            CameraMode::Free => {
+                help_text.push_str(
+                    "Click and drag to rotate the camera\nUse WASDEQ to move the camera\n",
+                );
+            }
+        }
+
+        help_text.push('\n');
+
+        if matches!(app_status.gizmos_enabled, GizmosEnabled::On) {
+            help_text.push_str(
+                "\
+Gizmos:
+Tan: Light probe bounds
+Red: Light probe falloff bounds
+Blue: Parallax correction bounds",
+            );
+        }
+
+        *ui_text = Text::new(help_text);
     }
 }
 
