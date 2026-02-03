@@ -172,26 +172,26 @@ impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
     }
 
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset>(&self, label: &str) -> Option<SavedAsset<'a, '_, B>> {
-        let labeled = self.labeled_assets.get(label)?;
+    pub fn get_labeled<B: Asset>(&self, label: impl AsRef<str>) -> Option<SavedAsset<'a, '_, B>> {
+        let labeled = self.labeled_assets.get(label.as_ref())?;
         labeled.asset.downcast()
     }
 
     /// Returns the type-erased labeled asset, if it exists and matches this type.
-    pub fn get_erased_labeled(&self, label: &str) -> Option<&ErasedSavedAsset<'a, '_>> {
-        let labeled = self.labeled_assets.get(label)?;
+    pub fn get_erased_labeled(&self, label: impl AsRef<str>) -> Option<&ErasedSavedAsset<'a, '_>> {
+        let labeled = self.labeled_assets.get(label.as_ref())?;
         Some(&labeled.asset)
     }
 
     /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
-    pub fn get_untyped_handle(&self, label: &str) -> Option<UntypedHandle> {
-        let labeled = self.labeled_assets.get(label)?;
+    pub fn get_untyped_handle(&self, label: impl AsRef<str>) -> Option<UntypedHandle> {
+        let labeled = self.labeled_assets.get(label.as_ref())?;
         Some(labeled.handle.clone())
     }
 
     /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
-    pub fn get_handle<B: Asset>(&self, label: &str) -> Option<Handle<B>> {
-        let labeled = self.labeled_assets.get(label)?;
+    pub fn get_handle<B: Asset>(&self, label: impl AsRef<str>) -> Option<Handle<B>> {
+        let labeled = self.labeled_assets.get(label.as_ref())?;
         if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
             return Some(handle);
         }
