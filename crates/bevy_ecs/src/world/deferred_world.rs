@@ -8,7 +8,7 @@ use crate::{
     component::{ComponentId, Mutable},
     entity::Entity,
     event::{EntityComponentsTrigger, Event, EventKey, Trigger},
-    lifecycle::{HookContext, Insert, Discard, INSERT, DISCARD},
+    lifecycle::{Discard, HookContext, Insert, DISCARD, INSERT},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::TriggerContext,
     prelude::{Component, QueryState},
