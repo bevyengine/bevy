@@ -238,7 +238,7 @@ impl Plugin for PbrPlugin {
 
         if self.gltf_render_enabled {
             #[cfg(target_family = "wasm")]
-            bevy::tasks::block_on(async {
+            bevy_tasks::block_on(async {
                 app.world_mut()
                     .resource_mut::<GltfExtensionHandlers>()
                     .0
