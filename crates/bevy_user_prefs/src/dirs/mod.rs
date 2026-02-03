@@ -15,5 +15,5 @@ pub use linux::preferences_dir;
 
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
 pub fn preferences_dir() -> Option<PathBuf> {
-    panic!("Preferences not supported on this platform")
+    None
 }
