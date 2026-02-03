@@ -76,7 +76,9 @@ pub mod prelude {
         event::{EntityEvent, Event},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{Add, Despawn, Insert, Remove, RemovedComponents, Replace},
-        message::{Message, MessageMutator, MessageReader, MessageWriter, Messages},
+        message::{
+            Message, MessageMutator, MessageReader, MessageWriter, Messages, PopulatedMessageReader,
+        },
         name::{Name, NameOrEntity},
         observer::{Observer, On},
         query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
