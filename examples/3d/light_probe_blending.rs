@@ -496,7 +496,7 @@ fn handle_object_to_show_change(
 /// corresponding radio buttons.
 fn handle_camera_mode_change(
     mut commands: Commands,
-    mut cameras_query: Query<(Entity, &mut Transform), With<Camera3d>>,
+    cameras_query: Query<(Entity, &Transform), With<Camera3d>>,
     sphere_query: Query<&Transform, (With<ReflectiveSphere>, Without<Camera3d>)>,
     mut help_text_query: Query<&mut Text, With<HelpText>>,
     mut windows_query: Query<&mut CursorOptions>,
@@ -513,7 +513,7 @@ fn handle_camera_mode_change(
 
         match **message {
             CameraMode::Orbit => {
-                for (camera_entity, mut camera_transform) in &mut cameras_query {
+                for (camera_entity, camera_transform) in &cameras_query {
                     // Convert from Cartesian coordinates back to spherical
                     // coordinates.
                     let relative_camera_position =
@@ -540,7 +540,7 @@ fn handle_camera_mode_change(
             }
 
             CameraMode::Free => {
-                for (camera_entity, _) in &mut cameras_query {
+                for (camera_entity, _) in &cameras_query {
                     commands
                         .entity(camera_entity)
                         .remove::<OrbitCamera>()
@@ -648,7 +648,7 @@ fn draw_gizmos(
 /// or gizmo application settings.
 fn set_help_text(
     app_status: &AppStatus,
-    mut help_text_query: &mut Query<&mut Text, With<HelpText>>,
+    help_text_query: &mut Query<&mut Text, With<HelpText>>,
 ) {
     for mut ui_text in help_text_query {
         let mut help_text = String::new();
