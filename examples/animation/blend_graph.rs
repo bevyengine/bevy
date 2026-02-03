@@ -1,6 +1,6 @@
-//! Demonstrates animation blending with animation graphs.
+//! Demonstrates animation blending with blend graphs.
 //!
-//! The animation graph is shown on screen. You can change the weights of the
+//! The blend graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
 use bevy::{
@@ -21,8 +21,8 @@ use {
     std::{fs::File, path::Path},
 };
 
-/// Where to find the serialized animation graph.
-static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
+/// Where to find the serialized blend graph.
+static BLEND_GRAPH_PATH: &str = "blend_graphs/Fox.blendgraph.ron";
 
 /// The indices of the nodes containing animation clips in the graph.
 static CLIP_NODE_INDICES: [u32; 3] = [2, 3, 4];
@@ -76,7 +76,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Bevy Animation Graph Example".into(),
+                title: "Bevy Blend Graph Example".into(),
                 ..default()
             }),
             ..default()
@@ -96,10 +96,10 @@ fn main() {
         .run();
 }
 
-/// Demonstrates animation blending with animation graphs
+/// Demonstrates animation blending with blend graphs
 #[derive(FromArgs, Resource)]
 struct Args {
-    /// disables loading of the animation graph asset from disk
+    /// disables loading of the blend graph asset from disk
     #[argh(switch)]
     no_load: bool,
     /// regenerates the asset file; implies `--no-load`
@@ -107,10 +107,10 @@ struct Args {
     save: bool,
 }
 
-/// The [`AnimationGraph`] asset, which specifies how the animations are to
+/// The [`BlendGraph`] asset, which specifies how the animations are to
 /// be blended together.
 #[derive(Clone, Resource)]
-struct ExampleAnimationGraph(Handle<AnimationGraph>);
+struct ExampleBlendGraph(Handle<BlendGraph>);
 
 /// The current weights of the three playing animations.
 #[derive(Component)]
@@ -123,7 +123,7 @@ struct ExampleAnimationWeights {
 fn setup_assets(
     mut commands: Commands,
     mut asset_server: ResMut<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut blend_graphs: ResMut<Assets<BlendGraph>>,
     args: Res<Args>,
 ) {
     // Create or load the assets.
@@ -131,11 +131,11 @@ fn setup_assets(
         setup_assets_programmatically(
             &mut commands,
             &mut asset_server,
-            &mut animation_graphs,
+            &mut blend_graphs,
             args.save,
         );
     } else {
-        setup_assets_via_serialized_animation_graph(&mut commands, &mut asset_server);
+        setup_assets_via_serialized_blend_graph(&mut commands, &mut asset_server);
     }
 }
 
@@ -145,29 +145,29 @@ fn setup_ui(mut commands: Commands) {
     setup_node_lines(&mut commands);
 }
 
-/// Creates the assets programmatically, including the animation graph.
+/// Creates the assets programmatically, including the blend graph.
 /// Optionally saves them to disk if `save` is present (corresponding to the
 /// `--save` option).
 fn setup_assets_programmatically(
     commands: &mut Commands,
     asset_server: &mut AssetServer,
-    animation_graphs: &mut Assets<AnimationGraph>,
+    blend_graphs: &mut Assets<BlendGraph>,
     _save: bool,
 ) {
     // Create the nodes.
-    let mut animation_graph = AnimationGraph::new();
-    let blend_node = animation_graph.add_blend(0.5, animation_graph.root);
-    animation_graph.add_clip(
+    let mut blend_graph = BlendGraph::new();
+    let blend_node = blend_graph.add_blend(0.5, blend_graph.root);
+    blend_graph.add_clip(
         asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
         1.0,
-        animation_graph.root,
+        blend_graph.root,
     );
-    animation_graph.add_clip(
+    blend_graph.add_clip(
         asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
         1.0,
         blend_node,
     );
-    animation_graph.add_clip(
+    blend_graph.add_clip(
         asset_server.load(GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb")),
         1.0,
         blend_node,
@@ -176,45 +176,43 @@ fn setup_assets_programmatically(
     // If asked to save, do so.
     #[cfg(not(target_arch = "wasm32"))]
     if _save {
-        let animation_graph = animation_graph.clone();
+        let blend_graph = blend_graph.clone();
 
         IoTaskPool::get()
             .spawn(async move {
                 use std::io::Write;
 
-                let animation_graph: SerializedAnimationGraph = animation_graph
+                let blend_graph: SerializedBlendGraph = blend_graph
                     .try_into()
-                    .expect("The animation graph failed to convert to its serialized form");
+                    .expect("The blend graph failed to convert to its serialized form");
 
                 let serialized_graph =
-                    ron::ser::to_string_pretty(&animation_graph, PrettyConfig::default())
-                        .expect("Failed to serialize the animation graph");
-                let mut animation_graph_writer = File::create(Path::join(
+                    ron::ser::to_string_pretty(&blend_graph, PrettyConfig::default())
+                        .expect("Failed to serialize the blend graph");
+                let mut blend_graph_writer = File::create(Path::join(
                     &FileAssetReader::get_base_path(),
-                    Path::join(Path::new("assets"), Path::new(ANIMATION_GRAPH_PATH)),
+                    Path::join(Path::new("assets"), Path::new(BLEND_GRAPH_PATH)),
                 ))
-                .expect("Failed to open the animation graph asset");
-                animation_graph_writer
+                .expect("Failed to open the blend graph asset");
+                blend_graph_writer
                     .write_all(serialized_graph.as_bytes())
-                    .expect("Failed to write the animation graph");
+                    .expect("Failed to write the blend graph");
             })
             .detach();
     }
 
     // Add the graph.
-    let handle = animation_graphs.add(animation_graph);
+    let handle = blend_graphs.add(blend_graph);
 
     // Save the assets in a resource.
-    commands.insert_resource(ExampleAnimationGraph(handle));
+    commands.insert_resource(ExampleBlendGraph(handle));
 }
 
-fn setup_assets_via_serialized_animation_graph(
+fn setup_assets_via_serialized_blend_graph(
     commands: &mut Commands,
     asset_server: &mut AssetServer,
 ) {
-    commands.insert_resource(ExampleAnimationGraph(
-        asset_server.load(ANIMATION_GRAPH_PATH),
-    ));
+    commands.insert_resource(ExampleBlendGraph(asset_server.load(BLEND_GRAPH_PATH)));
 }
 
 /// Spawns the animated fox.
@@ -375,11 +373,11 @@ fn setup_node_lines(commands: &mut Commands) {
     }
 }
 
-/// Attaches the animation graph to the scene, and plays all three animations.
+/// Attaches the blend graph to the scene, and plays all three animations.
 fn init_animations(
     mut commands: Commands,
     mut query: Query<(Entity, &mut AnimationPlayer)>,
-    animation_graph: Res<ExampleAnimationGraph>,
+    blend_graph: Res<ExampleBlendGraph>,
     mut done: Local<bool>,
 ) {
     if *done {
@@ -388,7 +386,7 @@ fn init_animations(
 
     for (entity, mut player) in query.iter_mut() {
         commands.entity(entity).insert((
-            AnimationGraphHandle(animation_graph.0.clone()),
+            BlendGraphHandle(blend_graph.0.clone()),
             ExampleAnimationWeights::default(),
         ));
         for &node_index in &CLIP_NODE_INDICES {
@@ -452,18 +450,17 @@ fn update_ui(
 /// playing animation.
 fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights)>) {
     for (mut animation_player, animation_weights) in query.iter_mut() {
-        for (&animation_node_index, &animation_weight) in CLIP_NODE_INDICES
+        for (&blend_node_index, &animation_weight) in CLIP_NODE_INDICES
             .iter()
             .zip(animation_weights.weights.iter())
         {
             // If the animation happens to be no longer active, restart it.
-            if !animation_player.is_playing_animation(animation_node_index.into()) {
-                animation_player.play(animation_node_index.into());
+            if !animation_player.is_playing_animation(blend_node_index.into()) {
+                animation_player.play(blend_node_index.into());
             }
 
             // Set the weight.
-            if let Some(active_animation) =
-                animation_player.animation_mut(animation_node_index.into())
+            if let Some(active_animation) = animation_player.animation_mut(blend_node_index.into())
             {
                 active_animation.set_weight(animation_weight);
             }

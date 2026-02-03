@@ -20,20 +20,20 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut blend_graphs: ResMut<Assets<BlendGraph>>,
     mut animation_clips: ResMut<Assets<AnimationClip>>,
 ) {
     // Create the animation:
     let AnimationInfo {
         target_name: animation_target_name,
         target_id: animation_target_id,
-        graph: animation_graph,
-        node_index: animation_node_index,
-    } = AnimationInfo::create(&mut animation_graphs, &mut animation_clips);
+        graph: blend_graph,
+        node_index: blend_node_index,
+    } = AnimationInfo::create(&mut blend_graphs, &mut animation_clips);
 
     // Build an animation player that automatically plays the animation.
     let mut animation_player = AnimationPlayer::default();
-    animation_player.play(animation_node_index).repeat();
+    animation_player.play(blend_node_index).repeat();
 
     // A cube together with the components needed to animate it
     let cube_entity = commands
@@ -43,7 +43,7 @@ fn setup(
             Transform::from_translation(vec3(-6., 2., 0.)),
             animation_target_name,
             animation_player,
-            AnimationGraphHandle(animation_graph),
+            BlendGraphHandle(blend_graph),
         ))
         .id();
 
@@ -81,16 +81,16 @@ struct AnimationInfo {
     target_name: Name,
     // The ID of the animation target, derived from the name.
     target_id: AnimationTargetId,
-    // The animation graph asset.
-    graph: Handle<AnimationGraph>,
+    // The blend graph asset.
+    graph: Handle<BlendGraph>,
     // The index of the node within that graph.
-    node_index: AnimationNodeIndex,
+    node_index: BlendNodeIndex,
 }
 
 impl AnimationInfo {
     // Programmatically creates the UI animation.
     fn create(
-        animation_graphs: &mut Assets<AnimationGraph>,
+        blend_graphs: &mut Assets<BlendGraph>,
         animation_clips: &mut Assets<AnimationClip>,
     ) -> AnimationInfo {
         // Create an ID that identifies the text node we're going to animate.
@@ -128,26 +128,25 @@ impl AnimationInfo {
 
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(animated_field!(Transform::translation), translation_curve),
+            BlendableCurve::new(animated_field!(Transform::translation), translation_curve),
         );
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(animated_field!(Transform::rotation), rotation_curve),
+            BlendableCurve::new(animated_field!(Transform::rotation), rotation_curve),
         );
 
         // Save our animation clip as an asset.
         let animation_clip_handle = animation_clips.add(animation_clip);
 
-        // Create an animation graph with that clip.
-        let (animation_graph, animation_node_index) =
-            AnimationGraph::from_clip(animation_clip_handle);
-        let animation_graph_handle = animation_graphs.add(animation_graph);
+        // Create an blend graph with that clip.
+        let (blend_graph, blend_node_index) = BlendGraph::from_clip(animation_clip_handle);
+        let blend_graph_handle = blend_graphs.add(blend_graph);
 
         AnimationInfo {
             target_name: animation_target_name,
             target_id: animation_target_id,
-            graph: animation_graph_handle,
-            node_index: animation_node_index,
+            graph: blend_graph_handle,
+            node_index: blend_node_index,
         }
     }
 }

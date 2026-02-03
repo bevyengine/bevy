@@ -331,7 +331,7 @@ impl GltfLoader {
                                 let translation_property = animated_field!(Transform::translation);
                                 let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                                 if keyframe_timestamps.len() == 1 {
-                                    Some(VariableCurve::new(AnimatableCurve::new(
+                                    Some(VariableCurve::new(BlendableCurve::new(
                                         translation_property,
                                         ConstantCurve::new(Interval::EVERYWHERE, translations[0]),
                                     )))
@@ -344,7 +344,7 @@ impl GltfLoader {
                                             .ok()
                                             .map(
                                                 |curve| {
-                                                    VariableCurve::new(AnimatableCurve::new(
+                                                    VariableCurve::new(BlendableCurve::new(
                                                         translation_property,
                                                         curve,
                                                     ))
@@ -358,7 +358,7 @@ impl GltfLoader {
                                             .ok()
                                             .map(
                                                 |curve| {
-                                                    VariableCurve::new(AnimatableCurve::new(
+                                                    VariableCurve::new(BlendableCurve::new(
                                                         translation_property,
                                                         curve,
                                                     ))
@@ -373,7 +373,7 @@ impl GltfLoader {
                                             .ok()
                                             .map(
                                                 |curve| {
-                                                    VariableCurve::new(AnimatableCurve::new(
+                                                    VariableCurve::new(BlendableCurve::new(
                                                         translation_property,
                                                         curve,
                                                     ))
@@ -388,7 +388,7 @@ impl GltfLoader {
                                 let rotations: Vec<Quat> =
                                     rots.into_f32().map(Quat::from_array).collect();
                                 if keyframe_timestamps.len() == 1 {
-                                    Some(VariableCurve::new(AnimatableCurve::new(
+                                    Some(VariableCurve::new(BlendableCurve::new(
                                         rotation_property,
                                         ConstantCurve::new(Interval::EVERYWHERE, rotations[0]),
                                     )))
@@ -401,7 +401,7 @@ impl GltfLoader {
                                             .ok()
                                             .map(
                                                 |curve| {
-                                                    VariableCurve::new(AnimatableCurve::new(
+                                                    VariableCurve::new(BlendableCurve::new(
                                                         rotation_property,
                                                         curve,
                                                     ))
@@ -415,7 +415,7 @@ impl GltfLoader {
                                             .ok()
                                             .map(
                                                 |curve| {
-                                                    VariableCurve::new(AnimatableCurve::new(
+                                                    VariableCurve::new(BlendableCurve::new(
                                                         rotation_property,
                                                         curve,
                                                     ))
@@ -430,7 +430,7 @@ impl GltfLoader {
                                             .ok()
                                             .map(
                                                 |curve| {
-                                                    VariableCurve::new(AnimatableCurve::new(
+                                                    VariableCurve::new(BlendableCurve::new(
                                                         rotation_property,
                                                         curve,
                                                     ))
@@ -444,7 +444,7 @@ impl GltfLoader {
                                 let scale_property = animated_field!(Transform::scale);
                                 let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
                                 if keyframe_timestamps.len() == 1 {
-                                    Some(VariableCurve::new(AnimatableCurve::new(
+                                    Some(VariableCurve::new(BlendableCurve::new(
                                         scale_property,
                                         ConstantCurve::new(Interval::EVERYWHERE, scales[0]),
                                     )))
@@ -457,7 +457,7 @@ impl GltfLoader {
                                             .ok()
                                             .map(
                                                 |curve| {
-                                                    VariableCurve::new(AnimatableCurve::new(
+                                                    VariableCurve::new(BlendableCurve::new(
                                                         scale_property,
                                                         curve,
                                                     ))
@@ -471,7 +471,7 @@ impl GltfLoader {
                                             .ok()
                                             .map(
                                                 |curve| {
-                                                    VariableCurve::new(AnimatableCurve::new(
+                                                    VariableCurve::new(BlendableCurve::new(
                                                         scale_property,
                                                         curve,
                                                     ))
@@ -482,7 +482,7 @@ impl GltfLoader {
                                             CubicKeyframeCurve::new(keyframe_timestamps, scales)
                                                 .ok()
                                                 .map(|curve| {
-                                                    VariableCurve::new(AnimatableCurve::new(
+                                                    VariableCurve::new(BlendableCurve::new(
                                                         scale_property,
                                                         curve,
                                                     ))

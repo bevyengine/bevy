@@ -75,8 +75,8 @@ fn main() {
 
 #[derive(Resource)]
 struct Animations {
-    node_indices: Vec<AnimationNodeIndex>,
-    graph: Handle<AnimationGraph>,
+    node_indices: Vec<BlendNodeIndex>,
+    graph: Handle<BlendGraph>,
 }
 
 const RING_SPACING: f32 = 2.0;
@@ -107,7 +107,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut blend_graphs: ResMut<Assets<BlendGraph>>,
     foxes: Res<Foxes>,
 ) {
     warn!(include_str!("warning_string.txt"));
@@ -118,13 +118,13 @@ fn setup(
         asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
         asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
     ];
-    let mut animation_graph = AnimationGraph::new();
-    let node_indices = animation_graph
-        .add_clips(animation_clips, 1.0, animation_graph.root)
+    let mut blend_graph = BlendGraph::new();
+    let node_indices = blend_graph
+        .add_clips(animation_clips, 1.0, blend_graph.root)
         .collect();
     commands.insert_resource(Animations {
         node_indices,
-        graph: animation_graphs.add(animation_graph),
+        graph: blend_graphs.add(blend_graph),
     });
 
     // Foxes
@@ -243,7 +243,7 @@ fn setup_scene_once_loaded(
                 playing_animation.seek_to(scene_ready.entity.index_u32() as f32 / 10.0);
             }
             commands.entity(child).insert((
-                AnimationGraphHandle(animations.graph.clone()),
+                BlendGraphHandle(animations.graph.clone()),
                 AnimationTransitions::default(),
             ));
         }

@@ -6,7 +6,7 @@ use bevy_math::*;
 use bevy_reflect::Reflect;
 use bevy_transform::prelude::Transform;
 
-/// An individual input for [`Animatable::blend`].
+/// An individual input for [`Blendable::blend`].
 pub struct BlendInput<T> {
     /// The individual item's weight. This may not be bound to the range `[0.0, 1.0]`.
     pub weight: f32,
@@ -16,8 +16,8 @@ pub struct BlendInput<T> {
     pub additive: bool,
 }
 
-/// An animatable value type.
-pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
+/// An blendable value type.
+pub trait Blendable: Reflect + Sized + Send + Sync + 'static {
     /// Interpolates between `a` and `b` with an interpolation factor of `time`.
     ///
     /// The `time` parameter here may not be clamped to the range `[0.0, 1.0]`.
@@ -29,9 +29,9 @@ pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self;
 }
 
-macro_rules! impl_float_animatable {
+macro_rules! impl_float_blendable {
     ($ty: ty, $base: ty) => {
-        impl Animatable for $ty {
+        impl Blendable for $ty {
             #[inline]
             fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
                 let t = <$base>::from(t);
@@ -54,9 +54,9 @@ macro_rules! impl_float_animatable {
     };
 }
 
-macro_rules! impl_color_animatable {
+macro_rules! impl_color_blendable {
     ($ty: ident) => {
-        impl Animatable for $ty {
+        impl Blendable for $ty {
             #[inline]
             fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
                 let value = *a * (1. - t) + *b * t;
@@ -79,24 +79,24 @@ macro_rules! impl_color_animatable {
     };
 }
 
-impl_float_animatable!(f32, f32);
-impl_float_animatable!(Vec2, f32);
-impl_float_animatable!(Vec3A, f32);
-impl_float_animatable!(Vec4, f32);
+impl_float_blendable!(f32, f32);
+impl_float_blendable!(Vec2, f32);
+impl_float_blendable!(Vec3A, f32);
+impl_float_blendable!(Vec4, f32);
 
-impl_float_animatable!(f64, f64);
-impl_float_animatable!(DVec2, f64);
-impl_float_animatable!(DVec3, f64);
-impl_float_animatable!(DVec4, f64);
+impl_float_blendable!(f64, f64);
+impl_float_blendable!(DVec2, f64);
+impl_float_blendable!(DVec3, f64);
+impl_float_blendable!(DVec4, f64);
 
-impl_color_animatable!(LinearRgba);
-impl_color_animatable!(Laba);
-impl_color_animatable!(Oklaba);
-impl_color_animatable!(Srgba);
-impl_color_animatable!(Xyza);
+impl_color_blendable!(LinearRgba);
+impl_color_blendable!(Laba);
+impl_color_blendable!(Oklaba);
+impl_color_blendable!(Srgba);
+impl_color_blendable!(Xyza);
 
 // Vec3 is special cased to use Vec3A internally for blending
-impl Animatable for Vec3 {
+impl Blendable for Vec3 {
     #[inline]
     fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * (1.0 - t) + (*b) * t
@@ -116,7 +116,7 @@ impl Animatable for Vec3 {
     }
 }
 
-impl Animatable for bool {
+impl Blendable for bool {
     #[inline]
     fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
         util::step_unclamped(*a, *b, t)
@@ -130,7 +130,7 @@ impl Animatable for bool {
     }
 }
 
-impl Animatable for Transform {
+impl Blendable for Transform {
     fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
         Self {
             translation: Vec3::interpolate(&a.translation, &b.translation, t),
@@ -169,7 +169,7 @@ impl Animatable for Transform {
     }
 }
 
-impl Animatable for Quat {
+impl Blendable for Quat {
     /// Performs a slerp to smoothly interpolate between quaternions.
     #[inline]
     fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
@@ -203,7 +203,7 @@ impl Animatable for Quat {
 /// The derivatives are linearly scaled by `duration`.
 pub fn interpolate_with_cubic_bezier<T>(p0: &T, d0: &T, d3: &T, p3: &T, t: f32, duration: f32) -> T
 where
-    T: Animatable + Clone,
+    T: Blendable + Clone,
 {
     // We're given two endpoints, along with the derivatives at those endpoints,
     // and have to evaluate the cubic Bézier curve at time t using only

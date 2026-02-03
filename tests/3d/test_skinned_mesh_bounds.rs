@@ -58,7 +58,7 @@ fn setup(mut commands: Commands) {
 struct PendingScene(Handle<Gltf>);
 
 #[derive(Component, Debug, Default)]
-struct PendingAnimation((Handle<AnimationGraph>, AnimationNodeIndex));
+struct PendingAnimation((Handle<BlendGraph>, BlendNodeIndex));
 
 fn load_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
@@ -73,14 +73,14 @@ fn spawn_scene(
     mut commands: Commands,
     query: Query<(Entity, &PendingScene)>,
     assets: Res<Assets<Gltf>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
 ) {
     for (entity, PendingScene(asset)) in query.iter() {
         if let Some(gltf) = assets.get(asset)
             && let Some(scene_handle) = gltf.scenes.first()
             && let Some(animation_handle) = gltf.named_animations.get("Run")
         {
-            let (graph, graph_node_index) = AnimationGraph::from_clip(animation_handle.clone());
+            let (graph, graph_node_index) = BlendGraph::from_clip(animation_handle.clone());
 
             commands
                 .entity(entity)
@@ -108,7 +108,7 @@ fn play_animation(
 
                 commands
                     .entity(child)
-                    .insert(AnimationGraphHandle(graph_handle.clone()));
+                    .insert(BlendGraphHandle(graph_handle.clone()));
             }
         }
     }

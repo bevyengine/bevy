@@ -1709,13 +1709,13 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "animation_graph"
-path = "examples/animation/animation_graph.rs"
+name = "blend_graph"
+path = "examples/animation/blend_graph.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
-[package.metadata.example.animation_graph]
-name = "Animation Graph"
+[package.metadata.example.blend_graph]
+name = "Blend Graph"
 description = "Blends multiple animations together with a graph"
 category = "Animation"
 wasm = true
@@ -4603,14 +4603,14 @@ category = "glTF"
 wasm = true
 
 [[example]]
-name = "gltf_extension_animation_graph"
-path = "examples/gltf/gltf_extension_animation_graph.rs"
+name = "gltf_extension_blend_graph"
+path = "examples/gltf/gltf_extension_blend_graph.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 
-[package.metadata.example.gltf_extension_animation_graph]
-name = "glTF extension AnimationGraph"
-description = "Uses glTF data to build an AnimationGraph via extension processing"
+[package.metadata.example.gltf_extension_blend_graph]
+name = "glTF extension BlendGraph"
+description = "Uses glTF data to build an BlendGraph via extension processing"
 category = "glTF"
 wasm = true
 

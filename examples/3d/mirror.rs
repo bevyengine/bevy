@@ -616,14 +616,11 @@ fn update_mirror_camera_on_main_camera_transform_change(
 /// Plays the initial animation on the fox model.
 fn play_fox_animation(
     mut commands: Commands,
-    mut animation_players_query: Query<
-        (Entity, &mut AnimationPlayer),
-        Without<AnimationGraphHandle>,
-    >,
+    mut animation_players_query: Query<(Entity, &mut AnimationPlayer), Without<BlendGraphHandle>>,
     asset_server: Res<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut blend_graphs: ResMut<Assets<BlendGraph>>,
 ) {
-    // Only pick up animation players that don't already have an animation graph
+    // Only pick up animation players that don't already have an blend graph
     // handle.
     // This ensures that we only start playing the animation once.
     if animation_players_query.is_empty() {
@@ -631,15 +628,14 @@ fn play_fox_animation(
     }
 
     let fox_animation = asset_server.load(GltfAssetLabel::Animation(0).from_asset(FOX_ASSET_PATH));
-    let (fox_animation_graph, fox_animation_node) =
-        AnimationGraph::from_clip(fox_animation.clone());
-    let fox_animation_graph = animation_graphs.add(fox_animation_graph);
+    let (fox_blend_graph, fox_blend_node) = BlendGraph::from_clip(fox_animation.clone());
+    let fox_blend_graph = blend_graphs.add(fox_blend_graph);
 
     for (entity, mut animation_player) in animation_players_query.iter_mut() {
         commands
             .entity(entity)
-            .insert(AnimationGraphHandle(fox_animation_graph.clone()));
-        animation_player.play(fox_animation_node).repeat();
+            .insert(BlendGraphHandle(fox_blend_graph.clone()));
+        animation_player.play(fox_blend_node).repeat();
     }
 }
 

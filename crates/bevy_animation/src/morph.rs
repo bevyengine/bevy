@@ -1,7 +1,7 @@
 use crate::{
-    animatable::Animatable,
     animation_curves::{AnimationCurve, AnimationCurveEvaluator, EvaluatorId},
-    graph::AnimationNodeIndex,
+    blendable::Blendable,
+    graph::BlendNodeIndex,
     AnimationEntityMut, AnimationEvaluationError,
 };
 use bevy_math::curve::{iterable::IterableCurve, Interval};
@@ -34,7 +34,7 @@ struct WeightsCurveEvaluator {
     /// words, `Self::stack_morph_target_weights.len() *
     /// Self::morph_target_counts as usize ==
     /// Self::stack_blend_weights_and_graph_nodes`.
-    stack_blend_weights_and_graph_nodes: Vec<(f32, AnimationNodeIndex)>,
+    stack_blend_weights_and_graph_nodes: Vec<(f32, BlendNodeIndex)>,
 
     /// The morph target weights in the blend register, if any.
     ///
@@ -84,7 +84,7 @@ where
         curve_evaluator: &mut dyn AnimationCurveEvaluator,
         t: f32,
         weight: f32,
-        graph_node: AnimationNodeIndex,
+        graph_node: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
         let curve_evaluator = curve_evaluator
             .downcast_mut::<WeightsCurveEvaluator>()
@@ -109,7 +109,7 @@ where
 impl WeightsCurveEvaluator {
     fn combine(
         &mut self,
-        graph_node: AnimationNodeIndex,
+        graph_node: BlendNodeIndex,
         additive: bool,
     ) -> Result<(), AnimationEvaluationError> {
         let Some(&(_, top_graph_node)) = self.stack_blend_weights_and_graph_nodes.last() else {
@@ -160,18 +160,18 @@ impl WeightsCurveEvaluator {
 }
 
 impl AnimationCurveEvaluator for WeightsCurveEvaluator {
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+    fn blend(&mut self, graph_node: BlendNodeIndex) -> Result<(), AnimationEvaluationError> {
         self.combine(graph_node, /*additive=*/ false)
     }
 
-    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+    fn add(&mut self, graph_node: BlendNodeIndex) -> Result<(), AnimationEvaluationError> {
         self.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
         &mut self,
         weight: f32,
-        graph_node: AnimationNodeIndex,
+        graph_node: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
         if self.blend_register_blend_weight.take().is_some() {
             self.stack_morph_target_weights

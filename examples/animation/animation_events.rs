@@ -37,7 +37,7 @@ fn on_set_message(
 fn setup(
     mut commands: Commands,
     mut animations: ResMut<Assets<AnimationClip>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
 ) {
     // Camera
     commands.spawn((
@@ -86,12 +86,12 @@ fn setup(
         },
     );
 
-    // Create the animation graph.
-    let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
+    // Create the blend graph.
+    let (graph, animation_index) = BlendGraph::from_clip(animations.add(animation));
     let mut player = AnimationPlayer::default();
     player.play(animation_index).repeat();
 
-    commands.spawn((AnimationGraphHandle(graphs.add(graph)), player));
+    commands.spawn((BlendGraphHandle(graphs.add(graph)), player));
 }
 
 // Slowly fade out the text opacity.
