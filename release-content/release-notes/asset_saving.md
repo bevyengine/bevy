@@ -12,7 +12,16 @@ Now, users can save their assets using `save_using_saver`. To use this involves 
 
 ## 1. Building the `SavedAsset`
 
-To build the `SavedAsset`, either use `SavedAsset::from_asset`, or `SavedAssetBuilder`. For example:
+To build the `SavedAsset`, either use `SavedAsset::from_asset`:
+
+```rust
+let main_asset = InlinedBook {
+    lines: vec!["Save me!".to_string(), "Please!".to_string()],
+};
+let saved_asset = SavedAsset::from_asset(&main_asset);
+```
+
+Or for more complicated cases, `SavedAssetBuilder`:
 
 ```rust
 let asset_path: AssetPath<'static> = "my/file/path.whatever";
