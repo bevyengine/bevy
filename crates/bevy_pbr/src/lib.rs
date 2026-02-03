@@ -450,7 +450,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh3d {
         _gltf_material: &gltf::Material,
         _material: Handle<GltfMaterial>,
         material2: &GltfMaterial,
-        label: &String,
+        label: &str,
     ) {
         // build StandardMaterial from GltfMaterial
 
@@ -468,14 +468,10 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh3d {
         _mesh: &gltf::Mesh,
         _material: &gltf::Material,
         entity: &mut EntityWorldMut,
-        label: &String,
+        label: &str,
     ) {
         if let Some(mesh3d) = entity.get::<Mesh3d>() {
-            // let material_handle =
-            //     load_context.add_labeled_asset("AColorMaterial".to_string(), CustomMaterial {});
             let _mesh_handle = mesh3d.0.clone();
-            // entity
-            //     .insert((Mesh3d(mesh_handle), MeshMaterial3d<StandardMaterial>(material_handle.clone())));
 
             let std_label = format!("{:?}#std", label);
             let handle = load_context.get_label_handle::<StandardMaterial>(std_label);

@@ -2041,16 +2041,11 @@ mod test {
         },
         AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext, LoadState,
     };
-    use bevy_ecs::{
-        error::BevyError,
-        resource::Resource,
-        world::{EntityWorldMut, World},
-    };
+    use bevy_ecs::{resource::Resource, world::World};
     use bevy_image::{Image, ImageLoaderSettings};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
-    use bevy_platform::sync::Arc;
     use bevy_reflect::TypePath;
     use bevy_scene::ScenePlugin;
 
