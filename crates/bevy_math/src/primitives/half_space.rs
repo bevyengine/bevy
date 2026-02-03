@@ -101,3 +101,53 @@ impl HalfSpace {
         Some(Vec3::new(d.dot(u), z.dot(v), -y.dot(v)) / denom)
     }
 }
+
+#[cfg(test)]
+mod half_space_tests {
+    use core::f32;
+
+    use approx::assert_relative_eq;
+
+    use super::HalfSpace;
+    use crate::{Vec3, Vec4};
+
+    #[test]
+    fn intersection_point() {
+        // Intersection of shifted xy, xz, and yz planes
+        let xy_at_z_3 = HalfSpace {
+            normal_d: Vec4::new(0., 0., -1., 3.),
+        };
+        let xz_at_y_2 = HalfSpace {
+            normal_d: Vec4::new(0., 1., 0., -2.),
+        };
+        let yz_at_x_1 = HalfSpace {
+            normal_d: Vec4::new(1., 0., 0., -1.),
+        };
+        assert_relative_eq!(
+            HalfSpace::intersection_point(xy_at_z_3, xz_at_y_2, yz_at_x_1).unwrap(),
+            Vec3::new(1., 2., 3.),
+            epsilon = 2e-7
+        );
+
+        // Three planes that do not simultaneously intersect
+        let xz_at_y_3 = HalfSpace {
+            normal_d: Vec4::new(0., 1., 0., -3.),
+        };
+        assert!(HalfSpace::intersection_point(xy_at_z_3, xz_at_y_2, xz_at_y_3).is_none());
+
+        // Three planes that intersect at a line
+        let other_xz_at_y_2 = HalfSpace {
+            normal_d: Vec4::new(0., -1., 0., 3.),
+        };
+        assert!(HalfSpace::intersection_point(xy_at_z_3, xz_at_y_2, other_xz_at_y_2).is_none());
+
+        // Three identical planes
+        assert!(HalfSpace::intersection_point(xz_at_y_2, xz_at_y_2, other_xz_at_y_2).is_none());
+
+        // ill-defined halfspace
+        let ill_defined = HalfSpace {
+            normal_d: Vec4::new(0., 0., 0., f32::INFINITY),
+        };
+        assert!(HalfSpace::intersection_point(xy_at_z_3, xz_at_y_2, ill_defined).is_none());
+    }
+}
