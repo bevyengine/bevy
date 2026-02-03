@@ -61,7 +61,7 @@ pub fn prepare_core_3d_transmission_textures(
         };
 
         // Don't prepare a transmission texture if the number of steps is set to 0
-        if transmission.screen_space_specular_transmission_steps == 0 {
+        if transmission.steps == 0 {
             continue;
         }
 

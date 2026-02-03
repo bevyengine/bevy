@@ -155,8 +155,8 @@ fn init_loading_text(mut commands: Commands) {
     commands
         .spawn((
             Node {
-                left: Val::Px(1.5),
-                top: Val::Px(1.5),
+                left: px(1.5),
+                top: px(1.5),
                 ..default()
             },
             GlobalZIndex(-1),
@@ -165,7 +165,7 @@ fn init_loading_text(mut commands: Commands) {
             parent.spawn((
                 Text::new(""),
                 TextFont {
-                    font_size: 18.0,
+                    font_size: FontSize::Px(18.0),
                     ..default()
                 },
                 TextColor(Color::BLACK),
@@ -176,7 +176,7 @@ fn init_loading_text(mut commands: Commands) {
         parent.spawn((
             Text::new(""),
             TextFont {
-                font_size: 18.0,
+                font_size: FontSize::Px(18.0),
                 ..default()
             },
             TextColor(Color::WHITE),

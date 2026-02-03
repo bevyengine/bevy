@@ -54,7 +54,7 @@ fn setup(mut commands: Commands) {
                                 TextSpan::new(*section_str),
                                 TextColor::BLACK,
                                 TextFont {
-                                    font_size: 100.,
+                                    font_size: FontSize::Px(100.),
                                     ..default()
                                 },
                                 TextBackgroundColor(PALETTE[i % PALETTE.len()]),

@@ -57,7 +57,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             Text::new("This is\ntext with\nline breaks\nin the top left."),
             TextFont {
                 font: font.clone(),
-                font_size: 25.0,
+                font_size: FontSize::Px(25.0),
                 ..default()
             },
             BackgroundColor(background_color)
@@ -68,7 +68,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             ),
             TextFont {
                 font: font.clone(),
-                font_size: 25.0,
+                font_size: FontSize::Px(25.0),
                 ..default()
             },
             TextColor(YELLOW.into()),
@@ -84,7 +84,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "This\ntext has\nline breaks and also a set width in the bottom left."),
             TextFont {
                 font: font.clone(),
-                font_size: 25.0,
+                font_size: FontSize::Px(25.0),
                 ..default()
             },
             Node {
@@ -110,7 +110,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Text::new("This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 33.0,
+                    font_size: FontSize::Px(33.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.8, 0.2, 0.7)),
@@ -126,7 +126,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Text::new("This text is left-justified and is vertically positioned to distribute the empty space equally above and below it."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 29.0,
+                    font_size: FontSize::Px(29.0),
                     ..default()
                 },
                 TextColor(YELLOW.into()),
@@ -142,7 +142,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Text::new("This text is fully justified and is positioned in the same way."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 29.0,
+                    font_size: FontSize::Px(29.0),
                     ..default()
                 },
                 TextLayout::new_with_justify(Justify::Justified),
@@ -159,7 +159,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Text::default(),
                     TextFont {
                         font: font.clone(),
-                        font_size: 21.0,
+                        font_size: FontSize::Px(21.0),
                         ..default()
                     },
                     TextChanges,
@@ -170,7 +170,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextSpan::new("\nThis text changes in the bottom right"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 21.0,
+                            font_size: FontSize::Px(21.0),
                             ..default()
                         },
                     ));
@@ -178,7 +178,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextSpan::new(" this text has zero font size"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 0.0,
+                            font_size: FontSize::Px(0.0),
                             ..default()
                         },
                         TextColor(BLUE.into()),
@@ -187,7 +187,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextSpan::new("\nThis text changes in the bottom right - "),
                         TextFont {
                             font: font.clone(),
-                            font_size: 21.0,
+                            font_size: FontSize::Px(21.0),
                             ..default()
                         },
                         TextColor(RED.into()),
@@ -196,7 +196,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextSpan::default(),
                         TextFont {
                             font: font.clone(),
-                            font_size: 21.0,
+                            font_size: FontSize::Px(21.0),
                             ..default()
                         },
                         TextColor(ORANGE_RED.into()),
@@ -205,7 +205,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextSpan::new(" fps, "),
                         TextFont {
                             font: font.clone(),
-                            font_size: 10.0,
+                            font_size: FontSize::Px(10.0),
                             ..default()
                         },
                         TextColor(YELLOW.into()),
@@ -214,7 +214,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextSpan::default(),
                         TextFont {
                             font: font.clone(),
-                            font_size: 21.0,
+                            font_size: FontSize::Px(21.0),
                             ..default()
                         },
                         TextColor(LIME.into()),
@@ -223,7 +223,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextSpan::new(" ms/frame"),
                         TextFont {
                             font: font.clone(),
-                            font_size: 42.0,
+                            font_size: FontSize::Px(42.0),
                             ..default()
                         },
                         TextColor(BLUE.into()),
@@ -232,7 +232,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextSpan::new(" this text has negative font size"),
                         TextFont {
                             font: font.clone(),
-                            font_size: -42.0,
+                            font_size: FontSize::Px(-42.0),
                             ..default()
                         },
                         TextColor(BLUE.into()),
