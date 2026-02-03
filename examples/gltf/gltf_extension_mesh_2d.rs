@@ -27,9 +27,6 @@ const ATTRIBUTE_BARYCENTRIC: MeshVertexAttribute =
     MeshVertexAttribute::new("Barycentric", 2137464976, VertexFormat::Float32x3);
 
 fn main() {
-    let mut pbr = PbrPlugin::default();
-    pbr.gltf_render_enabled = false;
-
     App::new()
         .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
@@ -46,7 +43,10 @@ fn main() {
                         // One is stripped to do the comparison here.
                         .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
                 )
-                .set(pbr),
+                .set(PbrPlugin {
+                    gltf_render_enabled: false,
+                    ..Default::default()
+                }),
             GltfToMesh2dPlugin,
         ))
         .add_systems(Startup, setup)

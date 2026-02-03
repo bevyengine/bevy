@@ -7,117 +7,184 @@ use bevy_reflect::TypePath;
 use wgpu_types::Face;
 
 /// Data to build a Gltf Material
+///
+/// See [`StandardMaterial`](https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html) for details
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfMaterial {
-    // TODO: copy comments from standard material?
-    /// A
+    /// The color of the surface of the material before lighting.
     pub base_color: Color,
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::base_color_texture`].
     pub base_color_channel: UvChannel,
-    /// A
+
+    /// The texture component of the material's color before lighting.
     pub base_color_texture: Option<Handle<Image>>,
-    /// A
+
+    /// Color the material "emits" to the camera.
     pub emissive: LinearRgba,
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::emissive_texture`].
     pub emissive_channel: UvChannel,
-    /// A
+
+    /// The emissive map, multiplies pixels with [`emissive`]
+    /// to get the final "emitting" color of a surface.
     pub emissive_texture: Option<Handle<Image>>,
-    /// A
+
+    /// Linear perceptual roughness.
     pub perceptual_roughness: f32,
-    /// A
+
+    /// How "metallic" the material appears, within `[0.0, 1.0]`.
     pub metallic: f32,
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::metallic_roughness_texture`].
     pub metallic_roughness_channel: UvChannel,
-    /// A
+
+    /// Metallic and roughness maps, stored as a single texture.
     pub metallic_roughness_texture: Option<Handle<Image>>,
-    /// A
+
+    /// Specular intensity for non-metals on a linear scale of `[0.0, 1.0]`.
     pub reflectance: f32,
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::specular_texture`].
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_channel: UvChannel,
-    /// A
+
+    /// A map that specifies reflectance for non-metallic materials.
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_texture: Option<Handle<Image>>,
-    /// A
+
+    /// A color with which to modulate the [`GltfMaterial::reflectance`] for
+    /// non-metals.
     pub specular_tint: Color,
-    /// A
+
+    /// The UV channel to use for the
+    /// [`GltfMaterial::specular_tint_texture`].
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_tint_channel: UvChannel,
-    /// A
+
+    /// A map that specifies color adjustment to be applied to the specular
+    /// reflection for non-metallic materials.
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_tint_texture: Option<Handle<Image>>,
-    /// A
+
+    /// The amount of light transmitted _specularly_ through the material (i.e. via refraction).
     pub specular_transmission: f32,
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::specular_transmission_texture`].
     #[cfg(feature = "pbr_transmission_textures")]
     pub specular_transmission_channel: UvChannel,
-    /// A
+
+    /// A map that modulates specular transmission via its red channel. Multiplied by [`GltfMaterial::specular_transmission`]
+    /// to obtain the final result.
     #[cfg(feature = "pbr_transmission_textures")]
     pub specular_transmission_texture: Option<Handle<Image>>,
-    /// A
+
+    /// Thickness of the volume beneath the material surface.
     pub thickness: f32,
     #[cfg(feature = "pbr_transmission_textures")]
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::thickness_texture`].
     pub thickness_channel: UvChannel,
-    /// A
+
+    /// A map that modulates thickness via its green channel. Multiplied by [`GltfMaterial::thickness`]
+    /// to obtain the final result.
     #[cfg(feature = "pbr_transmission_textures")]
     pub thickness_texture: Option<Handle<Image>>,
-    /// A
+
+    /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
     pub ior: f32,
-    /// A
+
+    /// How far, on average, light travels through the volume beneath the material's
+    /// surface before being absorbed.
     pub attenuation_distance: f32,
-    /// A
+
+    /// The resulting (non-absorbed) color after white light travels through the attenuation distance.
     pub attenuation_color: Color,
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::normal_map_texture`].
     pub normal_map_channel: UvChannel,
-    /// A
+
+    /// Used to fake the lighting of bumps and dents on a material.
     pub normal_map_texture: Option<Handle<Image>>,
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::occlusion_texture`].
     pub occlusion_channel: UvChannel,
-    /// A
+
+    /// Specifies the level of exposure to ambient light.
     pub occlusion_texture: Option<Handle<Image>>,
-    /// A
+
+    /// An extra thin translucent layer on top of the main PBR layer. This is
+    /// typically used for painted surfaces.
     pub clearcoat: f32,
-    /// A
+
+    /// The roughness of the clearcoat material. This is specified in exactly
+    /// the same way as the [`GltfMaterial::perceptual_roughness`].
     pub clearcoat_perceptual_roughness: f32,
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::clearcoat_texture`].
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_channel: UvChannel,
-    /// A
+
+    /// An image texture that specifies the strength of the clearcoat layer in
+    /// the red channel. Values sampled from this texture are multiplied by the
+    /// main [`GltfMaterial::clearcoat`] factor.
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_texture: Option<Handle<Image>>,
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::clearcoat_roughness_texture`].
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_roughness_channel: UvChannel,
-    /// A
+
+    /// An image texture that specifies the roughness of the clearcoat level in
+    /// the green channel. Values from this texture are multiplied by the main
+    /// [`GltfMaterial::clearcoat_perceptual_roughness`] factor.
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_roughness_texture: Option<Handle<Image>>,
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::clearcoat_normal_texture`].
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_normal_channel: UvChannel,
-    /// A
+
+    /// An image texture that specifies a normal map that is to be applied to
+    /// the clearcoat layer. This can be used to simulate, for example,
+    /// scratches on an outer layer of varnish. Normal maps are in the same
+    /// format as [`GltfMaterial::normal_map_texture`].
     #[cfg(feature = "pbr_multi_layer_material_textures")]
-    /// A
     pub clearcoat_normal_texture: Option<Handle<Image>>,
-    /// A
+
+    /// Increases the roughness along a specific direction, so that the specular
+    /// highlight will be stretched instead of being a circular lobe.
     pub anisotropy_strength: f32,
-    /// A
+
+    /// The direction of increased roughness, in radians relative to the mesh
+    /// tangent.
     pub anisotropy_rotation: f32,
-    /// A
+
+    /// The UV channel to use for the [`GltfMaterial::anisotropy_texture`].
     #[cfg(feature = "pbr_anisotropy_texture")]
     pub anisotropy_channel: UvChannel,
-    /// A
+
+    /// An image texture that allows the
+    /// [`GltfMaterial::anisotropy_strength`] and
+    /// [`GltfMaterial::anisotropy_rotation`] to vary across the mesh.
     #[cfg(feature = "pbr_anisotropy_texture")]
     pub anisotropy_texture: Option<Handle<Image>>,
-    /// A
+
+    /// Support two-sided lighting by automatically flipping the normals for "back" faces
+    /// within the PBR lighting shader.
     pub double_sided: bool,
-    /// A
+
+    /// Support two-sided lighting by automatically flipping the normals for "back" faces
+    /// within the PBR lighting shader.
     pub cull_mode: Option<Face>,
-    /// A
+
+    /// Whether to apply only the base color to this material.
     pub unlit: bool,
-    /// A
+
+    /// How to apply the alpha channel of the `base_color_texture`.
     pub alpha_mode: AlphaMode,
-    /// A
+
+    /// The transform applied to the UVs corresponding to `ATTRIBUTE_UV_0` on the mesh before sampling. Default is identity.
     pub uv_transform: Affine2,
 }
 
