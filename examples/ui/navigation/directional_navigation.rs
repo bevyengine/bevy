@@ -166,7 +166,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
         },
         BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8)),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
     ));
@@ -186,7 +186,7 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
         },
         BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8)),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
     ));

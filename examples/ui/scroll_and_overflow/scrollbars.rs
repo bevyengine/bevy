@@ -162,7 +162,7 @@ fn text_row(caption: &str) -> impl Bundle {
     (
         Text::new(caption),
         TextFont {
-            font_size: 14.0,
+            font_size: FontSize::Px(14.0),
             ..default()
         },
     )

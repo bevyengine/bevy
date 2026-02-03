@@ -44,6 +44,14 @@ mod tests {
     #[derive(Component)]
     struct Marker;
 
+    #[derive(Component)]
+    #[component(on_add = despawn_on_add)]
+    struct DespawnOnAdd;
+
+    fn despawn_on_add(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+        world.commands().entity(entity).despawn();
+    }
+
     #[test]
     fn entity_ref_get_by_id() {
         let mut world = World::new();
@@ -1402,6 +1410,26 @@ mod tests {
 
         assert_eq!(world.entity(entity_a).get::<D>(), None);
         assert_eq!(world.entity(entity_b).get::<D>(), Some(&D));
+    }
+
+    #[test]
+    fn command_despawns_dont_invalidate_entity_world_muts() {
+        let mut world = World::new();
+
+        let mut entity = world.spawn(TestComponent(1));
+        entity.insert(DespawnOnAdd);
+        assert!(entity.is_despawned());
+    }
+
+    #[test]
+    #[should_panic]
+    fn using_despawned_entity_world_mut_panics() {
+        let mut world = World::new();
+
+        let mut entity = world.spawn(TestComponent(1));
+        entity.insert(DespawnOnAdd);
+        assert!(entity.is_despawned());
+        entity.insert(TestComponent2(2));
     }
 
     #[test]

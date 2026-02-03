@@ -23,7 +23,8 @@ fn setup(
     // Camera
     commands.spawn(Camera2d);
 
-    let text_font = TextFont::default();
+    let font_size: f32 = 20.;
+    let text_font = TextFont::from_font_size(20.);
 
     let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
@@ -37,7 +38,7 @@ fn setup(
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            row_gap: px(text_font.font_size * 2.),
+            row_gap: px(font_size * 2.),
             ..default()
         })
         .with_children(|parent| {

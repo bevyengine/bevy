@@ -49,14 +49,14 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             "left: 10px\ncenter: 10px",
             Node {
                 left: px(10),
-                margin: UiRect::vertical(Val::Auto),
+                margin: UiRect::vertical(auto()),
                 ..default()
             },
         ),
         (
             "center: 10px\ncenter: 10px",
             Node {
-                margin: UiRect::all(Val::Auto),
+                margin: UiRect::all(auto()),
                 ..default()
             },
         ),
@@ -64,7 +64,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             "right: 10px\ncenter: 10px",
             Node {
                 right: px(10),
-                margin: UiRect::vertical(Val::Auto),
+                margin: UiRect::vertical(auto()),
                 ..default()
             },
         ),
@@ -79,7 +79,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         (
             "center: 10px\nbottom: 10px",
             Node {
-                margin: UiRect::horizontal(Val::Auto),
+                margin: UiRect::horizontal(auto()),
                 bottom: px(10),
                 ..default()
             },
