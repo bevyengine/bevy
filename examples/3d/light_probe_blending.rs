@@ -646,10 +646,7 @@ fn draw_gizmos(
 
 /// Updates the help text at the top of the screen to reflect a change in camera
 /// or gizmo application settings.
-fn set_help_text(
-    app_status: &AppStatus,
-    help_text_query: &mut Query<&mut Text, With<HelpText>>,
-) {
+fn set_help_text(app_status: &AppStatus, help_text_query: &mut Query<&mut Text, With<HelpText>>) {
     for mut ui_text in help_text_query {
         let mut help_text = String::new();
         match app_status.camera_mode {
