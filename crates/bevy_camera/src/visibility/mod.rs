@@ -35,7 +35,7 @@ use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d,
 /// It can be used for example:
 /// - disabling CPU culling completely for a [`Camera`], using only GPU culling.
 /// - when overwriting a [`Mesh`]'s transform on the GPU side (e.g. overwriting `MeshInputUniform`'s
-/// `world_from_local`), resulting in stale CPU-side positions.
+///   `world_from_local`), resulting in stale CPU-side positions.
 #[derive(Component, Default)]
 pub struct NoCpuCulling;
 
