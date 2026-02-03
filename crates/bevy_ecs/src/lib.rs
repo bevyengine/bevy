@@ -75,7 +75,7 @@ pub mod prelude {
         error::{BevyError, Result},
         event::{EntityEvent, Event},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
-        lifecycle::{Add, Despawn, Insert, Remove, RemovedComponents, Replace},
+        lifecycle::{Add, Despawn, Discard, Insert, Remove, RemovedComponents},
         message::{
             Message, MessageMutator, MessageReader, MessageWriter, Messages, PopulatedMessageReader,
         },

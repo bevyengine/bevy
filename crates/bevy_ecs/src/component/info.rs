@@ -120,8 +120,8 @@ impl ComponentInfo {
         if self.hooks().on_insert.is_some() {
             flags.insert(ArchetypeFlags::ON_INSERT_HOOK);
         }
-        if self.hooks().on_replace.is_some() {
-            flags.insert(ArchetypeFlags::ON_REPLACE_HOOK);
+        if self.hooks().on_discard.is_some() {
+            flags.insert(ArchetypeFlags::ON_DISCARD_HOOK);
         }
         if self.hooks().on_remove.is_some() {
             flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);

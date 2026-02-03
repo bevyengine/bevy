@@ -51,10 +51,10 @@ use crate::{
     entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
-    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
+    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    prelude::{Add, Despawn, Insert, Remove, Replace},
+    prelude::{Add, Despawn, Discard, Insert, Remove},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::Resource,
@@ -163,8 +163,8 @@ impl World {
         let on_insert = self.register_event_key::<Insert>();
         assert_eq!(INSERT, on_insert);
 
-        let on_replace = self.register_event_key::<Replace>();
-        assert_eq!(REPLACE, on_replace);
+        let on_discard = self.register_event_key::<Discard>();
+        assert_eq!(DISCARD, on_discard);
 
         let on_remove = self.register_event_key::<Remove>();
         assert_eq!(REMOVE, on_remove);
@@ -1351,7 +1351,7 @@ impl World {
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
     /// runs the provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// This will trigger the `Remove` and `Discard` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -1402,7 +1402,7 @@ impl World {
     /// Temporarily removes a [`Component`] identified by the provided
     /// [`ComponentId`] from the provided [`Entity`] and runs the provided
     /// closure on it, returning the result if the component was available.
-    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// This will trigger the `Remove` and `Discard` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion

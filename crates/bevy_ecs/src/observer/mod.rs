@@ -252,7 +252,7 @@ mod tests {
         change_detection::MaybeLocation,
         event::{EntityComponentsTrigger, Event, GlobalTrigger},
         hierarchy::ChildOf,
-        observer::{Observer, Replace},
+        observer::{Discard, Observer},
         prelude::*,
         world::DeferredWorld,
     };
@@ -303,15 +303,15 @@ mod tests {
 
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
         assert_eq!(
-            vec!["add", "insert", "replace", "remove"],
+            vec!["add", "insert", "discard", "remove"],
             world.resource::<Order>().0
         );
     }
@@ -323,8 +323,8 @@ mod tests {
 
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
@@ -333,7 +333,7 @@ mod tests {
         entity.remove::<A>();
         entity.flush();
         assert_eq!(
-            vec!["add", "insert", "replace", "remove"],
+            vec!["add", "insert", "discard", "remove"],
             world.resource::<Order>().0
         );
     }
@@ -345,8 +345,8 @@ mod tests {
 
         world.add_observer(|_: On<Add, S>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, S>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, S>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, S>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, S>, mut res: ResMut<Order>| res.observed("remove"));
 
@@ -355,7 +355,7 @@ mod tests {
         entity.remove::<S>();
         entity.flush();
         assert_eq!(
-            vec!["add", "insert", "replace", "remove"],
+            vec!["add", "insert", "discard", "remove"],
             world.resource::<Order>().0
         );
     }
@@ -369,15 +369,15 @@ mod tests {
 
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         let mut entity = world.entity_mut(entity);
         entity.insert(A);
         entity.flush();
-        assert_eq!(vec!["replace", "insert"], world.resource::<Order>().0);
+        assert_eq!(vec!["discard", "insert"], world.resource::<Order>().0);
     }
 
     #[test]
