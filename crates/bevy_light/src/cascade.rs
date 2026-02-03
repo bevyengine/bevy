@@ -185,7 +185,7 @@ pub struct Cascade {
 
 pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &mut Cascades)>) {
     for (directional_light, mut cascades) in lights.iter_mut() {
-        if !directional_light.shadows_enabled {
+        if !directional_light.shadow_maps_enabled {
             continue;
         }
         cascades.cascades.clear();
@@ -214,7 +214,7 @@ pub fn build_directional_light_cascades(
         .collect::<Vec<_>>();
 
     for (transform, directional_light, cascades_config, mut cascades) in &mut lights {
-        if !directional_light.shadows_enabled {
+        if !directional_light.shadow_maps_enabled {
             continue;
         }
 

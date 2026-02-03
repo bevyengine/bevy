@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
+
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -123,7 +124,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         DespawnOnExit(GameState::Playing),
         PointLight {
             intensity: 2_000_000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             range: 30.0,
             ..default()
         },
@@ -180,7 +181,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         DespawnOnExit(GameState::Playing),
         Text::new("Score:"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -400,7 +401,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
         children![(
             Text::new(format!("Cake eaten: {}", game.cake_eaten)),
             TextFont {
-                font_size: 67.0,
+                font_size: FontSize::Px(67.0),
                 ..default()
             },
             TextColor(Color::srgb(0.5, 0.5, 1.0)),

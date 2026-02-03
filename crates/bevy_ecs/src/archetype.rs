@@ -936,7 +936,7 @@ impl Archetypes {
     }
 
     /// Get the component index
-    pub(crate) fn component_index(&self) -> &ComponentIndex {
+    pub fn component_index(&self) -> &ComponentIndex {
         &self.by_component
     }
 

@@ -11,6 +11,9 @@ updates:
         patterns:
           - "*wgpu*"
           - "naga*"
+      accesskit:
+        patterns:
+          - "accesskit*"
   - package-ecosystem: github-actions
     directory: /
     schedule:

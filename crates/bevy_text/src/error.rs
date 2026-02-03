@@ -23,4 +23,7 @@ pub enum TextError {
     /// Failed to find glyph in atlas after it was added
     #[error("failed to find glyph in atlas after it was added")]
     InconsistentAtlasState,
+    #[error("scale factor <= 0")]
+    /// Text cannot be rendered for a scale factor <= zero.
+    DegenerateScaleFactor,
 }

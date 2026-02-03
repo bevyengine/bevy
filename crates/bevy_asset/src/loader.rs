@@ -1,13 +1,10 @@
 use crate::{
-    io::{
-        AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
-        ReaderRequiredFeatures,
-    },
+    io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
     loader_builders::{Deferred, NestedLoader, StaticTyped},
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfo, ProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
-    Handle, UntypedHandle,
+    Handle, UntypedAssetId, UntypedHandle,
 };
 use alloc::{
     boxed::Box,
@@ -47,11 +44,6 @@ pub trait AssetLoader: TypePath + Send + Sync + 'static {
         load_context: &mut LoadContext,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>>;
 
-    /// Returns the required features of the reader for this loader.
-    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
-        ReaderRequiredFeatures::default()
-    }
-
     /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
     /// Note that users of this [`AssetLoader`] may choose to load files with a non-matching extension.
     fn extensions(&self) -> &[&str] {
@@ -69,9 +61,6 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
         load_context: LoadContext<'a>,
     ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BevyError>>;
 
-    /// Returns the required features of the reader for this loader.
-    // Note: This takes &self just to be dyn compatible.
-    fn reader_required_features(&self, settings: &dyn Settings) -> ReaderRequiredFeatures;
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
     /// Deserializes metadata from the input `meta` bytes into the appropriate type (erased as [`Box<dyn AssetMetaDyn>`]).
@@ -108,13 +97,6 @@ where
                 .map_err(Into::into)?;
             Ok(load_context.finish(asset).into())
         })
-    }
-
-    fn reader_required_features(&self, settings: &dyn Settings) -> ReaderRequiredFeatures {
-        let settings = settings
-            .downcast_ref::<L::Settings>()
-            .expect("AssetLoader settings should match the loader type");
-        <L as AssetLoader>::reader_required_features(settings)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -477,7 +459,22 @@ impl<'a> LoadContext<'a> {
     }
 
     /// "Finishes" this context by populating the final [`Asset`] value.
-    pub fn finish<A: Asset>(self, value: A) -> LoadedAsset<A> {
+    pub fn finish<A: Asset>(mut self, value: A) -> LoadedAsset<A> {
+        // At this point, we assume the asset/subasset is "locked in" and won't be changed, so we
+        // can ensure all the dependencies are included (in case a handle was used without loading
+        // it through this `LoadContext`). If in the future we provide an API for mutating assets in
+        // `LoadedAsset`, `ErasedLoadedAsset`, or `LoadContext` (for mutating existing subassets),
+        // we should move this to some point after those mutations are not possible. This spot is
+        // convenient because we still have access to the static type of `A`.
+        value.visit_dependencies(&mut |asset_id| {
+            let (type_id, index) = match asset_id {
+                UntypedAssetId::Index { type_id, index } => (type_id, index),
+                // UUID assets can't be loaded anyway, so just ignore this ID.
+                UntypedAssetId::Uuid { .. } => return,
+            };
+            self.dependencies
+                .insert(ErasedAssetIndex { index, type_id });
+        });
         LoadedAsset {
             value,
             dependencies: self.dependencies,
@@ -502,9 +499,7 @@ impl<'a> LoadContext<'a> {
             AssetServerMode::Unprocessed => source.reader(),
             AssetServerMode::Processed => source.processed_reader()?,
         };
-        let mut reader = asset_reader
-            .read(path.path(), ReaderRequiredFeatures::default())
-            .await?;
+        let mut reader = asset_reader.read(path.path()).await?;
         let hash = if self.populate_hashes {
             // NOTE: ensure meta is read while the asset bytes reader is still active to ensure transactionality
             // See `ProcessorGatedReader` for more info

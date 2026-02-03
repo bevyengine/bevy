@@ -826,7 +826,9 @@ pub mod common_conditions {
     }
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
-    /// if there are any new events of the given type since it was last called.
+    /// if there are any new messages of the given type since it was last called.
+    ///
+    /// To skip a system based on messages that it reads, use [`PopulatedMessageReader`](crate::prelude::PopulatedMessageReader) instead.
     ///
     /// # Example
     ///
@@ -851,13 +853,13 @@ pub mod common_conditions {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // No new `MyMessage` events have been push so `my_system` won't run
+    /// // No new `MyMessage` messages have been pushed so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
     /// world.resource_mut::<Messages<MyMessage>>().write(MyMessage);
     ///
-    /// // A `MyMessage` event has been pushed so `my_system` will run
+    /// // A `MyMessage` message has been pushed so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```

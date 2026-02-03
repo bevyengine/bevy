@@ -629,9 +629,20 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// On despawn, also despawn all related entities:
 /// ```ignore
 /// #[derive(Component)]
-/// #[relationship_target(relationship_target = Children, linked_spawn)]
+/// #[relationship_target(relationship = ChildOf, linked_spawn)]
 /// pub struct Children(Vec<Entity>);
 /// ```
+///
+/// Allow relationships to point to their own entity:
+/// ```ignore
+/// #[derive(Component)]
+/// #[relationship(relationship_target = PeopleILike, allow_self_referential)]
+/// pub struct LikedBy(pub Entity);
+/// ```
+/// ## Warning
+///
+/// When `allow_self_referential` is enabled, be careful when using recursive traversal methods
+/// like `iter_ancestors` or `root_ancestor`, as they will loop infinitely if an entity points to itself.
 ///
 /// ## Hooks
 /// ```ignore
@@ -639,7 +650,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// #[component(hook_name = function)]
 /// struct MyComponent;
 /// ```
-/// where `hook_name` is `on_add`, `on_insert`, `on_replace` or `on_remove`;  
+/// where `hook_name` is `on_add`, `on_insert`, `on_replace` or `on_remove`;
 /// `function` can be either a path, e.g. `some_function::<Self>`,
 /// or a function call that returns a function that can be turned into
 /// a `ComponentHook`, e.g. `get_closure("Hi!")`.

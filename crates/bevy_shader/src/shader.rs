@@ -2,50 +2,10 @@ use super::ShaderDefVal;
 use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
-use core::{marker::Copy, num::NonZero};
+use bevy_utils::define_atomic_id;
 use thiserror::Error;
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Debug)]
-pub struct ShaderId(NonZero<u32>);
-
-impl ShaderId {
-    #[expect(
-        clippy::new_without_default,
-        reason = "Implementing the `Default` trait on atomic IDs would imply that two `<AtomicIdType>::default()` equal each other. By only implementing `new()`, we indicate that each atomic ID created will be unique."
-    )]
-    pub fn new() -> Self {
-        use core::sync::atomic::{AtomicU32, Ordering};
-        static COUNTER: AtomicU32 = AtomicU32::new(1);
-        let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
-        Self(NonZero::<u32>::new(counter).unwrap_or_else(|| {
-            panic!("The system ran out of unique `{}`s.", stringify!(ShaderId));
-        }))
-    }
-}
-impl From<ShaderId> for NonZero<u32> {
-    fn from(value: ShaderId) -> Self {
-        value.0
-    }
-}
-impl From<NonZero<u32>> for ShaderId {
-    fn from(value: NonZero<u32>) -> Self {
-        Self(value)
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum ShaderReflectError {
-    #[error(transparent)]
-    WgslParse(#[from] naga::front::wgsl::ParseError),
-    #[cfg(feature = "shader_format_glsl")]
-    #[error("GLSL Parse Error: {0:?}")]
-    GlslParse(Vec<naga::front::glsl::Error>),
-    #[cfg(feature = "shader_format_spirv")]
-    #[error(transparent)]
-    SpirVParse(#[from] naga::front::spv::Error),
-    #[error(transparent)]
-    Validation(#[from] naga::WithSpan<naga::valid::ValidationError>),
-}
+define_atomic_id!(ShaderId);
 
 /// Describes whether or not to perform runtime checks on shaders.
 /// Runtime checks can be enabled for safety at the cost of speed.
@@ -70,19 +30,23 @@ pub enum ValidateShader {
     Enabled,
 }
 
-/// An "unprocessed" shader. It can contain preprocessor directives.
+/// An "unprocessed" shader. It can contain preprocessor directives and imports.
 #[derive(Asset, TypePath, Debug, Clone)]
 pub struct Shader {
+    /// The asset path of the shader.
     pub path: String,
+    /// The raw source code of the shader.
     pub source: Source,
+    /// The path from which this shader can be imported by other shaders.
     pub import_path: ShaderImport,
+    /// The import paths this shader depends on.
     pub imports: Vec<ShaderImport>,
-    // extra imports not specified in the source string
+    /// Extra imports not specified in the source string.
     pub additional_imports: Vec<naga_oil::compose::ImportDefinition>,
-    // any shader defs that will be included when this module is used
+    /// Any shader defs that should be included when this module is used.
     pub shader_defs: Vec<ShaderDefVal>,
-    // we must store strong handles to our dependencies to stop them
-    // from being immediately dropped if we are the only user.
+    /// Strong handles to this shader's dependencies, to prevent them
+    /// from being immediately dropped if this shader is the only user.
     pub file_dependencies: Vec<Handle<Shader>>,
     /// Enable or disable runtime shader validation, trading safety against speed.
     ///
@@ -118,6 +82,7 @@ impl Shader {
         (import_path, imports)
     }
 
+    /// Creates a new WGSL shader.
     pub fn from_wgsl(source: impl Into<Cow<'static, str>>, path: impl Into<String>) -> Shader {
         let source = source.into();
         let path = path.into();
@@ -134,6 +99,7 @@ impl Shader {
         }
     }
 
+    /// Creates a new WGSL shader with some given shader defs.
     pub fn from_wgsl_with_defs(
         source: impl Into<Cow<'static, str>>,
         path: impl Into<String>,
@@ -145,6 +111,7 @@ impl Shader {
         }
     }
 
+    /// Creates a new GLSL shader.
     pub fn from_glsl(
         source: impl Into<Cow<'static, str>>,
         stage: naga::ShaderStage,
@@ -165,6 +132,7 @@ impl Shader {
         }
     }
 
+    /// Creates a new SPIR-V shader.
     pub fn from_spirv(source: impl Into<Cow<'static, [u8]>>, path: impl Into<String>) -> Shader {
         let path = path.into();
         Shader {
@@ -179,6 +147,7 @@ impl Shader {
         }
     }
 
+    /// Creates a new Wesl shader.
     #[cfg(feature = "shader_format_wesl")]
     pub fn from_wesl(source: impl Into<Cow<'static, str>>, path: impl Into<String>) -> Shader {
         let source = source.into();
@@ -214,25 +183,6 @@ impl Shader {
             }
         }
     }
-
-    pub fn set_import_path<P: Into<String>>(&mut self, import_path: P) {
-        self.import_path = ShaderImport::Custom(import_path.into());
-    }
-
-    #[must_use]
-    pub fn with_import_path<P: Into<String>>(mut self, import_path: P) -> Self {
-        self.set_import_path(import_path);
-        self
-    }
-
-    #[inline]
-    pub fn import_path(&self) -> &ShaderImport {
-        &self.import_path
-    }
-
-    pub fn imports(&self) -> impl ExactSizeIterator<Item = &ShaderImport> {
-        self.imports.iter()
-    }
 }
 
 impl<'a> From<&'a Shader> for naga_oil::compose::ComposableModuleDescriptor<'a> {
@@ -253,6 +203,7 @@ impl<'a> From<&'a Shader> for naga_oil::compose::ComposableModuleDescriptor<'a> 
             })
             .collect();
 
+        // It is beyond me why this doesn't just use `shader.import_path.module_name()`.
         let as_name = match &shader.import_path {
             ShaderImport::AssetPath(asset_path) => Some(format!("\"{asset_path}\"")),
             ShaderImport::Custom(_) => None,
@@ -280,6 +231,8 @@ impl<'a> From<&'a Shader> for naga_oil::compose::NagaModuleDescriptor<'a> {
     }
 }
 
+/// Raw shader source code.
+#[expect(missing_docs, reason = "The variants are self-explanatory.")]
 #[derive(Debug, Clone)]
 pub enum Source {
     Wgsl(Cow<'static, str>),
@@ -292,6 +245,7 @@ pub enum Source {
 }
 
 impl Source {
+    /// The underlying source code string, unless it is SPIR-V.
     pub fn as_str(&self) -> &str {
         match self {
             Source::Wgsl(s) | Source::Wesl(s) | Source::Glsl(s, _) => s,
@@ -338,11 +292,14 @@ impl From<&Source> for naga_oil::compose::ShaderType {
     }
 }
 
+/// The [`AssetLoader`] responsible for loading unprocessed shader assets.
 #[derive(Default, TypePath)]
 pub struct ShaderLoader;
 
+/// An error encountered while loading a shader's source.
 #[non_exhaustive]
 #[derive(Debug, Error)]
+#[expect(missing_docs, reason = "The variants are self-explanatory.")]
 pub enum ShaderLoaderError {
     #[error("Could not load shader: {0}")]
     Io(#[from] std::io::Error),
@@ -353,7 +310,7 @@ pub enum ShaderLoaderError {
 /// Settings for loading shaders.
 #[derive(serde::Serialize, serde::Deserialize, Debug, Default)]
 pub struct ShaderSettings {
-    /// The `#define` specified for this shader.
+    /// The `#define`s specified for this shader.
     pub shader_defs: Vec<ShaderDefVal>,
 }
 
@@ -419,13 +376,17 @@ impl AssetLoader for ShaderLoader {
     }
 }
 
+/// A shader import, described as either an asset path or an import path.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum ShaderImport {
+    /// An asset path to a shader.
     AssetPath(String),
+    /// An import path from which a shader may be imported.
     Custom(String),
 }
 
 impl ShaderImport {
+    /// A name for a shader import.
     pub fn module_name(&self) -> Cow<'_, String> {
         match self {
             ShaderImport::AssetPath(s) => Cow::Owned(format!("\"{s}\"")),
@@ -440,9 +401,9 @@ pub enum ShaderRef {
     /// Use the "default" shader for the current context.
     #[default]
     Default,
-    /// A handle to a shader stored in the [`Assets<Shader>`](bevy_asset::Assets) resource
+    /// A handle to a shader stored in the [`Assets<Shader>`](bevy_asset::Assets) resource.
     Handle(Handle<Shader>),
-    /// An asset path leading to a shader
+    /// An asset path leading to a shader.
     Path(AssetPath<'static>),
 }
 

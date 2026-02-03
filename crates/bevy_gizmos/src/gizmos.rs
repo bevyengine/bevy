@@ -507,6 +507,41 @@ where
         self.strip_colors.push(LinearRgba::NAN);
     }
 
+    /// Draw a line in 3D made of straight segments between the points, with the first and last connected.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.lineloop([Vec3::ZERO, Vec3::X, Vec3::Y], GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn lineloop(&mut self, positions: impl IntoIterator<Item = Vec3>, color: impl Into<Color>) {
+        if !self.enabled {
+            return;
+        }
+
+        // Loop back to the start; second is needed to ensure that
+        // the joint on the first corner is drawn.
+        let mut positions = positions.into_iter();
+        let first = positions.next();
+        let second = positions.next();
+
+        self.linestrip(
+            first
+                .into_iter()
+                .chain(second)
+                .chain(positions)
+                .chain(first)
+                .chain(second),
+            color,
+        );
+    }
+
     /// Draw a line in 3D made of straight segments between the points, with a color gradient.
     ///
     /// # Example
@@ -576,7 +611,7 @@ where
         }
         let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2.extend(0.));
-        self.linestrip([tl, tr, br, bl, tl], color);
+        self.lineloop([tl, tr, br, bl], color);
     }
 
     /// Draw a wireframe cube in 3D.
@@ -759,23 +794,7 @@ where
         if !self.enabled {
             return;
         }
-
-        // Loop back to the start; second is needed to ensure that
-        // the joint on the first corner is drawn.
-        let mut positions = positions.into_iter();
-        let first = positions.next();
-        let second = positions.next();
-
-        self.linestrip(
-            first
-                .into_iter()
-                .chain(second)
-                .chain(positions)
-                .chain(first)
-                .chain(second)
-                .map(|vec2| vec2.extend(0.)),
-            color,
-        );
+        self.lineloop(positions.into_iter().map(|vec2| vec2.extend(0.)), color);
     }
 
     /// Draw a line in 2D made of straight segments between the points, with a color gradient.

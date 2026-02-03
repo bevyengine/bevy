@@ -390,6 +390,7 @@ mod tests {
         app.init_resource::<bevy_text::TextPipeline>();
         app.init_resource::<bevy_text::CosmicFontSystem>();
         app.init_resource::<bevy_text::SwashCache>();
+        app.init_resource::<bevy_transform::StaticTransformOptimizations>();
 
         app.add_systems(
             PostUpdate,

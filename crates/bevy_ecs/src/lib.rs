@@ -66,7 +66,9 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
-        change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
+        change_detection::{
+            ContiguousMut, ContiguousRef, DetectChanges, DetectChangesMut, Mut, Ref,
+        },
         children,
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
@@ -74,9 +76,11 @@ pub mod prelude {
         event::{EntityEvent, Event},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{Add, Despawn, Insert, Remove, RemovedComponents, Replace},
-        message::{Message, MessageMutator, MessageReader, MessageWriter, Messages},
+        message::{
+            Message, MessageMutator, MessageReader, MessageWriter, Messages, PopulatedMessageReader,
+        },
         name::{Name, NameOrEntity},
-        observer::{Observer, On},
+        observer::{Observer, ObserverSystemExt, On},
         query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
@@ -366,10 +370,10 @@ mod tests {
     #[test]
     fn spawning_with_manual_entity_allocation() {
         let mut world = World::new();
-        let e1 = world.entities_allocator_mut().alloc();
+        let e1 = world.entity_allocator_mut().alloc();
         world.spawn_at(e1, (TableStored("abc"), A(123))).unwrap();
 
-        let e2 = world.entities_allocator_mut().alloc();
+        let e2 = world.entity_allocator_mut().alloc();
         assert!(matches!(
             world.try_despawn_no_free(e2),
             Err(EntityDespawnError(
@@ -377,9 +381,9 @@ mod tests {
             ))
         ));
         assert!(!world.despawn(e2));
-        world.entities_allocator_mut().free(e2);
+        world.entity_allocator_mut().free(e2);
 
-        let e3 = world.entities_allocator_mut().alloc();
+        let e3 = world.entity_allocator_mut().alloc();
         let e3 = world
             .spawn_at(e3, (TableStored("junk"), A(0)))
             .unwrap()
@@ -1582,6 +1586,39 @@ mod tests {
             assert!(!world.contains_resource::<ResA>());
         });
         assert_eq!(world.resource::<ResA>().0, 1);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn resource_scope_unwind() {
+        #[derive(Debug, PartialEq)]
+        struct Panic;
+
+        let mut world = World::default();
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        let panic = std::panic::catch_unwind(core::panic::AssertUnwindSafe(|| {
+            world.resource_scope(|world: &mut World, _value: Mut<ResA>| {
+                assert!(!world.contains_resource::<ResA>());
+                std::panic::panic_any(Panic);
+            });
+            unreachable!();
+        }));
+        assert_eq!(panic.unwrap_err().downcast_ref::<Panic>(), Some(&Panic));
+        assert!(world.contains_resource::<ResA>());
+    }
+
+    #[test]
+    fn resource_scope_resources_cleared() {
+        let mut world = World::default();
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        let r = world.try_resource_scope(|world: &mut World, _value: Mut<ResA>| {
+            assert!(!world.contains_resource::<ResA>());
+            world.clear_resources();
+        });
+        assert_eq!(r, Some(()));
+        assert!(!world.contains_resource::<ResA>());
     }
 
     #[test]

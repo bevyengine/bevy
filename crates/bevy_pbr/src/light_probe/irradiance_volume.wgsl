@@ -34,7 +34,7 @@ fn irradiance_volume_light(
     // If we're lightmapped, and the irradiance volume contributes no diffuse
     // light, then bail out.
 #ifdef LIGHTMAP
-    if (!query_result.affects_lightmapped_mesh_diffuse) {
+    if ((query_result.flags & LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE) == 0u) {
         return vec3(0.0f);
     }
 #endif  // LIGHTMAP

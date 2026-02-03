@@ -3,8 +3,8 @@
 use alloc::borrow::Cow;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
-    GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration, TypeRegistry,
-    VariantInfo,
+    enums::VariantInfo, GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration,
+    TypeRegistry,
 };
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
