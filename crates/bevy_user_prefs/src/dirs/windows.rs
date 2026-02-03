@@ -6,6 +6,7 @@ use std::slice;
 use windows::Win32::UI::Shell;
 
 // From https://github.com/dirs-dev/dirs-sys-rs/blob/main/src/lib.rs
+#[allow(unsafe_code)]
 fn known_folder(folder_id: windows::core::GUID) -> Option<PathBuf> {
     // SAFETY: SHGetKnownFolderPath allocates path_ptr which must be freed with CoTaskMemFree.
     unsafe {
