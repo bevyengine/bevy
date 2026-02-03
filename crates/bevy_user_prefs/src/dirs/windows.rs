@@ -1,5 +1,9 @@
-use super::windows::Win32::UI::Shell;
+extern crate windows_sys as windows;
+use std::ffi::{c_void, OsString};
+use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;
+use std::slice;
+use windows::Win32::UI::Shell;
 
 // From https://github.com/dirs-dev/dirs-sys-rs/blob/main/src/lib.rs
 fn known_folder(folder_id: windows::core::GUID) -> Option<PathBuf> {
