@@ -19,7 +19,7 @@ use bevy_image::Image;
 use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bytemuck::cast_slice;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
@@ -259,6 +259,19 @@ pub struct Mesh {
     /// This data will be set if/when a mesh is extracted to the GPU
     pub final_aabb: Option<Aabb3d>,
     skinned_mesh_bounds: Option<SkinnedMeshBounds>,
+}
+
+/// An enum to define which UV attribute to use for a texture.
+///
+/// It only supports two UV attributes, [`Mesh::ATTRIBUTE_UV_0`] and
+/// [`Mesh::ATTRIBUTE_UV_1`].
+/// The default is [`UvChannel::Uv0`].
+#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
+#[reflect(Default, Debug, Clone, PartialEq)]
+pub enum UvChannel {
+    #[default]
+    Uv0,
+    Uv1,
 }
 
 impl Mesh {

@@ -31,7 +31,7 @@ use crate::{
 };
 
 pub use crate::{
-    alpha::AlphaMode, opaque::OpaqueRendererMethod, phase::RenderPhaseType, uv::UvChannel,
+    alpha::AlphaMode, opaque::OpaqueRendererMethod, phase::RenderPhaseType,
 };
 
 mod alpha;
@@ -42,7 +42,6 @@ pub mod labels;
 mod opaque;
 mod phase;
 pub mod specialize;
-pub mod uv;
 
 /// The material prelude.
 ///

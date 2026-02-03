@@ -1,8 +1,9 @@
 use bevy_asset::{Asset, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_image::Image;
-use bevy_material::{AlphaMode, UvChannel};
+use bevy_material::AlphaMode;
 use bevy_math::Affine2;
+use bevy_mesh::UvChannel;
 use bevy_reflect::TypePath;
 use wgpu_types::Face;
 

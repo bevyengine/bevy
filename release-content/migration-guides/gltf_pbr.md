@@ -18,3 +18,5 @@ PbrPlugin {
 
 - `on_material` passes in the `material_asset : &GltfMaterial` and `material_label: &str`
 - `on_spawn_mesh_and_material` also passes in the `material_label: &str`
+
+`UvChannel` has moved from `bevy_pbr` to `bevy_mesh`.
