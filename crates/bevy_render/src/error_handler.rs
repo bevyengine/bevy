@@ -21,6 +21,7 @@ use crate::{
 #[derive(Default)]
 pub enum RenderErrorPolicy {
     /// Pretends nothing happened and continues rendering.
+    /// This discards the error after logging it to console.
     #[default]
     Ignore,
     /// Panics on error.
@@ -28,6 +29,8 @@ pub enum RenderErrorPolicy {
     /// Signals app exit on error.
     Shutdown,
     /// Keeps the app alive, but stops rendering further.
+    /// This keeps the error state, and will continue polling the [`RenderErrorHandler`]
+    /// every frame until some other policy is returned.
     StopRendering,
     /// Attempt renderer recovery with the given [`RenderCreation`].
     Recover(RenderCreation),

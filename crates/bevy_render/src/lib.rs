@@ -266,7 +266,8 @@ pub struct ExtractSchedule;
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct MainWorld(World);
 
-/// The render recovery schedule.
+/// The render recovery schedule. This schedule runs the [`Render`] schedule if
+/// we are in [`RenderState::Ready`], and is otherwise hidden from users.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 struct RenderRecovery;
 
