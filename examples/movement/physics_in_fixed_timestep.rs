@@ -223,7 +223,7 @@ fn spawn_environment(
 /// Spawn a bit of UI text to explain how to move the player.
 fn spawn_text(mut commands: Commands) {
     let font = TextFont {
-        font_size: 25.0,
+        font_size: FontSize::Px(25.0),
         ..default()
     };
     commands.spawn((

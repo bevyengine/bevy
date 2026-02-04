@@ -241,6 +241,7 @@ Example | Description
 [No Renderer](../examples/app/no_renderer.rs) | An application that runs with default plugins and displays an empty window, but without an actual renderer
 [Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
+[Render Recovery](../examples/app/render_recovery.rs) | Demonstrates how bevy can recover from rendering failures.
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
 [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
 [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
@@ -318,6 +319,7 @@ Example | Description
 --- | ---
 [Change Detection](../examples/ecs/change_detection.rs) | Change detection on components and resources
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
+[Contiguous Query](../examples/ecs/contiguous_query.rs) | Demonstrates contiguous queries
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components

@@ -9,6 +9,7 @@ use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::VIOLET;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
+
 use bevy::ui::ColorStop;
 use std::f32::consts::TAU;
 
@@ -277,7 +278,7 @@ fn setup(mut commands: Commands) {
                     ..Default::default()
                 }
             ).with_children(|commands| {
-                commands.spawn((Text::new(format!("{:?}", InterpolationColorSpace::default())), TextFont { font_size: 25., ..default() }, CurrentColorSpaceLabel));
+                commands.spawn((Text::new(format!("{:?}", InterpolationColorSpace::default())), TextFont { font_size: FontSize::Px(25.), ..default() }, CurrentColorSpaceLabel));
 
             })
             .add_child(button);

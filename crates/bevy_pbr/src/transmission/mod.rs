@@ -22,7 +22,7 @@ pub use texture::ViewTransmissionTexture;
 
 use texture::prepare_core_3d_transmission_textures;
 
-use crate::DrawMaterial;
+use crate::{DrawMaterial, MeshPipelineKey};
 
 /// Enables screen-space transmission for cameras.
 pub struct ScreenSpaceTransmissionPlugin;
@@ -82,21 +82,21 @@ pub struct ScreenSpaceTransmission {
     ///   to still have the environment map show up in your refractions, you can set the clear color's alpha to `0.0`.
     ///   Keep in mind that depending on the platform and your window settings, this may cause the window to become
     ///   transparent.
-    pub screen_space_specular_transmission_steps: usize,
+    pub steps: usize,
     /// The quality of the screen space specular transmission blur effect, applied to whatever's behind transmissive
     /// objects when their `roughness` is greater than `0.0`.
     ///
     /// Higher qualities are more GPU-intensive.
     ///
     /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: `TemporalAntiAliasPlugin`
-    pub screen_space_specular_transmission_quality: ScreenSpaceTransmissionQuality,
+    pub quality: ScreenSpaceTransmissionQuality,
 }
 
 impl Default for ScreenSpaceTransmission {
     fn default() -> Self {
         Self {
-            screen_space_specular_transmission_steps: 1,
-            screen_space_specular_transmission_quality: Default::default(),
+            steps: 1,
+            quality: Default::default(),
         }
     }
 }
@@ -130,4 +130,23 @@ pub enum ScreenSpaceTransmissionQuality {
     ///
     /// `num_taps` = 32
     Ultra,
+}
+
+impl ScreenSpaceTransmissionQuality {
+    pub const fn pipeline_key(self) -> MeshPipelineKey {
+        match self {
+            ScreenSpaceTransmissionQuality::Low => {
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW
+            }
+            ScreenSpaceTransmissionQuality::Medium => {
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM
+            }
+            ScreenSpaceTransmissionQuality::High => {
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH
+            }
+            ScreenSpaceTransmissionQuality::Ultra => {
+                MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA
+            }
+        }
+    }
 }

@@ -2,6 +2,7 @@
 //! Bevy uses `FontAtlas`'s under the hood to optimize text rendering.
 
 use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSet};
+
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -98,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 Text::new("a"),
                 TextFont {
                     font,
-                    font_size: 50.0,
+                    font_size: FontSize::Px(50.0),
                     ..default()
                 },
                 TextColor(YELLOW.into()),

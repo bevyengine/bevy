@@ -1,5 +1,6 @@
 //! Shows how to create a loading screen that waits for assets to load and render.
 use bevy::{ecs::system::SystemId, prelude::*};
+
 use pipelines_ready::*;
 
 // The way we'll go about doing this in this example is to
@@ -78,7 +79,7 @@ fn setup(mut commands: Commands) {
 
     // Spawns the UI that will show the user prompts.
     let text_style = TextFont {
-        font_size: 42.0,
+        font_size: FontSize::Px(42.0),
         ..default()
     };
     commands
@@ -229,7 +230,7 @@ struct LoadingScreen;
 // Spawns the necessary components for the loading screen.
 fn load_loading_screen(mut commands: Commands) {
     let text_style = TextFont {
-        font_size: 67.0,
+        font_size: FontSize::Px(67.0),
         ..default()
     };
 
