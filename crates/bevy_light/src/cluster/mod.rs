@@ -452,7 +452,7 @@ impl GlobalVisibleClusterableObjects {
         self.entities.iter()
     }
 
-    /// Checkes whether the given entity is a visible clusterable object.
+    /// Checks whether the given entity is a visible clusterable object.
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
         self.entities.contains(&entity)
