@@ -207,7 +207,9 @@ impl Plugin for LightPlugin {
                         .after(VisibilitySystems::CheckVisibility)
                         .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
                     build_directional_light_cascades
-                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades),
+                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
+                        .after(TransformSystems::Propagate)
+                        .after(CameraUpdateSystems),
                 ),
             );
 
