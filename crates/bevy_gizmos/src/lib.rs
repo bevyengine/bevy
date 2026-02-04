@@ -68,8 +68,8 @@ pub mod prelude {
     };
 }
 
-use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
-use bevy_asset::{Asset, AssetApp, Assets, Handle};
+use bevy_app::{App, FixedFirst, FixedLast, Plugin, PostUpdate, RunFixedMainLoop};
+use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets, Handle};
 use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
     prelude::Entity,
@@ -162,10 +162,12 @@ impl AppGizmoBuilder for App {
                     .in_set(bevy_app::RunFixedMainLoopSystems::AfterFixedMainLoop),
             )
             .add_systems(
-                Last,
+                PostUpdate,
                 (
                     propagate_gizmos::<Config, Fixed>.before(GizmoMeshSystems),
-                    update_gizmo_meshes::<Config>.in_set(GizmoMeshSystems),
+                    update_gizmo_meshes::<Config>
+                        .in_set(GizmoMeshSystems)
+                        .before(AssetEventSystems),
                 ),
             );
 
@@ -223,7 +225,7 @@ pub fn start_gizmo_context<Config, Clear>(
 ///
 /// Pop the default gizmos context out of the [`Swap<Clear>`] gizmo storage.
 ///
-/// This must be called before [`GizmoMeshSystems`] in the [`Last`] schedule.
+/// This must be called before [`GizmoMeshSystems`] in the [`PostUpdate`] schedule.
 pub fn end_gizmo_context<Config, Clear>(
     mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
     mut default: ResMut<GizmoStorage<Config, ()>>,
