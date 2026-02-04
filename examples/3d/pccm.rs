@@ -5,7 +5,7 @@ use core::f32;
 use bevy::{
     camera::Hdr,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    light::NoParallaxCorrection,
+    light::ParallaxCorrection,
     prelude::*,
 };
 
@@ -136,7 +136,7 @@ fn spawn_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) {
     let diffuse_map = asset_server.load(ENV_DIFFUSE_URL);
     let specular_map = asset_server.load(ENV_SPECULAR_URL);
     commands.spawn((
-        LightProbe,
+        LightProbe::default(),
         EnvironmentMapLight {
             diffuse_map,
             specular_map,
@@ -180,17 +180,17 @@ fn handle_pccm_enable_change(
         // selected.
         app_status.pccm_enabled = **message;
 
-        // Add or remove the `NoParallaxCorrection` component as appropriate.
+        // Add the appropriate variant of the `ParallaxCorrection` component.
         match **message {
             PccmEnableStatus::Enabled => {
                 commands
                     .entity(light_probe_entity)
-                    .remove::<NoParallaxCorrection>();
+                    .insert(ParallaxCorrection::Auto);
             }
             PccmEnableStatus::Disabled => {
                 commands
                     .entity(light_probe_entity)
-                    .insert(NoParallaxCorrection);
+                    .insert(ParallaxCorrection::None);
             }
         }
     }

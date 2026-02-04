@@ -11,15 +11,19 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<SpatialIndex>()
+        .init_resource::<ExplosionsEnabled>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (draw_shapes, handle_click))
+        .add_systems(Update, (draw_shapes, handle_click, toggle_explosions))
         // Observers are systems that run when an event is "triggered". This observer runs whenever
         // `ExplodeMines` is triggered.
+        //
+        // Observers can have run conditions, just like systems! This observer only runs when
+        // explosions are enabled. Press Space to toggle.
         .add_observer(
-            |explode_mines: On<ExplodeMines>,
-             mines: Query<&Mine>,
-             index: Res<SpatialIndex>,
-             mut commands: Commands| {
+            (|explode_mines: On<ExplodeMines>,
+              mines: Query<&Mine>,
+              index: Res<SpatialIndex>,
+              mut commands: Commands| {
                 // Access resources
                 for entity in index.get_nearby(explode_mines.pos) {
                     // Run queries
@@ -30,7 +34,8 @@ fn main() {
                         commands.trigger(Explode { entity });
                     }
                 }
-            },
+            })
+            .run_if(|enabled: Res<ExplosionsEnabled>| enabled.0),
         )
         // This observer runs whenever the `Mine` component is added to an entity, and places it in a simple spatial index.
         .add_observer(on_add_mine)
@@ -38,6 +43,25 @@ fn main() {
         // and removes it from the spatial index.
         .add_observer(on_remove_mine)
         .run();
+}
+
+#[derive(Resource)]
+struct ExplosionsEnabled(bool);
+
+impl Default for ExplosionsEnabled {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
+fn toggle_explosions(keyboard: Res<ButtonInput<KeyCode>>, mut enabled: ResMut<ExplosionsEnabled>) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        enabled.0 = !enabled.0;
+        info!(
+            "Explosions {}",
+            if enabled.0 { "ENABLED" } else { "DISABLED" }
+        );
+    }
 }
 
 #[derive(Component)]
@@ -78,7 +102,8 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         Text::new(
             "Click on a \"Mine\" to trigger it.\n\
-            When it explodes it will trigger all overlapping mines.",
+            When it explodes it will trigger all overlapping mines.\n\
+            Press Space to toggle explosions (demonstrates observer run conditions).",
         ),
         Node {
             position_type: PositionType::Absolute,

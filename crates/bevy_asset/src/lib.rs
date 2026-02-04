@@ -738,7 +738,7 @@ mod tests {
         sync::Mutex,
     };
     use bevy_reflect::TypePath;
-    use core::time::Duration;
+    use core::{any::TypeId, time::Duration};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::path::{Path, PathBuf};
@@ -2903,5 +2903,170 @@ mod tests {
         });
         // Now that the dependency is loaded, the subasset is counted as loaded with dependencies!
         assert!(asset_server.is_loaded_with_dependencies(&subasset_handle));
+    }
+
+    // A simplified version of `LoadState` for easier comparison.
+    #[derive(Debug, PartialEq, Eq)]
+    enum TestLoadState {
+        NotLoaded,
+        Loading,
+        Loaded,
+        Failed(TestAssetLoadError),
+    }
+
+    // A simplified subset of `AssetLoadError` for easier comparison.
+    #[derive(Debug, PartialEq, Eq)]
+    enum TestAssetLoadError {
+        RequestedHandleTypeMismatch {
+            requested: TypeId,
+            actual_asset_name: &'static str,
+        },
+        MissingAssetLoader,
+        AssetReaderErrorNotFound,
+        AssetLoaderError,
+        MissingLabel,
+    }
+
+    impl From<LoadState> for TestLoadState {
+        fn from(value: LoadState) -> Self {
+            match value {
+                LoadState::NotLoaded => Self::NotLoaded,
+                LoadState::Loading => Self::Loading,
+                LoadState::Loaded => Self::Loaded,
+                LoadState::Failed(err) => Self::Failed((&*err).into()),
+            }
+        }
+    }
+
+    impl From<&AssetLoadError> for TestAssetLoadError {
+        fn from(value: &AssetLoadError) -> TestAssetLoadError {
+            match value {
+                AssetLoadError::RequestedHandleTypeMismatch {
+                    requested,
+                    actual_asset_name,
+                    ..
+                } => Self::RequestedHandleTypeMismatch {
+                    requested: *requested,
+                    actual_asset_name,
+                },
+                AssetLoadError::MissingAssetLoader { .. } => Self::MissingAssetLoader,
+                AssetLoadError::AssetReaderError(AssetReaderError::NotFound(_)) => {
+                    Self::AssetReaderErrorNotFound
+                }
+                AssetLoadError::AssetLoaderError { .. } => Self::AssetLoaderError,
+                AssetLoadError::MissingLabel { .. } => Self::MissingLabel,
+                _ => panic!("TestAssetLoadError's From<&AssetLoaderError> is missing a case for AssetLoadError \"{:?}\".", value),
+            }
+        }
+    }
+
+    // An asset type that doesn't have a registered loader.
+    #[derive(Asset, TypePath)]
+    struct LoaderlessAsset;
+
+    // Load the given path and test that `AssetServer::get_load_state` returns
+    // the given state.
+    fn test_load_state<A: Asset>(
+        label: &'static str,
+        path: &'static str,
+        expected_load_state: TestLoadState,
+    ) {
+        let (mut app, dir) = create_app();
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .init_asset::<LoaderlessAsset>()
+            .register_asset_loader(CoolTextLoader);
+
+        dir.insert_asset_text(
+            Path::new("test.cool.ron"),
+            r#"
+(
+    text: "test",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: ["subasset"],
+)"#,
+        );
+
+        dir.insert_asset_text(Path::new("malformed.cool.ron"), "MALFORMED");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<A>(path);
+        let mut load_state = TestLoadState::NotLoaded;
+
+        for _ in 0..LARGE_ITERATION_COUNT {
+            app.update();
+            load_state = asset_server.get_load_state(&handle).unwrap().into();
+            if load_state == expected_load_state {
+                break;
+            }
+        }
+
+        assert!(
+            load_state == expected_load_state,
+            "For test \"{}\", expected {:?} but got {:?}.",
+            label,
+            expected_load_state,
+            load_state,
+        );
+    }
+
+    // Tests that `AssetServer::get_load_state` returns the correct state after
+    // various loads, some of which trigger errors.
+    #[test]
+    fn load_failure() {
+        test_load_state::<CoolText>("root asset exists", "test.cool.ron", TestLoadState::Loaded);
+
+        test_load_state::<SubText>(
+            "sub-asset exists",
+            "test.cool.ron#subasset",
+            TestLoadState::Loaded,
+        );
+
+        test_load_state::<CoolText>(
+            "root asset does not exist",
+            "does_not_exist.cool.ron",
+            TestLoadState::Failed(TestAssetLoadError::AssetReaderErrorNotFound),
+        );
+
+        test_load_state::<CoolText>(
+            "sub-asset of root asset that does not exist",
+            "does_not_exist.cool.ron#subasset",
+            TestLoadState::Failed(TestAssetLoadError::AssetReaderErrorNotFound),
+        );
+
+        test_load_state::<SubText>(
+            "sub-asset does not exist",
+            "test.cool.ron#does_not_exist",
+            TestLoadState::Failed(TestAssetLoadError::MissingLabel),
+        );
+
+        test_load_state::<CoolText>(
+            "sub-asset is not requested type",
+            "test.cool.ron#subasset",
+            TestLoadState::Failed(TestAssetLoadError::RequestedHandleTypeMismatch {
+                requested: TypeId::of::<CoolText>(),
+                actual_asset_name: "bevy_asset::tests::SubText",
+            }),
+        );
+
+        test_load_state::<CoolText>(
+            "malformed root asset",
+            "malformed.cool.ron",
+            TestLoadState::Failed(TestAssetLoadError::AssetLoaderError),
+        );
+
+        test_load_state::<CoolText>(
+            "sub-asset of malformed root asset",
+            "malformed.cool.ron#subasset",
+            TestLoadState::Failed(TestAssetLoadError::AssetLoaderError),
+        );
+
+        test_load_state::<LoaderlessAsset>(
+            "root asset has no loader",
+            "loaderless",
+            TestLoadState::Failed(TestAssetLoadError::MissingAssetLoader),
+        );
     }
 }
