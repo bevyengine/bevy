@@ -252,7 +252,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         children![(
             Text::new("Drag model to spin"),
             TextFont {
-                font_size: 18.0,
+                font_size: FontSize::Px(18.0),
                 ..default()
             },
         )],

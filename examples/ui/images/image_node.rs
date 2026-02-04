@@ -30,8 +30,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ImageNode::new(asset_server.load("branding/icon.png")),
             // Child Node control `ImageNode` size
             Node {
-                width: Val::Px(256.),
-                height: Val::Px(256.),
+                width: px(256.),
+                height: px(256.),
                 ..default()
             }
         )],

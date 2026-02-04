@@ -715,7 +715,7 @@ impl EntityAllocator {
 
     /// Builds a new remote allocator that hooks into this [`EntityAllocator`].
     /// This is useful when you need to allocate entities without holding a reference to the world (like in async).
-    pub fn build_remote_allocator(&mut self) -> RemoteAllocator {
+    pub fn build_remote_allocator(&self) -> RemoteAllocator {
         RemoteAllocator::new(&self.inner)
     }
 
@@ -731,6 +731,14 @@ impl EntityAllocator {
     /// (but not strictly necessary if you don't mind [`Entity`] id aliasing.)
     pub fn free(&mut self, freed: Entity) {
         self.inner.free(freed);
+    }
+
+    /// This allows `freed` to be retrieved from [`alloc`](Self::alloc), etc.
+    ///
+    /// The same caveats of [`free`](Self::free) apply here.
+    /// (Eg. the slice should not contain duplicates.)
+    pub fn free_many(&mut self, freed: &[Entity]) {
+        self.inner.free_many(freed);
     }
 
     /// Allocates some [`Entity`].

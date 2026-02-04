@@ -4,7 +4,7 @@
 
 extern crate alloc;
 
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{App, Plugin, PostUpdate, Update};
 use bevy_asset::AssetApp;
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
@@ -16,6 +16,8 @@ use bevy_camera::{
     Camera3d, CameraUpdateSystems,
 };
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
+#[cfg(feature = "bevy_gizmos")]
+use bevy_gizmos::frustum::FrustumGizmoSystems;
 use bevy_math::Vec3A;
 use bevy_mesh::Mesh3d;
 use bevy_reflect::prelude::*;
@@ -34,8 +36,9 @@ use bevy_camera::visibility::SetViewVisibility;
 
 mod probe;
 pub use probe::{
-    AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
-    IrradianceVolume, LightProbe, NoParallaxCorrection, Skybox,
+    automatically_add_parallax_correction_components, AtmosphereEnvironmentMapLight,
+    EnvironmentMapLight, GeneratedEnvironmentMapLight, IrradianceVolume, LightProbe,
+    ParallaxCorrection, Skybox,
 };
 pub mod atmosphere;
 pub use atmosphere::Atmosphere;
@@ -165,6 +168,7 @@ impl Plugin for LightPlugin {
                 SimulationLightSystems::CheckLightVisibility
                     .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
             )
+            .add_systems(Update, automatically_add_parallax_correction_components)
             .add_systems(
                 PostUpdate,
                 (
@@ -188,6 +192,13 @@ impl Plugin for LightPlugin {
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystems::Propagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
+                    #[cfg(feature = "bevy_gizmos")]
+                    update_spot_light_frusta
+                        .in_set(SimulationLightSystems::UpdateLightFrusta)
+                        .before(FrustumGizmoSystems)
+                        .after(TransformSystems::Propagate)
+                        .after(SimulationLightSystems::AssignLightsToClusters),
+                    #[cfg(not(feature = "bevy_gizmos"))]
                     update_spot_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystems::Propagate)

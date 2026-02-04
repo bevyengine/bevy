@@ -93,7 +93,7 @@ fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
         Text::new(text),
         TextFont {
             font: font.into(),
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.9, 0.9, 0.9)),

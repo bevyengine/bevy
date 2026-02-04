@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_font = TextFont {
         font: font.clone().into(),
-        font_size: 50.0,
+        font_size: FontSize::Px(50.0),
         ..default()
     };
     let text_justification = Justify::Center;
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate text wrapping
     let slightly_smaller_text_font = TextFont {
         font: font.into(),
-        font_size: 35.0,
+        font_size: FontSize::Px(35.0),
         ..default()
     };
     let box_size = Vec2::new(300.0, 200.0);

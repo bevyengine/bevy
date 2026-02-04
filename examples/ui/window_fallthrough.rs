@@ -31,7 +31,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("Hit 'P' then scroll/click around!"),
         TextFont {
             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-            font_size: 83.0, // Nice and big so you can see it!
+            font_size: FontSize::Px(83.0), // Nice and big so you can see it!
             ..default()
         },
         // Set the style of the TextBundle itself.
