@@ -39,6 +39,10 @@ pub enum RenderErrorPolicy {
 /// Determines what [`RenderErrorPolicy`] should be used to respond to a given [`RenderError`].
 ///
 /// The handler has access to both the main world and the render world in that order.
+/// By the time this is invoked, the error has already been logged. The error is provided
+/// for the decision-making reason of how to appropriately respond to it. Not all errors
+/// are equally severe: validation errors may be ignored for example, while device lost errors
+/// require recovery to continue rendering.
 #[derive(Resource)]
 pub struct RenderErrorHandler(
     pub for<'a> fn(&'a RenderError, &'a mut World, &'a mut World) -> RenderErrorPolicy,
