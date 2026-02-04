@@ -314,7 +314,7 @@ impl LightProbeComponent for IrradianceVolume {
         self.intensity
     }
 
-    fn flags(&self, _: Self::QueryData) -> RenderLightProbeFlags {
+    fn flags(&self, _: &Self::QueryData) -> RenderLightProbeFlags {
         if self.affects_lightmapped_meshes {
             RenderLightProbeFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE
         } else {

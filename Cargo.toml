@@ -2030,6 +2030,18 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "asset_saving"
+path = "examples/asset/asset_saving.rs"
+doc-scrape-examples = true
+required-features = ["bevy_picking", "sprite_picking"]
+
+[package.metadata.example.asset_saving]
+name = "Asset Saving"
+description = "Demonstrates how to save an asset (with subassets)"
+category = "Assets"
+wasm = true
+
+[[example]]
 name = "asset_settings"
 path = "examples/asset/asset_settings.rs"
 doc-scrape-examples = true
@@ -5472,3 +5484,15 @@ name = "Parallax-Corrected Cubemaps"
 description = "Demonstrates parallax-corrected cubemap reflections"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "light_probe_blending"
+path = "examples/3d/light_probe_blending.rs"
+doc-scrape-examples = true
+required-features = ["free_camera", "https"]
+
+[package.metadata.example.light_probe_blending]
+name = "Light Probe Blending"
+description = "Demonstrates blending between multiple reflection probes"
+category = "3D Rendering"
+wasm = false

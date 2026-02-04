@@ -157,7 +157,7 @@ impl AssetSaver for MeshletMeshSaver {
     async fn save(
         &self,
         writer: &mut Writer,
-        asset: SavedAsset<'_, MeshletMesh>,
+        asset: SavedAsset<'_, '_, MeshletMesh>,
         _settings: &(),
     ) -> Result<(), MeshletMeshSaveOrLoadError> {
         // Write asset magic number
