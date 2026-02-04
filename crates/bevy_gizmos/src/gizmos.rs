@@ -102,7 +102,8 @@ pub struct Swap<Clear>(PhantomData<Clear>);
 /// cleared each time the [`RunFixedMainLoop`](bevy_app::RunFixedMainLoop)
 /// schedule is run.
 ///
-/// Gizmos should be spawned before the [`Last`](bevy_app::Last) schedule
+/// Gizmos should be spawned before the [`AssetEventSystems`](bevy_asset::AssetEventSystems)
+/// are run in the [`PostUpdate`](bevy_app::PostUpdate) schedule
 /// to ensure they are drawn.
 ///
 /// To set up your own clearing context (useful for custom scheduling similar
