@@ -43,7 +43,7 @@ pub use atmosphere::Atmosphere;
 mod volumetric;
 pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
 pub mod cascade;
-use cascade::{build_directional_light_cascades, clear_directional_light_cascades};
+use cascade::build_directional_light_cascades;
 pub use cascade::{CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades};
 mod point_light;
 pub use point_light::{
@@ -163,11 +163,6 @@ impl Plugin for LightPlugin {
             .register_required_components::<Camera3d, Clusters>()
             .configure_sets(
                 PostUpdate,
-                SimulationLightSystems::UpdateDirectionalLightCascades
-                    .ambiguous_with(SimulationLightSystems::UpdateDirectionalLightCascades),
-            )
-            .configure_sets(
-                PostUpdate,
                 SimulationLightSystems::CheckLightVisibility
                     .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
             )
@@ -179,10 +174,6 @@ impl Plugin for LightPlugin {
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystems::Propagate)
                         .after(VisibilitySystems::CheckVisibility)
-                        .after(CameraUpdateSystems),
-                    clear_directional_light_cascades
-                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        .after(TransformSystems::Propagate)
                         .after(CameraUpdateSystems),
                     update_directional_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
@@ -217,8 +208,7 @@ impl Plugin for LightPlugin {
                         .after(VisibilitySystems::CheckVisibility)
                         .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
                     build_directional_light_cascades
-                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        .after(clear_directional_light_cascades),
+                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades),
                 ),
             );
 
@@ -295,9 +285,7 @@ pub enum ShadowFilteringMethod {
 pub enum SimulationLightSystems {
     /// After this set, all lights have been clustered.
     AssignLightsToClusters,
-    /// System order ambiguities between systems in this set are ignored:
-    /// each [`build_directional_light_cascades`] system is independent of the others,
-    /// and should operate on distinct sets of entities.
+    /// After this set, all directional light cascades are up to date.
     UpdateDirectionalLightCascades,
     /// After this set, the frusta of shadow-casting point lights, spot lights, and directional lights are up to date.
     UpdateLightFrusta,

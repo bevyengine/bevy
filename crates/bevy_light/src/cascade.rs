@@ -191,15 +191,6 @@ pub struct Cascade {
     pub texel_size: f32,
 }
 
-pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &mut Cascades)>) {
-    for (directional_light, mut cascades) in lights.iter_mut() {
-        if !directional_light.shadow_maps_enabled {
-            continue;
-        }
-        cascades.cascades.clear();
-    }
-}
-
 /// Sets up [`Cascades`] for all shadow mapped [`DirectionalLight`]s.
 pub fn build_directional_light_cascades(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
@@ -226,6 +217,7 @@ pub fn build_directional_light_cascades(
         if !directional_light.shadow_maps_enabled {
             continue;
         }
+        cascades.cascades.clear();
 
         // It is very important to the numerical and thus visual stability of shadows that
         // `world_from_light` has orthogonal upper-left 3x3 and zero translation.
