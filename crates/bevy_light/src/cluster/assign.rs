@@ -845,6 +845,8 @@ pub(crate) fn assign_objects_to_clusters(
     }
 }
 
+// TODO: this probably shouldn't return a Vec2 and should probably be named better.
+#[expect(missing_docs, reason = "TODO")]
 pub fn calculate_cluster_factors(
     near: f32,
     far: f32,

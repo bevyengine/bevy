@@ -1,4 +1,3 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 //! Provides component types for lighting a bevy scene. This includes the usual
 //! directional, point, and spot lights, as well as light probes, atmosphere,
 //! other volumetrics, and shadow configuration.
