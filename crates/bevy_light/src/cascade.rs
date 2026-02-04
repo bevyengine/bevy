@@ -226,10 +226,11 @@ pub fn build_directional_light_cascades(
         // `transform.to_matrix()` will give us a matrix with our desired properties.
         // Instead, we directly create a good matrix from just the rotation.
         let world_from_light = Mat4::from_quat(transform.rotation());
+        // The transpose is the inverse for orthogonal matrices.
         let light_from_world = world_from_light.transpose();
 
-        for (view_entity, projection, view_to_world) in views.iter().copied() {
-            let light_view_from_camera = light_from_world * view_to_world;
+        for (view_entity, projection, world_from_view) in views.iter().copied() {
+            let light_view_from_camera = light_from_world * world_from_view;
             let overlap_factor = 1.0 - cascades_config.overlap_proportion;
             let far_bounds = cascades_config.bounds.iter();
             let near_bounds = [cascades_config.minimum_distance]
