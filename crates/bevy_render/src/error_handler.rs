@@ -164,8 +164,12 @@ impl DeviceErrorHandler {
     }
 }
 
-/// We need both the main and render world to properly handle errors, so we wedge ourselves into Extract.
-/// Returns true if `RenderStartup` should be run.
+/// Updates the state machine that handles the renderer and device lifecycle.
+/// Polls the [`DeviceErrorHandler`] and fires the [`RenderErrorHandler`] if needed.
+///
+/// Returns true if [`crate::RenderStartup`] should be run.
+///
+/// We need both the main and render world to properly handle errors, so we wedge ourselves into [extract](bevy_app::SubApp::set_extract).
 pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) -> bool {
     // Remove the render state so we can access both worlds
     let state = render_world.remove_resource::<RenderState>().unwrap();
