@@ -123,7 +123,7 @@ impl ClusterableObjectType {
     }
 }
 
-/// This system runs in the main world.
+/// Clusters point lights, spot lights, light probes, and decals.
 ///
 /// NOTE: Run this before `update_point_light_frusta`!
 pub(crate) fn assign_objects_to_clusters(

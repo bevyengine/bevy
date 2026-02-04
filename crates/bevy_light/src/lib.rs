@@ -1,4 +1,7 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+//! Provides component types for lighting a bevy scene. This includes the usual
+//! directional, point, and spot lights, as well as light probes, atmosphere,
+//! other volumetrics, and shadow configuration.
 
 extern crate alloc;
 
@@ -57,6 +60,7 @@ pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
     DirectionalLightTexture, SunDisk,
 };
+/// Provides a gizmos drawing for visualizing light positions.
 #[cfg(feature = "bevy_gizmos")]
 pub mod gizmos;
 
@@ -91,11 +95,14 @@ pub mod light_consts {
     /// [visible light]: https://en.wikipedia.org/wiki/Visible_light
     /// [International System of Units]: https://en.wikipedia.org/wiki/International_System_of_Units
     pub mod lumens {
+        /// The conversion factor used to determine how many lumens a typical LED light of a given wattage produces.
         pub const LUMENS_PER_LED_WATTS: f32 = 90.0;
+        /// The conversion factor used to determine how many lumens a typical incandescent light of a given wattage produces.
         pub const LUMENS_PER_INCANDESCENT_WATTS: f32 = 13.8;
+        /// The conversion factor used to determine how many lumens a typical halogen light of a given wattage produces.
         pub const LUMENS_PER_HALOGEN_WATTS: f32 = 19.8;
         /// 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
-        /// default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+        /// default [`bevy_camera::Exposure::BLENDER`] exposure level. For "indoor lighting" with a lower exposure,
         /// this would be way too bright.
         pub const VERY_LARGE_CINEMA_LIGHT: f32 = 1_000_000.0;
     }
@@ -130,6 +137,7 @@ pub mod light_consts {
         /// The amount of light (lux) on an overcast day; typical TV studio lighting
         pub const OVERCAST_DAY: f32 = 1000.;
         /// The amount of light (lux) from ambient daylight (not direct sunlight).
+        /// This is the default for [`DirectionalLight`](crate::DirectionalLight)s in Bevy.
         pub const AMBIENT_DAYLIGHT: f32 = 10_000.;
         /// The amount of light (lux) in full daylight (not direct sun).
         pub const FULL_DAYLIGHT: f32 = 20_000.;
@@ -140,6 +148,7 @@ pub mod light_consts {
     }
 }
 
+/// Sets up all the light visibility and clustering infrastructure needed for rendering lights.
 #[derive(Default)]
 pub struct LightPlugin;
 
@@ -285,12 +294,15 @@ pub enum ShadowFilteringMethod {
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
+    /// After this set, all active cameras have a [`Clusters`] component.
     AddClusters,
+    /// After this set, all lights have been clustered.
     AssignLightsToClusters,
     /// System order ambiguities between systems in this set are ignored:
     /// each [`build_directional_light_cascades`] system is independent of the others,
     /// and should operate on distinct sets of entities.
     UpdateDirectionalLightCascades,
+    /// After this set, the frusta of shadow-casting point lights, spot lights, and directional lights are up to date.
     UpdateLightFrusta,
     /// System order ambiguities between systems in this set are ignored:
     /// the order of systems within this set is irrelevant, as the various visibility-checking systems
@@ -314,6 +326,7 @@ fn shrink_entities(visible_entities: &mut Vec<Entity>) {
     visible_entities.shrink_to(reserved);
 }
 
+/// Updates the visibility for [`DirectionalLight`]s so that shadow map rendering can work.
 pub fn check_dir_light_mesh_visibility(
     mut commands: Commands,
     mut directional_lights: Query<
@@ -478,6 +491,8 @@ pub fn check_dir_light_mesh_visibility(
     });
 }
 
+/// Updates the visibility for [`PointLight`]s and [`SpotLight`]s so that
+/// shadow map rendering can work.
 pub fn check_point_light_mesh_visibility(
     visible_point_lights: Query<&VisibleClusterableObjects>,
     mut point_lights: Query<(
