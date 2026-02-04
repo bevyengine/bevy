@@ -14,7 +14,7 @@ use bevy_camera::{
         RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems, VisibleEntityRanges,
         VisibleMeshEntities,
     },
-    CameraUpdateSystems,
+    Camera3d, CameraUpdateSystems,
 };
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::Vec3A;
@@ -27,8 +27,7 @@ use core::ops::DerefMut;
 pub mod cluster;
 pub use cluster::ClusteredDecal;
 use cluster::{
-    add_clusters, assign::assign_objects_to_clusters, GlobalVisibleClusterableObjects,
-    VisibleClusterableObjects,
+    assign::assign_objects_to_clusters, GlobalVisibleClusterableObjects, VisibleClusterableObjects,
 };
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
@@ -79,7 +78,9 @@ pub mod prelude {
     pub use crate::gizmos::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
-use crate::{atmosphere::ScatteringMedium, directional_light::validate_shadow_map_size};
+use crate::{
+    atmosphere::ScatteringMedium, cluster::Clusters, directional_light::validate_shadow_map_size,
+};
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
@@ -159,6 +160,7 @@ impl Plugin for LightPlugin {
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .init_asset::<ScatteringMedium>()
+            .register_required_components::<Camera3d, Clusters>()
             .configure_sets(
                 PostUpdate,
                 SimulationLightSystems::UpdateDirectionalLightCascades
@@ -173,9 +175,6 @@ impl Plugin for LightPlugin {
                 PostUpdate,
                 (
                     validate_shadow_map_size.before(build_directional_light_cascades),
-                    add_clusters
-                        .in_set(SimulationLightSystems::AddClusters)
-                        .after(CameraUpdateSystems),
                     assign_objects_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystems::Propagate)
@@ -294,8 +293,6 @@ pub enum ShadowFilteringMethod {
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
-    /// After this set, all active cameras have a [`Clusters`] component.
-    AddClusters,
     /// After this set, all lights have been clustered.
     AssignLightsToClusters,
     /// System order ambiguities between systems in this set are ignored:

@@ -134,7 +134,7 @@ pub(crate) fn assign_objects_to_clusters(
         &GlobalTransform,
         &Camera,
         &Frustum,
-        &ClusterConfig,
+        Option<&ClusterConfig>,
         &mut Clusters,
         Option<&RenderLayers>,
         Option<&mut VisibleClusterableObjects>,
@@ -312,6 +312,7 @@ pub(crate) fn assign_objects_to_clusters(
     {
         let view_layers = maybe_layers.unwrap_or_default();
         let clusters = clusters.into_inner();
+        let config = config.copied().unwrap_or_default();
 
         if matches!(config, ClusterConfig::None) {
             if visible_clusterable_objects.is_some() {

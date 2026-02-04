@@ -3,17 +3,9 @@
 use core::any::TypeId;
 
 use bevy_asset::Handle;
-use bevy_camera::{
-    visibility::{self, Visibility, VisibilityClass},
-    Camera, Camera3d,
-};
+use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    query::{With, Without},
-    reflect::ReflectComponent,
-    resource::Resource,
-    system::{Commands, Query},
+    component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
 };
 use bevy_image::Image;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec3Swizzles as _};
@@ -371,25 +363,6 @@ impl Clusters {
         self.near = 0.0;
         self.far = 0.0;
         self.clusterable_objects.clear();
-    }
-}
-
-/// Ensures all active cameras have a [`Clusters`] component.
-pub fn add_clusters(
-    mut commands: Commands,
-    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), (Without<Clusters>, With<Camera3d>)>,
-) {
-    for (entity, config, camera) in &cameras {
-        if !camera.is_active {
-            continue;
-        }
-
-        let config = config.copied().unwrap_or_default();
-        // actual settings here don't matter - they will be overwritten in
-        // `assign_objects_to_clusters`
-        commands
-            .entity(entity)
-            .insert((Clusters::default(), config));
     }
 }
 
