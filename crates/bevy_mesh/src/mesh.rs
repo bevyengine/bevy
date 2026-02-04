@@ -1072,29 +1072,15 @@ impl Mesh {
 
     /// Remove duplicate vertices and create the index pointing to the unique vertices.
     ///
-    /// This function is no-op if the mesh already has [`Indices`] set,
-    /// even if there are duplicate vertices. If deduplication is needed with indices already set,
-    /// consider calling [`Mesh::duplicate_vertices`] and then this function.
-    ///
-    /// # Panics
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_deduplicate_vertices`]
-    pub fn deduplicate_vertices(&mut self) {
-        self.try_deduplicate_vertices().expect(MESH_EXTRACTED_ERROR);
-    }
-
-    /// Remove duplicate vertices and create the index pointing to the unique vertices.
-    ///
-    /// This function is no-op if the mesh already has [`Indices`] set,
-    /// even if there are duplicate vertices. If deduplication is needed with indices already set,
-    /// consider calling [`Mesh::duplicate_vertices`] and then this function.
-    ///
     /// Returns an error if the mesh data has been extracted to `RenderWorld`.
-    pub fn try_deduplicate_vertices(&mut self) -> Result<(), MeshAccessError> {
+    /// Returns an error if the mesh already has [`Indices`] set, even if there
+    /// are duplicate vertices. If deduplication is needed with indices already set,
+    /// consider calling [`Mesh::duplicate_vertices`] and then this function.
+    pub fn merge_duplicate_vertices(&mut self) -> Result<(), MeshMergeDuplicateVerticesError> {
         match self.try_indices() {
-            Ok(_) => return Ok(()), // explicit no-op
+            Ok(_) => return Err(MeshMergeDuplicateVerticesError::IndicesAlreadySet),
             Err(err) => match err {
-                MeshAccessError::ExtractedToRenderWorld => return Err(err),
+                MeshAccessError::ExtractedToRenderWorld => return Err(err.into()),
                 MeshAccessError::NotFound => (),
             },
         }
@@ -1186,32 +1172,16 @@ impl Mesh {
 
     /// Consumes the mesh and returns a mesh with merged vertices.
     ///
-    /// This function is no-op if the mesh already has [`Indices`] set,
-    /// even if there are duplicate vertices. If deduplication is needed with indices already set,
-    /// consider calling [`Mesh::with_duplicated_vertices`] and then this function.
-    ///
-    /// (Alternatively, you can use [`Mesh::deduplicate_vertices`] to mutate an existing mesh in-place)
-    ///
-    /// # Panics
-    /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_with_deduplicated_vertices`]
-    #[must_use]
-    pub fn with_deduplicated_vertices(mut self) -> Self {
-        self.deduplicate_vertices();
-        self
-    }
-
-    /// Consumes the mesh and returns a mesh with merged vertices.
-    ///
-    /// This function is no-op if the mesh already has [`Indices`] set,
-    /// even if there are duplicate vertices. If deduplication is needed with indices already set,
-    /// consider calling [`Mesh::try_with_duplicated_vertices`] and then this function.
-    ///
-    /// (Alternatively, you can use [`Mesh::try_deduplicate_vertices`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`Mesh::merge_duplicate_vertices`] to mutate an existing mesh in-place)
     ///
     /// Returns an error if the mesh data has been extracted to `RenderWorld`.
-    pub fn try_with_deduplicated_vertices(mut self) -> Result<Self, MeshAccessError> {
-        self.try_deduplicate_vertices()?;
+    /// Returns an error if the mesh already has [`Indices`] set, even if there
+    /// are duplicate vertices. If deduplication is needed with indices already set,
+    /// consider calling [`Mesh::duplicate_vertices`] and then this function.
+    pub fn with_merge_duplicate_vertices(
+        mut self,
+    ) -> Result<Self, MeshMergeDuplicateVerticesError> {
+        self.merge_duplicate_vertices()?;
         Ok(self)
     }
 
@@ -2674,6 +2644,15 @@ impl MeshDeserializer {
     }
 }
 
+/// Error that can occur when calling [`Mesh::merge_duplicate_vertices`]
+#[derive(Error, Debug, Clone)]
+pub enum MeshMergeDuplicateVerticesError {
+    #[error("Index attribute already set.")]
+    IndicesAlreadySet,
+    #[error("Mesh access error: {0}")]
+    MeshAccessError(#[from] MeshAccessError),
+}
+
 /// Error that can occur when calling [`Mesh::merge`].
 #[derive(Error, Debug, Clone)]
 pub enum MeshMergeError {
@@ -3105,7 +3084,7 @@ mod tests {
     }
 
     #[test]
-    fn deduplicate_vertices() {
+    fn merge_duplicate_vertices() {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -3140,7 +3119,8 @@ mod tests {
             VertexAttributeValues::Float32x2(uvs.clone()),
         );
 
-        mesh.deduplicate_vertices();
+        let res = mesh.merge_duplicate_vertices();
+        assert!(res.is_ok());
         assert_eq!(6, mesh.indices().unwrap().len());
         // Note we have 5 unique vertices, not 6.
         assert_eq!(5, mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().len());
