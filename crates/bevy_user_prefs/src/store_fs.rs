@@ -41,6 +41,8 @@ impl PreferencesStore for StoreFs {
         self.base_path.is_some()
     }
 
+    /// Create a new [`PreferencesFile`] instance. This does not actually save the file until
+    /// `save` is called.
     fn create(&self) -> PreferencesFile {
         PreferencesFile::new()
     }
