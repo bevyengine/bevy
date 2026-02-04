@@ -3,7 +3,7 @@ use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::{cubic_splines::CubicGenerator, FloatExt, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    render_asset::RenderAsset,
+    render_asset::{AssetExtractionError, RenderAsset},
     render_resource::{
         Extent3d, ShaderType, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         TextureView, UniformBuffer,
@@ -190,6 +190,19 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
 
     fn asset_usage(_: &Self::SourceAsset) -> RenderAssetUsages {
         RenderAssetUsages::RENDER_WORLD
+    }
+
+    fn take_gpu_data(
+        source: &mut Self::SourceAsset,
+        _previous_gpu_asset: Option<&Self>,
+    ) -> Result<Self::SourceAsset, AssetExtractionError> {
+        Ok(AutoExposureCompensationCurve {
+            min_log_lum: source.min_log_lum,
+            max_log_lum: source.max_log_lum,
+            min_compensation: source.min_compensation,
+            max_compensation: source.max_compensation,
+            lut: source.lut,
+        })
     }
 
     fn prepare_asset(
