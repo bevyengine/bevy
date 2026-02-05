@@ -1983,7 +1983,7 @@ impl World {
         if let Some(entity) = self.resource_entities.get(component_id)
             && let Ok(entity_ref) = self.get_entity(*entity)
         {
-            return entity_ref.contains_id(component_id) && entity_ref.contains::<IsResource>();
+            return entity_ref.contains_id(component_id);
         }
         false
     }
