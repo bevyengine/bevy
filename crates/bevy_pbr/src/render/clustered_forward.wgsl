@@ -97,7 +97,7 @@ const CLUSTER_COUNT_SIZE = 9u;
 // primarily), light probes aren't clustered, and therefore both light probe
 // index ranges will be empty.
 //
-// If there are more than 3 SSBO bindings avaiable, each field of
+// If there are more than 3 SSBO bindings available, each field of
 // `ClusterableObjectIndexRanges` is a linked list head.
 fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObjectIndexRanges {
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
