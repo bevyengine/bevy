@@ -196,8 +196,8 @@ pub enum RenderSystems {
 
 /// The startup schedule of the [`RenderApp`].
 /// This can potentially run multiple times, and not on a fresh render world.
-/// Every time a new [`RenderDevice`] is acquired, this schedule runs to initialize
-/// any gpu resources needed for rendering on it.
+/// Every time a new [`RenderDevice`](renderer::RenderDevice) is acquired,
+/// this schedule runs to initialize any gpu resources needed for rendering on it.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct RenderStartup;
 
