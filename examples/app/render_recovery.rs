@@ -69,11 +69,11 @@ fn setup(
             Press D to Destroy the render device (causes device lost error)\n\
             Press L to Loop infinitely in a compute shader (causes device lost error)\n\
             \n\
-            Press 1 to use RenderErrorPolicy::Ignore\n\
-            Press 2 to use RenderErrorPolicy::Panic\n\
-            Press 3 to use RenderErrorPolicy::Shutdown\n\
-            Press 4 to use RenderErrorPolicy::StopRendering\n\
-            Press 5 to use RenderErrorPolicy::Recover\n\
+            Press 1 to Ignore: Pretends nothing happened and continues rendering.\n\
+            Press 2 to Panic: Panics on error.\n\
+            Press 3 to Shutdown: Signals app exit on error.\n\
+            Press 4 to StopRendering: Keeps the app alive, but stops rendering further.\n\
+            Press 5 to Recover: Attempt renderer recovery with the given [`RenderCreation`].\n\
             ",
         ),
         Node {

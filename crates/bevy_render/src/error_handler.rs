@@ -17,12 +17,9 @@ use crate::{
 };
 
 /// Resource to indicate renderer behavior upon error.
-#[expect(clippy::large_enum_variant, reason = "ergonomics")]
-#[derive(Default)]
 pub enum RenderErrorPolicy {
     /// Pretends nothing happened and continues rendering.
     /// This discards the error after logging it to console.
-    #[default]
     Ignore,
     /// Panics on error.
     Panic,
