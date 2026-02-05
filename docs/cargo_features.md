@@ -89,7 +89,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_mikktspace|Provides vertex tangent generation for use with bevy_mesh.|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
-|bevy_platform_services|Miscellaneous operating system services.|
+|bevy_platform_services|Miscellaneous operating system services|
 |bevy_post_process|Provides post process effects such as depth of field, bloom, chromatic aberration.|
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
