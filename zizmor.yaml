@@ -1,8 +1,0 @@
-rules:
-  # TODO: convert usages of workflow_run into workflow_call
-  dangerous-triggers:
-    ignore:
-      # necessary in order to leave the welcome comment because PRs come from forks
-      - welcome.yml
-      # necessary in order to leave release note and migration guide comments because PRs come from forks
-      - action-on-PR-labeled.yml
