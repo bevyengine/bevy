@@ -371,6 +371,24 @@ impl Components {
             ));
         }
 
+        for component_id in required_required_components
+            .all
+            .keys()
+            .chain([required].iter())
+        {
+            if self
+                .get_info(*component_id)
+                .unwrap()
+                .mutually_exclusive()
+                .contains(&requiree)
+            {
+                return Err(RequiredComponentsError::MutuallyExclusiveConflict(
+                    *component_id,
+                    requiree,
+                ));
+            }
+        }
+
         // SAFETY: The caller ensures that the `requiree` is valid.
         let required_components = unsafe {
             self.get_required_components_mut(requiree)
@@ -525,6 +543,9 @@ pub enum RequiredComponentsError {
     /// An archetype with the component that requires other components already exists
     #[error("An archetype with the component {0:?} that requires other components already exists")]
     ArchetypeExists(ComponentId),
+    /// Required component conflicts with a mutually exclusive component
+    #[error("Required component {0:?} cannot be mutually exclusive with component {1:?} that requires it")]
+    MutuallyExclusiveConflict(ComponentId, ComponentId),
 }
 
 pub(super) fn enforce_no_required_components_recursion(

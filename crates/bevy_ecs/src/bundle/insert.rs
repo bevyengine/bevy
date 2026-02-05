@@ -9,11 +9,12 @@ use crate::{
     },
     bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::{MaybeLocation, Tick},
-    component::{Components, StorageType},
+    component::{ComponentInfo, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
-    lifecycle::{Add, Insert, Replace, ADD, INSERT, REPLACE},
+    lifecycle::{Add, Insert, Replace, ADD, INSERT, REMOVE, REPLACE},
     observer::Observers,
+    prelude::Remove,
     query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table, TableRow},
@@ -186,6 +187,27 @@ impl<'w> BundleInserter<'w> {
                     relationship_hook_mode,
                 );
             }
+            if !archetype_after_insert.removed_all().is_empty() {
+                let archetype = archetype.as_ref();
+                if archetype.has_replace_observer() {
+                    // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+                    deferred_world.trigger_raw(
+                        REPLACE,
+                        &mut Replace { entity },
+                        &mut EntityComponentsTrigger {
+                            components: archetype_after_insert.removed_all(),
+                        },
+                        caller,
+                    );
+                }
+                deferred_world.trigger_on_replace(
+                    archetype,
+                    entity,
+                    archetype_after_insert.removed_all().iter().copied(),
+                    caller,
+                    relationship_hook_mode,
+                );
+            }
         }
 
         let table = table.as_mut();
@@ -218,6 +240,13 @@ impl<'w> BundleInserter<'w> {
                     let world = world.world_mut();
                     (&mut world.storages.sparse_sets, &mut world.entities)
                 };
+
+                for &removed_component in archetype_after_insert.removed_sparse().iter() {
+                    sparse_sets
+                        .get_mut(removed_component)
+                        .debug_checked_unwrap()
+                        .remove(entity);
+                }
 
                 let result = archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
@@ -279,7 +308,19 @@ impl<'w> BundleInserter<'w> {
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
-                let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
+                let move_result = if archetype_after_insert.removed_table().is_empty() {
+                    table.move_to_superset_unchecked(result.table_row, new_table)
+                } else {
+                    table.move_to_and_drop_missing_unchecked(result.table_row, new_table)
+                };
+
+                for &removed_component in archetype_after_insert.removed_sparse().iter() {
+                    sparse_sets
+                        .get_mut(removed_component)
+                        .debug_checked_unwrap()
+                        .remove(entity);
+                }
+
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
                 entities.update_existing_location(entity.index(), Some(new_location));
 
@@ -387,6 +428,7 @@ impl<'w> BundleInserter<'w> {
             relationship_hook_mode,
             archetype_after_insert,
             new_archetype,
+            self.archetype,
             deferred_world,
         );
 
@@ -404,6 +446,7 @@ impl<'w> BundleInserter<'w> {
         relationship_hook_mode: RelationshipHookMode,
         archetype_after_insert: &ArchetypeAfterBundleInsert,
         new_archetype: &Archetype,
+        old_archetype: NonNull<Archetype>,
         mut deferred_world: crate::world::DeferredWorld<'_>,
     ) {
         // SAFETY: All components in the bundle are guaranteed to exist in the World
@@ -471,6 +514,25 @@ impl<'w> BundleInserter<'w> {
                     }
                 }
             }
+            if !archetype_after_insert.removed_all().is_empty() {
+                let old_archetype = old_archetype.as_ref();
+                deferred_world.trigger_on_remove(
+                    old_archetype,
+                    entity,
+                    archetype_after_insert.removed_all().iter().copied(),
+                    caller,
+                );
+                if old_archetype.has_remove_observer() {
+                    deferred_world.trigger_raw(
+                        REMOVE,
+                        &mut Remove { entity },
+                        &mut EntityComponentsTrigger {
+                            components: archetype_after_insert.removed_all(),
+                        },
+                        caller,
+                    );
+                }
+            }
         }
     }
 
@@ -510,6 +572,8 @@ impl BundleInfo {
         let mut added_required_components = Vec::new();
         let mut added = Vec::new();
         let mut existing = Vec::new();
+        let mut removed_table = Vec::new();
+        let mut removed_sparse = Vec::new();
 
         let current_archetype = &mut archetypes[archetype_id];
         for component_id in self.iter_explicit_components() {
@@ -522,8 +586,26 @@ impl BundleInfo {
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
-                    StorageType::Table => new_table_components.push(component_id),
-                    StorageType::SparseSet => new_sparse_set_components.push(component_id),
+                    StorageType::Table => {
+                        new_table_components.push(component_id);
+                    }
+                    StorageType::SparseSet => {
+                        new_sparse_set_components.push(component_id);
+                    }
+                }
+                for &incompatible_id in component_info
+                    .mutually_exclusive()
+                    .iter()
+                    .filter(|id| current_archetype.contains(**id))
+                {
+                    match components
+                        .get_info(incompatible_id)
+                        .map(ComponentInfo::storage_type)
+                    {
+                        Some(StorageType::SparseSet) => removed_sparse.push(incompatible_id),
+                        Some(StorageType::Table) => removed_table.push(incompatible_id),
+                        _ => (),
+                    }
                 }
             }
         }
@@ -542,6 +624,20 @@ impl BundleInfo {
                         new_sparse_set_components.push(component_id);
                     }
                 }
+                for &incompatible_id in component_info
+                    .mutually_exclusive()
+                    .iter()
+                    .filter(|id| current_archetype.contains(**id))
+                {
+                    match components
+                        .get_info(incompatible_id)
+                        .map(ComponentInfo::storage_type)
+                    {
+                        Some(StorageType::SparseSet) => removed_sparse.push(incompatible_id),
+                        Some(StorageType::Table) => removed_table.push(incompatible_id),
+                        _ => (),
+                    }
+                }
             }
         }
 
@@ -555,6 +651,8 @@ impl BundleInfo {
                 added_required_components,
                 added,
                 existing,
+                removed_sparse,
+                removed_table,
             );
             (archetype_id, false)
         } else {
@@ -567,9 +665,16 @@ impl BundleInfo {
                 table_components = if new_table_components.is_empty() {
                     // If there are no new table components, we can keep using this table.
                     table_id = current_archetype.table_id();
-                    current_archetype.table_components().collect()
+                    current_archetype
+                        .table_components()
+                        .filter(|component_id| !removed_table.contains(component_id))
+                        .collect()
                 } else {
-                    new_table_components.extend(current_archetype.table_components());
+                    new_table_components.extend(
+                        current_archetype
+                            .table_components()
+                            .filter(|component_id| !removed_table.contains(component_id)),
+                    );
                     // Sort to ignore order while hashing.
                     new_table_components.sort_unstable();
                     // SAFETY: all component ids in `new_table_components` exist
@@ -583,9 +688,16 @@ impl BundleInfo {
                 };
 
                 sparse_set_components = if new_sparse_set_components.is_empty() {
-                    current_archetype.sparse_set_components().collect()
+                    current_archetype
+                        .sparse_set_components()
+                        .filter(|component_id| !removed_sparse.contains(component_id))
+                        .collect()
                 } else {
-                    new_sparse_set_components.extend(current_archetype.sparse_set_components());
+                    new_sparse_set_components.extend(
+                        current_archetype
+                            .sparse_set_components()
+                            .filter(|component_id| !removed_sparse.contains(component_id)),
+                    );
                     // Sort to ignore order while hashing.
                     new_sparse_set_components.sort_unstable();
                     new_sparse_set_components
@@ -612,6 +724,8 @@ impl BundleInfo {
                     added_required_components,
                     added,
                     existing,
+                    removed_sparse,
+                    removed_table,
                 );
             (new_archetype_id, is_new_created)
         }

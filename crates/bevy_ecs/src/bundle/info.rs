@@ -118,10 +118,18 @@ impl BundleInfo {
             panic!("Bundle {bundle_type_name} has duplicate components: {names:?}");
         }
 
+        let mut incompatible_components = Vec::new();
         let mut depth_first_components = IndexMap::<_, _, FixedHasher>::default();
         for &component_id in &component_ids {
             // SAFETY: caller has verified that all ids are valid
             let info = unsafe { components.get_info_unchecked(component_id) };
+
+            incompatible_components.extend(
+                info.mutually_exclusive()
+                    .iter()
+                    .filter(|id| explicit_component_ids.contains(*id))
+                    .map(|id| (component_id, *id)),
+            );
 
             for (&required_id, required_component) in &info.required_components().all {
                 depth_first_components
@@ -130,6 +138,23 @@ impl BundleInfo {
             }
 
             storages.prepare_component(info);
+        }
+
+        if !incompatible_components.is_empty() {
+            let incompatible_names =
+                Vec::from_iter(incompatible_components.into_iter().map(|(id1, id2)| {
+                    // SAFETY:
+                    // - caller has verified that all id1 is valid
+                    // - id2 is valid since component ids in mutually_exclusive components are always valid
+                    unsafe {
+                        (
+                            components.get_info_unchecked(id1).name(),
+                            components.get_info_unchecked(id2).name(),
+                        )
+                    }
+                }));
+
+            panic!("Bundle {bundle_type_name} has incompatible components {incompatible_names:?}")
         }
 
         let required_components = depth_first_components
