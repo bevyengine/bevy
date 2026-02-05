@@ -1,6 +1,6 @@
 use crate::{
-    error_handler::DeviceErrorHandler,
     render_resource::PipelineCache,
+    render_state::DeviceErrorHandler,
     renderer::{self, RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue},
     FutureRenderResources,
 };

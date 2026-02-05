@@ -12,7 +12,7 @@ use crate::{
     render_resource::PipelineCache,
     renderer::{RenderDevice, WgpuWrapper},
     settings::RenderCreation,
-    FutureRenderResources,
+    FutureRenderResources, RenderStartup,
 };
 
 /// Resource to indicate renderer behavior upon error.
@@ -161,22 +161,21 @@ impl DeviceErrorHandler {
 /// Updates the state machine that handles the renderer and device lifecycle.
 /// Polls the [`DeviceErrorHandler`] and fires the [`RenderErrorHandler`] if needed.
 ///
-/// Returns true if [`crate::RenderStartup`] should be run.
+/// Runs [`crate::RenderStartup`] after every time a [`RenderDevice`] is acquired.
 ///
 /// We need both the main and render world to properly handle errors, so we wedge ourselves into [extract](bevy_app::SubApp::set_extract).
-pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) -> bool {
-    // Remove the render state so we can access both worlds
-    let state = render_world.remove_resource::<RenderState>().unwrap();
-    let state = if let Some(error) = render_world.resource::<DeviceErrorHandler>().poll() {
-        RenderState::Errored(error)
-    } else {
-        state
+pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) {
+    if let Some(error) = render_world.resource::<DeviceErrorHandler>().poll() {
+        render_world.insert_resource(RenderState::Errored(error));
     };
+
+    // Remove the render state so we can provide both worlds to the `RenderErrorHandler`.
+    let state = render_world.remove_resource::<RenderState>().unwrap();
 
     match &state {
         RenderState::Initializing => {
+            render_world.run_schedule(RenderStartup);
             render_world.insert_resource(RenderState::Ready);
-            return true;
         }
         RenderState::Ready => {
             // all is well
@@ -212,6 +211,4 @@ pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) -> 
     if render_world.get_resource::<RenderState>().is_none() {
         render_world.insert_resource(state);
     }
-
-    false
 }

@@ -4,7 +4,6 @@ use bevy::{
     input::keyboard::Key,
     prelude::*,
     render::{
-        error_handler::{RenderErrorHandler, RenderErrorPolicy},
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_resource::{
             BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePassDescriptor,
@@ -12,6 +11,7 @@ use bevy::{
             ShaderModuleDescriptor, ShaderSource, TextureDescriptor, TextureDimension,
             TextureFormat, TextureUsages,
         },
+        render_state::{RenderErrorHandler, RenderErrorPolicy},
         renderer::{RenderDevice, RenderQueue},
         Render, RenderApp,
     },

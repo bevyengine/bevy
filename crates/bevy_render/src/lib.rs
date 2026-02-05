@@ -39,7 +39,6 @@ pub mod batching;
 pub mod camera;
 pub mod diagnostic;
 pub mod erased_render_asset;
-pub mod error_handler;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -54,6 +53,7 @@ pub mod pipelined_rendering;
 pub mod render_asset;
 pub mod render_phase;
 pub mod render_resource;
+pub mod render_state;
 pub mod renderer;
 pub mod settings;
 pub mod storage;
@@ -77,11 +77,11 @@ pub use extract_param::Extract;
 
 use crate::{
     camera::CameraPlugin,
-    error_handler::{RenderErrorHandler, RenderState},
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::PipelineCache,
+    render_state::{RenderErrorHandler, RenderState},
     renderer::{render_system, RenderAdapterInfo},
     settings::RenderCreation,
     storage::StoragePlugin,
@@ -194,7 +194,10 @@ pub enum RenderSystems {
     PostCleanup,
 }
 
-/// The startup schedule of the [`RenderApp`]
+/// The startup schedule of the [`RenderApp`].
+/// This can potentially run multiple times, and not on a fresh render world.
+/// Every time a new [`RenderDevice`] is acquired, this schedule runs to initialize
+/// any gpu resources needed for rendering on it.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct RenderStartup;
 
@@ -467,12 +470,7 @@ unsafe fn initialize_render_app(app: &mut App) {
         );
 
     render_app.set_extract(|main_world, render_world| {
-        if error_handler::update_state(main_world, render_world) {
-            // Run the `RenderStartup` if it hasn't run yet. This does mean `RenderStartup` blocks
-            // the rest of the app extraction, but this is necessary since extraction itself can
-            // depend on resources initialized in `RenderStartup`.
-            render_world.run_schedule(RenderStartup);
-        }
+        render_state::update_state(main_world, render_world);
 
         {
             #[cfg(feature = "trace")]
