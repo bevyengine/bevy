@@ -623,7 +623,7 @@ impl World {
                     .component_index()
                     .contains_key(&component_id_a)
                 {
-                    panic!("An archetype with the component {component_id_a:?} that already exists")
+                    panic!("An archetype with the component {component_id_a:?} already exists")
                 }
                 self.components
                     .register_mutually_exclusive(component_id_a, component_id_b);
