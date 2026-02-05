@@ -4,7 +4,7 @@ use std::time::Instant;
 use crate::{
     error_handler::RenderState,
     sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin},
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_app::{App, Plugin, SubApp};
 use bevy_ecs::{
@@ -39,6 +39,7 @@ impl Plugin for ExtractPlugin {
 
         render_app.add_schedule(extract_schedule);
         render_app.add_schedule(Render::base_schedule());
+        render_app.add_schedule(Schedule::new(RenderStartup));
         render_app.add_schedule(Schedule::new(RenderRecovery));
         render_app.insert_resource(RenderState::Initializing);
         render_app.add_systems(RenderRecovery, move |world: &mut World| {
