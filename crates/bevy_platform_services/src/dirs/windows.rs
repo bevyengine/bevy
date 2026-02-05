@@ -27,6 +27,7 @@ fn known_folder(folder_id: windows::core::GUID) -> Option<PathBuf> {
     }
 }
 
+/// Returns the path to the directory used for application settings.
 pub fn preferences_dir() -> Option<PathBuf> {
     known_folder(Shell::FOLDERID_LocalAppData)
 }
