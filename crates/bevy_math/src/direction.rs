@@ -179,6 +179,12 @@ impl Dir2 {
         Self::new_unchecked(Vec2::new(x, y))
     }
 
+    /// Creates a 2D direction containing `[angle.cos(), angle.sin()]`.
+    #[inline]
+    pub fn from_angle(angle: f32) -> Self {
+        Self(Vec2::from_angle(angle))
+    }
+
     /// Returns the inner [`Vec2`]
     pub const fn as_vec2(&self) -> Vec2 {
         self.0

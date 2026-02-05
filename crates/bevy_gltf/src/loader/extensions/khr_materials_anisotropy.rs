@@ -1,18 +1,12 @@
-use bevy_asset::LoadContext;
+use bevy_asset::{AssetPath, Handle};
+use bevy_image::Image;
 
-use gltf::{Document, Material};
+use gltf::Material;
 
 use serde_json::Value;
 
 #[cfg(feature = "pbr_anisotropy_texture")]
-use {
-    crate::loader::gltf_ext::{material::uv_channel, texture::texture_handle_from_info},
-    bevy_asset::Handle,
-    bevy_image::Image,
-    bevy_pbr::UvChannel,
-    gltf::json::texture::Info,
-    serde_json::value,
-};
+use {crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_pbr::UvChannel};
 
 /// Parsed data from the `KHR_materials_anisotropy` extension.
 ///
@@ -38,9 +32,9 @@ impl AnisotropyExtension {
         reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
     )]
     pub(crate) fn parse(
-        load_context: &mut LoadContext,
-        document: &Document,
         material: &Material,
+        textures: &[Handle<Image>],
+        asset_path: AssetPath<'_>,
     ) -> Option<AnisotropyExtension> {
         let extension = material
             .extensions()?
@@ -48,22 +42,20 @@ impl AnisotropyExtension {
             .as_object()?;
 
         #[cfg(feature = "pbr_anisotropy_texture")]
-        let (anisotropy_channel, anisotropy_texture) = extension
-            .get("anisotropyTexture")
-            .and_then(|value| value::from_value::<Info>(value.clone()).ok())
-            .map(|json_info| {
-                (
-                    uv_channel(material, "anisotropy", json_info.tex_coord),
-                    texture_handle_from_info(&json_info, document, load_context),
-                )
-            })
-            .unzip();
+        let (anisotropy_channel, anisotropy_texture) = parse_material_extension_texture(
+            material,
+            extension,
+            "anisotropyTexture",
+            "anisotropy",
+            textures,
+            asset_path,
+        );
 
         Some(AnisotropyExtension {
             anisotropy_strength: extension.get("anisotropyStrength").and_then(Value::as_f64),
             anisotropy_rotation: extension.get("anisotropyRotation").and_then(Value::as_f64),
             #[cfg(feature = "pbr_anisotropy_texture")]
-            anisotropy_channel: anisotropy_channel.unwrap_or_default(),
+            anisotropy_channel,
             #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_texture,
         })

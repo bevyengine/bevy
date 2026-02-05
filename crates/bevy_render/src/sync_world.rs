@@ -289,8 +289,8 @@ mod render_entities_world_query_impls {
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
-    /// SAFETY: defers completely to `&RenderEntity` implementation,
-    /// and then only modifies the output safely.
+    // SAFETY: defers completely to `&RenderEntity` implementation,
+    // and then only modifies the output safely.
     unsafe impl WorldQuery for RenderEntity {
         type Fetch<'w> = <&'static RenderEntity as WorldQuery>::Fetch<'w>;
         type State = <&'static RenderEntity as WorldQuery>::State;
@@ -385,6 +385,12 @@ mod render_entities_world_query_impls {
                 unsafe { <&RenderEntity as QueryData>::fetch(state, fetch, entity, table_row) };
             component.map(RenderEntity::id)
         }
+
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = bevy_ecs::query::EcsAccessType<'_>> {
+            <&RenderEntity as QueryData>::iter_access(state)
+        }
     }
 
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
@@ -398,8 +404,8 @@ mod render_entities_world_query_impls {
         }
     }
 
-    /// SAFETY: defers completely to `&RenderEntity` implementation,
-    /// and then only modifies the output safely.
+    // SAFETY: defers completely to `&RenderEntity` implementation,
+    // and then only modifies the output safely.
     unsafe impl WorldQuery for MainEntity {
         type Fetch<'w> = <&'static MainEntity as WorldQuery>::Fetch<'w>;
         type State = <&'static MainEntity as WorldQuery>::State;
@@ -493,6 +499,12 @@ mod render_entities_world_query_impls {
             let component =
                 unsafe { <&MainEntity as QueryData>::fetch(state, fetch, entity, table_row) };
             component.map(MainEntity::id)
+        }
+
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = bevy_ecs::query::EcsAccessType<'_>> {
+            <&MainEntity as QueryData>::iter_access(state)
         }
     }
 

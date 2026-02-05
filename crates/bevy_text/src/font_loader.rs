@@ -1,9 +1,10 @@
 use crate::Font;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
+use bevy_reflect::TypePath;
 use cosmic_text::skrifa::raw::ReadError;
 use thiserror::Error;
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 /// An [`AssetLoader`] for [`Font`]s, for use by the [`AssetServer`](bevy_asset::AssetServer)
 pub struct FontLoader;
 

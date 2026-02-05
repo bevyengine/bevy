@@ -281,6 +281,17 @@ fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angu
 
 // TRANSFORM UTILITIES
 
+/// Clamp a position to the planet surface (with a small epsilon) to avoid underground artifacts.
+fn clamp_to_surface(atmosphere: Atmosphere, position: vec3<f32>) -> vec3<f32> {
+    let min_radius = atmosphere.bottom_radius + EPSILON;
+    let r = length(position);
+    if r < min_radius {
+        let up = normalize(position);
+        return up * min_radius;
+    }
+    return position;
+}
+
 fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
     let t_top = distance_to_top_atmosphere_boundary(atmosphere, r, mu);
     let t_bottom = distance_to_bottom_atmosphere_boundary(r, mu);
@@ -291,18 +302,7 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 /// Returns the observer's position in the atmosphere
 fn get_view_position() -> vec3<f32> {
     var world_pos = view.world_position * settings.scene_units_to_m + vec3(0.0, atmosphere.bottom_radius, 0.0);
-    
-    // If the camera is underground, clamp it to the ground surface along the local up.
-    let r = length(world_pos);
-    // Nudge r above ground to avoid sqrt cancellation, zero-length segments where 
-    // r is equal to bottom_radius, which show up as black pixels
-    let min_radius = atmosphere.bottom_radius + EPSILON;
-    if r < min_radius {
-        let up = normalize(world_pos);
-        world_pos = up * min_radius;
-    }
-
-    return world_pos;
+    return clamp_to_surface(atmosphere, world_pos);
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.

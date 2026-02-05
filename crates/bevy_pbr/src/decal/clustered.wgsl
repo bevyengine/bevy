@@ -31,14 +31,31 @@
 #import bevy_pbr::clustered_forward
 #import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
 #import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::pbr_functions
+#import bevy_pbr::pbr_types::PbrInput
+#import bevy_pbr::utils::porter_duff_over
 #import bevy_render::maths
+
+#ifdef MESHLET_MESH_MATERIAL_PASS
+#import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
+#else ifdef PREPASS_PIPELINE
+#import bevy_pbr::prepass_io::VertexOutput
+#else
+#import bevy_pbr::forward_io::VertexOutput
+#endif
 
 // An object that allows stepping through all clustered decals that affect a
 // single fragment.
 struct ClusteredDecalIterator {
     // Public fields follow:
-    // The index of the decal texture in the binding array.
-    texture_index: i32,
+    // The index of the decal base color texture in the binding array.
+    base_color_texture_index: i32,
+    // The index of the decal normal map texture in the binding array.
+    normal_map_texture_index: i32,
+    // The index of the decal metallic-roughness texture in the binding array.
+    metallic_roughness_texture_index: i32,
+    // The index of the decal emissive texture in the binding array.
+    emissive_texture_index: i32,
     // The UV coordinates at which to sample that decal texture.
     uv: vec2<f32>,
     // A custom tag you can use for your own purposes.
@@ -72,6 +89,9 @@ fn clustered_decal_iterator_new(
 ) -> ClusteredDecalIterator {
     return ClusteredDecalIterator(
         -1,
+        -1,
+        -1,
+        -1,
         vec2(0.0),
         0u,
         // We subtract 1 because the first thing `decal_iterator_next` does is
@@ -103,8 +123,20 @@ fn clustered_decal_iterator_next(iterator: ptr<function, ClusteredDecalIterator>
             vec4((*iterator).world_position, 1.0)).xyz;
 
         if (all(decal_space_vector >= vec3(-0.5)) && all(decal_space_vector <= vec3(0.5))) {
-            (*iterator).texture_index =
-                i32(mesh_view_bindings::clustered_decals.decals[decal_index].image_index);
+            (*iterator).base_color_texture_index = i32(
+                mesh_view_bindings::clustered_decals.decals[decal_index].base_color_texture_index
+            );
+            (*iterator).normal_map_texture_index = i32(
+                mesh_view_bindings::clustered_decals.decals[decal_index].normal_map_texture_index
+            );
+            (*iterator).metallic_roughness_texture_index = i32(
+                mesh_view_bindings::clustered_decals.decals[
+                    decal_index
+                ].metallic_roughness_texture_index
+            );
+            (*iterator).emissive_texture_index = i32(
+                mesh_view_bindings::clustered_decals.decals[decal_index].emissive_texture_index
+            );
             (*iterator).uv = decal_space_vector.xy * vec2(1.0, -1.0) + vec2(0.5);
             (*iterator).tag =
                 mesh_view_bindings::clustered_decals.decals[decal_index].tag;
@@ -135,17 +167,16 @@ fn view_is_orthographic() -> bool {
     return mesh_view_bindings::view.clip_from_view[3].w == 1.0;
 }
 
-// Modifies the base color at the given position to account for decals.
-//
-// Returns the new base color with decals taken into account. If no decals
-// overlap the current world position, returns the supplied base color
-// unmodified.
-fn apply_decal_base_color(
-    world_position: vec3<f32>,
-    frag_coord: vec2<f32>,
-    initial_base_color: vec4<f32>,
-) -> vec4<f32> {
-    var base_color = initial_base_color;
+fn apply_decals(pbr_input: ptr<function, PbrInput>) {
+    let world_position = (*pbr_input).world_position.xyz;
+    let world_normal = (*pbr_input).world_normal;
+    let frag_coord = (*pbr_input).frag_coord.xy;
+
+    var base_color = (*pbr_input).material.base_color;
+    var emissive = (*pbr_input).material.emissive;
+    var Nt = (*pbr_input).N;
+    var metallic = (*pbr_input).material.metallic;
+    var perceptual_roughness = (*pbr_input).material.perceptual_roughness;
 
 #ifdef CLUSTERED_DECALS_ARE_USABLE
     // Fetch the clusterable object index ranges for this world position.
@@ -162,22 +193,73 @@ fn apply_decal_base_color(
 
     var iterator = clustered_decal_iterator_new(world_position, &clusterable_object_index_ranges);
     while (clustered_decal_iterator_next(&iterator)) {
-        // Sample the current decal.
-        let decal_base_color = textureSampleLevel(
-            mesh_view_bindings::clustered_decal_textures[iterator.texture_index],
-            mesh_view_bindings::clustered_decal_sampler,
-            iterator.uv,
-            0.0
-        );
+        // Apply base color and metallic/roughness.
+        if (iterator.base_color_texture_index >= 0) {
+            let decal_base_color = textureSampleLevel(
+                mesh_view_bindings::clustered_decal_textures[iterator.base_color_texture_index],
+                mesh_view_bindings::clustered_decal_sampler,
+                iterator.uv,
+                0.0
+            );
 
-        // Blend with the accumulated fragment.
-        base_color = vec4(
-            mix(base_color.rgb, decal_base_color.rgb, decal_base_color.a),
-            base_color.a + decal_base_color.a
-        );
+            // Apply the metallic (blue channel) and the roughness (green channel) map.
+            if (iterator.metallic_roughness_texture_index >= 0) {
+                let metallic_roughness_sampler = textureSampleLevel(
+                    mesh_view_bindings::clustered_decal_textures[
+                        iterator.metallic_roughness_texture_index
+                    ],
+                    mesh_view_bindings::clustered_decal_sampler,
+                    iterator.uv,
+                    0.0
+                );
+                // Use OVER compositing using the base color alpha.
+                metallic = mix(
+                    metallic * base_color.a,
+                    metallic_roughness_sampler.b,
+                    decal_base_color.a
+                );
+                perceptual_roughness = mix(
+                    perceptual_roughness * base_color.a,
+                    metallic_roughness_sampler.g,
+                    decal_base_color.a
+                );
+            }
+
+            // Apply base color with the standard OVER compositing operator.
+            base_color = porter_duff_over(base_color, decal_base_color);
+        }
+
+#ifdef VERTEX_TANGENTS
+        if (iterator.normal_map_texture_index >= 0) {
+            let Nd = textureSampleLevel(
+                mesh_view_bindings::clustered_decal_textures[iterator.normal_map_texture_index],
+                mesh_view_bindings::clustered_decal_sampler,
+                iterator.uv,
+                0.0
+            ).rgb * 2.0 - 1.0;
+            // This is the *Whiteout* normal map blending operator from [1].
+            //
+            // [1]: https://blog.selfshadow.com/publications/blending-in-detail/
+            Nt = vec3(Nt.xy + Nd.xy, Nt.z * Nd.z);
+        }
+#endif  // VERTEX_TANGENTS
+
+        // Apply emissive.
+        if (iterator.emissive_texture_index >= 0) {
+            let decal_emissive = textureSampleLevel(
+                mesh_view_bindings::clustered_decal_textures[iterator.emissive_texture_index],
+                mesh_view_bindings::clustered_decal_sampler,
+                iterator.uv,
+                0.0
+            );
+            emissive += vec4(decal_emissive.rgb, 0.0);
+        }
     }
 #endif  // CLUSTERED_DECALS_ARE_USABLE
 
-    return base_color;
+    (*pbr_input).material.base_color = base_color;
+    (*pbr_input).material.emissive = emissive;
+    (*pbr_input).N = normalize(Nt);
+    (*pbr_input).material.metallic = metallic;
+    (*pbr_input).material.perceptual_roughness = perceptual_roughness;
 }
-

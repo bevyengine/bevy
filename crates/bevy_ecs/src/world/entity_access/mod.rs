@@ -23,6 +23,7 @@ mod tests {
 
     use crate::change_detection::Tick;
     use crate::lifecycle::HookContext;
+    use crate::query::QueryAccessError;
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,
@@ -43,6 +44,14 @@ mod tests {
 
     #[derive(Component)]
     struct Marker;
+
+    #[derive(Component)]
+    #[component(on_add = despawn_on_add)]
+    struct DespawnOnAdd;
+
+    fn despawn_on_add(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+        world.commands().entity(entity).despawn();
+    }
 
     #[test]
     fn entity_ref_get_by_id() {
@@ -840,11 +849,35 @@ mod tests {
         let e3 = world.spawn_empty().id();
 
         assert_eq!(
-            Some((&X(7), &Y(10))),
+            Ok((&X(7), &Y(10))),
             world.entity(e1).get_components::<(&X, &Y)>()
         );
-        assert_eq!(None, world.entity(e2).get_components::<(&X, &Y)>());
-        assert_eq!(None, world.entity(e3).get_components::<(&X, &Y)>());
+        assert_eq!(
+            Err(QueryAccessError::EntityDoesNotMatch),
+            world.entity(e2).get_components::<(&X, &Y)>()
+        );
+        assert_eq!(
+            Err(QueryAccessError::EntityDoesNotMatch),
+            world.entity(e3).get_components::<(&X, &Y)>()
+        );
+    }
+
+    #[test]
+    fn get_components_mut() {
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+
+        let mut entity_mut_1 = world.entity_mut(e1);
+        let Ok((mut x, mut y)) = entity_mut_1.get_components_mut::<(&mut X, &mut Y)>() else {
+            panic!("could not get components");
+        };
+        x.0 += 1;
+        y.0 += 1;
+
+        assert_eq!(
+            Ok((&X(8), &Y(11))),
+            world.entity(e1).get_components::<(&X, &Y)>()
+        );
     }
 
     #[test]
@@ -1402,6 +1435,26 @@ mod tests {
 
         assert_eq!(world.entity(entity_a).get::<D>(), None);
         assert_eq!(world.entity(entity_b).get::<D>(), Some(&D));
+    }
+
+    #[test]
+    fn command_despawns_dont_invalidate_entity_world_muts() {
+        let mut world = World::new();
+
+        let mut entity = world.spawn(TestComponent(1));
+        entity.insert(DespawnOnAdd);
+        assert!(entity.is_despawned());
+    }
+
+    #[test]
+    #[should_panic]
+    fn using_despawned_entity_world_mut_panics() {
+        let mut world = World::new();
+
+        let mut entity = world.spawn(TestComponent(1));
+        entity.insert(DespawnOnAdd);
+        assert!(entity.is_despawned());
+        entity.insert(TestComponent2(2));
     }
 
     #[test]

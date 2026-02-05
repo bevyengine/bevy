@@ -1,3 +1,8 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
@@ -67,7 +72,7 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
-use core::{any::TypeId, fmt};
+use core::{any::TypeId, fmt, mem::ManuallyDrop};
 use log::warn;
 use unsafe_world_cell::UnsafeWorldCell;
 
@@ -93,7 +98,7 @@ use unsafe_world_cell::UnsafeWorldCell;
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
-    pub(crate) allocator: EntityAllocator,
+    pub(crate) entity_allocator: EntityAllocator,
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
     pub(crate) resource_entities: ResourceEntities,
@@ -114,7 +119,7 @@ impl Default for World {
         let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
-            allocator: EntityAllocator::default(),
+            entity_allocator: EntityAllocator::default(),
             components: Default::default(),
             resource_entities: Default::default(),
             archetypes: Archetypes::new(),
@@ -214,14 +219,14 @@ impl World {
 
     /// Retrieves this world's [`EntityAllocator`] collection.
     #[inline]
-    pub fn entities_allocator(&self) -> &EntityAllocator {
-        &self.allocator
+    pub fn entity_allocator(&self) -> &EntityAllocator {
+        &self.entity_allocator
     }
 
     /// Retrieves this world's [`EntityAllocator`] collection mutably.
     #[inline]
-    pub fn entities_allocator_mut(&mut self) -> &mut EntityAllocator {
-        &mut self.allocator
+    pub fn entity_allocator_mut(&mut self) -> &mut EntityAllocator {
+        &mut self.entity_allocator
     }
 
     /// Retrieves this world's [`Entities`] collection mutably.
@@ -308,7 +313,7 @@ impl World {
         unsafe {
             Commands::new_raw_from_entities(
                 self.command_queue.clone(),
-                &self.allocator,
+                &self.entity_allocator,
                 &self.entities,
             )
         }
@@ -1033,7 +1038,7 @@ impl World {
         let raw_queue = unsafe { cell.get_raw_command_queue() };
         // SAFETY: `&mut self` ensures the commands does not outlive the world.
         let commands = unsafe {
-            Commands::new_raw_from_entities(raw_queue, cell.entities_allocator(), cell.entities())
+            Commands::new_raw_from_entities(raw_queue, cell.entity_allocator(), cell.entities())
         };
 
         (fetcher, commands)
@@ -1109,13 +1114,11 @@ impl World {
         // SAFETY: command_queue is not referenced anywhere else
         if !unsafe { self.command_queue.is_empty() } {
             self.flush();
-            entity_location = self
-                .entities()
-                .get(entity)
-                .expect("For this to fail, a queued command would need to despawn the entity.");
+            entity_location = self.entities().get_spawned(entity).ok();
         }
 
-        // SAFETY: entity and location are valid, as they were just created above
+        // SAFETY: The entity and location started as valid.
+        // If they were changed by commands, the location was updated to match.
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
         // SAFETY:
         // - This is called exactly once after `get_components` has been called in `spawn_non_existent`.
@@ -1241,7 +1244,7 @@ impl World {
         bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
-        let entity = self.allocator.alloc();
+        let entity = self.entity_allocator.alloc();
         // This was just spawned from null, so it shouldn't panic.
         self.spawn_at_unchecked(entity, bundle, caller)
     }
@@ -1277,7 +1280,7 @@ impl World {
     }
 
     pub(crate) fn spawn_empty_with_caller(&mut self, caller: MaybeLocation) -> EntityWorldMut<'_> {
-        let entity = self.allocator.alloc();
+        let entity = self.entity_allocator.alloc();
         // This was just spawned from null, so it shouldn't panic.
         self.spawn_empty_at_unchecked(entity, caller)
     }
@@ -2656,6 +2659,12 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
+    ///
+    /// # Note
+    ///
+    /// If the world's resource metadata is cleared within the scope, such as by calling
+    /// [`World::clear_resources`] or [`World::clear_all`], the resource will *not* be re-inserted
+    /// at the end of the scope.
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
         self.try_resource_scope(f)
@@ -2669,6 +2678,12 @@ impl World {
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
     ///
     /// See also [`resource_scope`](Self::resource_scope).
+    ///
+    /// # Note
+    ///
+    /// If the world's resource metadata is cleared within the scope, such as by calling
+    /// [`World::clear_resources`] or [`World::clear_all`], the resource will *not* be re-inserted
+    /// at the end of the scope.
     pub fn try_resource_scope<R: Resource, U>(
         &mut self,
         f: impl FnOnce(&mut World, Mut<R>) -> U,
@@ -2682,10 +2697,127 @@ impl World {
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
         let mut changed_by = entity_mut.get_changed_by::<R>()?;
-        let mut value = entity_mut.take::<R>()?;
+        let value = entity_mut.take::<R>()?;
+
+        // type used to manage reinserting the resource at the end of the scope. use of a drop impl means that
+        // the resource is inserted even if the user-provided closure unwinds.
+        // this facilitates localized panic recovery and makes app shutdown in response to a panic more graceful
+        // by avoiding knock-on errors.
+        struct ReinsertGuard<'a, R: Resource> {
+            world: &'a mut World,
+            entity: Entity,
+            component_id: ComponentId,
+            value: ManuallyDrop<R>,
+            ticks: ComponentTicks,
+            caller: MaybeLocation,
+        }
+        impl<R: Resource> Drop for ReinsertGuard<'_, R> {
+            fn drop(&mut self) {
+                // take ownership of the value first so it'll get dropped if we return early
+                // SAFETY: drop semantics ensure that `self.value` will never be accessed again after this call
+                let value = unsafe { ManuallyDrop::take(&mut self.value) };
+
+                let Ok(mut entity_mut) = self.world.get_entity_mut(self.entity) else {
+                    return;
+                };
+
+                // in debug mode, raise a panic if user code re-inserted a resource of this type within the scope.
+                // resource insertion usually indicates a logic error in user code, which is useful to catch at dev time,
+                // however it does not inherently lead to corrupted state, so we avoid introducing an unnecessary crash
+                // for production builds.
+                if entity_mut.contains_id(self.component_id) {
+                    #[cfg(debug_assertions)]
+                    {
+                        // if we're already panicking, log an error instead of panicking, as double-panics result in an abort
+                        #[cfg(feature = "std")]
+                        if std::thread::panicking() {
+                            log::error!("Resource `{}` was inserted during a call to World::resource_scope, which may result in unexpected behavior.\n\
+                                   In release builds, the value inserted will be overwritten at the end of the scope.",
+                                   DebugName::type_name::<R>());
+                            // return early to maintain consistent behavior with non-panicking calls in debug builds
+                            return;
+                        }
+
+                        panic!("Resource `{}` was inserted during a call to World::resource_scope, which may result in unexpected behavior.\n\
+                               In release builds, the value inserted will be overwritten at the end of the scope.",
+                               DebugName::type_name::<R>());
+                    }
+                    #[cfg(not(debug_assertions))]
+                    {
+                        #[cold]
+                        #[inline(never)]
+                        fn warn_reinsert(resource_name: &str) {
+                            warn!(
+                                "Resource `{resource_name}` was inserted during a call to World::resource_scope: the inserted value will be overwritten.",
+                            );
+                        }
+
+                        warn_reinsert(&DebugName::type_name::<R>());
+                    }
+                }
+
+                move_as_ptr!(value);
+
+                // See EntityWorldMut::insert_with_caller for the original code.
+                // This is copied here to update the change ticks. This way we can ensure that the commands
+                // ran during self.flush(), interact with the correct ticks on the resource component.
+                {
+                    let location = entity_mut.location();
+                    let mut bundle_inserter = BundleInserter::new::<R>(
+                        // SAFETY: We update the entity location like in EntityWorldMut::insert_with_caller
+                        unsafe { entity_mut.world_mut() },
+                        location.archetype_id,
+                        self.ticks.changed,
+                    );
+                    // SAFETY:
+                    // - `location` matches current entity and thus must currently exist in the source
+                    //   archetype for this inserter and its location within the archetype.
+                    // - `T` matches the type used to create the `BundleInserter`.
+                    // - `apply_effect` is called exactly once after this function.
+                    // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
+                    //   and the caller ensures that the value is not accessed or dropped after this function
+                    //   returns.
+                    let (bundle, _) = value.partial_move(|bundle| unsafe {
+                        bundle_inserter.insert(
+                            self.entity,
+                            location,
+                            bundle,
+                            InsertMode::Replace,
+                            self.caller,
+                            RelationshipHookMode::Run,
+                        )
+                    });
+                    entity_mut.update_location();
+
+                    // set the added tick to the original
+                    entity_mut
+                        .get_mut::<R>()
+                        .unwrap()
+                        .set_last_added(self.ticks.added);
+
+                    // SAFETY: We update the entity location afterwards.
+                    unsafe { entity_mut.world_mut() }.flush();
+
+                    entity_mut.update_location();
+                    // SAFETY:
+                    // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
+                    // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
+                    unsafe { R::apply_effect(bundle, &mut entity_mut) };
+                }
+            }
+        }
+
+        let mut guard = ReinsertGuard {
+            world: self,
+            entity,
+            component_id,
+            value: ManuallyDrop::new(value),
+            ticks,
+            caller: changed_by,
+        };
 
         let value_mut = Mut {
-            value: &mut value,
+            value: &mut *guard.value,
             ticks: ComponentTicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
@@ -2695,61 +2827,7 @@ impl World {
             },
         };
 
-        let result = f(self, value_mut);
-        assert!(!self.contains_resource::<R>(),
-            "Resource `{}` was inserted during a call to World::resource_scope.\n\
-            This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
-            DebugName::type_name::<R>());
-
-        let mut entity_mut = self
-            .get_entity_mut(entity)
-            .expect("Reserved resource entity was destroyed.");
-
-        move_as_ptr!(value);
-
-        // See EntityWorldMut::insert_with_caller for the original code.
-        // This is copied here to update the change ticks. This way we can ensure that the commands
-        // ran during self.flush(), interact with the correct ticks on the resource component.
-        {
-            let location = entity_mut.location();
-            let mut bundle_inserter = BundleInserter::new::<R>(
-                // SAFETY: We update the entity location like in EntityWorldMut::insert_with_caller
-                unsafe { entity_mut.world_mut() },
-                location.archetype_id,
-                ticks.changed,
-            );
-            // SAFETY:
-            // - `location` matches current entity and thus must currently exist in the source
-            //   archetype for this inserter and its location within the archetype.
-            // - `T` matches the type used to create the `BundleInserter`.
-            // - `apply_effect` is called exactly once after this function.
-            // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
-            //   and the caller ensures that the value is not accessed or dropped after this function
-            //   returns.
-            let (bundle, _) = value.partial_move(|bundle| unsafe {
-                bundle_inserter.insert(
-                    entity,
-                    location,
-                    bundle,
-                    InsertMode::Replace,
-                    changed_by,
-                    RelationshipHookMode::Run,
-                )
-            });
-            entity_mut.update_location();
-
-            // set the added tick to the original
-            entity_mut.get_mut::<R>()?.set_last_added(ticks.added);
-
-            // SAFETY: We update the entity location afterwards.
-            unsafe { entity_mut.world_mut() }.flush();
-
-            entity_mut.update_location();
-            // SAFETY:
-            // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
-            // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
-            unsafe { R::apply_effect(bundle, &mut entity_mut) };
-        }
+        let result = f(guard.world, value_mut);
 
         Some(result)
     }
@@ -3109,7 +3187,7 @@ impl World {
         self.storages.sparse_sets.clear_entities();
         self.archetypes.clear_entities();
         self.entities.clear();
-        self.allocator.restart();
+        self.entity_allocator.restart();
     }
 
     /// Despawns all entities in this [`World`].
@@ -3758,6 +3836,7 @@ pub trait FromWorld {
 
 impl<T: Default> FromWorld for T {
     /// Creates `Self` using [`default()`](`Default::default`).
+    #[track_caller]
     fn from_world(_world: &mut World) -> Self {
         T::default()
     }
@@ -4307,7 +4386,7 @@ mod tests {
             world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
-        world.despawn(entity);
+        let new = world.despawn_no_free(entity).unwrap();
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),
             MaybeLocation::new(Some(Location::caller()))
@@ -4316,7 +4395,8 @@ mod tests {
             world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
-        let new = world.spawn_empty().id();
+
+        world.spawn_empty_at(new).unwrap();
         assert_eq!(entity.index(), new.index());
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),

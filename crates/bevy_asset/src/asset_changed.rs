@@ -149,7 +149,7 @@ pub struct AssetChangedState<A: AsAssetId> {
 }
 
 #[expect(unsafe_code, reason = "WorldQuery is an unsafe trait.")]
-/// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
+// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     type Fetch<'w> = AssetChangedFetch<'w, A>;
 
@@ -166,8 +166,11 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         // SAFETY:
-        // - `AssetChanges` is private and only accessed mutably in the `AssetEventSystems` system set.
-        // - `resource_id` was obtained from the type ID of `AssetChanges<A::Asset>`.
+        // - `state.resource_id` was obtained from `world.init_resource::<AssetChanges<A::Asset>>()`,
+        //   so the untyped pointer returned by `get_resource_by_id` can safely be dereferenced into that type.
+        // - `update_component_access` declares a read on `state.resource_id`, so it is safe to
+        //   read that resource here (see trait-level safety comments on `WorldQuery`, regarding
+        //   readonly resource access in `init_fetch`)
         let Some(changes) = (unsafe {
             world
                 .get_resource_by_id(state.resource_id)
@@ -264,7 +267,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 }
 
 #[expect(unsafe_code, reason = "QueryFilter is an unsafe trait.")]
-/// SAFETY: read-only access
+// SAFETY: read-only access
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
 
@@ -288,13 +291,14 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use crate::{AssetEventSystems, AssetPlugin, Handle};
+    use crate::tests::create_app;
+    use crate::{AssetEventSystems, Handle};
     use alloc::{vec, vec::Vec};
     use core::num::NonZero;
     use std::println;
 
     use crate::{AssetApp, Assets};
-    use bevy_app::{App, AppExit, PostUpdate, Startup, TaskPoolPlugin, Update};
+    use bevy_app::{App, AppExit, PostUpdate, Startup, Update};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::{
         component::Component,
@@ -321,10 +325,8 @@ mod tests {
     }
 
     fn run_app<Marker>(system: impl IntoSystem<(), (), Marker>) {
-        let mut app = App::new();
-        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<MyAsset>()
-            .add_systems(Update, system);
+        let mut app = create_app().0;
+        app.init_asset::<MyAsset>().add_systems(Update, system);
         app.update();
     }
 
@@ -405,10 +407,9 @@ mod tests {
 
     #[test]
     fn added() {
-        let mut app = App::new();
+        let mut app = create_app().0;
 
-        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<MyAsset>()
+        app.init_asset::<MyAsset>()
             .insert_resource(Counter(vec![0, 0, 0, 0]))
             .add_systems(Update, add_some)
             .add_systems(PostUpdate, count_update.after(AssetEventSystems));
@@ -428,10 +429,9 @@ mod tests {
 
     #[test]
     fn changed() {
-        let mut app = App::new();
+        let mut app = create_app().0;
 
-        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<MyAsset>()
+        app.init_asset::<MyAsset>()
             .insert_resource(Counter(vec![0, 0]))
             .add_systems(
                 Startup,

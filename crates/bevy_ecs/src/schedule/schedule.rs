@@ -4,19 +4,23 @@
 )]
 use alloc::{
     boxed::Box,
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     format,
     string::{String, ToString},
     vec,
     vec::Vec,
 };
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    hash::FixedHasher,
+};
 use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
 };
 use fixedbitset::FixedBitSet;
+use indexmap::{IndexMap, IndexSet};
 use log::{info, warn};
 use pass::ScheduleBuildPassObj;
 use thiserror::Error;
@@ -129,6 +133,9 @@ impl Schedules {
     }
 
     /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    ///
+    /// This mutates all currently present schedules, but does not apply to schedules added
+    /// in the future.
     pub fn configure_schedules(&mut self, schedule_build_settings: ScheduleBuildSettings) {
         for (_, schedule) in &mut self.inner {
             schedule.set_build_settings(schedule_build_settings.clone());
@@ -465,7 +472,7 @@ impl Schedule {
 
     /// Remove a custom build pass.
     pub fn remove_build_pass<T: ScheduleBuildPass>(&mut self) {
-        self.graph.passes.remove(&TypeId::of::<T>());
+        self.graph.passes.shift_remove(&TypeId::of::<T>());
     }
 
     /// Changes miscellaneous build settings.
@@ -697,7 +704,7 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
-    passes: BTreeMap<TypeId, Box<dyn ScheduleBuildPassObj>>,
+    passes: IndexMap<TypeId, Box<dyn ScheduleBuildPassObj>, FixedHasher>,
 }
 
 impl ScheduleGraph {
@@ -920,7 +927,7 @@ impl ScheduleGraph {
     pub fn systems_in_set(
         &self,
         system_set: InternedSystemSet,
-    ) -> Result<&HashSet<SystemKey>, ScheduleError> {
+    ) -> Result<&IndexSet<SystemKey, FixedHasher>, ScheduleError> {
         if self.changed {
             return Err(ScheduleError::Uninitialized);
         }
@@ -1014,7 +1021,7 @@ impl ScheduleGraph {
         }
     }
 
-    fn remove_systems_by_keys(&mut self, keys: &HashSet<SystemKey>) {
+    fn remove_systems_by_keys(&mut self, keys: &IndexSet<SystemKey, FixedHasher>) {
         for &key in keys {
             self.systems.remove(key);
 
@@ -1586,14 +1593,17 @@ pub struct ScheduleNotInitialized;
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
+    use core::any::TypeId;
+
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
         error::{ignore, panic, DefaultErrorHandler, Result},
         prelude::{ApplyDeferred, IntoSystemSet, Res, Resource},
         schedule::{
-            tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings,
-            ScheduleCleanupPolicy, SystemSet,
+            passes::AutoInsertApplyDeferredPass, tests::ResMut, IntoScheduleConfigs, Schedule,
+            ScheduleBuildPass, ScheduleBuildSettings, ScheduleCleanupPolicy, SystemSet,
         },
         system::Commands,
         world::World,
@@ -2570,5 +2580,59 @@ mod tests {
         assert!(result.is_ok());
         let conflicts = schedule.graph().conflicting_systems();
         assert!(conflicts.is_empty());
+    }
+
+    #[test]
+    fn build_pass_iteration_order() {
+        #[derive(Debug)]
+        struct Pass<const N: usize>;
+
+        impl<const N: usize> ScheduleBuildPass for Pass<N> {
+            type EdgeOptions = ();
+            fn add_dependency(
+                &mut self,
+                _from: crate::schedule::NodeId,
+                _to: crate::schedule::NodeId,
+                _options: Option<&Self::EdgeOptions>,
+            ) {
+            }
+            fn build(
+                &mut self,
+                _world: &mut World,
+                _graph: &mut super::ScheduleGraph,
+                _dependency_flattened: &mut crate::schedule::graph::Dag<crate::schedule::SystemKey>,
+            ) -> core::result::Result<(), crate::schedule::ScheduleBuildError> {
+                Ok(())
+            }
+            fn collapse_set(
+                &mut self,
+                _set: crate::schedule::SystemSetKey,
+                _systems: &indexmap::IndexSet<
+                    crate::schedule::SystemKey,
+                    bevy_platform::hash::FixedHasher,
+                >,
+                _dependency_flattening: &crate::schedule::graph::DiGraph<crate::schedule::NodeId>,
+            ) -> impl Iterator<Item = (crate::schedule::NodeId, crate::schedule::NodeId)>
+            {
+                core::iter::empty()
+            }
+        }
+
+        let mut schedule = Schedule::default();
+        schedule.add_build_pass(Pass::<0>);
+        schedule.add_build_pass(Pass::<1>);
+        schedule.add_build_pass(Pass::<2>);
+
+        let pass_order: Vec<TypeId> = schedule.graph().passes.keys().cloned().collect();
+
+        assert_eq!(
+            pass_order,
+            vec![
+                TypeId::of::<AutoInsertApplyDeferredPass>(),
+                TypeId::of::<Pass<0>>(),
+                TypeId::of::<Pass<1>>(),
+                TypeId::of::<Pass<2>>()
+            ]
+        );
     }
 }

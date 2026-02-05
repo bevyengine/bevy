@@ -1,23 +1,22 @@
-use crate::{Font, FontAtlas, FontSmoothing, TextFont};
-use bevy_asset::{AssetEvent, AssetId};
+use crate::{FontAtlas, FontSmoothing};
+use bevy_asset::Assets;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
+use bevy_ecs::resource::Resource;
+use bevy_image::Image;
 use bevy_platform::collections::HashMap;
+use cosmic_text::fontdb::ID;
 
 /// Identifies the font atlases for a particular font in [`FontAtlasSet`]
 ///
 /// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub struct FontAtlasKey(pub AssetId<Font>, pub u32, pub FontSmoothing);
-
-impl From<&TextFont> for FontAtlasKey {
-    fn from(font: &TextFont) -> Self {
-        FontAtlasKey(
-            font.font.id(),
-            font.font_size.to_bits(),
-            font.font_smoothing,
-        )
-    }
+pub struct FontAtlasKey {
+    /// Font asset id
+    pub id: ID,
+    /// Font size via `f32::to_bits`
+    pub font_size_bits: u32,
+    /// Antialiasing method
+    pub font_smoothing: FontSmoothing,
 }
 
 /// Set of rasterized fonts stored in [`FontAtlas`]es.
@@ -30,16 +29,17 @@ impl FontAtlasSet {
         self.get(font_key)
             .is_some_and(|font_atlas| font_atlas.iter().any(|atlas| atlas.has_glyph(cache_key)))
     }
-}
 
-/// A system that automatically frees unused texture atlases when a font asset is removed.
-pub fn free_unused_font_atlases_system(
-    mut font_atlas_sets: ResMut<FontAtlasSet>,
-    mut font_events: MessageReader<AssetEvent<Font>>,
-) {
-    for event in font_events.read() {
-        if let AssetEvent::Removed { id } = event {
-            font_atlas_sets.retain(|key, _| key.0 != *id);
-        }
+    /// Returns the total size in bytes of the image data for all fonts.
+    pub fn total_bytes(&self, images: &Assets<Image>) -> u64 {
+        self.values()
+            .flat_map(|font_atlases| font_atlases.iter())
+            .map(|font_atlas| {
+                images
+                    .get(&font_atlas.texture)
+                    .and_then(|image| image.data.as_ref())
+                    .map_or(0, |data| data.len() as u64)
+            })
+            .sum()
     }
 }

@@ -1525,7 +1525,7 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 #[cfg(test)]
 mod tests {
     use crate as bevy_animation;
-    use bevy_reflect::{DynamicMap, Map};
+    use bevy_reflect::map::{DynamicMap, Map};
 
     use super::*;
 

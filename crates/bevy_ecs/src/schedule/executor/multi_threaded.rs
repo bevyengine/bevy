@@ -448,12 +448,21 @@ impl ExecutorState {
         }
 
         #[cfg(feature = "hotpatching")]
-        let hotpatch_tick = context
-            .environment
-            .world_cell
-            .get_resource_ref::<HotPatchChanges>()
-            .map(|r| r.last_changed())
-            .unwrap_or_default();
+        #[expect(
+            clippy::undocumented_unsafe_blocks,
+            reason = "This actually could result in UB if a system tries to mutate
+            `HotPatchChanges`. We allow this as the resource only exists with the `hotpatching` feature.
+            and `hotpatching` should never be enabled in release."
+        )]
+        #[cfg(feature = "hotpatching")]
+        let hotpatch_tick = unsafe {
+            context
+                .environment
+                .world_cell
+                .get_resource_ref::<HotPatchChanges>()
+        }
+        .map(|r| r.last_changed())
+        .unwrap_or_default();
 
         // can't borrow since loop mutably borrows `self`
         let mut ready_systems = core::mem::take(&mut self.ready_systems_copy);

@@ -11,7 +11,6 @@ use bevy_ecs::{
     hierarchy::Children,
     query::{Changed, Or, With},
     schedule::IntoScheduleConfigs,
-    spawn::SpawnRelated,
     system::Query,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
