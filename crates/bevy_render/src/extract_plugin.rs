@@ -1,8 +1,10 @@
 use core::ops::{Deref, DerefMut};
+use std::time::Instant;
 
 use crate::{
+    error_handler::RenderState,
     sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin, SubApp};
 use bevy_ecs::{
@@ -10,8 +12,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, Schedule, ScheduleBuildSettings, ScheduleLabel, Schedules},
     world::{Mut, World},
 };
-#[cfg(feature = "trace")]
-use bevy_log::tracing;
+use bevy_time::TimeSender;
 use bevy_utils::default;
 
 /// Plugin that sets up the render subapp and handles extracting data from the
@@ -25,7 +26,7 @@ impl Plugin for ExtractPlugin {
         app.init_resource::<ScratchMainWorld>();
 
         let mut render_app = SubApp::new();
-        render_app.update_schedule = Some(Render.intern());
+        render_app.update_schedule = Some(RenderRecovery.intern());
 
         let mut extract_schedule = Schedule::new(ExtractSchedule);
         // We skip applying any commands during the ExtractSchedule
@@ -38,7 +39,29 @@ impl Plugin for ExtractPlugin {
 
         render_app.add_schedule(extract_schedule);
         render_app.add_schedule(Render::base_schedule());
-        render_app.add_schedule(Schedule::new(RenderStartup));
+        render_app.add_schedule(Schedule::new(RenderRecovery));
+        render_app.insert_resource(RenderState::Initializing);
+        render_app.add_systems(RenderRecovery, move |world: &mut World| {
+            if matches!(world.resource::<RenderState>(), RenderState::Ready) {
+                world.run_schedule(Render);
+            }
+
+            // update the time and send it to the app world regardless of whether we render
+            let time_sender = world.resource::<TimeSender>();
+            if let Err(error) = time_sender.0.try_send(Instant::now()) {
+                match error {
+                    bevy_time::TrySendError::Full(_) => {
+                        panic!(
+                            "The TimeSender channel should always be empty during render. \
+                            You might need to add the bevy::core::time_system to your app."
+                        );
+                    }
+                    bevy_time::TrySendError::Disconnected(_) => {
+                        // ignore disconnected errors, the main world probably just got dropped during shutdown
+                    }
+                }
+            }
+        });
         render_app.add_systems(
             Render,
             (
@@ -49,26 +72,17 @@ impl Plugin for ExtractPlugin {
             ),
         );
 
-        render_app.set_extract({
-            let mut should_run_startup = true;
-            move |main_world, render_world: &mut World| {
-                if should_run_startup {
-                    // Run the `RenderStartup` if it hasn't run yet. This does mean `RenderStartup` blocks
-                    // the rest of the app extraction, but this is necessary since extraction itself can
-                    // depend on resources initialized in `RenderStartup`.
-                    render_world.run_schedule(RenderStartup);
-                    should_run_startup = false;
-                }
+        render_app.set_extract(|main_world, render_world| {
+            crate::error_handler::update_state(main_world, render_world);
 
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span = tracing::info_span!("entity_sync").entered();
-                    entity_sync_system(main_world, render_world);
-                }
-
-                // run extract schedule
-                extract(main_world, render_world);
+            {
+                #[cfg(feature = "trace")]
+                let _stage_span = bevy_log::info_span!("entity_sync").entered();
+                entity_sync_system(main_world, render_world);
             }
+
+            // run extract schedule
+            extract(main_world, render_world);
         });
 
         let (sender, receiver) = bevy_time::create_time_channels();
@@ -88,6 +102,11 @@ impl Plugin for ExtractPlugin {
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash, Default)]
 pub struct ExtractSchedule;
 
+/// The render recovery schedule. This schedule runs the [`Render`] schedule if
+/// we are in [`RenderState::Ready`], and is otherwise hidden from users.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+struct RenderRecovery;
+
 /// Applies the commands from the extract schedule. This happens during
 /// the render schedule rather than during extraction to allow the commands to run in parallel with the
 /// main app when pipelined rendering is enabled.
@@ -99,7 +118,6 @@ fn apply_extract_commands(render_world: &mut World) {
             .apply_deferred(render_world);
     });
 }
-
 /// The simulation [`World`] of the application, stored as a resource.
 ///
 /// This resource is only available during [`ExtractSchedule`] and not

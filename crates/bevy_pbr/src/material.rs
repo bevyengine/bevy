@@ -645,25 +645,6 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineK
     }
 }
 
-pub const fn screen_space_specular_transmission_pipeline_key(
-    screen_space_transmissive_blur_quality: ScreenSpaceTransmissionQuality,
-) -> MeshPipelineKey {
-    match screen_space_transmissive_blur_quality {
-        ScreenSpaceTransmissionQuality::Low => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW
-        }
-        ScreenSpaceTransmissionQuality::Medium => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM
-        }
-        ScreenSpaceTransmissionQuality::High => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH
-        }
-        ScreenSpaceTransmissionQuality::Ultra => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA
-        }
-    }
-}
-
 /// A system that ensures that
 /// [`crate::render::mesh::extract_meshes_for_gpu_building`] re-extracts meshes
 /// whose materials changed.

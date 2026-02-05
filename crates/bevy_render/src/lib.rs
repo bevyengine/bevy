@@ -39,6 +39,7 @@ pub mod batching;
 pub mod camera;
 pub mod diagnostic;
 pub mod erased_render_asset;
+pub mod error_handler;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -78,6 +79,7 @@ pub use extract_plugin::{ExtractSchedule, MainWorld};
 
 use crate::{
     camera::CameraPlugin,
+    error_handler::RenderErrorHandler,
     extract_plugin::ExtractPlugin,
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
@@ -188,7 +190,10 @@ pub enum RenderSystems {
     PostCleanup,
 }
 
-/// The startup schedule of the [`RenderApp`]
+/// The startup schedule of the [`RenderApp`].
+/// This can potentially run multiple times, and not on a fresh render world.
+/// Every time a new [`RenderDevice`](renderer::RenderDevice) is acquired,
+/// this schedule runs to initialize any gpu resources needed for rendering on it.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct RenderStartup;
 
@@ -258,31 +263,7 @@ impl Plugin for RenderPlugin {
         load_shader_library!(app, "color_operations.wgsl");
         load_shader_library!(app, "bindless.wgsl");
 
-        let primary_window = app
-            .world_mut()
-            .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
-            .single(app.world())
-            .ok()
-            .cloned();
-
-        #[cfg(feature = "raw_vulkan_init")]
-        let raw_vulkan_init_settings = app
-            .world_mut()
-            .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
-            .cloned()
-            .unwrap_or_default();
-
-        let future_resources = FutureRenderResources::default();
-        if self.render_creation.create_render(
-            future_resources.clone(),
-            primary_window,
-            #[cfg(feature = "raw_vulkan_init")]
-            raw_vulkan_init_settings,
-        ) {
-            // Note that `future_resources` is not necessarily populated here yet.
-            app.insert_resource(future_resources);
-
-            // Only setup the render app if we're not running in headless mode
+        if insert_future_resources(&self.render_creation, app.world_mut()) {
             app.add_plugins(ExtractPlugin);
         };
 
@@ -305,8 +286,9 @@ impl Plugin for RenderPlugin {
             diagnostic::RenderDiagnosticsPlugin,
         ));
 
-        app.init_resource::<RenderAssetBytesPerFrame>();
         let asset_server = app.world().resource::<AssetServer>().clone();
+        app.init_resource::<RenderAssetBytesPerFrame>()
+            .init_resource::<RenderErrorHandler>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
             render_app.init_resource::<renderer::PendingCommandBuffers>();
@@ -360,6 +342,36 @@ impl Plugin for RenderPlugin {
             );
         }
     }
+}
+
+/// Inserts a [`FutureRenderResources`] created from this [`RenderCreation`].
+///
+/// Returns true if creation was successful, false otherwise.
+fn insert_future_resources(render_creation: &RenderCreation, main_world: &mut World) -> bool {
+    let primary_window = main_world
+        .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
+        .single(main_world)
+        .ok()
+        .cloned();
+
+    #[cfg(feature = "raw_vulkan_init")]
+    let raw_vulkan_init_settings = main_world
+        .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
+        .cloned()
+        .unwrap_or_default();
+
+    let future_resources = FutureRenderResources::default();
+    let success = render_creation.create_render(
+        future_resources.clone(),
+        primary_window,
+        #[cfg(feature = "raw_vulkan_init")]
+        raw_vulkan_init_settings,
+    );
+    if success {
+        // Note that `future_resources` is not necessarily populated here yet.
+        main_world.insert_resource(future_resources);
+    }
+    success
 }
 
 /// If the [`RenderAdapterInfo`] is a Qualcomm Adreno, returns its model number.
