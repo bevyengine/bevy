@@ -992,7 +992,14 @@ impl GltfLoader {
             let world_root_transform = convert_coordinates.scene_conversion_transform();
 
             let world_root_id = world
-                .spawn((world_root_transform, Visibility::default()))
+                .spawn((
+                    world_root_transform,
+                    Visibility::default(),
+                    scene
+                        .name()
+                        .map(|name| Name::new(name.to_owned()))
+                        .unwrap_or(Name::new(format!("Scene{}", scene.index()))),
+                ))
                 .with_children(|parent| {
                     for node in scene.nodes() {
                         let result = load_node(
