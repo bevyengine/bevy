@@ -162,7 +162,7 @@ fn spawn_spheres(
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: GREEN.with_alpha(alpha).into(),
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: AlphaMode::Premultiplied,
             ..default()
         })),
         Transform::from_translation(pos_b + offset),
@@ -172,7 +172,7 @@ fn spawn_spheres(
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: BLUE.with_alpha(alpha).into(),
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: AlphaMode::Add,
             ..default()
         })),
         Transform::from_translation(pos_c + offset),
