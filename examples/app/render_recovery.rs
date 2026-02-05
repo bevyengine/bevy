@@ -69,11 +69,11 @@ fn setup(
             Press D to Destroy the render device (causes device lost error)\n\
             Press L to Loop infinitely in a compute shader (causes device lost error)\n\
             \n\
-            Press 1 to Ignore: Pretends nothing happened and continues rendering.\n\
-            Press 2 to Panic: Panics on error.\n\
-            Press 3 to Shutdown: Signals app exit on error.\n\
-            Press 4 to StopRendering: Keeps the app alive, but stops rendering further.\n\
-            Press 5 to Recover: Attempt renderer recovery with the given [`RenderCreation`].\n\
+            Press 1 to ignore errors, pretending nothing happened and continue rendering.\n\
+            Press 2 to panic on error.\n\
+            Press 3 to signals app exit on error.\n\
+            Press 4 to keeps the app alive, but stops rendering further on error.\n\
+            Press 5 to attempt renderer recovery.\n\
             ",
         ),
         Node {
@@ -125,10 +125,13 @@ fn input(
         *handler = RenderErrorHandler(|_, _, _| RenderErrorPolicy::Ignore);
     }
     if input.just_pressed(Key::Character("2".into())) {
-        *handler = RenderErrorHandler(|_, _, _| RenderErrorPolicy::Panic);
+        *handler = RenderErrorHandler(|error, _, _| panic!("Rendering error {error:?}"));
     }
     if input.just_pressed(Key::Character("3".into())) {
-        *handler = RenderErrorHandler(|_, _, _| RenderErrorPolicy::Shutdown);
+        *handler = RenderErrorHandler(|_, main_world, _| {
+            main_world.write_message(AppExit::error());
+            RenderErrorPolicy::StopRendering
+        });
     }
     if input.just_pressed(Key::Character("4".into())) {
         *handler = RenderErrorHandler(|_, _, _| RenderErrorPolicy::StopRendering);

@@ -1,5 +1,4 @@
 use alloc::sync::Arc;
-use bevy_app::AppExit;
 use bevy_ecs::{
     resource::Resource,
     world::{Mut, World},
@@ -21,10 +20,6 @@ pub enum RenderErrorPolicy {
     /// Pretends nothing happened and continues rendering.
     /// This discards the error after logging it to console.
     Ignore,
-    /// Panics on error.
-    Panic,
-    /// Signals app exit on error.
-    Shutdown,
     /// Keeps the app alive, but stops rendering further.
     /// This keeps the error state, and will continue polling the [`RenderErrorHandler`]
     /// every frame until some other policy is returned.
@@ -51,13 +46,6 @@ impl RenderErrorHandler {
             RenderErrorPolicy::Ignore => {
                 // Pretend that didn't happen.
                 render_world.insert_resource(RenderState::Ready);
-            }
-            RenderErrorPolicy::Panic => {
-                panic!("Rendering error {error:?}");
-            }
-            RenderErrorPolicy::Shutdown => {
-                // error was already logged by `DeviceErrorHandler`
-                main_world.write_message(AppExit::error());
             }
             RenderErrorPolicy::StopRendering => {
                 // do nothing
