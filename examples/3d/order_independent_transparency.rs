@@ -5,7 +5,7 @@
 //! [`OrderIndependentTransparencyPlugin`]: bevy::core_pipeline::oit::OrderIndependentTransparencyPlugin
 use bevy::{
     camera::visibility::RenderLayers,
-    color::palettes::css::{BLUE, GREEN, RED},
+    color::palettes::css::{BLUE, LIMEGREEN, RED},
     core_pipeline::oit::OrderIndependentTransparencySettings,
     prelude::*,
 };
@@ -149,8 +149,8 @@ fn spawn_spheres(
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: GREEN.with_alpha(alpha).into(),
-            alpha_mode: AlphaMode::Blend,
+            base_color: LIMEGREEN.with_alpha(alpha).into(),
+            alpha_mode: AlphaMode::Premultiplied,
             ..default()
         })),
         Transform::from_translation(pos_b + offset),
@@ -160,7 +160,7 @@ fn spawn_spheres(
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: BLUE.with_alpha(alpha).into(),
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: AlphaMode::Add,
             ..default()
         })),
         Transform::from_translation(pos_c + offset),
