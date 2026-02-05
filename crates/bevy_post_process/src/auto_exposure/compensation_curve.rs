@@ -196,13 +196,7 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
         source: &mut Self::SourceAsset,
         _previous_gpu_asset: Option<&Self>,
     ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        Ok(AutoExposureCompensationCurve {
-            min_log_lum: source.min_log_lum,
-            max_log_lum: source.max_log_lum,
-            min_compensation: source.min_compensation,
-            max_compensation: source.max_compensation,
-            lut: source.lut,
-        })
+        Ok(source.clone())
     }
 
     fn prepare_asset(
