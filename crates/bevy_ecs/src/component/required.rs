@@ -371,20 +371,27 @@ impl Components {
             ));
         }
 
+        // SAFETY: The caller ensures that the `requiree` is valid.
+        let required_components = unsafe {
+            self.get_required_components(requiree)
+                .debug_checked_unwrap()
+        };
         for component_id in required_required_components
             .all
             .keys()
             .chain([required].iter())
         {
-            if self
-                .get_info(*component_id)
-                .unwrap()
-                .mutually_exclusive()
-                .contains(&requiree)
+            let mutually_exclusive = self.get_info(*component_id).unwrap().mutually_exclusive();
+
+            if let Some(conflict_id) = required_components
+                .all
+                .keys()
+                .chain([requiree].iter())
+                .find(|id| mutually_exclusive.contains(id))
             {
                 return Err(RequiredComponentsError::MutuallyExclusiveConflict(
                     *component_id,
-                    requiree,
+                    *conflict_id,
                 ));
             }
         }

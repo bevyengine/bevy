@@ -492,3 +492,21 @@ fn registering_mutually_exclusive_after_any_archetype_contains_target_components
     world.spawn(CompA);
     world.register_mutually_exclusive_components::<(CompA, CompB)>();
 }
+
+#[test]
+#[should_panic]
+fn registering_mutually_exclusive_as_indirect_required_panics() {
+    let mut world = World::new();
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    struct CompC;
+
+    world.register_mutually_exclusive_components::<(CompB, CompC)>();
+    world.register_required_components::<CompA, CompB>();
+    world.register_required_components::<CompA, CompC>();
+}
