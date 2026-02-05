@@ -1,5 +1,4 @@
 use core::ops::{Deref, DerefMut};
-use std::time::Instant;
 
 use crate::{
     error_handler::RenderState,
@@ -12,6 +11,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, Schedule, ScheduleBuildSettings, ScheduleLabel, Schedules},
     world::{Mut, World},
 };
+use bevy_platform::time::Instant;
 use bevy_time::TimeSender;
 use bevy_utils::default;
 
