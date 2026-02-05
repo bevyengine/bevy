@@ -1,3 +1,5 @@
+// Modeled after https://github.com/dirs-dev/dirs-sys-rs/
+
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
