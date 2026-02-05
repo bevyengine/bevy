@@ -1,4 +1,4 @@
-//! A simple 3D scene showing how alpha blending can break and how order independent transparency (OIT) can fix it.
+//! A series of simple 3D scenes showing how alpha blending can break and how order independent transparency (OIT) can fix it.
 //!
 //! See [`OrderIndependentTransparencyPlugin`] for the trade-offs of using OIT.
 //!
@@ -9,14 +9,16 @@ use bevy::{
     camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
     core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
+    pbr::{ExtendedMaterial, MaterialExtension},
     picking::window::update_window_hits,
     prelude::*,
+    shader::ShaderRef,
     window::{CursorIcon, PresentMode, PrimaryWindow, SystemCursorIcon},
 };
 use bevy_ecs::system::SystemParam;
+use bevy_render::render_resource::AsBindGroup;
 
 #[path = "../helpers/widgets.rs"]
-#[allow(unused)]
 mod widgets;
 
 /// Scene construction functions
@@ -25,6 +27,7 @@ const SCENES: &[(&str, &str, fn(&mut Commands, &mut SceneResources))] = &[
     ("2", "Stacked quads", spawn_quads),
     ("3", "Opaque occlusion test", spawn_occlusion_test),
     ("4", "Auto instancing test", spawn_auto_instancing_test),
+    ("5", "Custom material demo", spawn_custom_material),
 ];
 
 /// Application state
@@ -61,7 +64,7 @@ enum AppSetting {
     EnableOIT(bool),
     /// Change whether DepthPrepass is used or not
     UseDepthPrepass(bool),
-    /// Enable or diable VSync on the window
+    /// Enable or disable VSync on the window
     EnableVsync(bool),
     /// Change the displayed scene
     ChangeScene(usize),
@@ -73,6 +76,9 @@ enum AppSetting {
 struct SceneResources<'w> {
     meshes: ResMut<'w, Assets<Mesh>>,
     materials: ResMut<'w, Assets<StandardMaterial>>,
+    extended_materials:
+        ResMut<'w, Assets<ExtendedMaterial<StandardMaterial, CheckeredMaterialExtension>>>,
+    custom_materials: ResMut<'w, Assets<NoisyOpacityMaterial>>,
     asset_server: Res<'w, AssetServer>,
 }
 
@@ -94,6 +100,10 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(MaterialPlugin::<NoisyOpacityMaterial>::default())
+        .add_plugins(MaterialPlugin::<
+            ExtendedMaterial<StandardMaterial, CheckeredMaterialExtension>,
+        >::default())
         .init_resource::<AppState>()
         .add_message::<WidgetClickEvent<AppSetting>>()
         .add_message::<AppEvent>()
@@ -622,4 +632,108 @@ fn spawn_auto_instancing_test(commands: &mut Commands, resources: &mut SceneReso
         }
     }
     commands.spawn_batch(bundles);
+}
+
+const EXTENDED_MATERIAL_SHADER_ASSET_PATH: &str = "shaders/oit_compatible_extended_material.wgsl";
+
+/// Material extension that defines the extra data that will be passed to your shader
+/// Used as ExtendedMaterial<StandardMaterial, CheckeredMaterialExtension>
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default)]
+struct CheckeredMaterialExtension {
+    #[uniform(100)]
+    color_1: LinearRgba,
+    #[uniform(100)]
+    color_2: LinearRgba,
+}
+
+impl MaterialExtension for CheckeredMaterialExtension {
+    fn fragment_shader() -> ShaderRef {
+        EXTENDED_MATERIAL_SHADER_ASSET_PATH.into()
+    }
+
+    fn alpha_mode() -> Option<AlphaMode> {
+        Some(AlphaMode::Blend)
+    }
+}
+
+const CUSTOM_MATERIAL_SHADER_ASSET_PATH: &str = "shaders/oit_compatible_custom_material.wgsl";
+
+/// A custom material
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default)]
+struct NoisyOpacityMaterial {
+    #[uniform(0)]
+    color: LinearRgba,
+}
+
+impl Material for NoisyOpacityMaterial {
+    fn fragment_shader() -> ShaderRef {
+        CUSTOM_MATERIAL_SHADER_ASSET_PATH.into()
+    }
+
+    /// For simplicity this material is always transparent
+    fn alpha_mode(&self) -> AlphaMode {
+        AlphaMode::Blend
+    }
+
+    /// Optional: specialize the pipeline to deactivate back face culling
+    fn specialize(
+        _pipeline: &bevy::pbr::MaterialPipeline,
+        descriptor: &mut bevy_render::render_resource::RenderPipelineDescriptor,
+        _layout: &bevy::mesh::MeshVertexBufferLayoutRef,
+        _key: bevy::pbr::MaterialPipelineKey<Self>,
+    ) -> Result<(), bevy_render::render_resource::SpecializedMeshPipelineError> {
+        descriptor.primitive.cull_mode = None;
+        Ok(())
+    }
+}
+/// This scene demonstrates the integration of OIT into extended/custom materials
+fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources) {
+    let meshes = &mut resources.meshes;
+    let ext_materials = &mut resources.extended_materials;
+    let custom_materials = &mut resources.custom_materials;
+    let materials = &mut resources.materials;
+
+    let render_layers = RenderLayers::layer(1);
+
+    let torus = meshes.add(Torus::new(2.0, 3.0));
+
+    // Spawn a torus with an ExtendedMaterial
+    commands.spawn((
+        Mesh3d(torus.clone()),
+        MeshMaterial3d(ext_materials.add(ExtendedMaterial {
+            base: StandardMaterial {
+                cull_mode: None,
+                ..default()
+            },
+            extension: CheckeredMaterialExtension {
+                color_1: LinearRgba::new(0.9, 0.1, 0.2, 0.4).into(),
+                color_2: LinearRgba::new(0.2, 0.1, 0.9, 0.7).into(),
+            },
+        })),
+        Transform::from_rotation(Quat::from_rotation_z(0.4)),
+        render_layers.clone(),
+    ));
+
+    // Spawn a torus with an custom material
+    commands.spawn((
+        Mesh3d(torus.clone()),
+        MeshMaterial3d(custom_materials.add(NoisyOpacityMaterial {
+            color: LinearRgba::new(0.9, 0.6, 0.0, 0.5).into(),
+        })),
+        Transform::from_rotation(Quat::from_rotation_z(1.0)),
+        render_layers.clone(),
+    ));
+
+    // Spawn a torus with a StandardMaterial
+    commands.spawn((
+        Mesh3d(torus.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: LinearRgba::new(0.3, 1.0, 0.1, 0.5).into(),
+            alpha_mode: AlphaMode::Blend,
+            cull_mode: None,
+            ..default()
+        })),
+        Transform::from_rotation(Quat::from_rotation_x(1.0)),
+        render_layers.clone(),
+    ));
 }
