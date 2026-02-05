@@ -164,10 +164,7 @@ pub use {assets::*, label::GltfAssetLabel, loader::*, material::GltfMaterial};
 /// Re-exports for GLTF
 pub mod gltf {
     #[doc(hidden)]
-    pub use {
-        gltf::Animation, gltf::Gltf, gltf::Material, gltf::Mesh, gltf::Primitive, gltf::Scene,
-        gltf::Texture,
-    };
+    pub use gltf::{Animation, Gltf, Material, Mesh, Primitive, Scene, Texture};
 }
 
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.

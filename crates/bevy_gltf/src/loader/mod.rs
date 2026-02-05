@@ -77,7 +77,7 @@ use self::{
 };
 use crate::convert_coordinates::GltfConvertCoordinates;
 
-/// Must match same constant in bevy pbr
+/// Must match [`MAX_JOINTS`](https://docs.rs/bevy/latest/bevy/pbr/constant.MAX_JOINTS.html)
 pub const MAX_JOINTS: usize = 256;
 
 /// An error that occurs when loading a glTF file.

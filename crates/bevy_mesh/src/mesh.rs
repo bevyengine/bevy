@@ -261,19 +261,6 @@ pub struct Mesh {
     skinned_mesh_bounds: Option<SkinnedMeshBounds>,
 }
 
-/// An enum to define which UV attribute to use for a texture.
-///
-/// It only supports two UV attributes, [`Mesh::ATTRIBUTE_UV_0`] and
-/// [`Mesh::ATTRIBUTE_UV_1`].
-/// The default is [`UvChannel::Uv0`].
-#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
-#[reflect(Default, Debug, Clone, PartialEq)]
-pub enum UvChannel {
-    #[default]
-    Uv0,
-    Uv1,
-}
-
 impl Mesh {
     /// Where the vertex is located in space. Use in conjunction with [`Mesh::insert_attribute`]
     /// or [`Mesh::with_inserted_attribute`].
@@ -2386,6 +2373,19 @@ impl Mesh {
             .as_ref_option()?
             .map(core::ops::Deref::deref))
     }
+}
+
+/// An enum to define which UV attribute to use for a texture.
+///
+/// It only supports two UV attributes, [`Mesh::ATTRIBUTE_UV_0`] and
+/// [`Mesh::ATTRIBUTE_UV_1`].
+/// The default is [`UvChannel::Uv0`].
+#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
+#[reflect(Default, Debug, Clone, PartialEq)]
+pub enum UvChannel {
+    #[default]
+    Uv0,
+    Uv1,
 }
 
 /// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
