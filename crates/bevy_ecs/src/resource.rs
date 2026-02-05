@@ -152,6 +152,10 @@ impl IsResource {
                     .commands()
                     .entity(context.entity)
                     .remove_by_id(resource_component_id);
+                world
+                    .commands()
+                    .entity(context.entity)
+                    .remove_by_id(context.component_id);
                 let name = world
                     .components()
                     .get_name(resource_component_id)
@@ -176,17 +180,22 @@ impl IsResource {
             .get::<Self>()
             .unwrap()
             .resource_component_id();
-        // SAFETY: We have exclusive world access (as long as we don't make structural changes).
-        let cache = unsafe { world.as_unsafe_world_cell().resource_entities() };
-        // SAFETY: There are no shared references to the map.
-        // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
-        // and that would conflict with the `DeferredWorld` passed to the resource hook.
-        unsafe { &mut *cache.0.get() }.remove(resource_component_id);
 
-        world
-            .commands()
-            .entity(context.entity)
-            .remove_by_id(resource_component_id);
+        if let Some(resource_entity) = world.resource_entities.get(resource_component_id)
+            && *resource_entity == context.entity
+        {
+            // SAFETY: We have exclusive world access (as long as we don't make structural changes).
+            let cache = unsafe { world.as_unsafe_world_cell().resource_entities() };
+            // SAFETY: There are no shared references to the map.
+            // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+            // and that would conflict with the `DeferredWorld` passed to the resource hook.
+            unsafe { &mut *cache.0.get() }.remove(resource_component_id);
+
+            world
+                .commands()
+                .entity(context.entity)
+                .remove_by_id(resource_component_id);
+        }
     }
 
     pub(crate) fn on_despawn(_world: DeferredWorld, _context: HookContext) {
@@ -288,6 +297,16 @@ mod tests {
             entity
         };
 
-        assert_ne!(first_entity, second_entity, "");
+        assert_ne!(
+            first_entity, second_entity,
+            "The first resource entity was invalidated, so the second initalization should be new"
+        );
+
+        let id = world.spawn(TestResource).id();
+        // This spawned resource conflicts with the canonical resource, so it was cleaned up.
+        assert!(world.entity(id).get::<TestResource>().is_none());
+        assert!(world.entity(id).get::<IsResource>().is_none());
+        assert!(world.entity(second_entity).get::<TestResource>().is_some());
+        assert!(world.entity(second_entity).get::<IsResource>().is_some());
     }
 }
