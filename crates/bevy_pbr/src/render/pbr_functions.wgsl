@@ -447,8 +447,14 @@ fn apply_pbr_lighting(
 
     // Point lights (direct)
     for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+            i != 0xffffffffu;
+            i = clustering::get_next_clusterable_offset(i)
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
             i < clusterable_object_index_ranges.first_spot_light_index_offset;
-            i = i + 1u) {
+            i = i + 1u
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    ) {
         let light_id = clustering::get_clusterable_object_id(i);
 
         // If we're lightmapped, disable diffuse contribution from the light if
@@ -503,8 +509,14 @@ fn apply_pbr_lighting(
 
     // Spot lights (direct)
     for (var i: u32 = clusterable_object_index_ranges.first_spot_light_index_offset;
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+            i != 0xffffffffu;
+            i = clustering::get_next_clusterable_offset(i)
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
             i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
-            i = i + 1u) {
+            i = i + 1u
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    ) {
         let light_id = clustering::get_clusterable_object_id(i);
 
         // If we're lightmapped, disable diffuse contribution from the light if

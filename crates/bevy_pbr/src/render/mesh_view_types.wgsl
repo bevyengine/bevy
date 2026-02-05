@@ -103,12 +103,30 @@ struct ClusteredLights {
     data: array<ClusteredLight>,
 };
 struct ClusterableObjectIndexLists {
-    data: array<u32>,
+    // This is a heap of linked list elements.
+    //
+    // The first element of the pair is the ID of a clusterable object; the
+    // second element of the pair is the offset of the next element of the list,
+    // or `0xffffffffu` if the pair represents the end of the list.
+    data: array<vec2<u32>>,
 };
 struct ClusterOffsetsAndCounts {
+    // For each froxel, this consists of 5 singly linked list heads:
+    //
+    // 0.x: Point lights
+    // 0.y: Spot lights
+    // 0.z: Reflection probes
+    // 0.w: Irradiance volumes
+    // 1.x: Clustered decals
+    //
+    // The remaining fields are ignored.
+    //
+    // Each element points to an offset in the `ClusterableObjectIndexLists`
+    // heap. If there are no elements of that type, the offset will be
+    // `0xffffffffu`.
     data: array<array<vec4<u32>, 2>>,
 };
-#else
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 struct ClusteredLights {
     data: array<ClusteredLight, 204u>,
 };
@@ -121,7 +139,7 @@ struct ClusterOffsetsAndCounts {
     // and an 8-bit count of the number of lights in the low 8 bits
     data: array<vec4<u32>, 1024u>,
 };
-#endif
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 
 // Whether this light probe contributes diffuse light to lightmapped meshes.
 const LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE: u32 = 1;

@@ -62,10 +62,17 @@ struct ClusteredDecalIterator {
     tag: u32,
 
     // Private fields follow:
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    // The current offset of the index in the `ClusterableObjectIndexRanges` list.
+    decal_index_offset: u32,
+    // True if `clustered_decal_iterator_next` has been called at least once.
+    started_iteration: bool,
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
     // The current offset of the index in the `ClusterableObjectIndexRanges` list.
     decal_index_offset: i32,
     // The end offset of the index in the `ClusterableObjectIndexRanges` list.
     end_offset: i32,
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
     // The world-space position of the fragment.
     world_position: vec3<f32>,
 }
@@ -94,10 +101,15 @@ fn clustered_decal_iterator_new(
         -1,
         vec2(0.0),
         0u,
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+        (*clusterable_object_index_ranges).first_decal_offset,
+        false,
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
         // We subtract 1 because the first thing `decal_iterator_next` does is
         // add 1.
         i32((*clusterable_object_index_ranges).first_decal_offset) - 1,
         i32((*clusterable_object_index_ranges).last_clusterable_object_index_offset),
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
         world_position,
     );
 }
@@ -108,13 +120,35 @@ fn clustered_decal_iterator_new(
 // Returns true if another decal was found or false if no more decals were found
 // for this position.
 fn clustered_decal_iterator_next(iterator: ptr<function, ClusteredDecalIterator>) -> bool {
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    // The iterator starts unpopulated and is populated by the first call to
+    // this function. We use the `started_iteration` flag to distinguish between
+    // the unpopulated state and the finished state.
+    if ((*iterator).decal_index_offset == 0xffffffffu && (*iterator).started_iteration) {
+        return false;
+    }
+
+    if (!(*iterator).started_iteration) {
+        (*iterator).started_iteration = true;
+    } else {
+        (*iterator).decal_index_offset = clustered_forward::get_next_clusterable_offset(
+            (*iterator).decal_index_offset);
+    }
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
     if ((*iterator).decal_index_offset == (*iterator).end_offset) {
         return false;
     }
 
     (*iterator).decal_index_offset += 1;
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 
-    while ((*iterator).decal_index_offset < (*iterator).end_offset) {
+    while (
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+        (*iterator).decal_index_offset != 0xffffffffu
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+        (*iterator).decal_index_offset < (*iterator).end_offset
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    ) {
         let decal_index = i32(clustered_forward::get_clusterable_object_id(
             u32((*iterator).decal_index_offset)
         ));
@@ -143,7 +177,12 @@ fn clustered_decal_iterator_next(iterator: ptr<function, ClusteredDecalIterator>
             return true;
         }
 
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+        (*iterator).decal_index_offset = clustered_forward::get_next_clusterable_offset(
+            (*iterator).decal_index_offset);
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
         (*iterator).decal_index_offset += 1;
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
     }
 
     return false;

@@ -52,8 +52,10 @@ fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
 struct LightProbeIterator {
     // The current offset in the light probes list.
     current_offset: u32,
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS < 3
     // The last offset in the light probes list.
     end_offset: u32,
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS < 3
     // The world-space position of the current fragment.
     world_position: vec3<f32>,
     // True if we're searching for an irradiance volume; false if we're
@@ -75,7 +77,9 @@ fn light_probe_iterator_new(
     if is_irradiance_volume {
         return LightProbeIterator(
             (*clusterable_object_index_ranges).first_irradiance_volume_index_offset,
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS < 3
             (*clusterable_object_index_ranges).first_decal_offset,
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS < 3
             world_position,
             true
         );
@@ -83,7 +87,9 @@ fn light_probe_iterator_new(
 
     return LightProbeIterator(
         (*clusterable_object_index_ranges).first_reflection_probe_index_offset,
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS < 3
         (*clusterable_object_index_ranges).first_irradiance_volume_index_offset,
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS < 3
         world_position,
         false
     );
@@ -101,10 +107,23 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
     result.texture_index = -1;
     result.weight = 0.0;
 
-    while ((*iterator).current_offset < (*iterator).end_offset) {
+    while (
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+        (*iterator).current_offset != 0xffffffffu
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+        (*iterator).current_offset < (*iterator).end_offset
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    ) {
         let light_probe_index = i32(clustered_forward::get_clusterable_object_id(
             (*iterator).current_offset));
+
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+        (*iterator).current_offset = clustered_forward::get_next_clusterable_offset(
+            (*iterator).current_offset
+        );
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
         (*iterator).current_offset += 1u;
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 
         // FIXME: This happens when one or more images for the light probe
         // aren't loaded yet. Really, though, we shouldn't be clustering such

@@ -6,7 +6,7 @@ use bevy_light::{
     cluster::{ClusterableObjectCounts, Clusters, GlobalClusterSettings},
     ClusteredDecal, EnvironmentMapLight, IrradianceVolume, LightProbe, PointLight, SpotLight,
 };
-use bevy_math::{uvec4, UVec3, UVec4, Vec4};
+use bevy_math::{uvec2, uvec4, UVec2, UVec3, UVec4, Vec4};
 use bevy_render::{
     render_resource::{
         BindingResource, BufferBindingType, ShaderSize, ShaderType, StorageBuffer, UniformBuffer,
@@ -166,8 +166,13 @@ struct GpuClusterOffsetsAndCountsUniform {
 
 #[derive(ShaderType, Default)]
 struct GpuClusterableObjectIndexListsStorage {
+    /// A linked list of entities.
+    ///
+    /// The first element of the pair is the ID of the clusterable object. The
+    /// second element of the pair is the offset of the next pair in the list,
+    /// or `0xffffffffu` if this pair represents the end of the list.
     #[shader(size(runtime))]
-    data: Vec<u32>,
+    data: Vec<UVec2>,
 }
 
 #[derive(ShaderType, Default)]
@@ -392,15 +397,27 @@ pub fn prepare_clusters(
             ViewClusterBindings::new(mesh_pipeline.clustered_forward_buffer_binding_type);
         view_clusters_bindings.clear();
 
+        // If we happen to be using storage buffers, we're going to convert the
+        // offset-and-count model into a linked list. To do that, we need to
+        // keep track of which froxel we're looking at. We store the number of
+        // remaining elements of each type (point light, spot light, etc.) in
+        // this `maybe_current_counts` variable so that we know where to end
+        // each linked list.
+        let mut maybe_current_counts = None;
+
         for record in &extracted_clusters.data {
             match record {
                 ExtractedClusterableObjectElement::ClusterHeader(counts) => {
                     let offset = view_clusters_bindings.n_indices();
                     view_clusters_bindings.push_offset_and_counts(offset, counts);
+                    maybe_current_counts = Some(*counts);
                 }
 
                 ExtractedClusterableObjectElement::Light(entity)
                 | ExtractedClusterableObjectElement::Decal(entity) => {
+                    let current_counts = maybe_current_counts
+                        .as_mut()
+                        .expect("Clusterable object elements must be preceded by a header");
                     if let Some(clusterable_object_index) =
                         global_clusterable_object_meta.entity_to_index.get(entity)
                     {
@@ -413,7 +430,8 @@ pub fn prepare_clusters(
                             );
                             break;
                         }
-                        view_clusters_bindings.push_index(*clusterable_object_index);
+                        view_clusters_bindings
+                            .push_index(*clusterable_object_index, current_counts);
                     } else {
                         // This should never happen. The appropriate systems
                         // should have populated
@@ -422,45 +440,53 @@ pub fn prepare_clusters(
                             "Clustered light or decal {:?} had no assigned index!",
                             entity
                         );
-                        view_clusters_bindings.push_dummy_index();
+                        view_clusters_bindings.push_dummy_index(current_counts);
                     }
                 }
 
                 ExtractedClusterableObjectElement::ReflectionProbe(main_entity) => {
+                    let current_counts = maybe_current_counts
+                        .as_mut()
+                        .expect("Clusterable object elements must be preceded by a header");
                     match maybe_environment_maps.and_then(|environment_maps| {
                         environment_maps
                             .main_entity_to_render_light_probe_index
                             .get(main_entity)
                     }) {
                         Some(render_light_probe_index) => {
-                            view_clusters_bindings.push_index(*render_light_probe_index as usize);
+                            view_clusters_bindings
+                                .push_index(*render_light_probe_index as usize, current_counts);
                         }
-                        None => {
+                        _ => {
                             // This can happen while the reflection probe is loading.
                             trace!(
                                 "Clustered reflection probe {:?} had no assigned index",
                                 main_entity,
                             );
-                            view_clusters_bindings.push_dummy_index();
+                            view_clusters_bindings.push_dummy_index(current_counts);
                         }
                     }
                 }
 
                 ExtractedClusterableObjectElement::IrradianceVolume(main_entity) => {
+                    let current_counts = maybe_current_counts
+                        .as_mut()
+                        .expect("Clusterable object elements must be preceded by a header");
                     match maybe_irradiance_volumes.and_then(|irradiance_volumes| {
                         irradiance_volumes
                             .main_entity_to_render_light_probe_index
                             .get(main_entity)
                     }) {
                         Some(render_light_probe_index) => {
-                            view_clusters_bindings.push_index(*render_light_probe_index as usize);
+                            view_clusters_bindings
+                                .push_index(*render_light_probe_index as usize, current_counts);
                         }
-                        None => {
+                        _ => {
                             trace!(
                                 "Clustered irradiance volume {:?} had no assigned index",
                                 main_entity
                             );
-                            view_clusters_bindings.push_dummy_index();
+                            view_clusters_bindings.push_dummy_index(current_counts);
                         }
                     }
                 }
@@ -524,19 +550,40 @@ impl ViewClusterBindings {
 
                 cluster_offsets_and_counts.get_mut().data[array_index][component] = packed;
             }
+
             ViewClusterBuffers::Storage {
                 cluster_offsets_and_counts,
                 ..
             } => {
+                // Convert the offset-and-count structure to a set of linked
+                // lists.
+                let mut current_offset = offset as u32;
                 cluster_offsets_and_counts.get_mut().data.push([
                     uvec4(
-                        offset as u32,
-                        counts.point_lights,
-                        counts.spot_lights,
-                        counts.reflection_probes,
+                        convert_count_to_list_head(counts.point_lights, &mut current_offset),
+                        convert_count_to_list_head(counts.spot_lights, &mut current_offset),
+                        convert_count_to_list_head(counts.reflection_probes, &mut current_offset),
+                        convert_count_to_list_head(counts.irradiance_volumes, &mut current_offset),
                     ),
-                    uvec4(counts.irradiance_volumes, counts.decals, 0, 0),
+                    uvec4(
+                        convert_count_to_list_head(counts.decals, &mut current_offset),
+                        0,
+                        0,
+                        0,
+                    ),
                 ]);
+
+                // This helper function converts a clustered object count to a
+                // linked list head. `current_offset` stores the offset in the
+                // heap of the next non-empty list.
+                fn convert_count_to_list_head(count: u32, current_offset: &mut u32) -> u32 {
+                    if count == 0 {
+                        return !0;
+                    }
+                    let result_offset = *current_offset;
+                    *current_offset += count;
+                    result_offset
+                }
             }
         }
 
@@ -549,7 +596,7 @@ impl ViewClusterBindings {
 
     // An internal helper method that pushes a raw clustered object index to the
     // GPU buffer.
-    fn push_raw_index(&mut self, index: u32) {
+    fn push_raw_index(&mut self, index: u32, counts: &mut ClusterableObjectCounts) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform {
                 clusterable_object_index_lists,
@@ -562,11 +609,40 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists.get_mut().data[array_index][component] |=
                     index << (8 * sub_index);
             }
+
             ViewClusterBuffers::Storage {
                 clusterable_object_index_lists,
                 ..
             } => {
-                clusterable_object_index_lists.get_mut().data.push(index);
+                // Figure out which type of element this is by counting the
+                // number of elements of each type that remain.
+                let current_count = if counts.point_lights != 0 {
+                    &mut counts.point_lights
+                } else if counts.spot_lights != 0 {
+                    &mut counts.spot_lights
+                } else if counts.reflection_probes != 0 {
+                    &mut counts.reflection_probes
+                } else if counts.irradiance_volumes != 0 {
+                    &mut counts.irradiance_volumes
+                } else {
+                    &mut counts.decals
+                };
+
+                *current_count -= 1;
+
+                // If this isn't the last element of the appropriate type in the
+                // list, then add a link to the next offset. This effectively
+                // converts the flat list to a linked one.
+                let next_pointer = if *current_count == 0 {
+                    !0
+                } else {
+                    clusterable_object_index_lists.get().data.len() as u32 + 1
+                };
+
+                clusterable_object_index_lists
+                    .get_mut()
+                    .data
+                    .push(uvec2(index, next_pointer));
             }
         }
 
@@ -574,16 +650,16 @@ impl ViewClusterBindings {
     }
 
     /// Pushes the index of a clustered object to the GPU buffer.
-    pub fn push_index(&mut self, index: usize) {
-        self.push_raw_index(index as u32);
+    pub fn push_index(&mut self, index: usize, counts: &mut ClusterableObjectCounts) {
+        self.push_raw_index(index as u32, counts);
     }
 
     /// Pushes a placeholder -1 index to the GPU buffer.
     ///
     /// This is used when processing reflection probes and irradiance volumes
     /// that haven't loaded yet.
-    pub fn push_dummy_index(&mut self) {
-        self.push_raw_index(!0);
+    pub fn push_dummy_index(&mut self, counts: &mut ClusterableObjectCounts) {
+        self.push_raw_index(!0, counts);
     }
 
     pub fn write_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {

@@ -12,24 +12,53 @@
 
 // Offsets within the `cluster_offsets_and_counts` buffer for a single cluster.
 //
-// These offsets must be monotonically nondecreasing. That is, indices are
-// always sorted into the following order: point lights, spot lights, reflection
-// probes, irradiance volumes.
+// If fewer than 3 SSBOs are available, these offsets must be monotonically
+// nondecreasing. That is, indices are always sorted into the following order:
+// point lights, spot lights, reflection probes, irradiance volumes.
+//
+// If at least 3 SSBOs are available (generally the case for every platform
+// except WebGL 2), then each one of these offsets represents a linked list
+// head. Each field will be `0xffffffffu` if the list is empty.
 struct ClusterableObjectIndexRanges {
     // The offset of the index of the first point light.
+    //
+    // If storage buffers are in use, this is a head of a linked list and will
+    // be `0xffffffffu` if there are no point lights in this froxel.
     first_point_light_index_offset: u32,
-    // The offset of the index of the first spot light, which also terminates
-    // the list of point lights.
+    // The offset of the index of the first spot light.
+    //
+    // If uniform buffers are in use, this terminates the list of point lights.
+    //
+    // If storage buffers are in use, this is a head of a linked list and will
+    // be `0xffffffffu` if there are no spot lights in this froxel.
     first_spot_light_index_offset: u32,
-    // The offset of the index of the first reflection probe, which also
-    // terminates the list of spot lights.
+    // The offset of the index of the first reflection probe.
+    //
+    // If uniform buffers are in use, this terminates the list of spot lights.
+    //
+    // If storage buffers are in use, this is a head of a linked list and will
+    // be `0xffffffffu` if there are no reflection probes in this froxel.
     first_reflection_probe_index_offset: u32,
-    // The offset of the index of the first irradiance volumes, which also
-    // terminates the list of reflection probes.
+    // The offset of the index of the first irradiance volume.
+    //
+    // If uniform buffers are in use, this terminates the list of reflection
+    // probes.
+    //
+    // If storage buffers are in use, this is a head of a linked list and will
+    // be `0xffffffffu` if there are no irradiance volumes in this froxel.
     first_irradiance_volume_index_offset: u32,
+    // The offset of the index of the first decal.
+    //
+    // If uniform buffers are in use, this terminates the list of irradiance
+    // volumes.
+    //
+    // If storage buffers are in use, this is a head of a linked list and will
+    // be `0xffffffffu` if there are no decals in this froxel.
     first_decal_offset: u32,
-    // One past the offset of the index of the final clusterable object for this
-    // cluster.
+    // If uniform buffers are in use, this is one past the offset of the index
+    // of the final clusterable object for this cluster.
+    //
+    // If storage buffers are in use, this field is ignored.
     last_clusterable_object_index_offset: u32,
 }
 
@@ -67,23 +96,22 @@ const CLUSTER_COUNT_SIZE = 9u;
 // Note that if fewer than 3 SSBO bindings are available (in WebGL 2,
 // primarily), light probes aren't clustered, and therefore both light probe
 // index ranges will be empty.
+//
+// If there are more than 3 SSBO bindings avaiable, each field of
+// `ClusterableObjectIndexRanges` is a linked list head.
 fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObjectIndexRanges {
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 
     let offset_and_counts_a = bindings::cluster_offsets_and_counts.data[cluster_index][0];
     let offset_and_counts_b = bindings::cluster_offsets_and_counts.data[cluster_index][1];
 
-    // Sum up the counts to produce the range brackets.
-    //
-    // We could have stored the range brackets in `cluster_offsets_and_counts`
-    // directly, but doing it this way makes the logic in this path more
-    // consistent with the WebGL 2 path below.
+    // Simply return the offsets unchanged, as linked list heads.
     let point_light_offset = offset_and_counts_a.x;
-    let spot_light_offset = point_light_offset + offset_and_counts_a.y;
-    let reflection_probe_offset = spot_light_offset + offset_and_counts_a.z;
-    let irradiance_volume_offset = reflection_probe_offset + offset_and_counts_a.w;
-    let decal_offset = irradiance_volume_offset + offset_and_counts_b.x;
-    let last_clusterable_offset = decal_offset + offset_and_counts_b.y;
+    let spot_light_offset = offset_and_counts_a.y;
+    let reflection_probe_offset = offset_and_counts_a.z;
+    let irradiance_volume_offset = offset_and_counts_a.w;
+    let decal_offset = offset_and_counts_b.x;
+    let last_clusterable_offset = offset_and_counts_b.y;
     return ClusterableObjectIndexRanges(
         point_light_offset,
         spot_light_offset,
@@ -124,7 +152,7 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
 // one of the two `light_probes` sublists, not the `clustered_lights` list.
 fn get_clusterable_object_id(index: u32) -> u32 {
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-    return bindings::clusterable_object_index_lists.data[index];
+    return bindings::clusterable_object_index_lists.data[index].x;
 #else
     // The index is correct but in clusterable_object_index_lists we pack 4 u8s into a u32
     // This means the index into clusterable_object_index_lists is index / 4
@@ -134,6 +162,16 @@ fn get_clusterable_object_id(index: u32) -> u32 {
     return (indices >> (8u * (index & ((1u << 2u) - 1u)))) & ((1u << 8u) - 1u);
 #endif
 }
+
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+// Returns the offset of the next clusterable object in a list of clusterable
+// objects.
+//
+// This is only used when storage buffers for clusterable objects are in use.
+fn get_next_clusterable_offset(index: u32) -> u32 {
+    return bindings::clusterable_object_index_lists.data[index].y;
+}
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 
 fn cluster_debug_visualization(
     input_color: vec4<f32>,

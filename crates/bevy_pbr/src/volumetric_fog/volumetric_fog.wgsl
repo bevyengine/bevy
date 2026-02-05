@@ -334,9 +334,25 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let cluster_index = clustering::fragment_cluster_index(frag_coord.xy, view_z, is_orthographic);
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    // We need to traverse *two* linked lists in this loop: the list of point
+    // lights and the list of spot lights. This flag stores which linked list
+    // we're looking at. We're not done until we've iterated through both lists.
+    var processing_spot_lights = false;
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
     for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+            !processing_spot_lights || i != 0xffffffffu;
+            i = get_next_clusterable_offset_or_move_on_to_spot_lights(
+                i,
+                &clusterable_object_index_ranges,
+                &processing_spot_lights
+            )
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
             i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
-            i = i + 1u) {
+            i = i + 1u
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+        ) {
         let light_id = clustering::get_clusterable_object_id(i);
         let light = &clustered_lights.data[light_id];
         if (((*light).flags & POINT_LIGHT_FLAGS_VOLUMETRIC_BIT) == 0) {
@@ -365,7 +381,13 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             let distance_square = dot(light_to_frag, light_to_frag);
             let distance_atten = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
             var local_light_attenuation = distance_atten;
-            if (i < clusterable_object_index_ranges.first_spot_light_index_offset) {
+            if (
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+                !processing_spot_lights
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+                i < clusterable_object_index_ranges.first_spot_light_index_offset
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+            ) {
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
                     shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0), position.xy);
@@ -517,3 +539,29 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
         atmosphere_transmittance_sampler, uv, 0.0).rgb;
 }
 #endif  // ATMOSPHERE
+
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+// Returns the offset of the next clusterable element in the clusterable object
+// index lists. This function traverses both point lights and spot lights.
+fn get_next_clusterable_offset_or_move_on_to_spot_lights(
+    original_i: u32,
+    clusterable_object_index_ranges: ptr<function, clustering::ClusterableObjectIndexRanges>,
+    processing_spot_lights: ptr<function, bool>
+) -> u32 {
+    // Fetch the next clusterable object, and return it if there is one.
+    let next_i = clustering::get_next_clusterable_offset(original_i);
+    if next_i != 0xffffffffu {
+        return next_i;
+    }
+
+    // If we reached the end of the list, and we're in the spot lights list,
+    // we're done.
+    if (*processing_spot_lights) {
+        return 0xffffffffu;
+    }
+
+    // Otherwise, move on from the point lights list to the spot lights list.
+    *processing_spot_lights = true;
+    return (*clusterable_object_index_ranges).first_spot_light_index_offset;
+}
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
