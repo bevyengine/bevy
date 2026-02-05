@@ -63,7 +63,8 @@ fn setup(
     // help text
     commands.spawn((
         Text::new(
-            "Press O to trigger an OutOfMemory error\n\
+            "Test at your own risk: you may need to restart your computer to fully recover\n\
+            Press O to trigger an OutOfMemory error\n\
             Press V to trigger a Validation error\n\
             Press D to Destroy the render device (causes device lost error)\n\
             Press L to Loop infinitely in a compute shader (causes device lost error)\n\
