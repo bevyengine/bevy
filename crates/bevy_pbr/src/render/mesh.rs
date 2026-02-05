@@ -303,6 +303,8 @@ impl Plugin for MeshRenderPlugin {
     }
 }
 
+/// This resource caches [`MeshPipelineKey`]s for each view with pre-enabled features needed to properly
+/// setup the [`MeshViewBindGroup`] layout in specialized [`MeshPipeline`]s.
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct ViewKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
 
