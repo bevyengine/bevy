@@ -440,9 +440,7 @@ pub fn check_views_need_specialization(
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
         if let Some(transmission) = transmission {
-            view_key |= screen_space_specular_transmission_pipeline_key(
-                transmission.screen_space_specular_transmission_quality,
-            );
+            view_key |= transmission.quality.pipeline_key();
         }
         if !view_key_cache
             .get_mut(&view.retained_view_entity)

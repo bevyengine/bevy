@@ -66,7 +66,9 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
-        change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
+        change_detection::{
+            ContiguousMut, ContiguousRef, DetectChanges, DetectChangesMut, Mut, Ref,
+        },
         children,
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
@@ -74,9 +76,11 @@ pub mod prelude {
         event::{EntityEvent, Event},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{Add, Despawn, Insert, Remove, RemovedComponents, Replace},
-        message::{Message, MessageMutator, MessageReader, MessageWriter, Messages},
+        message::{
+            Message, MessageMutator, MessageReader, MessageWriter, Messages, PopulatedMessageReader,
+        },
         name::{Name, NameOrEntity},
-        observer::{Observer, On},
+        observer::{Observer, ObserverSystemExt, On},
         query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,

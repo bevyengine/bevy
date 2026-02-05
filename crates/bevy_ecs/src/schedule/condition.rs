@@ -828,6 +828,8 @@ pub mod common_conditions {
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if there are any new messages of the given type since it was last called.
     ///
+    /// To skip a system based on messages that it reads, use [`PopulatedMessageReader`](crate::prelude::PopulatedMessageReader) instead.
+    ///
     /// # Example
     ///
     /// ```

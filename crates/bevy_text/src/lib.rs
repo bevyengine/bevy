@@ -60,9 +60,9 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, FontHinting, FontSmoothing, FontSource, FontStyle, FontWeight, FontWidth, Justify,
-        LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError, TextFont, TextLayout,
-        TextSpan, Underline, UnderlineColor,
+        Font, FontHinting, FontSize, FontSmoothing, FontSource, FontStyle, FontWeight, FontWidth,
+        Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError, TextFont,
+        TextLayout, TextSpan, Underline, UnderlineColor,
     };
 }
 
@@ -94,6 +94,7 @@ impl Plugin for TextPlugin {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<RemSize>()
             .add_systems(
                 PostUpdate,
                 load_font_assets_into_fontdb_system.after(AssetEventSystems),
