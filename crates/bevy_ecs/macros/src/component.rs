@@ -49,11 +49,11 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, StorageTy::Table);
 
-    let on_add_path = Some(quote!(#bevy_ecs_path::resource::resource_on_add_hook));
+    let on_add_path = None;
     let on_remove_path = None;
     let on_insert_path = None;
     let on_replace_path = None;
-    let on_despawn_path = Some(quote!(#bevy_ecs_path::resource::resource_on_despawn_hook));
+    let on_despawn_path = None;
 
     let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
     let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
@@ -68,13 +68,19 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         .predicates
         .push(parse_quote! { Self: Send + Sync + 'static });
 
-    let mut register_required = Vec::with_capacity(1);
-    register_required.push(quote! {
-        required_components.register_required::<#bevy_ecs_path::resource::IsResource>(<#bevy_ecs_path::resource::IsResource as Default>::default);
-    });
-
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+
+    let mut register_required = Vec::with_capacity(1);
+    // We add the component_id existence check here to avoid recursive init during required components initialization.
+    register_required.push(quote! {
+        let resource_component_id = if let Some(id) = required_components.components_registrator().component_id::<#struct_name #type_generics>() {
+            id
+        } else {
+            required_components.components_registrator().register_component::<#struct_name #type_generics>()
+        };
+        required_components.register_required::<#bevy_ecs_path::resource::IsResource>(move || #bevy_ecs_path::resource::IsResource::new(resource_component_id));
+    });
 
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
