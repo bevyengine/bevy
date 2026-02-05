@@ -123,7 +123,7 @@ impl ClusterableObjectType {
     }
 }
 
-/// This system runs in the main world.
+/// Clusters point lights, spot lights, light probes, and decals.
 ///
 /// NOTE: Run this before `update_point_light_frusta`!
 pub(crate) fn assign_objects_to_clusters(
@@ -134,7 +134,7 @@ pub(crate) fn assign_objects_to_clusters(
         &GlobalTransform,
         &Camera,
         &Frustum,
-        &ClusterConfig,
+        Option<&ClusterConfig>,
         &mut Clusters,
         Option<&RenderLayers>,
         Option<&mut VisibleClusterableObjects>,
@@ -312,6 +312,7 @@ pub(crate) fn assign_objects_to_clusters(
     {
         let view_layers = maybe_layers.unwrap_or_default();
         let clusters = clusters.into_inner();
+        let config = config.copied().unwrap_or_default();
 
         if matches!(config, ClusterConfig::None) {
             if visible_clusterable_objects.is_some() {
@@ -844,6 +845,8 @@ pub(crate) fn assign_objects_to_clusters(
     }
 }
 
+// TODO: this probably shouldn't return a Vec2 and should probably be named better.
+#[expect(missing_docs, reason = "TODO")]
 pub fn calculate_cluster_factors(
     near: f32,
     far: f32,

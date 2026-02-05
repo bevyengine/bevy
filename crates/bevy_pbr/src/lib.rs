@@ -58,10 +58,7 @@ use bevy_color::{Color, LinearRgba};
 pub use atmosphere::*;
 use bevy_asset::LoadContext;
 use bevy_gltf::{gltf, GltfMaterial};
-use bevy_light::{
-    AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SimulationLightSystems,
-    SpotLight,
-};
+use bevy_light::{AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SpotLight};
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use components::*;
@@ -226,15 +223,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<SpotLight>::default(),
                 SyncComponentPlugin::<AmbientLight>::default(),
             ))
-            .add_plugins((ScatteringMediumPlugin, AtmospherePlugin))
-            .configure_sets(
-                PostUpdate,
-                (
-                    SimulationLightSystems::AddClusters,
-                    SimulationLightSystems::AssignLightsToClusters,
-                )
-                    .chain(),
-            );
+            .add_plugins((ScatteringMediumPlugin, AtmospherePlugin));
 
         if self.gltf_render_enabled {
             #[cfg(target_family = "wasm")]
