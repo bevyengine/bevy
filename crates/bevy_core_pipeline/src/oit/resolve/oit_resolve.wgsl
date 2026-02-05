@@ -95,7 +95,7 @@ fn sort(screen_index: i32, buffer_size: i32, opaque_depth: f32) -> SortResult {
         }
         let color = fragment_list[i].color;
         let alpha = fragment_list[i].alpha;
-        var base_color = vec4(color.rgb * alpha, alpha);
+        var base_color = vec4(color.rgb, alpha);
         final_color = blend(final_color, base_color);
         if final_color.a == 1.0 {
             break;

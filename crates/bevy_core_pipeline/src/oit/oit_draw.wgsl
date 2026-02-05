@@ -5,11 +5,6 @@
 #ifdef OIT_ENABLED
 // Add the fragment to the oit buffer
 fn oit_draw(position: vec4f, color: vec4f) {
-    // Don't add fully transparent fragments to the list
-    // because we don't want to have to sort them in the resolve pass
-    if color.a < oit_settings.alpha_threshold {
-        return;
-    }
     // get the index of the current fragment relative to the screen size
     let screen_index = i32(floor(position.x) + floor(position.y) * view.viewport.z);
     // get the size of the buffer.
