@@ -137,7 +137,12 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     /// The components inserted or removed by this bundle.
     /// Added components includes any Required Components that are inserted when adding this bundle,
     /// but existing components only includes ones explicitly contributed by this bundle.
-    /// The order is as follows: `[added, existing, removed_sparse, removed_table]`
+    ///
+    /// The component order is as follows:
+    /// ```none
+    /// [added, existing, removed_sparse, removed_table]
+    /// ^---inserted---^  ^--------removed_all---------^
+    /// ```
     components: Box<[ComponentId]>,
     existing_start_idx: u32,
     removed_sparse_start_idx: u32,
@@ -146,7 +151,7 @@ pub(crate) struct ArchetypeAfterBundleInsert {
 
 impl ArchetypeAfterBundleInsert {
     pub(crate) fn inserted(&self) -> &[ComponentId] {
-        // SAFETY: `removed_sparse_start_idx` and `removed_table_start_idx` is always in range `0..=components.len()`
+        // SAFETY: `removed_sparse_start_idx` is always in range `0..=components.len()`
         unsafe {
             self.components
                 .get(..self.removed_sparse_start_idx as usize)
