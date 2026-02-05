@@ -1,7 +1,7 @@
 ---
 title: Platform Services
 authors: ["@viridia"]
-pull_requests: []
+pull_requests: [22806]
 ---
 
 The new `bevy_platform_services` is a collection of various high-level APIs which may not be
