@@ -510,3 +510,47 @@ fn registering_mutually_exclusive_as_indirect_required_panics() {
     world.register_required_components::<CompA, CompB>();
     world.register_required_components::<CompA, CompC>();
 }
+
+#[test]
+fn mutually_exclusive_with_same_required() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    struct CompC;
+
+    // Required first
+    let mut world = World::new();
+    world.register_required_components::<CompA, CompC>();
+    world.register_required_components::<CompB, CompC>();
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+
+    // Mutually exclusive first
+    let mut world = World::new();
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+    world.register_required_components::<CompA, CompC>();
+    world.register_required_components::<CompB, CompC>();
+}
+
+#[test]
+#[should_panic]
+fn mutually_exclusive_with_same_required_insert_panics() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    struct CompC;
+
+    let mut world = World::new();
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+    world.register_required_components::<CompA, CompC>();
+    world.register_required_components::<CompB, CompC>();
+
+    world.spawn((CompA, CompB));
+}
