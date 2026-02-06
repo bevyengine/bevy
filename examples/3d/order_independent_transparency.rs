@@ -13,7 +13,7 @@ use bevy::{
     picking::window::update_window_hits,
     prelude::*,
     shader::ShaderRef,
-    window::{CursorIcon, PresentMode, PrimaryWindow, SystemCursorIcon},
+    window::{CursorIcon, PrimaryWindow, SystemCursorIcon},
 };
 use bevy_ecs::system::SystemParam;
 use bevy_render::render_resource::AsBindGroup;
@@ -39,8 +39,6 @@ struct AppState {
     use_oit: bool,
     /// Using a depth prepass helps cull transparent fragment against opaque ones earlier
     use_depth_prepass: bool,
-    /// Disable VSync to better assess performance
-    enable_vsync: bool,
     /// The current scene being displayed
     current_scene_id: usize,
 }
@@ -51,7 +49,6 @@ impl Default for AppState {
             oit_settings: Default::default(),
             use_oit: true,
             use_depth_prepass: true,
-            enable_vsync: true,
             current_scene_id: 0,
         }
     }
@@ -64,8 +61,6 @@ enum AppSetting {
     EnableOIT(bool),
     /// Change whether DepthPrepass is used or not
     UseDepthPrepass(bool),
-    /// Enable or disable VSync on the window
-    EnableVsync(bool),
     /// Change the displayed scene
     ChangeScene(usize),
 }
@@ -89,17 +84,7 @@ struct AppEvent(AppSetting);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: if AppState::default().enable_vsync {
-                    PresentMode::AutoVsync
-                } else {
-                    PresentMode::AutoNoVsync
-                },
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_plugins(MaterialPlugin::<NoisyOpacityMaterial>::default())
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, CheckeredMaterialExtension>,
@@ -240,10 +225,6 @@ fn handle_keyboard_shortcuts(
             !app_state.use_depth_prepass,
         )));
     }
-
-    if keyboard_input.just_pressed(KeyCode::KeyV) {
-        messages.write(AppEvent(AppSetting::EnableVsync(!app_state.enable_vsync)));
-    }
 }
 
 fn spawn_ui(commands: &mut Commands) {
@@ -293,13 +274,6 @@ fn spawn_ui(commands: &mut Commands) {
                         (AppSetting::UseDepthPrepass(false), "Off")
                     ]
                 ),
-                widgets::option_buttons(
-                    "Enable [V]Sync",
-                    &[
-                        (AppSetting::EnableVsync(true), "On"),
-                        (AppSetting::EnableVsync(false), "Off")
-                    ]
-                ),
             ],
         ))
         // Prevent the event from bubble up so that view drag does not initiate when interacting with the UI
@@ -325,7 +299,6 @@ fn update_radio_buttons(
         let selected = match **sender {
             AppSetting::EnableOIT(value) => value == app_state.use_oit,
             AppSetting::UseDepthPrepass(value) => value == app_state.use_depth_prepass,
-            AppSetting::EnableVsync(value) => value == app_state.enable_vsync,
             AppSetting::ChangeScene(scene_id) => scene_id == app_state.current_scene_id,
         };
 
@@ -346,7 +319,6 @@ fn handle_setting_change(
     mut app_events: MessageReader<AppEvent>,
     mut app_state: ResMut<AppState>,
     camera: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
-    mut window: Single<&mut Window, With<PrimaryWindow>>,
 ) {
     // Chain the two message iterators to handle both WidgetCliockEvent and AppEvent
     // This works because both can be derefed to AppSetting
@@ -376,15 +348,6 @@ fn handle_setting_change(
                 } else {
                     commands.entity(camera.0).remove::<DepthPrepass>();
                 }
-            }
-            AppSetting::EnableVsync(value) => {
-                app_state.enable_vsync = value;
-
-                window.present_mode = if app_state.enable_vsync {
-                    PresentMode::AutoVsync
-                } else {
-                    PresentMode::AutoNoVsync
-                };
             }
             AppSetting::ChangeScene(id) => {
                 if id != app_state.current_scene_id {
