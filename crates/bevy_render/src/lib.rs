@@ -274,7 +274,7 @@ impl Plugin for RenderPlugin {
             // We only create the render world and set up extraction if we
             // have a rendering backend available.
             app.add_plugins(ExtractPlugin {
-                extract_callback: Some(error_handler::update_state),
+                pre_extract: error_handler::update_state,
             });
         };
 
@@ -315,27 +315,10 @@ impl Plugin for RenderPlugin {
 
             render_app.init_schedule(RenderStartup);
             render_app.update_schedule = Some(RenderRecovery.intern());
-            render_app.add_systems(RenderRecovery, move |world: &mut World| {
-                if matches!(world.resource::<RenderState>(), RenderState::Ready) {
-                    world.run_schedule(Render);
-                }
-
-                // update the time and send it to the app world regardless of whether we render
-                let time_sender = world.resource::<TimeSender>();
-                if let Err(error) = time_sender.0.try_send(Instant::now()) {
-                    match error {
-                        bevy_time::TrySendError::Full(_) => {
-                            panic!(
-                                "The TimeSender channel should always be empty during render. \
-                            You might need to add the bevy::core::time_system to your app."
-                            );
-                        }
-                        bevy_time::TrySendError::Disconnected(_) => {
-                            // ignore disconnected errors, the main world probably just got dropped during shutdown
-                        }
-                    }
-                }
-            });
+            render_app.add_systems(
+                RenderRecovery,
+                (run_render_schedule.run_if(renderer_is_ready), send_time).chain(),
+            );
             render_app.add_systems(
                 Render,
                 (
@@ -376,6 +359,31 @@ impl Plugin for RenderPlugin {
                 render.world_mut(),
                 self.synchronous_pipeline_compilation,
             );
+        }
+    }
+}
+
+fn renderer_is_ready(state: Res<RenderState>) -> bool {
+    matches!(*state, RenderState::Ready)
+}
+
+fn run_render_schedule(world: &mut World) {
+    world.run_schedule(Render);
+}
+
+fn send_time(time_sender: Res<TimeSender>) {
+    // update the time and send it to the app world regardless of whether we render
+    if let Err(error) = time_sender.0.try_send(Instant::now()) {
+        match error {
+            bevy_time::TrySendError::Full(_) => {
+                panic!(
+                    "The TimeSender channel should always be empty during render. \
+                            You might need to add the bevy::core::time_system to your app."
+                );
+            }
+            bevy_time::TrySendError::Disconnected(_) => {
+                // ignore disconnected errors, the main world probably just got dropped during shutdown
+            }
         }
     }
 }

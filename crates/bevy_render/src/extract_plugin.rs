@@ -1,10 +1,9 @@
-use core::ops::{Deref, DerefMut};
-
 use crate::{
     sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin},
     Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin, SubApp};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
     schedule::{IntoScheduleConfigs, Schedule, ScheduleBuildSettings, ScheduleLabel, Schedules},
@@ -14,12 +13,19 @@ use bevy_utils::default;
 
 /// Plugin that sets up the [`RenderApp`] and handles extracting data from the
 /// main world to the render world.
-#[derive(Default)]
 pub struct ExtractPlugin {
     /// Function that gets run at the beginning of each extraction.
     ///
     /// Gets the main world and render world as arguments (in that order).
-    pub extract_callback: Option<fn(&mut World, &mut World)>,
+    pub pre_extract: fn(&mut World, &mut World),
+}
+
+impl Default for ExtractPlugin {
+    fn default() -> Self {
+        Self {
+            pre_extract: |_, _| {},
+        }
+    }
 }
 
 impl Plugin for ExtractPlugin {
@@ -50,11 +56,9 @@ impl Plugin for ExtractPlugin {
             ),
         );
 
-        let extract_callback = self.extract_callback;
+        let pre_extract = self.pre_extract;
         render_app.set_extract(move |main_world, render_world| {
-            if let Some(extract_callback) = extract_callback {
-                extract_callback(main_world, render_world);
-            }
+            pre_extract(main_world, render_world);
 
             {
                 #[cfg(feature = "trace")]
@@ -99,22 +103,8 @@ fn apply_extract_commands(render_world: &mut World) {
 /// This resource is only available during [`ExtractSchedule`] and not
 /// during command application of that schedule.
 /// See [`Extract`](crate::Extract) for more details.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Deref, DerefMut)]
 pub struct MainWorld(World);
-
-impl Deref for MainWorld {
-    type Target = World;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for MainWorld {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
 /// swapping out the [`MainWorld`] for [`ExtractSchedule`].
