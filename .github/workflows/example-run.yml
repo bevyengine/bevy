@@ -91,7 +91,8 @@ jobs:
       branch: ${{ github.ref_name }}
       artifact: screenshots-macos
       os: macos
-    secrets: inherit
+    secrets:
+      PIXELEAGLE_TOKEN: ${{ secrets.PIXELEAGLE_TOKEN }}
 
   run-examples-linux-vulkan:
     if: ${{ github.event_name != 'pull_request' }}
@@ -165,7 +166,8 @@ jobs:
       branch: ${{ github.ref_name }}
       artifact: screenshots-linux
       os: linux
-    secrets: inherit
+    secrets:
+      PIXELEAGLE_TOKEN: ${{ secrets.PIXELEAGLE_TOKEN }}
 
   run-examples-on-windows-dx12:
     if: ${{ github.event_name != 'pull_request' }}
@@ -233,4 +235,5 @@ jobs:
       branch: ${{ github.ref_name }}
       artifact: screenshots-windows
       os: windows
-    secrets: inherit
+    secrets:
+      PIXELEAGLE_TOKEN: ${{ secrets.PIXELEAGLE_TOKEN }}

@@ -28,6 +28,7 @@ mod atmosphere;
 mod cluster;
 mod components;
 pub mod contact_shadows;
+use bevy_gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers};
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -55,6 +56,8 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
+use bevy_asset::LoadContext;
+use bevy_gltf::{gltf, GltfMaterial};
 use bevy_light::{AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SpotLight};
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
@@ -137,6 +140,8 @@ pub struct PbrPlugin {
     pub use_gpu_instance_buffer_builder: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
+    /// Renders GLTFs with PBR.
+    pub gltf_render_enabled: bool,
 }
 
 impl Default for PbrPlugin {
@@ -146,6 +151,7 @@ impl Default for PbrPlugin {
             add_default_deferred_lighting_plugin: true,
             use_gpu_instance_buffer_builder: true,
             debug_flags: RenderDebugFlags::default(),
+            gltf_render_enabled: true,
         }
     }
 }
@@ -218,6 +224,25 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<AmbientLight>::default(),
             ))
             .add_plugins((ScatteringMediumPlugin, AtmospherePlugin));
+
+        if self.gltf_render_enabled {
+            #[cfg(target_family = "wasm")]
+            bevy_tasks::block_on(async {
+                app.world_mut()
+                    .resource_mut::<GltfExtensionHandlers>()
+                    .0
+                    .write()
+                    .await
+                    .push(Box::new(GltfExtensionHandlerPbr))
+            });
+
+            #[cfg(not(target_family = "wasm"))]
+            app.world_mut()
+                .resource_mut::<GltfExtensionHandlers>()
+                .0
+                .write_blocking()
+                .push(Box::new(GltfExtensionHandlerPbr));
+        }
 
         if self.add_default_deferred_lighting_plugin {
             app.add_plugins(DeferredPbrLightingPlugin);
@@ -353,5 +378,88 @@ pub fn stbn_placeholder() -> Image {
         texture_view_descriptor: None,
         asset_usage: RenderAssetUsages::RENDER_WORLD,
         copy_on_resize: false,
+    }
+}
+
+fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMaterial {
+    StandardMaterial {
+        base_color: material.base_color,
+        base_color_channel: material.base_color_channel.clone(),
+        base_color_texture: material.base_color_texture.clone(),
+        emissive: material.emissive,
+        emissive_channel: material.emissive_channel.clone(),
+        emissive_texture: material.emissive_texture.clone(),
+        perceptual_roughness: material.perceptual_roughness,
+        metallic: material.metallic,
+        metallic_roughness_channel: material.metallic_roughness_channel.clone(),
+        metallic_roughness_texture: material.metallic_roughness_texture.clone(),
+        reflectance: material.reflectance,
+        specular_tint: material.specular_tint,
+        specular_transmission: material.specular_transmission,
+        #[cfg(feature = "pbr_transmission_textures")]
+        specular_transmission_channel: material.specular_transmission_channel.clone(),
+        #[cfg(feature = "pbr_transmission_textures")]
+        specular_transmission_texture: material.specular_transmission_texture.clone(),
+        thickness: material.thickness,
+        #[cfg(feature = "pbr_transmission_textures")]
+        thickness_channel: material.thickness_channel.clone(),
+        #[cfg(feature = "pbr_transmission_textures")]
+        thickness_texture: material.thickness_texture.clone(),
+        ior: material.ior,
+        attenuation_distance: material.attenuation_distance,
+        attenuation_color: material.attenuation_color,
+        normal_map_channel: material.normal_map_channel.clone(),
+        normal_map_texture: material.normal_map_texture.clone(),
+        occlusion_channel: material.occlusion_channel.clone(),
+        occlusion_texture: material.occlusion_texture.clone(),
+        clearcoat: material.clearcoat,
+        clearcoat_perceptual_roughness: material.clearcoat_perceptual_roughness,
+        anisotropy_strength: material.anisotropy_strength,
+        anisotropy_rotation: material.anisotropy_rotation,
+        double_sided: material.double_sided,
+        cull_mode: material.cull_mode,
+        unlit: material.unlit,
+        alpha_mode: material.alpha_mode,
+        uv_transform: material.uv_transform,
+        ..Default::default()
+    }
+}
+
+#[derive(Default, Clone)]
+struct GltfExtensionHandlerPbr;
+
+impl GltfExtensionHandler for GltfExtensionHandlerPbr {
+    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+        Box::new((*self).clone())
+    }
+
+    fn on_material(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        _gltf_material: &gltf::Material,
+        _material: Handle<GltfMaterial>,
+        material_asset: &GltfMaterial,
+        material_label: &str,
+    ) {
+        let std_label = format!("{:?}#std", material_label);
+
+        let _t = load_context.labeled_asset_scope::<_, ()>(std_label, |_load_context| {
+            Ok(standard_material_from_gltf_material(material_asset))
+        });
+    }
+
+    fn on_spawn_mesh_and_material(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        _primitive: &gltf::Primitive,
+        _mesh: &gltf::Mesh,
+        _material: &gltf::Material,
+        entity: &mut EntityWorldMut,
+        material_label: &str,
+    ) {
+        let std_label = format!("{:?}#std", material_label);
+        let handle = load_context.get_label_handle::<StandardMaterial>(std_label);
+
+        entity.insert(MeshMaterial3d(handle));
     }
 }
