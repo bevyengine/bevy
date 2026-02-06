@@ -991,17 +991,16 @@ impl GltfLoader {
 
             let world_root_transform = convert_coordinates.scene_conversion_transform();
 
-            let scene_name = scene
-                .name()
-                .map(|name| name.to_owned())
-                .unwrap_or_else(|| format!("Scene{}", scene.index()));
-
             let world_root_id = world
                 .spawn((
                     world_root_transform,
                     Visibility::default(),
-                    Name::new(scene_name.clone()),
-                    GltfSceneName(scene_name),
+                    Name::new(
+                        scene
+                            .name()
+                            .map(ToOwned::to_owned)
+                            .unwrap_or_else(|| format!("Scene{}", scene.index())),
+                    ),
                 ))
                 .with_children(|parent| {
                     for node in scene.nodes() {
@@ -1031,6 +1030,12 @@ impl GltfLoader {
                     }
                 })
                 .id();
+
+            if let Some(scene_name) = scene.name() {
+                world
+                    .entity_mut(world_root_id)
+                    .insert(GltfSceneName(scene_name.to_owned()));
+            };
 
             if let Some(extras) = scene.extras().as_ref() {
                 world.entity_mut(world_root_id).insert(GltfSceneExtras {
