@@ -1,9 +1,8 @@
 use core::ops::{Deref, DerefMut};
 
 use crate::{
-    error_handler::RenderState,
     sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin, SubApp};
 use bevy_ecs::{
@@ -11,14 +10,17 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, Schedule, ScheduleBuildSettings, ScheduleLabel, Schedules},
     world::{Mut, World},
 };
-use bevy_platform::time::Instant;
-use bevy_time::TimeSender;
 use bevy_utils::default;
 
 /// Plugin that sets up the render subapp and handles extracting data from the
 /// main world to the render world.
 #[derive(Default)]
-pub struct ExtractPlugin;
+pub struct ExtractPlugin {
+    /// Function that gets run at the beginning of each extraction.
+    ///
+    /// Gets the main world and render world as arguments (in that order).
+    pub extract_callback: Option<fn(&mut World, &mut World)>,
+}
 
 impl Plugin for ExtractPlugin {
     fn build(&self, app: &mut App) {
@@ -26,7 +28,6 @@ impl Plugin for ExtractPlugin {
         app.init_resource::<ScratchMainWorld>();
 
         let mut render_app = SubApp::new();
-        render_app.update_schedule = Some(RenderRecovery.intern());
 
         let mut extract_schedule = Schedule::new(ExtractSchedule);
         // We skip applying any commands during the ExtractSchedule
@@ -37,32 +38,8 @@ impl Plugin for ExtractPlugin {
         });
         extract_schedule.set_apply_final_deferred(false);
 
-        render_app.add_schedule(extract_schedule);
         render_app.add_schedule(Render::base_schedule());
-        render_app.add_schedule(Schedule::new(RenderStartup));
-        render_app.add_schedule(Schedule::new(RenderRecovery));
-        render_app.insert_resource(RenderState::Initializing);
-        render_app.add_systems(RenderRecovery, move |world: &mut World| {
-            if matches!(world.resource::<RenderState>(), RenderState::Ready) {
-                world.run_schedule(Render);
-            }
-
-            // update the time and send it to the app world regardless of whether we render
-            let time_sender = world.resource::<TimeSender>();
-            if let Err(error) = time_sender.0.try_send(Instant::now()) {
-                match error {
-                    bevy_time::TrySendError::Full(_) => {
-                        panic!(
-                            "The TimeSender channel should always be empty during render. \
-                            You might need to add the bevy::core::time_system to your app."
-                        );
-                    }
-                    bevy_time::TrySendError::Disconnected(_) => {
-                        // ignore disconnected errors, the main world probably just got dropped during shutdown
-                    }
-                }
-            }
-        });
+        render_app.add_schedule(extract_schedule);
         render_app.add_systems(
             Render,
             (
@@ -73,8 +50,11 @@ impl Plugin for ExtractPlugin {
             ),
         );
 
-        render_app.set_extract(|main_world, render_world| {
-            crate::error_handler::update_state(main_world, render_world);
+        let extract_callback = self.extract_callback;
+        render_app.set_extract(move |main_world, render_world| {
+            if let Some(extract_callback) = extract_callback {
+                extract_callback(main_world, render_world);
+            }
 
             {
                 #[cfg(feature = "trace")]
@@ -102,11 +82,6 @@ impl Plugin for ExtractPlugin {
 /// See [`MainWorld`] and [`Extract`](crate::Extract) for details on how to access main world data from this schedule.
 #[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash, Default)]
 pub struct ExtractSchedule;
-
-/// The render recovery schedule. This schedule runs the [`Render`] schedule if
-/// we are in [`RenderState::Ready`], and is otherwise hidden from users.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-struct RenderRecovery;
 
 /// Applies the commands from the extract schedule. This happens during
 /// the render schedule rather than during extraction to allow the commands to run in parallel with the
@@ -164,13 +139,13 @@ pub fn extract(main_world: &mut World, render_world: &mut World) {
 #[cfg(test)]
 mod test {
     use bevy_app::{App, Startup};
-    use bevy_ecs::prelude::*;
+    use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 
     use crate::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         extract_plugin::ExtractPlugin,
         sync_world::MainEntity,
-        RenderApp,
+        Render, RenderApp,
     };
 
     #[derive(Component, Clone, Debug)]
@@ -200,10 +175,10 @@ mod test {
     }
 
     #[test]
-    fn test_extract() {
+    fn extraction_works() {
         let mut app = App::new();
 
-        app.add_plugins(ExtractPlugin);
+        app.add_plugins(ExtractPlugin::default());
         app.add_plugins(ExtractComponentPlugin::<RenderComponent>::default());
         app.add_plugins(ExtractComponentPlugin::<RenderComponentSeparate>::default());
         app.add_systems(Startup, |mut commands: Commands| {
@@ -211,6 +186,11 @@ mod test {
         });
 
         let render_app = app.get_sub_app_mut(RenderApp).unwrap();
+
+        // Normally RenderPlugin sets the RenderRecovery schedule as update, but for
+        // testing we just use the Render schedule directly.
+        render_app.update_schedule = Some(Render.intern());
+
         render_app.world_mut().add_observer(
             |event: On<Add, (RenderComponent, RenderComponentExtra)>, mut commands: Commands| {
                 // Simulate data that's not extracted

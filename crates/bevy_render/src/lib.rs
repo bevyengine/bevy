@@ -79,7 +79,7 @@ pub use extract_plugin::{ExtractSchedule, MainWorld};
 
 use crate::{
     camera::CameraPlugin,
-    error_handler::RenderErrorHandler,
+    error_handler::{RenderErrorHandler, RenderState},
     extract_plugin::ExtractPlugin,
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
@@ -97,7 +97,9 @@ use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
+use bevy_time::TimeSender;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use bitflags::bitflags;
 use globals::GlobalsPlugin;
@@ -197,6 +199,11 @@ pub enum RenderSystems {
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct RenderStartup;
 
+/// The render recovery schedule. This schedule runs the [`Render`] schedule if
+/// we are in [`RenderState::Ready`], and is otherwise hidden from users.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+struct RenderRecovery;
+
 /// The main render schedule.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct Render;
@@ -264,7 +271,11 @@ impl Plugin for RenderPlugin {
         load_shader_library!(app, "bindless.wgsl");
 
         if insert_future_resources(&self.render_creation, app.world_mut()) {
-            app.add_plugins(ExtractPlugin);
+            // We only create the render world and set up extraction if we
+            // successfully created a render device
+            app.add_plugins(ExtractPlugin {
+                extract_callback: Some(error_handler::update_state),
+            });
         };
 
         app.add_plugins((
@@ -293,6 +304,7 @@ impl Plugin for RenderPlugin {
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
             render_app.init_resource::<renderer::PendingCommandBuffers>();
             render_app.insert_resource(asset_server);
+            render_app.insert_resource(RenderState::Initializing);
             render_app.add_systems(
                 ExtractSchedule,
                 (
@@ -300,6 +312,30 @@ impl Plugin for RenderPlugin {
                     PipelineCache::extract_shaders,
                 ),
             );
+
+            render_app.init_schedule(RenderStartup);
+            render_app.update_schedule = Some(RenderRecovery.intern());
+            render_app.add_systems(RenderRecovery, move |world: &mut World| {
+                if matches!(world.resource::<RenderState>(), RenderState::Ready) {
+                    world.run_schedule(Render);
+                }
+
+                // update the time and send it to the app world regardless of whether we render
+                let time_sender = world.resource::<TimeSender>();
+                if let Err(error) = time_sender.0.try_send(Instant::now()) {
+                    match error {
+                        bevy_time::TrySendError::Full(_) => {
+                            panic!(
+                                "The TimeSender channel should always be empty during render. \
+                            You might need to add the bevy::core::time_system to your app."
+                            );
+                        }
+                        bevy_time::TrySendError::Disconnected(_) => {
+                            // ignore disconnected errors, the main world probably just got dropped during shutdown
+                        }
+                    }
+                }
+            });
             render_app.add_systems(
                 Render,
                 (
