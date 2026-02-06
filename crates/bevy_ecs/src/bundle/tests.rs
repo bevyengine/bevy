@@ -537,7 +537,7 @@ fn mutually_exclusive_with_same_required() {
 
 #[test]
 #[should_panic]
-fn mutually_exclusive_with_same_required_insert_panics() {
+fn mutually_exclusive_within_required_panics_on_spawn() {
     #[derive(Component, Default)]
     struct CompA;
 
@@ -547,10 +547,17 @@ fn mutually_exclusive_with_same_required_insert_panics() {
     #[derive(Component, Default)]
     struct CompC;
 
+    #[derive(Component, Default)]
+    struct CompD;
+
+    #[derive(Component, Default)]
+    struct CompE;
+
     let mut world = World::new();
-    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+    world.register_mutually_exclusive_components::<(CompC, CompE)>();
     world.register_required_components::<CompA, CompC>();
-    world.register_required_components::<CompB, CompC>();
+    world.register_required_components::<CompB, CompD>();
+    world.register_required_components::<CompD, CompE>();
 
     world.spawn((CompA, CompB));
 }
