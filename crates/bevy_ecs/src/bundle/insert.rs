@@ -188,6 +188,8 @@ impl<'w> BundleInserter<'w> {
             }
             if !archetype_after_insert.removed_all().is_empty() {
                 let archetype = archetype.as_ref();
+
+                // Replace
                 if archetype.has_replace_observer() {
                     // SAFETY: the REPLACE event_key corresponds to the Replace event's type
                     deferred_world.trigger_raw(
@@ -205,6 +207,25 @@ impl<'w> BundleInserter<'w> {
                     archetype_after_insert.removed_all().iter().copied(),
                     caller,
                     relationship_hook_mode,
+                );
+
+                // Remove
+                if archetype.has_remove_observer() {
+                    // SAFETY: the REMOVE event_key corresponds to the Remove event's type
+                    deferred_world.trigger_raw(
+                        REMOVE,
+                        &mut Remove { entity },
+                        &mut EntityComponentsTrigger {
+                            components: archetype_after_insert.removed_all(),
+                        },
+                        caller,
+                    );
+                }
+                deferred_world.trigger_on_remove(
+                    archetype,
+                    entity,
+                    archetype_after_insert.removed_all().iter().copied(),
+                    caller,
                 );
             }
         }
@@ -427,7 +448,6 @@ impl<'w> BundleInserter<'w> {
             relationship_hook_mode,
             archetype_after_insert,
             new_archetype,
-            self.archetype,
             deferred_world,
         );
 
@@ -445,7 +465,6 @@ impl<'w> BundleInserter<'w> {
         relationship_hook_mode: RelationshipHookMode,
         archetype_after_insert: &ArchetypeAfterBundleInsert,
         new_archetype: &Archetype,
-        old_archetype: NonNull<Archetype>,
         mut deferred_world: crate::world::DeferredWorld<'_>,
     ) {
         // SAFETY: All components in the bundle are guaranteed to exist in the World
@@ -511,25 +530,6 @@ impl<'w> BundleInserter<'w> {
                             caller,
                         );
                     }
-                }
-            }
-            if !archetype_after_insert.removed_all().is_empty() {
-                let old_archetype = old_archetype.as_ref();
-                deferred_world.trigger_on_remove(
-                    old_archetype,
-                    entity,
-                    archetype_after_insert.removed_all().iter().copied(),
-                    caller,
-                );
-                if old_archetype.has_remove_observer() {
-                    deferred_world.trigger_raw(
-                        REMOVE,
-                        &mut Remove { entity },
-                        &mut EntityComponentsTrigger {
-                            components: archetype_after_insert.removed_all(),
-                        },
-                        caller,
-                    );
                 }
             }
         }
