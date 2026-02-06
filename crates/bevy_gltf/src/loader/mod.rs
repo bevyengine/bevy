@@ -998,7 +998,7 @@ impl GltfLoader {
                     scene
                         .name()
                         .map(|name| Name::new(name.to_owned()))
-                        .unwrap_or(Name::new(format!("Scene{}", scene.index()))),
+                        .unwrap_or_else(|| Name::new(format!("Scene{}", scene.index()))),
                 ))
                 .with_children(|parent| {
                     for node in scene.nodes() {
