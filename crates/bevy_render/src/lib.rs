@@ -43,6 +43,7 @@ pub mod error_handler;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
+pub mod extract_plugin;
 pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
@@ -74,10 +75,12 @@ pub mod prelude {
 }
 
 pub use extract_param::Extract;
+pub use extract_plugin::{ExtractSchedule, MainWorld};
 
 use crate::{
     camera::CameraPlugin,
     error_handler::{RenderErrorHandler, RenderState},
+    extract_plugin::ExtractPlugin,
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
@@ -90,17 +93,13 @@ use crate::{
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AssetApp, AssetServer};
-use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    prelude::*,
-    schedule::{ScheduleBuildSettings, ScheduleLabel},
-};
+use bevy_derive::Deref;
+use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_time::TimeSender;
-use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use bitflags::bitflags;
 use globals::GlobalsPlugin;
@@ -111,11 +110,10 @@ use render_asset::{
 };
 use settings::RenderResources;
 use std::sync::Mutex;
-use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
-/// Rendering is done in a [`SubApp`], which exchanges data with the main app
+/// Rendering is done in a [`SubApp`](bevy_app::SubApp), which exchanges data with the main app
 /// between main schedule iterations.
 ///
 /// Rendering can be executed between iterations of the main schedule,
@@ -201,6 +199,11 @@ pub enum RenderSystems {
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct RenderStartup;
 
+/// The render recovery schedule. This schedule runs the [`Render`] schedule if
+/// we are in [`RenderState::Ready`], and is otherwise hidden from users.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+struct RenderRecovery;
+
 /// The main render schedule.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct Render;
@@ -251,29 +254,6 @@ impl Render {
     }
 }
 
-/// Schedule in which data from the main world is 'extracted' into the render world.
-///
-/// This step should be kept as short as possible to increase the "pipelining potential" for
-/// running the next frame while rendering the current frame.
-///
-/// This schedule is run on the render world, but it also has access to the main world.
-/// See [`MainWorld`] and [`Extract`] for details on how to access main world data from this schedule.
-#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash, Default)]
-pub struct ExtractSchedule;
-
-/// The simulation [`World`] of the application, stored as a resource.
-///
-/// This resource is only available during [`ExtractSchedule`] and not
-/// during command application of that schedule.
-/// See [`Extract`] for more details.
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct MainWorld(World);
-
-/// The render recovery schedule. This schedule runs the [`Render`] schedule if
-/// we are in [`RenderState::Ready`], and is otherwise hidden from users.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-struct RenderRecovery;
-
 #[derive(Resource, Default, Clone, Deref)]
 pub(crate) struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
@@ -291,8 +271,11 @@ impl Plugin for RenderPlugin {
         load_shader_library!(app, "bindless.wgsl");
 
         if insert_future_resources(&self.render_creation, app.world_mut()) {
-            // SAFETY: Plugins should be set up on the main thread.
-            unsafe { initialize_render_app(app) };
+            // We only create the render world and set up extraction if we
+            // have a rendering backend available.
+            app.add_plugins(ExtractPlugin {
+                pre_extract: error_handler::update_state,
+            });
         };
 
         app.add_plugins((
@@ -307,7 +290,6 @@ impl Plugin for RenderPlugin {
             BatchingPlugin {
                 debug_flags: self.debug_flags,
             },
-            SyncWorldPlugin,
             StoragePlugin,
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
@@ -315,16 +297,37 @@ impl Plugin for RenderPlugin {
             diagnostic::RenderDiagnosticsPlugin,
         ));
 
+        let asset_server = app.world().resource::<AssetServer>().clone();
         app.init_resource::<RenderAssetBytesPerFrame>()
             .init_resource::<RenderErrorHandler>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
-            render_app
-                .add_systems(ExtractSchedule, extract_render_asset_bytes_per_frame)
-                .add_systems(
-                    Render,
+            render_app.init_resource::<renderer::PendingCommandBuffers>();
+            render_app.insert_resource(asset_server);
+            render_app.insert_resource(RenderState::Initializing);
+            render_app.add_systems(
+                ExtractSchedule,
+                (
+                    extract_render_asset_bytes_per_frame,
+                    PipelineCache::extract_shaders,
+                ),
+            );
+
+            render_app.init_schedule(RenderStartup);
+            render_app.update_schedule = Some(RenderRecovery.intern());
+            render_app.add_systems(
+                RenderRecovery,
+                (run_render_schedule.run_if(renderer_is_ready), send_time).chain(),
+            );
+            render_app.add_systems(
+                Render,
+                (
+                    (PipelineCache::process_pipeline_queue_system, render_system)
+                        .chain()
+                        .in_set(RenderSystems::Render),
                     reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
-                );
+                ),
+            );
         }
     }
 
@@ -360,6 +363,31 @@ impl Plugin for RenderPlugin {
     }
 }
 
+fn renderer_is_ready(state: Res<RenderState>) -> bool {
+    matches!(*state, RenderState::Ready)
+}
+
+fn run_render_schedule(world: &mut World) {
+    world.run_schedule(Render);
+}
+
+fn send_time(time_sender: Res<TimeSender>) {
+    // update the time and send it to the app world regardless of whether we render
+    if let Err(error) = time_sender.0.try_send(Instant::now()) {
+        match error {
+            bevy_time::TrySendError::Full(_) => {
+                panic!(
+                    "The TimeSender channel should always be empty during render. \
+                            You might need to add the bevy::core::time_system to your app."
+                );
+            }
+            bevy_time::TrySendError::Disconnected(_) => {
+                // ignore disconnected errors, the main world probably just got dropped during shutdown
+            }
+        }
+    }
+}
+
 /// Inserts a [`FutureRenderResources`] created from this [`RenderCreation`].
 ///
 /// Returns true if creation was successful, false otherwise.
@@ -388,116 +416,6 @@ fn insert_future_resources(render_creation: &RenderCreation, main_world: &mut Wo
         main_world.insert_resource(future_resources);
     }
     success
-}
-
-/// A "scratch" world used to avoid allocating new worlds every frame when
-/// swapping out the [`MainWorld`] for [`ExtractSchedule`].
-#[derive(Resource, Default)]
-struct ScratchMainWorld(World);
-
-/// Executes the [`ExtractSchedule`] step of the renderer.
-/// This updates the render world with the extracted ECS data of the current frame.
-fn extract(main_world: &mut World, render_world: &mut World) {
-    // temporarily add the app world to the render world as a resource
-    let scratch_world = main_world.remove_resource::<ScratchMainWorld>().unwrap();
-    let inserted_world = core::mem::replace(main_world, scratch_world.0);
-    render_world.insert_resource(MainWorld(inserted_world));
-    render_world.run_schedule(ExtractSchedule);
-
-    // move the app world back, as if nothing happened.
-    let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
-    let scratch_world = core::mem::replace(main_world, inserted_world.0);
-    main_world.insert_resource(ScratchMainWorld(scratch_world));
-}
-
-/// # Safety
-/// This function must be called from the main thread.
-unsafe fn initialize_render_app(app: &mut App) {
-    app.init_resource::<ScratchMainWorld>();
-
-    let mut render_app = SubApp::new();
-    render_app.update_schedule = Some(RenderRecovery.intern());
-
-    let mut extract_schedule = Schedule::new(ExtractSchedule);
-    // We skip applying any commands during the ExtractSchedule
-    // so commands can be applied on the render thread.
-    extract_schedule.set_build_settings(ScheduleBuildSettings {
-        auto_insert_apply_deferred: false,
-        ..default()
-    });
-    extract_schedule.set_apply_final_deferred(false);
-
-    render_app
-        .add_schedule(extract_schedule)
-        .add_schedule(Schedule::new(RenderRecovery))
-        .add_schedule(Render::base_schedule())
-        .init_resource::<renderer::PendingCommandBuffers>()
-        .insert_resource(app.world().resource::<AssetServer>().clone())
-        .insert_resource(RenderState::Initializing)
-        .add_systems(RenderRecovery, move |world: &mut World| {
-            if matches!(world.resource::<RenderState>(), RenderState::Ready) {
-                world.run_schedule(Render);
-            }
-
-            // update the time and send it to the app world regardless of whether we render
-            let time_sender = world.resource::<TimeSender>();
-            if let Err(error) = time_sender.0.try_send(Instant::now()) {
-                match error {
-                    bevy_time::TrySendError::Full(_) => {
-                        panic!(
-                            "The TimeSender channel should always be empty during render. \
-                            You might need to add the bevy::core::time_system to your app."
-                        );
-                    }
-                    bevy_time::TrySendError::Disconnected(_) => {
-                        // ignore disconnected errors, the main world probably just got dropped during shutdown
-                    }
-                }
-            }
-        })
-        .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
-        .add_systems(
-            Render,
-            (
-                // This set applies the commands from the extract schedule while the render schedule
-                // is running in parallel with the main app.
-                apply_extract_commands.in_set(RenderSystems::ExtractCommands),
-                (PipelineCache::process_pipeline_queue_system, render_system)
-                    .chain()
-                    .in_set(RenderSystems::Render),
-                despawn_temporary_render_entities.in_set(RenderSystems::PostCleanup),
-            ),
-        );
-
-    render_app.set_extract(|main_world, render_world| {
-        error_handler::update_state(main_world, render_world);
-
-        {
-            #[cfg(feature = "trace")]
-            let _stage_span = bevy_log::info_span!("entity_sync").entered();
-            entity_sync_system(main_world, render_world);
-        }
-
-        // run extract schedule
-        extract(main_world, render_world);
-    });
-
-    let (sender, receiver) = bevy_time::create_time_channels();
-    render_app.insert_resource(sender);
-    app.insert_resource(receiver);
-    app.insert_sub_app(RenderApp, render_app);
-}
-
-/// Applies the commands from the extract schedule. This happens during
-/// the render schedule rather than during extraction to allow the commands to run in parallel with the
-/// main app when pipelined rendering is enabled.
-fn apply_extract_commands(render_world: &mut World) {
-    render_world.resource_scope(|render_world, mut schedules: Mut<Schedules>| {
-        schedules
-            .get_mut(ExtractSchedule)
-            .unwrap()
-            .apply_deferred(render_world);
-    });
 }
 
 /// If the [`RenderAdapterInfo`] is a Qualcomm Adreno, returns its model number.
