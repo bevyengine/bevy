@@ -58,7 +58,7 @@ use tracing::{error, info_span, warn};
 use crate::{
     convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
     GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfMeshName,
-    GltfNode, GltfSceneExtras, GltfSkin, GltfSkinnedMeshBoundsPolicy,
+    GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -991,14 +991,17 @@ impl GltfLoader {
 
             let world_root_transform = convert_coordinates.scene_conversion_transform();
 
+            let scene_name = scene
+                .name()
+                .map(|name| name.to_owned())
+                .unwrap_or_else(|| format!("Scene{}", scene.index()));
+
             let world_root_id = world
                 .spawn((
                     world_root_transform,
                     Visibility::default(),
-                    scene
-                        .name()
-                        .map(|name| Name::new(name.to_owned()))
-                        .unwrap_or_else(|| Name::new(format!("Scene{}", scene.index()))),
+                    Name::new(scene_name.clone()),
+                    GltfSceneName(scene_name),
                 ))
                 .with_children(|parent| {
                     for node in scene.nodes() {
