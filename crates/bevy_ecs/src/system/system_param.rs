@@ -1179,9 +1179,11 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 /// so you should try to minimize the time spent in [`SystemBuffer::apply`].
 pub trait SystemBuffer: FromWorld + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
-    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
+    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+        self.queue(system_meta, world.into());
+    }
     /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
-    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
+    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld);
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
