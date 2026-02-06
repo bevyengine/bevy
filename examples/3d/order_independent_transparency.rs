@@ -7,9 +7,8 @@
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
 use bevy::{
     camera::visibility::RenderLayers,
-    color::palettes::css::{BLUE, GREEN, NAVAJO_WHITE, RED, YELLOW},
+    color::palettes::css::{BLUE, GREEN, RED, YELLOW},
     core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
-    mesh::{SphereKind, SphereMeshBuilder},
     pbr::{ExtendedMaterial, MaterialExtension},
     picking::window::update_window_hits,
     prelude::*,
@@ -18,8 +17,6 @@ use bevy::{
 };
 use bevy_ecs::system::SystemParam;
 use bevy_render::render_resource::AsBindGroup;
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
 
 #[path = "../helpers/widgets.rs"]
 mod widgets;
@@ -31,7 +28,6 @@ const SCENES: &[(&str, &str, fn(&mut Commands, &mut SceneResources))] = &[
     ("3", "Opaque occlusion test", spawn_occlusion_test),
     ("4", "Auto instancing test", spawn_auto_instancing_test),
     ("5", "Custom material demo", spawn_custom_material),
-    ("6", "Stress test", spawn_stress_test),
 ];
 
 /// Application state
@@ -738,65 +734,6 @@ fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources
             ..default()
         })),
         Transform::from_rotation(Quat::from_rotation_x(1.0)),
-        render_layers.clone(),
-    ));
-}
-
-/// This is a stress test scene, spawn many intersecting transparent objects.
-/// This helps visualiaze the limitations of OIT in terms of quality and performance
-fn spawn_stress_test(commands: &mut Commands, resources: &mut SceneResources) {
-    let meshes = &mut resources.meshes;
-    let materials = &mut resources.materials;
-
-    let render_layers = RenderLayers::layer(1);
-
-    // Reduce the tesselation of the spheres to minimize geometric load
-    let builder = SphereMeshBuilder::new(0.2, SphereKind::Ico { subdivisions: 2 });
-    let sphere = meshes.add(builder);
-
-    const N_ITEMS: usize = 1000;
-    let mut rng = ChaCha8Rng::seed_from_u64(42);
-    let rand_01 = |rng: &mut ChaCha8Rng| rng.random_range(0.0f32..1.0);
-    for _ in 0..N_ITEMS {
-        // A random colored material
-        let color = Srgba::rgb(rand_01(&mut rng), rand_01(&mut rng), rand_01(&mut rng));
-
-        let material = materials.add(StandardMaterial {
-            alpha_mode: AlphaMode::Blend,
-            base_color: color.with_alpha(0.2).into(),
-            ..default()
-        });
-
-        // A randomly placed sphere
-        let axis = Dir3::from_rng(&mut rng);
-        let dist = 1.0 + rand_01(&mut rng);
-        let size = 2.0 + rand_01(&mut rng);
-
-        commands
-            .spawn((
-                Transform::default().looking_to(axis, Vec3::Y),
-                InheritedVisibility::VISIBLE,
-            ))
-            .with_child((
-                Mesh3d(sphere.clone()),
-                MeshMaterial3d(material.clone()),
-                Transform::from_xyz(0.0, 0.0, dist).with_scale(Vec3::splat(size)),
-                render_layers.clone(),
-            ));
-    }
-
-    // This plane tests the early-culling-against-opaque-fragments optimization
-    // allowed by DepthPrepass
-    let quad_handle = meshes.add(Rectangle::new(5.0, 5.0).mesh());
-    commands.spawn((
-        Mesh3d(quad_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: NAVAJO_WHITE.into(),
-            cull_mode: None,
-            alpha_mode: AlphaMode::Opaque,
-            ..default()
-        })),
-        Transform::default(),
         render_layers.clone(),
     ));
 }
