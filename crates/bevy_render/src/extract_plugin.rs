@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_utils::default;
 
-/// Plugin that sets up the render subapp and handles extracting data from the
+/// Plugin that sets up the [`RenderApp`] and handles extracting data from the
 /// main world to the render world.
 #[derive(Default)]
 pub struct ExtractPlugin {
