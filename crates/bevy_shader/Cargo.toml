@@ -11,7 +11,7 @@ keywords = ["bevy", "shader"]
 [dependencies]
 # bevy
 bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev" }
 

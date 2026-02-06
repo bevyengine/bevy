@@ -31,7 +31,7 @@ bevy_camera = { path = "../bevy_camera", version = "0.19.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev" }
 bevy_pbr = { path = "../bevy_pbr", version = "0.19.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_render = { path = "../bevy_render", version = "0.19.0-dev" }
 bevy_material = { path = "../bevy_material", version = "0.19.0-dev" }
 bevy_scene = { path = "../bevy_scene", version = "0.19.0-dev" }

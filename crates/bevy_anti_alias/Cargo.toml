@@ -19,7 +19,7 @@ force_disable_dlss = ["dlss_wgpu?/mock"]
 [dependencies]
 # bevy
 bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_render = { path = "../bevy_render", version = "0.19.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.19.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }

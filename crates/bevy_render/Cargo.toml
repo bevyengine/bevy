@@ -66,7 +66,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev" }
 bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.19.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
 bevy_material = { path = "../bevy_material", version = "0.19.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-features = false }
 bevy_log = { path = "../bevy_log", version = "0.19.0-dev" }
 bevy_material_macros = { path = "../bevy_material/macros", version = "0.19.0-dev" }
 bevy_render_macros = { path = "../bevy_render/macros", version = "0.19.0-dev" }
