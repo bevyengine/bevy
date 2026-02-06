@@ -251,7 +251,6 @@ bevy_anti_alias = ["dep:bevy_anti_alias", "bevy_core_pipeline"]
 bevy_post_process = ["dep:bevy_post_process", "bevy_core_pipeline"]
 bevy_pbr = [
   "dep:bevy_pbr",
-  "bevy_gltf",
   "bevy_light",
   "bevy_material",
   "bevy_core_pipeline",
@@ -268,7 +267,7 @@ bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
 bevy_solari = ["dep:bevy_solari", "bevy_pbr"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera", "bevy_light?/bevy_gizmos"]
 bevy_gizmos_render = ["dep:bevy_gizmos_render", "bevy_gizmos"]
-bevy_gltf = ["dep:bevy_gltf", "bevy_scene"]
+bevy_gltf = ["dep:bevy_gltf", "bevy_scene", "bevy_pbr?/bevy_gltf"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
