@@ -459,14 +459,18 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
 ) {
     world.commands().queue(move |world: &mut World| {
         let event_key = world.register_event_key::<E>();
-        let components = B::component_ids(&mut world.components_registrator());
+        let components = B::component_ids(&mut world.components_registrator())
+            .collect::<smallvec::SmallVec<[ComponentId; 16]>>();
 
         let system_ptr: *mut dyn ObserverSystem<E, B> = {
             let Some(mut observer) = world.get_mut::<Observer>(entity) else {
                 return;
             };
             observer.descriptor.event_keys.push(event_key);
-            observer.descriptor.components.extend(components);
+            observer
+                .descriptor
+                .components
+                .extend_from_slice(&components);
 
             let system: &mut dyn Any = observer.system.as_mut();
             system.downcast_mut::<S>().unwrap() as *mut dyn ObserverSystem<E, B>

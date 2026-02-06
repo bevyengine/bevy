@@ -152,7 +152,7 @@ fn main() {
                 println!("Entity spawned with id: {}", entity.id());
             }
             "q" => {
-                let mut builder = QueryBuilder::<FilteredEntityMut>::new(&mut world);
+                let mut builder = QueryBuilder::<FilteredEntityMut>::new(&world);
                 parse_query(rest, &mut builder, &component_names);
                 let mut query = builder.build();
                 query.iter_mut(&mut world).for_each(|filtered_entity| {

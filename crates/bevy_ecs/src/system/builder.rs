@@ -735,7 +735,7 @@ mod tests {
         world.spawn(A);
         world.spawn_empty();
 
-        let state = QueryBuilder::new(&mut world).with::<A>().build();
+        let state = QueryBuilder::new(&world).with::<A>().build();
 
         let system = (state,).build_state(&mut world).build_system(query_system);
 
