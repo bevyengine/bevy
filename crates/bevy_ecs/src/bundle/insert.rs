@@ -655,13 +655,10 @@ impl BundleInfo {
             // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
             {
                 let current_archetype = &archetypes[archetype_id];
-                table_components = if new_table_components.is_empty() {
+                table_components = if new_table_components.is_empty() && removed_table.is_empty() {
                     // If there are no new table components, we can keep using this table.
                     table_id = current_archetype.table_id();
-                    current_archetype
-                        .table_components()
-                        .filter(|component_id| !removed_table.contains(component_id))
-                        .collect()
+                    current_archetype.table_components().collect()
                 } else {
                     new_table_components.extend(
                         current_archetype
