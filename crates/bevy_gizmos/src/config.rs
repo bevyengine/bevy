@@ -110,8 +110,15 @@ impl GizmoConfigStore {
     }
 
     /// Returns [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`GizmoConfigGroup`] `T`
+    ///
+    /// # Panics
+    /// If the config does not exist for [`GizmoConfigGroup`] `T`
+    ///
+    /// For a non-panicking version, see [`get_config`].
+    ///
+    /// [`get_config`]: Self::get_config
     pub fn config<T: GizmoConfigGroup>(&self) -> (&GizmoConfig, &T) {
-        let Some(configs) = self.try_config() else {
+        let Some(configs) = self.get_config() else {
             panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
         };
         configs
@@ -119,7 +126,11 @@ impl GizmoConfigStore {
 
     /// Returns Some([`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`GizmoConfigGroup`] `T` if they exist,
     /// else None.
-    pub fn try_config<T: GizmoConfigGroup>(&self) -> Option<(&GizmoConfig, &T)> {
+    ///
+    /// If the configs will always be present, use [`config`].
+    ///
+    /// [`config`]: Self::config
+    pub fn get_config<T: GizmoConfigGroup>(&self) -> Option<(&GizmoConfig, &T)> {
         let (config, ext) = self.get_config_dyn(&TypeId::of::<T>())?;
         // hash map invariant guarantees that &dyn Reflect is of correct type T
         let ext = ext.as_any().downcast_ref().unwrap();
@@ -136,8 +147,15 @@ impl GizmoConfigStore {
     }
 
     /// Returns mutable [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`GizmoConfigGroup`] `T`
+    ///
+    /// # Panics
+    /// If the config does not exist for [`GizmoConfigGroup`] `T`
+    ///
+    /// For a non-panicking version, see [`get_config_mut`].
+    ///
+    /// [`get_config_mut`]: Self::get_config_mut
     pub fn config_mut<T: GizmoConfigGroup>(&mut self) -> (&mut GizmoConfig, &mut T) {
-        let Some(configs) = self.try_config_mut() else {
+        let Some(configs) = self.get_config_mut() else {
             panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());
         };
         configs
@@ -145,7 +163,11 @@ impl GizmoConfigStore {
 
     /// Returns mutable Some([`GizmoConfig`] and [`GizmoConfigGroup`]) associated with [`GizmoConfigGroup`] `T` if they exist,
     /// else None
-    pub fn try_config_mut<T: GizmoConfigGroup>(&mut self) -> Option<(&mut GizmoConfig, &mut T)> {
+    ///
+    /// If the configs will always be present, use [`config_mut`].
+    ///
+    /// [`config_mut`]: Self::config_mut
+    pub fn get_config_mut<T: GizmoConfigGroup>(&mut self) -> Option<(&mut GizmoConfig, &mut T)> {
         let (config, ext) = self.get_config_mut_dyn(&TypeId::of::<T>())?;
         // hash map invariant guarantees that &dyn Reflect is of correct type T
         let ext = ext.as_any_mut().downcast_mut().unwrap();
