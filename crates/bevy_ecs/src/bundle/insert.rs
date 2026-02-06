@@ -9,7 +9,7 @@ use crate::{
     },
     bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::{MaybeLocation, Tick},
-    component::{ComponentInfo, Components, StorageType},
+    component::{Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
     lifecycle::{Add, Insert, Remove, Replace, ADD, INSERT, REMOVE, REPLACE},
@@ -597,13 +597,10 @@ impl BundleInfo {
                     .iter()
                     .filter(|id| current_archetype.contains(**id))
                 {
-                    match components
-                        .get_info(incompatible_id)
-                        .map(ComponentInfo::storage_type)
-                    {
-                        Some(StorageType::SparseSet) => removed_sparse.push(incompatible_id),
-                        Some(StorageType::Table) => removed_table.push(incompatible_id),
-                        _ => (),
+                    // SAFETY: incompatible_id is in current_archetype, so it must exist
+                    match unsafe { components.get_info_unchecked(incompatible_id) }.storage_type() {
+                        StorageType::SparseSet => removed_sparse.push(incompatible_id),
+                        StorageType::Table => removed_table.push(incompatible_id),
                     }
                 }
             }
@@ -628,13 +625,10 @@ impl BundleInfo {
                     .iter()
                     .filter(|id| current_archetype.contains(**id))
                 {
-                    match components
-                        .get_info(incompatible_id)
-                        .map(ComponentInfo::storage_type)
-                    {
-                        Some(StorageType::SparseSet) => removed_sparse.push(incompatible_id),
-                        Some(StorageType::Table) => removed_table.push(incompatible_id),
-                        _ => (),
+                    // SAFETY: incompatible_id is in current_archetype, so it must exist
+                    match unsafe { components.get_info_unchecked(incompatible_id) }.storage_type() {
+                        StorageType::SparseSet => removed_sparse.push(incompatible_id),
+                        StorageType::Table => removed_table.push(incompatible_id),
                     }
                 }
             }
