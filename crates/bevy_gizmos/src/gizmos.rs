@@ -224,11 +224,7 @@ where
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
-    #[expect(
-        unused_mut,
-        reason = "The `world` parameter is unused for zero-length tuples; however, it must be mutable for other lengths of tuples."
-    )]
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         GizmosState::<Config, Clear>::queue(&mut state.state, system_meta, world);
     }
 
@@ -356,11 +352,7 @@ where
     Clear: 'static + Send + Sync,
 {
     fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        let mut storage = world.resource_mut::<GizmoStorage<Config, Clear>>();
-        storage.list_positions.append(&mut self.list_positions);
-        storage.list_colors.append(&mut self.list_colors);
-        storage.strip_positions.append(&mut self.strip_positions);
-        storage.strip_colors.append(&mut self.strip_colors);
+        self.queue(_system_meta, world.into());
     }
 
     fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
