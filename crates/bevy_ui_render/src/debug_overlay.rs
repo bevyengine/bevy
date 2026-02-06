@@ -62,7 +62,7 @@ pub struct UiDebugOptions {
 
 #[derive(Resource, Reflect, Default)]
 #[reflect(Resource)]
-pub struct GlobalUiDebugOptions(UiDebugOptions);
+pub struct GlobalUiDebugOptions(pub UiDebugOptions);
 
 impl UiDebugOptions {
     pub fn toggle(&mut self) {

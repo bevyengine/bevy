@@ -18,10 +18,10 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // Enable for image outline
-        .insert_resource(GlobalUiDebugOptions {
+        .insert_resource(GlobalUiDebugOptions(UiDebugOptions {
             enabled: true,
             ..default()
-        })
+        }))
         .add_systems(Startup, setup)
         .add_systems(Update, update)
         .add_observer(on_trigger_image_group)

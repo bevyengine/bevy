@@ -13,7 +13,7 @@ use bevy_reflect::{FromReflect, FromType, TypePath, TypeRegistration};
 /// It implies the existence of a reflected [`Component`] of the same type,
 /// which is meant to be used instead.
 ///
-/// ```
+/// ```rust,ignore
 /// #[derive(Resource, Reflect)]
 /// #[reflect(Resource)]
 /// struct ResA;
