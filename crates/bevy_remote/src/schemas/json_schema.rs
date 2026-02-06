@@ -593,6 +593,7 @@ mod tests {
           "modulePath": "bevy_remote::schemas::json_schema::tests",
           "crateName": "bevy_remote",
           "reflectTypes": [
+            "Component",
             "Resource",
             "Default",
           ],

@@ -299,7 +299,7 @@ mod tests {
 
         assert_ne!(
             first_entity, second_entity,
-            "The first resource entity was invalidated, so the second initalization should be new"
+            "The first resource entity was invalidated, so the second initialization should be new"
         );
 
         let id = world.spawn(TestResource).id();

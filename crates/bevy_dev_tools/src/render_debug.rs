@@ -57,10 +57,11 @@ impl Plugin for RenderDebugOverlayPlugin {
         embedded_asset!(app, "debug_overlay.wgsl");
 
         app.register_type::<RenderDebugOverlay>()
-            .init_resource::<RenderDebugOverlay>()
+            .register_type::<GlobalRenderDebugOverlay>()
+            .init_resource::<GlobalRenderDebugOverlay>()
             .add_message::<RenderDebugOverlayEvent>()
             .add_plugins((
-                ExtractResourcePlugin::<RenderDebugOverlay>::default(),
+                ExtractResourcePlugin::<GlobalRenderDebugOverlay>::default(),
                 ExtractComponentPlugin::<RenderDebugOverlay>::default(),
             ))
             .add_systems(bevy_app::Update, (handle_input, update_overlay).chain());
@@ -109,7 +110,7 @@ pub fn handle_input(
 pub fn update_overlay(
     mut commands: Commands,
     mut events: MessageReader<RenderDebugOverlayEvent>,
-    mut config_res: ResMut<RenderDebugOverlay>,
+    mut config_res: ResMut<GlobalRenderDebugOverlay>,
     cameras: Query<
         (
             Entity,
@@ -239,7 +240,14 @@ pub fn update_overlay(
     }
 
     for (entity, existing_config, ..) in &cameras {
-        if existing_config.is_none() || (changed && Some(config_res.as_ref()) != existing_config) {
+        if existing_config.is_none()
+            || (changed
+                && Some(RenderDebugOverlay {
+                    enabled: config_res.enabled,
+                    mode: config_res.mode,
+                    opacity: config_res.opacity,
+                }) != existing_config.cloned())
+        {
             commands.entity(entity).insert(config_res.clone());
         }
     }
@@ -256,8 +264,8 @@ pub enum RenderDebugOverlayEvent {
 }
 
 /// Configure the render debug overlay.
-#[derive(Resource, Component, Clone, ExtractResource, ExtractComponent, Reflect, PartialEq)]
-#[reflect(Resource, Component, Default)]
+#[derive(Component, Clone, ExtractComponent, Reflect, PartialEq)]
+#[reflect(Component, Default)]
 pub struct RenderDebugOverlay {
     /// Enables or disables drawing the overlay.
     pub enabled: bool,
@@ -268,6 +276,29 @@ pub struct RenderDebugOverlay {
 }
 
 impl Default for RenderDebugOverlay {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            mode: RenderDebugMode::Depth,
+            opacity: 1.0,
+        }
+    }
+}
+
+/// Configure the render debug overlay for the entire resource.
+/// Can be overwritten by using [`RenderDebugOverlay`]
+#[derive(Resource, Clone, ExtractResource, ExtractComponent, Reflect, PartialEq)]
+#[reflect(Resource, Default)]
+pub struct GlobalRenderDebugOverlay {
+    /// Enables or disables drawing the overlay.
+    pub enabled: bool,
+    /// The kind of data to write to the overlay.
+    pub mode: RenderDebugMode,
+    /// The opacity of the overlay, to allow seeing the rendered image underneath.
+    pub opacity: f32,
+}
+
+impl Default for GlobalRenderDebugOverlay {
     fn default() -> Self {
         Self {
             enabled: false,

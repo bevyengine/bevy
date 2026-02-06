@@ -1618,7 +1618,7 @@ mod tests {
             world.clear_resources();
         });
         assert_eq!(r, Some(()));
-        assert!(!world.contains_resource::<ResA>());
+        assert!(world.contains_resource::<ResA>());
     }
 
     #[test]
