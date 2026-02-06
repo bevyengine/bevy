@@ -264,7 +264,7 @@ fn spawn_ui(commands: &mut Commands) {
         children![(
             Text::new("Drag view to spin around"),
             TextFont {
-                font_size: 18.0,
+                font_size: FontSize::Px(18.0),
                 ..default()
             },
         )],
