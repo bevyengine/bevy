@@ -1,7 +1,7 @@
 use alloc::{format, vec::Vec};
-use bevy_platform::{hash::FixedHasher, sync::Arc};
+use bevy_platform::{collections::HashMap, hash::FixedHasher, sync::Arc};
 use bevy_ptr::OwningPtr;
-use core::fmt::Debug;
+use core::{fmt::Debug, iter};
 use indexmap::{IndexMap, IndexSet};
 use thiserror::Error;
 
@@ -371,36 +371,35 @@ impl Components {
             ));
         }
 
-        // SAFETY: The caller ensures that the `requiree` is valid.
-        let required_components = unsafe {
-            self.get_required_components(requiree)
-                .debug_checked_unwrap()
-        };
-        for component_id in required_required_components
-            .all
-            .keys()
-            .chain([required].iter())
-        {
-            let mutually_exclusive = self.get_info(*component_id).unwrap().mutually_exclusive();
-
-            if let Some(conflict_id) = required_components
+        let incompatible_components = HashMap::<ComponentId, ComponentId>::from_iter(
+            required_required_components
                 .all
                 .keys()
-                .chain([requiree].iter())
-                .find(|id| mutually_exclusive.contains(id))
-            {
-                return Err(RequiredComponentsError::MutuallyExclusiveConflict(
-                    *component_id,
-                    *conflict_id,
-                ));
-            }
-        }
+                .chain(iter::once(&required))
+                .flat_map(|component_id| {
+                    self.get_info(*component_id)
+                        .unwrap()
+                        .mutually_exclusive()
+                        .iter()
+                        .copied()
+                        .map(|mutually_exclusive_id| (mutually_exclusive_id, *component_id))
+                }),
+        );
 
         // SAFETY: The caller ensures that the `requiree` is valid.
         let required_components = unsafe {
             self.get_required_components_mut(requiree)
                 .debug_checked_unwrap()
         };
+
+        for component_id in required_components.all.keys().chain(iter::once(&requiree)) {
+            if let Some(incompatible_id) = incompatible_components.get(component_id) {
+                return Err(RequiredComponentsError::MutuallyExclusiveConflict(
+                    *component_id,
+                    *incompatible_id,
+                ));
+            }
+        }
 
         // Cannot directly require the same component twice.
         if required_components.direct.contains_key(&required) {
