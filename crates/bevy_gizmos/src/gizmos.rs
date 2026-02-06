@@ -242,7 +242,7 @@ where
         // This if-block is to accommodate an Option<Gizmos> SystemParam.
         // The user may decide not to initialize a gizmo group, so its config will not exist.
         if f1.into_inner().try_config::<Config>().is_none() {
-            Err(SystemParamValidationError::skipped::<Self>(
+            Err(SystemParamValidationError::invalid::<Self>(
                 format!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", 
                 Config::type_path())))
         } else {
