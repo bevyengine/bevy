@@ -272,7 +272,7 @@ impl Plugin for RenderPlugin {
 
         if insert_future_resources(&self.render_creation, app.world_mut()) {
             // We only create the render world and set up extraction if we
-            // successfully created a render device
+            // have a rendering backend available.
             app.add_plugins(ExtractPlugin {
                 extract_callback: Some(error_handler::update_state),
             });
