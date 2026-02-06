@@ -250,8 +250,6 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # Warning
     ///
     /// When registering a custom resource be sure to add [`crate::resource::IsResource`] as a required component,
-    /// and [`crate::resource::resource_on_add_hook`] and [`crate::resource::resource_on_despawn_hook`] as component lifecycle hooks.
-    /// Otherwise it will not function as a resource.
     ///
     /// # See also
     ///
@@ -578,7 +576,6 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// # Warning
     ///
     /// When registering a custom resource be sure to add [`crate::resource::IsResource`] as a required component,
-    /// and [`crate::resource::resource_on_add_hook`] and [`crate::resource::resource_on_despawn_hook`] as component lifecycle hooks.
     /// Otherwise it will not function as a resource.
     #[inline]
     pub fn queue_register_component_with_descriptor(

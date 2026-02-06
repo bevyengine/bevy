@@ -10,7 +10,7 @@ use bevy_reflect::{FromReflect, FromType, TypePath, TypeRegistration};
 /// A struct that marks a reflected [`Resource`] of a type.
 ///
 /// This is struct does not provide any functionality.
-/// It implies the existence of a reflected [`Component`] of the same type,
+/// It implies the existence of a reflected [`Component`](crate::component::Component) of the same type,
 /// which is meant to be used instead.
 ///
 /// ```rust,ignore

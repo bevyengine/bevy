@@ -259,7 +259,7 @@ impl World {
         &self.components
     }
 
-    /// Retrieves this world's [`ResourceCache`].
+    /// Retrieves this world's [`ResourceEntities`].
     #[inline]
     pub fn resource_entities(&self) -> &ResourceEntities {
         &self.resource_entities

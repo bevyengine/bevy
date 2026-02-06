@@ -16,7 +16,7 @@
 //!  - [`Tables`] - columnar contiguous blocks of memory, optimized for fast iteration.
 //!  - [`SparseSets`] - sparse `HashMap`-like mappings from entities to components, optimized for random
 //!    lookup and regular insertion/removal of components.
-//!  - [`Resources`] - singleton storage for the resources in the world
+//!  - [`NonSends`] - singleton storage for non send data in the world.
 //!
 //! # Safety
 //! To avoid trivially unsound use of the APIs in this module, it is explicitly impossible to get a mutable
