@@ -414,17 +414,17 @@ fn toggle_debug_overlay(
     info_once!("The debug outlines are enabled, press Space to turn them on/off");
     if input.just_pressed(KeyCode::Space) {
         // The toggle method will enable the debug overlay if disabled and disable if enabled
-        debug_options.0.toggle();
+        debug_options.toggle();
     }
 
     if input.just_pressed(KeyCode::KeyS) {
         // Toggle debug outlines for nodes with `ViewVisibility` set to false.
-        debug_options.0.show_hidden = !debug_options.0.show_hidden;
+        debug_options.show_hidden = !debug_options.show_hidden;
     }
 
     if input.just_pressed(KeyCode::KeyC) {
         // Toggle outlines for clipped UI nodes.
-        debug_options.0.show_clipped = !debug_options.0.show_clipped;
+        debug_options.show_clipped = !debug_options.show_clipped;
     }
 
     if input.just_pressed(KeyCode::KeyV) {

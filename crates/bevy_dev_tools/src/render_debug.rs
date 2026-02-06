@@ -239,16 +239,15 @@ pub fn update_overlay(
         }
     }
 
+    let config_comp = RenderDebugOverlay {
+        enabled: config_res.enabled,
+        mode: config_res.mode,
+        opacity: config_res.opacity,
+    };
+
     for (entity, existing_config, ..) in &cameras {
-        if existing_config.is_none()
-            || (changed
-                && Some(RenderDebugOverlay {
-                    enabled: config_res.enabled,
-                    mode: config_res.mode,
-                    opacity: config_res.opacity,
-                }) != existing_config.cloned())
-        {
-            commands.entity(entity).insert(config_res.clone());
+        if existing_config.is_none() || (changed && Some(&config_comp) != existing_config) {
+            commands.entity(entity).insert(config_comp.clone());
         }
     }
 }
@@ -264,6 +263,7 @@ pub enum RenderDebugOverlayEvent {
 }
 
 /// Configure the render debug overlay.
+/// Overwrites the default [`GlobalRenderDebugOverlay`] resource.
 #[derive(Component, Clone, ExtractComponent, Reflect, PartialEq)]
 #[reflect(Component, Default)]
 pub struct RenderDebugOverlay {
@@ -286,7 +286,7 @@ impl Default for RenderDebugOverlay {
 }
 
 /// Configure the render debug overlay for the entire resource.
-/// Can be overwritten by using [`RenderDebugOverlay`]
+/// Can be overwritten by using a [`RenderDebugOverlay`] component.
 #[derive(Resource, Clone, ExtractResource, ExtractComponent, Reflect, PartialEq)]
 #[reflect(Resource, Default)]
 pub struct GlobalRenderDebugOverlay {

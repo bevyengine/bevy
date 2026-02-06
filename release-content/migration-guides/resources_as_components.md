@@ -32,7 +32,7 @@ struct DualComp;
 #[derive(Resource)]
 struct DualRes;
 ```
-
+Consequently, `UiDebugOverlay` is split into `GlobalUiDebugOverlay` (resource) and `UiDebugOverlay` (component), and `UiDebugOptions` is split into `GlobalUiDebugOptions` (resource) and `UiDebugOptions` (component).
 It's still possible to doubly derive `#[reflect(Component, Resource)]`, but since `ReflectResource` shadows `ReflectComponent` this isn't useful.
 
 Next, resource registration has been changed. `World::register_resource_with_descriptor` has been renamed to `World::register_non_send_with_descriptor` and is only supposed to be used for non-send resources.

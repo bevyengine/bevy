@@ -1394,11 +1394,13 @@ mod debug_outlines {
     };
 
     pub fn setup(mut commands: Commands, mut debug_options: ResMut<GlobalUiDebugOptions>) {
-        debug_options.0.enabled = true;
-        debug_options.0.line_width = 5.;
-        debug_options.0.line_color_override = Some(LinearRgba::GREEN);
-        debug_options.0.show_hidden = true;
-        debug_options.0.show_clipped = true;
+        debug_options.enabled = true;
+        debug_options.line_width = 5.;
+        debug_options.line_color_override = Some(LinearRgba::GREEN);
+        debug_options.show_hidden = true;
+        debug_options.show_clipped = true;
+
+        let debug_options: UiDebugOptions = (*debug_options.as_ref()).into();
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::DebugOutlines)));
         commands
@@ -1509,7 +1511,7 @@ mod debug_outlines {
                         outline_padding_box: true,
                         outline_content_box: true,
                         ignore_border_radius: false,
-                        ..debug_options.0
+                        ..debug_options
                     },
                 ));
 
@@ -1529,7 +1531,7 @@ mod debug_outlines {
                         outline_scrollbars: true,
                         show_hidden: false,
                         show_clipped: false,
-                        ..debug_options.0
+                        ..debug_options
                     },
                     Children::spawn(SpawnIter((0..20).map(move |i| {
                         (
@@ -1564,7 +1566,7 @@ mod debug_outlines {
                         outline_scrollbars: true,
                         show_hidden: false,
                         show_clipped: false,
-                        ..debug_options.0
+                        ..debug_options
                     },
                     Children::spawn(SpawnIter((0..20).map(move |i| {
                         (
@@ -1600,7 +1602,7 @@ mod debug_outlines {
                         outline_scrollbars: true,
                         show_hidden: false,
                         show_clipped: false,
-                        ..debug_options.0
+                        ..debug_options
                     },
                     Children::spawn(SpawnIter((0..6).map(move |i| {
                         (
