@@ -536,7 +536,7 @@ mod tests {
             usize::MAX
         };
 
-        let b = Box::new([(); SIZE]).into_reflect();
+        let b: Box<dyn Reflect> = Box::new([(); SIZE]);
 
         let array = b.reflect_ref().as_array().unwrap();
 

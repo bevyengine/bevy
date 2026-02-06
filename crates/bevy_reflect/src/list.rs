@@ -577,7 +577,7 @@ mod tests {
             // If compiled in release mode, verify we dont overflow
             usize::MAX
         };
-        let b = Box::new(vec![(); SIZE]).into_reflect();
+        let b: Box<dyn Reflect> = Box::new(vec![(); SIZE]);
 
         let list = b.reflect_ref().as_list().unwrap();
 
