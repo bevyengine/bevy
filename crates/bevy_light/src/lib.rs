@@ -79,7 +79,9 @@ pub mod prelude {
 }
 
 use crate::{
-    atmosphere::ScatteringMedium, cluster::{Clusters, add_light_probe_and_decal_aabbs}, directional_light::validate_shadow_map_size,
+    atmosphere::ScatteringMedium,
+    cluster::{add_light_probe_and_decal_aabbs, Clusters},
+    directional_light::validate_shadow_map_size,
     point_light::update_point_light_bounding_spheres,
     spot_light::update_spot_light_bounding_spheres,
 };
