@@ -413,10 +413,30 @@ fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMate
         normal_map_texture: material.normal_map_texture.clone(),
         occlusion_channel: material.occlusion_channel.clone(),
         occlusion_texture: material.occlusion_texture.clone(),
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_channel: material.specular_channel.clone(),
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_texture: material.specular_texture.clone(),
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_tint_channel: material.specular_tint_channel.clone(),
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_tint_texture: material.specular_tint_texture.clone(),
         clearcoat: material.clearcoat,
         clearcoat_perceptual_roughness: material.clearcoat_perceptual_roughness,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_roughness_channel: material.clearcoat_roughness_channel.clone(),
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_roughness_texture: material.clearcoat_roughness_texture.clone(),
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_normal_channel: material.clearcoat_normal_channel.clone(),
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_normal_texture: material.clearcoat_normal_texture.clone(),
         anisotropy_strength: material.anisotropy_strength,
         anisotropy_rotation: material.anisotropy_rotation,
+        #[cfg(feature = "pbr_anisotropy_texture")]
+        anisotropy_channel: material.anisotropy_channel.clone(),
+        #[cfg(feature = "pbr_anisotropy_texture")]
+        anisotropy_texture: material.anisotropy_texture.clone(),
         double_sided: material.double_sided,
         cull_mode: material.cull_mode,
         unlit: material.unlit,
