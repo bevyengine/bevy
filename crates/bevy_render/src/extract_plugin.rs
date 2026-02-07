@@ -131,7 +131,7 @@ mod test {
         extract_plugin::ExtractPlugin,
         sync_component::SyncComponent,
         sync_world::MainEntity,
-        Render, RenderApp,
+        AppLabel, Render,
     };
 
     #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
@@ -179,13 +179,13 @@ mod test {
             commands.spawn((RenderComponent, RenderComponentSeparate));
         });
 
-        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
+        let sub_app = app.get_sub_app_mut(ExtractApp).unwrap();
 
         // Normally RenderPlugin sets the RenderRecovery schedule as update, but for
         // testing we just use the Render schedule directly.
-        render_app.update_schedule = Some(Render.intern());
+        sub_app.update_schedule = Some(Render.intern());
 
-        render_app.world_mut().add_observer(
+        sub_app.world_mut().add_observer(
             |event: On<Add, (RenderComponent, RenderComponentExtra)>, mut commands: Commands| {
                 // Simulate data that's not extracted
                 commands
@@ -198,8 +198,8 @@ mod test {
 
         // Check that all components have been extracted
         {
-            let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-            render_app
+            let sub_app = app.get_sub_app_mut(ExtractApp).unwrap();
+            sub_app
                 .world_mut()
                 .run_system_cached(
                     |entity: Single<(
@@ -233,8 +233,8 @@ mod test {
 
         // Check that the extracted components have been removed
         {
-            let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-            render_app
+            let sub_app = app.get_sub_app_mut(ExtractApp).unwrap();
+            sub_app
                 .world_mut()
                 .run_system_cached(
                     |entity: Single<(
