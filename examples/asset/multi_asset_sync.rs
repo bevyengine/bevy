@@ -182,11 +182,7 @@ fn setup_ui(mut commands: Commands) {
     ));
 }
 
-fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup_scene(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Camera
     commands.spawn((
         Camera3d::default(),
@@ -204,8 +200,10 @@ fn setup_scene(
 
     // Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.7, 0.2, 0.2))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(50000.0, 50000.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.7, 0.2, 0.2))),
+        ),
         Loading,
     ));
 }
@@ -222,14 +220,15 @@ fn assets_loaded(barrier: Option<Res<AssetBarrier>>) -> bool {
 fn wait_on_load(
     mut commands: Commands,
     foxes: Res<OneHundredThings>,
-    gltfs: Res<Assets<Gltf>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    gltfs: Assets<Gltf>,
+    mut asset_commands: AssetCommands,
 ) {
     // Change color of plane to green
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(50000.0, 50000.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
         Transform::from_translation(Vec3::Z * -0.01),
     ));
 

@@ -26,18 +26,17 @@ fn main() {
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     let base_color = Color::srgb(0.9, 0.2, 0.3);
-    let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
+    let icosphere_mesh = asset_commands.spawn_asset(Sphere::new(0.9).mesh().ico(7).unwrap());
 
     // Opaque
     let opaque = commands
         .spawn((
             Mesh3d(icosphere_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Opaque,
                 ..default()
@@ -54,7 +53,7 @@ fn setup(
     let blend = commands
         .spawn((
             Mesh3d(icosphere_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Blend,
                 ..default()
@@ -71,7 +70,7 @@ fn setup(
     let premultiplied = commands
         .spawn((
             Mesh3d(icosphere_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Premultiplied,
                 ..default()
@@ -88,7 +87,7 @@ fn setup(
     let add = commands
         .spawn((
             Mesh3d(icosphere_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Add,
                 ..default()
@@ -105,7 +104,7 @@ fn setup(
     let multiply = commands
         .spawn((
             Mesh3d(icosphere_mesh),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Multiply,
                 ..default()
@@ -119,10 +118,10 @@ fn setup(
         .id();
 
     // Chessboard Plane
-    let black_material = materials.add(Color::BLACK);
-    let white_material = materials.add(Color::WHITE);
+    let black_material = asset_commands.spawn_asset(StandardMaterial::from(Color::BLACK));
+    let white_material = asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE));
 
-    let plane_mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
+    let plane_mesh = asset_commands.spawn_asset(Plane3d::default().mesh().size(2.0, 2.0).into());
 
     for x in -3..4 {
         for z in -3..4 {
@@ -245,7 +244,7 @@ impl Default for ExampleState {
 }
 
 fn example_control_system(
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
     camera: Single<
         (

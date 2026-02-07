@@ -19,11 +19,7 @@ fn main() {
 }
 
 /// set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // camera
     commands.spawn((
         Camera3d::default(),
@@ -65,7 +61,7 @@ fn setup(
     ));
 
     // spawn default scene
-    spawn_spheres(&mut commands, &mut meshes, &mut materials);
+    spawn_spheres(&mut commands, &mut asset_commands);
 }
 
 fn toggle_oit(
@@ -96,9 +92,8 @@ fn toggle_oit(
 
 fn cycle_scenes(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     q: Query<Entity, With<Mesh3d>>,
     mut scene_id: Local<usize>,
     asset_server: Res<AssetServer>,
@@ -112,16 +107,11 @@ fn cycle_scenes(
         *scene_id = (*scene_id + 1) % 4;
         // spawn next scene
         match *scene_id {
-            0 => spawn_spheres(&mut commands, &mut meshes, &mut materials),
-            1 => spawn_quads(&mut commands, &mut meshes, &mut materials),
-            2 => spawn_occlusion_test(&mut commands, &mut meshes, &mut materials),
+            0 => spawn_spheres(&mut commands, &mut asset_commands),
+            1 => spawn_quads(&mut commands, &mut asset_commands),
+            2 => spawn_occlusion_test(&mut commands, &mut asset_commands),
             3 => {
-                spawn_auto_instancing_test(
-                    &mut commands,
-                    &mut meshes,
-                    &mut materials,
-                    asset_server,
-                );
+                spawn_auto_instancing_test(&mut commands, &mut asset_commands, asset_server);
             }
             _ => unreachable!(),
         }
@@ -131,18 +121,14 @@ fn cycle_scenes(
 /// Spawns 3 overlapping spheres
 /// Technically, when using `alpha_to_coverage` with MSAA this particular example wouldn't break,
 /// but it breaks when disabling MSAA and is enough to show the difference between OIT enabled vs disabled.
-fn spawn_spheres(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-) {
+fn spawn_spheres(commands: &mut Commands, asset_commands: &mut AssetCommands) {
     let pos_a = Vec3::new(-1.0, 0.75, 0.0);
     let pos_b = Vec3::new(0.0, -0.75, 0.0);
     let pos_c = Vec3::new(1.0, 0.75, 0.0);
 
     let offset = Vec3::new(0.0, 0.0, 0.0);
 
-    let sphere_handle = meshes.add(Sphere::new(2.0).mesh());
+    let sphere_handle = asset_commands.spawn_asset(Sphere::new(2.0).mesh().into());
 
     let alpha = 0.25;
 
@@ -150,7 +136,7 @@ fn spawn_spheres(
 
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: RED.with_alpha(alpha).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -160,7 +146,7 @@ fn spawn_spheres(
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: GREEN.with_alpha(alpha).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -170,7 +156,7 @@ fn spawn_spheres(
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: BLUE.with_alpha(alpha).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -180,12 +166,8 @@ fn spawn_spheres(
     ));
 }
 
-fn spawn_quads(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-) {
-    let quad_handle = meshes.add(Rectangle::new(3.0, 3.0).mesh());
+fn spawn_quads(commands: &mut Commands, asset_commands: &mut AssetCommands) {
+    let quad_handle = asset_commands.spawn_asset(Rectangle::new(3.0, 3.0).mesh().into());
     let render_layers = RenderLayers::layer(1);
     let xform = |x, y, z| {
         Transform::from_rotation(Quat::from_rotation_y(0.5))
@@ -193,7 +175,7 @@ fn spawn_quads(
     };
     commands.spawn((
         Mesh3d(quad_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -203,7 +185,7 @@ fn spawn_quads(
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: BLUE.with_alpha(0.8).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -213,7 +195,7 @@ fn spawn_quads(
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: GREEN.with_green(1.0).with_alpha(0.5).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -223,7 +205,7 @@ fn spawn_quads(
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: YELLOW.with_alpha(0.3).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -233,7 +215,7 @@ fn spawn_quads(
     ));
     commands.spawn((
         Mesh3d(quad_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: BLUE.with_alpha(0.2).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -246,14 +228,11 @@ fn spawn_quads(
 /// Spawn a combination of opaque cubes and transparent spheres.
 /// This is useful to make sure transparent meshes drawn with OIT
 /// are properly occluded by opaque meshes.
-fn spawn_occlusion_test(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-) {
-    let sphere_handle = meshes.add(Sphere::new(1.0).mesh());
-    let cube_handle = meshes.add(Cuboid::from_size(Vec3::ONE).mesh());
-    let cube_material = materials.add(Color::srgb(0.8, 0.7, 0.6));
+fn spawn_occlusion_test(commands: &mut Commands, asset_commands: &mut AssetCommands) {
+    let sphere_handle = asset_commands.spawn_asset(Sphere::new(1.0).mesh().into());
+    let cube_handle = asset_commands.spawn_asset(Cuboid::from_size(Vec3::ONE).mesh().into());
+    let cube_material =
+        asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.8, 0.7, 0.6)));
 
     let render_layers = RenderLayers::layer(1);
 
@@ -267,7 +246,7 @@ fn spawn_occlusion_test(
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -285,7 +264,7 @@ fn spawn_occlusion_test(
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -304,7 +283,7 @@ fn spawn_occlusion_test(
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -316,14 +295,13 @@ fn spawn_occlusion_test(
 
 fn spawn_auto_instancing_test(
     commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
+    asset_commands: &mut AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     let render_layers = RenderLayers::layer(1);
 
-    let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
-    let material_handle = materials.add(StandardMaterial {
+    let cube = asset_commands.spawn_asset(Cuboid::new(1.0, 1.0, 1.0).into());
+    let material_handle = asset_commands.spawn_asset(StandardMaterial {
         alpha_mode: AlphaMode::Blend,
         base_color_texture: Some(asset_server.load("textures/slice_square.png")),
         ..Default::default()

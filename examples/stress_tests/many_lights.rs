@@ -38,11 +38,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     warn!(include_str!("warning_string.txt"));
 
     const LIGHT_RADIUS: f32 = 0.3;
@@ -51,13 +47,13 @@ fn setup(
     const N_LIGHTS: usize = 100_000;
 
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap())),
-        MeshMaterial3d(materials.add(Color::WHITE)),
+        Mesh3d(asset_commands.spawn_asset(Sphere::new(RADIUS).mesh().ico(9).unwrap())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
         Transform::from_scale(Vec3::NEG_ONE),
     ));
 
-    let mesh = meshes.add(Cuboid::default());
-    let material = materials.add(StandardMaterial {
+    let mesh = asset_commands.spawn_asset(Cuboid::default().into());
+    let material = asset_commands.spawn_asset(StandardMaterial {
         base_color: DEEP_PINK.into(),
         ..default()
     });

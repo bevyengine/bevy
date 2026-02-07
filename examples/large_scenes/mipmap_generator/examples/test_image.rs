@@ -18,18 +18,13 @@ fn main() {
     app.run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-) {
-    let image = create_test_image(4096, -0.8, 0.156);
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
+    let image = asset_commands.spawn_asset(create_test_image(4096, -0.8, 0.156));
 
     // plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
-        MeshMaterial3d(materials.add(StandardMaterial::from(images.add(image)))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(20.0, 20.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(image))),
     ));
     // light
     commands.spawn((

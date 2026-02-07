@@ -122,20 +122,15 @@ struct ExampleAnimationWeights {
 /// Initializes the scene.
 fn setup_assets(
     mut commands: Commands,
-    mut asset_server: ResMut<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut asset_commands: AssetCommands,
+    asset_server: Res<AssetServer>,
     args: Res<Args>,
 ) {
     // Create or load the assets.
     if args.no_load || args.save {
-        setup_assets_programmatically(
-            &mut commands,
-            &mut asset_server,
-            &mut animation_graphs,
-            args.save,
-        );
+        setup_assets_programmatically(&mut commands, &mut asset_commands, &asset_server, args.save);
     } else {
-        setup_assets_via_serialized_animation_graph(&mut commands, &mut asset_server);
+        setup_assets_via_serialized_animation_graph(&mut commands, &asset_server);
     }
 }
 
@@ -150,8 +145,8 @@ fn setup_ui(mut commands: Commands) {
 /// `--save` option).
 fn setup_assets_programmatically(
     commands: &mut Commands,
-    asset_server: &mut AssetServer,
-    animation_graphs: &mut Assets<AnimationGraph>,
+    asset_commands: &mut AssetCommands,
+    asset_server: &AssetServer,
     _save: bool,
 ) {
     // Create the nodes.
@@ -202,7 +197,7 @@ fn setup_assets_programmatically(
     }
 
     // Add the graph.
-    let handle = animation_graphs.add(animation_graph);
+    let handle = asset_commands.spawn_asset(animation_graph);
 
     // Save the assets in a resource.
     commands.insert_resource(ExampleAnimationGraph(handle));
@@ -210,7 +205,7 @@ fn setup_assets_programmatically(
 
 fn setup_assets_via_serialized_animation_graph(
     commands: &mut Commands,
-    asset_server: &mut AssetServer,
+    asset_server: &AssetServer,
 ) {
     commands.insert_resource(ExampleAnimationGraph(
         asset_server.load(ANIMATION_GRAPH_PATH),
@@ -221,8 +216,7 @@ fn setup_assets_via_serialized_animation_graph(
 fn setup_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -248,8 +242,10 @@ fn setup_scene(
     // Ground
 
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(7.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(asset_commands.spawn_asset(Circle::new(7.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 }

@@ -62,16 +62,15 @@ pub fn main() {
 /// Initializes the scene.
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
     light_mode: Res<LightMode>,
 ) {
-    let sphere = create_sphere_mesh(&mut meshes);
-    spawn_car_paint_sphere(&mut commands, &mut materials, &asset_server, &sphere);
-    spawn_coated_glass_bubble_sphere(&mut commands, &mut materials, &sphere);
+    let sphere = create_sphere_mesh(&mut asset_commands);
+    spawn_car_paint_sphere(&mut commands, &mut asset_commands, &asset_server, &sphere);
+    spawn_coated_glass_bubble_sphere(&mut commands, &mut asset_commands, &sphere);
     spawn_golf_ball(&mut commands, &asset_server);
-    spawn_scratched_gold_ball(&mut commands, &mut materials, &asset_server, &sphere);
+    spawn_scratched_gold_ball(&mut commands, &mut asset_commands, &asset_server, &sphere);
 
     spawn_light(&mut commands);
     spawn_camera(&mut commands, &asset_server);
@@ -79,7 +78,7 @@ fn setup(
 }
 
 /// Generates a sphere.
-fn create_sphere_mesh(meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
+fn create_sphere_mesh(asset_commands: &mut AssetCommands) -> Handle<Mesh> {
     // We're going to use normal maps, so make sure we've generated tangents, or
     // else the normal maps won't show up.
 
@@ -87,20 +86,20 @@ fn create_sphere_mesh(meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
     sphere_mesh
         .generate_tangents()
         .expect("Failed to generate tangents");
-    meshes.add(sphere_mesh)
+    asset_commands.spawn_asset(sphere_mesh)
 }
 
 /// Spawn a regular object with a clearcoat layer. This looks like car paint.
 fn spawn_car_paint_sphere(
     commands: &mut Commands,
-    materials: &mut Assets<StandardMaterial>,
+    asset_commands: &mut AssetCommands,
     asset_server: &AssetServer,
     sphere: &Handle<Mesh>,
 ) {
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 normal_map_texture: Some(asset_server.load_with_settings(
@@ -120,13 +119,13 @@ fn spawn_car_paint_sphere(
 /// Spawn a semitransparent object with a clearcoat layer.
 fn spawn_coated_glass_bubble_sphere(
     commands: &mut Commands,
-    materials: &mut Assets<StandardMaterial>,
+    asset_commands: &mut AssetCommands,
     sphere: &Handle<Mesh>,
 ) {
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 metallic: 0.5,
@@ -159,14 +158,14 @@ fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
 /// main layer normal map.
 fn spawn_scratched_gold_ball(
     commands: &mut Commands,
-    materials: &mut Assets<StandardMaterial>,
+    asset_commands: &mut AssetCommands,
     asset_server: &AssetServer,
     sphere: &Handle<Mesh>,
 ) {
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.3,
                 clearcoat_normal_texture: Some(asset_server.load_with_settings(

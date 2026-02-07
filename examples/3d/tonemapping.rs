@@ -136,16 +136,15 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn setup_color_gradient_scene(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorGradientMaterial>>,
+    mut asset_commands: AssetCommands,
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
     transform.translation += *transform.forward();
 
     commands.spawn((
-        Mesh3d(meshes.add(Rectangle::new(0.7, 0.7))),
-        MeshMaterial3d(materials.add(ColorGradientMaterial {})),
+        Mesh3d(asset_commands.spawn_asset(Rectangle::new(0.7, 0.7).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(ColorGradientMaterial {})),
         transform,
         Visibility::Hidden,
         SceneNumber(2),
@@ -154,8 +153,7 @@ fn setup_color_gradient_scene(
 
 fn setup_image_viewer_scene(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
@@ -163,8 +161,8 @@ fn setup_image_viewer_scene(
 
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
-        Mesh3d(meshes.add(Rectangle::default())),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Rectangle::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color_texture: None,
             unlit: true,
             ..default()
@@ -198,7 +196,7 @@ fn setup_image_viewer_scene(
 fn drag_drop_image(
     image_mat: Query<&MeshMaterial3d<StandardMaterial>, With<HDRViewer>>,
     text: Query<Entity, (With<Text>, With<SceneNumber>)>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
     mut drag_and_drop_reader: MessageReader<FileDragAndDrop>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
@@ -226,9 +224,9 @@ fn drag_drop_image(
 
 fn resize_image(
     image_mesh: Query<(&MeshMaterial3d<StandardMaterial>, &Mesh3d), With<HDRViewer>>,
-    materials: Res<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    images: Res<Assets<Image>>,
+    materials: Assets<StandardMaterial>,
+    images: Assets<Image>,
+    mut asset_commands: AssetCommands,
     mut image_event_reader: MessageReader<AssetEvent<Image>>,
 ) {
     for event in image_event_reader.read() {
@@ -256,7 +254,7 @@ fn resize_image(
             let size = image_changed.size_f32().normalize_or_zero() * 1.4;
             // Resize Mesh
             let quad = Mesh::from(Rectangle::from_size(size));
-            meshes.insert(mesh_h, quad).unwrap();
+            asset_commands.insert_asset(mesh_h, quad);
         }
     }
 }

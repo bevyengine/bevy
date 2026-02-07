@@ -28,9 +28,8 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -84,16 +83,16 @@ fn setup(
 
     let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
-    let forward_mat_h = materials.add(forward_mat);
+    let forward_mat_h = asset_commands.spawn_asset(forward_mat);
 
     // Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(50.0, 50.0).into())),
         MeshMaterial3d(forward_mat_h.clone()),
     ));
 
-    let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
-    let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
+    let cube_h = asset_commands.spawn_asset(Cuboid::new(0.1, 0.1, 0.1).into());
+    let sphere_h = asset_commands.spawn_asset(Sphere::new(0.125).mesh().uv(32, 18));
 
     // Cubes
     commands.spawn((
@@ -114,7 +113,7 @@ fn setup(
     unlit_mat.unlit = true;
     commands.spawn((
         Mesh3d(sphere_h.clone()),
-        MeshMaterial3d(materials.add(unlit_mat)),
+        MeshMaterial3d(asset_commands.spawn_asset(unlit_mat)),
         sphere_pos,
         NotShadowCaster,
     ));
@@ -135,21 +134,21 @@ fn setup(
         let j = i % 3;
         let s_val = if i < 3 { 0.0 } else { 0.2 };
         let material = if j == 0 {
-            materials.add(StandardMaterial {
+            asset_commands.spawn_asset(StandardMaterial {
                 base_color: Color::srgb(s_val, s_val, 1.0),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else if j == 1 {
-            materials.add(StandardMaterial {
+            asset_commands.spawn_asset(StandardMaterial {
                 base_color: Color::srgb(s_val, 1.0, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else {
-            materials.add(StandardMaterial {
+            asset_commands.spawn_asset(StandardMaterial {
                 base_color: Color::srgb(1.0, s_val, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
@@ -169,8 +168,8 @@ fn setup(
 
     // sky
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(2.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::new(2.0, 1.0, 1.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Srgba::hex("888888").unwrap().into(),
             unlit: true,
             cull_mode: None,
@@ -211,8 +210,7 @@ fn animate_light_direction(
 
 fn setup_parallax(
     mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // The normal map. Note that to generate it in the GIMP image editor, you should
@@ -231,7 +229,7 @@ fn setup_parallax(
     // needs tangents generated.
     cube.generate_tangents().unwrap();
 
-    let parallax_material = materials.add(StandardMaterial {
+    let parallax_material = asset_commands.spawn_asset(StandardMaterial {
         perceptual_roughness: 0.4,
         base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.png")),
         normal_map_texture: Some(normal_handle),
@@ -244,7 +242,7 @@ fn setup_parallax(
         ..default()
     });
     commands.spawn((
-        Mesh3d(meshes.add(cube)),
+        Mesh3d(asset_commands.spawn_asset(cube)),
         MeshMaterial3d(parallax_material),
         Transform::from_xyz(0.4, 0.2, -0.8),
         Spin { speed: 0.3 },
@@ -279,7 +277,7 @@ fn switch_mode(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
     cameras: Query<Entity, With<Camera>>,
     mut pause: ResMut<Pause>,
     mut hide_ui: Local<bool>,
@@ -295,7 +293,9 @@ fn switch_mode(
         *mode = DefaultRenderMode::Deferred;
         default_opaque_renderer_method.set_to_deferred();
         println!("DefaultOpaqueRendererMethod: Deferred");
-        for _ in materials.iter_mut() {}
+        for (_, mut mat) in materials.iter_mut() {
+            mat.set_changed();
+        }
         for camera in &cameras {
             commands.entity(camera).remove::<NormalPrepass>();
             commands.entity(camera).insert(DepthPrepass);
@@ -307,7 +307,9 @@ fn switch_mode(
         *mode = DefaultRenderMode::Forward;
         default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward");
-        for _ in materials.iter_mut() {}
+        for (_, mut mat) in materials.iter_mut() {
+            mat.set_changed();
+        }
         for camera in &cameras {
             commands.entity(camera).remove::<NormalPrepass>();
             commands.entity(camera).remove::<DepthPrepass>();
@@ -319,7 +321,9 @@ fn switch_mode(
         *mode = DefaultRenderMode::ForwardPrepass;
         default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward + Prepass");
-        for _ in materials.iter_mut() {}
+        for (_, mut mat) in materials.iter_mut() {
+            mat.set_changed();
+        }
         for camera in &cameras {
             commands.entity(camera).insert(NormalPrepass);
             commands.entity(camera).insert(DepthPrepass);

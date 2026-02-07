@@ -13,11 +13,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // camera
     commands.spawn((
         Camera3d::default(),
@@ -26,8 +22,8 @@ fn setup(
 
     // plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(100.0, 100.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::srgb(0.2, 0.2, 0.2),
             perceptual_roughness: 0.08,
             ..default()
@@ -39,7 +35,7 @@ fn setup(
     let radius_range = 0.0..0.4;
     let pos_len = position_range.end - position_range.start;
     let radius_len = radius_range.end - radius_range.start;
-    let mesh = meshes.add(Sphere::new(1.0).mesh().uv(120, 64));
+    let mesh = asset_commands.spawn_asset(Sphere::new(1.0).mesh().uv(120, 64));
 
     for i in 0..COUNT {
         let percent = i as f32 / COUNT as f32;
@@ -49,7 +45,7 @@ fn setup(
         commands
             .spawn((
                 Mesh3d(mesh.clone()),
-                MeshMaterial3d(materials.add(StandardMaterial {
+                MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                     base_color: Color::srgb(0.5, 0.5, 1.0),
                     unlit: true,
                     ..default()

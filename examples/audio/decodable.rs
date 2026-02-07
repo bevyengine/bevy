@@ -94,9 +94,9 @@ fn main() {
     .run();
 }
 
-fn setup(mut assets: ResMut<Assets<SineAudio>>, mut commands: Commands) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // add a `SineAudio` to the asset server so that it can be played
-    let audio_handle = assets.add(SineAudio {
+    let audio_handle = asset_commands.spawn_asset(SineAudio {
         frequency: 440., // this is the frequency of A4
     });
     commands.spawn(AudioPlayer(audio_handle));

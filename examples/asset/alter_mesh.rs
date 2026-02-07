@@ -47,8 +47,8 @@ struct Left;
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let left_shape = Shape::Cube;
     let right_shape = Shape::Cube;
@@ -75,7 +75,7 @@ fn setup(
         //   - for the CPU (`RenderAssetUsages::MAIN_WORLD`),
         //   - or both.
         // `RENDER_WORLD` is necessary to render the mesh, `MAIN_WORLD` is necessary to inspect
-        // and modify the mesh (via `ResMut<Assets<Mesh>>`).
+        // and modify the mesh (via `AssetsMut<Mesh>`).
         //
         // Since most games will not need to modify meshes at runtime, many developers opt to pass
         // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the mesh in
@@ -94,7 +94,7 @@ fn setup(
     );
 
     // Add a material asset directly to the materials storage
-    let material_handle = materials.add(StandardMaterial {
+    let material_handle = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::srgb(0.6, 0.8, 0.6),
         ..default()
     });
@@ -171,7 +171,7 @@ fn alter_handle(
 fn alter_mesh(
     mut is_mesh_scaled: Local<bool>,
     left_shape: Single<&Mesh3d, With<Left>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut meshes: AssetsMut<Mesh>,
 ) {
     // Obtain a mutable reference to the Mesh asset.
     let Some(mut mesh) = meshes.get_mut(*left_shape) else {

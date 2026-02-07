@@ -12,9 +12,8 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -27,7 +26,7 @@ fn setup(
         },
     ));
 
-    let cube = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
+    let cube = asset_commands.spawn_asset(Cuboid::new(0.5, 0.5, 0.5).into());
 
     const GOLDEN_ANGLE: f32 = 137.507_77;
 
@@ -36,7 +35,9 @@ fn setup(
         for z in -1..2 {
             commands.spawn((
                 Mesh3d(cube.clone()),
-                MeshMaterial3d(materials.add(Color::from(hsla))),
+                MeshMaterial3d(
+                    asset_commands.spawn_asset(StandardMaterial::from(Color::from(hsla))),
+                ),
                 Transform::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
             ));
             hsla = hsla.rotate_hue(GOLDEN_ANGLE);
@@ -47,7 +48,7 @@ fn setup(
 fn animate_materials(
     material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     time: Res<Time>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
 ) {
     for material_handle in material_handles.iter() {
         if let Some(mut material) = materials.get_mut(material_handle)

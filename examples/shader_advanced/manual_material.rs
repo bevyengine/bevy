@@ -212,14 +212,13 @@ impl ErasedRenderAsset for ImageMaterial {
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ImageMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // cube
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(2.0, 2.0, 2.0))),
-        ImageMaterial3d(materials.add(ImageMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::new(2.0, 2.0, 2.0).into())),
+        ImageMaterial3d(asset_commands.spawn_asset(ImageMaterial {
             image: asset_server.load("branding/icon.png"),
         })),
         Transform::from_xyz(0.0, 0.5, 0.0),

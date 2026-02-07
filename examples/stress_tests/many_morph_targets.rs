@@ -189,9 +189,9 @@ fn dims(count: usize) -> (usize, usize) {
 fn setup(
     args: Res<Args>,
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     mut assets: ResMut<MorphAssets>,
     asset_server: Res<AssetServer>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
     state: Res<State>,
 ) {
     let (x_dim, _) = dims(state.slot_count);
@@ -234,7 +234,7 @@ fn setup(
                 let (graph, index) = AnimationGraph::from_clip(
                     asset_server.load(GltfAssetLabel::Animation(gltf_index).from_asset(ASSET_PATH)),
                 );
-                (graphs.add(graph), index)
+                (asset_commands.spawn_asset(graph), index)
             })
             .collect::<Vec<_>>(),
     }

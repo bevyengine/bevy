@@ -489,17 +489,17 @@ impl FromWorld for ExampleAssets {
             AnimationGraph::from_clip(fox_animation.clone());
 
         ExampleAssets {
-            main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
+            main_sphere: world.spawn_asset(Sphere::default().mesh().uv(32, 18)),
             fox: world.load_asset(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
-            main_sphere_material: world.add_asset(Color::from(SILVER)),
+            main_sphere_material: world.spawn_asset(Color::from(SILVER).into()),
             main_scene: world.load_asset(
                 GltfAssetLabel::Scene(0)
                     .from_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb"),
             ),
             irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
-            fox_animation_graph: world.add_asset(fox_animation_graph),
+            fox_animation_graph: world.spawn_asset(fox_animation_graph),
             fox_animation_node,
-            voxel_cube: world.add_asset(Cuboid::default()),
+            voxel_cube: world.spawn_asset(Cuboid::default().into()),
             // Just use a specular map for the skybox since it's not too blurry.
             // In reality you wouldn't do this--you'd use a real skybox texture--but
             // reusing the textures like this saves space in the Bevy repository.
@@ -523,13 +523,13 @@ fn play_animations(
 }
 
 fn create_cubes(
-    image_assets: Res<Assets<Image>>,
+    image_assets: Assets<Image>,
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     irradiance_volumes: Query<(&IrradianceVolume, &GlobalTransform)>,
     voxel_cube_parents: Query<Entity, With<VoxelCubeParent>>,
     voxel_cubes: Query<Entity, With<VoxelCube>>,
     example_assets: Res<ExampleAssets>,
-    mut voxel_visualization_material_assets: ResMut<Assets<VoxelVisualizationMaterial>>,
 ) {
     // If voxel cubes have already been spawned, don't do anything.
     if !voxel_cubes.is_empty() {
@@ -547,7 +547,7 @@ fn create_cubes(
 
         let resolution = image.texture_descriptor.size;
 
-        let voxel_cube_material = voxel_visualization_material_assets.add(ExtendedMaterial {
+        let voxel_cube_material = asset_commands.spawn_asset(ExtendedMaterial {
             base: StandardMaterial::from(Color::from(RED)),
             extension: VoxelVisualizationExtension {
                 irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo {

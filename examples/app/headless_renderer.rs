@@ -145,15 +145,13 @@ enum SceneState {
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
+    mut asset_commands: AssetCommands,
     mut scene_controller: ResMut<SceneController>,
     render_device: Res<RenderDevice>,
 ) {
     let render_target = setup_render_target(
         &mut commands,
-        &mut images,
+        &mut asset_commands,
         &render_device,
         &mut scene_controller,
         // pre_roll_frames should be big enough for full scene render,
@@ -172,14 +170,16 @@ fn setup(
     // Scene example for non black box picture
     // circular base
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
+        Mesh3d(asset_commands.spawn_asset(Circle::new(4.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
     // cube
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+        Mesh3d(asset_commands.spawn_asset(Cuboid::new(1.0, 1.0, 1.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb_u8(124, 144, 255))),
+        ),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
     // light
@@ -226,7 +226,7 @@ impl Plugin for ImageCopyPlugin {
 /// Setups render target and cpu image for saving, changes scene state into render mode
 fn setup_render_target(
     commands: &mut Commands,
-    images: &mut ResMut<Assets<Image>>,
+    asset_commands: &mut AssetCommands,
     render_device: &Res<RenderDevice>,
     scene_controller: &mut ResMut<SceneController>,
     pre_roll_frames: u32,
@@ -242,12 +242,12 @@ fn setup_render_target(
     let mut render_target_image =
         Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default(), None);
     render_target_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
-    let render_target_image_handle = images.add(render_target_image);
+    let render_target_image_handle = asset_commands.spawn_asset(render_target_image);
 
     // This is the texture that will be copied to.
     let cpu_image =
         Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default(), None);
-    let cpu_image_handle = images.add(cpu_image);
+    let cpu_image_handle = asset_commands.spawn_asset(cpu_image);
 
     commands.spawn(ImageCopier::new(
         render_target_image_handle.clone(),
@@ -452,7 +452,7 @@ struct ImageToSave(Handle<Image>);
 fn update(
     images_to_save: Query<&ImageToSave>,
     receiver: Res<MainWorldReceiver>,
-    mut images: ResMut<Assets<Image>>,
+    mut images: AssetsMut<Image>,
     mut scene_controller: ResMut<SceneController>,
     mut app_exit_writer: MessageWriter<AppExit>,
     mut file_number: Local<u32>,

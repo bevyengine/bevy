@@ -23,41 +23,37 @@ fn main() {
 }
 
 /// set up a 3D scene to test shadow biases and perspective projections
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     let spawn_plane_depth = 500.0f32;
     let spawn_height = 2.0;
     let sphere_radius = 0.25;
 
-    let white_handle = materials.add(StandardMaterial {
+    let white_handle = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::WHITE,
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(Sphere::new(sphere_radius));
+    let sphere_handle = asset_commands.spawn_asset(Sphere::new(sphere_radius).into());
 
     // sphere - initially a caster
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterial3d(materials.add(Color::from(RED))),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::from(RED)))),
         Transform::from_xyz(-1.0, spawn_height, 0.0),
     ));
 
     // sphere - initially not a caster
     commands.spawn((
         Mesh3d(sphere_handle),
-        MeshMaterial3d(materials.add(Color::from(BLUE))),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::from(BLUE)))),
         Transform::from_xyz(1.0, spawn_height, 0.0),
         NotShadowCaster,
     ));
 
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
-        MeshMaterial3d(materials.add(Color::from(LIME))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(20.0, 20.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::from(LIME)))),
         Transform::from_xyz(0.0, 1.0, -10.0),
         NotShadowCaster,
         NotShadowReceiver,
@@ -65,7 +61,7 @@ fn setup(
 
     // lower ground plane - initially a shadow receiver
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(20.0, 20.0).into())),
         MeshMaterial3d(white_handle),
     ));
 

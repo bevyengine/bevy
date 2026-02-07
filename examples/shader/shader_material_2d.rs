@@ -24,8 +24,7 @@ fn main() {
 // Setup a simple 2d scene
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // camera
@@ -33,8 +32,8 @@ fn setup(
 
     // quad
     commands.spawn((
-        Mesh2d(meshes.add(Rectangle::default())),
-        MeshMaterial2d(materials.add(CustomMaterial {
+        Mesh2d(asset_commands.spawn_asset(Rectangle::default().into())),
+        MeshMaterial2d(asset_commands.spawn_asset(CustomMaterial {
             color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
         })),

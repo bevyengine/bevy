@@ -118,7 +118,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn decompress<T: Component + From<Handle<A>>, A: Asset>(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut compressed_assets: ResMut<Assets<GzAsset>>,
+    mut compressed_assets: AssetsMut<GzAsset>,
     query: Query<(Entity, &Compressed<A>)>,
 ) {
     for (entity, Compressed { compressed, .. }) in query.iter() {

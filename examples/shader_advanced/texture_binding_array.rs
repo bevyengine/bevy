@@ -52,8 +52,7 @@ impl Plugin for GpuFeatureSupportChecker {
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<BindlessMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
@@ -69,8 +68,8 @@ fn setup(
 
     // a cube with multiple textures
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(BindlessMaterial { textures })),
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(BindlessMaterial { textures })),
     ));
 }
 

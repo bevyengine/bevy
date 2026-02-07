@@ -51,7 +51,7 @@ fn main() {
 }
 
 /// Spawns the objects in the scene.
-fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Build a custom triangle mesh with colors
     // We define a custom mesh because the examples only uses a limited
     // set of vertex attributes for simplicity
@@ -85,7 +85,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
             // with our specialized pipeline
             CustomRenderedEntity,
             // We need to add the mesh handle to the entity
-            Mesh3d(meshes.add(mesh.clone())),
+            Mesh3d(asset_commands.spawn_asset(mesh.clone())),
             Transform::from_xyz(x, y, 0.0),
         ));
     }

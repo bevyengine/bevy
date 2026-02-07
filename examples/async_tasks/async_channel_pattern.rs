@@ -113,30 +113,23 @@ struct BoxMeshHandle(Handle<Mesh>);
 struct BoxMaterialHandle(Handle<StandardMaterial>);
 
 /// Sets up the shared mesh and material for the cubes.
-fn setup_assets(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup_assets(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Create and store a cube mesh
-    let box_mesh_handle = meshes.add(Cuboid::new(0.4, 0.4, 0.4));
+    let box_mesh_handle = asset_commands.spawn_asset(Cuboid::new(0.4, 0.4, 0.4).into());
     commands.insert_resource(BoxMeshHandle(box_mesh_handle));
 
     // Create and store a red material
-    let box_material_handle = materials.add(Color::srgb(1.0, 0.2, 0.3));
+    let box_material_handle =
+        asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(1.0, 0.2, 0.3)));
     commands.insert_resource(BoxMaterialHandle(box_material_handle));
 }
 
 /// Sets up the environment by spawning the ground, light, and camera.
-fn setup_env(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup_env(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Spawn a circular ground plane
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(1.618 * NUM_CUBES as f32))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
+        Mesh3d(asset_commands.spawn_asset(Circle::new(1.618 * NUM_CUBES as f32).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 

@@ -28,21 +28,17 @@ fn main() {
 struct Lights;
 
 /// set up a 3D scene to test shadow biases and perspective projections
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     let spawn_plane_depth = 300.0f32;
     let spawn_height = 2.0;
     let sphere_radius = 0.25;
 
-    let white_handle = materials.add(StandardMaterial {
+    let white_handle = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::WHITE,
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(Sphere::new(sphere_radius));
+    let sphere_handle = asset_commands.spawn_asset(Sphere::new(sphere_radius).into());
 
     let light_transform = Transform::from_xyz(5.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
     commands.spawn((
@@ -91,7 +87,14 @@ fn setup(
     // ground plane
     let plane_size = 2.0 * spawn_plane_depth;
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(plane_size, plane_size))),
+        Mesh3d(
+            asset_commands.spawn_asset(
+                Plane3d::default()
+                    .mesh()
+                    .size(plane_size, plane_size)
+                    .into(),
+            ),
+        ),
         MeshMaterial3d(white_handle),
     ));
 

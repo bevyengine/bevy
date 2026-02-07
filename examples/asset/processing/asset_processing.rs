@@ -249,7 +249,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 
 fn print_text(
     handles: Res<TextAssets>,
-    texts: Res<Assets<Text>>,
+    texts: Assets<Text>,
     mut asset_events: MessageReader<AssetEvent<Text>>,
 ) {
     if !asset_events.is_empty() {

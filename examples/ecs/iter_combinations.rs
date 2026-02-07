@@ -38,10 +38,9 @@ struct BodyBundle {
 fn generate_bodies(
     time: Res<Time<Fixed>>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
 ) {
-    let mesh = meshes.add(Sphere::new(1.0).mesh().ico(3).unwrap());
+    let mesh = asset_commands.spawn_asset(Sphere::new(1.0).mesh().ico(3).unwrap());
 
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
@@ -65,10 +64,12 @@ fn generate_bodies(
         commands.spawn((
             BodyBundle {
                 mesh: Mesh3d(mesh.clone()),
-                material: MeshMaterial3d(materials.add(Color::srgb(
-                    rng.random_range(color_range.clone()),
-                    rng.random_range(color_range.clone()),
-                    rng.random_range(color_range.clone()),
+                material: MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(
+                    Color::srgb(
+                        rng.random_range(color_range.clone()),
+                        rng.random_range(color_range.clone()),
+                        rng.random_range(color_range.clone()),
+                    ),
                 ))),
                 mass: Mass(mass_value),
                 acceleration: Acceleration(Vec3::ZERO),
@@ -94,8 +95,8 @@ fn generate_bodies(
     commands
         .spawn((
             BodyBundle {
-                mesh: Mesh3d(meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap())),
-                material: MeshMaterial3d(materials.add(StandardMaterial {
+                mesh: Mesh3d(asset_commands.spawn_asset(Sphere::new(1.0).mesh().ico(5).unwrap())),
+                material: MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                     base_color: ORANGE_RED.into(),
                     emissive: LinearRgba::from(ORANGE_RED) * 2.,
                     ..default()

@@ -48,15 +48,11 @@ impl Plugin for CustomMaterialPlugin {
 }
 
 /// set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // cube
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(CustomMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(CustomMaterial {
             time: Vec4::ZERO,
             party_mode: false,
         })),
@@ -73,7 +69,7 @@ fn setup(
 fn update(
     time: Res<Time>,
     mut query: Query<(&MeshMaterial3d<CustomMaterial>, &mut Transform)>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
+    mut materials: AssetsMut<CustomMaterial>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     for (material, mut transform) in query.iter_mut() {

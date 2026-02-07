@@ -19,13 +19,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut animations: ResMut<Assets<AnimationClip>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Camera
     commands.spawn((
         Camera3d::default(),
@@ -133,7 +127,7 @@ fn setup(
     );
 
     // Create the animation graph
-    let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
+    let (graph, animation_index) = AnimationGraph::from_clip(asset_commands.spawn_asset(animation));
 
     // Create the animation player, and set it to repeat
     let mut player = AnimationPlayer::default();
@@ -143,11 +137,13 @@ fn setup(
     // First entity is the planet
     let planet_entity = commands
         .spawn((
-            Mesh3d(meshes.add(Sphere::default())),
-            MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+            Mesh3d(asset_commands.spawn_asset(Sphere::default().into())),
+            MeshMaterial3d(
+                asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.8, 0.7, 0.6))),
+            ),
             // Add the animation graph and player
             planet,
-            AnimationGraphHandle(graphs.add(graph)),
+            AnimationGraphHandle(asset_commands.spawn_asset(graph)),
             player,
         ))
         .id();
@@ -161,8 +157,10 @@ fn setup(
             orbit_controller_animation_target_id,
             AnimatedBy(planet_entity),
             children![(
-                Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
-                MeshMaterial3d(materials.add(Color::srgb(0.3, 0.9, 0.3))),
+                Mesh3d(asset_commands.spawn_asset(Cuboid::new(0.5, 0.5, 0.5).into())),
+                MeshMaterial3d(
+                    asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.9, 0.3)))
+                ),
                 Transform::from_xyz(1.5, 0.0, 0.0),
                 satellite_animation_target_id,
                 AnimatedBy(planet_entity),

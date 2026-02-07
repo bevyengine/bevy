@@ -101,10 +101,9 @@ const FREE_CAMERA_START_TARGET: Vec3 = Vec3::new(7., 1.5, 0.);
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     windows: Query<&Window>,
     mut config_store: ResMut<GizmoConfigStore>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) -> Result {
     let window = windows.single()?;
     // The camera that the user controls to observe the scene.
@@ -182,18 +181,23 @@ fn setup(
     // Green Floor Plane
     commands.spawn((
         Mesh3d(
-            meshes.add(
+            asset_commands.spawn_asset(
                 Plane3d::default()
                     .mesh()
-                    .size(SHAPE_RING_RADIUS * 4., SHAPE_RING_RADIUS * 4.),
+                    .size(SHAPE_RING_RADIUS * 4., SHAPE_RING_RADIUS * 4.)
+                    .into(),
             ),
         ),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
     ));
     // Blue Wall Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5., 5.))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.3, 0.5))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(5., 5.).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.3, 0.5))),
+        ),
         Transform::from_xyz(20., 2.5, 10.).with_rotation(Quat::from_rotation_z(PI / 2.)),
     ));
     // Light
@@ -210,27 +214,39 @@ fn setup(
     aabb_gizmo_config.default_color = Some(Color::LinearRgba(LinearRgba::RED));
 
     // Configure the shapes on the ring that will have their AABB's drawn and updated
-    let white_matl = materials.add(Color::WHITE);
+    let white_matl = asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE));
     let shapes = [
-        meshes.add(Cuboid {
-            half_size: Vec3::new(2., 0.5, 1.),
-        }),
-        meshes.add(Tetrahedron {
-            vertices: [
-                Vec3::new(3., 4., 3.),
-                Vec3::new(-0.5, 4., -0.5),
-                Vec3::new(-0.5, -0.5, 3.),
-                Vec3::new(3., -0.5, -0.5),
-            ],
-        }),
-        meshes.add(Cylinder {
-            radius: 0.1,
-            half_height: 1.5,
-        }),
-        meshes.add(Cuboid {
-            half_size: Vec3::new(1., 0.1, 2.),
-        }),
-        meshes.add(Sphere::default().mesh().ico(5).unwrap()),
+        asset_commands.spawn_asset(
+            Cuboid {
+                half_size: Vec3::new(2., 0.5, 1.),
+            }
+            .into(),
+        ),
+        asset_commands.spawn_asset(
+            Tetrahedron {
+                vertices: [
+                    Vec3::new(3., 4., 3.),
+                    Vec3::new(-0.5, 4., -0.5),
+                    Vec3::new(-0.5, -0.5, 3.),
+                    Vec3::new(3., -0.5, -0.5),
+                ],
+            }
+            .into(),
+        ),
+        asset_commands.spawn_asset(
+            Cylinder {
+                radius: 0.1,
+                half_height: 1.5,
+            }
+            .into(),
+        ),
+        asset_commands.spawn_asset(
+            Cuboid {
+                half_size: Vec3::new(1., 0.1, 2.),
+            }
+            .into(),
+        ),
+        asset_commands.spawn_asset(Sphere::default().mesh().ico(5).unwrap()),
     ];
     let shapes_len = shapes.len() as f32;
     let mut shape_ring = commands.spawn((Transform::default(), Visibility::default(), ShapeRing));
@@ -248,7 +264,7 @@ fn setup(
     }
 
     // Configure the shape that peeks out of the wall plane
-    let wall_shape = meshes.add(Torus::default());
+    let wall_shape = asset_commands.spawn_asset(Torus::default().into());
     commands.spawn((
         Mesh3d(wall_shape),
         MeshMaterial3d(white_matl.clone()),

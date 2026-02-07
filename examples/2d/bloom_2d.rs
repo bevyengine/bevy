@@ -16,8 +16,7 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
@@ -41,17 +40,19 @@ fn setup(
 
     // Circle mesh
     commands.spawn((
-        Mesh2d(meshes.add(Circle::new(100.))),
+        Mesh2d(asset_commands.spawn_asset(Circle::new(100.).into())),
         // 3. Put something bright in a dark environment to see the effect
-        MeshMaterial2d(materials.add(Color::srgb(7.5, 0.0, 7.5))),
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial::from(Color::srgb(7.5, 0.0, 7.5)))),
         Transform::from_translation(Vec3::new(-200., 0., 0.)),
     ));
 
     // Hexagon mesh
     commands.spawn((
-        Mesh2d(meshes.add(RegularPolygon::new(100., 6))),
+        Mesh2d(asset_commands.spawn_asset(RegularPolygon::new(100., 6).into())),
         // 3. Put something bright in a dark environment to see the effect
-        MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))),
+        MeshMaterial2d(
+            asset_commands.spawn_asset(ColorMaterial::from(Color::srgb(6.25, 9.4, 9.1))),
+        ),
         Transform::from_translation(Vec3::new(200., 0., 0.)),
     ));
 

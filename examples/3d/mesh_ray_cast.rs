@@ -68,14 +68,12 @@ fn bounce_ray(mut ray: Ray3d, ray_cast: &mut MeshRayCast, gizmos: &mut Gizmos, c
 }
 
 // Set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Make a box of planes facing inward so the laser gets trapped inside
-    let plane_mesh = meshes.add(Plane3d::default());
-    let plane_material = materials.add(Color::from(css::GRAY).with_alpha(0.01));
+    let plane_mesh = asset_commands.spawn_asset(Plane3d::default().into());
+    let plane_material = asset_commands.spawn_asset(StandardMaterial::from(
+        Color::from(css::GRAY).with_alpha(0.01),
+    ));
     let create_plane = move |translation, rotation| {
         (
             Transform::from_translation(translation)

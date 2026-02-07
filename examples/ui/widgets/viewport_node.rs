@@ -22,12 +22,7 @@ fn main() {
 #[reflect(Component)]
 struct Shape;
 
-fn test(
-    mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn test(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Spawn a UI camera
     commands.spawn(Camera3d::default());
 
@@ -41,7 +36,7 @@ fn test(
     );
     image.texture_descriptor.usage =
         TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
-    let image_handle = images.add(image);
+    let image_handle = asset_commands.spawn_asset(image);
 
     // Spawn the 3D camera
     let camera = commands
@@ -59,8 +54,8 @@ fn test(
     // Spawn something for the 3D camera to look at
     commands
         .spawn((
-            Mesh3d(meshes.add(Cuboid::new(5.0, 5.0, 5.0))),
-            MeshMaterial3d(materials.add(Color::WHITE)),
+            Mesh3d(asset_commands.spawn_asset(Cuboid::new(5.0, 5.0, 5.0).into())),
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
             Transform::from_xyz(0.0, 0.0, -10.0),
             Shape,
         ))

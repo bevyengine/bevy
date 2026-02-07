@@ -27,11 +27,7 @@ const ATTRIBUTE_BLEND_COLOR: MeshVertexAttribute =
     MeshVertexAttribute::new("BlendColor", 988540917, VertexFormat::Float32x4);
 
 /// set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     let mesh = Mesh::from(Cuboid::default())
         // Sets the custom attribute
         .with_inserted_attribute(
@@ -42,8 +38,8 @@ fn setup(
 
     // cube
     commands.spawn((
-        Mesh3d(meshes.add(mesh)),
-        MeshMaterial3d(materials.add(CustomMaterial {
+        Mesh3d(asset_commands.spawn_asset(mesh)),
+        MeshMaterial3d(asset_commands.spawn_asset(CustomMaterial {
             color: LinearRgba::WHITE,
         })),
         Transform::from_xyz(0.0, 0.5, 0.0),

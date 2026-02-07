@@ -48,19 +48,17 @@ struct SamplePoint;
 #[derive(Resource)]
 struct MousePressed(bool);
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Use seeded rng and store it in a resource; this makes the random output reproducible.
     let seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
     commands.insert_resource(RandomSource(seeded_rng));
 
     // Make a plane for establishing space.
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(12.0, 12.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(12.0, 12.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
         Transform::from_xyz(0.0, -2.5, 0.0),
     ));
 
@@ -70,8 +68,8 @@ fn setup(
 
     // The sampled shape shown transparently:
     commands.spawn((
-        Mesh3d(meshes.add(shape)),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(shape.into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
             alpha_mode: AlphaMode::Blend,
             cull_mode: None,
@@ -96,17 +94,20 @@ fn setup(
 
     // Store the mesh and material for sample points in resources:
     commands.insert_resource(PointMesh(
-        meshes.add(
+        asset_commands.spawn_asset(
             Sphere::new(0.03)
                 .mesh()
-                .kind(SphereKind::Ico { subdivisions: 3 }),
+                .kind(SphereKind::Ico { subdivisions: 3 })
+                .into(),
         ),
     ));
-    commands.insert_resource(PointMaterial(materials.add(StandardMaterial {
-        base_color: Color::srgb(1.0, 0.8, 0.8),
-        metallic: 0.8,
-        ..default()
-    })));
+    commands.insert_resource(PointMaterial(asset_commands.spawn_asset(
+        StandardMaterial {
+            base_color: Color::srgb(1.0, 0.8, 0.8),
+            metallic: 0.8,
+            ..default()
+        },
+    )));
 
     // Instructions for the example:
     commands.spawn((
