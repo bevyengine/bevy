@@ -8,7 +8,7 @@ pull_requests: [22832]
 
 This is to ensure that a `SystemBuffer` used in an Observer context applies its changes.
 In most cases, if `apply()` does not change the `World` structurally,
-`apply()` and `queue()` should mutate the `World` in the same way.
+`apply()` and `queue()` can mutate the `World` directly in the same way.
 
 If `apply()` does not change the `World` structurally, `apply()` should be changed to `queue()`:
 
@@ -29,3 +29,5 @@ impl SystemBuffer for MySystemBuffer {
 ```
 
 If `apply()` does change the `World` structurally, implement both `apply()` and `queue()`.
+To queue structural changes to a `DeferredWorld`, add the structural changes to its command queue,
+accessible via `world.commands()`.

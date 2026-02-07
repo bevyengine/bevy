@@ -1183,6 +1183,9 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
         self.queue(system_meta, world.into());
     }
     /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
+    ///
+    /// To queue structural changes to [`DeferredWorld`], a command queue of the [`DeferredWorld`]
+    /// should be used via [`commands`](crate::world::DeferredWorld::commands).
     fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld);
 }
 
