@@ -1,4 +1,6 @@
-use bevy_reflect::{PartialReflect, ReflectFromReflect, TypeRegistration};
+use bevy_reflect::{
+    cast::CastPartialReflect, PartialReflect, ReflectFromReflect, TypeRegistration,
+};
 
 /// Attempts to clone a [`PartialReflect`] value using various methods.
 ///
@@ -14,12 +16,12 @@ pub(super) fn clone_reflect_value(
 ) -> Box<dyn PartialReflect> {
     value
         .reflect_clone()
-        .map(PartialReflect::into_partial_reflect)
+        .map(CastPartialReflect::into_partial_reflect)
         .unwrap_or_else(|_| {
             type_registration
                 .data::<ReflectFromReflect>()
                 .and_then(|fr| fr.from_reflect(value.as_partial_reflect()))
-                .map(PartialReflect::into_partial_reflect)
+                .map(CastPartialReflect::into_partial_reflect)
                 .unwrap_or_else(|| value.to_dynamic())
         })
 }

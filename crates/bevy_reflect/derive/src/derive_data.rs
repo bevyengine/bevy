@@ -711,7 +711,8 @@ impl<'a> ReflectStruct<'a> {
         for field in self.fields().iter() {
             let field_ty = field.reflected_type();
             let member = field.to_member();
-            let accessor = self.access_for_field(field, false);
+            let accessor = self.access_for_field(field, false, true);
+            let non_cast_accessor = self.access_for_field(field, false, false);
 
             match &field.attrs.clone {
                 CloneBehavior::Default => {
@@ -729,7 +730,17 @@ impl<'a> ReflectStruct<'a> {
                         }
                     } else {
                         quote! {
-                            <#field_ty as #bevy_reflect_path::PartialReflect>::reflect_clone_and_take(#accessor)?
+                            #FQResult::map_err(
+                                <dyn #bevy_reflect_path::Reflect>::take(
+                                    #bevy_reflect_path::PartialReflect::reflect_clone(#accessor)?
+                                ),
+                                |_| #bevy_reflect_path::ReflectCloneError::FailedDowncast {
+                                    expected: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(<#field_ty as #bevy_reflect_path::TypePath>::type_path()),
+                                    received: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Owned(
+                                        #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(#bevy_reflect_path::DynamicTypePath::reflect_type_path(#accessor))
+                                    ),
+                                }
+                            )?
                         }
                     };
 
@@ -739,12 +750,28 @@ impl<'a> ReflectStruct<'a> {
                 }
                 CloneBehavior::Trait => {
                     tokens.extend(quote! {
-                        #member: #FQClone::clone(#accessor),
+                        #member: #FQClone::clone(#non_cast_accessor),
                     });
                 }
                 CloneBehavior::Func(clone_fn) => {
+                    let value = if field.attrs.ignore.is_ignored() {
+                        quote!(#clone_fn(#non_cast_accessor))
+                    } else {
+                        quote! {
+                            #clone_fn(#FQOption::ok_or_else(
+                                <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref(#accessor),
+                                || #bevy_reflect_path::ReflectCloneError::FailedDowncast {
+                                    expected: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(<#field_ty as #bevy_reflect_path::TypePath>::type_path()),
+                                    received: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Owned(
+                                        #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(#bevy_reflect_path::DynamicTypePath::reflect_type_path(#accessor))
+                                    ),
+                                }
+                            )?)
+                        }
+                    };
+
                     tokens.extend(quote! {
-                        #member: #clone_fn(#accessor),
+                        #member: #value,
                     });
                 }
             }
@@ -779,21 +806,30 @@ impl<'a> ReflectStruct<'a> {
 
     /// Generates an accessor for the given field.
     ///
-    /// The mutability of the access can be controlled by the `is_mut` parameter.
+    /// The mutability of the access can be controlled by the `is_mutable` parameter.
     ///
     /// Generally, this just returns something like `&self.field`.
     /// However, if the struct is a remote wrapper, this then becomes `&self.0.field` in order to access the field on the inner type.
     ///
     /// If the field itself is a remote type, the above accessor is further wrapped in a call to `ReflectRemote::as_wrapper[_mut]`.
+    ///
+    /// If `is_castable` is true, the accessor is wrapped in a call to `CastPartialReflect::as_partial_reflect[_mut]` to handle reflection casting
+    /// when the field is not a remote type.
     pub fn access_for_field(
         &self,
         field: &StructField<'a>,
         is_mutable: bool,
+        is_castable: bool,
     ) -> proc_macro2::TokenStream {
         let bevy_reflect_path = self.meta().bevy_reflect_path();
         let member = field.to_member();
 
         let prefix_tokens = if is_mutable { quote!(&mut) } else { quote!(&) };
+        let cast_method = if is_mutable {
+            quote!(as_partial_reflect_mut)
+        } else {
+            quote!(as_partial_reflect)
+        };
 
         let accessor = if self.meta.is_remote_wrapper() {
             quote!(self.0.#member)
@@ -813,7 +849,13 @@ impl<'a> ReflectStruct<'a> {
                     <#wrapper_ty as #bevy_reflect_path::ReflectRemote>::#method(#prefix_tokens #accessor)
                 }
             }
-            None => quote!(#prefix_tokens #accessor),
+            None => {
+                if is_castable {
+                    quote!(#bevy_reflect_path::cast::CastPartialReflect::#cast_method(#prefix_tokens #accessor))
+                } else {
+                    quote!(#prefix_tokens #accessor)
+                }
+            }
         }
     }
 }

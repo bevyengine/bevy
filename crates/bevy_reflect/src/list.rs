@@ -12,9 +12,9 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    type_info::impl_type_methods, utility::reflect_hasher, ApplyError, FromReflect, Generics,
-    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
-    TypeInfo, TypePath,
+    cast::impl_cast_partial_reflect, type_info::impl_type_methods, utility::reflect_hasher,
+    ApplyError, FromReflect, Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -133,7 +133,8 @@ pub struct ListInfo {
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List + TypePath, TItem: FromReflect + MaybeTyped + TypePath>() -> Self {
+    pub fn new<TList: List + TypePath, TItem: FromReflect + Reflect + MaybeTyped + TypePath>(
+    ) -> Self {
         Self {
             ty: Type::of::<TList>(),
             generics: Generics::new(),
@@ -256,21 +257,6 @@ impl PartialReflect for DynamicList {
         self.represented_type
     }
 
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Err(self)
     }
@@ -337,6 +323,7 @@ impl PartialReflect for DynamicList {
 }
 
 impl_type_path!((in bevy_reflect) DynamicList);
+impl_cast_partial_reflect!(for DynamicList);
 
 impl Debug for DynamicList {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -577,7 +564,7 @@ mod tests {
             // If compiled in release mode, verify we dont overflow
             usize::MAX
         };
-        let b = Box::new(vec![(); SIZE]).into_reflect();
+        let b = (Box::new(vec![(); SIZE]) as Box<dyn Reflect>).into_reflect();
 
         let list = b.reflect_ref().as_list().unwrap();
 

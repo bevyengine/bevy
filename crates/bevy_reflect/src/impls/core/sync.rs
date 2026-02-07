@@ -54,18 +54,6 @@ macro_rules! impl_reflect_for_atomic {
                     Some(<Self as Typed>::type_info())
                 }
                 #[inline]
-                fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-                    self
-                }
-                #[inline]
-                fn as_partial_reflect(&self) -> &dyn PartialReflect {
-                    self
-                }
-                #[inline]
-                fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-                    self
-                }
-                #[inline]
                 fn try_into_reflect(
                     self: Box<Self>,
                 ) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {

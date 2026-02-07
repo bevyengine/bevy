@@ -15,8 +15,8 @@ use bevy_reflect_derive::impl_type_path;
 
 impl<K, V> Map for ::alloc::collections::BTreeMap<K, V>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
         key.try_downcast_ref::<K>()
@@ -94,24 +94,13 @@ where
 
 impl<K, V> PartialReflect for ::alloc::collections::BTreeMap<K, V>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
     }
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
 
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
     #[inline]
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
@@ -171,14 +160,14 @@ where
 impl_full_reflect!(
     <K, V> for ::alloc::collections::BTreeMap<K, V>
     where
-        K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-        V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        K: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+        V: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration,
 );
 
 impl<K, V> Typed for ::alloc::collections::BTreeMap<K, V>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
@@ -195,8 +184,8 @@ where
 
 impl<K, V> GetTypeRegistration for ::alloc::collections::BTreeMap<K, V>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
@@ -208,8 +197,8 @@ where
 
 impl<K, V> FromReflect for ::alloc::collections::BTreeMap<K, V>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         let ref_map = reflect.reflect_ref().as_map().ok()?;
@@ -230,7 +219,7 @@ impl_type_path!(::alloc::collections::BTreeMap<K, V>);
 #[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(::alloc::collections::BTreeMap<K, V>;
     <
-        K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-        V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration
+        K: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+        V: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration
     >
 );

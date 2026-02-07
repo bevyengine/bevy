@@ -2,6 +2,7 @@
 
 use bevy::reflect::{
     array::DynamicArray,
+    cast::CastPartialReflect,
     enums::{DynamicEnum, DynamicVariant},
     list::DynamicList,
     map::DynamicMap,

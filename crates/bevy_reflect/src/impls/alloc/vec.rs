@@ -3,7 +3,7 @@ use bevy_reflect_derive::impl_type_path;
 use crate::impls::macros::impl_reflect_for_veclike;
 #[cfg(feature = "functions")]
 use crate::{
-    from_reflect::FromReflect, type_info::MaybeTyped, type_path::TypePath,
+    from_reflect::FromReflect, reflect::Reflect, type_info::MaybeTyped, type_path::TypePath,
     type_registry::GetTypeRegistration,
 };
 
@@ -17,7 +17,7 @@ impl_reflect_for_veclike!(
 );
 impl_type_path!(::alloc::vec::Vec<T>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::alloc::vec::Vec<T>; <T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration>);
+crate::func::macros::impl_function_traits!(::alloc::vec::Vec<T>; <T: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration>);
 
 #[cfg(test)]
 mod tests {

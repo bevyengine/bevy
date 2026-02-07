@@ -318,7 +318,7 @@ impl<'a> VariantBuilder for ReflectCloneVariantBuilder<'a> {
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
         let field_ty = field.field.reflected_type();
         let alias = field.alias;
-        let alias = match &field.field.attrs.remote {
+        let non_cast_alias = match &field.field.attrs.remote {
             Some(wrapper_ty) => {
                 quote! {
                     <#wrapper_ty as #bevy_reflect_path::ReflectRemote>::as_wrapper(#alias)
@@ -326,21 +326,53 @@ impl<'a> VariantBuilder for ReflectCloneVariantBuilder<'a> {
             }
             None => alias.to_token_stream(),
         };
+        let alias = match &field.field.attrs.remote {
+            Some(wrapper_ty) => {
+                quote! {
+                    <#wrapper_ty as #bevy_reflect_path::ReflectRemote>::as_wrapper(#alias)
+                }
+            }
+            None => quote! {
+                #bevy_reflect_path::cast::CastPartialReflect::as_partial_reflect(#alias)
+            },
+        };
 
         match &field.field.attrs.clone {
             CloneBehavior::Default => {
                 quote! {
-                    <#field_ty as #bevy_reflect_path::PartialReflect>::reflect_clone_and_take(#alias)?
+                    #FQResult::map_err(
+                        <dyn #bevy_reflect_path::Reflect>::take(
+                            #bevy_reflect_path::PartialReflect::reflect_clone(#alias)?
+                        ),
+                        |_| #bevy_reflect_path::ReflectCloneError::FailedDowncast {
+                            expected: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(<#field_ty as #bevy_reflect_path::TypePath>::type_path()),
+                            received: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Owned(
+                                #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(#bevy_reflect_path::DynamicTypePath::reflect_type_path(#alias))
+                            ),
+                        }
+                    )?
                 }
             }
             CloneBehavior::Trait => {
                 quote! {
-                    #FQClone::clone(#alias)
+                    #FQClone::clone(#non_cast_alias)
                 }
             }
             CloneBehavior::Func(clone_fn) => {
-                quote! {
-                    #clone_fn(#alias)
+                if field.field.attrs.ignore.is_ignored() {
+                    quote!(#clone_fn(#non_cast_alias))
+                } else {
+                    quote! {
+                        #clone_fn(#FQOption::ok_or_else(
+                            <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref(#alias),
+                            || #bevy_reflect_path::ReflectCloneError::FailedDowncast {
+                                expected: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(<#field_ty as #bevy_reflect_path::TypePath>::type_path()),
+                                received: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Owned(
+                                    #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(#bevy_reflect_path::DynamicTypePath::reflect_type_path(#alias))
+                                ),
+                            }
+                        )?)
+                    }
                 }
             }
         }

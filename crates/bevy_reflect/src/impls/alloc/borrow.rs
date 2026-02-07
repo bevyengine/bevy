@@ -26,19 +26,6 @@ impl PartialReflect for Cow<'static, str> {
         Some(<Self as Typed>::type_info())
     }
 
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
     }
@@ -141,7 +128,7 @@ impl FromReflect for Cow<'static, str> {
 #[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(Cow<'static, str>);
 
-impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
+impl<T: FromReflect + Reflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
     for Cow<'static, [T]>
 {
     fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
@@ -200,24 +187,11 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
     }
 }
 
-impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> PartialReflect
+impl<T: FromReflect + Reflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> PartialReflect
     for Cow<'static, [T]>
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
     }
 
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
@@ -276,10 +250,10 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
 impl_full_reflect!(
     <T> for Cow<'static, [T]>
     where
-        T: FromReflect + Clone + MaybeTyped + TypePath + GetTypeRegistration,
+        T: FromReflect + Reflect + Clone + MaybeTyped + TypePath + GetTypeRegistration,
 );
 
-impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Typed
+impl<T: FromReflect + Reflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Typed
     for Cow<'static, [T]>
 {
     fn type_info() -> &'static TypeInfo {
@@ -288,8 +262,8 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Typed
     }
 }
 
-impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> GetTypeRegistration
-    for Cow<'static, [T]>
+impl<T: FromReflect + Reflect + MaybeTyped + Clone + TypePath + GetTypeRegistration>
+    GetTypeRegistration for Cow<'static, [T]>
 {
     fn get_type_registration() -> TypeRegistration {
         TypeRegistration::of::<Cow<'static, [T]>>()
@@ -300,7 +274,7 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> GetTy
     }
 }
 
-impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> FromReflect
+impl<T: FromReflect + Reflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> FromReflect
     for Cow<'static, [T]>
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
@@ -317,4 +291,4 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> FromR
 }
 
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(Cow<'static, [T]>; <T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration>);
+crate::func::macros::impl_function_traits!(Cow<'static, [T]>; <T: FromReflect + Reflect + MaybeTyped + Clone + TypePath + GetTypeRegistration>);
