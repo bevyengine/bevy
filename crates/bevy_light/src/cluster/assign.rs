@@ -628,7 +628,7 @@ pub(crate) fn assign_objects_to_clusters(
                         Some(cluster_coordinates.y)
                     };
                     for z in min_cluster.z..=max_cluster.z {
-                        let mut z_object = view_clusterable_object_sphere.clone();
+                        let mut z_object = view_clusterable_object_sphere;
                         if z_center.is_none() || z != z_center.unwrap() {
                             // The z plane closer to the clusterable object has the
                             // larger radius circle where the light sphere
@@ -647,7 +647,7 @@ pub(crate) fn assign_objects_to_clusters(
                             }
                         }
                         for y in min_cluster.y..=max_cluster.y {
-                            let mut y_object = z_object.clone();
+                            let mut y_object = z_object;
                             if y_center.is_none() || y != y_center.unwrap() {
                                 // The y plane closer to the clusterable object has
                                 // the larger radius circle where the light sphere

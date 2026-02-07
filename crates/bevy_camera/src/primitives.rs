@@ -185,7 +185,7 @@ impl From<Sphere> for Aabb {
 /// This is typically used as a component on an entity to represent the local
 /// space occupied by this entity, as an alternative to [`Aabb`]. The *frustum
 /// culling* process uses this component to determine whether an entity is in
-/// the view of a [`Camera`].
+/// the view of a [`crate::Camera`].
 ///
 /// Bevy will automatically add this component to point and spot lights, as
 /// their ranges are most easily approximated by a sphere. The engine will keep
