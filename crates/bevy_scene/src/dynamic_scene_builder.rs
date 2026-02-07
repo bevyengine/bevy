@@ -3,6 +3,7 @@ use core::any::TypeId;
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
+use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
     component::{Component, ComponentId},
     entity_disabling::DefaultQueryFilters,
@@ -271,19 +272,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     #[must_use]
     pub fn extract_entities(mut self, entities: impl Iterator<Item = Entity>) -> Self {
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
-        let resource_entities: Vec<Entity> = self
-            .original_world
-            .resource_entities()
-            .values()
-            .copied()
-            .collect();
 
         for entity in entities {
             if self.extracted_scene.contains_key(&entity) {
-                continue;
-            }
-
-            if resource_entities.contains(&entity) {
                 continue;
             }
 
@@ -293,6 +284,11 @@ impl<'w> DynamicSceneBuilder<'w> {
             };
 
             let original_entity = self.original_world.entity(entity);
+
+            if original_entity.contains_id(IS_RESOURCE) {
+                continue;
+            }
+
             for &component_id in original_entity.archetype().components().iter() {
                 let mut extract_and_push = || {
                     let type_id = self

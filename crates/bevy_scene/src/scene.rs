@@ -3,6 +3,7 @@ use core::any::TypeId;
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
+use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
     component::ComponentCloneBehavior,
     entity::{Entity, EntityHashMap, SceneEntityMapper},
@@ -126,27 +127,24 @@ impl Scene {
             );
         }
 
-        let resource_entities: Vec<Entity> =
-            self.world.resource_entities().values().copied().collect();
-
         // Ensure that all scene entities have been allocated in the destination
         // world before handling components that may contain references that need mapping.
         for archetype in self.world.archetypes().iter() {
+            if archetype.contains(IS_RESOURCE) {
+                continue;
+            }
             for scene_entity in archetype.entities() {
-                if !resource_entities.contains(&scene_entity.id()) {
-                    entity_map
-                        .entry(scene_entity.id())
-                        .or_insert_with(|| world.spawn_empty().id());
-                }
+                entity_map
+                    .entry(scene_entity.id())
+                    .or_insert_with(|| world.spawn_empty().id());
             }
         }
 
         for archetype in self.world.archetypes().iter() {
+            if archetype.contains(IS_RESOURCE) {
+                continue;
+            }
             for scene_entity in archetype.entities() {
-                if resource_entities.contains(&scene_entity.id()) {
-                    continue;
-                }
-
                 let entity = *entity_map
                     .get(&scene_entity.id())
                     .expect("should have previously spawned an entity");

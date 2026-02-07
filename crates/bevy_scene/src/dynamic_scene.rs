@@ -48,8 +48,6 @@ impl DynamicScene {
 
     /// Create a new dynamic scene from a given world.
     pub fn from_world(world: &World) -> Self {
-        let resource_entities: Vec<Entity> = world.resource_entities().values().copied().collect();
-
         DynamicSceneBuilder::from_world(world)
             .extract_entities(
                 // we do this instead of a query, in order to completely sidestep default query filters.
@@ -58,8 +56,7 @@ impl DynamicScene {
                     .archetypes()
                     .iter()
                     .flat_map(bevy_ecs::archetype::Archetype::entities)
-                    .map(bevy_ecs::archetype::ArchetypeEntity::id)
-                    .filter(|entity| !resource_entities.contains(entity)),
+                    .map(bevy_ecs::archetype::ArchetypeEntity::id),
             )
             .extract_resources()
             .build()

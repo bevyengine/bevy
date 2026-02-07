@@ -2209,7 +2209,10 @@ impl World {
     ) -> Mut<'_, R> {
         let caller = MaybeLocation::caller();
         let (resource_id, entity) = self.insert_resource_if_not_exists_with_caller(func(), caller);
-        let untyped = entity.into_mut_by_id(resource_id).unwrap(); // must exist
+        let untyped = entity
+            .into_mut_by_id(resource_id)
+            .expect("Resource must exist");
+        // SAFETY: resource is of type R
         unsafe { untyped.with_type() }
     }
 
@@ -2251,7 +2254,10 @@ impl World {
         let resource = R::from_world(self);
         let (resource_id, entity) =
             self.insert_resource_if_not_exists_with_caller(resource, caller);
-        let untyped = entity.into_mut_by_id(resource_id).unwrap(); // must exist
+        let untyped = entity
+            .into_mut_by_id(resource_id)
+            .expect("Resource must exist");
+        // SAFETY: resource is of type R
         unsafe { untyped.with_type() }
     }
 
