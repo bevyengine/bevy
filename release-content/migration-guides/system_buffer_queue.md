@@ -3,11 +3,15 @@ title: "`SystemBuffer` requires `queue()` to be implemented"
 pull_requests: [22832]
 ---
 
-`SystemBuffer` now requires `queue()` to be implemented, instead of `apply().` `apply()`'s default implementation now delegates to `queue()`.
+`SystemBuffer` now requires `queue()` to be implemented, instead of `apply().`
+`apply()`'s default implementation now delegates to `queue()`.
 
-This is to ensure that a `SystemBuffer` used in an Observer context applies its changes. In most cases, `apply()` and `queue()` should mutate the `World` in the same way.
+This is to ensure that a `SystemBuffer` used in an Observer context applies its changes.
+In most cases, if `apply()` does not change the `World` structurally,
+`apply()` and `queue()` should mutate the `World` in the same way.
 
-For most cases:
+If `apply()` does not change the `World` structurally, `apply()` should be changed to `queue()`:
+
 ```rust
 // 0.18
 impl SystemBuffer for MySystemBuffer {
@@ -24,4 +28,4 @@ impl SystemBuffer for MySystemBuffer {
 }
 ```
 
-If `apply()` and `queue()` should mutate the `World` differently, implement both `apply()` and `queue()`.
+If `apply()` does change the `World` structurally, implement both `apply()` and `queue()`.
