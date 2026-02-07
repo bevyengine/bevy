@@ -21,7 +21,6 @@ use bevy_ecs::{
 };
 use bevy_light::cascade::Cascade;
 use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectType};
-use bevy_light::cluster::GlobalVisibleClusterableObjects;
 use bevy_light::SunDisk;
 use bevy_light::{
     spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
@@ -44,7 +43,7 @@ use bevy_render::erased_render_asset::ErasedRenderAssets;
 use bevy_render::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
-use bevy_render::sync_world::MainEntityHashMap;
+use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
@@ -293,41 +292,49 @@ pub fn extract_lights(
     mut commands: Commands,
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
     directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
-    global_visible_clusterable: Extract<Res<GlobalVisibleClusterableObjects>>,
-    previous_point_lights: Query<
-        Entity,
-        (
-            With<RenderCubemapVisibleEntities>,
-            With<ExtractedPointLight>,
-        ),
-    >,
-    previous_spot_lights: Query<
-        Entity,
-        (With<RenderVisibleMeshEntities>, With<ExtractedPointLight>),
-    >,
     point_lights: Extract<
-        Query<(
-            Entity,
-            RenderEntity,
-            &PointLight,
-            &CubemapVisibleEntities,
-            &GlobalTransform,
-            &ViewVisibility,
-            &CubemapFrusta,
-            Option<&VolumetricLight>,
-        )>,
+        Query<
+            (
+                Entity,
+                RenderEntity,
+                &PointLight,
+                &CubemapVisibleEntities,
+                &GlobalTransform,
+                &ViewVisibility,
+                &CubemapFrusta,
+                Option<&VolumetricLight>,
+            ),
+            Or<(
+                Changed<PointLight>,
+                Changed<CubemapVisibleEntities>,
+                Changed<GlobalTransform>,
+                Changed<ViewVisibility>,
+                Changed<CubemapFrusta>,
+                Changed<VolumetricLight>,
+            )>,
+        >,
     >,
     spot_lights: Extract<
-        Query<(
-            Entity,
-            RenderEntity,
-            &SpotLight,
-            &VisibleMeshEntities,
-            &GlobalTransform,
-            &ViewVisibility,
-            &Frustum,
-            Option<&VolumetricLight>,
-        )>,
+        Query<
+            (
+                Entity,
+                RenderEntity,
+                &SpotLight,
+                &VisibleMeshEntities,
+                &GlobalTransform,
+                &ViewVisibility,
+                &Frustum,
+                Option<&VolumetricLight>,
+            ),
+            Or<(
+                Changed<SpotLight>,
+                Changed<VisibleMeshEntities>,
+                Changed<GlobalTransform>,
+                Changed<ViewVisibility>,
+                Changed<Frustum>,
+                Changed<VolumetricLight>,
+            )>,
+        >,
     >,
     directional_lights: Extract<
         Query<
@@ -346,12 +353,30 @@ pub fn extract_lights(
                 Has<OcclusionCulling>,
                 Option<&SunDisk>,
             ),
-            Without<SpotLight>,
+            (
+                Without<SpotLight>,
+                Or<(
+                    Changed<DirectionalLight>,
+                    Changed<CascadesVisibleEntities>,
+                    Changed<Cascades>,
+                    Changed<CascadeShadowConfig>,
+                    Changed<CascadesFrusta>,
+                    Changed<GlobalTransform>,
+                    Changed<ViewVisibility>,
+                    Changed<RenderLayers>,
+                    Changed<VolumetricLight>,
+                    Changed<OcclusionCulling>,
+                    Changed<SunDisk>,
+                )>,
+            ),
         >,
     >,
     mapper: Extract<Query<RenderEntity>>,
-    mut previous_point_lights_len: Local<usize>,
-    mut previous_spot_lights_len: Local<usize>,
+    (mut removed_point_lights, mut removed_spot_lights, mut removed_directional_lights): (
+        Extract<RemovedComponents<PointLight>>,
+        Extract<RemovedComponents<SpotLight>>,
+        Extract<RemovedComponents<DirectionalLight>>,
+    ),
 ) {
     // NOTE: These shadow map resources are extracted here as they are used here too so this avoids
     // races between scheduling of ExtractResourceSystems and this system.
@@ -362,21 +387,6 @@ pub fn extract_lights(
         commands.insert_resource(directional_light_shadow_map.clone());
     }
 
-    // Clear previous visible entities for all point/spot lights as they might not be in the
-    // `global_visible_clusterable` list anymore.
-    commands.try_insert_batch(
-        previous_point_lights
-            .iter()
-            .map(|render_entity| (render_entity, RenderCubemapVisibleEntities::default()))
-            .collect::<Vec<_>>(),
-    );
-    commands.try_insert_batch(
-        previous_spot_lights
-            .iter()
-            .map(|render_entity| (render_entity, RenderVisibleMeshEntities::default()))
-            .collect::<Vec<_>>(),
-    );
-
     // This is the point light shadow map texel size for one face of the cube as a distance of 1.0
     // world unit from the light.
     // point_light_texel_size = 2.0 * 1.0 * tan(PI / 4.0) / cube face width in texels
@@ -386,24 +396,34 @@ pub fn extract_lights(
     // https://catlikecoding.com/unity/tutorials/custom-srp/point-and-spot-shadows/
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
 
-    let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
-    for entity in global_visible_clusterable.iter().copied() {
-        let Ok((
-            main_entity,
-            render_entity,
-            point_light,
-            cubemap_visible_entities,
-            transform,
-            view_visibility,
-            frusta,
-            volumetric_light,
-        )) = point_lights.get(entity)
-        else {
-            continue;
-        };
+    // Keep track of all entities of a type that we updated this frame, so that
+    // we don't incorrectly remove the components later even if they show up in
+    // `RemovedComponents`.
+    let mut seen_point_light_main_entities = MainEntityHashSet::default();
+    let mut seen_spot_light_main_entities = MainEntityHashSet::default();
+    let mut seen_directional_light_main_entities = MainEntityHashSet::default();
+
+    let mut point_lights_values = vec![];
+    for (
+        main_entity,
+        render_entity,
+        point_light,
+        cubemap_visible_entities,
+        transform,
+        view_visibility,
+        frusta,
+        volumetric_light,
+    ) in point_lights.iter()
+    {
+        seen_point_light_main_entities.insert(main_entity.into());
+
         if !view_visibility.get() {
+            if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
+                entity_commands.remove::<ExtractedPointLight>();
+            }
             continue;
         }
+
         let render_cubemap_visible_entities = RenderCubemapVisibleEntities {
             data: cubemap_visible_entities
                 .iter()
@@ -448,71 +468,72 @@ pub fn extract_lights(
             ),
         ));
     }
-    *previous_point_lights_len = point_lights_values.len();
     commands.try_insert_batch(point_lights_values);
 
-    let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
-    for entity in global_visible_clusterable.iter().copied() {
-        if let Ok((
-            main_entity,
-            render_entity,
-            spot_light,
-            visible_entities,
-            transform,
-            view_visibility,
-            frustum,
-            volumetric_light,
-        )) = spot_lights.get(entity)
-        {
-            if !view_visibility.get() {
-                continue;
+    let mut spot_lights_values = vec![];
+    for (
+        main_entity,
+        render_entity,
+        spot_light,
+        visible_entities,
+        transform,
+        view_visibility,
+        frustum,
+        volumetric_light,
+    ) in spot_lights.iter()
+    {
+        seen_spot_light_main_entities.insert(main_entity.into());
+
+        if !view_visibility.get() {
+            if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
+                entity_commands.remove::<ExtractedPointLight>();
             }
-            let render_visible_entities =
-                create_render_visible_mesh_entities(&mapper, visible_entities);
-
-            let texel_size =
-                2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
-
-            spot_lights_values.push((
-                render_entity,
-                (
-                    ExtractedPointLight {
-                        color: spot_light.color.into(),
-                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-                        // for details.
-                        // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
-                        // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
-                        // which seems least surprising for users
-                        intensity: spot_light.intensity / (4.0 * core::f32::consts::PI),
-                        range: spot_light.range,
-                        radius: spot_light.radius,
-                        transform: *transform,
-                        shadow_maps_enabled: spot_light.shadow_maps_enabled,
-                        contact_shadows_enabled: spot_light.contact_shadows_enabled,
-                        shadow_depth_bias: spot_light.shadow_depth_bias,
-                        // The factor of SQRT_2 is for the worst-case diagonal offset
-                        shadow_normal_bias: spot_light.shadow_normal_bias
-                            * texel_size
-                            * core::f32::consts::SQRT_2,
-                        shadow_map_near_z: spot_light.shadow_map_near_z,
-                        spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
-                        volumetric: volumetric_light.is_some(),
-                        affects_lightmapped_mesh_diffuse: spot_light
-                            .affects_lightmapped_mesh_diffuse,
-                        #[cfg(feature = "experimental_pbr_pcss")]
-                        soft_shadows_enabled: spot_light.soft_shadows_enabled,
-                        #[cfg(not(feature = "experimental_pbr_pcss"))]
-                        soft_shadows_enabled: false,
-                    },
-                    render_visible_entities,
-                    *frustum,
-                    MainEntity::from(main_entity),
-                ),
-            ));
+            continue;
         }
+
+        let render_visible_entities =
+            create_render_visible_mesh_entities(&mapper, visible_entities);
+
+        let texel_size =
+            2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
+
+        spot_lights_values.push((
+            render_entity,
+            (
+                ExtractedPointLight {
+                    color: spot_light.color.into(),
+                    // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                    // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                    // for details.
+                    // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
+                    // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
+                    // which seems least surprising for users
+                    intensity: spot_light.intensity / (4.0 * core::f32::consts::PI),
+                    range: spot_light.range,
+                    radius: spot_light.radius,
+                    transform: *transform,
+                    shadow_maps_enabled: spot_light.shadow_maps_enabled,
+                    contact_shadows_enabled: spot_light.contact_shadows_enabled,
+                    shadow_depth_bias: spot_light.shadow_depth_bias,
+                    // The factor of SQRT_2 is for the worst-case diagonal offset
+                    shadow_normal_bias: spot_light.shadow_normal_bias
+                        * texel_size
+                        * core::f32::consts::SQRT_2,
+                    shadow_map_near_z: spot_light.shadow_map_near_z,
+                    spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+                    volumetric: volumetric_light.is_some(),
+                    affects_lightmapped_mesh_diffuse: spot_light.affects_lightmapped_mesh_diffuse,
+                    #[cfg(feature = "experimental_pbr_pcss")]
+                    soft_shadows_enabled: spot_light.soft_shadows_enabled,
+                    #[cfg(not(feature = "experimental_pbr_pcss"))]
+                    soft_shadows_enabled: false,
+                },
+                render_visible_entities,
+                *frustum,
+                MainEntity::from(main_entity),
+            ),
+        ));
     }
-    *previous_spot_lights_len = spot_lights_values.len();
     commands.try_insert_batch(spot_lights_values);
 
     for (
@@ -531,6 +552,8 @@ pub fn extract_lights(
         sun_disk,
     ) in &directional_lights
     {
+        seen_directional_light_main_entities.insert(main_entity.into());
+
         if !view_visibility.get() {
             commands
                 .get_entity(entity)
@@ -604,6 +627,58 @@ pub fn extract_lights(
                 },
                 MainEntity::from(main_entity),
             ));
+    }
+
+    // Remove extracted light components from entities that have had their
+    // light components removed.
+    remove_components::<PointLight, ExtractedPointLight>(
+        &mut commands,
+        &mapper,
+        &mut removed_point_lights,
+        &seen_point_light_main_entities,
+    );
+    remove_components::<SpotLight, ExtractedPointLight>(
+        &mut commands,
+        &mapper,
+        &mut removed_spot_lights,
+        &seen_spot_light_main_entities,
+    );
+    remove_components::<DirectionalLight, ExtractedDirectionalLight>(
+        &mut commands,
+        &mapper,
+        &mut removed_directional_lights,
+        &seen_directional_light_main_entities,
+    );
+
+    // A helper function that removes a render-world component `RWC` when a
+    // main-world component `MC` is removed.
+    //
+    // `seen_entities` is the list of all entities with that component that were
+    // updated this frame. It's needed because presence in the
+    // `RemovedComponents` table for the main-world component isn't enough to
+    // determine whether the render-world component can be removed, as the
+    // main-world component might have been removed and then re-added in the
+    // same frame.
+    fn remove_components<MC, RWC>(
+        commands: &mut Commands,
+        mapper: &Query<RenderEntity>,
+        removed_components: &mut RemovedComponents<MC>,
+        seen_entities: &MainEntityHashSet,
+    ) where
+        MC: Component,
+        RWC: Component,
+    {
+        // As usual, only remove components if we didn't process them in the
+        // outer extraction function, because of the possibility that the
+        // component might have been removed and re-added in the same frame.
+        for main_entity in removed_components.read() {
+            if !seen_entities.contains(&MainEntity::from(main_entity))
+                && let Ok(render_entity) = mapper.get(main_entity)
+                && let Ok(mut entity_commands) = commands.get_entity(render_entity)
+            {
+                entity_commands.remove::<RWC>();
+            }
+        }
     }
 }
 

@@ -27,9 +27,7 @@ use core::ops::DerefMut;
 
 pub mod cluster;
 pub use cluster::ClusteredDecal;
-use cluster::{
-    assign::assign_objects_to_clusters, GlobalVisibleClusterableObjects, VisibleClusterableObjects,
-};
+use cluster::{assign::assign_objects_to_clusters, VisibleClusterableObjects};
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
 use bevy_camera::visibility::SetViewVisibility;
@@ -81,7 +79,9 @@ pub mod prelude {
 }
 
 use crate::{
-    atmosphere::ScatteringMedium, cluster::Clusters, directional_light::validate_shadow_map_size,
+    atmosphere::ScatteringMedium, cluster::{Clusters, add_light_probe_and_decal_aabbs}, directional_light::validate_shadow_map_size,
+    point_light::update_point_light_bounding_spheres,
+    spot_light::update_spot_light_bounding_spheres,
 };
 
 /// Constants for operating with the light units: lumens, and lux.
@@ -157,8 +157,7 @@ pub struct LightPlugin;
 
 impl Plugin for LightPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GlobalVisibleClusterableObjects>()
-            .init_resource::<GlobalAmbientLight>()
+        app.init_resource::<GlobalAmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .init_asset::<ScatteringMedium>()
@@ -215,8 +214,14 @@ impl Plugin for LightPlugin {
                         // correctly render shadows for entities that are not in view of a camera,
                         // but must be renderable to cast shadows. Because of this, we need to check
                         // entity visibility and mark as visible before they can be hidden.
-                        .after(VisibilitySystems::CheckVisibility)
-                        .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
+                        .after(VisibilitySystems::CheckVisibility),
+                    (
+                        update_point_light_bounding_spheres,
+                        update_spot_light_bounding_spheres,
+                        add_light_probe_and_decal_aabbs,
+                    )
+                        .in_set(SimulationLightSystems::UpdateBounds)
+                        .before(VisibilitySystems::UpdateFrusta),
                     build_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystems::Propagate)
@@ -295,6 +300,8 @@ pub enum ShadowFilteringMethod {
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
+    /// The set that adds AABBs and bounding spheres to clustered objects.
+    UpdateBounds,
     /// After this set, all lights have been clustered.
     AssignLightsToClusters,
     /// After this set, all directional light cascades are up to date.
@@ -546,8 +553,13 @@ pub fn check_point_light_mesh_visibility(
                 maybe_view_mask,
             )) = point_lights.get_mut(light_entity)
             {
-                for visible_entities in cubemap_visible_entities.iter_mut() {
-                    visible_entities.entities.clear();
+                if cubemap_visible_entities
+                    .iter()
+                    .any(|visible_entities| !visible_entities.is_empty())
+                {
+                    for visible_entities in cubemap_visible_entities.iter_mut() {
+                        visible_entities.entities.clear();
+                    }
                 }
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
