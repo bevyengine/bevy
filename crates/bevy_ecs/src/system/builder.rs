@@ -401,7 +401,10 @@ where
             BuilderSystemInner::Initialized { system, .. } => unsafe {
                 system.validate_param_unsafe(world)
             },
-            BuilderSystemInner::Uninitialized { .. } => Ok(()),
+            BuilderSystemInner::Uninitialized { .. } => panic!(
+                "BuilderSystem {} was not initialized before calling validate_param_unsafe.",
+                self.name()
+            ),
             BuilderSystemInner::Invalid => unreachable!(),
         }
     }
