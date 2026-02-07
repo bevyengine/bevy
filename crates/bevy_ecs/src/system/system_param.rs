@@ -1204,6 +1204,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::world::DeferredWorld;
 /// // Tracks whether or not there is a threat the player should be aware of.
 /// #[derive(Resource, Default)]
 /// pub struct Alarm(bool);
