@@ -651,7 +651,7 @@ impl World {
     /// to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
     /// [`World::insert_resource`] instead.
     pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
-        self.components_registrator().register_resource::<R>()
+        self.components_registrator().register_component::<R>()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
@@ -1822,7 +1822,7 @@ impl World {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.components_registrator()
-            .register_non_send_with_descriptor(descriptor)
+            .register_component_with_descriptor(descriptor)
     }
 
     fn insert_resource_if_not_exists_with_caller<R: Resource>(
@@ -1844,11 +1844,11 @@ impl World {
                 );
             }
             return (resource_id, self.entity_mut(entity));
-        } else {
-            move_as_ptr!(resource);
-            let entity_mut = self.spawn_with_caller(resource, caller); // ResourceCache is updated automatically
-            return (resource_id, entity_mut);
         }
+
+        move_as_ptr!(resource);
+        let entity_mut = self.spawn_with_caller(resource, caller); // ResourceCache is updated automatically
+        (resource_id, entity_mut)
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
@@ -1886,7 +1886,7 @@ impl World {
         value: R,
         caller: MaybeLocation,
     ) {
-        let component_id = self.components_registrator().register_resource::<R>();
+        let component_id = self.components_registrator().register_component::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
@@ -4139,7 +4139,7 @@ mod tests {
             )
         };
 
-        let component_id = world.register_non_send_with_descriptor(descriptor);
+        let component_id = world.register_component_with_descriptor(descriptor);
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         OwningPtr::make(value, |ptr| {

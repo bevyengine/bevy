@@ -247,6 +247,8 @@ impl<'w> ComponentsRegistrator<'w> {
     /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
     /// will be created for each one.
     ///
+    /// This can also be used to register resources and non-send data.
+    ///
     /// # Warning
     ///
     /// When registering a custom resource be sure to add [`crate::resource::IsResource`] as a required component,
@@ -275,6 +277,7 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # See also
     ///
     /// * [`Components::resource_id()`]
+    #[deprecated(since = "0.18.0", note = "Use register_component::<R>() instead.")]
     #[inline]
     pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
         self.register_component::<T>()
@@ -326,30 +329,6 @@ impl<'w> ComponentsRegistrator<'w> {
         unsafe {
             self.components
                 .register_non_send_unchecked(type_id, id, descriptor());
-        }
-        id
-    }
-
-    /// Registers a non-send resource described by `descriptor`.
-    ///
-    /// # Note
-    ///
-    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
-    /// will be created for each one.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::resource_id()`]
-    /// * [`ComponentsRegistrator::register_non_send()`]
-    #[inline]
-    pub fn register_non_send_with_descriptor(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        let id = self.ids.next_mut();
-        // SAFETY: The id is fresh.
-        unsafe {
-            self.components.register_component_inner(id, descriptor);
         }
         id
     }
