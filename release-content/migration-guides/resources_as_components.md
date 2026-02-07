@@ -32,6 +32,7 @@ struct DualComp;
 #[derive(Resource)]
 struct DualRes;
 ```
+
 Consequently, `UiDebugOverlay` is split into `GlobalUiDebugOverlay` (resource) and `UiDebugOverlay` (component), and `UiDebugOptions` is split into `GlobalUiDebugOptions` (resource) and `UiDebugOptions` (component).
 It's still possible to doubly derive `#[reflect(Component, Resource)]`, but since `ReflectResource` shadows `ReflectComponent` this isn't useful.
 
