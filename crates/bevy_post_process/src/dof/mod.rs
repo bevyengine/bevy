@@ -44,7 +44,7 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    sync_component::SyncComponentPlugin,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
@@ -319,7 +319,7 @@ impl Default for DepthOfField {
             sensor_height: physical_camera_default.sensor_height,
             max_circle_of_confusion_diameter: 64.0,
             max_depth: f32::INFINITY,
-            mode: DepthOfFieldMode::Bokeh,
+            mode: DepthOfFieldMode::default(),
         }
     }
 }
@@ -653,6 +653,16 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
     }
 }
 
+impl SyncComponent for DepthOfField {
+    type Out = (
+        DepthOfField,
+        DepthOfFieldUniform,
+        DepthOfFieldPipelines,
+        AuxiliaryDepthOfFieldTexture,
+        ViewDepthOfFieldBindGroupLayouts,
+    );
+}
+
 /// Extracts all [`DepthOfField`] components into the render world.
 fn extract_depth_of_field_settings(
     mut commands: Commands,
@@ -672,15 +682,8 @@ fn extract_depth_of_field_settings(
 
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
-            // TODO: needs better strategy for cleaning up
-            entity_commands.remove::<(
-                DepthOfField,
-                DepthOfFieldUniform,
-                // components added in prepare systems (because `DepthOfFieldNode` does not query extracted components)
-                DepthOfFieldPipelines,
-                AuxiliaryDepthOfFieldTexture,
-                ViewDepthOfFieldBindGroupLayouts,
-            )>();
+            entity_commands.remove::<<DepthOfField as SyncComponent>::Out>();
+
             continue;
         };
 

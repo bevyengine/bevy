@@ -37,6 +37,7 @@ use bevy_render::{
         TextureViewDimension,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue, ViewQuery},
+    sync_component::SyncComponent,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderStartup, RenderSystems,
@@ -159,10 +160,6 @@ pub struct ScreenSpaceReflectionsUniform {
     /// A boolean converted to a `u32`.
     use_secant: u32,
 }
-
-/// The node in the render graph that traces screen space reflections.
-#[derive(Default)]
-pub struct ScreenSpaceReflectionsNode;
 
 /// Identifies which screen space reflections render pipeline a view needs.
 #[derive(Component, Deref, DerefMut)]
@@ -515,12 +512,13 @@ pub fn prepare_ssr_settings(
     }
 }
 
+impl SyncComponent for ScreenSpaceReflections {
+    type Out = ScreenSpaceReflectionsUniform;
+}
+
 impl ExtractComponent for ScreenSpaceReflections {
     type QueryData = Read<ScreenSpaceReflections>;
-
     type QueryFilter = ();
-
-    type Out = ScreenSpaceReflectionsUniform;
 
     fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {

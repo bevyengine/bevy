@@ -140,7 +140,7 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
 
             uv_transform *= Affine2::from_scale(ratio);
             uv_transform *= Affine2::from_translation(vec2(
-                rect.min.x / rect.size().y,
+                rect.min.x / rect.size().x,
                 rect.min.y / rect.size().y,
             ));
 

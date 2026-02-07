@@ -1,4 +1,5 @@
 use crate::{
+    error_handler::DeviceErrorHandler,
     render_resource::PipelineCache,
     renderer::{self, RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue},
     FutureRenderResources,
@@ -197,6 +198,7 @@ impl RenderResources {
             render_adapter.clone(),
             synchronous_pipeline_compilation,
         ));
+        render_world.insert_resource(DeviceErrorHandler::new(&device));
         render_world.insert_resource(device);
         render_world.insert_resource(queue);
         render_world.insert_resource(render_adapter);
@@ -205,15 +207,11 @@ impl RenderResources {
 }
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
-#[expect(
-    clippy::large_enum_variant,
-    reason = "See https://github.com/bevyengine/bevy/issues/19220"
-)]
 pub enum RenderCreation {
     /// Allows renderer resource initialization to happen outside of the rendering plugin.
     Manual(RenderResources),
     /// Lets the rendering plugin create resources itself.
-    Automatic(WgpuSettings),
+    Automatic(Box<WgpuSettings>),
 }
 
 impl RenderCreation {
@@ -303,7 +301,7 @@ impl Default for RenderCreation {
 
 impl From<WgpuSettings> for RenderCreation {
     fn from(value: WgpuSettings) -> Self {
-        Self::Automatic(value)
+        Self::Automatic(Box::new(value))
     }
 }
 

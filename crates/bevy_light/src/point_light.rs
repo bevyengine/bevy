@@ -148,8 +148,11 @@ impl Default for PointLight {
 }
 
 impl PointLight {
+    /// The default value of [`PointLight::shadow_depth_bias`].
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.08;
+    /// The default value of [`PointLight::shadow_normal_bias`].
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
+    /// The default value of [`PointLight::shadow_map_near_z`].
     pub const DEFAULT_SHADOW_MAP_NEAR_Z: f32 = 0.1;
 }
 
@@ -190,6 +193,7 @@ impl Default for PointLightShadowMap {
 }
 
 // NOTE: Run this after assign_lights_to_clusters!
+/// Updates the frusta for all visible shadow mapped [`PointLight`]s.
 pub fn update_point_light_frusta(
     global_lights: Res<GlobalVisibleClusterableObjects>,
     mut views: Query<(Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta)>,
