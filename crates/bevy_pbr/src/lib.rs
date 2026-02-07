@@ -441,13 +441,10 @@ impl GltfExtensionHandler for GltfExtensionHandlerPbr {
         // it can be accessed when meshes don't have materials.
         let std_label = format!("{}#std", GltfAssetLabel::DefaultMaterial);
 
-        load_context
-            .labeled_asset_scope::<_, ()>(std_label, |_load_context| {
-                Ok(standard_material_from_gltf_material(
-                    &GltfMaterial::default(),
-                ))
-            })
-            .unwrap();
+        load_context.add_labeled_asset(
+            std_label,
+            standard_material_from_gltf_material(&GltfMaterial::default()),
+        );
     }
 
     fn on_material(
@@ -460,11 +457,10 @@ impl GltfExtensionHandler for GltfExtensionHandlerPbr {
     ) {
         let std_label = format!("{}#std", material_label);
 
-        load_context
-            .labeled_asset_scope::<_, ()>(std_label, |_load_context| {
-                Ok(standard_material_from_gltf_material(material_asset))
-            })
-            .expect("a function that only returns Ok should never fail");
+        load_context.add_labeled_asset(
+            std_label,
+            standard_material_from_gltf_material(material_asset),
+        );
     }
 
     fn on_spawn_mesh_and_material(
