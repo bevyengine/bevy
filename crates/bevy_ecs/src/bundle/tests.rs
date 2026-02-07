@@ -561,3 +561,19 @@ fn mutually_exclusive_within_required_panics_on_spawn() {
 
     world.spawn((CompA, CompB));
 }
+
+#[test]
+#[should_panic]
+fn mutually_exclusive_after_bundle_register_panics_on_spawn() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    let mut world = World::new();
+    world.register_bundle::<(CompA, CompB)>();
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+
+    world.spawn((CompA, CompB));
+}

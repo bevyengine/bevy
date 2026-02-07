@@ -573,6 +573,7 @@ impl BundleInfo {
         let mut existing = Vec::new();
         let mut removed_table = Vec::new();
         let mut removed_sparse = Vec::new();
+        let mut added_maybe_incompatible = Vec::new();
 
         let current_archetype = &mut archetypes[archetype_id];
         for component_id in self.iter_explicit_components() {
@@ -591,6 +592,9 @@ impl BundleInfo {
                     StorageType::SparseSet => {
                         new_sparse_set_components.push(component_id);
                     }
+                }
+                if !component_info.mutually_exclusive().is_empty() {
+                    added_maybe_incompatible.push(component_id);
                 }
                 for &incompatible_id in component_info
                     .mutually_exclusive()
@@ -620,6 +624,9 @@ impl BundleInfo {
                         new_sparse_set_components.push(component_id);
                     }
                 }
+                if !component_info.mutually_exclusive().is_empty() {
+                    added_maybe_incompatible.push(component_id);
+                }
                 for &incompatible_id in component_info
                     .mutually_exclusive()
                     .iter()
@@ -629,6 +636,27 @@ impl BundleInfo {
                     match unsafe { components.get_info_unchecked(incompatible_id) }.storage_type() {
                         StorageType::SparseSet => removed_sparse.push(incompatible_id),
                         StorageType::Table => removed_table.push(incompatible_id),
+                    }
+                }
+            }
+        }
+
+        if added_maybe_incompatible.len() > 1 {
+            for (idx, &component_id) in added_maybe_incompatible.iter().enumerate() {
+                // SAFETY: component_id exists
+                let info = unsafe { components.get_info_unchecked(component_id) };
+                for maybe_incompatible in &added_maybe_incompatible[idx + 1..] {
+                    if info.mutually_exclusive().contains(maybe_incompatible) {
+                        // SAFETY: component_id exists
+                        let incompatible_info =
+                            unsafe { components.get_info_unchecked(*maybe_incompatible) };
+                        panic!(
+                            "Bundle {:?} has incompatible components {} and {}",
+                            // TODO: use actual bundle name
+                            self.id(),
+                            info.name(),
+                            incompatible_info.name()
+                        )
                     }
                 }
             }
