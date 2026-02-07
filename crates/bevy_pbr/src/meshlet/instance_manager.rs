@@ -4,7 +4,7 @@ use crate::{
     meshlet::asset::MeshletAabb, MaterialBindingId, MeshFlags, MeshTransforms, MeshUniform,
     PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
 };
-use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
+use bevy_asset::{AssetCommands, AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_camera::visibility::RenderLayers;
 use bevy_ecs::{
     entity::{Entities, Entity, EntityHashMap},
@@ -190,7 +190,7 @@ impl InstanceManager {
 pub fn extract_meshlet_mesh_entities(
     mut meshlet_mesh_manager: ResMut<MeshletMeshManager>,
     mut instance_manager: ResMut<InstanceManager>,
-    // TODO: Replace main_world and system_state when Extract<ResMut<Assets<MeshletMesh>>> is possible
+    // TODO: Replace main_world and system_state when Extract<AssetsMut<MeshletMesh>> is possible
     mut main_world: ResMut<MainWorld>,
     mesh_material_ids: Res<RenderMaterialInstances>,
     render_material_bindings: Res<RenderMaterialBindings>,
@@ -207,7 +207,8 @@ pub fn extract_meshlet_mesh_entities(
                     Has<NotShadowCaster>,
                 )>,
                 Res<AssetServer>,
-                ResMut<Assets<MeshletMesh>>,
+                Assets<MeshletMesh>,
+                AssetCommands,
                 MessageReader<AssetEvent<MeshletMesh>>,
             )>,
         >,
@@ -219,7 +220,7 @@ pub fn extract_meshlet_mesh_entities(
         *system_state = Some(SystemState::new(&mut main_world));
     }
     let system_state = system_state.as_mut().unwrap();
-    let (instances_query, asset_server, mut assets, mut asset_events) =
+    let (instances_query, asset_server, assets, mut asset_commands, mut asset_events) =
         system_state.get_mut(&mut main_world);
 
     // Reset per-frame data
@@ -253,8 +254,11 @@ pub fn extract_meshlet_mesh_entities(
         }
 
         // Upload the instance's MeshletMesh asset data if not done already done
-        let (root_bvh_node, aabb, bvh_depth) =
-            meshlet_mesh_manager.queue_upload_if_needed(meshlet_mesh.id(), &mut assets);
+        let (root_bvh_node, aabb, bvh_depth) = meshlet_mesh_manager.queue_upload_if_needed(
+            meshlet_mesh.id(),
+            &assets,
+            &mut asset_commands,
+        );
 
         // Add the instance's data to the instance manager
         instance_manager.add_instance(

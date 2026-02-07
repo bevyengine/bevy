@@ -317,8 +317,8 @@ impl Plugin for SmaaPlugin {
         };
         #[cfg(not(feature = "smaa_luts"))]
         let smaa_luts = {
-            let mut images = app.world_mut().resource_mut::<bevy_asset::Assets<Image>>();
-            let handle = images.add(lut_placeholder());
+            use bevy_asset::DirectAssetAccessExt;
+            let handle = app.world_mut().spawn_asset(lut_placeholder());
             SmaaLuts {
                 area_lut: handle.clone(),
                 search_lut: handle.clone(),

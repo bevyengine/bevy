@@ -92,7 +92,7 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// # use bevy_shader::ShaderRef;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
-/// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
+/// # use bevy_asset::{Handle, AssetServer, AssetCommands, Asset};
 /// # use bevy_math::primitives::Capsule3d;
 /// #
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
@@ -119,13 +119,12 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// // Spawn an entity with a mesh using `CustomMaterial`.
 /// fn setup(
 ///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<CustomMaterial>>,
+///     mut asset_commands: AssetCommands,
 ///     asset_server: Res<AssetServer>
 /// ) {
 ///     commands.spawn((
-///         Mesh3d(meshes.add(Capsule3d::default())),
-///         MeshMaterial3d(materials.add(CustomMaterial {
+///         Mesh3d(asset_commands.spawn_asset(Capsule3d::default().into())),
+///         MeshMaterial3d(asset_commands.spawn_asset(CustomMaterial {
 ///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),
 ///         })),

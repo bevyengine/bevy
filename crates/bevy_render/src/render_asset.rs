@@ -3,8 +3,9 @@ use crate::{
     RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
-use bevy_asset::{Asset, AssetEvent, AssetId, Assets, RenderAssetUsages};
+use bevy_asset::{Asset, AssetEvent, AssetId, AssetsMut, RenderAssetUsages};
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     prelude::{Commands, IntoScheduleConfigs, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
@@ -241,7 +242,7 @@ impl<A: RenderAsset> RenderAssets<A> {
 struct CachedExtractRenderAssetSystemState<A: RenderAsset> {
     state: SystemState<(
         MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
-        ResMut<'static, Assets<A::SourceAsset>>,
+        AssetsMut<'static, 'static, A::SourceAsset>,
         Option<Res<'static, RenderAssets<A>>>,
     )>,
 }
@@ -303,9 +304,9 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     let asset_usage = A::asset_usage(asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                            if let Some(asset) = assets.get_mut_untracked(id) {
+                            if let Some(mut asset) = assets.get_mut(id) {
                                 let previous_asset = maybe_render_assets.as_ref().and_then(|render_assets| render_assets.get(id));
-                                match A::take_gpu_data(asset, previous_asset) {
+                                match A::take_gpu_data(asset.bypass_change_detection(), previous_asset) {
                                     Ok(gpu_data_asset) => {
                                         extracted_assets.push((id, gpu_data_asset));
                                         added.insert(id);

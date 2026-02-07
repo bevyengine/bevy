@@ -495,7 +495,7 @@ pub struct NoAutoAabb;
 /// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
+    meshes: Assets<Mesh>,
     new_aabb: Query<
         (Entity, &Mesh3d),
         (
@@ -533,8 +533,8 @@ pub fn calculate_bounds(
 // Update the `Aabb` component of all skinned mesh entities with a `DynamicSkinnedMeshBounds`
 // component.
 fn update_skinned_mesh_bounds(
-    inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
-    mesh_assets: Res<Assets<Mesh>>,
+    inverse_bindposes_assets: Assets<SkinnedMeshInverseBindposes>,
+    mesh_assets: Assets<Mesh>,
     mut mesh_entities: Query<
         (&mut Aabb, &Mesh3d, &SkinnedMesh, Option<&GlobalTransform>),
         With<DynamicSkinnedMeshBounds>,

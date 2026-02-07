@@ -218,7 +218,7 @@ pub struct ExtractedUiTextureSlices {
 pub fn extract_ui_texture_slices(
     mut commands: Commands,
     mut extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    texture_atlases: Extract<Assets<TextureAtlasLayout>>,
     slicers_query: Extract<
         Query<(
             Entity,

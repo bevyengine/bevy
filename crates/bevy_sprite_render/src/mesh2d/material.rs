@@ -80,7 +80,7 @@ pub const MATERIAL_2D_BIND_GROUP_INDEX: usize = 2;
 /// # use bevy_shader::ShaderRef;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
-/// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
+/// # use bevy_asset::{Handle, AssetServer, AssetCommands, Asset};
 /// # use bevy_math::primitives::Circle;
 /// #
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
@@ -107,13 +107,12 @@ pub const MATERIAL_2D_BIND_GROUP_INDEX: usize = 2;
 /// // Spawn an entity with a mesh using `CustomMaterial`.
 /// fn setup(
 ///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<CustomMaterial>>,
+///     mut asset_commands: AssetCommands,
 ///     asset_server: Res<AssetServer>,
 /// ) {
 ///     commands.spawn((
-///         Mesh2d(meshes.add(Circle::new(50.0))),
-///         MeshMaterial2d(materials.add(CustomMaterial {
+///         Mesh2d(asset_commands.spawn_asset(Circle::new(50.0).into())),
+///         MeshMaterial2d(asset_commands.spawn_asset(CustomMaterial {
 ///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),
 ///         })),
@@ -181,18 +180,17 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_mesh::{Mesh, Mesh2d};
 /// # use bevy_color::palettes::basic::RED;
-/// # use bevy_asset::Assets;
+/// # use bevy_asset::AssetCommands;
 /// # use bevy_math::primitives::Circle;
 /// #
 /// // Spawn an entity with a mesh using `ColorMaterial`.
 /// fn setup(
 ///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<ColorMaterial>>,
+///     mut asset_commands: AssetCommands,
 /// ) {
 ///     commands.spawn((
-///         Mesh2d(meshes.add(Circle::new(50.0))),
-///         MeshMaterial2d(materials.add(ColorMaterial::from_color(RED))),
+///         Mesh2d(asset_commands.spawn_asset(Circle::new(50.0).into())),
+///         MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial::from_color(RED))),
 ///     ));
 /// }
 /// ```

@@ -7,7 +7,7 @@ use crate::{
 use bevy_app::{App, Plugin, PostUpdate, Startup};
 use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
-    AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
+    AssetCommands, AssetEventSystems, AssetId, AssetServer, AssetsMut, Handle, UntypedAssetId,
 };
 use bevy_camera::{visibility::ViewVisibility, Camera, Camera3d};
 use bevy_color::{Color, ColorToComponents};
@@ -1022,11 +1022,11 @@ pub fn extract_wireframe_materials(
 
 fn setup_global_wireframe_material(
     mut commands: Commands,
-    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut asset_commands: AssetCommands,
     config: Res<WireframeConfig>,
 ) {
     commands.insert_resource(GlobalWireframeMaterial {
-        handle: materials.add(WireframeMaterial {
+        handle: asset_commands.spawn_asset(WireframeMaterial {
             color: config.default_color,
             line_width: config.default_line_width,
             topology: config.default_topology,
@@ -1035,8 +1035,9 @@ fn setup_global_wireframe_material(
 }
 
 fn wireframe_config_changed(
+    mut asset_commands: AssetCommands,
     config: Res<WireframeConfig>,
-    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut materials: AssetsMut<WireframeMaterial>,
     global_material: Res<GlobalWireframeMaterial>,
     mut per_entity_wireframes: Query<
         (
@@ -1058,7 +1059,7 @@ fn wireframe_config_changed(
         if handle.0 == global_material.handle {
             continue;
         }
-        handle.0 = materials.add(WireframeMaterial {
+        handle.0 = asset_commands.spawn_asset(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: maybe_width
                 .map(|w| w.width)
@@ -1069,7 +1070,7 @@ fn wireframe_config_changed(
 }
 
 fn wireframe_color_changed(
-    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut asset_commands: AssetCommands,
     mut colors_changed: Query<
         (
             &mut Mesh3dWireframe,
@@ -1082,7 +1083,7 @@ fn wireframe_color_changed(
     config: Res<WireframeConfig>,
 ) {
     for (mut handle, wireframe_color, maybe_width, maybe_topology) in &mut colors_changed {
-        handle.0 = materials.add(WireframeMaterial {
+        handle.0 = asset_commands.spawn_asset(WireframeMaterial {
             color: wireframe_color.color,
             line_width: maybe_width
                 .map(|w| w.width)
@@ -1093,7 +1094,7 @@ fn wireframe_color_changed(
 }
 
 fn wireframe_line_width_changed(
-    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut asset_commands: AssetCommands,
     mut widths_changed: Query<
         (
             &mut Mesh3dWireframe,
@@ -1106,7 +1107,7 @@ fn wireframe_line_width_changed(
     config: Res<WireframeConfig>,
 ) {
     for (mut handle, wireframe_width, maybe_color, maybe_topology) in &mut widths_changed {
-        handle.0 = materials.add(WireframeMaterial {
+        handle.0 = asset_commands.spawn_asset(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: wireframe_width.width,
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
@@ -1115,7 +1116,7 @@ fn wireframe_line_width_changed(
 }
 
 fn wireframe_topology_changed(
-    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut asset_commands: AssetCommands,
     mut topology_changed: Query<
         (
             &mut Mesh3dWireframe,
@@ -1128,7 +1129,7 @@ fn wireframe_topology_changed(
     config: Res<WireframeConfig>,
 ) {
     for (mut handle, topology, maybe_color, maybe_width) in &mut topology_changed {
-        handle.0 = materials.add(WireframeMaterial {
+        handle.0 = asset_commands.spawn_asset(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: maybe_width
                 .map(|w| w.width)
@@ -1142,7 +1143,7 @@ fn wireframe_topology_changed(
 /// for any mesh with a [`NoWireframe`] component.
 fn apply_wireframe_material(
     mut commands: Commands,
-    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut asset_commands: AssetCommands,
     wireframes: Query<
         (
             Entity,
@@ -1169,9 +1170,9 @@ fn apply_wireframe_material(
             maybe_color,
             maybe_width,
             maybe_topology,
-            &mut materials,
             &global_material,
             &config,
+            &mut asset_commands,
         );
         material_to_spawn.push((e, Mesh3dWireframe(material)));
     }
@@ -1183,6 +1184,7 @@ type WireframeFilter = (With<Mesh3d>, Without<Wireframe>, Without<NoWireframe>);
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`] component.
 fn apply_global_wireframe_material(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     config: Res<WireframeConfig>,
     meshes_without_material: Query<
         (
@@ -1195,7 +1197,6 @@ fn apply_global_wireframe_material(
     >,
     meshes_with_global_material: Query<Entity, (WireframeFilter, With<Mesh3dWireframe>)>,
     global_material: Res<GlobalWireframeMaterial>,
-    mut materials: ResMut<Assets<WireframeMaterial>>,
 ) {
     if config.global {
         let mut material_to_spawn = vec![];
@@ -1204,9 +1205,9 @@ fn apply_global_wireframe_material(
                 maybe_color,
                 maybe_width,
                 maybe_topology,
-                &mut materials,
                 &global_material,
                 &config,
+                &mut asset_commands,
             );
             // We only add the material handle but not the Wireframe component
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
@@ -1225,12 +1226,12 @@ fn get_wireframe_material(
     maybe_color: Option<&WireframeColor>,
     maybe_width: Option<&WireframeLineWidth>,
     maybe_topology: Option<&WireframeTopology>,
-    wireframe_materials: &mut Assets<WireframeMaterial>,
     global_material: &GlobalWireframeMaterial,
     config: &WireframeConfig,
+    asset_commands: &mut AssetCommands,
 ) -> Handle<WireframeMaterial> {
     if maybe_color.is_some() || maybe_width.is_some() || maybe_topology.is_some() {
-        wireframe_materials.add(WireframeMaterial {
+        asset_commands.spawn_asset(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: maybe_width
                 .map(|w| w.width)

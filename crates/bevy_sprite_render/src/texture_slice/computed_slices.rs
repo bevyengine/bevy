@@ -109,8 +109,8 @@ fn compute_sprite_slices(
 pub(crate) fn compute_slices_on_asset_event(
     mut commands: Commands,
     mut events: MessageReader<AssetEvent<Image>>,
-    images: Res<Assets<Image>>,
-    atlas_layouts: Res<Assets<TextureAtlasLayout>>,
+    images: Assets<Image>,
+    atlas_layouts: Assets<TextureAtlasLayout>,
     sprites: Query<(Entity, &Sprite)>,
 ) {
     // We store the asset ids of added/modified image assets
@@ -141,8 +141,8 @@ pub(crate) fn compute_slices_on_asset_event(
 /// System reacting to changes on the [`Sprite`] component to compute the sprite slices
 pub(crate) fn compute_slices_on_sprite_change(
     mut commands: Commands,
-    images: Res<Assets<Image>>,
-    atlas_layouts: Res<Assets<TextureAtlasLayout>>,
+    images: Assets<Image>,
+    atlas_layouts: Assets<TextureAtlasLayout>,
     changed_sprites: Query<(Entity, &Sprite), Changed<Sprite>>,
 ) {
     for (entity, sprite) in &changed_sprites {

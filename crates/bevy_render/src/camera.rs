@@ -334,7 +334,7 @@ pub enum MissingRenderTargetInfoError {
 ///
 /// ## World Resources
 ///
-/// [`Res<Assets<Image>>`](Assets<Image>) -- For cameras that render to an image, this resource is used to
+/// [`Assets<Image>`](Assets<Image>) -- For cameras that render to an image, this resource is used to
 /// inspect information about the render target. This system will not access any other image assets.
 ///
 /// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
@@ -346,7 +346,7 @@ pub fn camera_system(
     mut image_asset_event_reader: MessageReader<AssetEvent<Image>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
-    images: Res<Assets<Image>>,
+    images: Assets<Image>,
     manual_texture_views: Res<ManualTextureViews>,
     mut cameras: Query<(&mut Camera, &RenderTarget, &mut Projection)>,
 ) -> Result<(), BevyError> {

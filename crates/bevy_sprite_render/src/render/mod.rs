@@ -332,7 +332,7 @@ pub fn extract_sprite_events(
 pub fn extract_sprites(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut extracted_slices: ResMut<ExtractedSlices>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    texture_atlases: Extract<Assets<TextureAtlasLayout>>,
     sprite_query: Extract<
         Query<(
             Entity,
