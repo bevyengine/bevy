@@ -158,7 +158,7 @@ pub enum RecordScreen {
 /// to start and stop recording on user command and
 /// to send frames to the thread that manages video file creation.
 /// These systems manipulate [`virtual`](bevy_time::Virtual)
-/// [`time`](bevy_time::Time)` in order to capture frames for video.
+/// [`time`](bevy_time::Time) in order to capture frames for video.
 ///
 /// If any application [`Update`] systems have behavior that depend
 /// on virtual time and must be recorded, ensure that these systems run
