@@ -134,6 +134,9 @@ mod test {
         Render, RenderApp,
     };
 
+    #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+    struct ExtractApp;
+
     #[derive(Component, Clone, Debug)]
     struct RenderComponent;
 
@@ -166,7 +169,10 @@ mod test {
     fn extraction_works() {
         let mut app = App::new();
 
-        app.add_plugins(ExtractPlugin::default());
+        app.add_plugins(ExtractPlugin {
+            pre_extract: |_, _| {},
+            app_label: ExtractApp.intern(),
+        });
         app.add_plugins(ExtractComponentPlugin::<RenderComponent>::default());
         app.add_plugins(ExtractComponentPlugin::<RenderComponentSeparate>::default());
         app.add_systems(Startup, |mut commands: Commands| {
