@@ -154,6 +154,19 @@ pub enum RecordScreen {
 }
 
 #[cfg(feature = "screenrecording")]
+/// The [`Update`] systems that the [`EasyScreenRecordPlugin`] runs
+/// to start and stop recording on user command and
+/// to send frames to the thread that manages video file creation.
+/// These systems manipulate [`virtual`](bevy_time::Virtual) 
+/// [`time`](bevy_time::Time)` in order to capture frames for video.
+/// 
+/// If any application [`Update`] systems have behavior that depend 
+/// on virtual time, ensure that these systems run 
+/// [`after(EasyScreenRecordSystems)`](bevy_ecs::schedule::IntoScheduleConfigs::after)
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct EasyScreenRecordSystems;
+
+#[cfg(feature = "screenrecording")]
 impl Plugin for EasyScreenRecordPlugin {
     #[cfg_attr(
         target_os = "windows",
@@ -310,7 +323,8 @@ impl Plugin for EasyScreenRecordPlugin {
                     }
                     },
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(EasyScreenRecordSystems),
             );
         }
     }
