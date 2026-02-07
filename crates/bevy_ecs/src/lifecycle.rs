@@ -31,7 +31,7 @@
 //!
 //! [`Add`] and [`Remove`] are counterparts: they are only triggered when a component is added or removed
 //! from an entity in such a way as to cause a change in the component's presence on that entity.
-//! Similarly, [`Insert`] and [`Discard`] are counterparts: they are triggered when a component is added or replaced
+//! Similarly, [`Insert`] and [`Discard`] are counterparts: they are triggered when a component is added or overwritten
 //! on an entity, regardless of whether this results in a change in the component's presence on that entity.
 //!
 //! To reliably synchronize data structures using with component lifecycle events,
