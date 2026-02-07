@@ -231,7 +231,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                     // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
                     unsafe {
                         #bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship(
-                            core::mem::offset_of!(Self, #relationship_member)
+                            ::core::mem::offset_of!(Self, #relationship_member)
                         )
                     }
                 )
@@ -844,7 +844,7 @@ fn derive_relationship(
             #[inline]
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
                 Self {
-                    #(#members: core::default::Default::default(),)*
+                    #(#members: ::core::default::Default::default(),)*
                     #relationship_member: entity
                 }
             }
@@ -912,7 +912,7 @@ fn derive_relationship_target(
             #[inline]
             fn from_collection_risky(collection: Self::Collection) -> Self {
                 Self {
-                    #(#members: core::default::Default::default(),)*
+                    #(#members: ::core::default::Default::default(),)*
                     #relationship_member: collection
                 }
             }

@@ -1746,7 +1746,7 @@ pub struct SpecializedShadowMaterialPipelineCache {
 #[derive(Deref, DerefMut, Default)]
 pub struct SpecializedShadowMaterialViewPipelineCache {
     #[deref]
-    map: MainEntityHashMap<(Tick, CachedRenderPipelineId)>,
+    map: MainEntityHashMap<(Tick, CachedRenderPipelineId, DrawFunctionId)>,
 }
 
 pub fn check_views_lights_need_specialization(
@@ -1920,7 +1920,7 @@ pub(crate) fn specialize_shadows(
                     let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
                     let last_specialized_tick = view_specialized_material_pipeline_cache
                         .and_then(|cache| cache.get(&visible_entity))
-                        .map(|(tick, _)| *tick);
+                        .map(|(tick, _, _)| *tick);
                     let needs_specialization = last_specialized_tick.is_none_or(|tick| {
                         view_tick.is_newer_than(tick, this_run)
                             || entity_tick.system_tick.is_newer_than(tick, this_run)
@@ -1982,6 +1982,10 @@ pub(crate) fn specialize_shadows(
         }
     }
 
+    let depth_clip_control_supported = world
+        .resource::<PrepassPipeline>()
+        .depth_clip_control_supported;
+
     for item in work_items.drain(..) {
         let Some(prepass_specialize) = item.properties.prepass_specialize else {
             continue;
@@ -1993,13 +1997,32 @@ pub(crate) fn specialize_shadows(
             material_key: item.properties.material_key.clone(),
         };
 
+        let emulate_unclipped_depth = item
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+            && !depth_clip_control_supported;
+        let is_depth_only_opaque = !item
+            .mesh_key
+            .intersects(MeshPipelineKey::MAY_DISCARD | MeshPipelineKey::PREPASS_READS_MATERIAL)
+            && !emulate_unclipped_depth;
+        let draw_function = if is_depth_only_opaque {
+            item.properties
+                .get_draw_function(ShadowsDepthOnlyDrawFunction)
+        } else {
+            item.properties.get_draw_function(ShadowsDrawFunction)
+        };
+
+        let Some(draw_function) = draw_function else {
+            continue;
+        };
+
         match prepass_specialize(world, key, &item.layout, &item.properties) {
             Ok(pipeline_id) => {
                 world
                     .resource_mut::<SpecializedShadowMaterialPipelineCache>()
                     .entry(item.retained_view_entity)
                     .or_default()
-                    .insert(item.visible_entity, (this_run, pipeline_id));
+                    .insert(item.visible_entity, (this_run, pipeline_id, draw_function));
             }
             Err(err) => error!("{}", err),
         }
@@ -2075,7 +2098,7 @@ pub fn queue_shadows(
             };
 
             for (entity, main_entity) in visible_entities.iter().copied() {
-                let Some((current_change_tick, pipeline_id)) =
+                let Some(&(current_change_tick, pipeline_id, draw_function)) =
                     view_specialized_material_pipeline_cache.get(&main_entity)
                 else {
                     continue;
@@ -2105,7 +2128,7 @@ pub fn queue_shadows(
                 }
 
                 // Skip the entity if it's cached in a bin and up to date.
-                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
+                if shadow_phase.validate_cached_entity(main_entity, current_change_tick) {
                     continue;
                 }
 
@@ -2116,19 +2139,23 @@ pub fn queue_shadows(
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
                     continue;
                 };
-                let Some(draw_function) =
-                    material.properties.get_draw_function(ShadowsDrawFunction)
-                else {
-                    continue;
+
+                let depth_only_draw_function = material
+                    .properties
+                    .get_draw_function(ShadowsDepthOnlyDrawFunction);
+                let material_bind_group_index = if Some(draw_function) == depth_only_draw_function {
+                    None
+                } else {
+                    Some(material.binding.group.0)
                 };
 
                 let (vertex_slab, index_slab) =
                     mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
                 let batch_set_key = ShadowBatchSetKey {
-                    pipeline: *pipeline_id,
+                    pipeline: pipeline_id,
                     draw_function,
-                    material_bind_group_index: Some(material.binding.group.0),
+                    material_bind_group_index,
                     vertex_slab: vertex_slab.unwrap_or_default(),
                     index_slab,
                 };
@@ -2144,7 +2171,7 @@ pub fn queue_shadows(
                         mesh_instance.should_batch(),
                         &gpu_preprocessing_support,
                     ),
-                    *current_change_tick,
+                    current_change_tick,
                 );
             }
         }

@@ -1,3 +1,5 @@
+//! Provides types to specify atmosphere lighting, scattering terms, etc.
+
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{Asset, Handle};
 use bevy_camera::Hdr;
@@ -34,6 +36,7 @@ pub struct Atmosphere {
 }
 
 impl Atmosphere {
+    /// An atmosphere like that of earth; use this with a [`ScatteringMedium::earthlike`] handle.
     pub fn earthlike(medium: Handle<ScatteringMedium>) -> Self {
         const EARTH_BOTTOM_RADIUS: f32 = 6_360_000.0;
         const EARTH_TOP_RADIUS: f32 = 6_460_000.0;
@@ -100,8 +103,8 @@ impl Default for ScatteringMedium {
 }
 
 impl ScatteringMedium {
-    // Returns a scattering medium with a default label and the
-    // specified scattering terms.
+    /// Returns a scattering medium with a default label and the
+    /// specified scattering terms.
     pub fn new(
         falloff_resolution: u32,
         phase_resolution: u32,
@@ -115,7 +118,7 @@ impl ScatteringMedium {
         }
     }
 
-    // Consumes and returns this scattering medium with a new label.
+    /// Consumes and returns this scattering medium with a new label.
     pub fn with_label(self, label: impl Into<Cow<'static, str>>) -> Self {
         Self {
             label: Some(label.into()),
@@ -123,8 +126,8 @@ impl ScatteringMedium {
         }
     }
 
-    // Consumes and returns this scattering medium with each scattering terms'
-    // densities multiplied by `multiplier`.
+    /// Consumes and returns this scattering medium with each scattering terms'
+    /// densities multiplied by `multiplier`.
     pub fn with_density_multiplier(mut self, multiplier: f32) -> Self {
         self.terms.iter_mut().for_each(|term| {
             term.absorption *= multiplier;
@@ -282,6 +285,7 @@ impl Falloff {
         Self::Curve(Arc::new(curve))
     }
 
+    /// Evaluates the falloff function at the given coordinate.
     pub fn sample(&self, p: f32) -> f32 {
         match self {
             Falloff::Linear => p,
@@ -378,6 +382,7 @@ impl PhaseFunction {
         Self::Curve(Arc::new(curve))
     }
 
+    /// Samples the phase function at the given value in [-1, 1], output is in [0, 1].
     pub fn sample(&self, neg_l_dot_v: f32) -> f32 {
         const FRAC_4_PI: f32 = 0.25 / PI;
         const FRAC_3_16_PI: f32 = 0.1875 / PI;
