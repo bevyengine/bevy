@@ -1825,6 +1825,32 @@ impl World {
             .register_non_send_with_descriptor(descriptor)
     }
 
+    fn insert_resource_if_not_exists_with_caller<R: Resource>(
+        &mut self,
+        resource: R,
+        caller: MaybeLocation,
+    ) -> (ComponentId, EntityWorldMut<'_>) {
+        let resource_id = self.register_resource::<R>();
+
+        if let Some(&entity) = self.resource_entities.get(resource_id) {
+            let entity_ref = self.get_entity(entity).expect("ResourceCache is in sync");
+            if !entity_ref.contains_id(resource_id) {
+                move_as_ptr!(resource);
+                self.entity_mut(entity).insert_with_caller(
+                    resource,
+                    InsertMode::Replace,
+                    caller,
+                    RelationshipHookMode::Run,
+                );
+            }
+            return (resource_id, self.entity_mut(entity));
+        } else {
+            move_as_ptr!(resource);
+            let entity_mut = self.spawn_with_caller(resource, caller); // ResourceCache is updated automatically
+            return (resource_id, entity_mut);
+        }
+    }
+
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
     ///
     /// If the resource already exists, nothing happens.
@@ -1835,27 +1861,10 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
-        let resource_id = self.register_resource::<R>();
         let caller = MaybeLocation::caller();
-
-        if let Some(&entity) = self.resource_entities.get(resource_id) {
-            let entity_ref = self.get_entity(entity).expect("ResourceCache is in sync");
-            if !entity_ref.contains_id(resource_id) {
-                let resource = R::from_world(self);
-                move_as_ptr!(resource);
-                self.entity_mut(entity).insert_with_caller(
-                    resource,
-                    InsertMode::Replace,
-                    caller,
-                    RelationshipHookMode::Run,
-                );
-            }
-        } else {
-            let resource = R::from_world(self);
-            move_as_ptr!(resource);
-            self.spawn_with_caller(resource, caller); // ResourceCache is updated automatically
-        }
-        resource_id
+        let resource = R::from_world(self);
+        self.insert_resource_if_not_exists_with_caller(resource, caller)
+            .0
     }
 
     /// Inserts a new resource with the given `value`.
@@ -2198,10 +2207,10 @@ impl World {
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
-        if !self.contains_resource::<R>() {
-            self.insert_resource_with_caller(func(), MaybeLocation::caller());
-        }
-        self.get_resource_mut::<R>().unwrap() // must exist
+        let caller = MaybeLocation::caller();
+        let (resource_id, entity) = self.insert_resource_if_not_exists_with_caller(func(), caller);
+        let untyped = entity.into_mut_by_id(resource_id).unwrap(); // must exist
+        unsafe { untyped.with_type() }
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -2238,11 +2247,12 @@ impl World {
     /// ```
     #[track_caller]
     pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
-        if !self.contains_resource::<R>() {
-            self.init_resource::<R>();
-        }
-
-        self.get_resource_mut::<R>().unwrap() // must exist
+        let caller = MaybeLocation::caller();
+        let resource = R::from_world(self);
+        let (resource_id, entity) =
+            self.insert_resource_if_not_exists_with_caller(resource, caller);
+        let untyped = entity.into_mut_by_id(resource_id).unwrap(); // must exist
+        unsafe { untyped.with_type() }
     }
 
     /// Gets an immutable reference to the non-send data of the given type, if it exists.
