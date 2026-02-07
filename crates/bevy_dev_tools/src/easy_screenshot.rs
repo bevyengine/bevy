@@ -161,8 +161,10 @@ pub enum RecordScreen {
 /// [`time`](bevy_time::Time)` in order to capture frames for video.
 /// 
 /// If any application [`Update`] systems have behavior that depend 
-/// on virtual time, ensure that these systems run 
-/// [`after(EasyScreenRecordSystems)`](bevy_ecs::schedule::IntoScheduleConfigs::after)
+/// on virtual time and must be recorded, ensure that these systems run 
+/// [`after(EasyScreenRecordSystems)`](bevy_ecs::schedule::IntoScheduleConfigs::after).
+/// The application may run slower on screen, but the video playback will be at
+/// normal speed.
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct EasyScreenRecordSystems;
 
