@@ -44,8 +44,27 @@ pub struct NoCpuCulling;
 /// If an entity is hidden in this way, all [`Children`] (and all of their children and so on) who
 /// are set to [`Inherited`](Self::Inherited) will also be hidden.
 ///
-/// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
-/// `Visibility` to set the values of each entity's [`InheritedVisibility`] component.
+/// Users should set this component if they wish to change the visibility of an entity.
+///
+/// To read the visibility of an entity, query for its [`InheritedVisibility`] instead.
+///
+/// ## [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`]
+///
+/// These are three components that relate to visibility.
+/// Only [`Visibility`] is typically added to an entity,
+/// the other two are then added automatically.
+///
+/// [`Visibility`] is the visibility set by the user.
+///
+/// [`InheritedVisibility`] is computed by propagation through the entity hierarchy.
+/// Entities with [`Visibility::Inherited`] copy the visibility
+/// of their parent entities. If they have no [`ChildOf`] component, they are visible.
+/// The propagation is done in `visibility_propagate_system`, which runs
+/// in the [`PostUpdate`] schedule.
+///
+/// [`ViewVisibility`] indicates whether the entity should be
+/// extracted for rendering. This component is recomputed in every frame
+/// in the [`PostUpdate`] schedule.
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(InheritedVisibility, ViewVisibility)]
@@ -116,9 +135,33 @@ impl PartialEq<&Visibility> for Visibility {
 }
 
 /// Whether or not an entity is visible in the hierarchy.
-/// This will not be accurate until [`VisibilityPropagate`] runs in the [`PostUpdate`] schedule.
+///
+/// This is a computed component that users should not change manually.
+/// To set the visibility of an entity, use [`Visibility`] instead.
+///
+/// This property is updated in [`VisibilityPropagate`] in the [`PostUpdate`] schedule.
+/// Until then, it is not up to date with [`Visibility`] if it was changed
+/// in the same frame.
 ///
 /// If this is false, then [`ViewVisibility`] should also be false.
+///
+/// ## [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`]
+///
+/// These are three components that relate to visibility.
+/// Only [`Visibility`] is typically added to an entity,
+/// the other two are then added automatically.
+///
+/// [`Visibility`] is the visibility set by the user.
+///
+/// [`InheritedVisibility`] is computed by propagation through the entity hierarchy.
+/// Entities with [`Visibility::Inherited`] copy the visibility
+/// of their parent entities. If they have no [`ChildOf`] component, they are visible.
+/// The propagation is done in `visibility_propagate_system`, which runs
+/// in the [`PostUpdate`] schedule.
+///
+/// [`ViewVisibility`] indicates whether the entity should be
+/// extracted for rendering. This component is recomputed in every frame
+/// in the [`PostUpdate`] schedule.
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
@@ -182,6 +225,24 @@ pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 ///
 /// If you wish to add a custom visibility system that sets this value, be sure to add it to the
 /// [`CheckVisibility`] set.
+///
+/// ## [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`]
+///
+/// These are three components that relate to visibility.
+/// Only [`Visibility`] is typically added to an entity,
+/// the other two are then added automatically.
+///
+/// [`Visibility`] is the visibility set by the user.
+///
+/// [`InheritedVisibility`] is computed by propagation through the entity hierarchy.
+/// Entities with [`Visibility::Inherited`] copy the visibility
+/// of their parent entities. If they have no [`ChildOf`] component, they are visible.
+/// The propagation is done in `visibility_propagate_system`, which runs
+/// in the [`PostUpdate`] schedule.
+///
+/// [`ViewVisibility`] indicates whether the entity should be
+/// extracted for rendering. This component is recomputed in every frame
+/// in the [`PostUpdate`] schedule.
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
