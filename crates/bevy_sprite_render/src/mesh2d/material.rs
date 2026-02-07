@@ -235,7 +235,7 @@ impl<M: Material2d> AsAssetId for MeshMaterial2d<M> {
 /// Sets how a 2d material's base color alpha channel is used for transparency.
 /// Currently, this only works with [`Mesh2d`]. Sprites are always transparent.
 ///
-/// This is very similar to [`AlphaMode`](bevy_render::alpha::AlphaMode) but this only applies to 2d meshes.
+/// This is very similar to [`AlphaMode`](bevy_material::AlphaMode) but this only applies to 2d meshes.
 /// We use a separate type because 2d doesn't support all the transparency modes that 3d does.
 #[derive(Debug, Default, Reflect, Copy, Clone, PartialEq)]
 #[reflect(Default, Debug, Clone)]

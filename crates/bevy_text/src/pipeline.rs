@@ -6,7 +6,7 @@ use bevy_ecs::{
     system::ResMut,
 };
 use bevy_image::prelude::*;
-use bevy_log::{once, warn};
+use bevy_log::warn_once;
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -38,6 +38,16 @@ impl CosmicFontSystem {
     /// Get information about a font face, if it exists
     pub fn get_face_details(&self, id: cosmic_text::fontdb::ID) -> Option<FontFaceDetails> {
         self.0.db().face(id).map(FontFaceDetails::from)
+    }
+
+    /// Get the family name associated with a `FontSource`.
+    ///
+    /// Returns `None` for a `FontSource::Handle`. Instead, a font asset's family name
+    /// can be read from its `family` field.
+    pub fn get_family(&self, source: &FontSource) -> Option<smol_str::SmolStr> {
+        source
+            .as_family()
+            .map(|family| self.db().family_name(&family).into())
     }
 }
 
@@ -147,18 +157,20 @@ impl TextPipeline {
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
-        scale_factor: f64,
+        scale_factor: f32,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
+        logical_viewport_size: Vec2,
+        base_rem_size: f32,
     ) -> Result<(), TextError> {
         computed.entities.clear();
         computed.needs_rerender = false;
+        computed.uses_rem_sizes = false;
+        computed.uses_viewport_sizes = false;
 
         if scale_factor <= 0.0 {
-            once!(warn!(
-                "Text scale factor is <= 0.0. No text will be displayed.",
-            ));
+            warn_once!("Text scale factor is <= 0.0. No text will be displayed.",);
 
             return Err(TextError::DegenerateScaleFactor);
         }
@@ -176,8 +188,21 @@ impl TextPipeline {
             for (span_index, (entity, depth, span, text_font, _color, line_height)) in
                 text_spans.enumerate()
             {
-                // Save this section entity in the computed text block.
-                computed.entities.push(TextEntity { entity, depth });
+                match text_font.font_size {
+                    crate::FontSize::Vw(_)
+                    | crate::FontSize::Vh(_)
+                    | crate::FontSize::VMin(_)
+                    | crate::FontSize::VMax(_) => computed.uses_viewport_sizes = true,
+                    crate::FontSize::Rem(_) => computed.uses_rem_sizes = true,
+                    _ => (),
+                };
+
+                // Save this span entity in the computed text block.
+                computed.entities.push(TextEntity {
+                    entity,
+                    depth,
+                    font_smoothing: text_font.font_smoothing,
+                });
 
                 if span.is_empty() {
                     continue;
@@ -189,18 +214,45 @@ impl TextPipeline {
                         Family::Name(font.family_name.as_str())
                     }
                     FontSource::Family(family) => Family::Name(family.as_str()),
+                    FontSource::Serif => Family::Serif,
+                    FontSource::SansSerif => Family::SansSerif,
+                    FontSource::Cursive => Family::Cursive,
+                    FontSource::Fantasy => Family::Fantasy,
+                    FontSource::Monospace => Family::Monospace,
                 };
 
+                let font_size = text_font
+                    .font_size
+                    .eval(logical_viewport_size, base_rem_size);
+
                 // Save spans that aren't zero-sized.
-                if text_font.font_size <= 0.0 {
-                    once!(warn!(
+                if font_size <= 0.0 {
+                    warn_once!(
                         "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
-                    ));
+                    );
 
                     continue;
                 }
 
-                let attrs = get_attrs(span_index, text_font, line_height, family, scale_factor);
+                const WARN_FONT_SIZE: f32 = 1000.0;
+                if font_size > WARN_FONT_SIZE {
+                    warn_once!(
+                        "Text span {entity} has an excessively large font size ({} with scale factor {}). \
+                        Extremely large font sizes will cause performance issues with font atlas \
+                        generation and high memory usage.",
+                        font_size,
+                        scale_factor,
+                    );
+                }
+
+                let attrs = get_attrs(
+                    span_index,
+                    text_font,
+                    font_size,
+                    line_height,
+                    family,
+                    scale_factor,
+                );
 
                 sections.push((span, attrs));
             }
@@ -257,11 +309,13 @@ impl TextPipeline {
         entity: Entity,
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
-        scale_factor: f64,
+        scale_factor: f32,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         hinting: FontHinting,
+        logical_viewport_size: Vec2,
+        base_rem_size: f32,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
@@ -279,6 +333,8 @@ impl TextPipeline {
             computed,
             font_system,
             hinting,
+            logical_viewport_size,
+            base_rem_size,
         )?;
 
         let buffer = &mut computed.buffer;
@@ -371,8 +427,7 @@ impl TextPipeline {
 
                 let mut temp_glyph;
                 let span_index = layout_glyph.metadata;
-                let font_smoothing = FontSmoothing::AntiAliased;
-
+                let font_smoothing = computed.entities[span_index].font_smoothing;
                 let layout_glyph = if font_smoothing == FontSmoothing::None {
                     // If font smoothing is disabled, round the glyph positions and sizes,
                     // effectively discarding all subpixel layout.
@@ -561,23 +616,27 @@ impl TextMeasureInfo {
 fn get_attrs<'a>(
     span_index: usize,
     text_font: &TextFont,
+    font_size: f32,
     line_height: LineHeight,
     family: Family<'a>,
-    scale_factor: f64,
+    scale_factor: f32,
 ) -> Attrs<'a> {
+    let font_size = (font_size * scale_factor).round();
+    let line_height = match line_height {
+        LineHeight::Px(px) => px * scale_factor,
+        LineHeight::RelativeToFont(s) => s * font_size,
+    };
+
     Attrs::new()
         .metadata(span_index)
         .family(family)
         .stretch(text_font.width.into())
         .style(text_font.style.into())
         .weight(text_font.weight.into())
-        .metrics(
-            Metrics {
-                font_size: text_font.font_size,
-                line_height: line_height.eval(text_font.font_size),
-            }
-            .scale(scale_factor as f32),
-        )
+        .metrics(Metrics {
+            font_size,
+            line_height,
+        })
         .font_features((&text_font.font_features).into())
 }
 

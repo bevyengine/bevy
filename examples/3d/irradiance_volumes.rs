@@ -15,7 +15,7 @@
 
 use bevy::{
     color::palettes::css::*,
-    core_pipeline::Skybox,
+    light::Skybox,
     light::{IrradianceVolume, NotShadowCaster},
     math::{uvec3, vec3},
     pbr::{ExtendedMaterial, MaterialExtension},
@@ -258,7 +258,7 @@ fn spawn_light(commands: &mut Commands) {
     commands.spawn((
         PointLight {
             intensity: 250000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0762, 5.9039, 1.0055),

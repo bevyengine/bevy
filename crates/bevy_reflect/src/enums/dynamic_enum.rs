@@ -1,7 +1,10 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    enums::{enum_debug, enum_hash, enum_partial_eq, Enum, VariantFieldIter, VariantType},
+    enums::{
+        enum_debug, enum_hash, enum_partial_cmp, enum_partial_eq, Enum, VariantFieldIter,
+        VariantType,
+    },
     structs::{DynamicStruct, Struct},
     tuple::{DynamicTuple, Tuple},
     ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
@@ -396,6 +399,11 @@ impl PartialReflect for DynamicEnum {
     #[inline]
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         enum_partial_eq(self, value)
+    }
+
+    #[inline]
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        enum_partial_cmp(self, value)
     }
 
     #[inline]

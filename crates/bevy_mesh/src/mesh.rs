@@ -2,6 +2,7 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
+    skinning::{SkinnedMeshBounds, SkinnedMeshBoundsError},
     triangle_area_normal, triangle_normal, FourIterators, Indices, MeshAttributeData,
     MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout,
     MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
@@ -257,6 +258,7 @@ pub struct Mesh {
     /// Precomputed min and max extents of the mesh position data. Used mainly for constructing `Aabb`s for frustum culling.
     /// This data will be set if/when a mesh is extracted to the GPU
     pub final_aabb: Option<Aabb3d>,
+    skinned_mesh_bounds: Option<SkinnedMeshBounds>,
 }
 
 impl Mesh {
@@ -349,6 +351,7 @@ impl Mesh {
             asset_usage,
             enable_raytracing: true,
             final_aabb: None,
+            skinned_mesh_bounds: None,
         }
     }
 
@@ -2177,6 +2180,37 @@ impl Mesh {
             morph_target_names,
             ..self.clone()
         })
+    }
+
+    /// Get this mesh's [`SkinnedMeshBounds`].
+    pub fn skinned_mesh_bounds(&self) -> Option<&SkinnedMeshBounds> {
+        self.skinned_mesh_bounds.as_ref()
+    }
+
+    /// Set this mesh's [`SkinnedMeshBounds`].
+    pub fn set_skinned_mesh_bounds(&mut self, skinned_mesh_bounds: Option<SkinnedMeshBounds>) {
+        self.skinned_mesh_bounds = skinned_mesh_bounds;
+    }
+
+    /// Consumes the mesh and returns a mesh with the given [`SkinnedMeshBounds`].
+    pub fn with_skinned_mesh_bounds(
+        mut self,
+        skinned_mesh_bounds: Option<SkinnedMeshBounds>,
+    ) -> Self {
+        self.set_skinned_mesh_bounds(skinned_mesh_bounds);
+        self
+    }
+
+    /// Generate [`SkinnedMeshBounds`] for this mesh.
+    pub fn generate_skinned_mesh_bounds(&mut self) -> Result<(), SkinnedMeshBoundsError> {
+        self.skinned_mesh_bounds = Some(SkinnedMeshBounds::from_mesh(self)?);
+        Ok(())
+    }
+
+    /// Consumes the mesh and returns a mesh with generated [`SkinnedMeshBounds`].
+    pub fn with_generated_skinned_mesh_bounds(mut self) -> Result<Self, SkinnedMeshBoundsError> {
+        self.generate_skinned_mesh_bounds()?;
+        Ok(self)
     }
 }
 

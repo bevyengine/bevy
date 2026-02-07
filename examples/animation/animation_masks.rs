@@ -132,7 +132,7 @@ fn setup_scene(
     commands.spawn((
         PointLight {
             intensity: 10_000_000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(-4.0, 8.0, 13.0),
@@ -229,7 +229,7 @@ fn setup_ui(mut commands: Commands) {
 fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl Bundle {
     let button_text_style = (
         TextFont {
-            font_size: 14.0,
+            font_size: FontSize::Px(14.0),
             ..default()
         },
         TextColor::WHITE,

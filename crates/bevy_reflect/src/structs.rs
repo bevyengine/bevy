@@ -330,6 +330,66 @@ impl DynamicStruct {
         self.insert_boxed(name, Box::new(value));
     }
 
+    /// Removes a field at `index`.
+    pub fn remove_at(
+        &mut self,
+        index: usize,
+    ) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)> {
+        let mut i: usize = 0;
+        let mut extract = self.field_names.extract_if(0..self.field_names.len(), |n| {
+            let mut result = false;
+            if i == index {
+                self.field_indices
+                    .remove(n)
+                    .expect("Invalid name for `field_indices.remove(name)`");
+                result = true;
+            } else if i > index {
+                *self
+                    .field_indices
+                    .get_mut(n)
+                    .expect("Invalid name for `field_indices.get_mut(name)`") -= 1;
+            }
+            i += 1;
+            result
+        });
+
+        let name = extract
+            .nth(0)
+            .expect("Invalid index for `extract.nth(index)`");
+        extract.for_each(drop); // Fully evaluate the rest of the iterator, so we don't short-circuit the extract.
+
+        Some((name, self.fields.remove(index)))
+    }
+
+    /// Removes the first field that satisfies the given predicate, `f`.
+    pub fn remove_if<F>(&mut self, mut f: F) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)>
+    where
+        F: FnMut((&str, &dyn PartialReflect)) -> bool,
+    {
+        if let Some(index) = self
+            .field_names
+            .iter()
+            .zip(self.fields.iter())
+            .position(|(name, field)| f((name.as_ref(), field.as_ref())))
+        {
+            self.remove_at(index)
+        } else {
+            None
+        }
+    }
+
+    /// Removes a field by `name`.
+    pub fn remove_by_name(
+        &mut self,
+        name: &str,
+    ) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)> {
+        if let Some(index) = self.index_of(name) {
+            self.remove_at(index)
+        } else {
+            None
+        }
+    }
+
     /// Gets the index of the field with the given name.
     pub fn index_of(&self, name: &str) -> Option<usize> {
         self.field_indices.get(name).copied()
@@ -450,6 +510,10 @@ impl PartialReflect for DynamicStruct {
         struct_partial_eq(self, value)
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        struct_partial_cmp(self, value)
+    }
+
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicStruct(")?;
         struct_debug(self, f)?;
@@ -512,8 +576,8 @@ impl<'a> IntoIterator for &'a DynamicStruct {
 ///   values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
-#[inline]
-pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> Option<bool> {
+#[inline(never)]
+pub fn struct_partial_eq(a: &dyn Struct, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
         return Some(false);
     };
@@ -535,6 +599,111 @@ pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> O
     }
 
     Some(true)
+}
+
+/// Lexicographically compares two [`Struct`] values and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+#[inline(never)]
+pub fn struct_partial_cmp(a: &dyn Struct, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
+        return None;
+    };
+
+    if a.field_len() != struct_value.field_len() {
+        return None;
+    }
+
+    // Delegate detailed field-name-aware comparison to shared helper
+    partial_cmp_by_field_names(
+        a.field_len(),
+        |i| a.name_at(i),
+        |i| a.field_at(i),
+        |i| struct_value.name_at(i),
+        |i| struct_value.field_at(i),
+        |name| struct_value.field(name),
+    )
+}
+
+/// Compare two sets of named fields. `field_len` should be equal.
+///
+/// Tries best to:
+/// 1. when used on concrete types of actually same type, should be compatible
+///    with derived `PartialOrd` implementations.
+/// 2. compatible with `reflect_partial_eq`: when `reflect_partial_eq(a, b) = Some(true)`,
+///    then `partial_cmp(a, b) = Some(Ordering::Equal)`.
+/// 3. when used on dynamic types, provide a consistent ordering:
+///    see example `crate::tests:reflect_partial_cmp_struct_named_field_reorder`
+pub(crate) fn partial_cmp_by_field_names<'a, NA, FA, NB, FB, FBY>(
+    field_len: usize,
+    name_at_a: NA,
+    field_at_a: FA,
+    name_at_b: NB,
+    field_at_b_index: FB,
+    field_b_by_name: FBY,
+) -> Option<::core::cmp::Ordering>
+where
+    NA: Fn(usize) -> Option<&'a str>,
+    FA: Fn(usize) -> Option<&'a dyn PartialReflect>,
+    NB: Fn(usize) -> Option<&'a str>,
+    FB: Fn(usize) -> Option<&'a dyn PartialReflect>,
+    FBY: Fn(&str) -> Option<&'a dyn PartialReflect>,
+{
+    use ::core::cmp::Ordering;
+
+    let mut same_field_order = true;
+    for i in 0..field_len {
+        if name_at_a(i) != name_at_b(i) {
+            same_field_order = false;
+            break;
+        }
+    }
+
+    if same_field_order {
+        for i in 0..field_len {
+            let a_val = field_at_a(i).unwrap();
+            let b_val = field_at_b_index(i).unwrap();
+            match a_val.reflect_partial_cmp(b_val) {
+                None => return None,
+                Some(Ordering::Equal) => continue,
+                Some(ord) => return Some(ord),
+            }
+        }
+        return Some(Ordering::Equal);
+    }
+
+    let mut all_less_equal = true;
+    let mut all_greater_equal = true;
+    let mut all_equal = true;
+
+    for i in 0..field_len {
+        let field_name = name_at_a(i).unwrap();
+        let a_val = field_at_a(i).unwrap();
+        let b_val = field_b_by_name(field_name)?;
+        match a_val.reflect_partial_cmp(b_val) {
+            None => return None,
+            Some(::core::cmp::Ordering::Less) => {
+                all_greater_equal = false;
+                all_equal = false;
+            }
+            Some(::core::cmp::Ordering::Greater) => {
+                all_less_equal = false;
+                all_equal = false;
+            }
+            Some(::core::cmp::Ordering::Equal) => {}
+        }
+    }
+
+    if all_equal {
+        Some(::core::cmp::Ordering::Equal)
+    } else if all_less_equal {
+        Some(::core::cmp::Ordering::Less)
+    } else if all_greater_equal {
+        Some(::core::cmp::Ordering::Greater)
+    } else {
+        None
+    }
 }
 
 /// The default debug formatter for [`Struct`] types.
@@ -577,12 +746,125 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> core::fmt
 #[cfg(test)]
 mod tests {
     use crate::{structs::*, *};
+    use alloc::borrow::ToOwned;
     #[derive(Reflect, Default)]
     struct MyStruct {
         a: (),
         b: (),
         c: (),
     }
+
+    #[test]
+    fn dynamic_struct_remove_at() {
+        let mut my_struct = MyStruct::default().to_dynamic_struct();
+
+        assert_eq!(my_struct.field_len(), 3);
+
+        let field_2 = my_struct
+            .remove_at(1)
+            .expect("Invalid index for `my_struct.remove_at(index)`");
+
+        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(field_2.0, "b");
+
+        let field_3 = my_struct
+            .remove_at(0)
+            .expect("Invalid index for `my_struct.remove_at(index)`");
+
+        assert_eq!(my_struct.field_len(), 1);
+        assert_eq!(field_3.0, "a");
+
+        let field_1 = my_struct
+            .remove_at(0)
+            .expect("Invalid index for `my_struct.remove_at(index)`");
+
+        assert_eq!(my_struct.field_len(), 0);
+        assert_eq!(field_1.0, "c");
+    }
+
+    #[test]
+    fn dynamic_struct_remove_by_name() {
+        let mut my_struct = MyStruct::default().to_dynamic_struct();
+
+        assert_eq!(my_struct.field_len(), 3);
+
+        let field_3 = my_struct
+            .remove_by_name("b")
+            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+
+        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(field_3.0, "b");
+
+        let field_2 = my_struct
+            .remove_by_name("c")
+            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+
+        assert_eq!(my_struct.field_len(), 1);
+        assert_eq!(field_2.0, "c");
+
+        let field_1 = my_struct
+            .remove_by_name("a")
+            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+
+        assert_eq!(my_struct.field_len(), 0);
+        assert_eq!(field_1.0, "a");
+    }
+
+    #[test]
+    fn dynamic_struct_remove_if() {
+        let mut my_struct = MyStruct::default().to_dynamic_struct();
+
+        assert_eq!(my_struct.field_len(), 3);
+
+        let field_3_name = "c";
+        let field_3 = my_struct
+            .remove_if(|(name, _field)| name == field_3_name)
+            .expect("No valid name/field found for `my_struct.remove_with(|(name, field)|{})");
+
+        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(field_3.0, "c");
+    }
+
+    #[test]
+    fn dynamic_struct_remove_combo() {
+        let mut my_struct = MyStruct::default().to_dynamic_struct();
+
+        assert_eq!(my_struct.field_len(), 3);
+
+        let field_2 = my_struct
+            .remove_at(
+                my_struct
+                    .index_of("b")
+                    .expect("Invalid field for `my_struct.index_of(field)`"),
+            )
+            .expect("Invalid index for `my_struct.remove_at(index)`");
+
+        assert_eq!(my_struct.field_len(), 2);
+        assert_eq!(field_2.0, "b");
+
+        let field_3_name = my_struct
+            .name_at(1)
+            .expect("Invalid field for `my_struct.name_of(field)`")
+            .to_owned();
+        let field_3 = my_struct
+            .remove_by_name(field_3_name.as_ref())
+            .expect("Invalid name for `my_struct.remove_by_name(name)`");
+
+        assert_eq!(my_struct.field_len(), 1);
+        assert_eq!(field_3.0, "c");
+
+        let field_1_name = my_struct
+            .name_at(0)
+            .expect("Invalid name for `my_struct.name_at(name)`")
+            .to_owned();
+        let field_1 = my_struct
+            .remove_if(|(name, _field)| name == field_1_name)
+            .expect("No valid name/field found for `my_struct.remove_with(|(name, field)|{})`");
+
+        assert_eq!(my_struct.field_len(), 0);
+        assert_eq!(field_1.0, "a");
+    }
+
     #[test]
     fn next_index_increment() {
         let my_struct = MyStruct::default();

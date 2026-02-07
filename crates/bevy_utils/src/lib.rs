@@ -20,6 +20,10 @@ pub mod cfg {
             /// Indicates the `Parallel` type is available.
             parallel
         }
+        #[cfg(feature = "buffered_channel")] => {
+            /// Indicates the `BufferedChannel` type is available.
+            buffered_channel
+        }
     }
 }
 
@@ -39,6 +43,11 @@ cfg::parallel! {
     pub use parallel_queue::*;
 }
 
+cfg::buffered_channel! {
+    mod buffered_channel;
+    pub use buffered_channel::*;
+}
+
 /// The utilities prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
@@ -49,6 +58,8 @@ pub mod prelude {
 }
 
 mod atomic_id;
+mod bloom_filter;
+pub use bloom_filter::*;
 mod debug_info;
 mod default;
 mod once;

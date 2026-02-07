@@ -2,18 +2,16 @@
 
 use std::f32::consts::PI;
 
+#[cfg(feature = "free_camera")]
+use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::{
         primitives::{CubemapFrusta, Frustum},
         visibility::{CubemapVisibleEntities, VisibleMeshEntities},
     },
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    core_pipeline::{
-        prepass::{DepthPrepass, MotionVectorPrepass},
-        Skybox,
-    },
-    light::ShadowFilteringMethod,
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
+    light::{ShadowFilteringMethod, Skybox},
     math::vec3,
     prelude::*,
     render::camera::TemporalJitter,
@@ -113,6 +111,9 @@ enum AppSetting {
 
 /// The example application entry point.
 fn main() {
+    #[cfg(not(feature = "free_camera"))]
+    println!("Enable feature free_camera to add a free camera to this example");
+
     App::new()
         .init_resource::<AppStatus>()
         .add_plugins((
@@ -123,6 +124,7 @@ fn main() {
                 }),
                 ..default()
             }),
+            #[cfg(feature = "free_camera")]
             FreeCameraPlugin,
         ))
         .add_message::<WidgetClickEvent<AppSetting>>()
@@ -160,6 +162,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7).with_rotation(
                 Quat::from_euler(EulerRot::YXZ, -134.76 / 180.0 * PI, -0.175, 0.0),
             ),
+            #[cfg(feature = "free_camera")]
             FreeCamera::default(),
         ))
         .insert(ShadowFilteringMethod::Gaussian)
@@ -373,7 +376,7 @@ fn handle_pcss_toggle(
 /// Creates the [`DirectionalLight`] component with the appropriate settings.
 fn create_directional_light(app_status: &AppStatus) -> DirectionalLight {
     DirectionalLight {
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         soft_shadow_size: if app_status.soft_shadows {
             Some(LIGHT_RADIUS)
         } else {
@@ -389,7 +392,7 @@ fn create_point_light(app_status: &AppStatus) -> PointLight {
     PointLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         radius: LIGHT_RADIUS,
         soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: POINT_SHADOW_DEPTH_BIAS,
@@ -404,7 +407,7 @@ fn create_spot_light(app_status: &AppStatus) -> SpotLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
         radius: LIGHT_RADIUS,
-        shadows_enabled: true,
+        shadow_maps_enabled: true,
         soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,

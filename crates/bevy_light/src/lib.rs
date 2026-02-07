@@ -1,6 +1,9 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 
+extern crate alloc;
+
 use bevy_app::{App, Plugin, PostUpdate};
+use bevy_asset::AssetApp;
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
@@ -31,8 +34,10 @@ use bevy_camera::visibility::SetViewVisibility;
 mod probe;
 pub use probe::{
     AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
-    IrradianceVolume, LightProbe,
+    IrradianceVolume, LightProbe, NoParallaxCorrection, Skybox,
 };
+pub mod atmosphere;
+pub use atmosphere::Atmosphere;
 mod volumetric;
 pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
 pub mod cascade;
@@ -52,6 +57,8 @@ pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
     DirectionalLightTexture, SunDisk,
 };
+#[cfg(feature = "bevy_gizmos")]
+pub mod gizmos;
 
 /// The light prelude.
 ///
@@ -62,9 +69,13 @@ pub mod prelude {
         light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
         GeneratedEnvironmentMapLight, GlobalAmbientLight, LightProbe, PointLight, SpotLight,
     };
+
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_gizmos")]
+    pub use crate::gizmos::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
-use crate::directional_light::validate_shadow_map_size;
+use crate::{atmosphere::ScatteringMedium, directional_light::validate_shadow_map_size};
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
@@ -138,6 +149,7 @@ impl Plugin for LightPlugin {
             .init_resource::<GlobalAmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
+            .init_asset::<ScatteringMedium>()
             .configure_sets(
                 PostUpdate,
                 SimulationLightSystems::UpdateDirectionalLightCascades
@@ -201,6 +213,9 @@ impl Plugin for LightPlugin {
                         .after(clear_directional_light_cascades),
                 ),
             );
+
+        #[cfg(feature = "bevy_gizmos")]
+        app.add_plugins(gizmos::LightGizmoPlugin);
     }
 }
 
@@ -358,7 +373,7 @@ pub fn check_dir_light_mesh_visibility(
         }
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-        if !directional_light.shadows_enabled || !light_view_visibility.get() {
+        if !directional_light.shadow_maps_enabled || !light_view_visibility.get() {
             continue;
         }
 
@@ -505,7 +520,7 @@ pub fn check_point_light_mesh_visibility(
 
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
-        for light_entity in visible_lights.entities.iter().copied() {
+        for light_entity in visible_lights.point_and_spot_lights.iter().copied() {
             if !checked_lights.insert(light_entity) {
                 continue;
             }
@@ -524,7 +539,7 @@ pub fn check_point_light_mesh_visibility(
                 }
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-                if !point_light.shadows_enabled {
+                if !point_light.shadow_maps_enabled {
                     continue;
                 }
 
@@ -613,7 +628,7 @@ pub fn check_point_light_mesh_visibility(
                 visible_entities.clear();
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-                if !point_light.shadows_enabled {
+                if !point_light.shadow_maps_enabled {
                     continue;
                 }
 

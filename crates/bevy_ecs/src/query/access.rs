@@ -43,7 +43,7 @@ impl<'a> Debug for FormattedBitSet<'a> {
 ///
 /// Used internally to ensure soundness during system initialization and execution.
 /// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
-#[derive(Eq, PartialEq, Default)]
+#[derive(Eq, PartialEq, Default, Hash)]
 pub struct Access {
     /// All accessed components, or forbidden components if
     /// `Self::component_read_and_writes_inverted` is set.
@@ -161,8 +161,8 @@ impl Access {
         access
     }
 
-    /// Creates an [`Access`] with read access to all components.
-    /// This is equivalent to calling `read_all()` on `Access::new()`,
+    /// Creates an [`Access`] with read and write access to all components.
+    /// This is equivalent to calling `write_all()` on `Access::new()`,
     /// but is available in a `const` context.
     pub(crate) const fn new_write_all() -> Self {
         let mut access = Self::new();

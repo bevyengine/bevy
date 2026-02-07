@@ -5,11 +5,10 @@ use crate::{
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
     setup_morph_and_skinning_defs, skin, DeferredAlphaMaskDrawFunction, DeferredFragmentShader,
     DeferredOpaqueDrawFunction, DeferredVertexShader, DrawMesh, EntitySpecializationTicks,
-    ErasedMaterialPipelineKey, ErasedMeshPipelineKey, MaterialPipeline, MaterialProperties,
-    MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
+    MaterialPipeline, MeshLayouts, MeshPipeline, MeshPipelineKey, PreparedMaterial,
     PrepassAlphaMaskDrawFunction, PrepassFragmentShader, PrepassOpaqueDrawFunction,
     PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
-    RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
+    RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -22,10 +21,13 @@ use bevy_ecs::{
         SystemParam, SystemParamItem, SystemState,
     },
 };
+use bevy_material::{
+    key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
+    AlphaMode, MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
+};
 use bevy_math::{Affine3A, Mat4, Vec4};
 use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_render::{
-    alpha::AlphaMode,
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{allocator::MeshAllocator, RenderMesh},
@@ -207,7 +209,7 @@ pub fn update_previous_view_data(
     }
 }
 
-#[derive(Component, PartialEq, Default)]
+#[derive(Component, PartialEq, Clone, Default)]
 pub struct PreviousGlobalTransform(pub Affine3A);
 
 #[cfg(not(feature = "meshlet"))]

@@ -30,6 +30,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, SystemSet},
     system::Res,
 };
+use bevy_math::Affine3Ext;
 
 use {bevy_gizmos::config::GizmoMeshConfig, bevy_mesh::VertexBufferLayout};
 
@@ -183,7 +184,7 @@ fn extract_gizmo_data(
 
         commands.spawn((
             LineGizmoUniform {
-                world_from_local: Affine3::from(&Affine3A::IDENTITY).to_transpose(),
+                world_from_local: Affine3::from(Affine3A::IDENTITY).to_transpose(),
                 line_width: config.line.width,
                 depth_bias: config.depth_bias,
                 joints_resolution,

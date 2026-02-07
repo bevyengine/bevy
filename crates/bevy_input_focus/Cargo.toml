@@ -1,6 +1,6 @@
 [package]
 name = "bevy_input_focus"
-version = "0.18.0-dev"
+version = "0.19.0-dev"
 edition = "2024"
 description = "Keyboard focus management"
 homepage = "https://bevy.org"
@@ -70,13 +70,13 @@ libm = ["bevy_math/libm", "bevy_window/libm"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false }
-bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = false }
-bevy_input = { path = "../bevy_input", version = "0.18.0-dev", default-features = false }
-bevy_math = { path = "../bevy_math", version = "0.18.0-dev", default-features = false }
-bevy_picking = { path = "../bevy_picking", version = "0.18.0-dev", default-features = false, optional = true }
-bevy_window = { path = "../bevy_window", version = "0.18.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", features = [
+bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev", default-features = false }
+bevy_input = { path = "../bevy_input", version = "0.19.0-dev", default-features = false }
+bevy_math = { path = "../bevy_math", version = "0.19.0-dev", default-features = false }
+bevy_picking = { path = "../bevy_picking", version = "0.19.0-dev", default-features = false, optional = true }
+bevy_window = { path = "../bevy_window", version = "0.19.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", features = [
   "glam",
 ], default-features = false, optional = true }
 

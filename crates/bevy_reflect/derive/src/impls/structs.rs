@@ -42,6 +42,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         reflect_struct.meta(),
         || Some(quote!(#bevy_reflect_path::structs::struct_partial_eq)),
         || None,
+        || Some(quote!(#bevy_reflect_path::structs::struct_partial_cmp)),
     );
     let clone_fn = reflect_struct.get_clone_impl();
 

@@ -15,7 +15,11 @@ use serde::{Deserialize, Serialize};
 ///
 /// This trait is generally used in concert with [`AssetWriter`](crate::io::AssetWriter) to write assets as bytes.
 ///
-/// For a complementary version of this trait that can load assets, see [`AssetLoader`].
+/// For a version of this trait that can load assets, see [`AssetLoader`].
+///
+/// Note: This is currently only leveraged by the [`AssetProcessor`](crate::processor::AssetProcessor), and does not provide a
+/// suitable interface for general purpose asset persistence. See [github issue #11216](https://github.com/bevyengine/bevy/issues/11216).
+///
 pub trait AssetSaver: TypePath + Send + Sync + 'static {
     /// The top level [`Asset`] saved by this [`AssetSaver`].
     type Asset: Asset;

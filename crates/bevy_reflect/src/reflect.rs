@@ -9,6 +9,7 @@ use alloc::boxed::Box;
 use alloc::string::ToString;
 use core::{
     any::{Any, TypeId},
+    cmp::Ordering,
     fmt::Debug,
 };
 
@@ -343,6 +344,13 @@ where
     ///
     /// If the underlying type does not support equality testing, returns `None`.
     fn reflect_partial_eq(&self, _value: &dyn PartialReflect) -> Option<bool> {
+        None
+    }
+
+    /// Returns a "partial comparison" result.
+    ///
+    /// If the underlying type does not support it, returns `None`.
+    fn reflect_partial_cmp(&self, _value: &dyn PartialReflect) -> Option<Ordering> {
         None
     }
 
