@@ -1061,12 +1061,7 @@ pub fn process_remote_insert_resources_request(
         .get_resource_id(type_id)
         .ok_or(anyhow!("Resource is not registered: `{}`", resource_path))
         .map_err(BrpError::resource_error)?;
-    // get the entity if it already exists, otherwise spawn a new one.
-    if let Some(entity) = world.resource_entities().get(resource_id) {
-        world.entity_mut(*entity).insert_reflect(reflected_resource);
-    } else {
-        world.spawn_empty().insert_reflect(reflected_resource);
-    }
+    world.insert_reflect_resource(resource_id, reflected_resource);
 
     Ok(Value::Null)
 }
