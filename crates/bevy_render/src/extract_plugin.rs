@@ -1,8 +1,8 @@
 use crate::{
     sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin},
-    Render, RenderApp, RenderSystems,
+    Render, RenderSystems,
 };
-use bevy_app::{App, Plugin, SubApp};
+use bevy_app::{App, InternedAppLabel, Plugin, SubApp};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
@@ -11,21 +11,16 @@ use bevy_ecs::{
 };
 use bevy_utils::default;
 
-/// Plugin that sets up the [`RenderApp`] and handles extracting data from the
-/// main world to the render world.
+/// Plugin that sets up a [`SubApp`] with extraction from the
+/// main world to the sub world.
 pub struct ExtractPlugin {
     /// Function that gets run at the beginning of each extraction.
     ///
     /// Gets the main world and render world as arguments (in that order).
     pub pre_extract: fn(&mut World, &mut World),
-}
 
-impl Default for ExtractPlugin {
-    fn default() -> Self {
-        Self {
-            pre_extract: |_, _| {},
-        }
-    }
+    /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`] to set up with extraction.
+    pub app_label: InternedAppLabel,
 }
 
 impl Plugin for ExtractPlugin {
@@ -33,7 +28,7 @@ impl Plugin for ExtractPlugin {
         app.add_plugins(SyncWorldPlugin);
         app.init_resource::<ScratchMainWorld>();
 
-        let mut render_app = SubApp::new();
+        let mut sub_app = SubApp::new();
 
         let mut extract_schedule = Schedule::new(ExtractSchedule);
         // We skip applying any commands during the ExtractSchedule
@@ -44,9 +39,9 @@ impl Plugin for ExtractPlugin {
         });
         extract_schedule.set_apply_final_deferred(false);
 
-        render_app.add_schedule(Render::base_schedule());
-        render_app.add_schedule(extract_schedule);
-        render_app.add_systems(
+        sub_app.add_schedule(Render::base_schedule());
+        sub_app.add_schedule(extract_schedule);
+        sub_app.add_systems(
             Render,
             (
                 // This set applies the commands from the extract schedule while the render schedule
@@ -57,7 +52,7 @@ impl Plugin for ExtractPlugin {
         );
 
         let pre_extract = self.pre_extract;
-        render_app.set_extract(move |main_world, render_world| {
+        sub_app.set_extract(move |main_world, render_world| {
             pre_extract(main_world, render_world);
 
             {
@@ -71,9 +66,9 @@ impl Plugin for ExtractPlugin {
         });
 
         let (sender, receiver) = bevy_time::create_time_channels();
-        render_app.insert_resource(sender);
+        sub_app.insert_resource(sender);
         app.insert_resource(receiver);
-        app.insert_sub_app(RenderApp, render_app);
+        app.insert_sub_app(self.app_label, sub_app);
     }
 }
 

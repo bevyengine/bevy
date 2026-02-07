@@ -275,6 +275,7 @@ impl Plugin for RenderPlugin {
             // have a rendering backend available.
             app.add_plugins(ExtractPlugin {
                 pre_extract: error_handler::update_state,
+                app_label: RenderApp.intern(),
             });
         };
 
