@@ -28,7 +28,10 @@ mod atmosphere;
 mod cluster;
 mod components;
 pub mod contact_shadows;
-use bevy_gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers};
+use bevy_gltf::{
+    extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+    GltfAssetLabel,
+};
 use bevy_render::sync_component::SyncComponent;
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
@@ -433,6 +436,19 @@ impl GltfExtensionHandler for GltfExtensionHandlerPbr {
     fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
         Box::new((*self).clone())
     }
+    fn on_root(&mut self, load_context: &mut LoadContext<'_>, _gltf: &gltf::Gltf) {
+        // create the `StandardMaterial` for the glTF `DefaultMaterial` so
+        // it can be accessed when meshes don't have materials.
+        let std_label = format!("{}#std", GltfAssetLabel::DefaultMaterial);
+
+        load_context
+            .labeled_asset_scope::<_, ()>(std_label, |_load_context| {
+                Ok(standard_material_from_gltf_material(
+                    &GltfMaterial::default(),
+                ))
+            })
+            .unwrap();
+    }
 
     fn on_material(
         &mut self,
@@ -442,11 +458,13 @@ impl GltfExtensionHandler for GltfExtensionHandlerPbr {
         material_asset: &GltfMaterial,
         material_label: &str,
     ) {
-        let std_label = format!("{:?}#std", material_label);
+        let std_label = format!("{}#std", material_label);
 
-        let _t = load_context.labeled_asset_scope::<_, ()>(std_label, |_load_context| {
-            Ok(standard_material_from_gltf_material(material_asset))
-        });
+        load_context
+            .labeled_asset_scope::<_, ()>(std_label, |_load_context| {
+                Ok(standard_material_from_gltf_material(material_asset))
+            })
+            .expect("a function that only returns Ok should never fail");
     }
 
     fn on_spawn_mesh_and_material(
@@ -458,7 +476,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerPbr {
         entity: &mut EntityWorldMut,
         material_label: &str,
     ) {
-        let std_label = format!("{:?}#std", material_label);
+        let std_label = format!("{}#std", material_label);
         let handle = load_context.get_label_handle::<StandardMaterial>(std_label);
 
         entity.insert(MeshMaterial3d(handle));
