@@ -1239,7 +1239,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// impl SystemBuffer for AlarmFlag {
 ///     // When `AlarmFlag` is used in a system, this function will get
 ///     // called the next time buffers are applied via ApplyDeferred.
-///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+///     fn queue(&mut self, system_meta: &SystemMeta, mut world: DeferredWorld) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;
 ///             self.0 = false;
