@@ -351,10 +351,6 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
-        self.queue(system_meta, world.into());
-    }
-
     fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
         let mut storage = world.resource_mut::<GizmoStorage<Config, Clear>>();
         storage.list_positions.append(&mut self.list_positions);

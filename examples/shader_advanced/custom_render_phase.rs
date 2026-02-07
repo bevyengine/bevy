@@ -14,7 +14,7 @@ use std::ops::Range;
 
 use bevy::camera::Viewport;
 use bevy::math::Affine3Ext;
-use bevy::pbr::SetMeshViewEmptyBindGroup;
+use bevy::pbr::{SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
     core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
@@ -497,19 +497,19 @@ fn queue_custom_meshes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     mut custom_render_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
-    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    view_key_cache: Res<ViewKeyCache>,
     has_marker: Query<(), With<DrawStencil>>,
 ) {
-    for (view, visible_entities, msaa) in &mut views {
+    for (view, visible_entities) in &mut views {
         let Some(custom_phase) = custom_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
         let draw_custom = custom_draw_functions.read().id::<DrawMesh3dStencil>();
 
-        // Create the key based on the view.
-        // In this case we only care about MSAA and HDR
-        let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let Some(&view_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
 
         let rangefinder = view.rangefinder3d();
         // Since our phase can work on any 3d mesh we can reuse the default mesh 3d filter

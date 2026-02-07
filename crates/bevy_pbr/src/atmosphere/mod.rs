@@ -56,6 +56,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
+    sync_component::SyncComponent,
     sync_world::RenderEntity,
     Extract, ExtractSchedule, RenderStartup,
 };
@@ -361,12 +362,13 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
     }
 }
 
+impl SyncComponent for GpuAtmosphereSettings {
+    type Out = Self;
+}
+
 impl ExtractComponent for GpuAtmosphereSettings {
     type QueryData = Read<AtmosphereSettings>;
-
     type QueryFilter = (With<Camera3d>, With<Atmosphere>);
-
-    type Out = GpuAtmosphereSettings;
 
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone().into())

@@ -8,7 +8,9 @@ use bevy_ecs::{
 };
 use bevy_math::{Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, render_resource::ShaderType};
+use bevy_render::{
+    extract_component::ExtractComponent, render_resource::ShaderType, sync_component::SyncComponent,
+};
 
 /// The default vignette intensity amount.
 const DEFAULT_VIGNETTE_INTENSITY: f32 = 1.0;
@@ -100,12 +102,13 @@ impl Default for Vignette {
     }
 }
 
+impl SyncComponent for Vignette {
+    type Out = Self;
+}
+
 impl ExtractComponent for Vignette {
     type QueryData = Read<Vignette>;
-
     type QueryFilter = With<Camera>;
-
-    type Out = Vignette;
 
     fn extract_component(vignette: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         // Skip the postprocessing phase entirely if the intensity is zero.

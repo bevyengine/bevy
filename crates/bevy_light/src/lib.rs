@@ -1,4 +1,6 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+//! Provides component types for lighting a bevy scene. This includes the usual
+//! directional, point, and spot lights, as well as light probes, atmosphere,
+//! other volumetrics, and shadow configuration.
 
 extern crate alloc;
 
@@ -11,7 +13,7 @@ use bevy_camera::{
         RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems, VisibleEntityRanges,
         VisibleMeshEntities,
     },
-    CameraUpdateSystems,
+    Camera3d, CameraUpdateSystems,
 };
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 #[cfg(feature = "bevy_gizmos")]
@@ -26,8 +28,7 @@ use core::ops::DerefMut;
 pub mod cluster;
 pub use cluster::ClusteredDecal;
 use cluster::{
-    add_clusters, assign::assign_objects_to_clusters, GlobalVisibleClusterableObjects,
-    VisibleClusterableObjects,
+    assign::assign_objects_to_clusters, GlobalVisibleClusterableObjects, VisibleClusterableObjects,
 };
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
@@ -44,7 +45,7 @@ pub use atmosphere::Atmosphere;
 mod volumetric;
 pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
 pub mod cascade;
-use cascade::{build_directional_light_cascades, clear_directional_light_cascades};
+use cascade::build_directional_light_cascades;
 pub use cascade::{CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades};
 mod point_light;
 pub use point_light::{
@@ -60,6 +61,7 @@ pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
     DirectionalLightTexture, SunDisk,
 };
+/// Provides gizmo drawing for visualizing light positions.
 #[cfg(feature = "bevy_gizmos")]
 pub mod gizmos;
 
@@ -78,7 +80,9 @@ pub mod prelude {
     pub use crate::gizmos::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
-use crate::{atmosphere::ScatteringMedium, directional_light::validate_shadow_map_size};
+use crate::{
+    atmosphere::ScatteringMedium, cluster::Clusters, directional_light::validate_shadow_map_size,
+};
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
@@ -94,11 +98,14 @@ pub mod light_consts {
     /// [visible light]: https://en.wikipedia.org/wiki/Visible_light
     /// [International System of Units]: https://en.wikipedia.org/wiki/International_System_of_Units
     pub mod lumens {
+        /// The conversion factor used to determine how many lumens a typical LED light of a given wattage produces.
         pub const LUMENS_PER_LED_WATTS: f32 = 90.0;
+        /// The conversion factor used to determine how many lumens a typical incandescent light of a given wattage produces.
         pub const LUMENS_PER_INCANDESCENT_WATTS: f32 = 13.8;
+        /// The conversion factor used to determine how many lumens a typical halogen light of a given wattage produces.
         pub const LUMENS_PER_HALOGEN_WATTS: f32 = 19.8;
         /// 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
-        /// default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+        /// default [`bevy_camera::Exposure::BLENDER`] exposure level. For "indoor lighting" with a lower exposure,
         /// this would be way too bright.
         pub const VERY_LARGE_CINEMA_LIGHT: f32 = 1_000_000.0;
     }
@@ -133,6 +140,7 @@ pub mod light_consts {
         /// The amount of light (lux) on an overcast day; typical TV studio lighting
         pub const OVERCAST_DAY: f32 = 1000.;
         /// The amount of light (lux) from ambient daylight (not direct sunlight).
+        /// This is the default for [`DirectionalLight`](crate::DirectionalLight)s in Bevy.
         pub const AMBIENT_DAYLIGHT: f32 = 10_000.;
         /// The amount of light (lux) in full daylight (not direct sun).
         pub const FULL_DAYLIGHT: f32 = 20_000.;
@@ -143,6 +151,7 @@ pub mod light_consts {
     }
 }
 
+/// Sets up all the light visibility and clustering infrastructure needed for rendering lights.
 #[derive(Default)]
 pub struct LightPlugin;
 
@@ -153,11 +162,7 @@ impl Plugin for LightPlugin {
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .init_asset::<ScatteringMedium>()
-            .configure_sets(
-                PostUpdate,
-                SimulationLightSystems::UpdateDirectionalLightCascades
-                    .ambiguous_with(SimulationLightSystems::UpdateDirectionalLightCascades),
-            )
+            .register_required_components::<Camera3d, Clusters>()
             .configure_sets(
                 PostUpdate,
                 SimulationLightSystems::CheckLightVisibility
@@ -168,17 +173,10 @@ impl Plugin for LightPlugin {
                 PostUpdate,
                 (
                     validate_shadow_map_size.before(build_directional_light_cascades),
-                    add_clusters
-                        .in_set(SimulationLightSystems::AddClusters)
-                        .after(CameraUpdateSystems),
                     assign_objects_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystems::Propagate)
                         .after(VisibilitySystems::CheckVisibility)
-                        .after(CameraUpdateSystems),
-                    clear_directional_light_cascades
-                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        .after(TransformSystems::Propagate)
                         .after(CameraUpdateSystems),
                     update_directional_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
@@ -221,7 +219,8 @@ impl Plugin for LightPlugin {
                         .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
                     build_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        .after(clear_directional_light_cascades),
+                        .after(TransformSystems::Propagate)
+                        .after(CameraUpdateSystems),
                 ),
             );
 
@@ -257,7 +256,7 @@ pub struct NotShadowReceiver;
 #[reflect(Component, Default, Debug)]
 pub struct TransmittedShadowReceiver;
 
-/// Add this component to a [`Camera3d`](bevy_camera::Camera3d)
+/// Add this component to a [`Camera3d`]
 /// to control how to anti-alias shadow edges.
 ///
 /// The different modes use different approaches to
@@ -296,12 +295,11 @@ pub enum ShadowFilteringMethod {
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
-    AddClusters,
+    /// After this set, all lights have been clustered.
     AssignLightsToClusters,
-    /// System order ambiguities between systems in this set are ignored:
-    /// each [`build_directional_light_cascades`] system is independent of the others,
-    /// and should operate on distinct sets of entities.
+    /// After this set, all directional light cascades are up to date.
     UpdateDirectionalLightCascades,
+    /// After this set, the frusta of shadow-casting point lights, spot lights, and directional lights are up to date.
     UpdateLightFrusta,
     /// System order ambiguities between systems in this set are ignored:
     /// the order of systems within this set is irrelevant, as the various visibility-checking systems
@@ -325,6 +323,7 @@ fn shrink_entities(visible_entities: &mut Vec<Entity>) {
     visible_entities.shrink_to(reserved);
 }
 
+/// Updates the visibility for [`DirectionalLight`]s so that shadow map rendering can work.
 pub fn check_dir_light_mesh_visibility(
     mut commands: Commands,
     mut directional_lights: Query<
@@ -489,6 +488,8 @@ pub fn check_dir_light_mesh_visibility(
     });
 }
 
+/// Updates the visibility for [`PointLight`]s and [`SpotLight`]s so that
+/// shadow map rendering can work.
 pub fn check_point_light_mesh_visibility(
     visible_point_lights: Query<&VisibleClusterableObjects>,
     mut point_lights: Query<(
