@@ -9,7 +9,9 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, render_resource::ShaderType};
+use bevy_render::{
+    extract_component::ExtractComponent, render_resource::ShaderType, sync_component::SyncComponent,
+};
 
 /// The placeholder data for the default film grain texture.
 ///
@@ -132,14 +134,16 @@ impl Default for FilmGrain {
     }
 }
 
+impl SyncComponent for FilmGrain {
+    type Out = Self;
+}
+
 impl ExtractComponent for FilmGrain {
     type QueryData = Read<FilmGrain>;
-
     type QueryFilter = With<Camera>;
 
-    type Out = FilmGrain;
-
     fn extract_component(film_grain: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
+        // Skip the postprocessing phase entirely if the intensity is zero.
         if film_grain.intensity > 0.0 {
             Some(film_grain.clone())
         } else {
