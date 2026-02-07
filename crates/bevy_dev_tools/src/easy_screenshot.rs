@@ -212,7 +212,6 @@ impl Plugin for EasyScreenRecordPlugin {
                             setup = Some(Setup::preset(preset, tune, false, true).high());
                         }
                         RecordCommand::Stop => {
-                            info!("stopping recording");
                             if let Some(encoder) = encoder.take() {
                                 let mut flush = encoder.flush();
                                 let mut file = file.take().unwrap();
@@ -221,6 +220,7 @@ impl Plugin for EasyScreenRecordPlugin {
                                     file.write_all(data.entirety()).unwrap();
                                 }
                             }
+                            info!("finished processing video");
                         }
                         RecordCommand::Frame(image) => {
                             if let Some(setup) = setup.take() {
@@ -301,6 +301,7 @@ impl Plugin for EasyScreenRecordPlugin {
                                 virtual_time.pause();
                             }
                             Some(RecordScreen::Stop) => {
+                                info!("stopped recording. still processing video");
                                 tx.send(RecordCommand::Stop).unwrap();
                                 *recording = false;
                                 virtual_time.unpause();
