@@ -216,7 +216,8 @@ impl Plugin for LightPlugin {
                         // correctly render shadows for entities that are not in view of a camera,
                         // but must be renderable to cast shadows. Because of this, we need to check
                         // entity visibility and mark as visible before they can be hidden.
-                        .after(VisibilitySystems::CheckVisibility),
+                        .after(VisibilitySystems::CheckVisibility)
+                        .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
                     (
                         update_point_light_bounding_spheres,
                         update_spot_light_bounding_spheres,
