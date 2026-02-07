@@ -223,6 +223,7 @@ bevy_sprite = ["dep:bevy_sprite", "bevy_camera"]
 bevy_text = [
   "dep:bevy_text",
   "bevy_image",
+  "bevy_reflect/smol_str",
   "bevy_sprite?/bevy_text",
   "bevy_sprite_render?/bevy_text",
 ]
