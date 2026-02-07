@@ -351,8 +351,8 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        self.queue(_system_meta, world.into());
+    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+        self.queue(system_meta, world.into());
     }
 
     fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
