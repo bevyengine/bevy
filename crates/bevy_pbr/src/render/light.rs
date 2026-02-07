@@ -899,7 +899,8 @@ pub fn prepare_lights(
             .reserve(point_lights.len());
     }
 
-    let mut gpu_clustered_lights = Vec::new();
+    global_clusterable_object_meta.gpu_clustered_lights.clear();
+
     for (index, &(entity, _, light, _)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
 
@@ -966,38 +967,40 @@ pub fn prepare_lights(
             }
         };
 
-        gpu_clustered_lights.push(GpuClusteredLight {
-            light_custom_data,
-            // premultiply color by intensity
-            // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color_inverse_square_range: (Vec4::from_slice(&light.color.to_f32_array())
-                * light.intensity)
-                .xyz()
-                .extend(1.0 / (light.range * light.range)),
-            position_radius: light.transform.translation().extend(light.radius),
-            flags: flags.bits(),
-            shadow_depth_bias: light.shadow_depth_bias,
-            shadow_normal_bias: light.shadow_normal_bias,
-            shadow_map_near_z: light.shadow_map_near_z,
-            spot_light_tan_angle,
-            decal_index: decals
-                .as_ref()
-                .and_then(|decals| decals.get(entity))
-                .and_then(|index| index.try_into().ok())
-                .unwrap_or(u32::MAX),
-            pad: 0.0,
-            soft_shadow_size: if light.soft_shadows_enabled {
-                light.radius
-            } else {
-                0.0
-            },
-        });
+        global_clusterable_object_meta
+            .gpu_clustered_lights
+            .add(GpuClusteredLight {
+                light_custom_data,
+                // premultiply color by intensity
+                // we don't use the alpha at all, so no reason to multiply only [0..3]
+                color_inverse_square_range: (Vec4::from_slice(&light.color.to_f32_array())
+                    * light.intensity)
+                    .xyz()
+                    .extend(1.0 / (light.range * light.range)),
+                position_radius: light.transform.translation().extend(light.radius),
+                flags: flags.bits(),
+                shadow_depth_bias: light.shadow_depth_bias,
+                shadow_normal_bias: light.shadow_normal_bias,
+                shadow_map_near_z: light.shadow_map_near_z,
+                spot_light_tan_angle,
+                decal_index: decals
+                    .as_ref()
+                    .and_then(|decals| decals.get(entity))
+                    .and_then(|index| index.try_into().ok())
+                    .unwrap_or(u32::MAX),
+                pad: 0.0,
+                soft_shadow_size: if light.soft_shadows_enabled {
+                    light.radius
+                } else {
+                    0.0
+                },
+            });
         global_clusterable_object_meta
             .entity_to_index
             .insert(entity, index);
         debug_assert_eq!(
             global_clusterable_object_meta.entity_to_index.len(),
-            gpu_clustered_lights.len()
+            global_clusterable_object_meta.gpu_clustered_lights.len()
         );
     }
 
@@ -1034,9 +1037,6 @@ pub fn prepare_lights(
             .min(max_texture_array_layers);
     }
 
-    global_clusterable_object_meta
-        .gpu_clustered_lights
-        .set(gpu_clustered_lights);
     global_clusterable_object_meta
         .gpu_clustered_lights
         .write_buffer(&render_device, &render_queue);
