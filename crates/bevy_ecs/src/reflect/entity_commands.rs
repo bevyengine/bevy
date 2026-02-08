@@ -399,9 +399,7 @@ fn take_reflect_with_registry_ref(
     type_registry: &TypeRegistry,
     component_type_path: Cow<'static, str>,
 ) -> Option<Box<dyn Reflect>> {
-    let Some(type_registration) = type_registry.get_with_type_path(&component_type_path) else {
-        return None;
-    };
+    let type_registration = type_registry.get_with_type_path(&component_type_path)?;
     if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
         reflect_component.take(entity)
     } else if let Some(reflect_bundle) = type_registration.data::<ReflectBundle>() {
