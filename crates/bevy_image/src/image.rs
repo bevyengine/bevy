@@ -615,6 +615,11 @@ pub struct Image {
 /// [`ImageSampler::Default`], will read the sampler from the `ImagePlugin` at setup.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, Clone)
+)]
 pub enum ImageSampler {
     /// Default image sampler, derived from the `ImagePlugin` setup.
     #[default]
@@ -660,6 +665,11 @@ impl ImageSampler {
 ///
 /// This type mirrors [`AddressMode`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, Clone)
+)]
 pub enum ImageAddressMode {
     /// Clamp the value to the edge of the texture.
     ///
@@ -689,6 +699,11 @@ pub enum ImageAddressMode {
 ///
 /// This type mirrors [`FilterMode`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, Clone)
+)]
 pub enum ImageFilterMode {
     /// Nearest neighbor sampling.
     ///
@@ -705,6 +720,7 @@ pub enum ImageFilterMode {
 ///
 /// This type mirrors [`CompareFunction`].
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub enum ImageCompareFunction {
     /// Function never passes
     Never,
@@ -732,6 +748,7 @@ pub enum ImageCompareFunction {
 ///
 /// This type mirrors [`SamplerBorderColor`].
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub enum ImageSamplerBorderColor {
     /// RGBA color `[0, 0, 0, 0]`.
     TransparentBlack,
@@ -755,6 +772,11 @@ pub enum ImageSamplerBorderColor {
 ///
 /// This types mirrors [`SamplerDescriptor`], but that might change in future versions.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, Clone)
+)]
 pub struct ImageSamplerDescriptor {
     pub label: Option<String>,
     /// How to deal with out of bounds accesses in the u (i.e. x) direction.

@@ -130,8 +130,11 @@ pub struct SpotLight {
 }
 
 impl SpotLight {
+    /// The default value of [`SpotLight::shadow_depth_bias`].
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
+    /// The default value of [`SpotLight::shadow_normal_bias`].
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
+    /// The default value of [`SpotLight::shadow_map_near_z`].
     pub const DEFAULT_SHADOW_MAP_NEAR_Z: f32 = 0.1;
 }
 
@@ -189,6 +192,7 @@ pub fn spot_light_world_from_view(transform: &GlobalTransform) -> Affine3A {
     Affine3A::from_mat3_translation(basis, transform.translation())
 }
 
+/// Creates the projection matrix that transforms the light's view space into the light's clip space.
 pub fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
     // spot light projection FOV is 2x the angle from spot light center to outer edge
     Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, near_z)
@@ -206,6 +210,7 @@ pub struct SpotLightTexture {
     pub image: Handle<Image>,
 }
 
+/// Updates the frusta for all visible shadow mapped [`SpotLight`]s.
 pub fn update_spot_light_frusta(
     global_lights: Res<GlobalVisibleClusterableObjects>,
     mut views: Query<
