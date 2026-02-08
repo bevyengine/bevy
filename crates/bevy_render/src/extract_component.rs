@@ -41,7 +41,7 @@ impl<C: Component> DynamicUniformIndex<C> {
 /// The marker type is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub trait ExtractComponent<Marker = ()>: SyncComponent {
+pub trait ExtractComponent<Marker = ()>: SyncComponent<Marker> {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
@@ -174,9 +174,11 @@ impl<C, F> ExtractComponentPlugin<C, F> {
     }
 }
 
-impl<C: ExtractComponent<Marker>, Marker: 'static> Plugin for ExtractComponentPlugin<C, Marker> {
+impl<C: ExtractComponent<Marker> + SyncComponent<Marker>, Marker: 'static + Send + Sync> Plugin
+    for ExtractComponentPlugin<C, Marker>
+{
     fn build(&self, app: &mut App) {
-        app.add_plugins(SyncComponentPlugin::<C>::default());
+        app.add_plugins(SyncComponentPlugin::<C, Marker>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
