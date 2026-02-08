@@ -1001,6 +1001,8 @@ impl World {
     /// This is useful in contexts where you only have immutable access to the [`World`].
     /// If you have mutable access to the [`World`], use
     /// [`query()::<EntityRef>().iter(&world)`](World::query()) instead.
+    ///
+    /// Note that this does iterate through *all* entities, including resource entities.
     #[inline]
     pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
         self.archetypes.iter().flat_map(|archetype| {
@@ -4309,7 +4311,7 @@ mod tests {
 
         iterate_and_count_entities(&world, &mut entity_counters);
         assert_eq!(entity_counters[&ent0], 1);
-        assert_eq!(entity_counters.len(), 1);
+        assert_eq!(entity_counters.len(), 2);
 
         // Spawning three more entities and then validating iteration
         let ent1 = world.spawn((Foo, Bar)).id();
@@ -4322,7 +4324,7 @@ mod tests {
         assert_eq!(entity_counters[&ent1], 1);
         assert_eq!(entity_counters[&ent2], 1);
         assert_eq!(entity_counters[&ent3], 1);
-        assert_eq!(entity_counters.len(), 4);
+        assert_eq!(entity_counters.len(), 5);
 
         // Despawning first entity and then validating the iteration
         assert!(world.despawn(ent0));
@@ -4332,7 +4334,7 @@ mod tests {
         assert_eq!(entity_counters[&ent1], 1);
         assert_eq!(entity_counters[&ent2], 1);
         assert_eq!(entity_counters[&ent3], 1);
-        assert_eq!(entity_counters.len(), 3);
+        assert_eq!(entity_counters.len(), 4);
 
         // Spawning three more entities, despawning three and then validating the iteration
         let ent4 = world.spawn(Foo).id();
@@ -4348,7 +4350,7 @@ mod tests {
         assert_eq!(entity_counters[&ent1], 1);
         assert_eq!(entity_counters[&ent5], 1);
         assert_eq!(entity_counters[&ent6], 1);
-        assert_eq!(entity_counters.len(), 3);
+        assert_eq!(entity_counters.len(), 4);
 
         // Despawning remaining entities and then validating the iteration
         assert!(world.despawn(ent1));
@@ -4357,7 +4359,7 @@ mod tests {
 
         iterate_and_count_entities(&world, &mut entity_counters);
 
-        assert_eq!(entity_counters.len(), 0);
+        assert_eq!(entity_counters.len(), 1);
     }
 
     #[test]
