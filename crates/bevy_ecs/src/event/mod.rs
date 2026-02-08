@@ -292,7 +292,7 @@ pub trait EntityEvent: Event {
 }
 
 /// A general trait to mark events that can be observed directly on entities,
-/// and therefore allowed to be used in the context of [`EntityWorldMut::observe`] amongst others.
+/// and therefore allowed to be used in the context of [`EntityWorldMut::observe`](crate::world::EntityWorldMut::observe) amongst others.
 ///
 /// This trait is implemented only for [`EntityEvent`] by default, but can be extended by third parties
 /// to support custom entity event types that don't use the [`EntityEvent`] pattern.
