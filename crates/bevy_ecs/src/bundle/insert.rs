@@ -586,25 +586,23 @@ impl BundleInfo {
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
-                    StorageType::Table => {
-                        new_table_components.push(component_id);
-                    }
-                    StorageType::SparseSet => {
-                        new_sparse_set_components.push(component_id);
-                    }
+                    StorageType::Table => new_table_components.push(component_id),
+                    StorageType::SparseSet => new_sparse_set_components.push(component_id),
                 }
                 if !component_info.mutually_exclusive().is_empty() {
                     added_maybe_incompatible.push(component_id);
-                }
-                for &incompatible_id in component_info
-                    .mutually_exclusive()
-                    .iter()
-                    .filter(|id| current_archetype.contains(**id))
-                {
-                    // SAFETY: incompatible_id is in current_archetype, so it must exist
-                    match unsafe { components.get_info_unchecked(incompatible_id) }.storage_type() {
-                        StorageType::SparseSet => removed_sparse.push(incompatible_id),
-                        StorageType::Table => removed_table.push(incompatible_id),
+                    for &incompatible_id in component_info
+                        .mutually_exclusive()
+                        .iter()
+                        .filter(|id| current_archetype.contains(**id))
+                    {
+                        // SAFETY: incompatible_id is in current_archetype, so it must exist
+                        match unsafe { components.get_info_unchecked(incompatible_id) }
+                            .storage_type()
+                        {
+                            StorageType::SparseSet => removed_sparse.push(incompatible_id),
+                            StorageType::Table => removed_table.push(incompatible_id),
+                        }
                     }
                 }
             }
@@ -617,25 +615,23 @@ impl BundleInfo {
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
-                    StorageType::Table => {
-                        new_table_components.push(component_id);
-                    }
-                    StorageType::SparseSet => {
-                        new_sparse_set_components.push(component_id);
-                    }
+                    StorageType::Table => new_table_components.push(component_id),
+                    StorageType::SparseSet => new_sparse_set_components.push(component_id),
                 }
                 if !component_info.mutually_exclusive().is_empty() {
                     added_maybe_incompatible.push(component_id);
-                }
-                for &incompatible_id in component_info
-                    .mutually_exclusive()
-                    .iter()
-                    .filter(|id| current_archetype.contains(**id))
-                {
-                    // SAFETY: incompatible_id is in current_archetype, so it must exist
-                    match unsafe { components.get_info_unchecked(incompatible_id) }.storage_type() {
-                        StorageType::SparseSet => removed_sparse.push(incompatible_id),
-                        StorageType::Table => removed_table.push(incompatible_id),
+                    for &incompatible_id in component_info
+                        .mutually_exclusive()
+                        .iter()
+                        .filter(|id| current_archetype.contains(**id))
+                    {
+                        // SAFETY: incompatible_id is in current_archetype, so it must exist
+                        match unsafe { components.get_info_unchecked(incompatible_id) }
+                            .storage_type()
+                        {
+                            StorageType::SparseSet => removed_sparse.push(incompatible_id),
+                            StorageType::Table => removed_table.push(incompatible_id),
+                        }
                     }
                 }
             }
@@ -651,7 +647,7 @@ impl BundleInfo {
                         let incompatible_info =
                             unsafe { components.get_info_unchecked(*maybe_incompatible) };
                         panic!(
-                            "Bundle {:?} has incompatible components {} and {}",
+                            "Inserting bundle {:?} that has mutually exclusive components {} and {}",
                             // TODO: use actual bundle name
                             self.id(),
                             info.name(),
@@ -705,21 +701,19 @@ impl BundleInfo {
                     new_table_components
                 };
 
-                sparse_set_components = if new_sparse_set_components.is_empty() {
-                    current_archetype
-                        .sparse_set_components()
-                        .filter(|component_id| !removed_sparse.contains(component_id))
-                        .collect()
-                } else {
-                    new_sparse_set_components.extend(
-                        current_archetype
-                            .sparse_set_components()
-                            .filter(|component_id| !removed_sparse.contains(component_id)),
-                    );
-                    // Sort to ignore order while hashing.
-                    new_sparse_set_components.sort_unstable();
-                    new_sparse_set_components
-                };
+                sparse_set_components =
+                    if new_sparse_set_components.is_empty() && removed_sparse.is_empty() {
+                        current_archetype.sparse_set_components().collect()
+                    } else {
+                        new_sparse_set_components.extend(
+                            current_archetype
+                                .sparse_set_components()
+                                .filter(|component_id| !removed_sparse.contains(component_id)),
+                        );
+                        // Sort to ignore order while hashing.
+                        new_sparse_set_components.sort_unstable();
+                        new_sparse_set_components
+                    };
             };
             // SAFETY: ids in self must be valid
             let (new_archetype_id, is_new_created) = unsafe {
