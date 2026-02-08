@@ -12,8 +12,6 @@ While components have [`ComponentHooks`](https://docs.rs/bevy/latest/bevy/ecs/co
 The same is true for relations, observers, and a host of other concepts that already exist for components.
 Moreover, the engine internals contain a lot of duplication because of it.
 
-This motivates us to transition resources to components, and while most of the public API will stay the same, some breaking changes are inevitable.
-
 This first implementation is limited, only enabling observers for resources.
 
 ```rust
@@ -26,5 +24,5 @@ fn on_add_setting(add: On<Add, GlobalSetting>, query: Query<&LevelSetting>) {
 ```
 
 The main drawbacks are twofold. First it's no longer to derive both `Component` and `Resource` for a struct.
-Secondly `ReflectResource` has been gutted and now shadows `ReflectComponent`.
+Secondly `ReflectResource` has been gutted, use `ReflectComponent` instead.
 For more information, see the migration guide.

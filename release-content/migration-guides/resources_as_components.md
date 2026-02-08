@@ -3,21 +3,14 @@ title: Resources as Components
 pull_requests: [20934]
 ---
 
-Resources are very similar to Components: they are both data that can be stored in the ECS and queried.
-The only real difference between them is that querying a resource will return either one or zero resources, whereas querying for a component can return any number of matching entities.
+## `#[derive(Resource)]` implements the `Component` trait
 
-Even so, resources and components have always been separate concepts within the ECS.
-This leads to some annoying restrictions.
-While components have [`ComponentHooks`](https://docs.rs/bevy/latest/bevy/ecs/component/struct.ComponentHooks.html), it's not possible to add lifecycle hooks to resources.
-The same is true for relations, observers, and a host of other concepts that already exist for components.
-Moreover, the engine internals contain a lot of duplication because of it.
-
-This motivates us to transition resources to components, and while most of the public API will stay the same, some breaking changes are inevitable.
-
-The largest change is with regards to `ReflectResource`, which now shadows `ReflectComponent` exactly. When using `ReflectResource`, keep that in mind. The second largest change is that it's no longer possible to simultaneously derive `Component` and `Resource` on a struct. So
+In 0.19, `Resource` is a subtrait of `Component` and `#[derive(Resource)]` implements both `Resource` as well as `Component`.
+This means it's no longer possible to doubly derive both `Component` and `Resource`.
+Instead, you should split them up:
 
 ```rust
-// 0.17.0
+// 0.18.0
 #[derive(Component, Resource)]
 struct Dual
 ```
@@ -25,7 +18,7 @@ struct Dual
 becomes
 
 ```rust
-// 0.18.0
+// 0.19.0
 #[derive(Component)]
 struct DualComp;
 
@@ -34,33 +27,52 @@ struct DualRes;
 ```
 
 Consequently, `UiDebugOverlay` is split into `GlobalUiDebugOverlay` (resource) and `UiDebugOverlay` (component), and `UiDebugOptions` is split into `GlobalUiDebugOptions` (resource) and `UiDebugOptions` (component).
-It's still possible to doubly derive `#[reflect(Component, Resource)]`, but since `ReflectResource` shadows `ReflectComponent` this isn't useful.
 
-Next, resource registration has been changed. `World::register_resource_with_descriptor` has been renamed to `World::register_non_send_with_descriptor` and is only supposed to be used for non-send resources.
-Now, if one wants to dynamically register a resource, one must use `register_component_with_descriptor`.
+## `#[reflect(Resource)]` Changes
 
-```rust
-// 0.17
-world.register_resource_with_descriptor(descriptor);
+The `ReflectResource` is a ZST (zero-sized type) in 0.19 and only functions to signify that the trait is reflected.
+Instead, `#[reflect(Resource)]` also reflects the `Component` trait, so use `ReflectComponent` instead.
+This is likely to show up in code that uses reflection, like BRP (Bevy Reflect Protocol) and `bevy_scene`.
 
-// 0.18
-use bevy::ecs::resource::{IsResource, resource_on_add_hook, resource_on_despawn_hook};
+## Renaming Non-Send Resources to Non-Send Data
 
-world.register_component_with_descriptor(descriptor);
-world.register_component_hooks::<CustomResource>().on_add(resource_on_add_hook);
-world.register_component_hooks::<CustomResource>().on_despawn(resource_on_despawn_hook);
-world.register_required_resource::<CustomResource, IsResource>();
-```
+Previously there were two types of resources: `Send` resources and `!Send` resources.
+Now that `Send` resources are stored as components, `!Send` resources have little in common with their `Send` counterparts.
+This is why non-send resources are being renamed to non-send data.
+The following APIs are effected:
 
-Registering the component hooks and the required resource is obligatory, as it's key to how resources work internally.
-Identically, `ComponentRegistrator::register_resource_with_descriptor`, `ComponentRegistrator::queue_register_resource_with_descriptor` have been renamed to `register_non_send_with_descriptor` and `queue_register_non_send_with_descriptor` respectively.
+- `App::init_non_send_resource` is renamed to `App::init_non_send`.
+- `DeferredWorld::non_send_resource_mut` is renamed to `DeferredWorld::non_send_mut`.
+- `DeferredWorld::get_non_send_resource_mut` is renamed to `DeferredWorld::get_non_send_mut`.
+- `ResourceData<SEND: true>` is removed, while `ResourceData<SEND: false>` is renamed to `NonSendData`.
+- `Resources<SEND: true>` is removed and `Resources<Send: false>` is renamed to `NonSends`.
+- `UnsafeWorldCell::get_non_send_resource` is renamed to `UnsafeWorldCell::get_non_send`.
+- `UnsafeWorldCell::get_non_send_resource_by_id` is renamed to `UnsafeWorldCell::get_non_send_by_id`.
+- `UnsafeWorldCell::get_non_send_resource_mut` is renamed to `UnsafeWorldCell::get_non_send_mut`.
+- `UnsafeWorldCell::get_non_send_resource_mut_by_id` is renamed to `UnsafeWorldCell::get_non_send_mut_by_id`.
+- `World::init_non_send_resource` is renamed to `World::init_non_send`.
+- `World::insert_non_send_resource` is renamed to `World::insert_non_send`.
+- `World::remove_non_send_resource` is renamed to `World::remove_non_send`.
+- `World::non_send_resource` is renamed to `World::non_send`.
+- `World::non_send_resource_mut` is renamed to `World::non_send_mut`.
+- `World::get_non_send_resource` is renamed to `World::get_non_send`.
+- `World::get_non_send_resource_mut` is renamed to `World::get_non_send_mut`.
 
-We move on to `World::entities().len()`, which now gives more entities than you might expect.
-For example, a new world no longer contains zero entities.
-This is mostly important for unit tests.
-If there is any place you are currently using `world.entities().len()`, we recommend you instead use a query `world.query<RelevantComponent>().query(&world).count()`.
+## Component Registration
 
-Lastly, since `MapEntities` is implemented by default for components, it's no longer necessary to add `derive(MapEntities)` to a resource.
+Before using components and resources they must be registered to a world.
+The registration process for components and resources is very similar and now that `Send` resources *are* components, we're able to simplify some of the code; removing / deprecating some methods.
+
+- `Components::register_resource_unchecked` is renamed to `Components::register_non_send_unchecked`.
+- `ComponentsRegistrator::register_resource` is deprecated in favor of `ComponentsRegistrator::register_component`.
+- `ComponentsRegistrator::register_resource_with` is renamed to `ComponentsRegistrator::register_non_send_with`.
+- `ComponentsRegistrator::register_resource_with_descriptor` is removed in favor of `ComponentsRegistrator::register_component_with_descriptor`.
+- `ComponentsQueuedRegistrator::queue_register_resource_with_descriptor` was removed in favor of `ComponentsQueuedRegistrator::queue_register_component_with_descriptor`.
+- `World::register_resource_with_descriptor was renamed to World::register_non_send_with_descriptor`.
+
+## Miscellaneous
+
+Since `MapEntities` is implemented by default for components, it's no longer necessary to add `derive(MapEntities)` to a resource.
 
 ```rust
 // 0.17.0
@@ -71,3 +83,5 @@ struct EntityStruct(#[entities] Entity);
 #[derive(Resource)]
 struct EntityStruct(#[entities] Entity);
 ```
+
+Lastly, `World::remove_resource_by_id` now returns `bool` instead of `Option<()>`.
