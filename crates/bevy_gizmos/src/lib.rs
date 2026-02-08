@@ -36,6 +36,8 @@ pub mod grid;
 pub mod primitives;
 pub mod retained;
 pub mod rounded_box;
+mod simplex_stroke_font;
+pub mod stroke_text;
 
 #[cfg(feature = "bevy_mesh")]
 pub mod skinned_mesh_bounds;

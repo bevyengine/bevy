@@ -4558,6 +4558,54 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "2d_text_gizmos"
+path = "examples/gizmos/2d_text_gizmos.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.2d_text_gizmos]
+name = "Text Gizmos 2d"
+description = "A scene showcasing 2d text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "anchored_text_gizmos"
+path = "examples/gizmos/anchored_text_gizmos.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.anchored_text_gizmos]
+name = "Anchored Text Gizmos"
+description = "Demonstrates anchored text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "3d_text_gizmos"
+path = "examples/gizmos/3d_text_gizmos.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.3d_text_gizmos]
+name = "Text Gizmos 3d"
+description = "A scene showcasing 3d text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "text_gizmos_font"
+path = "examples/gizmos/text_gizmos_font.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.text_gizmos_font]
+name = "Text Gizmos Font"
+description = "Example displaying the font used by text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
 name = "custom_gltf_vertex_attribute"
 path = "examples/gltf/custom_gltf_vertex_attribute.rs"
 # Causes an ICE on docs.rs

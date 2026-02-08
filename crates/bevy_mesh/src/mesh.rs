@@ -18,7 +18,7 @@ use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_image::Image;
 use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
 use bevy_platform::collections::{hash_map, HashMap};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
 use core::ptr;
@@ -2489,6 +2489,19 @@ impl Mesh {
             .as_ref_option()?
             .map(core::ops::Deref::deref))
     }
+}
+
+/// An enum to define which UV attribute to use for a texture.
+///
+/// It only supports two UV attributes, [`Mesh::ATTRIBUTE_UV_0`] and
+/// [`Mesh::ATTRIBUTE_UV_1`].
+/// The default is [`UvChannel::Uv0`].
+#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
+#[reflect(Default, Debug, Clone, PartialEq)]
+pub enum UvChannel {
+    #[default]
+    Uv0,
+    Uv1,
 }
 
 /// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`

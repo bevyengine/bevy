@@ -376,10 +376,10 @@ impl<'w, 's> Diagnostics<'w, 's> {
 struct DiagnosticsBuffer(HashMap<DiagnosticPath, DiagnosticMeasurement, PassHash>);
 
 impl SystemBuffer for DiagnosticsBuffer {
-    fn apply(
+    fn queue(
         &mut self,
         _system_meta: &bevy_ecs::system::SystemMeta,
-        world: &mut bevy_ecs::world::World,
+        mut world: bevy_ecs::world::DeferredWorld,
     ) {
         let Some(mut diagnostics) = world.get_resource_mut::<DiagnosticsStore>() else {
             // `SystemBuffer::apply` is called even if the system never runs. If a user uses
