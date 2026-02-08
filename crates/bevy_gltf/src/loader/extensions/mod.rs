@@ -69,7 +69,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
-    fn on_root(&mut self, gltf: &gltf::Gltf) {}
+    fn on_root(&mut self, load_context: &mut LoadContext<'_>, gltf: &gltf::Gltf) {}
 
     #[cfg(feature = "bevy_animation")]
     #[expect(

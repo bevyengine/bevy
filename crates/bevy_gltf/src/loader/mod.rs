@@ -249,7 +249,7 @@ impl GltfLoader {
         // Let extensions process the root data for the extension ids
         // they've subscribed to.
         for extension in extensions.iter_mut() {
-            extension.on_root(&gltf);
+            extension.on_root(load_context, &gltf);
         }
 
         let file_name = load_context

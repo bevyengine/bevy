@@ -30,6 +30,7 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
+        sync_component::SyncComponent,
         sync_world::MainEntity,
         view::{ExtractedView, NoIndirectDrawing},
         Render, RenderApp, RenderStartup, RenderSystems,
@@ -84,10 +85,13 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 #[derive(Component, Deref)]
 struct InstanceMaterialData(Vec<InstanceData>);
 
+impl SyncComponent for InstanceMaterialData {
+    type Out = Self;
+}
+
 impl ExtractComponent for InstanceMaterialData {
     type QueryData = &'static InstanceMaterialData;
     type QueryFilter = ();
-    type Out = Self;
 
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self> {
         Some(InstanceMaterialData(item.0.clone()))

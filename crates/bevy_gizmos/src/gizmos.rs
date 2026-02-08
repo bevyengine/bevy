@@ -16,7 +16,7 @@ use bevy_ecs::{
         Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
         SystemParamValidationError,
     },
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -347,7 +347,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
         let mut storage = world.resource_mut::<GizmoStorage<Config, Clear>>();
         storage.list_positions.append(&mut self.list_positions);
         storage.list_colors.append(&mut self.list_colors);

@@ -134,6 +134,7 @@ mod test {
     use crate::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         extract_plugin::ExtractPlugin,
+        sync_component::SyncComponent,
         sync_world::MainEntity,
         Render, RenderApp,
     };
@@ -150,12 +151,14 @@ mod test {
     #[derive(Component, Clone, Debug)]
     struct RenderComponentNoExtract;
 
+    impl SyncComponent for RenderComponent {
+        type Out = (RenderComponent, RenderComponentExtra);
+    }
+
     impl ExtractComponent for RenderComponent {
         type QueryData = &'static Self;
 
         type QueryFilter = ();
-
-        type Out = (RenderComponent, RenderComponentExtra);
 
         fn extract_component(
             _item: bevy_ecs::query::QueryItem<'_, '_, Self::QueryData>,
@@ -243,8 +246,7 @@ mod test {
                         assert!(entity.1.is_none());
                         assert!(entity.2.is_none());
                         assert!(entity.3.is_some());
-                        // TODO: this is a bug
-                        // assert!(entity.4.is_some());
+                        assert!(entity.4.is_some());
                     },
                 )
                 .unwrap();
