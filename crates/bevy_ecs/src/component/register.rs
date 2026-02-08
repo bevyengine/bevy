@@ -547,6 +547,8 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// This will reserve an id and queue the registration.
     /// These registrations will be carried out at the next opportunity.
     ///
+    /// This can also be used to register resources and non-send data.
+    ///
     /// # Note
     ///
     /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
@@ -635,29 +637,6 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                         }
                     },
                 )
-            }
-        })
-    }
-
-    /// This is a queued version of [`ComponentsRegistrator::register_non_send_with_descriptor`].
-    /// This will reserve an id and queue the registration.
-    /// These registrations will be carried out at the next opportunity.
-    ///
-    /// # Note
-    ///
-    /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
-    /// See type level docs for details.
-    #[inline]
-    pub fn queue_register_non_send_with_descriptor(
-        &self,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        self.register_arbitrary_dynamic(descriptor, |registrator, id, descriptor| {
-            // SAFETY: Id uniqueness handled by caller.
-            unsafe {
-                registrator
-                    .components
-                    .register_component_inner(id, descriptor);
             }
         })
     }
