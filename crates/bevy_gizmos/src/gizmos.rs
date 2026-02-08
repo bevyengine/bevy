@@ -372,6 +372,13 @@ where
             storage.list_colors.append(&mut self.list_colors);
             storage.strip_positions.append(&mut self.strip_positions);
             storage.strip_colors.append(&mut self.strip_colors);
+        } else {
+            // Prevent the buffer from growing indefinitely if GizmoStorage
+            // for the config group has not been initialized
+            self.list_positions.clear();
+            self.list_colors.clear();
+            self.strip_positions.clear();
+            self.strip_colors.clear();
         }
     }
 }
