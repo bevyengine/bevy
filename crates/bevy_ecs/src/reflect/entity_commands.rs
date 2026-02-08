@@ -318,7 +318,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Note
     ///
-    /// Prefer to use the typed [`EntityWorldMut::take`] if possible. Removing a reflected component
+    /// Prefer to use the typed [`EntityWorldMut::take`] if possible. Taking a reflected component
     /// is much slower.
     pub fn take_reflect(
         &mut self,
