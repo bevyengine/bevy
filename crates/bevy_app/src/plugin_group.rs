@@ -1,4 +1,5 @@
 use crate::{App, AppError, Plugin};
+use alloc::collections::BTreeMap;
 use alloc::{
     boxed::Box,
     string::{String, ToString},
@@ -233,6 +234,7 @@ impl PluginGroup for PluginGroupBuilder {
 pub struct PluginGroupBuilder {
     group_name: String,
     plugins: TypeIdMap<PluginEntry>,
+    names: BTreeMap<&'static str, TypeId>,
     order: Vec<TypeId>,
 }
 
@@ -243,12 +245,21 @@ impl PluginGroupBuilder {
             group_name: PG::name(),
             plugins: Default::default(),
             order: Default::default(),
+            names: BTreeMap::new(),
         }
     }
 
     /// Checks if the [`PluginGroupBuilder`] contains the given [`Plugin`].
     pub fn contains<T: Plugin>(&self) -> bool {
         self.plugins.contains_key(&TypeId::of::<T>())
+    }
+
+    /// Checks if the [`PluginGroupBuilder`] contains the given [`Plugin`].
+    pub fn contains_plugin_named(&self, name: &str) -> bool {
+        let Some(type_id) = self.names.get(name) else {
+            return false;
+        };
+        self.plugins.contains_key(type_id)
     }
 
     /// Returns `true` if the [`PluginGroupBuilder`] contains the given [`Plugin`] and it's enabled.
@@ -276,6 +287,8 @@ impl PluginGroupBuilder {
             },
             added_at_index,
         );
+        self.names
+            .insert(core::any::type_name::<T>(), TypeId::of::<T>());
     }
 
     // Insert the new plugin entry as enabled, and removes its previous ordering if it was
@@ -362,7 +375,10 @@ impl PluginGroupBuilder {
     /// already in the group, it is removed from its previous place.
     pub fn add_group(mut self, group: impl PluginGroup) -> Self {
         let Self {
-            mut plugins, order, ..
+            mut plugins,
+            mut names,
+            order,
+            ..
         } = group.build();
 
         for plugin_id in order {
@@ -374,6 +390,7 @@ impl PluginGroupBuilder {
 
             self.order.push(plugin_id);
         }
+        self.names.append(&mut names);
 
         self
     }
@@ -494,6 +511,16 @@ impl PluginGroupBuilder {
         self
     }
 
+    /// Enables a [`Plugin`] based on its (name)[core::any::type_name]. See as (enable)[`Self::enable`].
+    pub fn enable_plugin_named(mut self, name: &str) -> Self {
+        let Some(type_id) = self.names.get(name) else {
+            return self;
+        };
+        let plugin_entry = self.plugins.get_mut(type_id).unwrap();
+        plugin_entry.enabled = true;
+        self
+    }
+
     /// Disables a [`Plugin`], preventing it from being added to the [`App`] with the rest of the
     /// [`PluginGroup`]. The disabled [`Plugin`] keeps its place in the [`PluginGroup`], so it can
     /// still be used for ordering with [`add_before`](Self::add_before) or
@@ -504,6 +531,16 @@ impl PluginGroupBuilder {
             .plugins
             .get_mut(&TypeId::of::<T>())
             .expect("Cannot disable a plugin that does not exist.");
+        plugin_entry.enabled = false;
+        self
+    }
+
+    /// Disables a [`Plugin`] based on its (name)[core::any::type_name]. See as (disable)[`Self::disable`].
+    pub fn disable_plugin_named(mut self, name: &str) -> Self {
+        let Some(type_id) = self.names.get(name) else {
+            return self;
+        };
+        let plugin_entry = self.plugins.get_mut(type_id).unwrap();
         plugin_entry.enabled = false;
         self
     }
