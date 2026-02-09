@@ -657,6 +657,7 @@ pub fn check_visibility(
         Option<&VisibilityClass>,
         Option<&RenderLayers>,
         Option<&Aabb>,
+        Option<&Sphere>,
         &GlobalTransform,
         Has<NoFrustumCulling>,
         Has<VisibilityRange>,
@@ -685,6 +686,7 @@ pub fn check_visibility(
                     visibility_class,
                     maybe_entity_mask,
                     maybe_model_aabb,
+                    maybe_model_sphere,
                     transform,
                     no_frustum_culling,
                     has_visibility_range,
@@ -711,23 +713,26 @@ pub fn check_visibility(
                     return;
                 }
 
-                // If we have an aabb, do frustum culling
-                if !no_frustum_culling
-                    && !no_cpu_culling_camera
-                    && !no_cpu_culling_entity
-                    && let Some(model_aabb) = maybe_model_aabb
-                {
-                    let world_from_local = transform.affine();
-                    let model_sphere = Sphere {
-                        center: world_from_local.transform_point3a(model_aabb.center),
-                        radius: transform.radius_vec3a(model_aabb.half_extents),
-                    };
-                    // Do quick sphere-based frustum culling
-                    if !frustum.intersects_sphere(&model_sphere, false) {
-                        return;
-                    }
-                    // Do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                // If we have an aabb or a bounding sphere, do frustum culling
+                if !no_frustum_culling && !no_cpu_culling_camera && !no_cpu_culling_entity {
+                    if let Some(model_aabb) = maybe_model_aabb {
+                        let world_from_local = transform.affine();
+                        let model_sphere = Sphere {
+                            center: world_from_local.transform_point3a(model_aabb.center),
+                            radius: transform.radius_vec3a(model_aabb.half_extents),
+                        };
+                        // Do quick sphere-based frustum culling
+                        if !frustum.intersects_sphere(&model_sphere, false) {
+                            return;
+                        }
+                        // Do aabb-based frustum culling
+                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                            return;
+                        }
+                    } else if let Some(model_sphere) = maybe_model_sphere
+                        && !frustum.intersects_sphere(model_sphere, false)
+                    {
+                        // Do sphere-based frustum culling in this case
                         return;
                     }
                 }
