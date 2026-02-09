@@ -101,7 +101,8 @@ impl Plugin for GizmoPlugin {
         app.init_asset::<GizmoAsset>()
             .init_resource::<GizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
-            .init_gizmo_group::<DefaultGizmoConfigGroup>();
+            .init_gizmo_group::<DefaultGizmoConfigGroup>()
+            .configure_sets(PostUpdate, GizmoMeshSystems.before(AssetEventSystems));
 
         app.add_plugins((
             aabb::AabbGizmoPlugin,
@@ -168,8 +169,7 @@ impl AppGizmoBuilder for App {
                 (
                     propagate_gizmos::<Config, Fixed>.before(GizmoMeshSystems),
                     update_gizmo_meshes::<Config>
-                        .in_set(GizmoMeshSystems)
-                        .before(AssetEventSystems),
+                        .in_set(GizmoMeshSystems),
                 ),
             );
 
