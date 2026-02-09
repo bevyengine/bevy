@@ -17,7 +17,7 @@ use bevy_core_pipeline::mip_generation::{self, DownsampleShaders, DownsamplingCo
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{With, Without},
+    query::Without,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -128,7 +128,7 @@ impl Plugin for EnvironmentMapGenerationPlugin {
         embedded_asset!(app, "environment_filter.wgsl");
         embedded_asset!(app, "copy.wgsl");
 
-        app.add_plugins(SyncComponentPlugin::<EnvironmentMapLight, Self>::default())
+        app.add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight, Self>::default())
             .add_systems(Update, generate_environment_map_light);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -557,10 +557,7 @@ pub struct GeneratorBindGroups {
 
 /// Prepares bind groups for environment map generation pipelines
 pub fn prepare_generated_environment_map_bind_groups(
-    light_probes: Query<
-        (Entity, &IntermediateTextures, &RenderEnvironmentMap),
-        With<RenderEnvironmentMap>,
-    >,
+    light_probes: Query<(Entity, &IntermediateTextures, &RenderEnvironmentMap)>,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     queue: Res<RenderQueue>,
@@ -1109,6 +1106,6 @@ pub fn generate_environment_map_light(
     }
 }
 
-impl SyncComponent<EnvironmentMapGenerationPlugin> for EnvironmentMapLight {
-    type Out = GeneratedEnvironmentMapLight;
+impl SyncComponent<EnvironmentMapGenerationPlugin> for GeneratedEnvironmentMapLight {
+    type Out = RenderEnvironmentMap;
 }

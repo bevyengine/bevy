@@ -1179,9 +1179,14 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 /// so you should try to minimize the time spent in [`SystemBuffer::apply`].
 pub trait SystemBuffer: FromWorld + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
-    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
+    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+        self.queue(system_meta, world.into());
+    }
     /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
-    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
+    ///
+    /// To queue structural changes to [`DeferredWorld`], a command queue of the [`DeferredWorld`]
+    /// should be used via [`commands`](crate::world::DeferredWorld::commands).
+    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld);
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
@@ -1202,6 +1207,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::world::DeferredWorld;
 /// // Tracks whether or not there is a threat the player should be aware of.
 /// #[derive(Resource, Default)]
 /// pub struct Alarm(bool);
@@ -1237,7 +1243,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// impl SystemBuffer for AlarmFlag {
 ///     // When `AlarmFlag` is used in a system, this function will get
 ///     // called the next time buffers are applied via ApplyDeferred.
-///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+///     fn queue(&mut self, system_meta: &SystemMeta, mut world: DeferredWorld) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;
 ///             self.0 = false;
