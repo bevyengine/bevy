@@ -526,7 +526,7 @@ pub(crate) fn assign_objects_to_clusters(
 
         let mut update_from_object_intersections =
             |visible_clusterable_objects: &mut VisibleClusterableObjects| {
-                for clusterable_object in &mut clusterable_objects {
+                for clusterable_object in &clusterable_objects {
                     // check if the clusterable light layers overlap the view layers
                     if !view_layers.intersects(&clusterable_object.render_layers) {
                         continue;

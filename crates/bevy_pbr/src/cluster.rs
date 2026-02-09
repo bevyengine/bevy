@@ -4,7 +4,7 @@ use bevy_camera::Camera;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_light::{
     cluster::{ClusterableObjectCounts, Clusters, GlobalClusterSettings},
-    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, LightProbe, PointLight, SpotLight,
+    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, PointLight, SpotLight,
 };
 use bevy_math::{uvec4, UVec3, UVec4, Vec4};
 use bevy_render::{
@@ -296,6 +296,8 @@ pub fn extract_clusters(
         Query<
             (
                 Option<&RenderEntity>,
+                Has<PointLight>,
+                Has<SpotLight>,
                 Has<EnvironmentMapLight>,
                 Has<IrradianceVolume>,
                 Has<ClusteredDecal>,
@@ -303,7 +305,8 @@ pub fn extract_clusters(
             Or<(
                 With<PointLight>,
                 With<SpotLight>,
-                With<LightProbe>,
+                With<EnvironmentMapLight>,
+                With<IrradianceVolume>,
                 With<ClusteredDecal>,
             )>,
         >,
@@ -326,6 +329,8 @@ pub fn extract_clusters(
             for clusterable_entity in cluster_objects.iter() {
                 let Ok((
                     maybe_render_entity,
+                    is_point_light,
+                    is_spot_light,
                     is_reflection_probe,
                     is_irradiance_volume,
                     is_clustered_decal,
@@ -341,7 +346,7 @@ pub fn extract_clusters(
                 if let Some(render_entity) = maybe_render_entity {
                     if is_clustered_decal {
                         data.push(ExtractedClusterableObjectElement::Decal(**render_entity));
-                    } else {
+                    } else if is_point_light || is_spot_light {
                         data.push(ExtractedClusterableObjectElement::Light(**render_entity));
                     }
                 }
