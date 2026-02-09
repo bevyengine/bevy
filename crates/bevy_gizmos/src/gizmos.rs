@@ -102,7 +102,7 @@ pub struct Swap<Clear>(PhantomData<Clear>);
 /// cleared each time the [`RunFixedMainLoop`](bevy_app::RunFixedMainLoop)
 /// schedule is run.
 ///
-/// Gizmos should be spawned before the [`AssetEventSystems`](bevy_asset::AssetEventSystems)
+/// Gizmos should be spawned before [`GizmoMeshSystems`](crate::GizmoMeshSystems)
 /// are run in the [`PostUpdate`](bevy_app::PostUpdate) schedule
 /// to ensure they are drawn.
 ///
