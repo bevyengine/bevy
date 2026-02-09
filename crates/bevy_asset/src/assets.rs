@@ -645,6 +645,17 @@ impl<'a, A: Asset> AssetMut<'a, A> {
     pub fn into_inner_untracked(self) -> &'a mut A {
         self.asset
     }
+
+    /// Manually bypasses change detection, allowing you to mutate the underlying value
+    /// without emitting [`AssetEvent::Modified`] event.
+    ///
+    /// # Warning
+    /// This is a risky operation, that can have unexpected consequences on any system relying on this code.
+    /// However, it can be an essential escape hatch when, for example,
+    /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
+    pub fn bypass_change_detection(&mut self) -> &mut A {
+        self.asset
+    }
 }
 
 impl<'a, A: Asset> Deref for AssetMut<'a, A> {
