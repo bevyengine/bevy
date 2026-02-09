@@ -18,7 +18,7 @@ use crate::{
     color_from_entity,
     config::{GizmoConfigGroup, GizmoConfigStore},
     gizmos::Gizmos,
-    AppGizmoBuilder,
+    AppGizmoBuilder, GizmoMeshSystems,
 };
 
 /// A [`Plugin`] that provides visualization of [`Aabb`]s for debugging.
@@ -35,7 +35,8 @@ impl Plugin for AabbGizmoPlugin {
                 }),
             )
                 .after(bevy_camera::visibility::VisibilitySystems::MarkNewlyHiddenEntitiesInvisible)
-                .after(TransformSystems::Propagate),
+                .after(TransformSystems::Propagate)
+                .before(GizmoMeshSystems),
         );
     }
 }

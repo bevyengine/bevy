@@ -135,7 +135,7 @@ pub struct Swap<Clear>(PhantomData<Clear>);
 ///            .add_systems(EndOfRun, collect_requested_gizmos::<DefaultGizmoConfigGroup, MyContext>)
 ///            .add_systems(EndOfMyContext, end_gizmo_context::<DefaultGizmoConfigGroup, MyContext>)
 ///            .add_systems(
-///                Last,
+///                PostUpdate,
 ///                propagate_gizmos::<DefaultGizmoConfigGroup, MyContext>.before(GizmoMeshSystems),
 ///            );
 ///     }

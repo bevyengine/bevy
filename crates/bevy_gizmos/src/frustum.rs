@@ -47,7 +47,7 @@ use crate::{
     color_from_entity,
     config::{GizmoConfigGroup, GizmoConfigStore},
     gizmos::Gizmos,
-    AppGizmoBuilder,
+    AppGizmoBuilder, GizmoMeshSystems,
 };
 
 /// A [`Plugin`] that provides visualization of [`Frustum`]s for debugging.
@@ -69,7 +69,8 @@ impl Plugin for FrustumGizmoPlugin {
                     }),
                 )
                     .in_set(FrustumGizmoSystems)
-                    .after(VisibilitySystems::UpdateFrusta),
+                    .after(VisibilitySystems::UpdateFrusta)
+                    .before(GizmoMeshSystems),
             );
     }
 }
