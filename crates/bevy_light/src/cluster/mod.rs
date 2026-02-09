@@ -461,6 +461,8 @@ pub fn add_light_probe_and_decal_aabbs(
     for entity in &light_probes_and_decals_query {
         commands.entity(entity).insert(Aabb {
             center: Vec3A::ZERO,
+            // Light probes are always unit-cube sized, the transform scale is what gives them their size.
+            // Scale should not be included in the Aabb because it gets transformed by the GlobalTransform.
             half_extents: Vec3A::splat(0.5),
         });
     }
