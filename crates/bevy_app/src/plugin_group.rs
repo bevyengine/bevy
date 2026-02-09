@@ -939,4 +939,95 @@ mod tests {
     fn construct_nested_plugin_groups() {
         PluginGroupC {}.build();
     }
+
+    #[test]
+    fn contains_plugin_named() {
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB);
+
+        assert!(group.contains_plugin_named("bevy_app::plugin_group::tests::PluginA"));
+        assert!(group.contains_plugin_named("bevy_app::plugin_group::tests::PluginB"));
+        assert!(!group.contains_plugin_named("bevy_app::plugin_group::tests::PluginC"));
+        assert!(!group.contains_plugin_named("NonExistentPlugin"));
+    }
+
+    #[test]
+    fn enable_plugin_named() {
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB)
+            .disable::<PluginA>();
+
+        assert!(!group.enabled::<PluginA>());
+        assert!(group.enabled::<PluginB>());
+
+        let group = group.enable_plugin_named("bevy_app::plugin_group::tests::PluginA");
+
+        assert!(group.enabled::<PluginA>());
+        assert!(group.enabled::<PluginB>());
+    }
+
+    #[test]
+    fn enable_plugin_named_nonexistent() {
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB);
+
+        // Should not panic when plugin doesn't exist
+        let group = group.enable_plugin_named("NonExistentPlugin");
+
+        assert!(group.enabled::<PluginA>());
+        assert!(group.enabled::<PluginB>());
+    }
+
+    #[test]
+    fn disable_plugin_named() {
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB);
+
+        assert!(group.enabled::<PluginA>());
+        assert!(group.enabled::<PluginB>());
+
+        let group = group.disable_plugin_named("bevy_app::plugin_group::tests::PluginB");
+
+        assert!(group.enabled::<PluginA>());
+        assert!(!group.enabled::<PluginB>());
+    }
+
+    #[test]
+    fn disable_plugin_named_nonexistent() {
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB);
+
+        // Should not panic when plugin doesn't exist
+        let group = group.disable_plugin_named("NonExistentPlugin");
+
+        assert!(group.enabled::<PluginA>());
+        assert!(group.enabled::<PluginB>());
+    }
+
+    #[test]
+    fn named_plugins_persist_in_add_group() {
+        let group_a = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB);
+
+        let group_b = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginC)
+            .add_group(group_a);
+
+        // All plugins from both groups should be accessible by name
+        assert!(group_b.contains_plugin_named("bevy_app::plugin_group::tests::PluginA"));
+        assert!(group_b.contains_plugin_named("bevy_app::plugin_group::tests::PluginB"));
+        assert!(group_b.contains_plugin_named("bevy_app::plugin_group::tests::PluginC"));
+
+        // Test that we can disable by name after merging groups
+        let group_b = group_b.disable_plugin_named("bevy_app::plugin_group::tests::PluginA");
+        assert!(!group_b.enabled::<PluginA>());
+        assert!(group_b.enabled::<PluginB>());
+        assert!(group_b.enabled::<PluginC>());
+    }
 }
