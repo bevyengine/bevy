@@ -224,6 +224,10 @@ where
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        GizmosState::<Config, Clear>::queue(&mut state.state, system_meta, world);
+    }
+
     #[inline]
     unsafe fn validate_param(
         state: &mut Self::State,
