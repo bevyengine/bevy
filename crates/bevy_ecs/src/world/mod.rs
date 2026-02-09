@@ -74,7 +74,7 @@ use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, fmt, mem::ManuallyDrop};
 use log::warn;
-use unsafe_world_cell::UnsafeWorldCell;
+use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -982,6 +982,31 @@ impl World {
         // SAFETY: `&mut self` gives mutable access to the entire world,
         // and prevents any other access to the world.
         unsafe { entities.fetch_mut(cell) }
+    }
+
+    /// Returns an [`Entity`] iterator of current entities.
+    ///
+    /// This is useful in contexts where you only have immutable access to the [`World`].
+    /// If you have mutable access to the [`World`], use
+    /// [`query()::<EntityRef>().iter(&world)`](World::query()) instead.
+    #[inline]
+    pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
+        self.archetypes.iter().flat_map(|archetype| {
+            archetype
+                .entities_with_location()
+                .map(|(entity, location)| {
+                    // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
+                    let cell = UnsafeEntityCell::new(
+                        self.as_unsafe_world_cell_readonly(),
+                        entity,
+                        location,
+                        self.last_change_tick,
+                        self.read_change_tick(),
+                    );
+                    // SAFETY: `&self` gives read access to the entire world.
+                    unsafe { EntityRef::new(cell) }
+                })
+        })
     }
 
     /// Simultaneously provides access to entity data and a command queue, which
@@ -3852,7 +3877,7 @@ mod tests {
         vec::Vec,
     };
     use bevy_ecs_macros::Component;
-    use bevy_platform::collections::HashSet;
+    use bevy_platform::collections::{HashMap, HashSet};
     use bevy_utils::prelude::DebugName;
     use core::{
         any::TypeId,
@@ -4264,6 +4289,75 @@ mod tests {
             to_type_ids(world.inspect_entity(ent6).unwrap().collect()),
             [Some(baz_id)].into_iter().collect::<HashSet<_>>()
         );
+    }
+
+    #[test]
+    fn iterate_entities() {
+        let mut world = World::new();
+        let mut entity_counters = <HashMap<_, _>>::default();
+
+        let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
+            entity_counters.clear();
+            for entity in world.iter_entities() {
+                let counter = entity_counters.entry(entity.id()).or_insert(0);
+                *counter += 1;
+            }
+        };
+
+        // Adding one entity and validating iteration
+        let ent0 = world.spawn((Foo, Bar, Baz)).id();
+
+        iterate_and_count_entities(&world, &mut entity_counters);
+        assert_eq!(entity_counters[&ent0], 1);
+        assert_eq!(entity_counters.len(), 1);
+
+        // Spawning three more entities and then validating iteration
+        let ent1 = world.spawn((Foo, Bar)).id();
+        let ent2 = world.spawn((Bar, Baz)).id();
+        let ent3 = world.spawn((Foo, Baz)).id();
+
+        iterate_and_count_entities(&world, &mut entity_counters);
+
+        assert_eq!(entity_counters[&ent0], 1);
+        assert_eq!(entity_counters[&ent1], 1);
+        assert_eq!(entity_counters[&ent2], 1);
+        assert_eq!(entity_counters[&ent3], 1);
+        assert_eq!(entity_counters.len(), 4);
+
+        // Despawning first entity and then validating the iteration
+        assert!(world.despawn(ent0));
+
+        iterate_and_count_entities(&world, &mut entity_counters);
+
+        assert_eq!(entity_counters[&ent1], 1);
+        assert_eq!(entity_counters[&ent2], 1);
+        assert_eq!(entity_counters[&ent3], 1);
+        assert_eq!(entity_counters.len(), 3);
+
+        // Spawning three more entities, despawning three and then validating the iteration
+        let ent4 = world.spawn(Foo).id();
+        let ent5 = world.spawn(Bar).id();
+        let ent6 = world.spawn(Baz).id();
+
+        assert!(world.despawn(ent2));
+        assert!(world.despawn(ent3));
+        assert!(world.despawn(ent4));
+
+        iterate_and_count_entities(&world, &mut entity_counters);
+
+        assert_eq!(entity_counters[&ent1], 1);
+        assert_eq!(entity_counters[&ent5], 1);
+        assert_eq!(entity_counters[&ent6], 1);
+        assert_eq!(entity_counters.len(), 3);
+
+        // Despawning remaining entities and then validating the iteration
+        assert!(world.despawn(ent1));
+        assert!(world.despawn(ent5));
+        assert!(world.despawn(ent6));
+
+        iterate_and_count_entities(&world, &mut entity_counters);
+
+        assert_eq!(entity_counters.len(), 0);
     }
 
     #[test]

@@ -3,19 +3,29 @@
 use core::any::TypeId;
 
 use bevy_asset::Handle;
-use bevy_camera::visibility::{self, Visibility, VisibilityClass};
+use bevy_camera::{
+    prelude::ViewVisibility,
+    primitives::Aabb,
+    visibility::{self, Visibility, VisibilityClass},
+};
 use bevy_ecs::{
-    component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
+    component::Component,
+    entity::Entity,
+    query::{Or, With, Without},
+    reflect::ReflectComponent,
+    resource::Resource,
+    system::{Commands, Query},
 };
 use bevy_image::Image;
-use bevy_math::{AspectRatio, UVec2, UVec3, Vec3Swizzles as _};
-use bevy_platform::collections::HashSet;
+use bevy_math::{AspectRatio, UVec2, UVec3, Vec3A, Vec3Swizzles as _};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use bevy_utils::TypeIdMap;
 use tracing::warn;
 
-use crate::{cluster::assign::ClusterableObjectType, EnvironmentMapLight, IrradianceVolume};
+use crate::{
+    cluster::assign::ClusterableObjectType, EnvironmentMapLight, IrradianceVolume, LightProbe,
+};
 
 pub mod assign;
 
@@ -147,12 +157,6 @@ pub struct ObjectsInCluster {
     pub counts: ClusterableObjectCounts,
 }
 
-/// A resource that stores all clusterable objects visible in any view.
-#[derive(Resource, Default)]
-pub struct GlobalVisibleClusterableObjects {
-    pub(crate) entities: HashSet<Entity>,
-}
-
 /// Stores the number of each type of clusterable object in a single cluster.
 ///
 /// Note that `reflection_probes` and `irradiance_volumes` won't be clustered if
@@ -189,7 +193,7 @@ pub struct ClusterableObjectCounts {
 /// with forward or deferred rendering and don't require a prepass.
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Debug, Clone, Default)]
-#[require(Transform, Visibility, VisibilityClass)]
+#[require(Transform, ViewVisibility, Visibility, VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<ClusterVisibilityClass>)]
 pub struct ClusteredDecal {
     /// The image that the clustered decal projects onto the base color of the
@@ -445,16 +449,21 @@ impl VisibleClusterableObjects {
     }
 }
 
-impl GlobalVisibleClusterableObjects {
-    /// Iterates over all the visible clusterable objects in an arbitrary order.
-    #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = &Entity> {
-        self.entities.iter()
-    }
-
-    /// Checks whether the given entity is a visible clusterable object.
-    #[inline]
-    pub fn contains(&self, entity: Entity) -> bool {
-        self.entities.contains(&entity)
+/// A system that adds AABBs to light probes and decals so that the visibility
+/// determination works for them.
+pub fn add_light_probe_and_decal_aabbs(
+    mut commands: Commands,
+    light_probes_and_decals_query: Query<
+        Entity,
+        (Or<(With<ClusteredDecal>, With<LightProbe>)>, Without<Aabb>),
+    >,
+) {
+    for entity in &light_probes_and_decals_query {
+        commands.entity(entity).insert(Aabb {
+            center: Vec3A::ZERO,
+            // Light probes are always unit-cube sized, the transform scale is what gives them their size.
+            // Scale should not be included in the Aabb because it gets transformed by the GlobalTransform.
+            half_extents: Vec3A::splat(0.5),
+        });
     }
 }
