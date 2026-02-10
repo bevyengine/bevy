@@ -191,6 +191,7 @@ struct FullscreenMaterialBindGroup<T: FullscreenMaterial> {
     _marker: PhantomData<T>,
 }
 
+/// Prepare the bind groups for both main textures for all views that have a [`FullscreenMaterial`]
 fn prepare_bind_groups<T: FullscreenMaterial>(
     mut commands: Commands,
     mut view: Query<(
