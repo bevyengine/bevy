@@ -2,6 +2,9 @@
 
 // Modeled after https://github.com/dirs-dev/dirs-sys-rs/
 
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+use std::path::PathBuf;
+
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
@@ -17,6 +20,8 @@ mod linux;
 #[cfg(target_os = "linux")]
 pub use linux::preferences_dir;
 
+/// Returns the path to the directory used for application settings. This version
+/// always returns `None`.
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
 pub fn preferences_dir() -> Option<PathBuf> {
     None

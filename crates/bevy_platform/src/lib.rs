@@ -12,7 +12,6 @@
 cfg::std! {
     extern crate std;
 
-    #[cfg(not(target_family = "wasm"))]
     pub mod dirs;
 }
 
