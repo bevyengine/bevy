@@ -1,7 +1,7 @@
 ---
 title: "bevy_platform standard directories"
 authors: ["@viridi"]
-pull_requests: []
+pull_requests: [22891]
 ---
 
 The `dirs` module in `bevy_platform` provides the location of standard directories in the
