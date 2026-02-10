@@ -42,7 +42,6 @@ use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use std::marker::PhantomData;
 use wgpu::{
     BufferUsages, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
