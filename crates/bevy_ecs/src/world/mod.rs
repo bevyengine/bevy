@@ -2877,7 +2877,7 @@ impl World {
                     });
                     entity_mut.update_location();
 
-                    // set the added tick to the original
+                    // Set the added tick to the original.
                     entity_mut
                         .get_mut::<R>()
                         .unwrap()
