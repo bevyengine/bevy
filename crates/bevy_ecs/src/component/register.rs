@@ -277,7 +277,7 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # See also
     ///
     /// * [`Components::resource_id()`]
-    #[deprecated(since = "0.18.0", note = "Use register_component::<R>() instead.")]
+    #[deprecated(since = "0.19.0", note = "Use register_component::<R>() instead.")]
     #[inline]
     pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
         self.register_component::<T>()
