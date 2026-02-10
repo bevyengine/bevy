@@ -5376,4 +5376,4 @@ category = "3D Rendering"
 wasm = false
 
 [patch.crates-io]
-rodio = { git = "https://github.com/RustAudio/rodio.git", rev = "744f27b27816aac74f266dc0cb3c5ffb6226c630" }
+rodio = { git = "https://github.com/RustAudio/rodio.git", rev = "e50e726ddd0292f6ef9de0dda6b90af4ed1fb66a" }
