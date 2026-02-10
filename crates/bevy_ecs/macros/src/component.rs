@@ -32,7 +32,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         return err.into_compile_error().into();
     }
 
-    // implement the Component trait
+    // Implement the Component trait.
     let map_entities = map_entities(
         &ast.data,
         &bevy_ecs_path,
