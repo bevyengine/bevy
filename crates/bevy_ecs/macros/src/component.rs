@@ -113,7 +113,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         }
     });
 
-    // implement the Resource trait
+    // Implement the Resource trait.
     let resource_impl_token_stream = TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::resource::Resource for #struct_name #type_generics #where_clause {
         }
