@@ -76,19 +76,28 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
     let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
 
-#ifdef SKINNED
+    var world_from_local = mesh_world_from_local;
+#ifdef SKINNED_OR_MORPHED
+#ifdef SKIN_CACHE
+    let first_vertex_index = mesh[vertex_no_morph.instance_index].first_vertex_index;
+    let vertex_index = vertex_no_morph.index - first_vertex_index;
+    let mesh_cached_skin_offset = mesh[vertex_no_morph.instance_index].cached_skin_offset;
+    let cached_skin_offset = mesh_cached_skin_offset + vertex_index;
+    out.world_position = vec4(skinning::cached_skinned_vertices[cached_skin_offset].position, 1.0);
+#else ifdef SKINNED     // SKIN_CACHE
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    var world_from_local = skinning::skin_model(
+    world_from_local = skinning::skin_model(
         vertex.joint_indices,
         vertex.joint_weights,
         vertex_no_morph.instance_index
     );
-#else // SKINNED
-    var world_from_local = mesh_world_from_local;
-#endif // SKINNED
+#endif  // SKINNED
+#endif  // SKINNED_OR_MORPHED
 
+#ifndef SKIN_CACHE
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
+#endif  // SKIN_CACHE
     out.position = position_world_to_clip(out.world_position.xyz);
 #ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
     out.unclipped_depth = out.position.z;
@@ -105,9 +114,11 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef VERTEX_NORMALS
-#ifdef SKINNED
+#ifdef SKIN_CACHE
+    out.world_normal = skinning::cached_skinned_vertices[cached_skin_offset].normal;
+#else ifdef SKINNED     // SKIN_CACHE
     out.world_normal = skinning::skin_normals(world_from_local, vertex.normal);
-#else // SKINNED
+#else   // SKINNED
     out.world_normal = mesh_functions::mesh_normal_local_to_world(
         vertex.normal,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
@@ -118,6 +129,9 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif // VERTEX_NORMALS
 
 #ifdef VERTEX_TANGENTS
+#ifdef SKIN_CACHE
+    out.world_tangent = skinning::cached_skinned_vertices[cached_skin_offset].tangent;
+#else   // SKIN_CACHE
     out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
         world_from_local,
         vertex.tangent,
@@ -125,6 +139,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         // See https://github.com/gfx-rs/naga/issues/2416
         vertex_no_morph.instance_index
     );
+#endif  // SKIN_CACHE
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
 
@@ -135,6 +150,21 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     // Compute the motion vector for TAA among other purposes. For this we need
     // to know where the vertex was last frame.
 #ifdef MOTION_VECTOR_PREPASS
+
+#ifdef SKINNED_OR_MORPHED
+
+#ifdef SKIN_CACHE
+    let mesh_prev_cached_skin_offset = mesh[vertex_no_morph.instance_index].prev_cached_skin_offset;
+    if (mesh_prev_cached_skin_offset != 0xffffffffu) {
+        let prev_cached_skin_offset = mesh_prev_cached_skin_offset + vertex_index;
+        out.previous_world_position = vec4(
+            skinning::prev_cached_skinned_vertices[prev_cached_skin_offset].position,
+            1.0
+        );
+    } else {
+        out.previous_world_position = out.world_position;
+    }
+#else   // SKIN_CACHE
 
     // Take morph targets into account.
 #ifdef MORPH_TARGETS
@@ -174,7 +204,21 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         prev_model,
         vec4<f32>(prev_vertex.position, 1.0)
     );
-#endif // MOTION_VECTOR_PREPASS
+
+#endif  // SKIN_CACHE
+
+#else   // SKINNED_OR_MORPHED
+
+    let prev_vertex = vertex_no_morph;
+    let prev_model = mesh_functions::get_previous_world_from_local(vertex_no_morph.instance_index);
+    out.previous_world_position = mesh_functions::mesh_position_local_to_world(
+        prev_model,
+        vec4<f32>(prev_vertex.position, 1.0)
+    );
+
+#endif  // SKINNED_OR_MORPHED
+
+#endif  // MOTION_VECTOR_PREPASS
 
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.

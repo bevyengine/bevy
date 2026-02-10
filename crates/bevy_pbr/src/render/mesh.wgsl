@@ -37,30 +37,45 @@ fn morph_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
 fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
+#ifdef SKIN_CACHE
+    var vertex = vertex_no_morph;
+#else   // SKIN_CACHE
 #ifdef MORPH_TARGETS
     var vertex = morph_vertex(vertex_no_morph, vertex_no_morph.instance_index);
-#else
+#else   // MORPH_TARGETS
     var vertex = vertex_no_morph;
-#endif
+#endif  // MORPH_TARGETS
+#endif  // SKIN_CACHE
 
     let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
 
-#ifdef SKINNED
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416 .
-    var world_from_local = skinning::skin_model(
+    var world_from_local = mesh_world_from_local;
+#ifdef SKINNED_OR_MORPHED
+#ifdef SKIN_CACHE
+    let mesh_cached_skin_offset = mesh[vertex_no_morph.instance_index].cached_skin_offset;
+    let first_vertex_index = mesh[vertex_no_morph.instance_index].first_vertex_index;
+    let vertex_index = vertex_no_morph.index - first_vertex_index;
+    let cached_skin_offset = mesh_cached_skin_offset + vertex_index;
+    out.world_position = vec4(skinning::cached_skinned_vertices[cached_skin_offset].position, 1.0);
+#else ifdef SKINNED     // SKIN_CACHE
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416 .
+    world_from_local = skinning::skin_model(
         vertex.joint_indices,
         vertex.joint_weights,
         vertex_no_morph.instance_index
     );
-#else
-    var world_from_local = mesh_world_from_local;
-#endif
+#endif  // SKINNED
+#endif  // SKINNED_OR_MORPHED
 
 #ifdef VERTEX_NORMALS
-#ifdef SKINNED
+#ifdef SKIN_CACHE
+    out.world_normal = skinning::cached_skinned_vertices[cached_skin_offset].normal;
+#else ifdef SKINNED // SKIN_CACHE
     out.world_normal = skinning::skin_normals(world_from_local, vertex.normal);
-#else
+#else               // SKINNED
     out.world_normal = mesh_functions::mesh_normal_local_to_world(
         vertex.normal,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
@@ -71,9 +86,11 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif
 
 #ifdef VERTEX_POSITIONS
+#ifndef SKIN_CACHE
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
+#endif  // SKIN_CACHE
     out.position = position_world_to_clip(out.world_position.xyz);
-#endif
+#endif  // VERTEX_POSITIONS
 
 #ifdef VERTEX_UVS_A
     out.uv = vertex.uv;
@@ -83,6 +100,9 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif
 
 #ifdef VERTEX_TANGENTS
+#ifdef SKIN_CACHE
+    out.world_tangent = skinning::cached_skinned_vertices[cached_skin_offset].tangent;
+#else   // SKIN_CACHE
     out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
         world_from_local,
         vertex.tangent,
@@ -90,6 +110,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         // See https://github.com/gfx-rs/naga/issues/2416
         vertex_no_morph.instance_index
     );
+#endif  // SKIN_CACHE
 #endif
 
 #ifdef VERTEX_COLORS

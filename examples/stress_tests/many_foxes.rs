@@ -7,6 +7,8 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     light::CascadeShadowConfigBuilder,
+    mesh::skinning::SkinnedMesh,
+    pbr::CacheSkin,
     post_process::motion_blur::MotionBlur,
     prelude::*,
     scene::SceneInstanceReady,
@@ -28,6 +30,10 @@ struct Args {
     /// enable motion blur.
     #[argh(switch)]
     motion_blur: bool,
+
+    /// enable skin caching.
+    #[argh(switch)]
+    cache_skins: bool,
 }
 
 #[derive(Resource)]
@@ -75,6 +81,10 @@ fn main() {
                 keyboard_animation_control,
                 update_fox_rings.after(keyboard_animation_control),
             ),
+        )
+        .add_systems(
+            Update,
+            mark_skins_as_cached.run_if(|args: Res<Args>| args.cache_skins),
         )
         .run();
 }
@@ -343,5 +353,16 @@ fn keyboard_animation_control(
                 )
                 .repeat();
         }
+    }
+}
+
+/// Adds `CacheSkin` components to skinned meshes if skin caching was requested
+/// on the command line.
+fn mark_skins_as_cached(
+    mut commands: Commands,
+    skinned_meshes: Query<Entity, (With<SkinnedMesh>, Without<CacheSkin>)>,
+) {
+    for entity in &skinned_meshes {
+        commands.entity(entity).insert(CacheSkin);
     }
 }
