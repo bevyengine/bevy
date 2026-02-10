@@ -481,8 +481,8 @@ impl App {
     /// Inserts the [`!Send`](Send) data into the app, overwriting any existing data
     /// of the same type.
     ///
-    /// There is also an [`init_non_send`](Self::init_non_send) for
-    /// resources that implement [`Default`]
+    /// There is also an [`init_non_send`](Self::init_non_send) for [`!Send`](Send) data
+    /// that implement [`Default`]
     ///
     /// # Examples
     ///
