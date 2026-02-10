@@ -13,10 +13,10 @@ use bevy_asset::AssetServer;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Has, Without},
+    query::Without,
     resource::Resource,
     schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
-    system::{Commands, Local, Query, Res},
+    system::{Commands, Query, Res},
 };
 use bevy_image::BevyDefault;
 use bevy_render::{
