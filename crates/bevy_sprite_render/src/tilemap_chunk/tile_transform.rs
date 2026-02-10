@@ -40,40 +40,18 @@ impl TileTransform {
     /// This bit is set in the enum value if the transformation includes swapping the x and y axes
     const SWAP_XY_BIT: u8 = 0b001;
 
-    /// Convert a u8 value as a value of the enum. If none of the relevant bits are set, this
-    /// is treated as [`Self::None`].
-    pub fn from_u8(bits: u8) -> TileTransform {
-        match bits {
-            0b101 => Self::Rotate90,
-            0b110 => Self::Rotate180,
-            0b011 => Self::Rotate270,
-            0b100 => Self::MirrorX,
-            0b111 => Self::MirrorXRotate90,
-            0b010 => Self::MirrorXRotate180,
-            0b001 => Self::MirrorXRotate270,
-            // If none of the relevant bits are set, no transformation
-            _ => Self::None,
-        }
-    }
-
-    /// Get the value of the enum as a u8
-    pub fn as_u8(&self) -> u8 {
-        *self as u8
-    }
-
     /// Create a [`TileTransform`] based on whether each component mirror is applied
     pub fn from_bools(mirror_x: bool, mirror_y: bool, swap_xy: bool) -> TileTransform {
-        let mut bits = 0b000;
-        if mirror_x {
-            bits |= Self::MIRROR_X_BIT;
+        match (mirror_x, mirror_y, swap_xy) {
+            (false, false, false) => TileTransform::None,
+            (true, false, true) => TileTransform::Rotate90,
+            (true, true, false) => TileTransform::Rotate180,
+            (false, true, true) => TileTransform::Rotate270,
+            (true, false, false) => TileTransform::MirrorX,
+            (true, true, true) => TileTransform::MirrorXRotate90,
+            (false, true, false) => TileTransform::MirrorXRotate180,
+            (false, false, true) => TileTransform::MirrorXRotate270,
         }
-        if mirror_y {
-            bits |= Self::MIRROR_Y_BIT;
-        }
-        if swap_xy {
-            bits |= Self::SWAP_XY_BIT;
-        }
-        Self::from_u8(bits)
     }
 
     /// True if the transformation includes mirroring in the x axis
@@ -165,17 +143,6 @@ mod tests {
 
     use super::*;
 
-    const TRANSFORMS: [TileTransform; 8] = [
-        TileTransform::None,
-        TileTransform::Rotate90,
-        TileTransform::Rotate180,
-        TileTransform::Rotate270,
-        TileTransform::MirrorX,
-        TileTransform::MirrorXRotate90,
-        TileTransform::MirrorXRotate180,
-        TileTransform::MirrorXRotate270,
-    ];
-
     const CASES: [(TileTransform, bool, bool, bool); 8] = [
         (TileTransform::None, false, false, false),
         (TileTransform::Rotate90, true, false, true),
@@ -197,20 +164,18 @@ mod tests {
     }
 
     #[test]
-    fn from_u8_should_give_correct_transform() {
-        // Round trip from transform to u8 and back
-        for transform in TRANSFORMS.iter() {
-            assert_eq!(*transform, TileTransform::from_u8(*transform as u8));
-        }
-    }
-
-    #[test]
     fn from_bools_should_give_correct_transform() {
         for (transform, mirror_x, mirror_y, swap_xy) in CASES.iter() {
-            assert_eq!(
-                *transform,
-                TileTransform::from_bools(*mirror_x, *mirror_y, *swap_xy)
-            );
+            let from_bools = TileTransform::from_bools(*mirror_x, *mirror_y, *swap_xy);
+
+            // Check against cases, but this is a bit duplicative of the code itself
+            assert_eq!(*transform, from_bools);
+
+            // Now check we get the right bits in the u8, as a better test
+            let from_bools_u8 = from_bools as u8;
+            assert_eq!(from_bools_u8 & TileTransform::MIRROR_X_BIT != 0, *mirror_x);
+            assert_eq!(from_bools_u8 & TileTransform::MIRROR_Y_BIT != 0, *mirror_y);
+            assert_eq!(from_bools_u8 & TileTransform::SWAP_XY_BIT != 0, *swap_xy);
         }
     }
 
@@ -245,7 +210,7 @@ mod tests {
 
     #[test]
     fn applying_transform_then_inverse_should_leave_pos_unaltered() {
-        for transform in TRANSFORMS.iter() {
+        for (transform, ..) in CASES.iter() {
             let transformed = transform.apply_to_ivec2(&FROM_POS);
             let transformed_back = transform.inverse().apply_to_ivec2(&transformed);
             assert_eq!(FROM_POS, transformed_back);
@@ -254,7 +219,7 @@ mod tests {
 
     #[test]
     fn applying_inverse_then_transform_should_leave_pos_unaltered() {
-        for transform in TRANSFORMS.iter() {
+        for (transform, ..) in CASES.iter() {
             let inverse_transformed = transform.inverse().apply_to_ivec2(&FROM_POS);
             let transformed_back = transform.apply_to_ivec2(&inverse_transformed);
             assert_eq!(FROM_POS, transformed_back);
@@ -264,8 +229,8 @@ mod tests {
     #[test]
     fn applying_any_transform_pair_individually_to_a_pos_should_give_same_result_as_applying_combined_single_transform(
     ) {
-        for first in TRANSFORMS.iter() {
-            for second in TRANSFORMS.iter() {
+        for (first, ..) in CASES.iter() {
+            for (second, ..) in CASES.iter() {
                 let combined = first.and_then(*second);
                 assert_eq!(
                     second.apply_to_ivec2(&first.apply_to_ivec2(&FROM_POS)),
