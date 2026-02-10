@@ -470,6 +470,17 @@ impl<'w> UnsafeWorldCell<'w> {
         entity_cell.get_by_id(component_id)
     }
 
+    /// Gets a reference to a non-send resource of the given type if it exists.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the data
+    /// - no mutable reference to the data exists at the same time
+    #[deprecated(since = "0.19.0", note = "use UnsafeWorldCell::get_non_send")]
+    pub unsafe fn get_non_send_resource<R: 'static>(self) -> Option<&'w R> {
+        self.get_non_send::<R>()
+    }
+
     /// Gets a reference to non-send data of the given type if it exists
     ///
     /// # Safety
@@ -486,6 +497,19 @@ impl<'w> UnsafeWorldCell<'w> {
                 // SAFETY: `component_id` was obtained from `TypeId::of::<R>()`
                 .map(|ptr| ptr.deref::<R>())
         }
+    }
+
+    /// Gets a pointer to a `!Send` resource with the id [`ComponentId`] if it exists.
+    /// The returned pointer must not be used to modify the data, and must not be
+    /// dereferenced after the immutable borrow of the [`World`] ends.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the data
+    /// - no mutable reference to the data exists at the same time
+    #[deprecated(since = "0.19.0", note = "use UnsafeWorldCell::get_non_send_by_id")]
+    pub unsafe fn get_non_send_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
+        self.get_non_send_by_id(component_id)
     }
 
     /// Gets a pointer to `!Send` data with the id [`ComponentId`] if it exists.
@@ -555,6 +579,17 @@ impl<'w> UnsafeWorldCell<'w> {
         entity_cell.get_mut_by_id(component_id).ok()
     }
 
+    /// Gets a mutable reference to the non-send resource of the given type if it exists
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the data mutably
+    /// - no other references to the data exist at the same time
+    #[deprecated(since = "0.19.0", note = "use UnsafeWorldCell::get_non_send_mut")]
+    pub unsafe fn get_non_send_resource_mut<R: 'static>(self) -> Option<Mut<'w, R>> {
+        self.get_non_send_mut::<R>()
+    }
+
     /// Gets a mutable reference to the non-send data of the given type if it exists
     ///
     /// # Safety
@@ -573,6 +608,22 @@ impl<'w> UnsafeWorldCell<'w> {
                 // SAFETY: `component_id` was gotten by `TypeId::of::<R>()`
                 .map(|ptr| ptr.with_type::<R>())
         }
+    }
+
+    /// Gets mutable access to a `!Send` resource with the id [`ComponentId`] if it exists.
+    /// The returned pointer may be used to modify the data, as long as the mutable borrow
+    /// of the [`World`] is still valid.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// - the [`UnsafeWorldCell`] has permission to access the data mutably
+    /// - no other references to the data exist at the same time
+    #[deprecated(since = "0.19.0", note = "use UnsafeWorldCell::get_non_send_mut_by_id")]
+    pub unsafe fn get_non_send_resource_mut_by_id<R: 'static>(
+        self,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'w>> {
+        self.get_non_send_mut_by_id(component_id)
     }
 
     /// Gets mutable access to `!Send` data with the id [`ComponentId`] if it exists.

@@ -488,6 +488,12 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_resource_mut() }
     }
 
+    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
+    #[deprecated(since = "0.19.0", note = "use DeferredWorld::non_send_mut")]
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        self.non_send_mut::<R>()
+    }
+
     /// Gets a mutable reference to the non-send data of the given type, if it exists.
     ///
     /// # Panics
@@ -508,6 +514,13 @@ impl<'w> DeferredWorld<'w> {
                 DebugName::type_name::<R>()
             ),
         }
+    }
+
+    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
+    /// Otherwise returns `None`.
+    #[deprecated(since = "0.19.0", note = "use DeferredWorld::get_non_send_mut")]
+    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+        self.get_non_send_mut::<R>()
     }
 
     /// Gets a mutable reference to non-send data of the given type, if it exists.

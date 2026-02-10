@@ -471,6 +471,13 @@ impl App {
         self
     }
 
+    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing data
+    /// of the same type.
+    #[deprecated(since = "0.19.0", note = "use App::insert_non_send")]
+    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
+        self.insert_non_send(resource)
+    }
+
     /// Inserts the [`!Send`](Send) data into the app, overwriting any existing data
     /// of the same type.
     ///
@@ -493,6 +500,12 @@ impl App {
     pub fn insert_non_send<R: 'static>(&mut self, resource: R) -> &mut Self {
         self.world_mut().insert_non_send(resource);
         self
+    }
+
+    /// Inserts the [`!Send`](Send) resource into the app if there is no existing instance of `R`.
+    #[deprecated(since = "0.19.0", note = "use App::init_non_send")]
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
+        self.init_non_send::<R>()
     }
 
     /// Inserts the [`!Send`](Send) data into the app if there is no existing instance of `R`.

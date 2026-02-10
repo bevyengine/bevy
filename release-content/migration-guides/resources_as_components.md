@@ -41,22 +41,23 @@ Now that `Send` resources are stored as components, `!Send` resources have littl
 This is why non-send resources are being renamed to non-send data.
 The following APIs are effected:
 
-- `App::init_non_send_resource` is renamed to `App::init_non_send`.
-- `DeferredWorld::non_send_resource_mut` is renamed to `DeferredWorld::non_send_mut`.
-- `DeferredWorld::get_non_send_resource_mut` is renamed to `DeferredWorld::get_non_send_mut`.
+- `App::init_non_send_resource` is deprecated in favor of `App::init_non_send`.
+- `App::insert_non_send_resource` is deprecated in favor of `App::insert_non_send`.
+- `DeferredWorld::non_send_resource_mut` is deprecated in favor of `DeferredWorld::non_send_mut`.
+- `DeferredWorld::get_non_send_resource_mut` is deprecated in favor of `DeferredWorld::get_non_send_mut`.
 - `ResourceData<SEND: true>` is removed, while `ResourceData<SEND: false>` is renamed to `NonSendData`.
 - `Resources<SEND: true>` is removed and `Resources<Send: false>` is renamed to `NonSends`.
-- `UnsafeWorldCell::get_non_send_resource` is renamed to `UnsafeWorldCell::get_non_send`.
-- `UnsafeWorldCell::get_non_send_resource_by_id` is renamed to `UnsafeWorldCell::get_non_send_by_id`.
-- `UnsafeWorldCell::get_non_send_resource_mut` is renamed to `UnsafeWorldCell::get_non_send_mut`.
-- `UnsafeWorldCell::get_non_send_resource_mut_by_id` is renamed to `UnsafeWorldCell::get_non_send_mut_by_id`.
-- `World::init_non_send_resource` is renamed to `World::init_non_send`.
-- `World::insert_non_send_resource` is renamed to `World::insert_non_send`.
-- `World::remove_non_send_resource` is renamed to `World::remove_non_send`.
-- `World::non_send_resource` is renamed to `World::non_send`.
-- `World::non_send_resource_mut` is renamed to `World::non_send_mut`.
-- `World::get_non_send_resource` is renamed to `World::get_non_send`.
-- `World::get_non_send_resource_mut` is renamed to `World::get_non_send_mut`.
+- `UnsafeWorldCell::get_non_send_resource` is deprecated in favor of `UnsafeWorldCell::get_non_send`.
+- `UnsafeWorldCell::get_non_send_resource_by_id` is deprecated in favor of `UnsafeWorldCell::get_non_send_by_id`.
+- `UnsafeWorldCell::get_non_send_resource_mut` is deprecated in favor of `UnsafeWorldCell::get_non_send_mut`.
+- `UnsafeWorldCell::get_non_send_resource_mut_by_id` is deprecated in favor of `UnsafeWorldCell::get_non_send_mut_by_id`.
+- `World::init_non_send_resource` is deprecated in favor of `World::init_non_send`.
+- `World::insert_non_send_resource` is deprecated in favor of `World::insert_non_send`.
+- `World::remove_non_send_resource` is deprecated in favor of `World::remove_non_send`.
+- `World::non_send_resource` is deprecated in favor of`World::non_send`.
+- `World::non_send_resource_mut` is deprecated in favor of `World::non_send_mut`.
+- `World::get_non_send_resource` is deprecated in favor of `World::get_non_send`.
+- `World::get_non_send_resource_mut` is deprecated in favor of `World::get_non_send_mut`.
 
 ## Component Registration
 

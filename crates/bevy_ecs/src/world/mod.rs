@@ -1922,6 +1922,12 @@ impl World {
         });
     }
 
+    /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
+    #[deprecated(since = "0.19.0", note = "use World::init_non_send")]
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
+        self.init_non_send::<R>()
+    }
+
     /// Initializes new non-send data and returns the [`ComponentId`] created for it.
     ///
     /// If the data already exists, nothing happens.
@@ -1953,6 +1959,12 @@ impl World {
             });
         }
         component_id
+    }
+
+    /// Inserts a new non-send resource with the given `value`.
+    #[deprecated(since = "0.19.0", note = "use World::insert_non_send")]
+    pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
+        self.insert_non_send(value);
     }
 
     /// Inserts new non-send data with the given `value`.
@@ -1987,6 +1999,12 @@ impl World {
             .expect("ResourceCache is in sync")
             .take::<R>()?;
         Some(value)
+    }
+
+    /// Removes a `!Send` resource from the world and returns it, if present.
+    #[deprecated(since = "0.19.0", note = "use World::remove_non_send")]
+    pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
+        self.remove_non_send::<R>()
     }
 
     /// Removes `!Send` data from the world and returns it, if present.
@@ -2288,6 +2306,12 @@ impl World {
         unsafe { untyped.with_type() }
     }
 
+    /// Gets an immutable reference to a non-send resource of the given type, if it exists.
+    #[deprecated(since = "0.19.0", note = "use World::non_send")]
+    pub fn non_send_resource<R: 'static>(&self) -> &R {
+        self.non_send::<R>()
+    }
+
     /// Gets an immutable reference to the non-send data of the given type, if it exists.
     ///
     /// # Panics
@@ -2308,6 +2332,12 @@ impl World {
                 DebugName::type_name::<R>()
             ),
         }
+    }
+
+    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
+    #[deprecated(since = "0.19.0", note = "use World::non_send_mut")]
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        self.non_send_mut::<R>()
     }
 
     /// Gets a mutable reference to the non-send data of the given type, if it exists.
@@ -2332,6 +2362,13 @@ impl World {
         }
     }
 
+    /// Gets a reference to a non-send resource of the given type, if it exists.
+    /// Otherwise returns `None`.
+    #[deprecated(since = "0.19.0", note = "use World::get_non_send")]
+    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
+        self.get_non_send::<R>()
+    }
+
     /// Gets a reference to the non-send data of the given type, if it exists.
     /// Otherwise returns `None`.
     ///
@@ -2343,6 +2380,13 @@ impl World {
         // - `as_unsafe_world_cell_readonly` gives permission to access the entire world immutably
         // - `&self` ensures that there are no mutable borrows of world data
         unsafe { self.as_unsafe_world_cell_readonly().get_non_send() }
+    }
+
+    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
+    /// Otherwise returns `None`.
+    #[deprecated(since = "0.19.0", note = "use World::get_non_send_mut")]
+    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+        self.get_non_send_mut::<R>()
     }
 
     /// Gets a mutable reference to the non-send data of the given type, if it exists.
