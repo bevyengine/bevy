@@ -214,9 +214,8 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
 /// We can't know ahead of time which one is the source or destination so we create a bind group
 /// for both
 #[derive(Component)]
-pub struct FullscreenMaterialBindGroup<T: FullscreenMaterial> {
-    a: (TextureViewId, BindGroup),
-    b: (TextureViewId, BindGroup),
+struct FullscreenMaterialBindGroup<T: FullscreenMaterial> {
+    cache: PostProcessBindGroupCache,
     // This is in case someone wants multiple `FullscreenMaterial` per camera
     _marker: PhantomData<T>,
 }
@@ -242,10 +241,7 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
     };
 
     for (entity, view_target, mut maybe_bind_groups) in &mut view {
-        let main_texture_view = view_target.main_texture_view();
-        let main_texture_other_view = view_target.main_texture_other_view();
-
-        let create_bind_group = |texture: &TextureView| {
+        let builder = PostProcessBindGroupCacheBuilder::new(|texture: &TextureView| {
             (
                 texture.id(),
                 render_device.create_bind_group(
@@ -258,19 +254,15 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
                     )),
                 ),
             )
-        };
+        });
 
         if let Some(bind_groups) = &mut maybe_bind_groups {
-            if bind_groups.a.0 != main_texture_view.id() {
-                bind_groups.a = create_bind_group(main_texture_view);
-            }
-            if bind_groups.b.0 != main_texture_other_view.id() {
-                bind_groups.b = create_bind_group(main_texture_other_view);
+            if bind_groups.cache.should_update(view_target) {
+                bind_groups.cache.update(view_target, builder);
             }
         } else {
             commands.entity(entity).insert(FullscreenMaterialBindGroup {
-                a: create_bind_group(main_texture_view),
-                b: create_bind_group(main_texture_other_view),
+                cache: builder.generate_bind_groups(view_target),
                 _marker: PhantomData::<T>,
             });
         }
@@ -297,11 +289,7 @@ pub fn fullscreen_material_system<T: FullscreenMaterial>(
     let source = post_process.source;
     let destination = post_process.destination;
 
-    let (_, bind_group) = if bind_groups.a.0 == source.id() {
-        &bind_groups.a
-    } else {
-        &bind_groups.b
-    };
+    let bind_group = bind_groups.cache.get_current_bind_group(source);
 
     let pass_descriptor = RenderPassDescriptor {
         label: Some("fullscreen_material_pass"),
