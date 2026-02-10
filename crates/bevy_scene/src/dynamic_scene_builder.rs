@@ -284,7 +284,6 @@ impl<'w> DynamicSceneBuilder<'w> {
             };
 
             let original_entity = self.original_world.entity(entity);
-
             if original_entity.contains_id(IS_RESOURCE) {
                 continue;
             }
