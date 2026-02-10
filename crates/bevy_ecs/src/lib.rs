@@ -1701,9 +1701,9 @@ mod tests {
             "world should not contain sparse set components"
         );
         assert_eq!(
-            world.resource::<ResA>().0,
-            0,
-            "world should still contain resources"
+            world.get_resource::<ResA>(),
+            None,
+            "world should not contain resources"
         );
     }
 

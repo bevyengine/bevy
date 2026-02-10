@@ -85,4 +85,6 @@ struct EntityStruct(#[entities] Entity);
 struct EntityStruct(#[entities] Entity);
 ```
 
+Next, `World::clear_entities` now also clears all resources.
+
 Lastly, `World::remove_resource_by_id` now returns `bool` instead of `Option<()>`.

@@ -54,7 +54,7 @@ use crate::{
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    prelude::{Add, Despawn, DetectChangesMut, Insert, Remove, Replace, Without},
+    prelude::{Add, Despawn, DetectChangesMut, Insert, Remove, Replace},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
@@ -3267,14 +3267,13 @@ impl World {
         Some(check)
     }
 
-    /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
-    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
+    /// Clears all entities and resources, invalidating all [`Entity`] and resource fetches
+    /// such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
+    ///
+    /// Since resources are entities, this is identical to [`clear_entities`](Self::clear_entities).
+    /// Non-send data is not cleared.
     pub fn clear_all(&mut self) {
-        self.storages.tables.clear();
-        self.storages.sparse_sets.clear_entities();
-        self.archetypes.clear_entities();
-        self.entities.clear();
-        self.entity_allocator.restart();
+        self.clear_entities();
     }
 
     /// Despawns all entities in this [`World`].
@@ -3286,16 +3285,11 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_entities(&mut self) {
-        self.resource_scope::<DefaultQueryFilters, ()>(|world: &mut World, _| {
-            let to_remove: Vec<Entity> = world
-                .query_filtered::<Entity, Without<IsResource>>()
-                .query(world)
-                .into_iter()
-                .collect();
-            for entity in to_remove {
-                world.despawn(entity);
-            }
-        });
+        self.storages.tables.clear();
+        self.storages.sparse_sets.clear_entities();
+        self.archetypes.clear_entities();
+        self.entities.clear();
+        self.entity_allocator.restart();
     }
 
     /// Clears all resources in this [`World`].
