@@ -11,6 +11,8 @@
 
 cfg::std! {
     extern crate std;
+
+    pub mod dirs;
 }
 
 cfg::alloc! {
@@ -21,7 +23,6 @@ cfg::alloc! {
 
 pub mod cell;
 pub mod cfg;
-pub mod dirs;
 pub mod future;
 pub mod hash;
 pub mod sync;
