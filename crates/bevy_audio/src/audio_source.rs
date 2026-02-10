@@ -34,7 +34,7 @@ impl AsRef<[u8]> for AudioSource {
 /// `.mp3` with `bevy/mp3`
 /// `.flac` with `bevy/flac` or `bevy/symphonia-flac`
 /// `.wav` with `bevy/wav` or `bevy/symphonia-wav`
-/// The `bevy/audio-all` feature will enable all file extensions.
+/// The `bevy/audio-all-formats` feature collection will enable all supported audio formats.
 #[derive(Default, TypePath)]
 pub struct AudioLoader;
 
@@ -58,29 +58,17 @@ impl AssetLoader for AudioLoader {
 
     fn extensions(&self) -> &[&str] {
         &[
-            #[cfg(any(feature = "mp3", feature = "audio-all"))]
+            #[cfg(feature = "mp3")]
             "mp3",
-            #[cfg(any(feature = "flac", feature = "symphonia-flac", feature = "audio-all"))]
+            #[cfg(any(feature = "flac", feature = "symphonia-flac"))]
             "flac",
-            #[cfg(any(feature = "wav", feature = "symphonia-wav", feature = "audio-all"))]
+            #[cfg(any(feature = "wav", feature = "symphonia-wav"))]
             "wav",
-            #[cfg(any(
-                feature = "vorbis",
-                feature = "symphonia-vorbis",
-                feature = "audio-all"
-            ))]
+            #[cfg(any(feature = "vorbis", feature = "symphonia-vorbis"))]
             "oga",
-            #[cfg(any(
-                feature = "vorbis",
-                feature = "symphonia-vorbis",
-                feature = "audio-all"
-            ))]
+            #[cfg(any(feature = "vorbis", feature = "symphonia-vorbis"))]
             "ogg",
-            #[cfg(any(
-                feature = "vorbis",
-                feature = "symphonia-vorbis",
-                feature = "audio-all"
-            ))]
+            #[cfg(any(feature = "vorbis", feature = "symphonia-vorbis"))]
             "spx",
         ]
     }

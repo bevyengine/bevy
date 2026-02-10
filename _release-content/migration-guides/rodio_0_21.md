@@ -31,7 +31,7 @@ Notice that OGG/VORBIS support through `symphonia` is currently subject to issue
 - <https://github.com/RustAudio/rodio/issues/775>
 - <https://github.com/RustAudio/rodio/pull/786>
 
-The `audio-all` feature was added for convenience. It will enable all the available audio formats through their default backends.
+The `audio-all-formats` feature collection was added for convenience. It will enable `bevy_audio` and all the available audio formats through their default backends.
 
 ## Audio Traits
 

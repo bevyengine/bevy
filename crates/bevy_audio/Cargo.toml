@@ -47,13 +47,6 @@ wav = ["rodio/hound"]
 symphonia-flac = ["rodio/flac"]
 symphonia-vorbis = ["rodio/vorbis"]
 symphonia-wav = ["rodio/wav"]
-audio-all = [
-  "rodio/flac",
-  "rodio/mp3",
-  "rodio/mp4",
-  "rodio/vorbis",
-  "rodio/wav",
-]
 
 [lints]
 workspace = true
