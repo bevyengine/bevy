@@ -7,11 +7,11 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::Entity,
     lifecycle::HookContext,
-    reflect::ReflectComponent,
     storage::SparseSet,
     world::DeferredWorld,
 };
-use bevy_reflect::Reflect;
+#[cfg(feature = "bevy_reflect")]
+use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
 use bevy_platform::cell::SyncUnsafeCell;
