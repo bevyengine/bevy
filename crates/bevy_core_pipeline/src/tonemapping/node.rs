@@ -1,26 +1,16 @@
-use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPipeline};
+use crate::tonemapping::{TonemappingBindGroups, ViewTonemappingPipeline};
 
 use bevy_ecs::prelude::*;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
-    render_asset::RenderAssets,
     render_resource::{
-        BindGroup, BindGroupEntries, BufferId, LoadOp, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureViewId,
+        LoadOp, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, StoreOp,
     },
     renderer::{RenderContext, ViewQuery},
-    texture::{FallbackImage, GpuImage},
-    view::{ViewTarget, ViewUniformOffset, ViewUniforms},
+    view::{ViewTarget, ViewUniformOffset},
 };
 
-use super::{get_lut_bindings, Tonemapping};
-
-/// Cached bind group state for tonemapping.
-#[derive(Default)]
-pub struct TonemappingBindGroupCache {
-    cached: Option<(BufferId, TextureViewId, TextureViewId, BindGroup)>,
-    last_tonemapping: Option<Tonemapping>,
-}
+use super::Tonemapping;
 
 pub fn tonemapping(
     view: ViewQuery<(
@@ -28,17 +18,13 @@ pub fn tonemapping(
         &ViewTarget,
         &ViewTonemappingPipeline,
         &Tonemapping,
+        &TonemappingBindGroups,
     )>,
     pipeline_cache: Res<PipelineCache>,
-    tonemapping_pipeline: Res<TonemappingPipeline>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
-    fallback_image: Res<FallbackImage>,
-    view_uniforms: Res<ViewUniforms>,
-    tonemapping_luts: Res<TonemappingLuts>,
-    mut cache: Local<TonemappingBindGroupCache>,
     mut ctx: RenderContext,
 ) {
-    let (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) = view.into_inner();
+    let (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping, bind_groups) =
+        view.into_inner();
 
     if *tonemapping == Tonemapping::None {
         return;
@@ -52,51 +38,14 @@ pub fn tonemapping(
         return;
     };
 
-    let view_uniforms_buffer = &view_uniforms.uniforms;
-    let view_uniforms_id = view_uniforms_buffer.buffer().unwrap().id();
-
     let post_process = target.post_process_write();
     let source = post_process.source;
     let destination = post_process.destination;
 
-    let tonemapping_changed = cache.last_tonemapping != Some(*tonemapping);
-    if tonemapping_changed {
-        cache.last_tonemapping = Some(*tonemapping);
-    }
-
-    let bind_group = match &mut cache.cached {
-        Some((buffer_id, texture_id, lut_id, bind_group))
-            if view_uniforms_id == *buffer_id
-                && source.id() == *texture_id
-                && *lut_id != fallback_image.d3.texture_view.id()
-                && !tonemapping_changed =>
-        {
-            bind_group
-        }
-        cached => {
-            let lut_bindings =
-                get_lut_bindings(&gpu_images, &tonemapping_luts, tonemapping, &fallback_image);
-
-            let bind_group = ctx.render_device().create_bind_group(
-                None,
-                &pipeline_cache.get_bind_group_layout(&tonemapping_pipeline.texture_bind_group),
-                &BindGroupEntries::sequential((
-                    view_uniforms_buffer,
-                    source,
-                    &tonemapping_pipeline.sampler,
-                    lut_bindings.0,
-                    lut_bindings.1,
-                )),
-            );
-
-            let (_, _, _, bind_group) = cached.insert((
-                view_uniforms_id,
-                source.id(),
-                lut_bindings.0.id(),
-                bind_group,
-            ));
-            bind_group
-        }
+    let (_, bind_group) = if bind_groups.a.0.source_id == source.id() {
+        &bind_groups.a
+    } else {
+        &bind_groups.b
     };
 
     let pass_descriptor = RenderPassDescriptor {
