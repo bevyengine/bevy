@@ -285,7 +285,7 @@ impl Default for RenderDebugOverlay {
     }
 }
 
-/// Configure the render debug overlay for the entire resource.
+/// Configure the render debug overlay globally.
 /// Can be overwritten by using a [`RenderDebugOverlay`] component.
 #[derive(Resource, Clone, ExtractResource, ExtractComponent, Reflect, PartialEq)]
 #[reflect(Resource, Default)]
