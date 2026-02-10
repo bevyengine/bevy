@@ -534,8 +534,9 @@ pub fn process_remote_get_resources_request(
     get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
     let reflect_component =
         get_reflect_component(&type_registry, &resource_path).map_err(BrpError::component_error)?;
-    let entity = get_resource_entity(&type_registry, &resource_path, world)
-        .map_err(BrpError::resource_error)?;
+    let entity = get_resource_entity_pair(&type_registry, &resource_path, world)
+        .map_err(BrpError::resource_error)?
+        .0;
     let entity_ref = world.get_entity(entity).map_err(BrpError::resource_error)?;
 
     let Some(reflected) = reflect_component.reflect(entity_ref) else {
@@ -1148,8 +1149,9 @@ pub fn process_remote_mutate_resources_request(
     get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
     let reflect_component =
         get_reflect_component(&type_registry, &resource_path).map_err(BrpError::component_error)?;
-    let entity = get_resource_entity(&type_registry, &resource_path, world)
-        .map_err(BrpError::resource_error)?;
+    let entity = get_resource_entity_pair(&type_registry, &resource_path, world)
+        .map_err(BrpError::resource_error)?
+        .0;
 
     // Get the actual resource value from the world as a `dyn Reflect`.
     let mut reflected_component = reflect_component
@@ -1225,9 +1227,12 @@ pub fn process_remote_remove_resources_request(
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let entity = get_resource_entity(&type_registry, &resource_path, world)
+    let (entity, component_id) = get_resource_entity_pair(&type_registry, &resource_path, world)
         .map_err(BrpError::resource_error)?;
-    world.despawn(entity);
+    world
+        .get_entity_mut(entity)
+        .expect("Resource exists in the world")
+        .remove_by_id(component_id);
 
     Ok(Value::Null)
 }
@@ -1674,11 +1679,11 @@ fn get_resource_type_registration<'r>(
         .ok_or_else(|| anyhow!("Unknown resource type: `{}`", resource_path))
 }
 
-fn get_resource_entity(
+fn get_resource_entity_pair(
     type_registry: &TypeRegistry,
     resource_path: &str,
     world: &World,
-) -> AnyhowResult<Entity> {
+) -> AnyhowResult<(Entity, ComponentId)> {
     let resource_registration = get_resource_type_registration(type_registry, resource_path)?;
     let type_id = resource_registration.type_id();
     let component_id = world
@@ -1689,7 +1694,7 @@ fn get_resource_entity(
         .resource_entities()
         .get(component_id)
         .ok_or(anyhow!("Resource entity does not exist."))?;
-    Ok(*entity)
+    Ok((*entity, component_id))
 }
 
 #[cfg(test)]
