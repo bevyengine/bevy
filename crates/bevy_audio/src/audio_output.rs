@@ -6,7 +6,7 @@ use bevy_asset::{Asset, Assets};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::Vec3;
 use bevy_transform::prelude::GlobalTransform;
-use rodio::{OutputStream, OutputStreamBuilder, Sink, Source, SpatialSink};
+use rodio::{DeviceSinkBuilder, MixerDeviceSink, Player, Source, SpatialPlayer};
 use tracing::warn;
 
 use crate::{AudioSink, AudioSinkPlayback};
@@ -14,12 +14,12 @@ use crate::{AudioSink, AudioSinkPlayback};
 /// Used internally to play audio on the current "audio device"
 #[derive(Resource)]
 pub(crate) struct AudioOutput {
-    stream: Option<OutputStream>,
+    stream: Option<MixerDeviceSink>,
 }
 
 impl Default for AudioOutput {
     fn default() -> Self {
-        let stream = OutputStreamBuilder::open_default_stream()
+        let stream = DeviceSinkBuilder::open_default_sink()
             .inspect_err(|_err| {
                 warn!("No audio device found.");
             })
@@ -128,7 +128,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 Vec3::ZERO.into()
             };
 
-            let sink = SpatialSink::connect_new(
+            let sink = SpatialPlayer::connect_new(
                 mixer,
                 emitter_translation,
                 (left_ear * scale).into(),
@@ -204,7 +204,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                     .insert((sink, PlaybackRemoveMarker)),
             };
         } else {
-            let sink = Sink::connect_new(mixer);
+            let sink = Player::connect_new(mixer);
             let decoder = audio_source.decoder();
 
             match settings.mode {
