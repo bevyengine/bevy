@@ -1,13 +1,13 @@
 diff --git a/crates/bevy_audio/src/audio_output.rs b/crates/bevy_audio/src/audio_output.rs
-index 15236b667..57f116bde 100644
+index 61493df00..4de2412fa 100644
 --- a/crates/bevy_audio/src/audio_output.rs
 +++ b/crates/bevy_audio/src/audio_output.rs
 @@ -6,28 +6,17 @@ use bevy_asset::{Asset, Assets};
  use bevy_ecs::{prelude::*, system::SystemParam};
  use bevy_math::Vec3;
  use bevy_transform::prelude::GlobalTransform;
--use rodio::{OutputStream, OutputStreamBuilder, Sink, Source, SpatialSink};
-+use rodio::{OutputStream, Sink, Source, SpatialSink};
+-use rodio::{DeviceSinkBuilder, MixerDeviceSink, Player, Source, SpatialPlayer};
++use rodio::{MixerDeviceSink, Player, Source, SpatialPlayer};
  use tracing::warn;
  
  use crate::{AudioSink, AudioSinkPlayback};
@@ -16,12 +16,12 @@ index 15236b667..57f116bde 100644
 -#[derive(Resource)]
 +#[derive(Resource, Default)]
  pub(crate) struct AudioOutput {
-     stream: Option<OutputStream>,
+     stream: Option<MixerDeviceSink>,
  }
  
 -impl Default for AudioOutput {
 -    fn default() -> Self {
--        let stream = OutputStreamBuilder::open_default_stream()
+-        let stream = DeviceSinkBuilder::open_default_sink()
 -            .inspect_err(|_err| {
 -                warn!("No audio device found.");
 -            })
