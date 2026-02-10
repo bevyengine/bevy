@@ -4606,6 +4606,19 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "aabb_frustum_gizmos"
+path = "examples/gizmos/aabb_frustum_gizmos.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+required-features = ["free_camera"]
+
+[package.metadata.example.aabb_frustum_gizmos]
+name = "Aabb & Frustum Gizmos"
+description = "A scene showcasing Aabb and Frustum gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
 name = "custom_gltf_vertex_attribute"
 path = "examples/gltf/custom_gltf_vertex_attribute.rs"
 # Causes an ICE on docs.rs

@@ -375,6 +375,7 @@ Example | Description
 --- | ---
 [2D Gizmos](../examples/gizmos/2d_gizmos.rs) | A scene showcasing 2D gizmos
 [3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
+[Aabb & Frustum Gizmos](../examples/gizmos/aabb_frustum_gizmos.rs) | A scene showcasing Aabb and Frustum gizmos
 [Anchored Text Gizmos](../examples/gizmos/anchored_text_gizmos.rs) | Demonstrates anchored text gizmos
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
