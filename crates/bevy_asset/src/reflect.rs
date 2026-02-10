@@ -1,32 +1,46 @@
 use alloc::boxed::Box;
-use core::any::{Any, TypeId};
+use bevy_platform::collections::hash_map::Keys;
+use core::{
+    any::{Any, TypeId},
+    iter::empty,
+};
 
-use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
+use bevy_ecs::{
+    archetype::{ArchetypeEntity, ArchetypeId, ArchetypeRecord},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
+};
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
 
-use crate::{Asset, Handle, UntypedHandle};
+use crate::{
+    Asset, AssetData, AssetEntity, AssetUuidMap, DirectAssetAccessExt, Handle, InsertAssetError,
+    UntypedAssetId, UntypedHandle,
+};
 
 /// Type data for the [`TypeRegistry`](bevy_reflect::TypeRegistry) used to operate on reflected [`Asset`]s.
 ///
-/// This type provides similar methods to [`Assets<T>`] like [`get`](ReflectAsset::get),
-/// [`add`](ReflectAsset::add) and [`remove`](ReflectAsset::remove), but can be used in situations where you don't know which asset type `T` you want
-/// until runtime.
+/// This type provides similar methods to [`Assets`](crate::Assets),
+/// [`AssetsMut`](crate::AssetsMut), and [`AssetCommands`](crate::AssetCommands), like
+/// [`get`](ReflectAsset::get),
+/// [`spawn`](ReflectAsset::spawn), and [`remove`](ReflectAsset::remove), but can be used in
+/// situations where you don't know which asset type `T` you want until runtime.
 ///
-/// [`ReflectAsset`] can be obtained via [`TypeRegistration::data`](bevy_reflect::TypeRegistration::data) if the asset was registered using [`register_asset_reflect`](crate::AssetApp::register_asset_reflect).
+/// [`ReflectAsset`] can be obtained via
+/// [`TypeRegistration::data`](bevy_reflect::TypeRegistration::data) if the asset was registered
+/// using [`register_asset_reflect`](crate::AssetApp::register_asset_reflect).
 #[derive(Clone)]
 pub struct ReflectAsset {
     handle_type_id: TypeId,
-    assets_resource_type_id: TypeId,
+    asset_data_type_id: TypeId,
 
     get: fn(&World, UntypedAssetId) -> Option<&dyn Reflect>,
     // SAFETY:
-    // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
+    // - may only be called with an [`UnsafeWorldCell`] which can be used to read `AssetUuidMap`
+    //   resource, and the `AssetData` component mutably
     // - may only be used to access **at most one** access at once
     get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedAssetId) -> Option<&mut dyn Reflect>,
-    add: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
-    insert:
-        fn(&mut World, UntypedAssetId, &dyn PartialReflect) -> Result<(), InvalidGenerationError>,
-    len: fn(&World) -> usize,
+    spawn: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
+    insert: fn(&mut World, UntypedAssetId, &dyn PartialReflect) -> Result<(), InsertAssetError>,
+    count: fn(&World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
     remove: fn(&mut World, UntypedAssetId) -> Option<Box<dyn Reflect>>,
 }
@@ -37,12 +51,12 @@ impl ReflectAsset {
         self.handle_type_id
     }
 
-    /// The [`TypeId`] of the [`Assets<T>`] resource
-    pub fn assets_resource_type_id(&self) -> TypeId {
-        self.assets_resource_type_id
+    /// The [`TypeId`] of the [`AssetData<T>`] component.
+    pub fn asset_data_type_id(&self) -> TypeId {
+        self.asset_data_type_id
     }
 
-    /// Equivalent of [`Assets::get`]
+    /// Equivalent of [`Assets::get`](crate::Assets::get)
     pub fn get<'w>(
         &self,
         world: &'w World,
@@ -51,7 +65,7 @@ impl ReflectAsset {
         (self.get)(world, asset_id.into())
     }
 
-    /// Equivalent of [`Assets::get_mut`]
+    /// Equivalent of [`AssetsMut::get_mut`](crate::AssetsMut::get)
     pub fn get_mut<'w>(
         &self,
         world: &'w mut World,
@@ -61,18 +75,19 @@ impl ReflectAsset {
             unsafe_code,
             reason = "Use of unsafe `Self::get_unchecked_mut()` function."
         )]
-        // SAFETY: unique world access
+        // SAFETY: We have exclusive access to the whole world, which includes all
         unsafe {
             (self.get_unchecked_mut)(world.as_unsafe_world_cell(), asset_id.into())
         }
     }
 
-    /// Equivalent of [`Assets::get_mut`], but works with an [`UnsafeWorldCell`].
+    /// Equivalent of [`AssetsMut::get_mut`](crate::AssetsMut::get_mut), but works with an
+    /// [`UnsafeWorldCell`].
     ///
-    /// Only use this method when you have ensured that you are the *only* one with access to the [`Assets`] resource of the asset type.
-    /// Furthermore, this does *not* allow you to have look up two distinct handles,
-    /// you can only have at most one alive at the same time.
-    /// This means that this is *not allowed*:
+    /// Only use this method when you have ensured that you are the *only* one with access to the
+    /// [`AssetData`] of the asset type. Furthermore, this does *not* allow you to have look up two
+    /// distinct handles, you can only have at most one alive at the same time. This means that this
+    /// is *not allowed*:
     /// ```no_run
     /// # use bevy_asset::{ReflectAsset, UntypedHandle};
     /// # use bevy_ecs::prelude::World;
@@ -92,7 +107,8 @@ impl ReflectAsset {
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method if you know that the [`UnsafeWorldCell`] may be used to access the corresponding `Assets<T>`
+    /// * Only call this method if you know that the [`UnsafeWorldCell`] may be used to access the
+    ///   corresponding [`AssetData`].
     /// * Don't call this method more than once in the same scope.
     #[expect(
         unsafe_code,
@@ -107,21 +123,21 @@ impl ReflectAsset {
         unsafe { (self.get_unchecked_mut)(world, asset_id.into()) }
     }
 
-    /// Equivalent of [`Assets::add`]
-    pub fn add(&self, world: &mut World, value: &dyn PartialReflect) -> UntypedHandle {
-        (self.add)(world, value)
+    /// Equivalent of [`DirectAssetAccessExt::spawn_asset`]
+    pub fn spawn(&self, world: &mut World, value: &dyn PartialReflect) -> UntypedHandle {
+        (self.spawn)(world, value)
     }
-    /// Equivalent of [`Assets::insert`]
+    /// Equivalent of [`DirectAssetAccessExt::insert_asset`]
     pub fn insert(
         &self,
         world: &mut World,
         asset_id: impl Into<UntypedAssetId>,
         value: &dyn PartialReflect,
-    ) -> Result<(), InvalidGenerationError> {
+    ) -> Result<(), InsertAssetError> {
         (self.insert)(world, asset_id.into(), value)
     }
 
-    /// Equivalent of [`Assets::remove`]
+    /// Equivalent of [`DirectAssetAccessExt::remove_asset`]
     pub fn remove(
         &self,
         world: &mut World,
@@ -130,17 +146,17 @@ impl ReflectAsset {
         (self.remove)(world, asset_id.into())
     }
 
-    /// Equivalent of [`Assets::len`]
-    pub fn len(&self, world: &World) -> usize {
-        (self.len)(world)
+    /// Equivalent of [`Assets::count`](crate::Assets::count)
+    pub fn count(&self, world: &World) -> usize {
+        (self.count)(world)
     }
 
-    /// Equivalent of [`Assets::is_empty`]
+    /// Equivalent of [`Assets::is_empty`](crate::Assets::is_empty)
     pub fn is_empty(&self, world: &World) -> bool {
-        self.len(world) == 0
+        self.count(world) == 0
     }
 
-    /// Equivalent of [`Assets::ids`]
+    /// Similar to [`Assets::iter`](crate::Assets::iter).
     pub fn ids<'w>(&self, world: &'w World) -> impl Iterator<Item = UntypedAssetId> + 'w {
         (self.ids)(world)
     }
@@ -150,44 +166,114 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
     fn from_type() -> Self {
         ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),
-            assets_resource_type_id: TypeId::of::<Assets<A>>(),
+            asset_data_type_id: TypeId::of::<AssetData<A>>(),
             get: |world, asset_id| {
-                let assets = world.resource::<Assets<A>>();
-                let asset = assets.get(asset_id.typed_debug_checked());
-                asset.map(|asset| asset as &dyn Reflect)
+                world
+                    .get_asset::<A>(asset_id.typed_debug_checked())
+                    .map(|asset| asset as &dyn Reflect)
             },
             get_unchecked_mut: |world, asset_id| {
-                // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
-                // and must ensure to only have at most one reference to it live at all times.
-                #[expect(unsafe_code, reason = "Uses `UnsafeWorldCell::get_resource_mut()`.")]
-                let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
-                let asset = assets.get_mut(asset_id.typed_debug_checked());
-                asset.map(|asset| asset.into_inner() as &mut dyn Reflect)
+                #[expect(
+                    unsafe_code,
+                    reason = "We are providing an abstraction over UnsafeWorldCell methods"
+                )]
+                // SAFETY: Caller ensures we have access to `AssetUuidMap`.
+                let entity = unsafe { world.get_resource::<AssetUuidMap>() }
+                    .unwrap()
+                    .resolve_entity(asset_id)
+                    .ok()?;
+                let entity = world.get_entity(entity.raw_entity()).ok()?;
+                #[expect(
+                    unsafe_code,
+                    reason = "We are providing an abstraction over UnsafeWorldCell methods"
+                )]
+                // SAFETY: Caller ensures we have access to the asset data on this entity, and
+                // ensures we only have at most one reference to this asset.
+                let data = unsafe { entity.get_mut::<AssetData<A>>() }?.into_inner();
+                Some(&mut data.0 as _)
             },
-            add: |world, value| {
-                let mut assets = world.resource_mut::<Assets<A>>();
+            spawn: |world, value| {
                 let value: A = FromReflect::from_reflect(value)
                     .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::add`");
-                assets.add(value).untyped()
+                world.spawn_asset(value).untyped()
             },
             insert: |world, asset_id, value| {
-                let mut assets = world.resource_mut::<Assets<A>>();
                 let value: A = FromReflect::from_reflect(value)
                     .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::set`");
-                assets.insert(asset_id.typed_debug_checked(), value)
+                world.insert_asset(asset_id.typed_debug_checked(), value)
             },
-            len: |world| {
-                let assets = world.resource::<Assets<A>>();
-                assets.len()
+            count: |world| {
+                let Some(component_id) = world.components().get_id(TypeId::of::<AssetData<A>>())
+                else {
+                    return 0;
+                };
+                let Some(archetypes) = world.archetypes().component_index().get(&component_id)
+                else {
+                    return 0;
+                };
+                archetypes
+                    .keys()
+                    .map(|id| world.archetypes().get(*id).unwrap())
+                    .map(|archetype| archetype.entities().len())
+                    .sum()
             },
             ids: |world| {
-                let assets = world.resource::<Assets<A>>();
-                Box::new(assets.ids().map(AssetId::untyped))
+                let Some(component_id) = world.components().get_id(TypeId::of::<AssetData<A>>())
+                else {
+                    return Box::new(empty::<UntypedAssetId>());
+                };
+                let Some(archetypes) = world.archetypes().component_index().get(&component_id)
+                else {
+                    return Box::new(empty::<UntypedAssetId>());
+                };
+                let mut archetype_ids = archetypes.keys();
+                let Some(first_id) = archetype_ids.next() else {
+                    return Box::new(empty::<UntypedAssetId>());
+                };
+                let archetype = world.archetypes().get(*first_id).unwrap();
+                let entities = archetype.entities().iter();
+
+                struct AssetIdIter<'w> {
+                    world: &'w World,
+                    archetype_ids: Keys<'w, ArchetypeId, ArchetypeRecord>,
+                    entities: core::slice::Iter<'w, ArchetypeEntity>,
+                    type_id: TypeId,
+                }
+
+                impl Iterator for AssetIdIter<'_> {
+                    type Item = UntypedAssetId;
+
+                    fn next(&mut self) -> Option<Self::Item> {
+                        // Loop until we either get an entity, or we run out of archetypes.
+                        loop {
+                            if let Some(archetype_entity) = self.entities.next() {
+                                return Some(UntypedAssetId::Entity {
+                                    type_id: self.type_id,
+                                    entity: AssetEntity::new_unchecked(archetype_entity.id()),
+                                });
+                            }
+
+                            // We ran out of entities in this archetype, so move on to the next
+                            // archetype.
+                            let archetype_id = self.archetype_ids.next()?;
+                            let archetype = self.world.archetypes().get(*archetype_id).unwrap();
+                            self.entities = archetype.entities().iter();
+                        }
+                    }
+                }
+
+                Box::new(AssetIdIter {
+                    world,
+                    archetype_ids,
+                    entities,
+                    type_id: TypeId::of::<A>(),
+                })
             },
             remove: |world, asset_id| {
-                let mut assets = world.resource_mut::<Assets<A>>();
-                let value = assets.remove(asset_id.typed_debug_checked());
-                value.map(|value| Box::new(value) as Box<dyn Reflect>)
+                world
+                    .remove_asset::<A>(asset_id.typed_debug_checked())
+                    .ok()
+                    .map(|asset| Box::new(asset) as _)
             },
         }
     }
@@ -291,7 +377,7 @@ mod tests {
             field: "test".into(),
         };
 
-        let handle = reflect_asset.add(app.world_mut(), &value);
+        let handle = reflect_asset.spawn(app.world_mut(), &value);
         // struct is a reserved keyword, so we can't use it here
         let strukt = reflect_asset
             .get_mut(app.world_mut(), &handle)
@@ -304,7 +390,7 @@ mod tests {
             .unwrap()
             .apply(&String::from("edited"));
 
-        assert_eq!(reflect_asset.len(app.world()), 1);
+        assert_eq!(reflect_asset.count(app.world()), 1);
         let ids: Vec<_> = reflect_asset.ids(app.world()).collect();
         assert_eq!(ids.len(), 1);
         let id = ids[0];
@@ -313,6 +399,6 @@ mod tests {
         assert_eq!(asset.downcast_ref::<AssetType>().unwrap().field, "edited");
 
         reflect_asset.remove(app.world_mut(), id).unwrap();
-        assert_eq!(reflect_asset.len(app.world()), 0);
+        assert_eq!(reflect_asset.count(app.world()), 0);
     }
 }
