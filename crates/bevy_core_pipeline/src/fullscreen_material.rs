@@ -207,12 +207,11 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
     let Some(fullscreen_pipeline) = fullscreen_pipeline else {
         return;
     };
+    let Some(settings_binding) = data_uniforms.uniforms().binding() else {
+        return;
+    };
 
     for (entity, view_target, mut maybe_bind_groups) in &mut view {
-        let Some(settings_binding) = data_uniforms.uniforms().binding() else {
-            return;
-        };
-
         let main_texture_view = view_target.main_texture_view();
         let main_texture_other_view = view_target.main_texture_other_view();
 
@@ -278,10 +277,10 @@ fn fullscreen_material_system<T: FullscreenMaterial>(
     let source = post_process.source;
     let destination = post_process.destination;
 
-    let bind_group = if bind_groups.a.0 == source.id() {
-        bind_groups.a.1.clone()
+    let (_, bind_group) = if bind_groups.a.0 == source.id() {
+        &bind_groups.a
     } else {
-        bind_groups.b.1.clone()
+        &bind_groups.b
     };
 
     let pass_descriptor = RenderPassDescriptor {
@@ -301,7 +300,7 @@ fn fullscreen_material_system<T: FullscreenMaterial>(
     {
         let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
         render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[settings_index.index()]);
+        render_pass.set_bind_group(0, bind_group, &[settings_index.index()]);
         render_pass.draw(0..3, 0..1);
     }
 }
