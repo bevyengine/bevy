@@ -84,9 +84,11 @@ struct PostProcessBindGroups {
 }
 
 /// Create the bind groups for both main textures
+///
+/// We will pick the correct one in the encoding system
 fn prepare_bind_groups(
     mut commands: Commands,
-    views: Query<(Entity, &ViewTarget)>,
+    mut views: Query<(Entity, &ViewTarget, Option<&mut PostProcessBindGroups>)>,
     post_process_pipeline: Option<Res<PostProcessPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     settings_uniforms: Res<ComponentUniforms<PostProcessSettings>>,
@@ -99,26 +101,40 @@ fn prepare_bind_groups(
         return;
     };
 
-    for (entity, view_target) in &views {
-        let create_bind_group = |texture: &TextureView| {
-            (
-                texture.id(),
-                render_device.create_bind_group(
-                    "post_process_bind_group",
-                    &pipeline_cache.get_bind_group_layout(&post_process_pipeline.layout),
-                    &BindGroupEntries::sequential((
-                        texture,
-                        &post_process_pipeline.sampler,
-                        settings_binding.clone(),
-                    )),
-                ),
-            )
-        };
+    let create_bind_group = |texture: &TextureView| {
+        (
+            texture.id(),
+            render_device.create_bind_group(
+                "post_process_bind_group",
+                &pipeline_cache.get_bind_group_layout(&post_process_pipeline.layout),
+                &BindGroupEntries::sequential((
+                    texture,
+                    &post_process_pipeline.sampler,
+                    settings_binding.clone(),
+                )),
+            ),
+        )
+    };
 
-        commands.entity(entity).insert(PostProcessBindGroups {
-            a: create_bind_group(view_target.main_texture_view()),
-            b: create_bind_group(view_target.main_texture_other_view()),
-        });
+    for (entity, view_target, mut maybe_bind_groups) in &mut views {
+        let main_texture_view = view_target.main_texture_view();
+        let main_texture_other_view = view_target.main_texture_other_view();
+
+        // Only update the cached bind groups if the main texture has changed
+        if let Some(bind_groups) = &mut maybe_bind_groups {
+            if bind_groups.a.0 != main_texture_view.id() {
+                bind_groups.a = create_bind_group(main_texture_view);
+            }
+            if bind_groups.b.0 != main_texture_other_view.id() {
+                bind_groups.b = create_bind_group(main_texture_other_view);
+            }
+        } else {
+            // Create the bind groups and add them to the view
+            commands.entity(entity).insert(PostProcessBindGroups {
+                a: create_bind_group(main_texture_view),
+                b: create_bind_group(main_texture_other_view),
+            });
+        }
     }
 }
 
