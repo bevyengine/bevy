@@ -31,7 +31,7 @@ use bevy_render::{
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, Operations,
         PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
         Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, TextureFormat,
-        TextureSampleType, TextureViewId,
+        TextureSampleType, TextureView, TextureViewId,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
     view::ViewTarget,
@@ -194,7 +194,11 @@ struct FullscreenMaterialBindGroup<T: FullscreenMaterial> {
 
 fn prepare_bind_groups<T: FullscreenMaterial>(
     mut commands: Commands,
-    view: Query<(Entity, &ViewTarget), Without<FullscreenMaterialBindGroup<T>>>,
+    mut view: Query<(
+        Entity,
+        &ViewTarget,
+        Option<&mut FullscreenMaterialBindGroup<T>>,
+    )>,
     fullscreen_pipeline: Option<Res<FullscreenMaterialPipeline<T>>>,
     pipeline_cache: Res<PipelineCache>,
     data_uniforms: Res<ComponentUniforms<T>>,
@@ -204,7 +208,7 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
         return;
     };
 
-    for (entity, view_target) in &view {
+    for (entity, view_target, mut maybe_bind_groups) in &mut view {
         let Some(settings_binding) = data_uniforms.uniforms().binding() else {
             return;
         };
@@ -212,29 +216,35 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
         let main_texture_view = view_target.main_texture_view();
         let main_texture_other_view = view_target.main_texture_other_view();
 
-        let bind_group_a = render_device.create_bind_group(
-            "fullscreen_material_bind_group",
-            &pipeline_cache.get_bind_group_layout(&fullscreen_pipeline.layout),
-            &BindGroupEntries::sequential((
-                main_texture_view,
-                &fullscreen_pipeline.sampler,
-                settings_binding.clone(),
-            )),
-        );
-        let bind_group_b = render_device.create_bind_group(
-            "fullscreen_material_bind_group",
-            &pipeline_cache.get_bind_group_layout(&fullscreen_pipeline.layout),
-            &BindGroupEntries::sequential((
-                main_texture_other_view,
-                &fullscreen_pipeline.sampler,
-                settings_binding.clone(),
-            )),
-        );
-        commands.entity(entity).insert(FullscreenMaterialBindGroup {
-            a: (main_texture_view.id(), bind_group_a),
-            b: (main_texture_other_view.id(), bind_group_b),
-            _marker: PhantomData::<T>,
-        });
+        let create_bind_group = |texture: &TextureView| {
+            (
+                texture.id(),
+                render_device.create_bind_group(
+                    "fullscreen_material_bind_group",
+                    &pipeline_cache.get_bind_group_layout(&fullscreen_pipeline.layout),
+                    &BindGroupEntries::sequential((
+                        texture,
+                        &fullscreen_pipeline.sampler,
+                        settings_binding.clone(),
+                    )),
+                ),
+            )
+        };
+
+        if let Some(bind_groups) = &mut maybe_bind_groups {
+            if bind_groups.a.0 != main_texture_view.id() {
+                bind_groups.a = create_bind_group(main_texture_view);
+            }
+            if bind_groups.b.0 != main_texture_other_view.id() {
+                bind_groups.b = create_bind_group(main_texture_other_view);
+            }
+        } else {
+            commands.entity(entity).insert(FullscreenMaterialBindGroup {
+                a: create_bind_group(main_texture_view),
+                b: create_bind_group(main_texture_other_view),
+                _marker: PhantomData::<T>,
+            });
+        }
     }
 }
 
