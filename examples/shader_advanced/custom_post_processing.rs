@@ -20,10 +20,9 @@ use bevy::{
         },
         renderer::{RenderContext, RenderDevice, ViewQuery},
         view::ViewTarget,
-        RenderApp, RenderStartup,
+        Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
-use bevy_render::{Render, RenderSystems};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/post_processing.wgsl";
