@@ -1854,7 +1854,7 @@ impl World {
 
     fn insert_resource_if_not_exists_with_caller<R: Resource>(
         &mut self,
-        resource: R,
+        func: impl FnOnce(&mut World) -> R,
         caller: MaybeLocation,
     ) -> (ComponentId, EntityWorldMut<'_>) {
         let resource_id = self.register_resource::<R>();
@@ -1862,6 +1862,7 @@ impl World {
         if let Some(&entity) = self.resource_entities.get(resource_id) {
             let entity_ref = self.get_entity(entity).expect("ResourceCache is in sync");
             if !entity_ref.contains_id(resource_id) {
+                let resource = func(self);
                 move_as_ptr!(resource);
                 self.entity_mut(entity).insert_with_caller(
                     resource,
@@ -1873,6 +1874,7 @@ impl World {
             return (resource_id, self.entity_mut(entity));
         }
 
+        let resource = func(self);
         move_as_ptr!(resource);
         let entity_mut = self.spawn_with_caller(resource, caller); // ResourceCache is updated automatically
         (resource_id, entity_mut)
@@ -1889,8 +1891,7 @@ impl World {
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         let caller = MaybeLocation::caller();
-        let resource = R::from_world(self);
-        self.insert_resource_if_not_exists_with_caller(resource, caller)
+        self.insert_resource_if_not_exists_with_caller(R::from_world, caller)
             .0
     }
 
@@ -2253,7 +2254,8 @@ impl World {
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
         let caller = MaybeLocation::caller();
-        let (resource_id, entity) = self.insert_resource_if_not_exists_with_caller(func(), caller);
+        let (resource_id, entity) =
+            self.insert_resource_if_not_exists_with_caller(|_world: &mut World| func(), caller);
         let untyped = entity
             .into_mut_by_id(resource_id)
             .expect("Resource must exist");
@@ -2296,9 +2298,8 @@ impl World {
     #[track_caller]
     pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
         let caller = MaybeLocation::caller();
-        let resource = R::from_world(self);
         let (resource_id, entity) =
-            self.insert_resource_if_not_exists_with_caller(resource, caller);
+            self.insert_resource_if_not_exists_with_caller(R::from_world, caller);
         let untyped = entity
             .into_mut_by_id(resource_id)
             .expect("Resource must exist");
