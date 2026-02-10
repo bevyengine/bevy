@@ -760,7 +760,7 @@ impl FontFeatureTag {
     pub const ORDINALS: FontFeatureTag = FontFeatureTag::new(b"ordn");
 
     /// Uses a slashed version of zero (0) to differentiate from O.
-    pub const SLASHED_ZERO: FontFeatureTag = FontFeatureTag::new(b"ordn");
+    pub const SLASHED_ZERO: FontFeatureTag = FontFeatureTag::new(b"zero");
 
     /// Replaces figures with superscript figures, e.g. for indicating footnotes.
     pub const SUPERSCRIPT: FontFeatureTag = FontFeatureTag::new(b"sups");

@@ -179,6 +179,8 @@ impl<'w> DeferredWorld<'w> {
                     &mut Replace { entity },
                     &mut EntityComponentsTrigger {
                         components: &[component_id],
+                        old_archetype: Some(archetype),
+                        new_archetype: Some(archetype),
                     },
                     MaybeLocation::caller(),
                 );
@@ -222,6 +224,8 @@ impl<'w> DeferredWorld<'w> {
                     &mut Insert { entity },
                     &mut EntityComponentsTrigger {
                         components: &[component_id],
+                        old_archetype: Some(archetype),
+                        new_archetype: Some(archetype),
                     },
                     MaybeLocation::caller(),
                 );
@@ -488,37 +492,50 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_resource_mut() }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
+    #[deprecated(since = "0.19.0", note = "use DeferredWorld::non_send_mut")]
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        self.non_send_mut::<R>()
+    }
+
+    /// Gets a mutable reference to the non-send data of the given type, if it exists.
     ///
     /// # Panics
     ///
-    /// Panics if the resource does not exist.
-    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
+    /// Panics if the data does not exist.
+    /// Use [`get_non_send_mut`](World::get_non_send_mut) instead if you want to handle this case.
     ///
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the data was inserted from.
     #[inline]
     #[track_caller]
-    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
-        match self.get_non_send_resource_mut() {
+    pub fn non_send_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        match self.get_non_send_mut() {
             Some(x) => x,
             None => panic!(
-                "Requested non-send resource {} does not exist in the `World`.
-                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
-                Non-send resources can also be added by plugins.",
+                "Requested non-send data {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_non_send` / `app.init_non_send`?
+                Non-send data can also be added by plugins.",
                 DebugName::type_name::<R>()
             ),
         }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
+    /// Otherwise returns `None`.
+    #[deprecated(since = "0.19.0", note = "use DeferredWorld::get_non_send_mut")]
+    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+        self.get_non_send_mut::<R>()
+    }
+
+    /// Gets a mutable reference to non-send data of the given type, if it exists.
     /// Otherwise returns `None`.
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the data was inserted from.
     #[inline]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
-        unsafe { self.world.get_non_send_resource_mut() }
+    pub fn get_non_send_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the data
+        unsafe { self.world.get_non_send_mut() }
     }
 
     /// Writes a [`Message`].
@@ -567,19 +584,19 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_resource_mut_by_id(component_id) }
     }
 
-    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
-    /// The returned pointer may be used to modify the resource, as long as the mutable borrow
+    /// Gets mutable access to `!Send` data with the id [`ComponentId`] if it exists.
+    /// The returned pointer may be used to modify the data, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
-    /// **You should prefer to use the typed API [`World::get_resource_mut`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.**
+    /// **You should prefer to use the typed API [`DeferredWorld::get_non_send_mut`] where possible
+    /// and only use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the data was inserted from.
     #[inline]
     pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
-        unsafe { self.world.get_non_send_resource_mut_by_id(component_id) }
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the data
+        unsafe { self.world.get_non_send_mut_by_id(component_id) }
     }
 
     /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].

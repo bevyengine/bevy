@@ -241,7 +241,7 @@ fn create_texture_atlas(
     let texture = textures.add(texture);
 
     // Update the sampling settings of the texture atlas
-    let image = textures.get_mut(&texture).unwrap();
+    let mut image = textures.get_mut(&texture).unwrap();
     image.sampler = sampling.unwrap_or_default();
 
     (texture_atlas_layout, texture_atlas_sources, texture)

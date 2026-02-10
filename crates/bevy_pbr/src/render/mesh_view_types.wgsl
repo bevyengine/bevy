@@ -132,6 +132,12 @@ struct LightProbe {
     // This is stored as the transpose in order to save space in this structure.
     // It'll be transposed in the `environment_map_light` function.
     light_from_world_transposed: mat3x4<f32>,
+    // The falloff region, specified as a fraction of the light probe's
+    // bounding box.
+    falloff: vec3<f32>,
+    // The boundaries of the simulated space used for parallax correction,
+    // specified as *half* extents in light probe space.
+    parallax_correction_bounds: vec3<f32>,
     cubemap_index: i32,
     intensity: f32,
     // Various flags that apply to this light probe.
@@ -192,8 +198,15 @@ struct EnvironmentMapUniform {
 
 // Shader version of the order independent transparency settings component.
 struct OrderIndependentTransparencySettings {
-  layers_count: i32,
+  sorted_fragment_max_count: u32,
+  fragments_per_pixel_average: f32,
   alpha_threshold: f32,
+};
+
+struct OitFragmentNode {
+    color: u32,
+    depth_alpha: u32,
+    next: u32,
 };
 
 struct ClusteredDecal {

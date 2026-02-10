@@ -155,6 +155,8 @@ impl<'w> BundleRemover<'w> {
                     &mut Replace { entity },
                     &mut EntityComponentsTrigger {
                         components: &components,
+                        old_archetype: Some(self.old_archetype.as_ref()),
+                        new_archetype: Some(self.new_archetype.as_ref()),
                     },
                     caller,
                 );
@@ -174,6 +176,8 @@ impl<'w> BundleRemover<'w> {
                     &mut Remove { entity },
                     &mut EntityComponentsTrigger {
                         components: &components,
+                        old_archetype: Some(self.old_archetype.as_ref()),
+                        new_archetype: Some(self.new_archetype.as_ref()),
                     },
                     caller,
                 );
