@@ -1,6 +1,6 @@
 ---
 title: "bevy_platform standard directories"
-authors: ["@viridi"]
+authors: ["@viridia"]
 pull_requests: [22891]
 ---
 
