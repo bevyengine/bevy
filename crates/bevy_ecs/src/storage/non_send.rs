@@ -13,6 +13,9 @@ use std::thread::ThreadId;
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///
 /// If `SEND` is false, values of this type will panic if dropped from a different thread.
+/// The type-erased backing storage and metadata for non send data within a [`World`].
+///
+/// Values of this type will panic if dropped from a different thread.
 ///
 /// [`World`]: crate::world::World
 pub struct NonSendData {
