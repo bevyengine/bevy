@@ -45,8 +45,19 @@ use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
 ///     // Note that the builder for a system must be a tuple,
 ///     // even if there is only one parameter.
 ///     (builder,)
-///         .build_state(&mut world)
 ///         .build_system(some_system);
+///
+///     // You can also construct a system in two steps, first by
+///     // constructing a [`SystemState`] with `build_state` and
+///     // second by constructing the final system with `build_system`.
+///     // This can be useful in cases that require type inference
+///     // for function parameters (like closures!), since normal
+///     // `build_system` requires explicitly specifying all parameter
+///     // types. See `build_closure_system_infer/explicit` below for more
+///     // info.
+///     (builder,)
+///         .build_state(&mut world)
+///         .build_system(some_system)
 /// }
 ///
 /// fn build_closure_system_infer(builder: impl SystemParamBuilder<MyParam>) {
@@ -65,10 +76,10 @@ use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
 /// fn build_closure_system_explicit(builder: impl SystemParamBuilder<MyParam>) {
 ///     let mut world = World::new();
 ///     // Alternately, you can provide all types in the closure
-///     // parameter list and call `build_any_system()`.
+///     // parameter list and call `build_system()` normally.
 ///     (builder, ParamBuilder)
-///         .build_state(&mut world)
-///         .build_any_system(|param: MyParam, res: Res<R>| {});
+///         .build_state(&mut world) // this line can be optionally omitted, since all the parameter types are explicit!
+///         .build_system(|param: MyParam, res: Res<R>| {});
 /// }
 /// ```
 ///
@@ -124,12 +135,27 @@ pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
         SystemState::from_builder(world, self)
     }
 
-    /// Create a [`System`] from a [`SystemParamBuilder`]
+    /// Create a [`System`] from a [`SystemParamBuilder`] directly.
+    ///
+    /// This method is useful in cases where type inference for
+    /// closure parameters isn't necessary, or where it's not
+    /// possible to call [`SystemState::build_system`] by passing
+    /// in an `&mut World`. Rather than constructing the system's
+    /// state immediately, this function returns a wrapper that
+    /// initializes the system state during the first run.
+    ///
+    /// Caveats:
+    /// - doesn't support parameter type inference.
+    /// - only works for 'static system param builder types.
+    ///
+    /// In cases where  either of these are required, call
+    /// [`SystemParamBuilder::build_state`] instead.
     fn build_system<Marker, In, Out, Func>(
         self,
         func: Func,
     ) -> IntoBuilderSystem<Marker, In, Out, Func, Self>
     where
+        Self: 'static,
         Func: SystemParamFunction<Marker, Param = P>,
     {
         IntoBuilderSystem::new(self, func)
@@ -937,6 +963,11 @@ mod tests {
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 10);
+
+        let builder_system = (LocalBuilder(10),).build_system(local_system);
+
+        let output = world.run_system_once(builder_system).unwrap();
+        assert_eq!(output, 10);
     }
 
     #[test]
@@ -954,10 +985,18 @@ mod tests {
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 1);
+
+        let builder_system = (QueryParamBuilder::new(|query| {
+            query.with::<A>();
+        }),)
+            .build_system(query_system);
+
+        let output = world.run_system_once(builder_system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
-    fn query_builder_result_fallible() {
+    fn query_builder_system_result_fallible() {
         let mut world = World::new();
 
         world.spawn(A);
@@ -972,6 +1011,16 @@ mod tests {
         // The type annotation here is necessary since the system
         // could also return `Result<usize>`
         let output: usize = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
+
+        let builder_system = (QueryParamBuilder::new(|query| {
+            query.with::<A>();
+        }),)
+            .build_system(query_system_result);
+
+        // The type annotation here is necessary since the system
+        // could also return `Result<usize>`
+        let output: usize = world.run_system_once(builder_system).unwrap();
         assert_eq!(output, 1);
     }
 
@@ -992,6 +1041,16 @@ mod tests {
         // could also return `usize`
         let output: Result<usize> = world.run_system_once(system).unwrap();
         assert_eq!(output.unwrap(), 1);
+
+        let builder_system = (QueryParamBuilder::new(|query| {
+            query.with::<A>();
+        }),)
+            .build_system(query_system_result);
+
+        // The type annotation here is necessary since the system
+        // could also return `usize`
+        let output: Result<usize> = world.run_system_once(builder_system).unwrap();
+        assert_eq!(output.unwrap(), 1);
     }
 
     #[test]
@@ -1007,6 +1066,13 @@ mod tests {
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 1);
+
+        let state = QueryBuilder::new(&mut world).with::<A>().build();
+
+        let builder_system = (state,).build_system(query_system);
+
+        let output = world.run_system_once(builder_system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
@@ -1021,6 +1087,11 @@ mod tests {
             .build_system(multi_param_system);
 
         let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
+
+        let builder_system = (LocalBuilder(0), ParamBuilder).build_system(multi_param_system);
+
+        let output = world.run_system_once(builder_system).unwrap();
         assert_eq!(output, 1);
     }
 
@@ -1051,6 +1122,8 @@ mod tests {
                 count
             });
 
+        // NOTE: this isn't compatible with `BuilderSystem`, because the system param builder isn't 'static
+
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 3);
     }
@@ -1065,6 +1138,8 @@ mod tests {
         let system = (LocalBuilder(0u64), ParamBuilder::local::<u64>())
             .build_state(&mut world)
             .build_system(|a, b| *a + *b + 1);
+
+        // NOTE: this isn't compatible with `BuilderSystem`, because it uses parameter type inference
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 1);
@@ -1095,6 +1170,21 @@ mod tests {
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 5);
+
+        let builder_system = (ParamSetBuilder((
+            QueryParamBuilder::new(|builder| {
+                builder.with::<B>();
+            }),
+            QueryParamBuilder::new(|builder| {
+                builder.with::<C>();
+            }),
+        )),)
+            .build_system(|mut params: ParamSet<(Query<&mut A>, Query<&mut A>)>| {
+                params.p0().iter().count() + params.p1().iter().count()
+            });
+
+        let output = world.run_system_once(builder_system).unwrap();
+        assert_eq!(output, 5);
     }
 
     #[test]
@@ -1121,6 +1211,8 @@ mod tests {
                 params.for_each(|mut query| count += query.iter_mut().count());
                 count
             });
+
+        // NOTE: this isn't compatible with `BuilderSystem`, because the system param builder isn't 'static
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 5);
@@ -1151,6 +1243,8 @@ mod tests {
                 },
             );
 
+        // NOTE: this isn't compatible with `BuilderSystem`, because the system param builder isn't 'static
+
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 4);
     }
@@ -1179,6 +1273,17 @@ mod tests {
             .build_system(|param: CustomParam| *param.local + param.query.iter().count());
 
         let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 101);
+
+        let builder_system = (CustomParamBuilder {
+            local: LocalBuilder(100),
+            query: QueryParamBuilder::new(|builder| {
+                builder.with::<A>();
+            }),
+        },)
+            .build_system(|param: CustomParam| *param.local + param.query.iter().count());
+
+        let output = world.run_system_once(builder_system).unwrap();
         assert_eq!(output, 101);
     }
 
