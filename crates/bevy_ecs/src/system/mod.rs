@@ -1884,6 +1884,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "debug"), ignore)]
     #[should_panic(
         expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_system::sys`: error"
     )]
@@ -1898,6 +1899,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "debug"), ignore)]
     #[should_panic(
         expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_exclusive_system::sys`: error"
     )]
