@@ -1501,34 +1501,26 @@ impl Image {
     }
 
     /// Get a reference to the data bytes where a specific pixel's value is stored.
-    ///
-    /// Returns `Ok(None)` if the image data is not initialized.
     #[inline(always)]
-    pub fn pixel_bytes(&self, coords: UVec3) -> Result<Option<&[u8]>, TextureAccessError> {
+    pub fn pixel_bytes(&self, coords: UVec3) -> Result<&[u8], TextureAccessError> {
         let len = self.texture_descriptor.format.pixel_size()?;
-        let Some(data) = self.data.as_ref() else {
-            return Ok(None);
-        };
-
         let start = self.pixel_data_offset(coords)?;
-        Ok(Some(&data[start..(start + len)]))
+        let Some(data) = self.data.as_ref() else {
+            return Err(TextureAccessError::Uninitialized);
+        };
+        Ok(&data[start..(start + len)])
     }
 
     /// Get a mutable reference to the data bytes where a specific pixel's value is stored.
-    ///
-    /// Returns `Ok(None)` if the image data is not initialized.
     #[inline(always)]
-    pub fn pixel_bytes_mut(
-        &mut self,
-        coords: UVec3,
-    ) -> Result<Option<&mut [u8]>, TextureAccessError> {
+    pub fn pixel_bytes_mut(&mut self, coords: UVec3) -> Result<&mut [u8], TextureAccessError> {
         let len = self.texture_descriptor.format.pixel_size()?;
         let offset = self.pixel_data_offset(coords)?;
         let Some(data) = self.data.as_mut() else {
-            return Ok(None);
+            return Err(TextureAccessError::Uninitialized);
         };
 
-        Ok(Some(&mut data[offset..(offset + len)]))
+        Ok(&mut data[offset..(offset + len)])
     }
 
     /// Clears the content of the image with the given pixel. The image needs to be initialized on
@@ -1680,13 +1672,7 @@ impl Image {
 
     #[inline(always)]
     fn get_color_at_internal(&self, coords: UVec3) -> Result<Color, TextureAccessError> {
-        let Some(bytes) = self.pixel_bytes(coords)? else {
-            return Err(TextureAccessError::OutOfBounds {
-                x: coords.x,
-                y: coords.y,
-                z: coords.z,
-            });
-        };
+        let bytes = self.pixel_bytes(coords)?;
 
         // NOTE: GPUs are always Little Endian.
         // Make sure to respect that when we create color values from bytes.
@@ -1828,13 +1814,7 @@ impl Image {
     ) -> Result<(), TextureAccessError> {
         let format = self.texture_descriptor.format;
 
-        let Some(bytes) = self.pixel_bytes_mut(coords)? else {
-            return Err(TextureAccessError::OutOfBounds {
-                x: coords.x,
-                y: coords.y,
-                z: coords.z,
-            });
-        };
+        let bytes = self.pixel_bytes_mut(coords)?;
 
         // NOTE: GPUs are always Little Endian.
         // Make sure to respect that when we convert color values to bytes.
@@ -2028,6 +2008,8 @@ pub enum TextureAccessError {
     OutOfBounds { x: u32, y: u32, z: u32 },
     #[error("unsupported texture format: {0:?}")]
     UnsupportedTextureFormat(TextureFormat),
+    #[error("image data is not initialized")]
+    Uninitialized,
     #[error("attempt to access texture with different dimension")]
     WrongDimension,
 }

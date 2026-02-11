@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             // (it is the 4th byte of each pixel, as per our `TextureFormat`)
 
             // Find our pixel by its coordinates
-            let pixel_bytes = image.pixel_bytes_mut(UVec3::new(x, y, 0)).unwrap().unwrap();
+            let pixel_bytes = image.pixel_bytes_mut(UVec3::new(x, y, 0)).unwrap();
             // Convert our f32 to u8
             pixel_bytes[3] = (a * u8::MAX as f32) as u8;
         }
