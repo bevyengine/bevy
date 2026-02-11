@@ -1464,50 +1464,71 @@ impl Image {
 
     /// Compute the byte offset where the data of a specific pixel is stored
     ///
-    /// Returns None if the provided coordinates are out of bounds.
+    /// Returns an error if the provided coordinates are out of bounds.
     ///
     /// For 2D textures, Z is the layer number. For 1D textures, Y and Z are ignored.
     #[inline(always)]
-    pub fn pixel_data_offset(&self, coords: UVec3) -> Option<usize> {
+    pub fn pixel_data_offset(&self, coords: UVec3) -> Result<usize, TextureAccessError> {
         let width = self.texture_descriptor.size.width;
         let height = self.texture_descriptor.size.height;
         let depth = self.texture_descriptor.size.depth_or_array_layers;
 
-        let pixel_size = self.texture_descriptor.format.pixel_size().ok()?;
+        let pixel_size = self.texture_descriptor.format.pixel_size()?;
         let pixel_offset = match self.texture_descriptor.dimension {
             TextureDimension::D3 | TextureDimension::D2 => {
                 if coords.x >= width || coords.y >= height || coords.z >= depth {
-                    return None;
+                    return Err(TextureAccessError::OutOfBounds {
+                        x: coords.x,
+                        y: coords.y,
+                        z: coords.z,
+                    });
                 }
                 coords.z * height * width + coords.y * width + coords.x
             }
             TextureDimension::D1 => {
                 if coords.x >= width {
-                    return None;
+                    return Err(TextureAccessError::OutOfBounds {
+                        x: coords.x,
+                        y: coords.y,
+                        z: coords.z,
+                    });
                 }
                 coords.x
             }
         };
 
-        Some(pixel_offset as usize * pixel_size)
+        Ok(pixel_offset as usize * pixel_size)
     }
 
-    /// Get a reference to the data bytes where a specific pixel's value is stored
+    /// Get a reference to the data bytes where a specific pixel's value is stored.
+    ///
+    /// Returns `Ok(None)` if the image data is not initialized.
     #[inline(always)]
-    pub fn pixel_bytes(&self, coords: UVec3) -> Option<&[u8]> {
-        let len = self.texture_descriptor.format.pixel_size().ok()?;
-        let data = self.data.as_ref()?;
-        self.pixel_data_offset(coords)
-            .map(|start| &data[start..(start + len)])
+    pub fn pixel_bytes(&self, coords: UVec3) -> Result<Option<&[u8]>, TextureAccessError> {
+        let len = self.texture_descriptor.format.pixel_size()?;
+        let Some(data) = self.data.as_ref() else {
+            return Ok(None);
+        };
+
+        let start = self.pixel_data_offset(coords)?;
+        Ok(Some(&data[start..(start + len)]))
     }
 
-    /// Get a mutable reference to the data bytes where a specific pixel's value is stored
+    /// Get a mutable reference to the data bytes where a specific pixel's value is stored.
+    ///
+    /// Returns `Ok(None)` if the image data is not initialized.
     #[inline(always)]
-    pub fn pixel_bytes_mut(&mut self, coords: UVec3) -> Option<&mut [u8]> {
-        let len = self.texture_descriptor.format.pixel_size().ok()?;
-        let offset = self.pixel_data_offset(coords);
-        let data = self.data.as_mut()?;
-        offset.map(|start| &mut data[start..(start + len)])
+    pub fn pixel_bytes_mut(
+        &mut self,
+        coords: UVec3,
+    ) -> Result<Option<&mut [u8]>, TextureAccessError> {
+        let len = self.texture_descriptor.format.pixel_size()?;
+        let offset = self.pixel_data_offset(coords)?;
+        let Some(data) = self.data.as_mut() else {
+            return Ok(None);
+        };
+
+        Ok(Some(&mut data[offset..(offset + len)]))
     }
 
     /// Clears the content of the image with the given pixel. The image needs to be initialized on
@@ -1659,7 +1680,7 @@ impl Image {
 
     #[inline(always)]
     fn get_color_at_internal(&self, coords: UVec3) -> Result<Color, TextureAccessError> {
-        let Some(bytes) = self.pixel_bytes(coords) else {
+        let Some(bytes) = self.pixel_bytes(coords)? else {
             return Err(TextureAccessError::OutOfBounds {
                 x: coords.x,
                 y: coords.y,
@@ -1807,7 +1828,7 @@ impl Image {
     ) -> Result<(), TextureAccessError> {
         let format = self.texture_descriptor.format;
 
-        let Some(bytes) = self.pixel_bytes_mut(coords) else {
+        let Some(bytes) = self.pixel_bytes_mut(coords)? else {
             return Err(TextureAccessError::OutOfBounds {
                 x: coords.x,
                 y: coords.y,
@@ -2214,6 +2235,34 @@ mod test {
         assert!(matches!(
             image.get_color_at(5, 10),
             Err(TextureAccessError::OutOfBounds { x: 5, y: 10, z: 0 })
+        ));
+    }
+
+    #[test]
+    fn compressed_texture_format_is_reported_correctly() {
+        let mut image = Image::new_uninit(
+            Extent3d {
+                width: 4,
+                height: 4,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            TextureFormat::Bc1RgbaUnorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+
+        assert!(matches!(
+            image.get_color_at(0, 0),
+            Err(TextureAccessError::UnsupportedTextureFormat(
+                TextureFormat::Bc1RgbaUnorm
+            ))
+        ));
+
+        assert!(matches!(
+            image.set_color_at(0, 0, Color::WHITE),
+            Err(TextureAccessError::UnsupportedTextureFormat(
+                TextureFormat::Bc1RgbaUnorm
+            ))
         ));
     }
 
