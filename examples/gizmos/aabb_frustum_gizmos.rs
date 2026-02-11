@@ -4,16 +4,16 @@
 //! Frustum gizmos are used to visualize the [`Frustum`](bevy::camera::primitives::Frustum) of a camera.
 //! Both can be used together to visualize frustum culling for a given camera.
 //!
-//! This example shows a scene with a camera `MyCamera` that has its
+//! This example shows a scene with a camera [`MyCamera`] that has its
 //! [`Frustum`](bevy::camera::primitives::Frustum) gizmo visible.
-//! A rotating ring of shapes, with their individual [`Aabb`](bevy::camera::primitives::Aabb)
+//! A rotating [`ShapeRing`] of [`MyShape`]s, with their individual [`Aabb`](bevy::camera::primitives::Aabb)
 //! gizmos visible, circle in and out of the camera's frustum.
 //! The [`Aabb`](bevy::camera::primitives::Aabb) gizmos are red by default.
 //! They gizmos change color to green when the shape is considered visible by the
 //! camera and would be extracted for rendering.
 //!
-//! A second active camera, controllable via the FreeCameraPlugin, is used to observe the scene.
-//! This second camera's view takes up most of the window. `MyCamera`'s view takes up the
+//! A second active camera, controllable via the [`FreeCameraPlugin`], is used to observe the scene.
+//! This second camera's view takes up most of the window. [`MyCamera`]'s view takes up the
 //! bottom right ninth of the screen.
 
 use bevy::{
