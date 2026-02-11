@@ -39,12 +39,4 @@ match image.pixel_bytes(coords) {
 }
 ```
 
-Or if you only care about the success case with initialized data:
 
-```rust
-// Before
-let bytes = image.pixel_bytes_mut(coords).unwrap();
-
-// After  
-let bytes = image.pixel_bytes_mut(coords).unwrap().unwrap();
-```
