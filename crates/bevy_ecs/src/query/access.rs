@@ -51,22 +51,12 @@ pub struct Access {
     /// All exclusively-accessed components, or components that may not be
     /// exclusively accessed if `Self::component_writes_inverted` is set.
     component_writes: FixedBitSet,
-    /// All accessed resources.
-    resource_read_and_writes: FixedBitSet,
-    /// The exclusively-accessed resources.
-    resource_writes: FixedBitSet,
     /// Is `true` if this component can read all components *except* those
     /// present in `Self::component_read_and_writes`.
     component_read_and_writes_inverted: bool,
     /// Is `true` if this component can write to all components *except* those
     /// present in `Self::component_writes`.
     component_writes_inverted: bool,
-    /// Is `true` if this has access to all resources.
-    /// This field is a performance optimization for `&World` (also harder to mess up for soundness).
-    reads_all_resources: bool,
-    /// Is `true` if this has mutable access to all resources.
-    /// If this is true, then `reads_all` must also be true.
-    writes_all_resources: bool,
     // Components that are not accessed, but whose presence in an archetype affect query results.
     archetypal: FixedBitSet,
 }
@@ -77,12 +67,8 @@ impl Clone for Access {
         Self {
             component_read_and_writes: self.component_read_and_writes.clone(),
             component_writes: self.component_writes.clone(),
-            resource_read_and_writes: self.resource_read_and_writes.clone(),
-            resource_writes: self.resource_writes.clone(),
             component_read_and_writes_inverted: self.component_read_and_writes_inverted,
             component_writes_inverted: self.component_writes_inverted,
-            reads_all_resources: self.reads_all_resources,
-            writes_all_resources: self.writes_all_resources,
             archetypal: self.archetypal.clone(),
         }
     }
@@ -91,13 +77,8 @@ impl Clone for Access {
         self.component_read_and_writes
             .clone_from(&source.component_read_and_writes);
         self.component_writes.clone_from(&source.component_writes);
-        self.resource_read_and_writes
-            .clone_from(&source.resource_read_and_writes);
-        self.resource_writes.clone_from(&source.resource_writes);
         self.component_read_and_writes_inverted = source.component_read_and_writes_inverted;
         self.component_writes_inverted = source.component_writes_inverted;
-        self.reads_all_resources = source.reads_all_resources;
-        self.writes_all_resources = source.writes_all_resources;
         self.archetypal.clone_from(&source.archetypal);
     }
 }
@@ -114,20 +95,10 @@ impl Debug for Access {
                 &FormattedBitSet::new(&self.component_writes),
             )
             .field(
-                "resource_read_and_writes",
-                &FormattedBitSet::new(&self.resource_read_and_writes),
-            )
-            .field(
-                "resource_writes",
-                &FormattedBitSet::new(&self.resource_writes),
-            )
-            .field(
                 "component_read_and_writes_inverted",
                 &self.component_read_and_writes_inverted,
             )
             .field("component_writes_inverted", &self.component_writes_inverted)
-            .field("reads_all_resources", &self.reads_all_resources)
-            .field("writes_all_resources", &self.writes_all_resources)
             .field("archetypal", &FormattedBitSet::new(&self.archetypal))
             .finish()
     }
@@ -137,14 +108,10 @@ impl Access {
     /// Creates an empty [`Access`] collection.
     pub const fn new() -> Self {
         Self {
-            reads_all_resources: false,
-            writes_all_resources: false,
             component_read_and_writes_inverted: false,
             component_writes_inverted: false,
             component_read_and_writes: FixedBitSet::new(),
             component_writes: FixedBitSet::new(),
-            resource_read_and_writes: FixedBitSet::new(),
-            resource_writes: FixedBitSet::new(),
             archetypal: FixedBitSet::new(),
         }
     }
@@ -154,7 +121,6 @@ impl Access {
     /// but is available in a `const` context.
     pub(crate) const fn new_read_all() -> Self {
         let mut access = Self::new();
-        access.reads_all_resources = true;
         // Note that we cannot use `read_all_components()`
         // because `FixedBitSet::clear()` is not `const`.
         access.component_read_and_writes_inverted = true;
@@ -166,8 +132,6 @@ impl Access {
     /// but is available in a `const` context.
     pub(crate) const fn new_write_all() -> Self {
         let mut access = Self::new();
-        access.reads_all_resources = true;
-        access.writes_all_resources = true;
         // Note that we cannot use `write_all_components()`
         // because `FixedBitSet::clear()` is not `const`.
         access.component_read_and_writes_inverted = true;
@@ -205,14 +169,15 @@ impl Access {
     }
 
     /// Adds access to the resource given by `index`.
+    #[deprecated(since = "0.19.0", note = "use Access::add_component_read")]
     pub fn add_resource_read(&mut self, index: ComponentId) {
-        self.resource_read_and_writes.grow_and_insert(index.index());
+        self.add_component_read(index);
     }
 
     /// Adds exclusive access to the resource given by `index`.
+    #[deprecated(since = "0.19.0", note = "use Access::add_component_write")]
     pub fn add_resource_write(&mut self, index: ComponentId) {
-        self.resource_read_and_writes.grow_and_insert(index.index());
-        self.resource_writes.grow_and_insert(index.index());
+        self.add_component_write(index);
     }
 
     fn remove_component_sparse_set_index_read(&mut self, index: usize) {
@@ -293,33 +258,43 @@ impl Access {
     }
 
     /// Returns `true` if this can access the resource given by `index`.
+    #[deprecated(since = "0.19.0", note = "use Access::has_component_read")]
     pub fn has_resource_read(&self, index: ComponentId) -> bool {
-        self.reads_all_resources || self.resource_read_and_writes.contains(index.index())
+        self.has_component_read(index)
     }
 
     /// Returns `true` if this can access any resource.
+    #[deprecated(since = "0.19.0", note = "use Access::has_any_component_read")]
     pub fn has_any_resource_read(&self) -> bool {
-        self.reads_all_resources || !self.resource_read_and_writes.is_clear()
+        self.has_any_component_read()
     }
 
     /// Returns `true` if this can exclusively access the resource given by `index`.
+    #[deprecated(since = "0.19.0", note = "use Access::has_component_write")]
     pub fn has_resource_write(&self, index: ComponentId) -> bool {
-        self.writes_all_resources || self.resource_writes.contains(index.index())
+        self.has_component_write(index)
     }
 
     /// Returns `true` if this accesses any resource mutably.
+    #[deprecated(since = "0.19.0", note = "use Access::has_any_component_write")]
     pub fn has_any_resource_write(&self) -> bool {
-        self.writes_all_resources || !self.resource_writes.is_clear()
+        self.has_any_component_write()
     }
 
     /// Returns `true` if this accesses any resources or components.
+    ///
+    /// This is identical to [`has_any_component_read`](Self::has_any_component_read).
+    #[inline]
     pub fn has_any_read(&self) -> bool {
-        self.has_any_component_read() || self.has_any_resource_read()
+        self.has_any_component_read()
     }
 
-    /// Returns `true` if this accesses any resources or components mutably.
+    /// Returns `true` if this accesses any components mutably.
+    ///
+    /// This is identical to [`has_any_component_write`](Self::has_any_component_write).
+    #[inline]
     pub fn has_any_write(&self) -> bool {
-        self.has_any_component_write() || self.has_any_resource_write()
+        self.has_any_component_write()
     }
 
     /// Returns true if this has an archetypal (indirect) access to the component given by `index`.
@@ -349,31 +324,20 @@ impl Access {
         self.component_writes.clear();
     }
 
-    /// Sets this as having access to all resources (i.e. `&World`).
-    #[inline]
-    pub const fn read_all_resources(&mut self) {
-        self.reads_all_resources = true;
-    }
-
-    /// Sets this as having mutable access to all resources (i.e. `&mut World`).
-    #[inline]
-    pub const fn write_all_resources(&mut self) {
-        self.reads_all_resources = true;
-        self.writes_all_resources = true;
-    }
-
     /// Sets this as having access to all indexed elements (i.e. `&World`).
+    ///
+    /// This is identical to [`read_all_components`](Self::read_all_components).
     #[inline]
     pub fn read_all(&mut self) {
         self.read_all_components();
-        self.read_all_resources();
     }
 
     /// Sets this as having mutable access to all indexed elements (i.e. `&mut World`).
+    ///
+    /// This is identical to [`write_all_components`](Self::write_all_components).
     #[inline]
     pub fn write_all(&mut self) {
         self.write_all_components();
-        self.write_all_resources();
     }
 
     /// Returns `true` if this has access to all components (i.e. `EntityRef`).
@@ -388,46 +352,34 @@ impl Access {
         self.component_writes_inverted && self.component_writes.is_clear()
     }
 
-    /// Returns `true` if this has access to all resources (i.e. `EntityRef`).
-    #[inline]
-    pub fn has_read_all_resources(&self) -> bool {
-        self.reads_all_resources
-    }
-
-    /// Returns `true` if this has write access to all resources (i.e. `EntityMut`).
-    #[inline]
-    pub fn has_write_all_resources(&self) -> bool {
-        self.writes_all_resources
-    }
-
     /// Returns `true` if this has access to all indexed elements (i.e. `&World`).
+    ///
+    /// This is identical to [`has_read_all_components`](Self::has_read_all_components).
+    #[inline]
     pub fn has_read_all(&self) -> bool {
-        self.has_read_all_components() && self.has_read_all_resources()
+        self.has_read_all_components()
     }
 
     /// Returns `true` if this has write access to all indexed elements (i.e. `&mut World`).
+    ///
+    /// This is identical to [`has_write_all_components`](Self::has_write_all_components).
+    #[inline]
     pub fn has_write_all(&self) -> bool {
-        self.has_write_all_components() && self.has_write_all_resources()
+        self.has_write_all_components()
     }
 
     /// Removes all writes.
     pub fn clear_writes(&mut self) {
-        self.writes_all_resources = false;
         self.component_writes_inverted = false;
         self.component_writes.clear();
-        self.resource_writes.clear();
     }
 
     /// Removes all accesses.
     pub fn clear(&mut self) {
-        self.reads_all_resources = false;
-        self.writes_all_resources = false;
         self.component_read_and_writes_inverted = false;
         self.component_writes_inverted = false;
         self.component_read_and_writes.clear();
         self.component_writes.clear();
-        self.resource_read_and_writes.clear();
-        self.resource_writes.clear();
     }
 
     /// Adds all access from `other`.
@@ -444,12 +396,6 @@ impl Access {
             &other.component_writes,
             other.component_writes_inverted,
         );
-
-        self.reads_all_resources = self.reads_all_resources || other.reads_all_resources;
-        self.writes_all_resources = self.writes_all_resources || other.writes_all_resources;
-        self.resource_read_and_writes
-            .union_with(&other.resource_read_and_writes);
-        self.resource_writes.union_with(&other.resource_writes);
         self.archetypal.union_with(&other.archetypal);
     }
 
@@ -469,19 +415,6 @@ impl Access {
             &other.component_read_and_writes,
             other.component_read_and_writes_inverted,
         );
-
-        if other.reads_all_resources {
-            self.writes_all_resources = false;
-            self.resource_writes.clear();
-        }
-        if other.writes_all_resources {
-            self.reads_all_resources = false;
-            self.resource_read_and_writes.clear();
-        }
-        self.resource_read_and_writes
-            .difference_with(&other.resource_writes);
-        self.resource_writes
-            .difference_with(&other.resource_read_and_writes);
     }
 
     /// Returns `true` if the access and `other` can be active at the same time,
@@ -534,41 +467,15 @@ impl Access {
         true
     }
 
-    /// Returns `true` if the access and `other` can be active at the same time,
-    /// only looking at their resource access.
-    ///
-    /// [`Access`] instances are incompatible if one can write
-    /// an element that the other can read or write.
-    pub fn is_resources_compatible(&self, other: &Access) -> bool {
-        if self.writes_all_resources {
-            return !other.has_any_resource_read();
-        }
-
-        if other.writes_all_resources {
-            return !self.has_any_resource_read();
-        }
-
-        if self.reads_all_resources {
-            return !other.has_any_resource_write();
-        }
-
-        if other.reads_all_resources {
-            return !self.has_any_resource_write();
-        }
-
-        self.resource_writes
-            .is_disjoint(&other.resource_read_and_writes)
-            && other
-                .resource_writes
-                .is_disjoint(&self.resource_read_and_writes)
-    }
-
     /// Returns `true` if the access and `other` can be active at the same time.
     ///
     /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
+    ///
+    /// This is identical to [`is_components_compatible`](Self::is_components_compatible).
+    #[inline]
     pub fn is_compatible(&self, other: &Access) -> bool {
-        self.is_components_compatible(other) && self.is_resources_compatible(other)
+        self.is_components_compatible(other)
     }
 
     /// Returns `true` if the set's component access is a subset of another, i.e. `other`'s component access
@@ -618,34 +525,13 @@ impl Access {
         true
     }
 
-    /// Returns `true` if the set's resource access is a subset of another, i.e. `other`'s resource access
-    /// contains at least all the values in `self`.
-    pub fn is_subset_resources(&self, other: &Access) -> bool {
-        if self.writes_all_resources {
-            return other.writes_all_resources;
-        }
-
-        if other.writes_all_resources {
-            return true;
-        }
-
-        if self.reads_all_resources {
-            return other.reads_all_resources;
-        }
-
-        if other.reads_all_resources {
-            return self.resource_writes.is_subset(&other.resource_writes);
-        }
-
-        self.resource_read_and_writes
-            .is_subset(&other.resource_read_and_writes)
-            && self.resource_writes.is_subset(&other.resource_writes)
-    }
-
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
     /// at least all the values in `self`.
+    ///
+    /// This is identical to [`is_subset_components`](Self::is_subset_components).
+    #[inline]
     pub fn is_subset(&self, other: &Access) -> bool {
-        self.is_subset_components(other) && self.is_subset_resources(other)
+        self.is_subset_components(other)
     }
 
     fn get_component_conflicts(&self, other: &Access) -> AccessConflicts {
@@ -688,59 +574,11 @@ impl Access {
     }
 
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
+    ///
+    /// This is identical to [`get_component_conflicts`](Self::get_component_conflicts)
+    #[inline]
     pub fn get_conflicts(&self, other: &Access) -> AccessConflicts {
-        let mut conflicts = match self.get_component_conflicts(other) {
-            AccessConflicts::All => return AccessConflicts::All,
-            AccessConflicts::Individual(conflicts) => conflicts,
-        };
-
-        if self.reads_all_resources {
-            if other.writes_all_resources {
-                return AccessConflicts::All;
-            }
-            conflicts.extend(other.resource_writes.ones());
-        }
-
-        if other.reads_all_resources {
-            if self.writes_all_resources {
-                return AccessConflicts::All;
-            }
-            conflicts.extend(self.resource_writes.ones());
-        }
-        if self.writes_all_resources {
-            conflicts.extend(other.resource_read_and_writes.ones());
-        }
-
-        if other.writes_all_resources {
-            conflicts.extend(self.resource_read_and_writes.ones());
-        }
-
-        conflicts.extend(
-            self.resource_writes
-                .intersection(&other.resource_read_and_writes),
-        );
-        conflicts.extend(
-            self.resource_read_and_writes
-                .intersection(&other.resource_writes),
-        );
-        AccessConflicts::Individual(conflicts)
-    }
-
-    /// Returns the indices of the resources this has access to.
-    pub fn resource_reads_and_writes(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.resource_read_and_writes.ones().map(ComponentId::new)
-    }
-
-    /// Returns the indices of the resources this has non-exclusive access to.
-    pub fn resource_reads(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.resource_read_and_writes
-            .difference(&self.resource_writes)
-            .map(ComponentId::new)
-    }
-
-    /// Returns the indices of the resources this has exclusive access to.
-    pub fn resource_writes(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.resource_writes.ones().map(ComponentId::new)
+        self.get_component_conflicts(other)
     }
 
     /// Returns the indices of the components that this has an archetypal access to.
@@ -1071,13 +909,15 @@ impl FilteredAccess {
     }
 
     /// Adds access to the resource given by `index`.
+    #[deprecated(since = "0.19.0", note = "use FilteredAccess::add_component_read")]
     pub fn add_resource_read(&mut self, index: ComponentId) {
-        self.access.add_resource_read(index);
+        self.add_component_read(index);
     }
 
     /// Adds exclusive access to the resource given by `index`.
+    #[deprecated(since = "0.19.0", note = "use FilteredAccess::add_component_write")]
     pub fn add_resource_write(&mut self, index: ComponentId) {
-        self.access.add_resource_write(index);
+        self.add_component_write(index);
     }
 
     fn add_required(&mut self, index: ComponentId) {
@@ -1120,12 +960,6 @@ impl FilteredAccess {
 
     /// Returns `true` if this and `other` can be active at the same time.
     pub fn is_compatible(&self, other: &FilteredAccess) -> bool {
-        // Resources are read from the world rather than the filtered archetypes,
-        // so they must be compatible even if the filters are disjoint.
-        if !self.access.is_resources_compatible(&other.access) {
-            return false;
-        }
-
         if self.access.is_components_compatible(&other.access) {
             return true;
         }
@@ -1387,30 +1221,48 @@ impl FilteredAccessSet {
     }
 
     /// Adds a read access to a resource to the set.
+    #[deprecated(
+        since = "0.19.0",
+        note = "FilteredAccessSet::add_unfiltered_component_read"
+    )]
     pub fn add_unfiltered_resource_read(&mut self, index: ComponentId) {
+        self.add_unfiltered_component_read(index);
+    }
+
+    /// Adds a read access to a component to the set.
+    pub fn add_unfiltered_component_read(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
-        filter.add_resource_read(index);
+        filter.add_component_read(index);
+        self.add(filter);
+    }
+
+    /// Adds read access to all components to the set.
+    pub fn add_unfiltered_read_all_components(&mut self) {
+        let mut filter = FilteredAccess::default();
+        filter.access.read_all_components();
         self.add(filter);
     }
 
     /// Adds a write access to a resource to the set.
+    #[deprecated(
+        since = "0.19.0",
+        note = "FilteredAccessSet::add_unfiltered_component_write"
+    )]
     pub fn add_unfiltered_resource_write(&mut self, index: ComponentId) {
+        self.add_unfiltered_component_write(index);
+    }
+
+    /// Adds a write access to a resource to the set.
+    pub fn add_unfiltered_component_write(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
-        filter.add_resource_write(index);
+        filter.add_component_write(index);
         self.add(filter);
     }
 
-    /// Adds read access to all resources to the set.
-    pub fn add_unfiltered_read_all_resources(&mut self) {
+    /// Adds write access to all components to the set.
+    pub fn add_unfiltered_write_all_components(&mut self) {
         let mut filter = FilteredAccess::default();
-        filter.access.read_all_resources();
-        self.add(filter);
-    }
-
-    /// Adds write access to all resources to the set.
-    pub fn add_unfiltered_write_all_resources(&mut self) {
-        let mut filter = FilteredAccess::default();
-        filter.access.write_all_resources();
+        filter.write_all_components();
         self.add(filter);
     }
 
@@ -1491,8 +1343,8 @@ mod tests {
     fn create_sample_filtered_access_set() -> FilteredAccessSet {
         let mut filtered_access_set = FilteredAccessSet::default();
 
-        filtered_access_set.add_unfiltered_resource_read(ComponentId::new(2));
-        filtered_access_set.add_unfiltered_resource_write(ComponentId::new(4));
+        filtered_access_set.add_unfiltered_component_read(ComponentId::new(2));
+        filtered_access_set.add_unfiltered_component_write(ComponentId::new(4));
         filtered_access_set.read_all();
 
         filtered_access_set
@@ -1577,8 +1429,8 @@ mod tests {
         let original = create_sample_filtered_access_set();
         let mut cloned = FilteredAccessSet::default();
 
-        cloned.add_unfiltered_resource_read(ComponentId::new(7));
-        cloned.add_unfiltered_resource_write(ComponentId::new(9));
+        cloned.add_unfiltered_component_read(ComponentId::new(7));
+        cloned.add_unfiltered_component_write(ComponentId::new(9));
         cloned.write_all();
 
         cloned.clone_from(&original);
@@ -1649,10 +1501,10 @@ mod tests {
     #[test]
     fn filtered_combined_access() {
         let mut access_a = FilteredAccessSet::default();
-        access_a.add_unfiltered_resource_read(ComponentId::new(1));
+        access_a.add_unfiltered_component_read(ComponentId::new(1));
 
         let mut filter_b = FilteredAccess::default();
-        filter_b.add_resource_write(ComponentId::new(1));
+        filter_b.add_component_write(ComponentId::new(1));
 
         let conflicts = access_a.get_conflicts_single(&filter_b);
         assert_eq!(

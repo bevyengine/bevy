@@ -908,8 +908,8 @@ mod tests {
         fn iter_access(
             state: &Self::State,
         ) -> impl Iterator<Item = super::access_iter::EcsAccessType<'_>> {
-            core::iter::once(super::access_iter::EcsAccessType::Resource(
-                super::access_iter::ResourceAccessLevel::Read(*state),
+            core::iter::once(super::access_iter::EcsAccessType::Component(
+                super::access_iter::EcsAccessLevel::Read(*state),
             ))
         }
     }
@@ -920,6 +920,7 @@ mod tests {
     impl ArchetypeQueryData for ReadsRData {}
 
     #[test]
+    // TODO: redo test
     fn read_res_read_res_no_conflict() {
         fn system(_q1: Query<ReadsRData, With<A>>, _q2: Query<ReadsRData, Without<A>>) {}
         assert_is_system(system);

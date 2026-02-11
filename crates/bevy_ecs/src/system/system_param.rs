@@ -33,6 +33,7 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use fixedbitset::FixedBitSet;
 use thiserror::Error;
 
 use super::Populated;
@@ -2793,13 +2794,19 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
-        if access.has_read_all_resources() {
-            component_access_set.add_unfiltered_read_all_resources();
-        } else {
-            for component_id in access.resource_reads_and_writes() {
-                component_access_set.add_unfiltered_resource_read(component_id);
+        match access.try_iter_component_access() {
+            Err(_) => {
+                // access reads all resources
+                for component_id in world.resource_entities().indices() {
+                    component_access_set.add_unfiltered_resource_read(*component_id);
+                }
             }
-        }
+            Ok(iter) => {
+                for access_kind in iter {
+                    component_access_set.add_unfiltered_resource_read(*access_kind.index());
+                }
+            }
+        };
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -2842,21 +2849,18 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
-        if access.has_read_all_resources() {
-            component_access_set.add_unfiltered_read_all_resources();
-        } else {
-            for component_id in access.resource_reads() {
-                component_access_set.add_unfiltered_resource_read(component_id);
+        match access.try_iter_component_access() {
+            Err(_) => {
+                for component_id in world.resource_entities().indices() {
+                    component_access_set.add_unfiltered_resource_write(*component_id);
+                }
             }
-        }
-
-        if access.has_write_all_resources() {
-            component_access_set.add_unfiltered_write_all_resources();
-        } else {
-            for component_id in access.resource_writes() {
-                component_access_set.add_unfiltered_resource_write(component_id);
+            Ok(iter) => {
+                for access_kind in iter {
+                    component_access_set.add_unfiltered_resource_write(*access_kind.index());
+                }
             }
-        }
+        };
     }
 
     unsafe fn get_param<'world, 'state>(
