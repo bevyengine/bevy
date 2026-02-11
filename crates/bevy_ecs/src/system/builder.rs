@@ -38,15 +38,18 @@ use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
 /// #
 /// fn some_system(param: MyParam) {}
 ///
-/// fn build_system(builder: impl SystemParamBuilder<MyParam>) {
-///     let mut world = World::new();
+/// fn build_system(builder: impl SystemParamBuilder<MyParam> + 'static) {
 ///     // To build a system, create a tuple of `SystemParamBuilder`s
 ///     // with a builder for each parameter.
 ///     // Note that the builder for a system must be a tuple,
 ///     // even if there is only one parameter.
+/// #   let _system: bevy_ecs::system::IntoBuilderSystem<fn(MyParam), (), (), _, _> =
 ///     (builder,)
 ///         .build_system(some_system);
+/// }
 ///
+/// fn build_system_direct(builder: impl SystemParamBuilder<MyParam>) {
+///     let mut world = World::new();
 ///     // You can also construct a system in two steps, first by
 ///     // constructing a [`SystemState`] with `build_state` and
 ///     // second by constructing the final system with `build_system`.
@@ -57,7 +60,7 @@ use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
 ///     // info.
 ///     (builder,)
 ///         .build_state(&mut world)
-///         .build_system(some_system)
+///         .build_system(some_system);
 /// }
 ///
 /// fn build_closure_system_infer(builder: impl SystemParamBuilder<MyParam>) {
@@ -77,7 +80,7 @@ use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
 ///     let mut world = World::new();
 ///     // Alternately, you can provide all types in the closure
 ///     // parameter list and call `build_system()` normally.
-///     (builder, ParamBuilder)
+///     (builder, ParamBuilder::resource())
 ///         .build_state(&mut world) // this line can be optionally omitted, since all the parameter types are explicit!
 ///         .build_system(|param: MyParam, res: Res<R>| {});
 /// }
