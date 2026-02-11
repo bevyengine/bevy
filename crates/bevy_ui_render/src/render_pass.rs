@@ -80,6 +80,7 @@ pub struct TransparentUi {
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
     pub index: usize,
+    pub summary_index: u8,
     pub indexed: bool,
 }
 

@@ -343,7 +343,7 @@ pub fn extract_gradients(
     mut commands: Commands,
     mut extracted_gradients: ResMut<ExtractedGradients>,
     mut extracted_color_stops: ResMut<ExtractedColorStops>,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes: Local<ExtractedUiNodes>,
     gradients_query: Extract<
         Query<(
             Entity,
@@ -573,6 +573,9 @@ pub fn extract_gradients(
             }
         }
     }
+    commands.queue(ExtractedUiNodesSummaryPushCommand(
+        extracted_uinodes.extract(),
+    ));
 }
 
 #[expect(
@@ -629,6 +632,7 @@ pub fn queue_gradient(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            summary_index: u8::MAX,
             index,
             indexed: true,
         });

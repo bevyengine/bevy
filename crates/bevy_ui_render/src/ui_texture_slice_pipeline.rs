@@ -346,6 +346,7 @@ pub fn queue_ui_slices(
             sort_key: FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::IMAGE),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            summary_index: u8::MAX,
             index,
             indexed: true,
         });
