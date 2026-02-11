@@ -43,7 +43,7 @@ fn main() {
         .add_systems(Update, move_shapes)
         .add_systems(
             // Frustum culling happens in PostUpdate.
-            // Our system will change the color of aabb's upon detecting 
+            // Our system will change the color of aabb's upon detecting
             // the results of frustum culling after the last VisibilitySystem runs
             PostUpdate,
             update_shape_aabb_colors.after(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
