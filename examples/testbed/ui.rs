@@ -1393,15 +1393,12 @@ mod debug_outlines {
         ui_render::UiDebugOptions,
     };
 
-    pub fn setup(mut commands: Commands, mut debug_options: ResMut<GlobalUiDebugOptions>) {
+    pub fn setup(mut commands: Commands, mut debug_options: ResMut<UiDebugOptions>) {
         debug_options.enabled = true;
         debug_options.line_width = 5.;
         debug_options.line_color_override = Some(LinearRgba::GREEN);
         debug_options.show_hidden = true;
         debug_options.show_clipped = true;
-
-        let debug_options: UiDebugOptions = (*debug_options.as_ref()).into();
-
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::DebugOutlines)));
         commands
             .spawn((
@@ -1511,7 +1508,7 @@ mod debug_outlines {
                         outline_padding_box: true,
                         outline_content_box: true,
                         ignore_border_radius: false,
-                        ..debug_options
+                        ..*debug_options
                     },
                 ));
 
@@ -1531,7 +1528,7 @@ mod debug_outlines {
                         outline_scrollbars: true,
                         show_hidden: false,
                         show_clipped: false,
-                        ..debug_options
+                        ..*debug_options
                     },
                     Children::spawn(SpawnIter((0..20).map(move |i| {
                         (
@@ -1566,7 +1563,7 @@ mod debug_outlines {
                         outline_scrollbars: true,
                         show_hidden: false,
                         show_clipped: false,
-                        ..debug_options
+                        ..*debug_options
                     },
                     Children::spawn(SpawnIter((0..20).map(move |i| {
                         (
@@ -1602,7 +1599,7 @@ mod debug_outlines {
                         outline_scrollbars: true,
                         show_hidden: false,
                         show_clipped: false,
-                        ..debug_options
+                        ..*debug_options
                     },
                     Children::spawn(SpawnIter((0..6).map(move |i| {
                         (
@@ -1631,8 +1628,8 @@ mod debug_outlines {
             });
     }
 
-    pub fn teardown(mut debug_options: ResMut<GlobalUiDebugOptions>) {
-        *debug_options = GlobalUiDebugOptions::default();
+    pub fn teardown(mut debug_options: ResMut<UiDebugOptions>) {
+        *debug_options = UiDebugOptions::default();
     }
 }
 

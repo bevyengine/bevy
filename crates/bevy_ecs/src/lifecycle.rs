@@ -315,15 +315,15 @@ impl ComponentHooks {
 }
 
 /// [`EventKey`] for [`Add`]
-pub const ADD: EventKey = EventKey(ComponentId::new(crate::component::ADD));
+pub const ADD: EventKey = EventKey(ComponentId::new(0));
 /// [`EventKey`] for [`Insert`]
-pub const INSERT: EventKey = EventKey(ComponentId::new(crate::component::INSERT));
+pub const INSERT: EventKey = EventKey(ComponentId::new(1));
 /// [`EventKey`] for [`Replace`]
-pub const REPLACE: EventKey = EventKey(ComponentId::new(crate::component::REPLACE));
+pub const REPLACE: EventKey = EventKey(ComponentId::new(2));
 /// [`EventKey`] for [`Remove`]
-pub const REMOVE: EventKey = EventKey(ComponentId::new(crate::component::REMOVE));
+pub const REMOVE: EventKey = EventKey(ComponentId::new(3));
 /// [`EventKey`] for [`Despawn`]
-pub const DESPAWN: EventKey = EventKey(ComponentId::new(crate::component::DESPAWN));
+pub const DESPAWN: EventKey = EventKey(ComponentId::new(4));
 
 /// Trigger emitted when a component is inserted onto an entity that does not already have that
 /// component. Runs before `Insert`.

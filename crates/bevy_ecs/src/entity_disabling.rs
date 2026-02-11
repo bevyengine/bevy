@@ -106,8 +106,7 @@ use smallvec::SmallVec;
 
 #[cfg(feature = "bevy_reflect")]
 use {
-    crate::reflect::{ReflectComponent, ReflectResource},
-    bevy_reflect::std_traits::ReflectDefault,
+    crate::reflect::ReflectComponent, bevy_reflect::std_traits::ReflectDefault,
     bevy_reflect::Reflect,
 };
 
@@ -167,11 +166,7 @@ pub struct Disabled;
 /// Think carefully about whether you need to use a new disabling component,
 /// and clearly communicate their presence in any libraries you publish.
 #[derive(Resource, Debug)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Resource)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct DefaultQueryFilters {
     // We only expect a few components per application to act as disabling components, so we use a SmallVec here
     // to avoid heap allocation in most cases.

@@ -717,7 +717,7 @@ mod tests {
         component::Component,
         hierarchy::Children,
         observer::On,
-        prelude::{ReflectComponent, ReflectResource},
+        prelude::ReflectComponent,
         query::With,
         system::{Commands, Query, Res, ResMut, RunSystemOnce},
     };
@@ -748,7 +748,6 @@ mod tests {
         app.add_plugins(ScheduleRunnerPlugin::default())
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin);
-        app.register_type::<ComponentA>();
         app.update();
 
         let mut scene_world = World::new();
@@ -857,8 +856,7 @@ mod tests {
     #[reflect(Component)]
     struct ComponentF;
 
-    #[derive(Resource, Default, Reflect)]
-    #[reflect(Resource)]
+    #[derive(Resource, Default)]
     struct TriggerCount(u32);
 
     fn setup() -> App {
@@ -1072,8 +1070,6 @@ mod tests {
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin)
             .register_type::<ComponentA>()
-            .register_type::<ChildOf>()
-            .register_type::<Children>()
             .register_type::<ComponentF>();
         app.update();
 

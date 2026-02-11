@@ -531,15 +531,10 @@ pub fn process_remote_get_resources_request(
 
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
-    get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
-    let reflect_component =
-        get_reflect_component(&type_registry, &resource_path).map_err(BrpError::component_error)?;
-    let entity = get_resource_entity_pair(&type_registry, &resource_path, world)
-        .map_err(BrpError::resource_error)?
-        .0;
-    let entity_ref = world.get_entity(entity).map_err(BrpError::resource_error)?;
+    let reflect_resource =
+        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
 
-    let Some(reflected) = reflect_component.reflect(entity_ref) else {
+    let Ok(reflected) = reflect_resource.reflect(world) else {
         return Err(BrpError::resource_not_present(&resource_path));
     };
 
@@ -1054,15 +1049,9 @@ pub fn process_remote_insert_resources_request(
     let reflected_resource = deserialize_resource(&type_registry, &resource_path, value)
         .map_err(BrpError::resource_error)?;
 
-    let resource_registration = get_resource_type_registration(&type_registry, &resource_path)
-        .map_err(BrpError::resource_error)?;
-    let type_id = resource_registration.type_id();
-    let resource_id = world
-        .components()
-        .get_resource_id(type_id)
-        .ok_or(anyhow!("Resource is not registered: `{}`", resource_path))
-        .map_err(BrpError::resource_error)?;
-    world.insert_reflect_resource(resource_id, reflected_resource);
+    let reflect_resource =
+        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    reflect_resource.insert(world, &*reflected_resource, &type_registry);
 
     Ok(Value::Null)
 }
@@ -1146,22 +1135,18 @@ pub fn process_remote_mutate_resources_request(
     let type_registry = app_type_registry.read();
 
     // Get the `ReflectResource` for the given resource path.
-    get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
-    let reflect_component =
-        get_reflect_component(&type_registry, &resource_path).map_err(BrpError::component_error)?;
-    let entity = get_resource_entity_pair(&type_registry, &resource_path, world)
-        .map_err(BrpError::resource_error)?
-        .0;
+    let reflect_resource =
+        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
 
     // Get the actual resource value from the world as a `dyn Reflect`.
-    let mut reflected_component = reflect_component
-        .reflect_mut(world.entity_mut(entity))
-        .ok_or(BrpError::resource_not_present(&resource_path))?;
+    let mut reflected_resource = reflect_resource
+        .reflect_mut(world)
+        .map_err(|_| BrpError::resource_not_present(&resource_path))?;
 
     // Get the type registration for the field with the given path.
     let value_registration = type_registry
         .get_with_type_path(
-            reflected_component
+            reflected_resource
                 .reflect_path(field_path.as_str())
                 .map_err(BrpError::resource_error)?
                 .reflect_type_path(),
@@ -1177,7 +1162,7 @@ pub fn process_remote_mutate_resources_request(
             .map_err(BrpError::resource_error)?;
 
     // Apply the value to the resource.
-    reflected_component
+    reflected_resource
         .reflect_path_mut(field_path.as_str())
         .map_err(BrpError::resource_error)?
         .try_apply(&*deserialized_value)
@@ -1227,12 +1212,9 @@ pub fn process_remote_remove_resources_request(
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let (entity, component_id) = get_resource_entity_pair(&type_registry, &resource_path, world)
-        .map_err(BrpError::resource_error)?;
-    world
-        .get_entity_mut(entity)
-        .expect("Resource exists in the world")
-        .remove_by_id(component_id);
+    let reflect_resource =
+        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    reflect_resource.remove(world);
 
     Ok(Value::Null)
 }
@@ -1677,24 +1659,6 @@ fn get_resource_type_registration<'r>(
     type_registry
         .get_with_type_path(resource_path)
         .ok_or_else(|| anyhow!("Unknown resource type: `{}`", resource_path))
-}
-
-fn get_resource_entity_pair(
-    type_registry: &TypeRegistry,
-    resource_path: &str,
-    world: &World,
-) -> AnyhowResult<(Entity, ComponentId)> {
-    let resource_registration = get_resource_type_registration(type_registry, resource_path)?;
-    let type_id = resource_registration.type_id();
-    let component_id = world
-        .components()
-        .get_resource_id(type_id)
-        .ok_or(anyhow!("Resource not registered: `{}`", resource_path))?;
-    let entity = world
-        .resource_entities()
-        .get(component_id)
-        .ok_or(anyhow!("Resource entity does not exist."))?;
-    Ok((*entity, component_id))
 }
 
 #[cfg(test)]

@@ -34,10 +34,7 @@ impl RequiredComponentConstructor {
     /// # Safety
     ///
     /// - `component_id` must be a valid component for type `C`.
-    pub unsafe fn new<C: Component>(
-        component_id: ComponentId,
-        constructor: impl Fn() -> C + 'static,
-    ) -> Self {
+    pub unsafe fn new<C: Component>(component_id: ComponentId, constructor: fn() -> C) -> Self {
         RequiredComponentConstructor({
             // `portable-atomic-util` `Arc` is not able to coerce an unsized
             // type like `std::sync::Arc` can. Creating a `Box` first does the
@@ -155,7 +152,7 @@ impl RequiredComponents {
     unsafe fn register<C: Component>(
         &mut self,
         components: &mut ComponentsRegistrator<'_>,
-        constructor: impl Fn() -> C + 'static,
+        constructor: fn() -> C,
     ) {
         let id = components.register_component::<C>();
         // SAFETY:
@@ -177,7 +174,7 @@ impl RequiredComponents {
         &mut self,
         component_id: ComponentId,
         components: &Components,
-        constructor: impl Fn() -> C + 'static,
+        constructor: fn() -> C,
     ) {
         // SAFETY: the caller guarantees that `component_id` is valid for the type `C`.
         let constructor =
@@ -579,16 +576,11 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
         }
     }
 
-    /// Provides access to the current [`World`](crate::world::World)'s [`ComponentsRegistrator`]
-    pub fn components_registrator(&mut self) -> &mut ComponentsRegistrator<'w> {
-        self.components
-    }
-
     /// Registers the [`Component`] `C` as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
     /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
-    pub fn register_required<C: Component>(&mut self, constructor: impl Fn() -> C + 'static) {
+    pub fn register_required<C: Component>(&mut self, constructor: fn() -> C) {
         // SAFETY: we internally guarantee that all components in `required_components`
         // are registered in `components`
         unsafe {

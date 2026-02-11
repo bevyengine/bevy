@@ -558,25 +558,18 @@ impl<'w> FilteredResourcesBuilder<'w> {
     /// Add accesses required to read all resources.
     pub fn add_read_all(&mut self) -> &mut Self {
         self.access.read_all_resources();
-        for &component_id in self.world.resource_entities().indices() {
-            self.access.add_component_read(component_id);
-        }
         self
     }
 
     /// Add accesses required to read the resource of the given type.
     pub fn add_read<R: Resource>(&mut self) -> &mut Self {
-        let component_id = self
-            .world
-            .components_registrator()
-            .register_component::<R>();
+        let component_id = self.world.components_registrator().register_resource::<R>();
         self.add_read_by_id(component_id)
     }
 
     /// Add accesses required to read the resource with the given [`ComponentId`].
     pub fn add_read_by_id(&mut self, component_id: ComponentId) -> &mut Self {
         self.access.add_resource_read(component_id);
-        self.access.add_component_read(component_id);
         self
     }
 
@@ -611,50 +604,36 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
     /// Add accesses required to read all resources.
     pub fn add_read_all(&mut self) -> &mut Self {
         self.access.read_all_resources();
-        for &component_id in self.world.resource_entities().indices() {
-            self.access.add_component_read(component_id);
-        }
         self
     }
 
     /// Add accesses required to read the resource of the given type.
     pub fn add_read<R: Resource>(&mut self) -> &mut Self {
-        let component_id = self
-            .world
-            .components_registrator()
-            .register_component::<R>();
+        let component_id = self.world.components_registrator().register_resource::<R>();
         self.add_read_by_id(component_id)
     }
 
     /// Add accesses required to read the resource with the given [`ComponentId`].
     pub fn add_read_by_id(&mut self, component_id: ComponentId) -> &mut Self {
         self.access.add_resource_read(component_id);
-        self.access.add_component_read(component_id);
         self
     }
 
     /// Add accesses required to get mutable access to all resources.
     pub fn add_write_all(&mut self) -> &mut Self {
         self.access.write_all_resources();
-        for &component_id in self.world.resource_entities().indices() {
-            self.access.add_component_write(component_id);
-        }
         self
     }
 
     /// Add accesses required to get mutable access to the resource of the given type.
     pub fn add_write<R: Resource>(&mut self) -> &mut Self {
-        let component_id = self
-            .world
-            .components_registrator()
-            .register_component::<R>();
+        let component_id = self.world.components_registrator().register_resource::<R>();
         self.add_write_by_id(component_id)
     }
 
     /// Add accesses required to get mutable access to the resource with the given [`ComponentId`].
     pub fn add_write_by_id(&mut self, component_id: ComponentId) -> &mut Self {
         self.access.add_resource_write(component_id);
-        self.access.add_component_write(component_id);
         self
     }
 

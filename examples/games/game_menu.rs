@@ -16,7 +16,7 @@ enum GameState {
 }
 
 // One of the two settings that can be set through the menu. It will be a resource in the app
-#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 enum DisplayQuality {
     Low,
     Medium,
@@ -27,7 +27,7 @@ enum DisplayQuality {
 struct Setting<T>(T);
 
 // One of the two settings that can be set through the menu. It will be a resource in the app
-#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 struct Volume(u32);
 
 fn main() {

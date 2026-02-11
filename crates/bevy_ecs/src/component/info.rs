@@ -302,7 +302,19 @@ impl ComponentDescriptor {
     ///
     /// The [`StorageType`] for resources is always [`StorageType::Table`].
     pub fn new_resource<T: Resource>() -> Self {
-        Self::new::<T>()
+        Self {
+            name: DebugName::type_name::<T>(),
+            // PERF: `SparseStorage` may actually be a more
+            // reasonable choice as `storage_type` for resources.
+            storage_type: StorageType::Table,
+            is_send_and_sync: true,
+            type_id: Some(TypeId::of::<T>()),
+            layout: Layout::new::<T>(),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            mutable: true,
+            clone_behavior: ComponentCloneBehavior::Default,
+            relationship_accessor: None,
+        }
     }
 
     pub(super) fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
@@ -350,6 +362,7 @@ impl ComponentDescriptor {
 pub struct Components {
     pub(super) components: Vec<Option<ComponentInfo>>,
     pub(super) indices: TypeIdMap<ComponentId>,
+    pub(super) resource_indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occur.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
 }
@@ -394,7 +407,7 @@ impl Components {
     #[inline]
     pub fn num_queued(&self) -> usize {
         let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
-        queued.components.len() + queued.dynamic_registrations.len()
+        queued.components.len() + queued.dynamic_registrations.len() + queued.resources.len()
     }
 
     /// Returns `true` if there are any components registered with this instance. Otherwise, this returns `false`.
@@ -410,7 +423,7 @@ impl Components {
             .queued
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner);
-        queued.components.len() + queued.dynamic_registrations.len()
+        queued.components.len() + queued.dynamic_registrations.len() + queued.resources.len()
     }
 
     /// A faster version of [`Self::any_queued`].
@@ -457,6 +470,7 @@ impl Components {
                 queued
                     .components
                     .values()
+                    .chain(queued.resources.values())
                     .chain(queued.dynamic_registrations.iter())
                     .find(|queued| queued.id == id)
                     .map(|queued| Cow::Owned(queued.descriptor.clone()))
@@ -478,6 +492,7 @@ impl Components {
                 queued
                     .components
                     .values()
+                    .chain(queued.resources.values())
                     .chain(queued.dynamic_registrations.iter())
                     .find(|queued| queued.id == id)
                     .map(|queued| queued.descriptor.name.clone())
@@ -587,7 +602,7 @@ impl Components {
     /// Type-erased equivalent of [`Components::valid_resource_id()`].
     #[inline]
     pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).copied()
+        self.resource_indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T` if it is fully registered.
@@ -665,11 +680,11 @@ impl Components {
     /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).copied().or_else(|| {
+        self.resource_indices.get(&type_id).copied().or_else(|| {
             self.queued
                 .read()
                 .unwrap_or_else(PoisonError::into_inner)
-                .components
+                .resources
                 .get(&type_id)
                 .map(|queued| queued.id)
         })
@@ -713,7 +728,7 @@ impl Components {
     /// The [`ComponentId`] must be unique.
     /// The [`TypeId`] and [`ComponentId`] must not be registered or queued.
     #[inline]
-    pub(super) unsafe fn register_non_send_unchecked(
+    pub(super) unsafe fn register_resource_unchecked(
         &mut self,
         type_id: TypeId,
         component_id: ComponentId,
@@ -723,7 +738,7 @@ impl Components {
         unsafe {
             self.register_component_inner(component_id, descriptor);
         }
-        let prev = self.indices.insert(type_id, component_id);
+        let prev = self.resource_indices.insert(type_id, component_id);
         debug_assert!(prev.is_none());
     }
 

@@ -3,7 +3,6 @@ use core::any::TypeId;
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
-use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
     component::{Component, ComponentId},
     entity_disabling::DefaultQueryFilters,
@@ -284,10 +283,6 @@ impl<'w> DynamicSceneBuilder<'w> {
             };
 
             let original_entity = self.original_world.entity(entity);
-            if original_entity.contains_id(IS_RESOURCE) {
-                continue;
-            }
-
             for &component_id in original_entity.archetype().components().iter() {
                 let mut extract_and_push = || {
                     let type_id = self
@@ -359,15 +354,15 @@ impl<'w> DynamicSceneBuilder<'w> {
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
-        for (component_id, entity) in self.original_world.resource_entities().iter() {
-            if Some(*component_id) == original_world_dqf_id {
+        for (component_id, _) in self.original_world.storages().resources.iter() {
+            if Some(component_id) == original_world_dqf_id {
                 continue;
             }
             let mut extract_and_push = || {
                 let type_id = self
                     .original_world
                     .components()
-                    .get_info(*component_id)?
+                    .get_info(component_id)?
                     .type_id()?;
 
                 let is_denied = self.resource_filter.is_denied_by_id(type_id);
@@ -379,15 +374,15 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                 let type_registration = type_registry.get(type_id)?;
 
-                type_registration.data::<ReflectResource>()?;
-                let component = type_registration
-                    .data::<ReflectComponent>()?
-                    .reflect(self.original_world.entity(*entity))?;
+                let resource = type_registration
+                    .data::<ReflectResource>()?
+                    .reflect(self.original_world)
+                    .ok()?;
 
-                let component =
-                    clone_reflect_value(component.as_partial_reflect(), type_registration);
+                let resource =
+                    clone_reflect_value(resource.as_partial_reflect(), type_registration);
 
-                self.extracted_resources.insert(*component_id, component);
+                self.extracted_resources.insert(component_id, resource);
                 Some(())
             };
             extract_and_push();
