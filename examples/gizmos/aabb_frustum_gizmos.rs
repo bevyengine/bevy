@@ -1,16 +1,20 @@
-//! This example demonstrates how to use aabb and frustum gizmos for frustum culling debugging.
+//! This example demonstrates how to use AABB and Frustum gizmos for frustum culling debugging.
 //!
 //! Aabb gizmos are used to visualize the [`Aabb`](bevy::camera::primitives::Aabb) of an entity.
 //! Frustum gizmos are used to visualize the [`Frustum`](bevy::camera::primitives::Frustum) of a camera.
 //! Both can be used together to visualize frustum culling for a given camera.
 //!
-//! This example shows a scene with a camera that has its [`Frustum`](bevy::camera::primitives::Frustum)
-//! gizmo visible. A rotating collection of shapes, with their individual
-//! [`Aabb`](bevy::camera::primitives::Aabb) gizmos visible, circle in and out of the
-//! camera's frustum. The [`Aabb`](bevy::camera::primitives::Aabb) gizmos are red
-//! when they have been culled. They change to green when the shape
-//! is considered visible by this camera and would be extracted for rendering.
+//! This example shows a scene with a camera `MyCamera` that has its
+//! [`Frustum`](bevy::camera::primitives::Frustum) gizmo visible.
+//! A rotating ring of shapes, with their individual [`Aabb`](bevy::camera::primitives::Aabb)
+//! gizmos visible, circle in and out of the camera's frustum.
+//! The [`Aabb`](bevy::camera::primitives::Aabb) gizmos are red by default.
+//! They gizmos change color to green when the shape is considered visible by the
+//! camera and would be extracted for rendering.
+//!
 //! A second active camera, controllable via the FreeCameraPlugin, is used to observe the scene.
+//! This second camera's view takes up most of the window. `MyCamera`'s view takes up the
+//! bottom right ninth of the screen.
 
 use bevy::{
     camera::{
@@ -25,12 +29,24 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FreeCameraPlugin))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    resizable: false,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            FreeCameraPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, move_shapes)
         .add_systems(
+            // Frustum culling happens in PostUpdate.
+            // Our system will change the color of aabb's upon detecting 
+            // the results of frustum culling after the last VisibilitySystem runs
             PostUpdate,
-            detect_visibility_of_shapes.after(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
+            update_shape_aabb_colors.after(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
         )
         .run();
 }
@@ -39,11 +55,11 @@ fn main() {
 #[derive(Component)]
 struct ShapeRing;
 
-/// A marker component for our shapes so we can query them separately from the ground plane.
+/// A marker component for our shapes so they can be queried separately from the ground plane.
 #[derive(Component)]
 struct MyShape;
 
-/// A marker component for the camera we are debugging.
+/// A marker component for the camera that is being debugged
 #[derive(Component)]
 struct MyCamera;
 
@@ -69,10 +85,10 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0., 1.5, 0.).looking_at(Vec3::new(1.0, 1.5, 0.), Vec3::Y),
-        // To visualize its frustum from the free camera, the `ShowFrustumGizmo` component is added
+        // To visualize its frustum from the free camera, the `ShowFrustumGizmo` component is added.
         ShowFrustumGizmo::default(),
         Camera {
-            // Place this camera's rendering on top of the free camera's rendering
+            // Place this camera's rendering on top of the free camera's rendering.
             order: 1,
             // The camera-to-debug's view will be in the lower right ninth of the screen.
             viewport: Some(Viewport {
@@ -80,7 +96,7 @@ fn setup(
                 physical_size: window.physical_size() / 3,
                 ..default()
             }),
-            // Do not write back the free camera's rendering back into the PIP
+            // Do not write the free camera's view rendering back into the P-I-P
             msaa_writeback: MsaaWriteback::Off,
             ..Default::default()
         },
@@ -107,12 +123,12 @@ fn setup(
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 
-    // Configure AABB's to be drawn and have a default color of red
+    // Configure all AABB's to be drawn and have a default color of red
     let (_, aabb_gizmo_config) = config_store.config_mut::<AabbGizmoConfigGroup>();
     aabb_gizmo_config.draw_all = true;
     aabb_gizmo_config.default_color = Some(Color::LinearRgba(LinearRgba::RED));
 
-    // Configure the ring shapes that will have their AABB's drawn
+    // Configure the ring shapes that will have their AABB's drawn and updated
     let white_matl = materials.add(Color::WHITE);
     let shapes = [
         meshes.add(Cuboid::default()),
@@ -131,24 +147,26 @@ fn setup(
             MeshMaterial3d(white_matl.clone()),
             Transform::from_xyz(x, 1.5, z).with_rotation(Quat::from_rotation_x(-PI / 4.)),
             MyShape,
-            // The `ShowAabbGizmo` component is added here so that we can override the color easier
-            // when the shape is considered visible
+            // The `ShowAabbGizmo` component is added here so that we can override its color easier
+            // in `update_shape_aabb_colors`
             ShowAabbGizmo::default(),
         ));
     }
     Ok(())
 }
 
-// A system that rotates shapes in place and also moves them in a circle around the camera
+// A system that rotates shapes in place and also moves them in a circle around the camera.
 fn move_shapes(
     time: Res<Time>,
     mut ring_query: Query<&mut Transform, (With<ShapeRing>, Without<MyShape>)>,
     mut shape_query: Query<&mut Transform, (With<MyShape>, Without<ShapeRing>)>,
 ) -> Result {
     let dt = time.delta_secs();
+    // Rotate the shapes themselves on their own axis
     for mut transform in &mut shape_query {
         transform.rotate_y(dt / 2.);
     }
+    // Rotate the ring
     let transform = &mut ring_query.single_mut()?;
     transform.rotate_y(dt / 3.);
     Ok(())
@@ -156,19 +174,21 @@ fn move_shapes(
 
 // A system that changes the color of the [`AabbGizmo`](bevy::gizmos::Aabb)
 // if they are considered visible by the camera.
-fn detect_visibility_of_shapes(
+fn update_shape_aabb_colors(
     view_query: Query<&VisibleEntities, With<MyCamera>>,
     mut gizmo_query: Query<&mut ShowAabbGizmo, With<MyShape>>,
 ) -> Result {
-    // reset the color to the default color
-    for mut gizmo in &mut gizmo_query {
-        gizmo.color = None;
+    // Reset the color to the default color
+    for mut shape_gizmo in &mut gizmo_query {
+        shape_gizmo.color = None;
     }
 
+    // Query for the shape entities visible for this camera
+    // Update the gizmo on any such shape entity to be green
     let visible_entities = view_query.single()?;
     for entity in visible_entities.entities.values().flatten() {
-        if let Ok(mut gizmo) = gizmo_query.get_mut(*entity) {
-            gizmo.color = Some(Color::LinearRgba(LinearRgba::GREEN));
+        if let Ok(mut shape_gizmo) = gizmo_query.get_mut(*entity) {
+            shape_gizmo.color = Some(Color::LinearRgba(LinearRgba::GREEN));
         }
     }
     Ok(())
