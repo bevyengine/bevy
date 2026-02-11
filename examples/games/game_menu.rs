@@ -24,7 +24,7 @@ enum DisplayQuality {
 }
 
 #[derive(Component)]
-struct Setting<T: Resource>(T);
+struct Setting<T>(T);
 
 // One of the two settings that can be set through the menu. It will be a resource in the app
 #[derive(Resource, Debug, PartialEq, Eq, Clone, Copy)]
