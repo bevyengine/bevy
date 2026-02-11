@@ -902,7 +902,7 @@ where
         Self { create_bind_group }
     }
 
-    /// Generates the bind group cache based on the [`Self::create_bind_group`] closure
+    /// Generates the bind group cache based on the `Self::create_bind_group` closure
     pub fn generate_bind_groups(&self, view_target: &ViewTarget) -> PostProcessBindGroupCache {
         PostProcessBindGroupCache::new(view_target, self.create_bind_group)
     }
