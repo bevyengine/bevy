@@ -207,6 +207,8 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
+    /// If true, the loader will load gltf json without validation, for unsupported extension it will ignore validation check.
+    pub gltf_without_validation: bool,
     /// Overrides the default glTF coordinate conversion setting.
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
@@ -226,6 +228,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
+            gltf_without_validation: false,
             convert_coordinates: None,
             skinned_mesh_bounds_policy: None,
         }
@@ -240,7 +243,11 @@ impl GltfLoader {
         load_context: &'b mut LoadContext<'c>,
         settings: &'b GltfLoaderSettings,
     ) -> Result<Gltf, GltfError> {
-        let gltf = gltf::Gltf::from_slice(bytes)?;
+        let gltf = if settings.gltf_without_validation {
+            gltf::Gltf::from_slice_without_validation(bytes)?
+        } else {
+            gltf::Gltf::from_slice(bytes)?
+        };
 
         // clone extensions to start with a fresh processing state
         let mut extensions = loader.extensions.read().await.clone();
@@ -719,6 +726,32 @@ impl GltfLoader {
 
                 let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
 
+                let mut out_doc: Option<gltf::Document> = None;
+                let mut out_data: Option<Vec<Vec<u8>>> = None;
+                for extension in extensions.iter_mut() {
+                    extension.on_gltf_primitive(
+                        load_context,
+                        &gltf,
+                        &primitive,
+                        &buffer_data,
+                        &mut out_doc,
+                        &mut out_data,
+                    );
+                }
+                let primitive = if let Some(doc) = &out_doc
+                    && let Some(mesh) = doc.meshes().next()
+                    && let Some(primitive) = mesh.primitives().next()
+                {
+                    primitive
+                } else {
+                    primitive
+                };
+                let buffer_data = if let Some(data) = &out_data {
+                    data
+                } else {
+                    &buffer_data
+                };
+
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
                     if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
@@ -736,7 +769,7 @@ impl GltfLoader {
                     match convert_attribute(
                         semantic,
                         accessor,
-                        &buffer_data,
+                        buffer_data,
                         &loader.custom_vertex_attributes,
                         convert_coordinates.rotate_meshes,
                     ) {

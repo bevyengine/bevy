@@ -119,6 +119,22 @@ pub trait GltfExtensionHandler: Send + Sync {
     ) {
     }
 
+    /// Called when an individual glTF primitive is processed
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
+    fn on_gltf_primitive(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_document: &gltf::Gltf,
+        gltf_primitive: &gltf::Primitive,
+        buffer_data: &[Vec<u8>],
+        out_doc: &mut Option<gltf::Document>,
+        out_data: &mut Option<Vec<Vec<u8>>>,
+    ) {
+    }
+
     /// Called when an individual glTF Mesh is processed
     #[expect(
         unused,
