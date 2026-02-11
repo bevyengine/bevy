@@ -1010,6 +1010,19 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "editable_text"
+path = "examples/ui/text/editable_text.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+required-features = ["experimental_bevy_ui_widgets"]
+
+[package.metadata.example.editable_text]
+name = "Editable Text"
+description = "Demonstrates a simple, unstyled text input widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 doc-scrape-examples = true
