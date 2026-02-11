@@ -1,5 +1,6 @@
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
@@ -308,10 +309,21 @@ fn update_scrollbar_thumb(
                             scroll_area.0.x,
                         );
 
-                        thumb.top = Val::Px(0.);
-                        thumb.bottom = Val::Px(0.);
-                        thumb.left = Val::Px(thumb_pos);
-                        thumb.width = Val::Px(thumb_size);
+                        thumb
+                            .reborrow()
+                            .map_unchanged(|th| &mut th.top)
+                            .set_if_neq(Val::Px(0.));
+                        thumb
+                            .reborrow()
+                            .map_unchanged(|th| &mut th.bottom)
+                            .set_if_neq(Val::Px(0.));
+                        thumb
+                            .reborrow()
+                            .map_unchanged(|th| &mut th.left)
+                            .set_if_neq(Val::Px(thumb_pos));
+                        thumb
+                            .map_unchanged(|th| &mut th.width)
+                            .set_if_neq(Val::Px(thumb_size));
                     }
                     ControlOrientation::Vertical => {
                         let (thumb_size, thumb_pos) = size_and_pos(
@@ -322,10 +334,21 @@ fn update_scrollbar_thumb(
                             scroll_area.0.y,
                         );
 
-                        thumb.left = Val::Px(0.);
-                        thumb.right = Val::Px(0.);
-                        thumb.top = Val::Px(thumb_pos);
-                        thumb.height = Val::Px(thumb_size);
+                        thumb
+                            .reborrow()
+                            .map_unchanged(|th| &mut th.left)
+                            .set_if_neq(Val::Px(0.));
+                        thumb
+                            .reborrow()
+                            .map_unchanged(|th| &mut th.right)
+                            .set_if_neq(Val::Px(0.));
+                        thumb
+                            .reborrow()
+                            .map_unchanged(|th| &mut th.top)
+                            .set_if_neq(Val::Px(thumb_pos));
+                        thumb
+                            .map_unchanged(|th| &mut th.height)
+                            .set_if_neq(Val::Px(thumb_size));
                     }
                 };
             }
