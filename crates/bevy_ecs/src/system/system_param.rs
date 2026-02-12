@@ -14,8 +14,8 @@ use crate::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
     },
-    resource::Resource,
-    storage::ResourceData,
+    resource::{Resource, IS_RESOURCE},
+    storage::NonSendData,
     system::{Query, Single, SystemMeta},
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
@@ -762,7 +762,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        world.components_registrator().register_resource::<T>()
+        world.components_registrator().register_component::<T>()
     }
 
     fn init_access(
@@ -779,7 +779,20 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             system_meta.name,
         );
 
-        component_access_set.add_unfiltered_resource_read(component_id);
+        let mut filter = FilteredAccess::default();
+        filter.add_component_read(component_id);
+        filter.add_resource_read(component_id);
+        filter.and_with(IS_RESOURCE);
+
+        assert!(component_access_set
+            .get_conflicts_single(&filter)
+            .is_empty(),
+            "error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+            DebugName::type_name::<T>(),
+            system_meta.name
+        );
+
+        component_access_set.add(filter);
     }
 
     #[inline]
@@ -788,11 +801,10 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
-        if unsafe { world.storages() }
-            .resources
-            .get(component_id)
-            .is_some_and(ResourceData::is_present)
+        // SAFETY: Read-only access to the resource
+        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
+            && let Ok(entity_ref) = world.get_entity(*entity)
+            && entity_ref.contains_id(component_id)
         {
             Ok(())
         } else {
@@ -838,7 +850,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        world.components_registrator().register_resource::<T>()
+        world.components_registrator().register_component::<T>()
     }
 
     fn init_access(
@@ -857,7 +869,21 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
         }
-        component_access_set.add_unfiltered_resource_write(component_id);
+
+        let mut filter = FilteredAccess::default();
+        filter.add_component_write(component_id);
+        filter.add_resource_write(component_id);
+        filter.and_with(IS_RESOURCE);
+
+        assert!(component_access_set
+            .get_conflicts_single(&filter)
+            .is_empty(),
+            "error[B0002]: ResMut<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+            DebugName::type_name::<T>(),
+            system_meta.name
+        );
+
+        component_access_set.add(filter);
     }
 
     #[inline]
@@ -866,11 +892,10 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
-        if unsafe { world.storages() }
-            .resources
-            .get(component_id)
-            .is_some_and(ResourceData::is_present)
+        // SAFETY: Read-only access to the resource.
+        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
+            && let Ok(entity_ref) = world.get_entity(*entity)
+            && entity_ref.contains_id(component_id)
         {
             Ok(())
         } else {
@@ -1480,11 +1505,11 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
+        // SAFETY: Read-only access to non-send metadata.
         if unsafe { world.storages() }
-            .non_send_resources
+            .non_sends
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(NonSendData::is_present)
         {
             Ok(())
         } else {
@@ -1554,11 +1579,11 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
+        // SAFETY: Read-only access to non-send metadata.
         if unsafe { world.storages() }
-            .non_send_resources
+            .non_sends
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(NonSendData::is_present)
         {
             Ok(())
         } else {
@@ -2949,7 +2974,7 @@ mod tests {
             res1.0 += 1;
         }
         let mut world = World::new();
-        world.insert_non_send_resource(A(42));
+        world.insert_non_send(A(42));
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems(my_system);
         schedule.run(&mut world);
@@ -3154,7 +3179,7 @@ mod tests {
         }
 
         let mut world = World::new();
-        world.insert_non_send_resource(core::ptr::null_mut::<u8>());
+        world.insert_non_send(core::ptr::null_mut::<u8>());
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);
@@ -3169,7 +3194,7 @@ mod tests {
         }
 
         let mut world = World::new();
-        world.insert_non_send_resource(core::ptr::null_mut::<u8>());
+        world.insert_non_send(core::ptr::null_mut::<u8>());
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);

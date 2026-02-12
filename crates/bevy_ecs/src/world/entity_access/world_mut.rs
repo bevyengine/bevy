@@ -738,6 +738,18 @@ impl<'w> EntityWorldMut<'w> {
         self.as_readonly().get_change_ticks::<T>()
     }
 
+    /// Get the [`MaybeLocation`] from where the given [`Component`] was last changed from.
+    /// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
+    /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn get_changed_by<T: Component>(&self) -> Option<MaybeLocation> {
+        self.as_readonly().get_changed_by::<T>()
+    }
+
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///

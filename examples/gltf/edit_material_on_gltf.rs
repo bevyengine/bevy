@@ -75,7 +75,7 @@ fn change_material(
             continue;
         };
         // Get the material of the descendant
-        let Some(material) = asset_materials.get_mut(id.id()) else {
+        let Some(material) = asset_materials.get(id.id()) else {
             continue;
         };
 

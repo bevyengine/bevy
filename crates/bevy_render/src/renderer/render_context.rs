@@ -238,7 +238,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         ViewQueryState {
             resource_id: world
                 .components_registrator()
-                .register_resource::<CurrentView>(),
+                .register_component::<CurrentView>(),
             query_state: QueryState::new(world),
         }
     }
