@@ -622,6 +622,13 @@ pub enum WriteBufferRangeError {
 }
 
 #[inline]
+#[cfg_attr(
+    not(feature = "type_label_buffers"),
+    expect(
+        clippy::extra_unused_type_parameters,
+        reason = "conditional compilation"
+    )
+)]
 pub(crate) fn make_buffer_label<'a, T>(label: &'a Option<String>) -> Option<&'a str> {
     #[cfg(feature = "type_label_buffers")]
     if label.is_none() {
