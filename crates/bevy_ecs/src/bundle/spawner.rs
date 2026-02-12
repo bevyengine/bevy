@@ -94,11 +94,17 @@ impl<'w> BundleSpawner<'w> {
         bundle: MovingPtr<'_, T>,
         caller: MaybeLocation,
     ) -> EntityLocation {
-        // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
-        let bundle_info = self.bundle_info.as_ref();
+        // SAFETY:
+        // * Pointer was created from a reference in `Self::new_with_id` and so is `dereferenceable`.
+        // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+        // changes to the world, so the data is valid for the lifetime of `Self`
+        let bundle_info = unsafe { self.bundle_info.as_ref() };
         let location = {
-            let table = self.table.as_mut();
-            let archetype = self.archetype.as_mut();
+            // SAFETY:
+            // * Pointers are dereferenceable because they were created from a reference in `Self::new_with_id`.
+            // * `Self`'s lifetime is tied to an exclusive reference to `World` and it does not make structural
+            // changes to the world, so the data is valid for the lifetime of `Self`
+            let (table, archetype) = unsafe { (self.table.as_mut(), self.archetype.as_mut()) };
 
             // SAFETY: Mutable references do not alias and will be dropped after this block
             let (sparse_sets, entities) = {
@@ -126,8 +132,10 @@ impl<'w> BundleSpawner<'w> {
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
         let mut deferred_world = unsafe { self.world.into_deferred() };
-        // SAFETY: `DeferredWorld` cannot provide mutable access to `Archetypes`.
-        let archetype = self.archetype.as_ref();
+        // SAFETY:
+        // * dereferenceable because it was created from an exclusive reference in `Self::new_with_id`.
+        // * `DeferredWorld` does not provide mutable access to `Archetypes`, so it is safe to hold a reference to an archetype.
+        let archetype = unsafe { self.archetype.as_ref() };
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
         unsafe {
