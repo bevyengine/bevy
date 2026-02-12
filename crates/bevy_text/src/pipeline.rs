@@ -1,8 +1,9 @@
 use alloc::borrow::Cow;
+use bevy_platform::collections::HashMap;
 
 use core::hash::BuildHasher;
 
-use bevy_asset::Assets;
+use bevy_asset::{AssetCommands, Assets, AssetsMut};
 use bevy_color::Color;
 use bevy_ecs::{
     component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
@@ -25,8 +26,9 @@ use crate::{
     error::TextError,
     get_glyph_atlas_info,
     parley_context::{FontCx, LayoutCx, ScaleCx},
-    ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource,
-    Justify, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    ComputedTextBlock, DeferredFontAtlas, Font, FontAtlasKey, FontAtlasSet, FontHinting,
+    FontSmoothing, FontSource, Justify, LineBreak, LineHeight, PositionedGlyph, TextBounds,
+    TextEntity, TextFont, TextLayout,
 };
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
@@ -264,7 +266,9 @@ impl TextPipeline {
         &mut self,
         layout_info: &mut TextLayoutInfo,
         font_atlas_set: &mut FontAtlasSet,
-        textures: &mut Assets<Image>,
+        deferred_font_atlas_set: &mut HashMap<FontAtlasKey, Vec<DeferredFontAtlas>>,
+        textures: &mut AssetsMut<Image>,
+        asset_commands: &mut AssetCommands,
         computed: &mut ComputedTextBlock,
         scale_cx: &mut ScaleCx,
         bounds: TextBounds,
@@ -319,18 +323,25 @@ impl TextPipeline {
                         };
 
                         let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
-                        let atlas_info =
-                            get_glyph_atlas_info(font_atlases, crate::GlyphCacheKey { glyph_id })
-                                .map(Ok)
-                                .unwrap_or_else(|| {
-                                    add_glyph_to_atlas(
-                                        font_atlases,
-                                        textures,
-                                        &mut scaler,
-                                        font_smoothing,
-                                        glyph_id,
-                                    )
-                                })?;
+                        let deferred_font_atlases =
+                            deferred_font_atlas_set.entry(font_atlas_key).or_default();
+                        let atlas_info = get_glyph_atlas_info(
+                            font_atlases,
+                            deferred_font_atlases,
+                            crate::GlyphCacheKey { glyph_id },
+                        )
+                        .map(Ok)
+                        .unwrap_or_else(|| {
+                            add_glyph_to_atlas(
+                                font_atlases,
+                                deferred_font_atlases,
+                                textures,
+                                asset_commands,
+                                &mut scaler,
+                                font_smoothing,
+                                glyph_id,
+                            )
+                        })?;
 
                         let glyph_pos = Vec2::new(glyph.x, glyph.y);
                         let size = atlas_info.rect.size();
