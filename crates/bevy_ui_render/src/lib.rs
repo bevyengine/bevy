@@ -107,8 +107,10 @@ pub mod stack_z_offsets {
     pub const BORDER_GRADIENT: f32 = 0.03;
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
-    pub const TEXT: f32 = 0.06;
-    pub const TEXT_STRIKETHROUGH: f32 = 0.07;
+    pub const TEXT_BACKGROUND: f32 = 0.06;
+    pub const TEXT_SHADOW: f32 = 0.06;
+    pub const TEXT: f32 = 0.08;
+    pub const TEXT_STRIKETHROUGH: f32 = 0.09;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -1015,7 +1017,7 @@ pub fn extract_text_shadows(
             }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: node_transform,
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_SHADOW,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     image: atlas_info.texture,
                     clip: clip.map(|clip| clip.clip),
@@ -1038,7 +1040,7 @@ pub fn extract_text_shadows(
 
             if has_strikethrough {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_SHADOW,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
@@ -1064,7 +1066,7 @@ pub fn extract_text_shadows(
 
             if has_underline {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_SHADOW,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
@@ -1154,7 +1156,7 @@ pub fn extract_text_decorations(
 
             if let Some(text_background_color) = text_background_color {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_BACKGROUND,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
