@@ -202,8 +202,8 @@ impl Plugin for UiRenderPlugin {
             .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
             .init_resource::<ImageNodeBindGroups>()
             .init_resource::<UiMeta>()
-            .init_resource::<ExtractedUiNodesSummary>()
-            .allow_ambiguous_resource::<ExtractedUiNodesSummary>()
+            .init_resource::<ExtractedUiNodesAll>()
+            .allow_ambiguous_resource::<ExtractedUiNodesAll>()
             .init_resource::<DrawFunctions<TransparentUi>>()
             .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
             .allow_ambiguous_resource::<ViewSortedRenderPhases<TransparentUi>>()
@@ -361,13 +361,13 @@ impl ExtractedUiNodes {
 }
 
 #[derive(Resource, Default)]
-pub struct ExtractedUiNodesSummary(Vec<ExtractedUiNodes>);
+pub struct ExtractedUiNodesAll(Vec<ExtractedUiNodes>);
 
-pub struct ExtractedUiNodesSummaryPushCommand(ExtractedUiNodes);
+pub struct ExtractedUiNodesAllPushCommand(ExtractedUiNodes);
 
-impl Command for ExtractedUiNodesSummaryPushCommand {
+impl Command for ExtractedUiNodesAllPushCommand {
     fn apply(self, world: &mut World) {
-        let mut summary = world.resource_mut::<ExtractedUiNodesSummary>();
+        let mut summary = world.resource_mut::<ExtractedUiNodesAll>();
         summary.0.push(self.0);
     }
 }
@@ -428,9 +428,7 @@ pub fn extract_uinode_background_colors(
             main_entity: entity.into(),
         });
     }
-    commands.queue(ExtractedUiNodesSummaryPushCommand(
-        extracted_uinodes.extract(),
-    ));
+    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
 }
 
 pub fn extract_uinode_images(
@@ -515,9 +513,7 @@ pub fn extract_uinode_images(
             main_entity: entity.into(),
         });
     }
-    commands.queue(ExtractedUiNodesSummaryPushCommand(
-        extracted_uinodes.extract(),
-    ));
+    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
 }
 
 pub fn extract_uinode_borders(
@@ -653,9 +649,7 @@ pub fn extract_uinode_borders(
             });
         }
     }
-    commands.queue(ExtractedUiNodesSummaryPushCommand(
-        extracted_uinodes.extract(),
-    ));
+    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
 }
 
 /// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
@@ -847,9 +841,7 @@ pub fn extract_viewport_nodes(
             main_entity: entity.into(),
         });
     }
-    commands.queue(ExtractedUiNodesSummaryPushCommand(
-        extracted_uinodes.extract(),
-    ));
+    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
 }
 
 pub fn extract_text_sections(
@@ -950,9 +942,7 @@ pub fn extract_text_sections(
             end += 1;
         }
     }
-    commands.queue(ExtractedUiNodesSummaryPushCommand(
-        extracted_uinodes.extract(),
-    ));
+    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
 }
 
 pub fn extract_text_shadows(
@@ -1098,9 +1088,7 @@ pub fn extract_text_shadows(
             }
         }
     }
-    commands.queue(ExtractedUiNodesSummaryPushCommand(
-        extracted_uinodes.extract(),
-    ));
+    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
 }
 
 pub fn extract_text_decorations(
@@ -1250,9 +1238,7 @@ pub fn extract_text_decorations(
             }
         }
     }
-    commands.queue(ExtractedUiNodesSummaryPushCommand(
-        extracted_uinodes.extract(),
-    ));
+    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
 }
 
 #[repr(C)]
@@ -1328,7 +1314,7 @@ pub mod shader_flags {
 }
 
 pub fn queue_uinodes(
-    extracted_uinodes_summary: Res<ExtractedUiNodesSummary>,
+    extracted_uinodes_all: Res<ExtractedUiNodesAll>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -1341,7 +1327,7 @@ pub fn queue_uinodes(
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
 
-    for (summary_index, extracted_uinodes) in extracted_uinodes_summary.0.iter().enumerate() {
+    for (summary_index, extracted_uinodes) in extracted_uinodes_all.0.iter().enumerate() {
         for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
             if current_camera_entity != extracted_uinode.extracted_camera_entity {
                 current_phase = render_views
@@ -1402,7 +1388,7 @@ pub fn prepare_uinodes(
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMeta>,
-    mut extracted_uinodes_summary: ResMut<ExtractedUiNodesSummary>,
+    mut extracted_uinodes_all: ResMut<ExtractedUiNodesAll>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<ImageNodeBindGroups>,
@@ -1447,7 +1433,7 @@ pub fn prepare_uinodes(
                 let item = &mut ui_phase.items[item_index];
 
                 let (extracted_uinodes, extracted_uinode) = if let Some(extracted_uinodes) =
-                    extracted_uinodes_summary.0.get(item.summary_index as usize)
+                    extracted_uinodes_all.0.get(item.summary_index as usize)
                     && let Some(extracted_uinode) = extracted_uinodes
                         .uinodes
                         .get(item.index)
@@ -1797,5 +1783,5 @@ pub fn prepare_uinodes(
         *previous_len = batches.len();
         commands.try_insert_batch(batches);
     }
-    extracted_uinodes_summary.0.clear();
+    extracted_uinodes_all.0.clear();
 }

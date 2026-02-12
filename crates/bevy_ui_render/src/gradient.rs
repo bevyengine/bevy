@@ -573,9 +573,7 @@ pub fn extract_gradients(
             }
         }
     }
-    commands.queue(ExtractedUiNodesSummaryPushCommand(
-        extracted_uinodes.extract(),
-    ));
+    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
 }
 
 #[expect(
