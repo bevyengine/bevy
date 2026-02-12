@@ -8,13 +8,13 @@
 //! # use rand::SeedableRng;
 //! # use rand::rngs::StdRng;
 //! // Get some `Rng`:
-//! let rng = &mut StdRng::from_os_rng();
+//! let rng: StdRng = rand::make_rng();
 //! // Make a circle of radius 2:
 //! let circle = Circle::new(2.0);
 //! // Get a point inside this circle uniformly at random:
-//! let interior_pt = circle.sample_interior(rng);
+//! let interior_pt = circle.sample_interior(&mut rng);
 //! // Get a point on the circle's boundary uniformly at random:
-//! let boundary_pt = circle.sample_boundary(rng);
+//! let boundary_pt = circle.sample_boundary(&mut rng);
 //! ```
 //!
 //! For repeated sampling, `ShapeSample` also includes methods for accessing a [`Distribution`]:
@@ -24,16 +24,16 @@
 //! # use rand::SeedableRng;
 //! # use rand::rngs::StdRng;
 //! # use rand::distr::Distribution;
-//! # let rng1 = StdRng::from_os_rng();
-//! # let rng2 = StdRng::from_os_rng();
+//! # let rng1: StdRng = rand::make_rng();
+//! # let rng2: StdRng = rand::make_rng();
 //! // Use a rectangle this time:
 //! let rectangle = Rectangle::new(1.0, 2.0);
 //! // Get an iterator that spits out random interior points:
-//! let interior_iter = rectangle.interior_dist().sample_iter(rng1);
+//! let interior_iter = rectangle.interior_dist().sample_iter(&mut rng1);
 //! // Collect random interior points from the iterator:
 //! let interior_pts: Vec<Vec2> = interior_iter.take(1000).collect();
 //! // Similarly, get an iterator over many random boundary points and collect them:
-//! let boundary_pts: Vec<Vec2> = rectangle.boundary_dist().sample_iter(rng2).take(1000).collect();
+//! let boundary_pts: Vec<Vec2> = rectangle.boundary_dist().sample_iter(&mut rng2).take(1000).collect();
 //! ```
 //!
 //! In any case, the [`RngExt`] used as the source of randomness must be provided explicitly.
