@@ -167,9 +167,8 @@ impl ComponentInfo {
 /// one `World` to access the metadata of a `Component` in a different `World` is undefined behavior
 /// and must not be attempted.
 ///
-/// Given a type `T` which implements [`Component`], the `ComponentId` for `T` can be retrieved
+/// Given a type `T` which implements [`Component`] (including [`Resource`]), the `ComponentId` for `T` can be retrieved
 /// from a `World` using [`World::component_id()`](crate::world::World::component_id) or via [`Components::component_id()`].
-/// Access to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -578,7 +577,6 @@ impl Components {
     /// # See also
     ///
     /// * [`Components::get_valid_id()`]
-    /// * [`Components::valid_resource_id()`]
     /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
     pub fn valid_component_id<T: Component>(&self) -> Option<ComponentId> {
@@ -658,7 +656,6 @@ impl Components {
     ///
     /// * [`ComponentIdFor`](super::ComponentIdFor)
     /// * [`Components::get_id()`]
-    /// * [`Components::resource_id()`]
     /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {

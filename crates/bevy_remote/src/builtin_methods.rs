@@ -1059,7 +1059,7 @@ pub fn process_remote_insert_resources_request(
     let type_id = resource_registration.type_id();
     let resource_id = world
         .components()
-        .get_resource_id(type_id)
+        .get_id(type_id)
         .ok_or(anyhow!("Resource is not registered: `{}`", resource_path))
         .map_err(BrpError::resource_error)?;
     world.insert_reflect_resource(resource_id, reflected_resource);
@@ -1688,7 +1688,7 @@ fn get_resource_entity_pair(
     let type_id = resource_registration.type_id();
     let component_id = world
         .components()
-        .get_resource_id(type_id)
+        .get_id(type_id)
         .ok_or(anyhow!("Resource not registered: `{}`", resource_path))?;
     let entity = world
         .resource_entities()
