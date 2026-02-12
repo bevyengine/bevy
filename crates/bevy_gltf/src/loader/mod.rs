@@ -207,8 +207,8 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
-    /// If true, the loader will load gltf json without validation, for unsupported extension it will ignore validation check.
-    pub gltf_without_validation: bool,
+    /// If false, the loader will load gltf json without validation, for unsupported extension it will ignore validation check.
+    pub validate: bool,
     /// Overrides the default glTF coordinate conversion setting.
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
@@ -228,7 +228,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
-            gltf_without_validation: false,
+            validate: true,
             convert_coordinates: None,
             skinned_mesh_bounds_policy: None,
         }
@@ -243,10 +243,10 @@ impl GltfLoader {
         load_context: &'b mut LoadContext<'c>,
         settings: &'b GltfLoaderSettings,
     ) -> Result<Gltf, GltfError> {
-        let gltf = if settings.gltf_without_validation {
-            gltf::Gltf::from_slice_without_validation(bytes)?
-        } else {
+        let gltf = if settings.validate {
             gltf::Gltf::from_slice(bytes)?
+        } else {
+            gltf::Gltf::from_slice_without_validation(bytes)?
         };
 
         // clone extensions to start with a fresh processing state
