@@ -170,6 +170,7 @@ impl<'w> ComponentsRegistrator<'w> {
         )
     }
 
+    // This exists to cut down on monomorphized code in register_component, which reduces compile times and binary sizes.
     fn register_component_checked(
         &mut self,
         type_id: TypeId,
@@ -212,6 +213,7 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # Safety
     ///
     /// Neither this component, nor its id may be registered or queued. This must be a new registration.
+    // This was written in a type-erased way to cut down on monomorphized code in register_component, which reduces compile times and binary sizes.
     unsafe fn register_component_unchecked(
         &mut self,
         type_id: TypeId,
