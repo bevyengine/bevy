@@ -661,8 +661,9 @@ impl World {
     ///
     /// Returns [`None`] if the [`Resource`] type has not yet been initialized within the
     /// [`World`] using [`World::register_resource`], [`World::init_resource`] or [`World::insert_resource`].
+    #[deprecated(since = "0.19.0", note = "use component_id")]
     pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.components.get_resource_id(TypeId::of::<T>())
+        self.components.get_id(TypeId::of::<T>())
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
@@ -1993,7 +1994,7 @@ impl World {
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
-        let resource_id = self.resource_id::<R>()?;
+        let resource_id = self.component_id::<R>()?;
         let entity = *self.resource_entities.get(resource_id)?;
         let value = self
             .get_entity_mut(entity)
@@ -2021,7 +2022,7 @@ impl World {
     /// thread than where the value was inserted from.
     #[inline]
     pub fn remove_non_send<R: 'static>(&mut self) -> Option<R> {
-        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_id(TypeId::of::<R>())?;
         let (ptr, _, _) = self.storages.non_sends.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
@@ -2031,7 +2032,7 @@ impl World {
     #[inline]
     pub fn contains_resource<R: Resource>(&self) -> bool {
         self.components
-            .get_valid_resource_id(TypeId::of::<R>())
+            .get_valid_id(TypeId::of::<R>())
             .is_some_and(|component_id| self.contains_resource_by_id(component_id))
     }
 
@@ -2050,7 +2051,7 @@ impl World {
     #[inline]
     pub fn contains_non_send<R: 'static>(&self) -> bool {
         self.components
-            .get_valid_resource_id(TypeId::of::<R>())
+            .get_valid_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_sends.get(component_id))
             .is_some_and(NonSendData::is_present)
     }
@@ -2073,7 +2074,7 @@ impl World {
     ///   was called.
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
-            .get_valid_resource_id(TypeId::of::<R>())
+            .get_valid_id(TypeId::of::<R>())
             .is_some_and(|component_id| self.is_resource_added_by_id(component_id))
     }
 
@@ -2098,7 +2099,7 @@ impl World {
     ///   was called.
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
-            .get_valid_resource_id(TypeId::of::<R>())
+            .get_valid_id(TypeId::of::<R>())
             .is_some_and(|component_id| self.is_resource_changed_by_id(component_id))
     }
 
@@ -2117,7 +2118,7 @@ impl World {
     /// Retrieves the change ticks for the given resource.
     pub fn get_resource_change_ticks<R: Resource>(&self) -> Option<ComponentTicks> {
         self.components
-            .get_valid_resource_id(TypeId::of::<R>())
+            .get_valid_id(TypeId::of::<R>())
             .and_then(|component_id| self.get_resource_change_ticks_by_id(component_id))
     }
 
@@ -2779,7 +2780,7 @@ impl World {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
-        let component_id = self.components.valid_resource_id::<R>()?;
+        let component_id = self.components.valid_component_id::<R>()?;
         let entity = *self.resource_entities.get(component_id)?;
         let mut entity_mut = self.get_entity_mut(entity).ok()?;
 
@@ -4084,7 +4085,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_valid_resource_id(TypeId::of::<TestResource>())
+            .get_valid_id(TypeId::of::<TestResource>())
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
@@ -4100,7 +4101,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_valid_resource_id(TypeId::of::<TestResource>())
+            .get_valid_id(TypeId::of::<TestResource>())
             .unwrap();
 
         {

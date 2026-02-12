@@ -872,7 +872,7 @@ mod tests {
         }
 
         fn get_state(components: &Components) -> Option<Self::State> {
-            components.resource_id::<R>()
+            components.component_id::<R>()
         }
 
         fn matches_component_set(

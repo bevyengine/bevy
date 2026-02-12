@@ -301,6 +301,7 @@ impl ComponentDescriptor {
     /// Create a new `ComponentDescriptor` for a resource.
     ///
     /// The [`StorageType`] for resources is always [`StorageType::Table`].
+    #[deprecated(since = "0.19.0", note = "use ComponentDescriptor::new()")]
     pub fn new_resource<T: Resource>() -> Self {
         Self::new::<T>()
     }
@@ -586,6 +587,7 @@ impl Components {
 
     /// Type-erased equivalent of [`Components::valid_resource_id()`].
     #[inline]
+    #[deprecated(since = "0.19.0", note = "use get_valid_id")]
     pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.indices.get(&type_id).copied()
     }
@@ -611,8 +613,9 @@ impl Components {
     /// * [`Components::valid_component_id()`]
     /// * [`Components::get_resource_id()`]
     #[inline]
+    #[deprecated(since = "0.19.0", note = "use valid_component_id")]
     pub fn valid_resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_valid_resource_id(TypeId::of::<T>())
+        self.get_valid_id(TypeId::of::<T>())
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
@@ -664,6 +667,7 @@ impl Components {
 
     /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
+    #[deprecated(since = "0.19.0", note = "use get_id")]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.indices.get(&type_id).copied().or_else(|| {
             self.queued
@@ -703,8 +707,9 @@ impl Components {
     /// * [`Components::component_id()`]
     /// * [`Components::get_resource_id()`]
     #[inline]
+    #[deprecated(since = "0.19.0", note = "use component_id")]
     pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_resource_id(TypeId::of::<T>())
+        self.get_id(TypeId::of::<T>())
     }
 
     /// # Safety
