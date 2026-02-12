@@ -594,6 +594,9 @@ debug_glam_assert = ["bevy_internal/debug_glam_assert"]
 # Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_internal/default_font"]
 
+# Allows for discovery of preloaded system fonts
+system_font_discovery = ["bevy_internal/system_font_discovery"]
+
 # Enable support for shaders in GLSL
 shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 

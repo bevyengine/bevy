@@ -18,26 +18,19 @@ use bevy::{
         tailwind::ZINC_600,
     },
     prelude::*,
-    text::CosmicFontSystem,
+    text::FontCx,
 };
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins).add_systems(Startup, setup);
 
-    // The default font will be used where there is no system font matching the
-    // generic font variant's font name stored in Cosmic Text's `Database`.
-    app.world_mut()
-        .resource_mut::<CosmicFontSystem>()
-        .db_mut()
-        .load_system_fonts();
-
     app.run();
 }
 
 const FONT_SIZE: FontSize = FontSize::Px(25.);
 
-fn setup(mut commands: Commands, font_system: Res<CosmicFontSystem>) {
+fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
     // UI camera
     commands.spawn(Camera2d);
 
@@ -92,8 +85,8 @@ fn setup(mut commands: Commands, font_system: Res<CosmicFontSystem>) {
                     outline,
                 ));
 
-                // Get the family name for the `FontSource` from `CosmicFontSystem`.
-                // The unwrap here is safe, `get_family_name` only returns `None` if the source is a handle.
+                // Get the family name for the `FontSource` from `FontCx`.
+                // `get_family` only returns `None` for `FontSource::Handle`.
                 let family_name = font_system.get_family(&source).unwrap();
                 builder.spawn((
                     Text::new(family_name),

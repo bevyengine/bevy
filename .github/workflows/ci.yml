@@ -91,6 +91,7 @@ jobs:
           wayland: true
           xkb: true
           x264: true
+          fontconfig: true
       - name: CI job
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
@@ -413,6 +414,7 @@ jobs:
           wayland: true
           xkb: true
           x264: true
+          fontconfig: true
       - name: Build and check doc
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- doc

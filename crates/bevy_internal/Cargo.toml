@@ -283,7 +283,11 @@ glam_assert = ["bevy_math/glam_assert"]
 # Enable assertions in debug builds to check the validity of parameters passed to glam
 debug_glam_assert = ["bevy_math/debug_glam_assert"]
 
+# Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_text?/default_font"]
+
+# Allows for discovery of preloaded system fonts
+system_font_discovery = ["bevy_text?/system_font_discovery"]
 
 # Enables downloading assets from HTTP sources
 http = ["bevy_asset?/http"]

@@ -12,7 +12,7 @@ use bevy_math::{UVec2, Vec2};
 use bevy_utils::default;
 
 use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
-use bevy_text::CosmicFontSystem;
+use bevy_text::FontCx;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct LayoutNode {
@@ -210,7 +210,7 @@ impl UiSurface {
         ui_root_entity: Entity,
         render_target_resolution: UVec2,
         buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
-        font_system: &'a mut CosmicFontSystem,
+        font_system: &'a mut FontCx,
     ) {
         let implicit_viewport_node = self.get_or_insert_taffy_viewport_node(ui_root_entity);
 

@@ -878,7 +878,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         assert!(component_access_set
             .get_conflicts_single(&filter)
             .is_empty(),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+            "error[B0002]: ResMut<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             DebugName::type_name::<T>(),
             system_meta.name
         );
