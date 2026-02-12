@@ -1,10 +1,9 @@
 use super::ExtractedUiItem;
 use super::ExtractedUiNode;
-use super::ExtractedUiNodes;
 use super::NodeType;
 use super::UiCameraMap;
 use crate::shader_flags;
-use crate::ExtractedUiNodesAllPushCommand;
+use crate::ExtractedUiNodesAllocator;
 use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::Hsla;
@@ -172,7 +171,7 @@ impl From<UiDebugOptions> for GlobalUiDebugOptions {
 pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<GlobalUiDebugOptions>>,
-    mut extracted_uinodes: Local<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -187,6 +186,7 @@ pub fn extract_debug_overlay(
     ui_stack: Extract<Res<UiStack>>,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, visibility, maybe_clip, computed_target, debug) in &uinode_query
@@ -286,5 +286,5 @@ pub fn extract_debug_overlay(
             }
         }
     }
-    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }

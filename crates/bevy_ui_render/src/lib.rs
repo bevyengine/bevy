@@ -346,26 +346,34 @@ pub struct ExtractedGlyph {
 }
 
 #[derive(Default)]
+pub struct ExtractedUiNodesAllocator {
+    uinodes: usize,
+    glyphs: usize,
+}
+
+impl ExtractedUiNodesAllocator {
+    pub fn allocate(&self) -> ExtractedUiNodes {
+        let uinodes = Vec::with_capacity(self.uinodes * 2);
+        let glyphs = Vec::with_capacity(self.glyphs * 2);
+        ExtractedUiNodes { uinodes, glyphs }
+    }
+
+    pub fn queue(&mut self, commands: &mut Commands, extracted_uinodes: ExtractedUiNodes) {
+        self.uinodes = extracted_uinodes.uinodes.len();
+        self.glyphs = extracted_uinodes.glyphs.len();
+        commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes));
+    }
+}
+
 pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
     pub glyphs: Vec<ExtractedGlyph>,
 }
 
-impl ExtractedUiNodes {
-    pub fn extract(&mut self) -> Self {
-        let uinodes = Vec::with_capacity(self.uinodes.len() * 2);
-        let glyphs = Vec::with_capacity(self.glyphs.len() * 2);
-        Self {
-            uinodes: core::mem::replace(&mut self.uinodes, uinodes),
-            glyphs: core::mem::replace(&mut self.glyphs, glyphs),
-        }
-    }
-}
-
 #[derive(Resource, Default)]
-pub struct ExtractedUiNodesAll(Vec<ExtractedUiNodes>);
+pub struct ExtractedUiNodesAll(pub Vec<ExtractedUiNodes>);
 
-pub struct ExtractedUiNodesAllPushCommand(ExtractedUiNodes);
+pub struct ExtractedUiNodesAllPushCommand(pub ExtractedUiNodes);
 
 impl Command for ExtractedUiNodesAllPushCommand {
     fn apply(self, world: &mut World) {
@@ -376,7 +384,7 @@ impl Command for ExtractedUiNodesAllPushCommand {
 
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
-    mut extracted_uinodes: Local<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -390,6 +398,7 @@ pub fn extract_uinode_background_colors(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, inherited_visibility, clip, camera, background_color) in
@@ -430,12 +439,12 @@ pub fn extract_uinode_background_colors(
             main_entity: entity.into(),
         });
     }
-    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 pub fn extract_uinode_images(
     mut commands: Commands,
-    mut extracted_uinodes: Local<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
@@ -450,6 +459,7 @@ pub fn extract_uinode_images(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut camera_mapper = camera_map.get_mapper();
     for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &uinode_query {
         // Skip invisible images
@@ -515,12 +525,12 @@ pub fn extract_uinode_images(
             main_entity: entity.into(),
         });
     }
-    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 pub fn extract_uinode_borders(
     mut commands: Commands,
-    mut extracted_uinodes: Local<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -535,6 +545,7 @@ pub fn extract_uinode_borders(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let image = AssetId::<Image>::default();
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -651,7 +662,7 @@ pub fn extract_uinode_borders(
             });
         }
     }
-    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 /// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
@@ -784,7 +795,7 @@ pub fn extract_ui_camera_view(
 
 pub fn extract_viewport_nodes(
     mut commands: Commands,
-    mut extracted_uinodes: Local<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     camera_query: Extract<Query<(&Camera, &RenderTarget)>>,
     uinode_query: Extract<
         Query<(
@@ -799,6 +810,7 @@ pub fn extract_viewport_nodes(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut camera_mapper = camera_map.get_mapper();
     for (entity, uinode, transform, inherited_visibility, clip, camera, viewport_node) in
         &uinode_query
@@ -843,12 +855,12 @@ pub fn extract_viewport_nodes(
             main_entity: entity.into(),
         });
     }
-    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 pub fn extract_text_sections(
     mut commands: Commands,
-    mut extracted_uinodes: Local<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -865,6 +877,7 @@ pub fn extract_text_sections(
     text_styles: Extract<Query<&TextColor>>,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut start = extracted_uinodes.glyphs.len();
     let mut end = start + 1;
 
@@ -944,12 +957,12 @@ pub fn extract_text_sections(
             end += 1;
         }
     }
-    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 pub fn extract_text_shadows(
     mut commands: Commands,
-    mut extracted_uinodes: Local<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -966,6 +979,7 @@ pub fn extract_text_shadows(
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut start = extracted_uinodes.glyphs.len();
     let mut end = start + 1;
 
@@ -1090,12 +1104,12 @@ pub fn extract_text_shadows(
             }
         }
     }
-    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 pub fn extract_text_decorations(
     mut commands: Commands,
-    mut extracted_uinodes: Local<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -1118,6 +1132,7 @@ pub fn extract_text_decorations(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut camera_mapper = camera_map.get_mapper();
     for (
         entity,
@@ -1240,7 +1255,7 @@ pub fn extract_text_decorations(
             }
         }
     }
-    commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes.extract()));
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 #[repr(C)]
