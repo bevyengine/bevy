@@ -137,13 +137,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
             ) -> impl Iterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)*> {
-                core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components)))*
+                ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components)))*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
             ) -> impl Iterator<Item = Option<#ecs_path::component::ComponentId>> {
-                core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components)))*
+                ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components)))*
             }
         }
     };
@@ -173,7 +173,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[allow(unused_variables)]
             #[inline]
             unsafe fn apply_effect(
-                ptr: #ecs_path::ptr::MovingPtr<'_, core::mem::MaybeUninit<Self>>,
+                ptr: #ecs_path::ptr::MovingPtr<'_, ::core::mem::MaybeUninit<Self>>,
                 func: &mut #ecs_path::world::EntityWorldMut<'_>,
             ) {
             }

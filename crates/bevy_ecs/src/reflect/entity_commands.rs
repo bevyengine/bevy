@@ -6,7 +6,7 @@ use crate::{
     world::EntityWorldMut,
 };
 use alloc::{borrow::Cow, boxed::Box};
-use bevy_reflect::{PartialReflect, TypeRegistry};
+use bevy_reflect::{PartialReflect, Reflect, TypeRegistry};
 
 /// An extension trait for [`EntityCommands`] for reflection related functions
 pub trait ReflectCommandExt {
@@ -268,7 +268,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Note
     ///
-    /// Prefer to use the typed [`EntityCommands::remove`] if possible. Removing a reflected component
+    /// Prefer to use the typed [`EntityWorldMut::remove`] if possible. Removing a reflected component
     /// is much slower.
     pub fn remove_reflect(&mut self, component_type_path: Cow<'static, str>) -> &mut Self {
         self.assert_not_despawned();
@@ -303,6 +303,54 @@ impl<'w> EntityWorldMut<'w> {
             remove_reflect_with_registry_ref(entity, type_registry, component_type_path);
         });
         self
+    }
+
+    /// Takes from the entity the component or bundle with the given type path registered in [`AppTypeRegistry`].
+    ///
+    /// Does nothing and returns None if the type is a component and the entity does not have a component of the same type,
+    /// if the type is a bundle and the entity does not contain **every** component in the bundle,
+    /// or if [`AppTypeRegistry`] does not contain the reflection data for the given component.
+    ///
+    /// # Panics
+    ///
+    /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
+    ///
+    /// # Note
+    ///
+    /// Prefer to use the typed [`EntityWorldMut::take`] if possible. Taking a reflected component
+    /// is much slower.
+    pub fn take_reflect(
+        &mut self,
+        component_type_path: Cow<'static, str>,
+    ) -> Option<Box<dyn Reflect>> {
+        self.assert_not_despawned();
+        self.resource_scope(|entity, registry: Mut<AppTypeRegistry>| {
+            let type_registry = &registry.as_ref().read();
+            take_reflect_with_registry_ref(entity, type_registry, component_type_path)
+        })
+    }
+
+    /// Same as [`take_reflect`](EntityWorldMut::take_reflect), but using
+    /// the `T` resource as type registry instead of `AppTypeRegistry`.
+    ///
+    /// Does nothing and returns None if the type is a component and the entity does not have a component of the same type,
+    /// if the type is a bundle and the entity does not contain **every** component in the bundle,
+    /// or if [`AppTypeRegistry`] does not contain the reflection data for the given component.
+    ///
+    /// # Panics
+    ///
+    /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
+    pub fn take_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
+        &mut self,
+        component_type_path: Cow<'static, str>,
+    ) -> Option<Box<dyn Reflect>> {
+        self.assert_not_despawned();
+        self.resource_scope(|entity, registry: Mut<T>| {
+            let type_registry = registry.as_ref().as_ref();
+            take_reflect_with_registry_ref(entity, type_registry, component_type_path)
+        })
     }
 }
 
@@ -342,6 +390,22 @@ fn remove_reflect_with_registry_ref(
         reflect_component.remove(entity);
     } else if let Some(reflect_bundle) = type_registration.data::<ReflectBundle>() {
         reflect_bundle.remove(entity);
+    }
+}
+
+/// Helper function to take a reflect component or bundle from a given entity
+fn take_reflect_with_registry_ref(
+    entity: &mut EntityWorldMut,
+    type_registry: &TypeRegistry,
+    component_type_path: Cow<'static, str>,
+) -> Option<Box<dyn Reflect>> {
+    let type_registration = type_registry.get_with_type_path(&component_type_path)?;
+    if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
+        reflect_component.take(entity)
+    } else if let Some(reflect_bundle) = type_registration.data::<ReflectBundle>() {
+        reflect_bundle.take(entity)
+    } else {
+        None
     }
 }
 

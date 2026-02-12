@@ -77,7 +77,8 @@ jobs:
       branch: ${{ needs.make-macos-screenshots-available.outputs.branch-name }}
       artifact: screenshots-macos
       os: macos
-    secrets: inherit
+    secrets:
+      PIXELEAGLE_TOKEN: ${{ secrets.PIXELEAGLE_TOKEN }}
 
   comment-on-pr:
     permissions:

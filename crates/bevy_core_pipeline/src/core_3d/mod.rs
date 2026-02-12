@@ -45,6 +45,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_image::ToExtents;
+use bevy_log::warn;
 use bevy_math::FloatOrd;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
@@ -66,7 +67,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
-use tracing::warn;
 
 use crate::deferred::copy_lighting_id::copy_deferred_lighting_id;
 use crate::deferred::node::{early_deferred_prepass, late_deferred_prepass};

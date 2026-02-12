@@ -2,9 +2,17 @@ use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_image::{prelude::*, ImageSampler, ToExtents};
 use bevy_math::{IVec2, UVec2};
 use bevy_platform::collections::HashMap;
+use swash::scale::Scaler;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
+
+/// Key identifying a glyph
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct GlyphCacheKey {
+    /// Id used to look up the glyph
+    pub glyph_id: u16,
+}
 
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
 ///
@@ -16,13 +24,13 @@ use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
 /// In practice, ranges of subpixel offsets are grouped into subpixel bins to limit the number of rasterized glyphs,
 /// providing a trade-off between visual quality and performance.
 ///
-/// A [`CacheKey`](cosmic_text::CacheKey) encodes all of the information of a subpixel-offset glyph and is used to
+/// A [`GlyphCacheKey`] encodes all of the information of a subpixel-offset glyph and is used to
 /// find that glyphs raster in a [`TextureAtlas`] through its corresponding [`GlyphAtlasLocation`].
 pub struct FontAtlas {
     /// Used to update the [`TextureAtlasLayout`].
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
     /// A mapping between subpixel-offset glyphs and their [`GlyphAtlasLocation`].
-    pub glyph_to_atlas_index: HashMap<cosmic_text::CacheKey, GlyphAtlasLocation>,
+    pub glyph_to_atlas_index: HashMap<GlyphCacheKey, GlyphAtlasLocation>,
     /// The handle to the [`TextureAtlasLayout`] that holds the rasterized glyphs.
     pub texture_atlas: Handle<TextureAtlasLayout>,
     /// The texture where this font atlas is located
@@ -53,18 +61,18 @@ impl FontAtlas {
         Self {
             texture_atlas,
             glyph_to_atlas_index: HashMap::default(),
-            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 2),
+            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 1),
             texture,
         }
     }
 
     /// Get the [`GlyphAtlasLocation`] for a subpixel-offset glyph.
-    pub fn get_glyph_index(&self, cache_key: cosmic_text::CacheKey) -> Option<GlyphAtlasLocation> {
+    pub fn get_glyph_index(&self, cache_key: GlyphCacheKey) -> Option<GlyphAtlasLocation> {
         self.glyph_to_atlas_index.get(&cache_key).copied()
     }
 
     /// Checks if the given subpixel-offset glyph is contained in this [`FontAtlas`].
-    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey) -> bool {
+    pub fn has_glyph(&self, cache_key: GlyphCacheKey) -> bool {
         self.glyph_to_atlas_index.contains_key(&cache_key)
     }
 
@@ -83,23 +91,24 @@ impl FontAtlas {
         &mut self,
         textures: &mut Assets<Image>,
         atlas_layouts: &mut Assets<TextureAtlasLayout>,
-        cache_key: cosmic_text::CacheKey,
+        key: GlyphCacheKey,
         texture: &Image,
         offset: IVec2,
     ) -> Result<(), TextError> {
-        let atlas_layout = atlas_layouts
+        let mut atlas_layout = atlas_layouts
             .get_mut(&self.texture_atlas)
             .ok_or(TextError::MissingAtlasLayout)?;
-        let atlas_texture = textures
+        let mut atlas_texture = textures
             .get_mut(&self.texture)
             .ok_or(TextError::MissingAtlasTexture)?;
 
-        if let Ok(glyph_index) =
-            self.dynamic_texture_atlas_builder
-                .add_texture(atlas_layout, texture, atlas_texture)
-        {
+        if let Ok(glyph_index) = self.dynamic_texture_atlas_builder.add_texture(
+            &mut atlas_layout,
+            texture,
+            &mut atlas_texture,
+        ) {
             self.glyph_to_atlas_index.insert(
-                cache_key,
+                key,
                 GlyphAtlasLocation {
                     glyph_index,
                     offset,
@@ -107,7 +116,7 @@ impl FontAtlas {
             );
             Ok(())
         } else {
-            Err(TextError::FailedToAddGlyph(cache_key.glyph_id))
+            Err(TextError::FailedToAddGlyph(key.glyph_id))
         }
     }
 }
@@ -128,20 +137,16 @@ pub fn add_glyph_to_atlas(
     font_atlases: &mut Vec<FontAtlas>,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
-    font_system: &mut cosmic_text::FontSystem,
-    swash_cache: &mut cosmic_text::SwashCache,
-    layout_glyph: &cosmic_text::LayoutGlyph,
+    scaler: &mut Scaler,
     font_smoothing: FontSmoothing,
+    glyph_id: u16,
 ) -> Result<GlyphAtlasInfo, TextError> {
-    let physical_glyph = layout_glyph.physical((0., 0.), 1.0);
-
-    let (glyph_texture, offset) =
-        get_outlined_glyph_texture(font_system, swash_cache, &physical_glyph, font_smoothing)?;
+    let (glyph_texture, offset) = get_outlined_glyph_texture(scaler, glyph_id, font_smoothing)?;
     let mut add_char_to_font_atlas = |atlas: &mut FontAtlas| -> Result<(), TextError> {
         atlas.add_glyph(
             textures,
             texture_atlases,
-            physical_glyph.cache_key,
+            GlyphCacheKey { glyph_id },
             &glyph_texture,
             offset,
         )
@@ -169,7 +174,7 @@ pub fn add_glyph_to_atlas(
         new_atlas.add_glyph(
             textures,
             texture_atlases,
-            physical_glyph.cache_key,
+            GlyphCacheKey { glyph_id },
             &glyph_texture,
             offset,
         )?;
@@ -177,59 +182,56 @@ pub fn add_glyph_to_atlas(
         font_atlases.push(new_atlas);
     }
 
-    get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
+    get_glyph_atlas_info(font_atlases, GlyphCacheKey { glyph_id })
         .ok_or(TextError::InconsistentAtlasState)
 }
 
 /// Get the texture of the glyph as a rendered image, and its offset
+#[expect(
+    clippy::identity_op,
+    reason = "Alignment improves clarity during RGBA operations."
+)]
 pub fn get_outlined_glyph_texture(
-    font_system: &mut cosmic_text::FontSystem,
-    swash_cache: &mut cosmic_text::SwashCache,
-    physical_glyph: &cosmic_text::PhysicalGlyph,
+    scaler: &mut Scaler,
+    glyph_id: u16,
     font_smoothing: FontSmoothing,
 ) -> Result<(Image, IVec2), TextError> {
-    // NOTE: Ideally, we'd ask COSMIC Text to honor the font smoothing setting directly.
-    // However, since it currently doesn't support that, we render the glyph with antialiasing
-    // and apply a threshold to the alpha channel to simulate the effect.
-    //
-    // This has the side effect of making regular vector fonts look quite ugly when font smoothing
-    // is turned off, but for fonts that are specifically designed for pixel art, it works well.
-    //
-    // See: https://github.com/pop-os/cosmic-text/issues/279
-    let image = swash_cache
-        .get_image_uncached(font_system, physical_glyph.cache_key)
-        .ok_or(TextError::FailedToGetGlyphImage(physical_glyph.cache_key))?;
+    let image = swash::scale::Render::new(&[
+        swash::scale::Source::ColorOutline(0),
+        swash::scale::Source::ColorBitmap(swash::scale::StrikeWith::BestFit),
+        swash::scale::Source::Outline,
+    ])
+    .format(swash::zeno::Format::Alpha)
+    .render(scaler, glyph_id)
+    .ok_or(TextError::FailedToGetGlyphImage(glyph_id))?;
 
-    let cosmic_text::Placement {
-        left,
-        top,
-        width,
-        height,
-    } = image.placement;
+    let left = image.placement.left;
+    let top = image.placement.top;
+    let width = image.placement.width;
+    let height = image.placement.height;
 
-    let data = match image.content {
-        cosmic_text::SwashContent::Mask => {
-            if font_smoothing == FontSmoothing::None {
-                image
-                    .data
-                    .iter()
-                    // Apply a 50% threshold to the alpha channel
-                    .flat_map(|a| [255, 255, 255, if *a > 127 { 255 } else { 0 }])
-                    .collect()
-            } else {
-                image
-                    .data
-                    .iter()
-                    .flat_map(|a| [255, 255, 255, *a])
-                    .collect()
+    let px = (width * height) as usize;
+    let mut rgba = vec![0u8; px * 4];
+    match font_smoothing {
+        FontSmoothing::AntiAliased => {
+            for i in 0..px {
+                let a = image.data[i];
+                rgba[i * 4 + 0] = 255; // R
+                rgba[i * 4 + 1] = 255; // G
+                rgba[i * 4 + 2] = 255; // B
+                rgba[i * 4 + 3] = a; // A from swash
             }
         }
-        cosmic_text::SwashContent::Color => image.data,
-        cosmic_text::SwashContent::SubpixelMask => {
-            // TODO: implement
-            todo!()
+        FontSmoothing::None => {
+            for i in 0..px {
+                let a = image.data[i];
+                rgba[i * 4 + 0] = 255; // R
+                rgba[i * 4 + 1] = 255; // G
+                rgba[i * 4 + 2] = 255; // B
+                rgba[i * 4 + 3] = if 127 < a { 255 } else { 0 }; // A from swash
+            }
         }
-    };
+    }
 
     Ok((
         Image::new(
@@ -239,7 +241,7 @@ pub fn get_outlined_glyph_texture(
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            data,
+            rgba,
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::MAIN_WORLD,
         ),
@@ -250,7 +252,7 @@ pub fn get_outlined_glyph_texture(
 /// Generates the [`GlyphAtlasInfo`] for the given subpixel-offset glyph.
 pub fn get_glyph_atlas_info(
     font_atlases: &mut [FontAtlas],
-    cache_key: cosmic_text::CacheKey,
+    cache_key: GlyphCacheKey,
 ) -> Option<GlyphAtlasInfo> {
     font_atlases.iter().find_map(|atlas| {
         atlas

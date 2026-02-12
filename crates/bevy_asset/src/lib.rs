@@ -1227,7 +1227,7 @@ mod tests {
 
         {
             let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
-            let a = texts.get_mut(a_id).unwrap();
+            let mut a = texts.get_mut(a_id).unwrap();
             a.text = "Changed".to_string();
         }
 
@@ -2574,8 +2574,8 @@ mod tests {
                 _settings: &Self::Settings,
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
-                load_context.add_labeled_asset("A".into(), TestAsset);
-                load_context.add_labeled_asset("B".into(), TestAsset);
+                load_context.add_labeled_asset("A", TestAsset);
+                load_context.add_labeled_asset("B", TestAsset);
                 Ok(TestAsset)
             }
 
@@ -2852,7 +2852,7 @@ mod tests {
                 // Load the asset in the root context, but then put the handle in the subasset. So
                 // the subasset's (internal) load context never loaded `dep`.
                 let dep = load_context.load::<TestAsset>("abc.ron");
-                load_context.add_labeled_asset("subasset".into(), AssetWithDep { dep });
+                load_context.add_labeled_asset("subasset", AssetWithDep { dep });
                 Ok(TestAsset)
             }
 

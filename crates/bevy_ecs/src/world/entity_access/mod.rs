@@ -28,6 +28,7 @@ mod tests {
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,
         prelude::*,
+        resource::IsResource,
         system::{assert_is_system, RunSystemOnce as _},
         world::{error::EntityComponentError, DeferredWorld, FilteredEntityMut, FilteredEntityRef},
     };
@@ -675,8 +676,16 @@ mod tests {
     }
 
     #[test]
-    fn ref_compatible_with_resource_mut() {
+    #[should_panic]
+    fn ref_incompatible_with_resource_mut() {
         fn borrow_system(_: Query<EntityRef>, _: ResMut<R>) {}
+
+        assert_is_system(borrow_system);
+    }
+
+    #[test]
+    fn ref_compatible_with_resource_mut() {
+        fn borrow_system(_: Query<EntityRef, Without<IsResource>>, _: ResMut<R>) {}
 
         assert_is_system(borrow_system);
     }
@@ -705,15 +714,31 @@ mod tests {
     }
 
     #[test]
-    fn mut_compatible_with_resource() {
+    #[should_panic]
+    fn mut_incompatible_with_resource() {
         fn borrow_mut_system(_: Res<R>, _: Query<EntityMut>) {}
 
         assert_is_system(borrow_mut_system);
     }
 
     #[test]
-    fn mut_compatible_with_resource_mut() {
+    #[should_panic]
+    fn mut_incompatible_with_resource_mut() {
         fn borrow_mut_system(_: ResMut<R>, _: Query<EntityMut>) {}
+
+        assert_is_system(borrow_mut_system);
+    }
+
+    #[test]
+    fn mut_compatible_with_resource() {
+        fn borrow_mut_system(_: Res<R>, _: Query<EntityMut, Without<IsResource>>) {}
+
+        assert_is_system(borrow_mut_system);
+    }
+
+    #[test]
+    fn mut_compatible_with_resource_mut() {
+        fn borrow_mut_system(_: ResMut<R>, _: Query<EntityMut, Without<IsResource>>) {}
 
         assert_is_system(borrow_mut_system);
     }
