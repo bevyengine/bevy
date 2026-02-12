@@ -85,7 +85,9 @@ web-sys = { version = "0.3", features = [
 ] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-uuid = { git = "https://github.com/uuid-rs/uuid", default-features = false, features = ["js"] }
+uuid = { git = "https://github.com/uuid-rs/uuid", default-features = false, features = [
+  "js",
+] }
 bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false, features = [
   "web",
 ] }

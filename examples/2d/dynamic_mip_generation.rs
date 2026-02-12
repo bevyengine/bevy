@@ -37,8 +37,8 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
     window::{PrimaryWindow, WindowResized},
 };
-use rand::{RngExt, SeedableRng};
 use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 use crate::widgets::{
     RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender, BUTTON_BORDER,

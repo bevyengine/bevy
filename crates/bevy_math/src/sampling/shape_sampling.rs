@@ -629,8 +629,8 @@ impl<P: Primitive2d + Measured2d + ShapeSample<Output = Vec2>> ShapeSample for E
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
     use chacha20::ChaCha8Rng;
+    use rand::SeedableRng;
 
     #[test]
     fn circle_interior_sampling() {

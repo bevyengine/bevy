@@ -45,7 +45,9 @@ taffy = { version = "0.9", default-features = false, features = [
   "taffy_tree",
 ] }
 serde = { version = "1", features = ["derive"], optional = true }
-uuid = { git = "https://github.com/uuid-rs/uuid", features = ["v4"], optional = true }
+uuid = { git = "https://github.com/uuid-rs/uuid", features = [
+  "v4",
+], optional = true }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 smallvec = { version = "1", default-features = false }

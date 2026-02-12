@@ -28,8 +28,8 @@ use bevy::{
     MinimalPlugins,
 };
 
-use rand::prelude::{IndexedRandom, RngExt, SeedableRng};
 use chacha20::ChaCha8Rng;
+use rand::prelude::{IndexedRandom, RngExt, SeedableRng};
 use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
 
 #[expect(unsafe_code, reason = "Reading dynamic components requires unsafe")]

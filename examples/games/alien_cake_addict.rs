@@ -4,8 +4,8 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 
-use rand::{RngExt, SeedableRng};
 use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum GameState {

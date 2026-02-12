@@ -9,8 +9,8 @@ use bevy::{
     post_process::bloom::Bloom,
     prelude::*,
 };
-use rand::{seq::IndexedRandom, RngExt, SeedableRng};
 use chacha20::ChaCha8Rng;
+use rand::{seq::IndexedRandom, RngExt, SeedableRng};
 
 fn main() {
     App::new()

@@ -4,8 +4,8 @@ use bevy::{
     math::{prelude::*, vec3, NormedVectorSpace},
     prelude::*,
 };
-use rand::SeedableRng;
 use chacha20::ChaCha8Rng;
+use rand::SeedableRng;
 
 fn main() {
     App::new()

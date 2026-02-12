@@ -8,8 +8,8 @@ use bevy::{
     light::CascadeShadowConfigBuilder,
     prelude::*,
 };
-use rand::{RngExt, SeedableRng};
 use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 const FOX_PATH: &str = "models/animated/Fox.glb";
 

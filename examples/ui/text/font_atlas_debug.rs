@@ -3,8 +3,8 @@
 
 use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSet};
 
-use rand::{RngExt, SeedableRng};
 use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 fn main() {
     App::new()

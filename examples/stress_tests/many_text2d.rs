@@ -12,11 +12,11 @@ use bevy::{
 };
 
 use argh::FromArgs;
+use chacha20::ChaCha8Rng;
 use rand::{
     seq::{IndexedRandom, IteratorRandom},
     RngExt, SeedableRng,
 };
-use chacha20::ChaCha8Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
