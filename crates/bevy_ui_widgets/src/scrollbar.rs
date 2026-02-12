@@ -1,6 +1,5 @@
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
