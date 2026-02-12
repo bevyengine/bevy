@@ -8,7 +8,7 @@
 //! # use rand::SeedableRng;
 //! # use rand::rngs::StdRng;
 //! // Get some `Rng`:
-//! let rng: StdRng = rand::make_rng();
+//! let mut rng: StdRng = rand::make_rng();
 //! // Make a circle of radius 2:
 //! let circle = Circle::new(2.0);
 //! // Get a point inside this circle uniformly at random:
@@ -24,8 +24,8 @@
 //! # use rand::SeedableRng;
 //! # use rand::rngs::StdRng;
 //! # use rand::distr::Distribution;
-//! # let rng1: StdRng = rand::make_rng();
-//! # let rng2: StdRng = rand::make_rng();
+//! # let mut rng1: StdRng = rand::make_rng();
+//! # let mut rng2: StdRng = rand::make_rng();
 //! // Use a rectangle this time:
 //! let rectangle = Rectangle::new(1.0, 2.0);
 //! // Get an iterator that spits out random interior points:
