@@ -7,7 +7,7 @@
 //! # use bevy_math::ShapeSample;
 //! # use rand::SeedableRng;
 //! # use rand::rngs::StdRng;
-//! // Get some `Rng`:
+//! // Get some `RngExt`:
 //! let mut rng: StdRng = rand::make_rng();
 //! // Make a circle of radius 2:
 //! let circle = Circle::new(2.0);

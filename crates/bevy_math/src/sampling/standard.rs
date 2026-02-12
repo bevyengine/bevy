@@ -1,6 +1,6 @@
 //! This module holds local implementations of the [`Distribution`] trait for [`StandardUniform`], which
 //! allow certain Bevy math types (those whose values can be randomly generated without additional
-//! input other than an [`Rng`]) to be produced using [`rand`]'s APIs. It also holds [`FromRng`],
+//! input other than an [`RngExt`]) to be produced using [`rand`]'s APIs. It also holds [`FromRng`],
 //! an ergonomic extension to that functionality which permits the omission of type annotations.
 //!
 //! For instance:
@@ -33,7 +33,7 @@ use rand::{
 };
 
 /// Ergonomics trait for a type with a [`StandardUniform`] distribution, allowing values to be generated
-/// uniformly from an [`Rng`] by a method in its own namespace.
+/// uniformly from an [`RngExt`] by a method in its own namespace.
 ///
 /// Example
 /// ```
