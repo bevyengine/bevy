@@ -145,7 +145,7 @@ pub fn camera_driver(world: &mut World) {
             world.insert_resource(CurrentView(camera_entity));
 
             #[cfg(feature = "trace")]
-            let _span = tracing::info_span!(
+            let _span = bevy_log::info_span!(
                 "camera_schedule",
                 camera = format!("Camera {} ({:?})", order, camera_entity)
             )
@@ -200,7 +200,7 @@ fn handle_uncovered_swap_chains(world: &mut World, camera_windows: &HashSet<Enti
 
     for (swap_chain_texture, clear_color) in &windows_to_clear {
         #[cfg(feature = "trace")]
-        let _span = tracing::info_span!("no_camera_clear_pass").entered();
+        let _span = bevy_log::info_span!("no_camera_clear_pass").entered();
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("no_camera_clear_pass"),
