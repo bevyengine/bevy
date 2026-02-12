@@ -354,8 +354,8 @@ impl ExtractedUiNodes {
         let uinodes = Vec::with_capacity(self.uinodes.len() * 2);
         let glyphs = Vec::with_capacity(self.glyphs.len() * 2);
         Self {
-            uinodes: std::mem::replace(&mut self.uinodes, uinodes),
-            glyphs: std::mem::replace(&mut self.glyphs, glyphs),
+            uinodes: core::mem::replace(&mut self.uinodes, uinodes),
+            glyphs: core::mem::replace(&mut self.glyphs, glyphs),
         }
     }
 }
