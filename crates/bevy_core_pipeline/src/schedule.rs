@@ -14,6 +14,7 @@ use bevy_ecs::{
     prelude::*,
     schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, SystemSet},
 };
+use bevy_log::info_span;
 use bevy_platform::collections::HashSet;
 use bevy_render::{
     camera::{ExtractedCamera, SortedCameras},
@@ -24,7 +25,6 @@ use bevy_render::{
     renderer::{CurrentView, PendingCommandBuffers, RenderDevice, RenderQueue},
     view::ExtractedWindows,
 };
-use tracing::info_span;
 
 /// Schedule label for the Core 3D rendering pipeline.
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
