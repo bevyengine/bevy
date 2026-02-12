@@ -120,6 +120,7 @@ pub trait GltfExtensionHandler: Send + Sync {
     }
 
     /// Called when an individual glTF primitive is processed
+    /// glTF primitives are what become a Bevy `Mesh`
     #[expect(
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
