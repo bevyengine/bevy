@@ -11,8 +11,8 @@ use bevy::{
     light::ClusteredDecal,
     prelude::*,
 };
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
+use chacha20::ChaCha8Rng;
 
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
 

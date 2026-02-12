@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use criterion::Criterion;
 use rand::{prelude::SliceRandom, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
 use seq_macro::seq;
 
 #[derive(Component, Default)]

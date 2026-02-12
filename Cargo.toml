@@ -734,8 +734,8 @@ tracing = { version = "0.1", default-features = false, optional = true }
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.19.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
-rand = "0.9.0"
-rand_chacha = "0.9.0"
+rand = "0.10.0"
+chacha20 = { version = "0.10.0", default-features = false, features = ["rng"] }
 ron = "0.12"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
@@ -766,7 +766,7 @@ gltf = "1.4"
 ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-getrandom = { version = "0.3", default-features = false, features = [
+getrandom = { version = "0.4", default-features = false, features = [
   "wasm_js",
 ] }
 wasm-bindgen = { version = "0.2" }

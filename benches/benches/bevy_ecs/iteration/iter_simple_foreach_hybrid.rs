@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 use rand::{prelude::SliceRandom, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
 
 #[derive(Component, Copy, Clone)]
 struct TableData(f32);

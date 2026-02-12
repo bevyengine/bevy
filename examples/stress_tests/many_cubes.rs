@@ -26,8 +26,8 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
-use rand::{seq::IndexedRandom, Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use rand::{seq::IndexedRandom, RngExt, SeedableRng};
+use chacha20::ChaCha8Rng;
 
 #[derive(FromArgs, Resource)]
 /// `many_cubes` stress test

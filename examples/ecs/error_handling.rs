@@ -7,7 +7,7 @@ use bevy::prelude::*;
 
 use rand::distr::Distribution;
 use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
 
 fn main() {
     let mut app = App::new();

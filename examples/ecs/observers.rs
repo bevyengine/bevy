@@ -4,8 +4,8 @@ use bevy::{
     platform::collections::{HashMap, HashSet},
     prelude::*,
 };
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
+use chacha20::ChaCha8Rng;
 
 fn main() {
     App::new()

@@ -14,9 +14,9 @@ use bevy::{
 use argh::FromArgs;
 use rand::{
     seq::{IndexedRandom, IteratorRandom},
-    Rng, SeedableRng,
+    RngExt, SeedableRng,
 };
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
@@ -219,7 +219,7 @@ fn random_text(rng: &mut ChaCha8Rng, args: &Args) -> String {
         .choose(rng)
         .unwrap()
         .clone()
-        .choose_multiple(rng, 4)
+        .sample(rng, 4)
         .into_iter()
         .map(|cp| char::from_u32(cp).unwrap())
         .collect::<String>()

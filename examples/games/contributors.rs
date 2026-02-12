@@ -2,8 +2,8 @@
 
 use bevy::{math::bounding::Aabb2d, prelude::*};
 
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
+use chacha20::ChaCha8Rng;
 use std::{
     collections::HashMap,
     env::VarError,

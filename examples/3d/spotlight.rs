@@ -9,8 +9,8 @@ use bevy::{
     math::ops,
     prelude::*,
 };
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
+use chacha20::ChaCha8Rng;
 
 const INSTRUCTIONS: &str = "\
 Controls

@@ -2,7 +2,7 @@ use bevy_ecs::{component::Component, lifecycle::Insert, observer::On, world::Wor
 use core::hint::black_box;
 use criterion::Criterion;
 use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
 
 fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)

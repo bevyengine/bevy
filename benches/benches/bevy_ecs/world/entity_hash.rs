@@ -1,7 +1,7 @@
 use bevy_ecs::entity::{Entity, EntityGeneration, EntityHashSet};
 use criterion::{BenchmarkId, Criterion, Throughput};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
+use chacha20::ChaCha8Rng;
 
 const SIZES: [usize; 5] = [100, 316, 1000, 3162, 10000];
 

@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
 };
 use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
 
 fn main() {
     App::new()

@@ -6,8 +6,8 @@ use bevy::{
     prelude::*,
     sprite_render::{TileData, TilemapChunk, TilemapChunkTileData},
 };
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
+use chacha20::ChaCha8Rng;
 
 fn main() {
     App::new()
