@@ -4,7 +4,7 @@ use benches::bench;
 use bevy_reflect::ParsedPath;
 use chacha20::ChaCha8Rng;
 use criterion::{criterion_group, BatchSize, BenchmarkId, Criterion, Throughput};
-use rand::{distr::Uniform, Rng, SeedableRng};
+use rand::{distr::Uniform, RngExt, SeedableRng};
 
 criterion_group!(benches, parse_reflect_path);
 
