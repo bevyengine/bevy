@@ -309,21 +309,20 @@ fn update_scrollbar_thumb(
                             scroll_area.0.x,
                         );
 
-                        thumb
-                            .reborrow()
-                            .map_unchanged(|th| &mut th.top)
-                            .set_if_neq(Val::Px(0.));
-                        thumb
-                            .reborrow()
-                            .map_unchanged(|th| &mut th.bottom)
-                            .set_if_neq(Val::Px(0.));
-                        thumb
-                            .reborrow()
-                            .map_unchanged(|th| &mut th.left)
-                            .set_if_neq(Val::Px(thumb_pos));
-                        thumb
-                            .map_unchanged(|th| &mut th.width)
-                            .set_if_neq(Val::Px(thumb_size));
+                        let top = Val::Px(0.);
+                        let bottom = Val::Px(0.);
+                        let left = Val::Px(thumb_pos);
+                        let width = Val::Px(thumb_size);
+                        if top != thumb.top
+                            || bottom != thumb.bottom
+                            || left != thumb.left
+                            || width != thumb.width
+                        {
+                            thumb.top = top;
+                            thumb.bottom = bottom;
+                            thumb.left = left;
+                            thumb.width = width;
+                        }
                     }
                     ControlOrientation::Vertical => {
                         let (thumb_size, thumb_pos) = size_and_pos(
@@ -334,21 +333,20 @@ fn update_scrollbar_thumb(
                             scroll_area.0.y,
                         );
 
-                        thumb
-                            .reborrow()
-                            .map_unchanged(|th| &mut th.left)
-                            .set_if_neq(Val::Px(0.));
-                        thumb
-                            .reborrow()
-                            .map_unchanged(|th| &mut th.right)
-                            .set_if_neq(Val::Px(0.));
-                        thumb
-                            .reborrow()
-                            .map_unchanged(|th| &mut th.top)
-                            .set_if_neq(Val::Px(thumb_pos));
-                        thumb
-                            .map_unchanged(|th| &mut th.height)
-                            .set_if_neq(Val::Px(thumb_size));
+                        let left = Val::Px(0.);
+                        let right = Val::Px(0.);
+                        let top = Val::Px(thumb_pos);
+                        let height = Val::Px(thumb_size);
+                        if thumb.left != left
+                            || thumb.right != right
+                            || thumb.top != top
+                            || thumb.height != height
+                        {
+                            thumb.left = left;
+                            thumb.right = right;
+                            thumb.top = top;
+                            thumb.height = height;
+                        }
                     }
                 };
             }
