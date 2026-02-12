@@ -4606,17 +4606,18 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
-name = "aabb_frustum_gizmos"
-path = "examples/gizmos/aabb_frustum_gizmos.rs"
+name = "debug_frustum_culling"
+path = "examples/usage/debug_frustum_culling.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
 required-features = ["free_camera"]
 
-[package.metadata.example.aabb_frustum_gizmos]
-name = "Aabb & Frustum Gizmos"
-description = "A scene showcasing Aabb and Frustum gizmos"
-category = "Gizmos"
+[package.metadata.example.debug_frustum_culling]
+name = "Debug Frustum Culling"
+description = "Example demonstrating how to debug frustum culling"
+category = "Usage"
 wasm = true
+
 
 [[example]]
 name = "custom_gltf_vertex_attribute"
