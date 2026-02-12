@@ -232,9 +232,11 @@ fn setup(
         }),
         meshes.add(Sphere::default().mesh().ico(5).unwrap()),
     ];
+    let shapes_len = shapes.len() as f32;
     let mut shape_ring = commands.spawn((Transform::default(), Visibility::default(), ShapeRing));
     for (i, shape) in shapes.into_iter().enumerate() {
-        let shape_angle = i as f32 * 2. * PI / 5.;
+        // Space the shapes out evenly along the ring
+        let shape_angle = i as f32 * 2. * PI / shapes_len;
         let (s, c) = ops::sin_cos(shape_angle);
         let (x, z) = (SHAPE_RING_RADIUS * c, SHAPE_RING_RADIUS * s);
         shape_ring.with_child((
@@ -356,7 +358,7 @@ fn move_free_camera(
     let (mut transform, mut state) = free_camera_query.single_mut()?;
     *transform = new_transform;
 
-    // Update the yaw and pitch so that camera orientation is updated correctly upon mouse grab
+    // Update the yaw and pitch so that free camera orientation is updated correctly upon mouse grab
     let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
     state.yaw = yaw;
     state.pitch = pitch;
