@@ -123,9 +123,8 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
             }
         }
 
-        use #state_set_trait_path as StateSet;
         impl #impl_generics #state_trait_path for #struct_name #ty_generics #where_clause {
-            const DEPENDENCY_DEPTH : usize = <Self as #trait_path>::SourceStates::SET_DEPENDENCY_DEPTH + 1;
+            const DEPENDENCY_DEPTH : usize = <<Self as #trait_path>::SourceStates as #state_set_trait_path>::SET_DEPENDENCY_DEPTH + 1;
         }
 
         impl #impl_generics #state_mutation_trait_path for #struct_name #ty_generics #where_clause {
