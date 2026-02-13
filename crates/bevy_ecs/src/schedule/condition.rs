@@ -145,7 +145,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// When applied directly to a system using [`run_if`], the use of this combinator
     /// is behaviorally identical to simply calling `run_if` multiple times. However,
-    /// `.and_eager` may be be efficient, as it does not erase the types of the inner conditions
+    /// `.and_eager` may be more efficient, as it does not erase the types of the inner conditions
     /// when evaluating them, which may allow for compiler optimizations that are not possible
     /// with separate calls to `run_if`.
     ///
