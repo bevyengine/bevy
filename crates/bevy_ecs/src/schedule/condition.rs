@@ -195,7 +195,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
 
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `then_run` return `true`.
-    #[deprecated = "use `.and_then(...)` instead, or `.and_eager(...)` to evaluate the conditions eagerly"]
+    #[deprecated(since = "0.19.0", note = "use `.and_then(...)` instead, or `.and_eager(...)` to evaluate the conditions eagerly")]
     fn and<M, C: SystemCondition<M, In>>(self, then_run: C) -> AndThen<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(then_run);
@@ -334,7 +334,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
 
     /// Returns a new run condition that only returns `false`
     /// if both this one and the passed `then_run` return `true`.
-    #[deprecated = "use `.nand_then(...) instead, or `.nand_eager(...)` to evaluate the conditions eagerly"]
+    #[deprecated(since = "0.19.0", note = "use `.nand_then(...) instead, or `.nand_eager(...)` to evaluate the conditions eagerly")]
     fn nand<M, C: SystemCondition<M, In>>(self, nand: C) -> NandThen<Self::System, C::System> {
         self.nand_then(nand)
     }
@@ -423,7 +423,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
 
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `else_run` return `false`.
-    #[deprecated = "use `.nor_else(...)` instead, or `.nor_eager(...)` to evaluate the conditions eagerly"]
+    #[deprecated(since = "0.19.0", note = "use `.nor_else(...)` instead, or `.nor_eager(...)` to evaluate the conditions eagerly")]
     fn nor<M, C: SystemCondition<M, In>>(self, else_run: C) -> NorElse<Self::System, C::System> {
         self.nor_else(else_run)
     }
@@ -501,7 +501,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
 
     /// Returns a new run condition that returns `true`
     /// if either this one or the passed `or` return `true`.
-    #[deprecated = "use `.or_else(...)` instead, or `.or_eager(...)` to eagerly evaluate both conditions"]
+    #[deprecated(since = "0.19.0", note = "use `.or_else(...)` instead, or `.or_eager(...)` to eagerly evaluate both conditions")]
     fn or<M, C: SystemCondition<M, In>>(self, else_run: C) -> OrElse<Self::System, C::System> {
         self.or_else(else_run)
     }
