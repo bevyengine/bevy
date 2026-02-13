@@ -4,7 +4,7 @@ use bevy_utils::prelude::DebugName;
 
 use crate::{
     archetype::Archetype,
-    change_detection::{MaybeLocation, MutUntyped},
+    change_detection::{MaybeLocation, MutUntyped, Tick},
     component::{ComponentId, Mutable},
     entity::Entity,
     event::{EntityComponentsTrigger, Event, EventKey, Trigger},
@@ -822,5 +822,13 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
         self.world
+    }
+
+    /// Gets the current change tick of [`DeferredWorld`].
+    #[inline]
+    pub fn change_tick(self) -> Tick {
+        // SAFETY:
+        // - we only access world metadata, no structural changes happening
+        unsafe { self.world.world_metadata().read_change_tick() }
     }
 }
