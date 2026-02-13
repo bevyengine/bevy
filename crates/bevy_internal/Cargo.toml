@@ -191,6 +191,7 @@ webgl = [
   "bevy_gizmos_render?/webgl",
   "bevy_sprite_render?/webgl",
   "bevy_dev_tools?/webgl",
+  "bevy_feathers?/webgl",
 ]
 
 webgpu = [
@@ -201,6 +202,7 @@ webgpu = [
   "bevy_gizmos_render?/webgpu",
   "bevy_sprite_render?/webgpu",
   "bevy_dev_tools?/webgpu",
+  "bevy_feathers?/webgpu",
 ]
 
 # Enable systems that allow for automated testing on CI
@@ -246,6 +248,7 @@ bevy_anti_alias = ["dep:bevy_anti_alias", "bevy_core_pipeline"]
 bevy_post_process = ["dep:bevy_post_process", "bevy_core_pipeline"]
 bevy_pbr = [
   "dep:bevy_pbr",
+  "bevy_gltf",
   "bevy_light",
   "bevy_material",
   "bevy_core_pipeline",
@@ -262,7 +265,7 @@ bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
 bevy_solari = ["dep:bevy_solari", "bevy_pbr"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera", "bevy_light?/bevy_gizmos"]
 bevy_gizmos_render = ["dep:bevy_gizmos_render", "bevy_gizmos"]
-bevy_gltf = ["dep:bevy_gltf", "bevy_scene", "bevy_pbr"]
+bevy_gltf = ["dep:bevy_gltf", "bevy_scene"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
@@ -280,7 +283,11 @@ glam_assert = ["bevy_math/glam_assert"]
 # Enable assertions in debug builds to check the validity of parameters passed to glam
 debug_glam_assert = ["bevy_math/debug_glam_assert"]
 
+# Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_text?/default_font"]
+
+# Allows for discovery of preloaded system fonts
+system_font_discovery = ["bevy_text?/system_font_discovery"]
 
 # Enables downloading assets from HTTP sources
 http = ["bevy_asset?/http"]

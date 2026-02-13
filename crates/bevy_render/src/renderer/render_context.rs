@@ -103,7 +103,7 @@ impl RenderContextState {
 }
 
 impl SystemBuffer for RenderContextState {
-    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+    fn queue(&mut self, system_meta: &SystemMeta, mut world: DeferredWorld) {
         let _span = info_span!("RenderContextState::apply", system = %system_meta.name()).entered();
 
         let inner = &mut *self.0;
@@ -120,8 +120,6 @@ impl SystemBuffer for RenderContextState {
 
         inner.render_device = None;
     }
-
-    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
 }
 
 /// A system parameter that provides access to a command encoder and render device for issuing
@@ -240,7 +238,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         ViewQueryState {
             resource_id: world
                 .components_registrator()
-                .register_resource::<CurrentView>(),
+                .register_component::<CurrentView>(),
             query_state: QueryState::new(world),
         }
     }

@@ -29,6 +29,13 @@ use crate::{
 };
 use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d};
 
+/// Use this component to opt-out of the built-in CPU frustum culling, see
+/// [`Frustum`]. This can be attached to a [`Camera`] or to individual entities.
+///
+/// It can be used for example:
+/// - disabling CPU culling completely for a [`Camera`], using only GPU culling.
+/// - when overwriting a [`Mesh`]'s transform on the GPU side (e.g. overwriting `MeshInputUniform`'s
+///   `world_from_local`), resulting in stale CPU-side positions.
 #[derive(Component, Default)]
 pub struct NoCpuCulling;
 
@@ -650,15 +657,17 @@ pub fn check_visibility(
         Option<&VisibilityClass>,
         Option<&RenderLayers>,
         Option<&Aabb>,
+        Option<&Sphere>,
         &GlobalTransform,
         Has<NoFrustumCulling>,
         Has<VisibilityRange>,
+        Has<NoCpuCulling>,
     )>,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
-    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
+    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling_camera) in
         &mut view_query
     {
         if !camera.is_active {
@@ -677,9 +686,11 @@ pub fn check_visibility(
                     visibility_class,
                     maybe_entity_mask,
                     maybe_model_aabb,
+                    maybe_model_sphere,
                     transform,
                     no_frustum_culling,
                     has_visibility_range,
+                    no_cpu_culling_entity,
                 ) = query_item;
 
                 // Skip computing visibility for entities that are configured to be hidden.
@@ -702,22 +713,26 @@ pub fn check_visibility(
                     return;
                 }
 
-                // If we have an aabb, do frustum culling
-                if !no_frustum_culling
-                    && !no_cpu_culling
-                    && let Some(model_aabb) = maybe_model_aabb
-                {
-                    let world_from_local = transform.affine();
-                    let model_sphere = Sphere {
-                        center: world_from_local.transform_point3a(model_aabb.center),
-                        radius: transform.radius_vec3a(model_aabb.half_extents),
-                    };
-                    // Do quick sphere-based frustum culling
-                    if !frustum.intersects_sphere(&model_sphere, false) {
-                        return;
-                    }
-                    // Do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                // If we have an aabb or a bounding sphere, do frustum culling
+                if !no_frustum_culling && !no_cpu_culling_camera && !no_cpu_culling_entity {
+                    if let Some(model_aabb) = maybe_model_aabb {
+                        let world_from_local = transform.affine();
+                        let model_sphere = Sphere {
+                            center: world_from_local.transform_point3a(model_aabb.center),
+                            radius: transform.radius_vec3a(model_aabb.half_extents),
+                        };
+                        // Do quick sphere-based frustum culling
+                        if !frustum.intersects_sphere(&model_sphere, false) {
+                            return;
+                        }
+                        // Do aabb-based frustum culling
+                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                            return;
+                        }
+                    } else if let Some(model_sphere) = maybe_model_sphere
+                        && !frustum.intersects_sphere(model_sphere, false)
+                    {
+                        // Do sphere-based frustum culling in this case
                         return;
                     }
                 }

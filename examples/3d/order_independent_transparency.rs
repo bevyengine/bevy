@@ -5,8 +5,8 @@
 //! [`OrderIndependentTransparencyPlugin`]: bevy::core_pipeline::oit::OrderIndependentTransparencyPlugin
 use bevy::{
     camera::visibility::RenderLayers,
-    color::palettes::css::{BLUE, GREEN, RED},
-    core_pipeline::oit::OrderIndependentTransparencySettings,
+    color::palettes::css::{BLUE, GREEN, RED, YELLOW},
+    core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
     prelude::*,
 };
 
@@ -33,6 +33,8 @@ fn setup(
         RenderLayers::layer(1),
         // Msaa currently doesn't work with OIT
         Msaa::Off,
+        // Optional: depth prepass can help OIT filter out fragments occluded by opaque objects
+        DepthPrepass,
     ));
 
     // light
@@ -99,6 +101,7 @@ fn cycle_scenes(
     mut materials: ResMut<Assets<StandardMaterial>>,
     q: Query<Entity, With<Mesh3d>>,
     mut scene_id: Local<usize>,
+    asset_server: Res<AssetServer>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         // despawn current scene
@@ -106,11 +109,20 @@ fn cycle_scenes(
             commands.entity(e).despawn();
         }
         // increment scene_id
-        *scene_id = (*scene_id + 1) % 2;
+        *scene_id = (*scene_id + 1) % 4;
         // spawn next scene
         match *scene_id {
             0 => spawn_spheres(&mut commands, &mut meshes, &mut materials),
-            1 => spawn_occlusion_test(&mut commands, &mut meshes, &mut materials),
+            1 => spawn_quads(&mut commands, &mut meshes, &mut materials),
+            2 => spawn_occlusion_test(&mut commands, &mut meshes, &mut materials),
+            3 => {
+                spawn_auto_instancing_test(
+                    &mut commands,
+                    &mut meshes,
+                    &mut materials,
+                    asset_server,
+                );
+            }
             _ => unreachable!(),
         }
     }
@@ -164,6 +176,69 @@ fn spawn_spheres(
             ..default()
         })),
         Transform::from_translation(pos_c + offset),
+        render_layers.clone(),
+    ));
+}
+
+fn spawn_quads(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) {
+    let quad_handle = meshes.add(Rectangle::new(3.0, 3.0).mesh());
+    let render_layers = RenderLayers::layer(1);
+    let xform = |x, y, z| {
+        Transform::from_rotation(Quat::from_rotation_y(0.5))
+            .mul_transform(Transform::from_xyz(x, y, z))
+    };
+    commands.spawn((
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: RED.with_alpha(0.5).into(),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        })),
+        xform(1.0, -0.1, 0.),
+        render_layers.clone(),
+    ));
+    commands.spawn((
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: BLUE.with_alpha(0.8).into(),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        })),
+        xform(0.5, 0.2, -0.5),
+        render_layers.clone(),
+    ));
+    commands.spawn((
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: GREEN.with_green(1.0).with_alpha(0.5).into(),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        })),
+        xform(0.0, 0.4, -1.),
+        render_layers.clone(),
+    ));
+    commands.spawn((
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: YELLOW.with_alpha(0.3).into(),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        })),
+        xform(-0.5, 0.6, -1.1),
+        render_layers.clone(),
+    ));
+    commands.spawn((
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: BLUE.with_alpha(0.2).into(),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        })),
+        xform(-0.8, 0.8, -1.2),
         render_layers.clone(),
     ));
 }
@@ -237,4 +312,35 @@ fn spawn_occlusion_test(
         Transform::from_xyz(x, 0., 0.),
         render_layers.clone(),
     ));
+}
+
+fn spawn_auto_instancing_test(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    asset_server: Res<AssetServer>,
+) {
+    let render_layers = RenderLayers::layer(1);
+
+    let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
+    let material_handle = materials.add(StandardMaterial {
+        alpha_mode: AlphaMode::Blend,
+        base_color_texture: Some(asset_server.load("textures/slice_square.png")),
+        ..Default::default()
+    });
+    let mut bundles = Vec::with_capacity(3 * 3 * 3);
+
+    for z in -1..=1 {
+        for y in -1..=1 {
+            for x in -1..=1 {
+                bundles.push((
+                    Mesh3d(cube.clone()),
+                    MeshMaterial3d(material_handle.clone()),
+                    Transform::from_xyz(x as f32 * 2.0, y as f32 * 2.0, z as f32 * 2.0),
+                    render_layers.clone(),
+                ));
+            }
+        }
+    }
+    commands.spawn_batch(bundles);
 }

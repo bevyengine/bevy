@@ -2147,11 +2147,11 @@ mod tests {
     #[test]
     fn transmute_to_or_filter() {
         let mut world = World::new();
-        world.spawn(());
-        world.spawn(A(0));
+        world.spawn(D);
+        world.spawn((A(0), D));
 
         let mut query = world
-            .query::<Option<&A>>()
+            .query::<(&D, Option<&A>)>()
             .transmute_filtered::<Entity, Or<(With<A>,)>>(&world);
         let iter = query.iter(&world);
         let len = iter.len();
@@ -2162,7 +2162,7 @@ mod tests {
         assert_eq!(count, len);
 
         let mut query = world
-            .query::<Option<&A>>()
+            .query::<(&D, Option<&A>)>()
             .transmute_filtered::<Entity, Or<(Changed<A>,)>>(&world);
         let iter = query.iter(&world);
         let count = iter.count();

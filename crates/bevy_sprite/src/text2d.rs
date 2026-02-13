@@ -22,8 +22,8 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, FontHinting, LineBreak, LineHeight,
-    RemSize, SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak, LineHeight,
+    RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
@@ -186,8 +186,9 @@ pub fn update_text2d_layout(
         Ref<FontHinting>,
     )>,
     mut text_reader: Text2dReader,
-    mut font_system: ResMut<CosmicFontSystem>,
-    mut swash_cache: ResMut<SwashCache>,
+    mut font_system: ResMut<FontCx>,
+    mut layout_cx: ResMut<LayoutCx>,
+    mut scale_cx: ResMut<ScaleCx>,
     rem_size: Res<RemSize>,
     primary_window: Option<Single<&Window, With<PrimaryWindow>>>,
 ) {
@@ -267,21 +268,23 @@ pub fn update_text2d_layout(
                 scale_factor,
                 &mut computed,
                 &mut font_system,
+                &mut layout_cx,
                 *hinting,
                 logical_viewport_size,
                 rem_size.0,
             ) {
-                Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
+                Err(
+                    TextError::NoSuchFont
+                    | TextError::NoSuchFontFamily(_)
+                    | TextError::DegenerateScaleFactor,
+                ) => {
                     // There was an error processing the text layout.
                     // Add this entity to the queue and reprocess it in the following frame
                     reprocess_queue.insert(entity);
                     continue;
                 }
-                Err(e @ TextError::FailedToGetGlyphImage(key)) => {
-                    bevy_log::warn_once!(
-                        "{e}. Face: {:?}",
-                        font_system.get_face_details(key.font_id)
-                    );
+                Err(e @ TextError::FailedToGetGlyphImage(_)) => {
+                    bevy_log::warn_once!("{e}.");
                     text_layout_info.clear();
                 }
                 Err(
@@ -302,12 +305,12 @@ pub fn update_text2d_layout(
             &mut texture_atlases,
             &mut textures,
             &mut computed,
-            &mut font_system,
-            &mut swash_cache,
+            &mut scale_cx,
             text_bounds,
             block.justify,
+            *hinting,
         ) {
-            Err(TextError::NoSuchFont) => {
+            Err(TextError::NoSuchFont | TextError::NoSuchFontFamily(_)) => {
                 // There was an error processing the text layout.
                 // Add this entity to the queue and reprocess it in the following frame.
                 reprocess_queue.insert(entity);
@@ -390,8 +393,9 @@ mod tests {
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<FontAtlasSet>()
             .init_resource::<TextPipeline>()
-            .init_resource::<CosmicFontSystem>()
-            .init_resource::<SwashCache>()
+            .init_resource::<FontCx>()
+            .init_resource::<LayoutCx>()
+            .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
             .add_systems(
@@ -426,21 +430,23 @@ mod tests {
             app,
             Handle::default(),
             "../../bevy_text/src/FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
+            |bytes: &[u8], _path: String| {
+                Font::try_from_bytes(bytes.to_vec(), "bevy default font")
+            }
         );
 
         let world = app.world_mut();
 
         let mut fonts = world.resource_mut::<Assets<Font>>();
 
-        let font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
+        let mut font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
         font.family_name = "Fira Mono".into();
-        let data = font.data.as_ref().clone();
+        let data = font.into_inner().data.clone();
 
-        app.world_mut()
-            .resource_mut::<CosmicFontSystem>()
-            .db_mut()
-            .load_font_data(data);
+        world
+            .resource_mut::<FontCx>()
+            .collection
+            .register_fonts(data, None);
 
         let entity = app.world_mut().spawn(Text2d::new(FIRST_TEXT)).id();
 
