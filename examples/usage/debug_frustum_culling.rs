@@ -21,7 +21,7 @@
 //! [`Aabb`](bevy::camera::primitives::Aabb) gizmos visible, periodically move in and
 //! out of the camera's frustum. The [`Aabb`](bevy::camera::primitives::Aabb)
 //! gizmos are colored red when they have been culled from [`MyCamera`]'s view.
-//! They gizmos change color to green when the shape is considered visible by the
+//! The gizmos change color to green when the shape is considered visible by the
 //! camera and would be extracted for rendering.
 //!
 //! A second active camera, controllable via the [`FreeCameraPlugin`], is used to observe the scene.
