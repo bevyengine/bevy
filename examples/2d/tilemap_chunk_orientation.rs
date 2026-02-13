@@ -1,9 +1,9 @@
-//! Shows a tilemap chunk rendered with a single draw call, including transforming tiles (rotate, mirror) and using different tileset indices, colors, alpha and visibility to show all tile features.
+//! Shows a tilemap chunk rendered with a single draw call, including different orientations of tiles (rotated, mirrored) and using different tileset indices, colors, alpha and visibility to show all tile features.
 
 use bevy::{
     image::{ImageArrayLayout, ImageLoaderSettings},
     prelude::*,
-    sprite_render::{AlphaMode2d, TileData, TileTransform, TilemapChunk, TilemapChunkTileData},
+    sprite_render::{AlphaMode2d, TileData, TileOrientation, TilemapChunk, TilemapChunkTileData},
 };
 
 fn main() {
@@ -18,16 +18,16 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let chunk_size = UVec2::splat(8);
     let tile_display_size = UVec2::splat(64);
 
-    // We'll use each possible transform, one per column
-    let transforms = [
-        TileTransform::None,
-        TileTransform::Rotate90,
-        TileTransform::Rotate180,
-        TileTransform::Rotate270,
-        TileTransform::MirrorX,
-        TileTransform::MirrorXRotate90,
-        TileTransform::MirrorXRotate180,
-        TileTransform::MirrorXRotate270,
+    // We'll use each possible orientation, one per column
+    let orientation = [
+        TileOrientation::Default,
+        TileOrientation::Rotate90,
+        TileOrientation::Rotate180,
+        TileOrientation::Rotate270,
+        TileOrientation::MirrorX,
+        TileOrientation::MirrorXRotate90,
+        TileOrientation::MirrorXRotate180,
+        TileOrientation::MirrorXRotate270,
     ];
 
     // Show different color/alpha on each row
@@ -52,7 +52,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 color: colors[row as usize],
                 // Last (top) row is invisible
                 visible: row != 7,
-                transform: transforms[col as usize],
+                orientation: orientation[col as usize],
             })
         })
         .collect();

@@ -74,13 +74,13 @@ impl From<TileData> for PackedTileData {
             tileset_index,
             color,
             visible,
-            transform,
+            orientation,
         }: TileData,
     ) -> Self {
         Self {
             tileset_index,
             color: color.to_srgba().to_u8_array(),
-            flags: (visible as u16) | ((transform as u16) << 1),
+            flags: (visible as u16) | ((orientation as u16) << 1),
         }
     }
 }
