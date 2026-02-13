@@ -10,6 +10,7 @@ use bevy_ecs::{
     prelude::*,
 };
 use bevy_image::BevyDefault as _;
+use bevy_log::warn;
 use bevy_render::{
     render_resource::{
         binding_types::{
@@ -26,7 +27,6 @@ use bevy_render::{
 };
 use bevy_shader::ShaderDefVal;
 use bevy_utils::default;
-use tracing::warn;
 
 /// Contains the render node used to run the resolve pass.
 pub mod node;

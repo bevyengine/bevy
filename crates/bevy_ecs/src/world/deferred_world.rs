@@ -8,7 +8,7 @@ use crate::{
     component::{ComponentId, Mutable},
     entity::Entity,
     event::{EntityComponentsTrigger, Event, EventKey, Trigger},
-    lifecycle::{HookContext, Insert, Replace, INSERT, REPLACE},
+    lifecycle::{Discard, HookContext, Insert, DISCARD, INSERT},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::TriggerContext,
     prelude::{Component, QueryState},
@@ -93,7 +93,7 @@ impl<'w> DeferredWorld<'w> {
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
     /// runs the provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// This will trigger the `Remove` and `Discard` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -130,7 +130,7 @@ impl<'w> DeferredWorld<'w> {
     /// Temporarily removes a [`Component`] identified by the provided
     /// [`ComponentId`] from the provided [`Entity`] and runs the provided
     /// closure on it, returning the result if the component was available.
-    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// This will trigger the `Remove` and `Discard` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -162,21 +162,21 @@ impl<'w> DeferredWorld<'w> {
         // - DeferredWorld ensures archetype pointer will remain valid as no
         //   relocations will occur.
         // - component_id exists on this world and this entity
-        // - REPLACE is able to accept ZST events
+        // - DISCARD is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
-            self.trigger_on_replace(
+            self.trigger_on_discard(
                 archetype,
                 entity,
                 [component_id].into_iter(),
                 MaybeLocation::caller(),
                 relationship_hook_mode,
             );
-            if archetype.has_replace_observer() {
-                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+            if archetype.has_discard_observer() {
+                // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                 self.trigger_raw(
-                    REPLACE,
-                    &mut Replace { entity },
+                    DISCARD,
+                    &mut Discard { entity },
                     &mut EntityComponentsTrigger {
                         components: &[component_id],
                         old_archetype: Some(archetype),
@@ -207,7 +207,7 @@ impl<'w> DeferredWorld<'w> {
         // - DeferredWorld ensures archetype pointer will remain valid as no
         //   relocations will occur.
         // - component_id exists on this world and this entity
-        // - REPLACE is able to accept ZST events
+        // - DISCARD is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
             self.trigger_on_insert(
@@ -679,12 +679,12 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
-    /// Triggers all `on_replace` hooks for [`ComponentId`] in target.
+    /// Triggers all `on_discard` hooks for [`ComponentId`] in target.
     ///
     /// # Safety
     /// Caller must ensure [`ComponentId`] in target exist in self.
     #[inline]
-    pub(crate) unsafe fn trigger_on_replace(
+    pub(crate) unsafe fn trigger_on_discard(
         &mut self,
         archetype: &Archetype,
         entity: Entity,
@@ -692,11 +692,11 @@ impl<'w> DeferredWorld<'w> {
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
     ) {
-        if archetype.has_replace_hook() {
+        if archetype.has_discard_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
-                if let Some(hook) = hooks.on_replace {
+                if let Some(hook) = hooks.on_discard {
                     hook(
                         DeferredWorld { world: self.world },
                         HookContext {

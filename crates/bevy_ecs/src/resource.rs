@@ -113,7 +113,7 @@ impl DerefMut for ResourceEntities {
 /// A marker component for entities that have a Resource component.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
 #[derive(Component, Debug)]
-#[component(on_insert, on_replace, on_despawn)]
+#[component(on_insert, on_discard, on_despawn)]
 pub struct IsResource(ComponentId);
 
 impl IsResource {
@@ -174,7 +174,7 @@ impl IsResource {
         }
     }
 
-    pub(crate) fn on_replace(mut world: DeferredWorld, context: HookContext) {
+    pub(crate) fn on_discard(mut world: DeferredWorld, context: HookContext) {
         let resource_component_id = world
             .entity(context.entity)
             .get::<Self>()

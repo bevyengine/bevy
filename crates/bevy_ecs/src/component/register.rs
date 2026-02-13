@@ -1,10 +1,11 @@
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use bevy_platform::sync::PoisonError;
 use bevy_utils::TypeIdMap;
 use core::any::Any;
 use core::{any::TypeId, fmt::Debug, ops::Deref};
 
 use crate::component::{enforce_no_required_components_recursion, RequiredComponentsRegistrator};
+use crate::lifecycle::ComponentHooks;
 use crate::{
     component::{
         Component, ComponentDescriptor, ComponentId, Components, RequiredComponents, StorageType,
@@ -161,13 +162,22 @@ impl<'w> ComponentsRegistrator<'w> {
     /// * [`ComponentsRegistrator::register_component_with_descriptor()`]
     #[inline]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        self.register_component_checked::<T>()
+        self.register_component_checked(
+            TypeId::of::<T>(),
+            ComponentDescriptor::new::<T>,
+            T::register_required_components,
+            ComponentHooks::update_from_component::<T>,
+        )
     }
 
-    /// Same as [`Self::register_component_unchecked`] but keeps a checks for safety.
-    #[inline]
-    pub(super) fn register_component_checked<T: Component>(&mut self) -> ComponentId {
-        let type_id = TypeId::of::<T>();
+    // This exists to cut down on monomorphized code in register_component, which reduces compile times and binary sizes.
+    fn register_component_checked(
+        &mut self,
+        type_id: TypeId,
+        descriptor: fn() -> ComponentDescriptor,
+        register_required_components: fn(ComponentId, &mut RequiredComponentsRegistrator),
+        update_from_component: fn(&mut ComponentHooks) -> &mut ComponentHooks,
+    ) -> ComponentId {
         if let Some(&id) = self.indices.get(&type_id) {
             enforce_no_required_components_recursion(self, &self.recursion_check_stack, id);
             return id;
@@ -189,7 +199,13 @@ impl<'w> ComponentsRegistrator<'w> {
         let id = self.ids.next_mut();
         // SAFETY: The component is not currently registered, and the id is fresh.
         unsafe {
-            self.register_component_unchecked::<T>(id);
+            self.register_component_unchecked(
+                type_id,
+                id,
+                descriptor(),
+                register_required_components,
+                update_from_component,
+            );
         }
         id
     }
@@ -197,14 +213,19 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # Safety
     ///
     /// Neither this component, nor its id may be registered or queued. This must be a new registration.
-    #[inline]
-    unsafe fn register_component_unchecked<T: Component>(&mut self, id: ComponentId) {
+    // This was written in a type-erased way to cut down on monomorphized code in register_component, which reduces compile times and binary sizes.
+    unsafe fn register_component_unchecked(
+        &mut self,
+        type_id: TypeId,
+        id: ComponentId,
+        descriptor: ComponentDescriptor,
+        register_required_components: fn(ComponentId, &mut RequiredComponentsRegistrator),
+        update_from_component: fn(&mut ComponentHooks) -> &mut ComponentHooks,
+    ) {
         // SAFETY: ensured by caller.
         unsafe {
-            self.components
-                .register_component_inner(id, ComponentDescriptor::new::<T>());
+            self.components.register_component_inner(id, descriptor);
         }
-        let type_id = TypeId::of::<T>();
         let prev = self.components.indices.insert(type_id, id);
         debug_assert!(prev.is_none());
 
@@ -213,7 +234,7 @@ impl<'w> ComponentsRegistrator<'w> {
         // SAFETY: `required_components` is empty
         let mut required_components_registrator =
             unsafe { RequiredComponentsRegistrator::new(self, &mut required_components) };
-        T::register_required_components(id, &mut required_components_registrator);
+        register_required_components(id, &mut required_components_registrator);
         // SAFETY:
         // - `id` was just registered in `self`
         // - RequiredComponentsRegistrator guarantees that only components from `self` are included in `required_components`;
@@ -235,7 +256,7 @@ impl<'w> ComponentsRegistrator<'w> {
                 .debug_checked_unwrap()
         };
 
-        info.hooks.update_from_component::<T>();
+        update_from_component(&mut info.hooks);
 
         info.required_components = required_components;
     }
@@ -305,7 +326,7 @@ impl<'w> ComponentsRegistrator<'w> {
     unsafe fn register_non_send_with(
         &mut self,
         type_id: TypeId,
-        descriptor: impl FnOnce() -> ComponentDescriptor,
+        descriptor: fn() -> ComponentDescriptor,
     ) -> ComponentId {
         if let Some(id) = self.indices.get(&type_id) {
             return *id;
@@ -346,8 +367,7 @@ impl<'w> ComponentsRegistrator<'w> {
 
 /// A queued component registration.
 pub(super) struct QueuedRegistration {
-    pub(super) registrator:
-        Box<dyn FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor)>,
+    pub(super) registrator: fn(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor),
     pub(super) id: ComponentId,
     pub(super) descriptor: ComponentDescriptor,
 }
@@ -361,10 +381,10 @@ impl QueuedRegistration {
     unsafe fn new(
         id: ComponentId,
         descriptor: ComponentDescriptor,
-        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor) + 'static,
+        func: fn(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor),
     ) -> Self {
         Self {
-            registrator: Box::new(func),
+            registrator: func,
             id,
             descriptor,
         }
@@ -454,32 +474,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         &self,
         type_id: TypeId,
         descriptor: ComponentDescriptor,
-        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor) + 'static,
-    ) -> ComponentId {
-        self.components
-            .queued
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .components
-            .entry(type_id)
-            .or_insert_with(|| {
-                // SAFETY: The id was just generated.
-                unsafe { QueuedRegistration::new(self.ids.next(), descriptor, func) }
-            })
-            .id
-    }
-
-    /// Queues this function to run as a resource registrator if the given
-    /// type is not already queued as a resource.
-    ///
-    /// # Safety
-    ///
-    /// The [`TypeId`] must not already be registered as a resource.
-    unsafe fn register_arbitrary_resource(
-        &self,
-        type_id: TypeId,
-        descriptor: ComponentDescriptor,
-        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor) + 'static,
+        func: fn(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor),
     ) -> ComponentId {
         self.components
             .queued
@@ -498,7 +493,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     fn register_arbitrary_dynamic(
         &self,
         descriptor: ComponentDescriptor,
-        func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor) + 'static,
+        func: fn(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor),
     ) -> ComponentId {
         let id = self.ids.next();
         self.components
@@ -531,11 +526,17 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                 self.register_arbitrary_component(
                     TypeId::of::<T>(),
                     ComponentDescriptor::new::<T>(),
-                    |registrator, id, _descriptor| {
+                    |registrator, id, descriptor| {
                         // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
                         #[expect(unused_unsafe, reason = "More precise to specify.")]
                         unsafe {
-                            registrator.register_component_unchecked::<T>(id);
+                            registrator.register_component_unchecked(
+                                TypeId::of::<T>(),
+                                id,
+                                descriptor,
+                                T::register_required_components,
+                                ComponentHooks::update_from_component::<T>,
+                            );
                         }
                     },
                 )
@@ -584,27 +585,9 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
     /// See type level docs for details.
     #[inline]
+    #[deprecated(since = "0.19.0", note = "use queue_register_component")]
     pub fn queue_register_resource<T: Resource>(&self) -> ComponentId {
-        let type_id = TypeId::of::<T>();
-        self.get_resource_id(type_id).unwrap_or_else(|| {
-            // SAFETY: We just checked that this type was not already registered.
-            unsafe {
-                self.register_arbitrary_resource(
-                    type_id,
-                    ComponentDescriptor::new_resource::<T>(),
-                    move |registrator, id, descriptor| {
-                        // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
-                        // SAFETY: Id uniqueness handled by caller, and the type_id matches descriptor.
-                        #[expect(unused_unsafe, reason = "More precise to specify.")]
-                        unsafe {
-                            registrator
-                                .components
-                                .register_non_send_unchecked(type_id, id, descriptor);
-                        }
-                    },
-                )
-            }
-        })
+        self.queue_register_component::<T>()
     }
 
     /// This is a queued version of [`ComponentsRegistrator::register_non_send`].
@@ -620,20 +603,22 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     #[inline]
     pub fn queue_register_non_send<T: Any>(&self) -> ComponentId {
         let type_id = TypeId::of::<T>();
-        self.get_resource_id(type_id).unwrap_or_else(|| {
+        self.get_id(type_id).unwrap_or_else(|| {
             // SAFETY: We just checked that this type was not already registered.
             unsafe {
-                self.register_arbitrary_resource(
+                self.register_arbitrary_component(
                     type_id,
                     ComponentDescriptor::new_non_send::<T>(StorageType::default()),
-                    move |registrator, id, descriptor| {
+                    |registrator, id, descriptor| {
                         // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
                         // SAFETY: Id uniqueness handled by caller, and the type_id matches descriptor.
                         #[expect(unused_unsafe, reason = "More precise to specify.")]
                         unsafe {
-                            registrator
-                                .components
-                                .register_non_send_unchecked(type_id, id, descriptor);
+                            registrator.components.register_non_send_unchecked(
+                                descriptor.type_id().unwrap(),
+                                id,
+                                descriptor,
+                            );
                         }
                     },
                 )

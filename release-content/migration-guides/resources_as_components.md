@@ -65,10 +65,16 @@ Before using components and resources they must be registered to a world.
 The registration process for components and resources is very similar and now that `Send` resources *are* components, we're able to simplify some of the code; removing / deprecating some methods.
 
 - `Components::register_resource_unchecked` is renamed to `Components::register_non_send_unchecked`.
+- `Components::get_valid_resource_id` was deprecated in favor of `Components::get_valid_id`.
+- `Components::valid_resource_id` was deprecated in favor of `Components::valid_component_id`.
+- `Components::resource_id` was deprecated in favor of `Components::component_id`.
 - `ComponentsRegistrator::register_resource` is deprecated in favor of `ComponentsRegistrator::register_component`.
 - `ComponentsRegistrator::register_resource_with` is renamed to `ComponentsRegistrator::register_non_send_with`.
 - `ComponentsRegistrator::register_resource_with_descriptor` is removed in favor of `ComponentsRegistrator::register_component_with_descriptor`.
 - `ComponentsQueuedRegistrator::queue_register_resource_with_descriptor` was removed in favor of `ComponentsQueuedRegistrator::queue_register_component_with_descriptor`.
+- `ComponentsQueuedRegistrator::queue_register_resource` was deprecated in favor of `ComponentsQueuedRegistrator::queue_register_component`.
+- `ComponentDescriptor::new_resource` was deprecated in favor of `ComponentDescriptor::new`
+- `ComponentDescriptor::new_resource` was deprecated in favor of `ComponentDescriptor::new`
 - `World::register_resource_with_descriptor was renamed to World::register_non_send_with_descriptor`.
 
 ## Miscellaneous
