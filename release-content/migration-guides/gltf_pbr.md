@@ -5,11 +5,11 @@ pull_requests: [22569]
 
 Previously, `bevy_gltf` depended on `bevy_pbr`. This meant scene definition was tightly coupled to rendering. This dependency has been inverted, to allow `bevy_gltf` to function without any of the rendering stack present.
 
-You can disable PBR rendering by initializing `PbrPlugin` as so:
+You can disable the construction of `StandardMaterial`s and their insertion on entities by initializing `PbrPlugin` as so:
 
 ```rs
 PbrPlugin {
-    gltf_render_enabled: false,
+    gltf_enable_standard_materials: false,
     ..Default::default()
 }
 ```
