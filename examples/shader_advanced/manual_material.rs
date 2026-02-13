@@ -5,16 +5,15 @@ use bevy::{
     core_pipeline::core_3d::Opaque3d,
     ecs::system::{
         lifetimeless::{SRes, SResMut},
-        SystemChangeTick, SystemParamItem,
+        SystemParamItem,
     },
     material::{key::ErasedMeshPipelineKey, MaterialProperties},
     pbr::{
-        base_specialize, late_sweep_material_instances, DrawMaterial,
-        EntitiesNeedingSpecialization, EntitySpecializationTickPair, EntitySpecializationTicks,
-        MainPassOpaqueDrawFunction, MaterialBindGroupAllocator, MaterialBindGroupAllocators,
-        MaterialExtractEntitiesNeedingSpecializationSystems, MaterialExtractionSystems,
-        MaterialFragmentShader, MeshPipelineKey, PreparedMaterial, RenderMaterialBindings,
-        RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
+        base_specialize, DrawMaterial, EntitiesNeedingSpecialization, MainPassOpaqueDrawFunction,
+        MaterialBindGroupAllocator, MaterialBindGroupAllocators,
+        MaterialExtractEntitiesNeedingSpecializationSystems, MaterialFragmentShader,
+        MeshPipelineKey, PreparedMaterial, RenderMaterialBindings, RenderMaterialInstance,
+        RenderMaterialInstances,
     },
     platform::collections::hash_map::Entry,
     prelude::*,
@@ -31,11 +30,11 @@ use bevy::{
         renderer::RenderDevice,
         sync_world::MainEntity,
         texture::GpuImage,
-        view::ExtractedView,
         Extract, RenderApp, RenderStartup,
     },
     utils::Parallel,
 };
+use bevy_render::camera::DirtySpecializations;
 use std::{any::TypeId, sync::Arc};
 
 const SHADER_ASSET_PATH: &str = "shaders/manual_material.wgsl";
@@ -71,10 +70,6 @@ impl Plugin for ImageMaterialPlugin {
                     extract_image_materials,
                     extract_image_materials_needing_specialization
                         .in_set(MaterialExtractEntitiesNeedingSpecializationSystems),
-                    sweep_image_materials_needing_specialization
-                        .after(MaterialExtractEntitiesNeedingSpecializationSystems)
-                        .after(MaterialExtractionSystems)
-                        .before(late_sweep_material_instances),
                 ),
             );
     }
@@ -298,67 +293,11 @@ fn check_entities_needing_specialization(
 
 fn extract_image_materials_needing_specialization(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<ImageMaterial>>>,
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
-    mut removed_mesh_material_components: Extract<RemovedComponents<ImageMaterial3d>>,
-    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
-    render_material_instances: Res<RenderMaterialInstances>,
-    views: Query<&ExtractedView>,
-    ticks: SystemChangeTick,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
 ) {
-    // Clean up any despawned entities, we do this first in case the removed material was re-added
-    // the same frame, thus will appear both in the removed components list and have been added to
-    // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
-    for entity in removed_mesh_material_components.read() {
-        entity_specialization_ticks.remove(&MainEntity::from(entity));
-        for view in views {
-            if let Some(cache) =
-                specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
-            {
-                cache.remove(&MainEntity::from(entity));
-            }
-        }
-    }
-
     for entity in entities_needing_specialization.iter() {
-        // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks.insert(
-            (*entity).into(),
-            EntitySpecializationTickPair {
-                system_tick: ticks.this_run(),
-                material_instances_tick: render_material_instances.current_change_tick,
-            },
-        );
-    }
-}
-
-fn sweep_image_materials_needing_specialization(
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
-    mut removed_mesh_material_components: Extract<RemovedComponents<ImageMaterial3d>>,
-    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
-    render_material_instances: Res<RenderMaterialInstances>,
-    views: Query<&ExtractedView>,
-) {
-    // Clean up any despawned entities, we do this first in case the removed material was re-added
-    // the same frame, thus will appear both in the removed components list and have been added to
-    // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
-    for entity in removed_mesh_material_components.read() {
-        if entity_specialization_ticks
-            .get(&MainEntity::from(entity))
-            .is_some_and(|ticks| {
-                ticks.material_instances_tick == render_material_instances.current_change_tick
-            })
-        {
-            continue;
-        }
-
-        entity_specialization_ticks.remove(&MainEntity::from(entity));
-
-        for view in views {
-            if let Some(cache) =
-                specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
-            {
-                cache.remove(&MainEntity::from(entity));
-            }
-        }
+        dirty_specializations
+            .entities
+            .insert(MainEntity::from(*entity));
     }
 }

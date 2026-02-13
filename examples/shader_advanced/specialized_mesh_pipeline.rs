@@ -37,6 +37,7 @@ use bevy::{
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
+use bevy_render::camera::DirtySpecializations;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
@@ -281,6 +282,7 @@ fn queue_custom_mesh_pipeline(
     mut change_tick: Local<Tick>,
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    dirty_specializations: Res<DirtySpecializations>,
 ) {
     // Get the id for our custom draw function
     let draw_function = opaque_draw_functions
@@ -299,13 +301,26 @@ fn queue_custom_mesh_pipeline(
             continue;
         };
 
+        let Some(render_visible_mesh_entities) =
+            view_visible_entities.get::<CustomRenderedEntity>()
+        else {
+            continue;
+        };
+
+        // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
+        for &main_entity in dirty_specializations
+            .iter_to_remove(view.retained_view_entity, render_visible_mesh_entities)
+        {
+            opaque_phase.remove(main_entity);
+        }
+
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &(render_entity, visible_entity) in
-            view_visible_entities.get::<CustomRenderedEntity>().iter()
+        for (render_entity, visible_entity) in dirty_specializations
+            .iter_to_respecialize(view.retained_view_entity, render_visible_mesh_entities)
         {
             // Get the mesh instance
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(visible_entity)
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
@@ -354,7 +369,7 @@ fn queue_custom_mesh_pipeline(
                 Opaque3dBinKey {
                     asset_id: mesh_instance.mesh_asset_id.into(),
                 },
-                (render_entity, visible_entity),
+                (*render_entity, *visible_entity),
                 mesh_instance.current_uniform_index,
                 // This example supports batching and multi draw indirect,
                 // but if your pipeline doesn't support it you can use
@@ -363,7 +378,6 @@ fn queue_custom_mesh_pipeline(
                     mesh_instance.should_batch(),
                     &gpu_preprocessing_support,
                 ),
-                *change_tick,
             );
         }
     }

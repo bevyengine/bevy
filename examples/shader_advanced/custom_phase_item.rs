@@ -38,6 +38,7 @@ use bevy::{
         Render, RenderApp, RenderSystems,
     },
 };
+use bevy_render::camera::DirtySpecializations;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using
@@ -217,6 +218,7 @@ fn queue_custom_phase_item(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    dirty_specializations: Res<DirtySpecializations>,
     mut next_tick: Local<Tick>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
@@ -231,9 +233,28 @@ fn queue_custom_phase_item(
             continue;
         };
 
+        // Fetch the list of visible entities in the `CustomRenderedEntity`
+        // class. If there are no such entities, then we have no entities to
+        // render, and we're done.
+        let Some(render_visible_mesh_entities) =
+            view_visible_entities.get::<CustomRenderedEntity>()
+        else {
+            continue;
+        };
+
+        // First, remove meshes that need to be respecialized, and those that
+        // were removed, from the bins.
+        for &main_entity in dirty_specializations
+            .iter_to_remove(view.retained_view_entity, render_visible_mesh_entities)
+        {
+            opaque_phase.remove(main_entity);
+        }
+
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &entity in view_visible_entities.get::<CustomRenderedEntity>().iter() {
+        for &entity in dirty_specializations
+            .iter_to_respecialize(view.retained_view_entity, render_visible_mesh_entities)
+        {
             // Ordinarily, the [`SpecializedRenderPipeline::Key`] would contain
             // some per-view settings, such as whether the view is HDR, but for
             // simplicity's sake we simply hard-code the view's characteristics,
@@ -272,7 +293,6 @@ fn queue_custom_phase_item(
                 entity,
                 InputUniformIndex::default(),
                 BinnedRenderPhaseType::NonMesh,
-                *next_tick,
             );
         }
     }

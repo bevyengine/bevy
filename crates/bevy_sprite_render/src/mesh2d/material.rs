@@ -1,7 +1,6 @@
 use crate::{
     init_mesh_2d_pipeline, DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey,
     RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache,
-    ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
@@ -14,8 +13,6 @@ use bevy_core_pipeline::{
     tonemapping::Tonemapping,
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::change_detection::Tick;
-use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
@@ -24,6 +21,7 @@ use bevy_math::FloatOrd;
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::camera::DirtySpecializations;
 use bevy_render::render_resource::BindGroupLayoutDescriptor;
 use bevy_render::{
     camera::extract_cameras,
@@ -284,7 +282,6 @@ where
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<EntitySpecializationTickPair<M>>()
                 .init_resource::<SpecializedMaterial2dPipelineCache<M>>()
                 .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
                 .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
@@ -567,28 +564,14 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
 
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTickPair<M>>,
-    mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial2d<M>>>,
-    mut specialized_material2d_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
-    views: Query<&MainEntity, With<ExtractedView>>,
-    ticks: SystemChangeTick,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
 ) where
     M: Material2d,
 {
-    // Clean up any despawned entities, we do this first in case the removed material was re-added
-    // the same frame, thus will appear both in the removed components list and have been added to
-    // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
-    for entity in removed_mesh_material_components.read() {
-        entity_specialization_ticks.remove(&MainEntity::from(entity));
-        for view in views {
-            if let Some(cache) = specialized_material2d_pipeline_cache.get_mut(view) {
-                cache.remove(&MainEntity::from(entity));
-            }
-        }
-    }
     for entity in entities_needing_specialization.iter() {
-        // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
+        dirty_specializations
+            .entities
+            .insert(MainEntity::from(*entity));
     }
 }
 
@@ -603,22 +586,6 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
     fn default() -> Self {
         Self {
             entities: Default::default(),
-            _marker: Default::default(),
-        }
-    }
-}
-
-#[derive(Clone, Resource, Deref, DerefMut, Debug)]
-pub struct EntitySpecializationTickPair<M> {
-    #[deref]
-    pub entities: MainEntityHashMap<Tick>,
-    _marker: PhantomData<M>,
-}
-
-impl<M> Default for EntitySpecializationTickPair<M> {
-    fn default() -> Self {
-        Self {
-            entities: MainEntityHashMap::default(),
             _marker: Default::default(),
         }
     }
@@ -639,7 +606,7 @@ pub struct SpecializedMaterial2dPipelineCache<M> {
 pub struct SpecializedMaterial2dViewPipelineCache<M> {
     // material entity -> (tick, pipeline_id)
     #[deref]
-    map: MainEntityHashMap<(Tick, CachedRenderPipelineId)>,
+    map: MainEntityHashMap<CachedRenderPipelineId>,
     marker: PhantomData<M>,
 }
 
@@ -703,9 +670,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
     alpha_mask_render_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
     views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
-    entity_specialization_ticks: Res<EntitySpecializationTickPair<M>>,
-    view_specialization_ticks: Res<ViewSpecializationTicks>,
-    ticks: SystemChangeTick,
+    dirty_specializations: Res<DirtySpecializations>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -726,32 +691,32 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             continue;
         };
 
-        let view_tick = view_specialization_ticks.get(view_entity).unwrap();
         let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
             .entry(*view_entity)
             .or_default();
 
-        for (_, visible_entity) in visible_entities.iter::<Mesh2d>() {
+        let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {
+            continue;
+        };
+
+        // Remove cached pipeline IDs corresponding to entities that either
+        // have been removed or need to be re-specialized.
+        for &invisible_entity in
+            dirty_specializations.iter_to_remove(view.retained_view_entity, visible_entities)
+        {
+            view_specialized_material_pipeline_cache.remove(&invisible_entity);
+        }
+
+        // Now process all 2D meshes that need to be re-specialized.
+        for (_, visible_entity) in
+            dirty_specializations.iter_to_respecialize(view.retained_view_entity, visible_entities)
+        {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
                 continue;
             };
-            let Some(entity_tick) = entity_specialization_ticks.get(visible_entity) else {
-                error!("{visible_entity:?} is missing specialization tick. Spawning Meshes in PostUpdate or later is currently not fully supported.");
-                continue;
-            };
-            let last_specialized_tick = view_specialized_material_pipeline_cache
-                .get(visible_entity)
-                .map(|(tick, _)| *tick);
-            let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                view_tick.is_newer_than(tick, ticks.this_run())
-                    || entity_tick.is_newer_than(tick, ticks.this_run())
-            });
-            if !needs_specialization {
-                continue;
-            }
             let Some(material_2d) = render_materials.get(*material_asset_id) else {
                 continue;
             };
@@ -780,8 +745,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 }
             };
 
-            view_specialized_material_pipeline_cache
-                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
+            view_specialized_material_pipeline_cache.insert(*visible_entity, pipeline_id);
         }
     }
 }
@@ -797,6 +761,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
     views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
+    dirty_specializations: Res<DirtySpecializations>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -824,20 +789,30 @@ pub fn queue_material2d_meshes<M: Material2d>(
             continue;
         };
 
-        for (render_entity, visible_entity) in visible_entities.iter::<Mesh2d>() {
-            let Some((current_change_tick, pipeline_id)) = view_specialized_material_pipeline_cache
+        let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {
+            continue;
+        };
+
+        // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
+        for &main_entity in
+            dirty_specializations.iter_to_remove(view.retained_view_entity, visible_entities)
+        {
+            transparent_phase.remove(main_entity);
+            opaque_phase.remove(main_entity);
+            alpha_mask_phase.remove(main_entity);
+        }
+
+        // Now iterate over all newly-visible entities and those that need
+        // specialization.
+        for (render_entity, visible_entity) in
+            dirty_specializations.iter_to_respecialize(view.retained_view_entity, visible_entities)
+        {
+            let Some(pipeline_id) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
-                .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
+                .copied()
             else {
                 continue;
             };
-
-            // Skip the entity if it's cached in a bin and up to date.
-            if opaque_phase.validate_cached_entity(*visible_entity, current_change_tick)
-                || alpha_mask_phase.validate_cached_entity(*visible_entity, current_change_tick)
-            {
-                continue;
-            }
 
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
@@ -882,7 +857,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         (*render_entity, *visible_entity),
                         InputUniformIndex::default(),
                         binned_render_phase_type,
-                        current_change_tick,
                     );
                 }
                 AlphaMode2d::Mask(_) => {
@@ -900,7 +874,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         (*render_entity, *visible_entity),
                         InputUniformIndex::default(),
                         binned_render_phase_type,
-                        current_change_tick,
                     );
                 }
                 AlphaMode2d::Blend => {

@@ -521,11 +521,14 @@ pub fn queue_sprites(
         let pipeline = pipelines.specialize(&pipeline_cache, &sprite_pipeline, view_key);
 
         view_entities.clear();
-        view_entities.extend(
-            visible_entities
-                .iter::<Sprite>()
-                .map(|(_, e)| e.index_u32() as usize),
-        );
+        if let Some(visible_entities) = visible_entities.get::<Sprite>() {
+            view_entities.extend(
+                visible_entities
+                    .entities
+                    .iter()
+                    .map(|(_, e)| e.index_u32() as usize),
+            );
+        }
 
         transparent_phase
             .items

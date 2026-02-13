@@ -208,7 +208,7 @@ fn batch_and_prepare_sorted_render_phase<I, GBD>(
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
     GBD: GetBatchData,
 {
-    let items = phase.items.iter_mut().map(|item| {
+    let items = phase.items.values_mut().map(|item| {
         let batch_data = match process_item(item) {
             Some(compare_data) if I::AUTOMATIC_BATCHING => Some(BatchMeta::new(item, compare_data)),
             _ => None,

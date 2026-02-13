@@ -12,8 +12,6 @@ use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::change_detection::Tick;
-use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
@@ -39,11 +37,13 @@ use bevy_math::{
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
+use bevy_render::camera::DirtySpecializations;
 use bevy_render::erased_render_asset::ErasedRenderAssets;
 use bevy_render::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
 use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
+use bevy_render::view::RenderVisibleMeshEntities;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
@@ -66,8 +66,7 @@ use bevy_render::{
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;
-use core::any::TypeId;
-use core::{hash::Hash, ops::Range};
+use core::{any::TypeId, array, hash::Hash, mem, ops::Range};
 use decal::clustered::RenderClusteredDecals;
 #[cfg(feature = "trace")]
 use tracing::info_span;
@@ -372,6 +371,9 @@ pub fn extract_lights(
         >,
     >,
     mapper: Extract<Query<RenderEntity>>,
+    mut existing_render_cascades_visible_entities: Query<&mut RenderCascadesVisibleEntities>,
+    mut existing_render_cubemap_visible_entities: Query<&mut RenderCubemapVisibleEntities>,
+    mut existing_render_visible_mesh_entities: Query<&mut RenderVisibleMeshEntities>,
     (mut removed_point_lights, mut removed_spot_lights, mut removed_directional_lights): (
         Extract<RemovedComponents<PointLight>>,
         Extract<RemovedComponents<SpotLight>>,
@@ -424,14 +426,22 @@ pub fn extract_lights(
             continue;
         }
 
-        let render_cubemap_visible_entities = RenderCubemapVisibleEntities {
-            data: cubemap_visible_entities
-                .iter()
-                .map(|v| create_render_visible_mesh_entities(&mapper, v))
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap(),
-        };
+        let mut render_cubemap_visible_entities =
+            match existing_render_cubemap_visible_entities.get_mut(render_entity) {
+                Ok(ref mut existing_cubemap_visible_entities) => {
+                    mem::take(&mut **existing_cubemap_visible_entities)
+                }
+                Err(_) => RenderCubemapVisibleEntities {
+                    data: array::repeat(RenderVisibleMeshEntities::default()),
+                },
+            };
+
+        for (render_visible_mesh_entities, visible_mesh_entities) in render_cubemap_visible_entities
+            .iter_mut()
+            .zip(cubemap_visible_entities.iter())
+        {
+            render_visible_mesh_entities.update_from(&mapper, &visible_mesh_entities.entities);
+        }
 
         let extracted_point_light = ExtractedPointLight {
             color: point_light.color.into(),
@@ -491,8 +501,14 @@ pub fn extract_lights(
             continue;
         }
 
-        let render_visible_entities =
-            create_render_visible_mesh_entities(&mapper, visible_entities);
+        let mut render_visible_entities =
+            match existing_render_visible_mesh_entities.get_mut(render_entity) {
+                Ok(ref mut existing_render_visible_entities) => {
+                    mem::take(&mut **existing_render_visible_entities)
+                }
+                Err(_) => RenderVisibleMeshEntities::default(),
+            };
+        render_visible_entities.update_from(&mapper, &visible_entities.entities);
 
         let texel_size =
             2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
@@ -565,7 +581,15 @@ pub fn extract_lights(
         // TODO: update in place instead of reinserting.
         let mut extracted_cascades = EntityHashMap::default();
         let mut extracted_frusta = EntityHashMap::default();
-        let mut cascade_visible_entities = EntityHashMap::default();
+        let mut cascade_visible_entities =
+            match existing_render_cascades_visible_entities.get_mut(entity) {
+                Ok(ref mut existing_cascade_visible_entities) => {
+                    mem::take(&mut **existing_cascade_visible_entities)
+                }
+                Err(_) => RenderCascadesVisibleEntities {
+                    entities: EntityHashMap::default(),
+                },
+            };
         for (e, v) in cascades.cascades.iter() {
             if let Ok(entity) = mapper.get(*e) {
                 extracted_cascades.insert(entity, v.clone());
@@ -580,16 +604,23 @@ pub fn extract_lights(
                 break;
             }
         }
-        for (e, v) in visible_entities.entities.iter() {
-            if let Ok(entity) = mapper.get(*e) {
-                cascade_visible_entities.insert(
-                    entity,
-                    v.iter()
-                        .map(|v| create_render_visible_mesh_entities(&mapper, v))
-                        .collect(),
-                );
-            } else {
-                break;
+        for (e, visible_mesh_entities_list) in visible_entities.entities.iter() {
+            let Ok(entity) = mapper.get(*e) else { break };
+            let render_visible_mesh_entities_list: &mut Vec<RenderVisibleMeshEntities> =
+                cascade_visible_entities
+                    .entities
+                    .entry(entity)
+                    .or_insert_with(default);
+            render_visible_mesh_entities_list.resize_with(
+                visible_mesh_entities_list.len(),
+                RenderVisibleMeshEntities::default,
+            );
+            for (render_visible_mesh_entities, visible_mesh_entities) in
+                render_visible_mesh_entities_list
+                    .iter_mut()
+                    .zip(visible_mesh_entities_list.iter())
+            {
+                render_visible_mesh_entities.update_from(&mapper, &visible_mesh_entities.entities);
             }
         }
 
@@ -622,9 +653,7 @@ pub fn extract_lights(
                     sun_disk_angular_size: sun_disk.unwrap_or_default().angular_size,
                     sun_disk_intensity: sun_disk.unwrap_or_default().intensity,
                 },
-                RenderCascadesVisibleEntities {
-                    entities: cascade_visible_entities,
-                },
+                cascade_visible_entities,
                 MainEntity::from(main_entity),
             ));
     }
@@ -679,21 +708,6 @@ pub fn extract_lights(
                 entity_commands.remove::<RWC>();
             }
         }
-    }
-}
-
-fn create_render_visible_mesh_entities(
-    mapper: &Extract<Query<RenderEntity>>,
-    visible_entities: &VisibleMeshEntities,
-) -> RenderVisibleMeshEntities {
-    RenderVisibleMeshEntities {
-        entities: visible_entities
-            .iter()
-            .map(|e| {
-                let render_entity = mapper.get(*e).unwrap_or(Entity::PLACEHOLDER);
-                (render_entity, MainEntity::from(*e))
-            })
-            .collect(),
     }
 }
 
@@ -1629,7 +1643,7 @@ pub fn prepare_lights(
                     .collect()
             });
             if light_view_entities.len() != iter.len() {
-                let entities = core::mem::take(light_view_entities);
+                let entities = mem::take(light_view_entities);
                 despawn_entities(&mut commands, entities);
                 light_view_entities.extend((0..iter.len()).map(|_| commands.spawn_empty().id()));
             }
@@ -1789,7 +1803,7 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 // collection.
 pub fn check_light_entities_needing_specialization<M: Material>(
     needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
-    mesh_materials: Query<Entity, With<MeshMaterial3d<M>>>,
+    live_entities: Query<Entity>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
     mut removed_components: RemovedComponents<NotShadowCaster>,
 ) {
@@ -1799,7 +1813,7 @@ pub fn check_light_entities_needing_specialization<M: Material>(
 
     for removed in removed_components.read() {
         // Only require specialization if the entity still exists.
-        if mesh_materials.contains(removed) {
+        if live_entities.contains(removed) {
             entities_needing_specialization.entities.push(removed);
         }
     }
@@ -1807,9 +1821,6 @@ pub fn check_light_entities_needing_specialization<M: Material>(
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct LightKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
-
-#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct LightSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
 
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct SpecializedShadowMaterialPipelineCache {
@@ -1821,7 +1832,7 @@ pub struct SpecializedShadowMaterialPipelineCache {
 #[derive(Deref, DerefMut, Default)]
 pub struct SpecializedShadowMaterialViewPipelineCache {
     #[deref]
-    map: MainEntityHashMap<(Tick, CachedRenderPipelineId, DrawFunctionId)>,
+    map: MainEntityHashMap<(CachedRenderPipelineId, DrawFunctionId)>,
 }
 
 pub fn check_views_lights_need_specialization(
@@ -1829,8 +1840,7 @@ pub fn check_views_lights_need_specialization(
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut light_key_cache: ResMut<LightKeyCache>,
-    mut light_specialization_ticks: ResMut<LightSpecializationTicks>,
-    ticks: SystemChangeTick,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
 ) {
     for view_lights in &view_lights {
         for view_light_entity in view_lights.lights.iter().copied() {
@@ -1859,13 +1869,15 @@ pub fn check_views_lights_need_specialization(
             {
                 if *current_key != light_key {
                     light_key_cache.insert(extracted_view_light.retained_view_entity, light_key);
-                    light_specialization_ticks
-                        .insert(extracted_view_light.retained_view_entity, ticks.this_run());
+                    dirty_specializations
+                        .views
+                        .insert(extracted_view_light.retained_view_entity);
                 }
             } else {
                 light_key_cache.insert(extracted_view_light.retained_view_entity, light_key);
-                light_specialization_ticks
-                    .insert(extracted_view_light.retained_view_entity, ticks.this_run());
+                dirty_specializations
+                    .views
+                    .insert(extracted_view_light.retained_view_entity);
             }
         }
     }
@@ -1897,10 +1909,8 @@ pub(crate) struct SpecializeShadowsSystemParam<'w, 's> {
     spot_light_entities:
         Query<'w, 's, &'static RenderVisibleMeshEntities, With<ExtractedPointLight>>,
     light_key_cache: Res<'w, LightKeyCache>,
-    specialized_material_pipeline_cache: Res<'w, SpecializedShadowMaterialPipelineCache>,
-    light_specialization_ticks: Res<'w, LightSpecializationTicks>,
-    entity_specialization_ticks: Res<'w, EntitySpecializationTicks>,
-    this_run: SystemChangeTick,
+    specialized_shadow_material_pipeline_cache: ResMut<'w, SpecializedShadowMaterialPipelineCache>,
+    dirty_specializations: Res<'w, DirtySpecializations>,
 }
 
 pub(crate) fn specialize_shadows(
@@ -1911,8 +1921,6 @@ pub(crate) fn specialize_shadows(
 ) {
     work_items.clear();
     all_shadow_views.clear();
-
-    let this_run;
 
     {
         let SpecializeShadowsSystemParam {
@@ -1928,13 +1936,9 @@ pub(crate) fn specialize_shadows(
             directional_light_entities,
             spot_light_entities,
             light_key_cache,
-            specialized_material_pipeline_cache,
-            light_specialization_ticks,
-            entity_specialization_ticks,
-            this_run: system_change_tick,
-        } = state.get(world);
-
-        this_run = system_change_tick.this_run();
+            mut specialized_shadow_material_pipeline_cache,
+            dirty_specializations,
+        } = state.get_mut(world);
 
         for (entity, view_lights) in &view_lights {
             for view_light_entity in view_lights.lights.iter().copied() {
@@ -1979,38 +1983,38 @@ pub(crate) fn specialize_shadows(
                         .expect("Failed to get spot light visible entities"),
                 };
 
+                // Remove cached pipeline IDs corresponding to entities that
+                // either have been removed or need to be respecialized.
+                if let Some(specialized_shadow_material_pipeline_cache) =
+                    specialized_shadow_material_pipeline_cache
+                        .get_mut(&extracted_view_light.retained_view_entity)
+                {
+                    for &invisible_entity in dirty_specializations
+                        .iter_to_remove(extracted_view_light.retained_view_entity, visible_entities)
+                    {
+                        specialized_shadow_material_pipeline_cache.remove(&invisible_entity);
+                    }
+                }
+
                 // NOTE: Lights with shadow mapping disabled will have no visible entities
                 // so no meshes will be queued
 
-                let view_tick = light_specialization_ticks
-                    .get(&extracted_view_light.retained_view_entity)
-                    .unwrap();
-                let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
-                    .get(&extracted_view_light.retained_view_entity);
-
-                for (_, visible_entity) in visible_entities.iter().copied() {
+                // Now process all shadow meshes that need to be re-specialized.
+                for (_, visible_entity) in dirty_specializations.iter_to_respecialize(
+                    extracted_view_light.retained_view_entity,
+                    visible_entities,
+                ) {
                     let Some(material_instance) =
-                        render_material_instances.instances.get(&visible_entity)
+                        render_material_instances.instances.get(visible_entity)
                     else {
                         continue;
                     };
 
                     let Some(mesh_instance) =
-                        render_mesh_instances.render_mesh_queue_data(visible_entity)
+                        render_mesh_instances.render_mesh_queue_data(*visible_entity)
                     else {
                         continue;
                     };
-                    let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
-                    let last_specialized_tick = view_specialized_material_pipeline_cache
-                        .and_then(|cache| cache.get(&visible_entity))
-                        .map(|(tick, _, _)| *tick);
-                    let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                        view_tick.is_newer_than(tick, this_run)
-                            || entity_tick.system_tick.is_newer_than(tick, this_run)
-                    });
-                    if !needs_specialization {
-                        continue;
-                    }
                     let Some(material) = render_materials.get(material_instance.asset_id) else {
                         continue;
                     };
@@ -2038,7 +2042,7 @@ pub(crate) fn specialize_shadows(
                     // present.
                     if render_lightmaps
                         .render_lightmaps
-                        .contains_key(&visible_entity)
+                        .contains_key(visible_entity)
                     {
                         mesh_key |= MeshPipelineKey::LIGHTMAPPED;
                     }
@@ -2053,7 +2057,7 @@ pub(crate) fn specialize_shadows(
                     };
 
                     work_items.push(ShadowSpecializationWorkItem {
-                        visible_entity,
+                        visible_entity: *visible_entity,
                         retained_view_entity: extracted_view_light.retained_view_entity,
                         mesh_key,
                         layout: mesh.layout.clone(),
@@ -2105,7 +2109,7 @@ pub(crate) fn specialize_shadows(
                     .resource_mut::<SpecializedShadowMaterialPipelineCache>()
                     .entry(item.retained_view_entity)
                     .or_default()
-                    .insert(item.visible_entity, (this_run, pipeline_id, draw_function));
+                    .insert(item.visible_entity, (pipeline_id, draw_function));
             }
             Err(err) => error!("{}", err),
         }
@@ -2136,6 +2140,7 @@ pub fn queue_shadows(
     >,
     spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
     specialized_material_pipeline_cache: Res<SpecializedShadowMaterialPipelineCache>,
+    dirty_specializations: Res<DirtySpecializations>,
 ) {
     for (entity, view_lights, camera_layers) in &view_lights {
         for view_light_entity in view_lights.lights.iter().copied() {
@@ -2180,14 +2185,25 @@ pub fn queue_shadows(
                     .expect("Failed to get spot light visible entities"),
             };
 
-            for (entity, main_entity) in visible_entities.iter().copied() {
-                let Some(&(current_change_tick, pipeline_id, draw_function)) =
-                    view_specialized_material_pipeline_cache.get(&main_entity)
+            // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
+            for &main_entity in dirty_specializations
+                .iter_to_remove(extracted_view_light.retained_view_entity, visible_entities)
+            {
+                shadow_phase.remove(main_entity);
+            }
+
+            // Now iterate through all newly-visible entities and those needing respecialization.
+            for (render_entity, main_entity) in dirty_specializations
+                .iter_to_respecialize(extracted_view_light.retained_view_entity, visible_entities)
+            {
+                let Some(&(pipeline_id, draw_function)) =
+                    view_specialized_material_pipeline_cache.get(main_entity)
                 else {
                     continue;
                 };
 
-                let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
+                let Some(mesh_instance) =
+                    render_mesh_instances.render_mesh_queue_data(*main_entity)
                 else {
                     continue;
                 };
@@ -2210,12 +2226,7 @@ pub fn queue_shadows(
                     continue;
                 }
 
-                // Skip the entity if it's cached in a bin and up to date.
-                if shadow_phase.validate_cached_entity(main_entity, current_change_tick) {
-                    continue;
-                }
-
-                let Some(material_instance) = render_material_instances.instances.get(&main_entity)
+                let Some(material_instance) = render_material_instances.instances.get(main_entity)
                 else {
                     continue;
                 };
@@ -2248,13 +2259,12 @@ pub fn queue_shadows(
                     ShadowBinKey {
                         asset_id: mesh_instance.mesh_asset_id.into(),
                     },
-                    (entity, main_entity),
+                    (*render_entity, *main_entity),
                     mesh_instance.current_uniform_index,
                     BinnedRenderPhaseType::mesh(
                         mesh_instance.should_batch(),
                         &gpu_preprocessing_support,
                     ),
-                    current_change_tick,
                 );
             }
         }

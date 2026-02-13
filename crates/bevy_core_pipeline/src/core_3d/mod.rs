@@ -37,13 +37,14 @@ use bevy_render::{
     texture::CachedTexture,
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
+use indexmap::IndexMap;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHash, prelude::*};
 use bevy_image::ToExtents;
 use bevy_log::warn;
 use bevy_math::FloatOrd;
@@ -427,8 +428,8 @@ impl SortedPhaseItem for Transparent3d {
     }
 
     #[inline]
-    fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+    fn sort(items: &mut IndexMap<MainEntity, Transparent3d, EntityHash>) {
+        items.sort_by_key(|_, item| item.sort_key());
     }
 
     #[inline]
@@ -472,7 +473,7 @@ pub fn extract_core_3d_camera_phases(
 
         opaque_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
         alpha_mask_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
-        transparent_3d_phases.insert_or_clear(retained_view_entity);
+        transparent_3d_phases.prepare_for_new_frame(retained_view_entity);
 
         live_entities.insert(retained_view_entity);
     }

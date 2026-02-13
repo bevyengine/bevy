@@ -56,6 +56,9 @@ use bevy::{
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
+use bevy_ecs::entity::EntityHash;
+use bevy_render::camera::DirtySpecializations;
+use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 
 const SHADER_ASSET_PATH: &str = "shaders/custom_stencil.wgsl";
@@ -306,11 +309,8 @@ impl SortedPhaseItem for Stencil3d {
     }
 
     #[inline]
-    fn sort(items: &mut [Self]) {
-        // bevy normally uses radsort instead of the std slice::sort_by_key
-        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
-        // Since it is not re-exported by bevy, we just use the std sort for the purpose of the example
-        items.sort_by_key(SortedPhaseItem::sort_key);
+    fn sort(items: &mut IndexMap<MainEntity, Stencil3d, EntityHash>) {
+        items.sort_by_key(|_, phase_item| phase_item.sort_key());
     }
 
     #[inline]
@@ -478,7 +478,7 @@ fn extract_camera_phases(
         // This is the main camera, so we use the first subview index (0)
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
-        stencil_phases.insert_or_clear(retained_view_entity);
+        stencil_phases.prepare_for_new_frame(retained_view_entity);
         live_entities.insert(retained_view_entity);
     }
 
@@ -499,6 +499,7 @@ fn queue_custom_meshes(
     mut custom_render_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
+    dirty_specializations: Res<DirtySpecializations>,
     has_marker: Query<(), With<DrawStencil>>,
 ) {
     for (view, visible_entities) in &mut views {
@@ -511,9 +512,22 @@ fn queue_custom_meshes(
             continue;
         };
 
-        let rangefinder = view.rangefinder3d();
         // Since our phase can work on any 3d mesh we can reuse the default mesh 3d filter
-        for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
+        let Some(render_visible_mesh_entities) = visible_entities.get::<Mesh3d>() else {
+            continue;
+        };
+
+        // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
+        for &main_entity in dirty_specializations
+            .iter_to_remove(view.retained_view_entity, render_visible_mesh_entities)
+        {
+            custom_phase.remove(main_entity);
+        }
+
+        let rangefinder = view.rangefinder3d();
+        for (render_entity, visible_entity) in dirty_specializations
+            .iter_to_respecialize(view.retained_view_entity, render_visible_mesh_entities)
+        {
             // We only want meshes with the marker component to be queued to our phase.
             if has_marker.get(*render_entity).is_err() {
                 continue;
