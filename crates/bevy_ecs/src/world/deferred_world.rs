@@ -827,8 +827,6 @@ impl<'w> DeferredWorld<'w> {
     /// Gets the current change tick of [`DeferredWorld`].
     #[inline]
     pub fn change_tick(self) -> Tick {
-        // SAFETY:
-        // - we only access world metadata, no structural changes happening
-        unsafe { self.world.world_metadata().read_change_tick() }
+        self.world.change_tick()
     }
 }
