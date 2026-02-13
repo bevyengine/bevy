@@ -121,7 +121,7 @@ pub trait Relationship: Component + Sized {
     /// # Warning
     ///
     /// This should generally not be called by user code, as modifying the related entity could invalidate the
-    /// relationship. If this method is used, then the hooks [`on_replace`](Relationship::on_replace) have to
+    /// relationship. If this method is used, then the hooks [`on_discard`](Relationship::on_discard) have to
     /// run before and [`on_insert`](Relationship::on_insert) after it.
     /// This happens automatically when this method is called with [`EntityWorldMut::modify_component`].
     ///
@@ -196,9 +196,9 @@ pub trait Relationship: Component + Sized {
         }
     }
 
-    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
+    /// The `on_discard` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(
+    fn on_discard(
         mut world: DeferredWorld,
         HookContext {
             entity,
@@ -284,9 +284,9 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// The collection should not contain duplicates.
     fn from_collection_risky(collection: Self::Collection) -> Self;
 
-    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
+    /// The `on_discard` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(
+    fn on_discard(
         mut world: DeferredWorld,
         HookContext {
             entity,
@@ -380,14 +380,14 @@ pub fn clone_relationship_target<T: RelationshipTarget>(
     }
 }
 
-/// Configures the conditions under which the Relationship insert/replace hooks will be run.
+/// Configures the conditions under which the Relationship insert/discard hooks will be run.
 #[derive(Copy, Clone, Debug)]
 pub enum RelationshipHookMode {
-    /// Relationship insert/replace hooks will always run
+    /// Relationship insert/discard hooks will always run
     Run,
-    /// Relationship insert/replace hooks will run if [`RelationshipTarget::LINKED_SPAWN`] is false
+    /// Relationship insert/discard hooks will run if [`RelationshipTarget::LINKED_SPAWN`] is false
     RunIfNotLinked,
-    /// Relationship insert/replace hooks will always be skipped
+    /// Relationship insert/discard hooks will always be skipped
     Skip,
 }
 

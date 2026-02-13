@@ -152,7 +152,8 @@ impl WinitWindows {
                 .with_titlebar_hidden(!window.titlebar_shown)
                 .with_titlebar_transparent(window.titlebar_transparent)
                 .with_title_hidden(!window.titlebar_show_title)
-                .with_titlebar_buttons_hidden(!window.titlebar_show_buttons);
+                .with_titlebar_buttons_hidden(!window.titlebar_show_buttons)
+                .with_borderless_game(window.borderless_game);
         }
 
         #[cfg(target_os = "ios")]

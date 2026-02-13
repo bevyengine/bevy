@@ -262,8 +262,8 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
         Msaa::Off,
         Camera3d::default(),
         ScreenSpaceTransmission {
-            screen_space_specular_transmission_steps: 0,
-            screen_space_specular_transmission_quality: ScreenSpaceTransmissionQuality::Low,
+            steps: 0,
+            quality: ScreenSpaceTransmissionQuality::Low,
         },
         Hdr,
         Transform::from_xyz(-10.5, 1.7, -1.0).looking_at(Vec3::new(0.0, 3.5, 0.0), Vec3::Y),
@@ -307,8 +307,8 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
         commands
             .spawn((
                 Node {
-                    left: Val::Px(1.5),
-                    top: Val::Px(1.5),
+                    left: px(1.5),
+                    top: px(1.5),
                     ..default()
                 },
                 GlobalZIndex(-1),
@@ -349,7 +349,7 @@ pub fn proc_scene(
     for entity in children.iter_descendants(scene_ready.entity) {
         // Sponza needs flipped normals
         if let Ok(mat_h) = has_std_mat.get(entity)
-            && let Some(mat) = materials.get_mut(mat_h)
+            && let Some(mut mat) = materials.get_mut(mat_h)
         {
             mat.flip_normal_map_y = true;
             match mat.alpha_mode {

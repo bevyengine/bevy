@@ -178,7 +178,7 @@ fn setup_image_viewer_scene(
     commands.spawn((
         Text::new("Drag and drop an HDR or EXR file"),
         TextFont {
-            font_size: 36.0,
+            font_size: FontSize::Px(36.0),
             ..default()
         },
         TextColor(Color::BLACK),
@@ -213,7 +213,7 @@ fn drag_drop_image(
     };
 
     for mat_h in &image_mat {
-        if let Some(mat) = materials.get_mut(mat_h) {
+        if let Some(mut mat) = materials.get_mut(mat_h) {
             mat.base_color_texture = Some(new_image.clone());
 
             // Despawn the image viewer instructions

@@ -210,7 +210,7 @@ pub struct PipelineCache {
     global_shader_defs: Vec<ShaderDefVal>,
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, wasm, or without the `multi_threaded` feature.
-    synchronous_pipeline_compilation: bool,
+    pub(crate) synchronous_pipeline_compilation: bool,
 }
 
 impl PipelineCache {
@@ -249,6 +249,7 @@ impl PipelineCache {
 
         Self {
             shader_cache: Arc::new(Mutex::new(ShaderCache::new(
+                device.clone(),
                 device.features(),
                 render_adapter.get_downlevel_capabilities().flags,
                 load_module,
@@ -440,7 +441,8 @@ impl PipelineCache {
             .get(&self.device, bind_group_layout_descriptor.clone())
     }
 
-    fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
+    /// Inserts a [`Shader`] into this cache with the provided [`AssetId`].
+    pub fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
         let pipelines_to_queue = shader_cache.set_shader(id, shader);
         for cached_pipeline in pipelines_to_queue {
@@ -449,7 +451,8 @@ impl PipelineCache {
         }
     }
 
-    fn remove_shader(&mut self, shader: AssetId<Shader>) {
+    /// Removes a [`Shader`] from this cache if it exists.
+    pub fn remove_shader(&mut self, shader: AssetId<Shader>) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
         let pipelines_to_queue = shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
@@ -481,7 +484,6 @@ impl PipelineCache {
                 let mut layout_cache = layout_cache.lock().unwrap();
 
                 let vertex_module = match shader_cache.get(
-                    &device,
                     id,
                     descriptor.vertex.shader.id(),
                     &descriptor.vertex.shader_defs,
@@ -492,12 +494,7 @@ impl PipelineCache {
 
                 let fragment_module = match &descriptor.fragment {
                     Some(fragment) => {
-                        match shader_cache.get(
-                            &device,
-                            id,
-                            fragment.shader.id(),
-                            &fragment.shader_defs,
-                        ) {
+                        match shader_cache.get(id, fragment.shader.id(), &fragment.shader_defs) {
                             Ok(module) => Some(module),
                             Err(err) => return Err(err),
                         }
@@ -594,15 +591,11 @@ impl PipelineCache {
                 let mut shader_cache = shader_cache.lock().unwrap();
                 let mut layout_cache = layout_cache.lock().unwrap();
 
-                let compute_module = match shader_cache.get(
-                    &device,
-                    id,
-                    descriptor.shader.id(),
-                    &descriptor.shader_defs,
-                ) {
-                    Ok(module) => module,
-                    Err(err) => return Err(err),
-                };
+                let compute_module =
+                    match shader_cache.get(id, descriptor.shader.id(), &descriptor.shader_defs) {
+                        Ok(module) => module,
+                        Err(err) => return Err(err),
+                    };
 
                 let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
                     None

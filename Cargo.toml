@@ -594,6 +594,9 @@ debug_glam_assert = ["bevy_internal/debug_glam_assert"]
 # Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase
 default_font = ["bevy_internal/default_font"]
 
+# Allows for discovery of preloaded system fonts
+system_font_discovery = ["bevy_internal/system_font_discovery"]
+
 # Enable support for shaders in GLSL
 shader_format_glsl = ["bevy_internal/shader_format_glsl"]
 
@@ -1958,6 +1961,17 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "render_recovery"
+path = "examples/app/render_recovery.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_recovery]
+name = "Render Recovery"
+description = "Demonstrates how bevy can recover from rendering failures."
+category = "Application"
+wasm = false
+
+[[example]]
 name = "headless_renderer"
 path = "examples/app/headless_renderer.rs"
 # Causes an ICE on docs.rs
@@ -2017,6 +2031,18 @@ name = "Asset Loading"
 description = "Demonstrates various methods to load assets"
 category = "Assets"
 wasm = false
+
+[[example]]
+name = "asset_saving"
+path = "examples/asset/asset_saving.rs"
+doc-scrape-examples = true
+required-features = ["bevy_picking", "sprite_picking"]
+
+[package.metadata.example.asset_saving]
+name = "Asset Saving"
+description = "Demonstrates how to save an asset (with subassets)"
+category = "Assets"
+wasm = true
 
 [[example]]
 name = "asset_settings"
@@ -4535,6 +4561,68 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "2d_text_gizmos"
+path = "examples/gizmos/2d_text_gizmos.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.2d_text_gizmos]
+name = "Text Gizmos 2d"
+description = "A scene showcasing 2d text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "anchored_text_gizmos"
+path = "examples/gizmos/anchored_text_gizmos.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.anchored_text_gizmos]
+name = "Anchored Text Gizmos"
+description = "Demonstrates anchored text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "3d_text_gizmos"
+path = "examples/gizmos/3d_text_gizmos.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.3d_text_gizmos]
+name = "Text Gizmos 3d"
+description = "A scene showcasing 3d text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "text_gizmos_font"
+path = "examples/gizmos/text_gizmos_font.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.text_gizmos_font]
+name = "Text Gizmos Font"
+description = "Example displaying the font used by text gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "debug_frustum_culling"
+path = "examples/usage/debug_frustum_culling.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+required-features = ["free_camera"]
+
+[package.metadata.example.debug_frustum_culling]
+name = "Debug Frustum Culling"
+description = "Example demonstrating how to debug frustum culling"
+category = "Usage"
+wasm = true
+
+
+[[example]]
 name = "custom_gltf_vertex_attribute"
 path = "examples/gltf/custom_gltf_vertex_attribute.rs"
 # Causes an ICE on docs.rs
@@ -5404,6 +5492,17 @@ category = "Camera"
 wasm = true
 
 [[example]]
+name = "contiguous_query"
+path = "examples/ecs/contiguous_query.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.contiguous_query]
+name = "Contiguous Query"
+description = "Demonstrates contiguous queries"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "clustered_decal_maps"
 path = "examples/3d/clustered_decal_maps.rs"
 # Causes an ICE on docs.rs
@@ -5450,3 +5549,15 @@ name = "Parallax-Corrected Cubemaps"
 description = "Demonstrates parallax-corrected cubemap reflections"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "light_probe_blending"
+path = "examples/3d/light_probe_blending.rs"
+doc-scrape-examples = true
+required-features = ["free_camera", "https"]
+
+[package.metadata.example.light_probe_blending]
+name = "Light Probe Blending"
+description = "Demonstrates blending between multiple reflection probes"
+category = "3D Rendering"
+wasm = false

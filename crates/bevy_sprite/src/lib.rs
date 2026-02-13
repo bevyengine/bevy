@@ -93,7 +93,7 @@ impl Plugin for SpritePlugin {
                 calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
             )
                 .chain()
-                .after(bevy_text::load_font_assets_into_fontdb_system)
+                .after(bevy_text::load_font_assets_into_font_collection)
                 .in_set(bevy_text::Text2dUpdateSystems)
                 .after(bevy_app::AnimationSystems),
         );

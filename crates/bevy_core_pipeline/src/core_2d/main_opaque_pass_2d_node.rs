@@ -1,5 +1,8 @@
 use crate::core_2d::Opaque2d;
 use bevy_ecs::prelude::*;
+use bevy_log::error;
+#[cfg(feature = "trace")]
+use bevy_log::info_span;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -8,9 +11,6 @@ use bevy_render::{
     renderer::{RenderContext, ViewQuery},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
-use tracing::error;
-#[cfg(feature = "trace")]
-use tracing::info_span;
 
 use super::AlphaMask2d;
 

@@ -169,7 +169,7 @@ pub struct AcquireFocus {
     #[event_target]
     pub focused_entity: Entity,
     /// The primary window entity.
-    window: Entity,
+    pub window: Entity,
 }
 
 #[derive(QueryData)]

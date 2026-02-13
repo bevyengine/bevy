@@ -18,7 +18,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // Enable for image outline
-        .insert_resource(UiDebugOptions {
+        .insert_resource(GlobalUiDebugOptions {
             enabled: true,
             ..default()
         })

@@ -180,13 +180,40 @@ impl From<Sphere> for Aabb {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+/// A sphere, defined by a center and a radius.
+///
+/// This is typically used as a component on an entity to represent the local
+/// space occupied by this entity, as an alternative to [`Aabb`]. The *frustum
+/// culling* process uses this component to determine whether an entity is in
+/// the view of a [`crate::Camera`].
+///
+/// Bevy will automatically add this component to point and spot lights, as
+/// their ranges are most easily approximated by a sphere. The engine will keep
+/// this entity updated as the range and/or transform of such lights changes.
+///
+/// If both [`Aabb`] and [`Sphere`] are present on an entity, [`Aabb`] takes
+/// precedence.
+#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Component, Clone, Debug, Default)]
 pub struct Sphere {
+    /// The center of the sphere.
+    ///
+    /// If this is used as a component, [`Self::center`] is in local space. That
+    /// is, it doesn't take the world-space position of the object into account.
     pub center: Vec3A,
+
+    /// The radius of the sphere.
+    ///
+    /// If this is used as a component, [`Self::radius`] is in local space. That
+    /// is, it doesn't take the world-space scale of the object into account.
     pub radius: f32,
 }
 
 impl Sphere {
+    /// Returns true if this sphere intersects the given oriented bounding box.
+    ///
+    /// The oriented bounding box (OBB) to test against is produced by
+    /// transforming the given AABB according to the supplied matrix.
     #[inline]
     pub fn intersects_obb(&self, aabb: &Aabb, world_from_local: &Affine3A) -> bool {
         let aabb_center_world = world_from_local.transform_point3a(aabb.center);

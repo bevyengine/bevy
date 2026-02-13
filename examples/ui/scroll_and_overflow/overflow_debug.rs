@@ -1,6 +1,7 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
 
 use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget::TextUiWriter};
+
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
@@ -161,7 +162,7 @@ fn spawn_text(
             Text::new("Bevy"),
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                font_size: 100.0,
+                font_size: FontSize::Px(100.0),
                 ..default()
             },
         ));

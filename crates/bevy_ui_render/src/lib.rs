@@ -56,7 +56,7 @@ use bevy_render::{
 };
 use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_ui_debug")]
-pub use debug_overlay::UiDebugOptions;
+pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
 use color_space::ColorSpacePlugin;
 use gradient::GradientPlugin;
@@ -78,7 +78,7 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::debug_overlay::UiDebugOptions;
+    pub use crate::debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
     pub use crate::{
         ui_material::*, ui_material_pipeline::UiMaterialPlugin, BoxShadowSamples, UiAntiAlias,
@@ -192,7 +192,7 @@ impl Plugin for UiRenderPlugin {
         load_shader_library!(app, "ui.wgsl");
 
         #[cfg(feature = "bevy_ui_debug")]
-        app.init_resource::<UiDebugOptions>();
+        app.init_resource::<GlobalUiDebugOptions>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

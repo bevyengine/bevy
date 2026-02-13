@@ -667,6 +667,9 @@ pub mod common_conditions {
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if the resource exists.
     ///
+    /// To skip a system with a [`Res`] or [`ResMut`](crate::prelude::ResMut) parameter if the resource does not exist,
+    /// you may instead wrap the parameter in [`If`](crate::prelude::If), like `If<Res<T>>` or `If<ResMut<T>>`.
+    ///
     /// # Example
     ///
     /// ```
@@ -1063,6 +1066,8 @@ pub mod common_conditions {
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if there are any new messages of the given type since it was last called.
     ///
+    /// To skip a system based on messages that it reads, use [`PopulatedMessageReader`](crate::prelude::PopulatedMessageReader) instead.
+    ///
     /// # Example
     ///
     /// ```
@@ -1106,6 +1111,12 @@ pub mod common_conditions {
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if there are any entities with the given component type.
+    ///
+    /// This is equivalent to [`any_match_filter::<With<T>>()`]
+    ///
+    /// To skip a system with a [`Query`] parameter if the query is empty,
+    /// you may instead use [`Populated`](crate::prelude::Populated), if the query may match multiple entities,
+    /// or [`Single`](crate::prelude::Single), if it will only match one.
     ///
     /// # Example
     ///
@@ -1154,6 +1165,12 @@ pub mod common_conditions {
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
     /// if there are any entities that match the given [`QueryFilter`].
+    ///
+    /// For a simple `With<T>` filter, this is equivalent to [`any_with_component::<T>()`].
+    ///
+    /// To skip a system with a [`Query`] parameter if the query is empty,
+    /// you may instead use [`Populated`](crate::prelude::Populated), if the query may match multiple entities,
+    /// or [`Single`](crate::prelude::Single), if it will only match one.
     pub fn any_match_filter<F: QueryFilter>(query: Query<(), F>) -> bool {
         !query.is_empty()
     }
