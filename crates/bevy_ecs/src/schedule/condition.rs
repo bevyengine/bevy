@@ -83,7 +83,12 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// Short-circuiting may not be desired in all cases; when utilizing change detection,
     /// the `then_run` condition will react to changes since the last time that _`self` returned `true`_,
-    /// which may introduce subtle inconsistencies if short-circuiting was not intended.
+    /// which may introduce subtle inconsistencies if short-circuiting was not intended. Similar issues
+    /// may arise for run conditions that rely on internal state, such as those using [`Local<T>`] parameters
+    /// or [`MessageReader<T>`], as they may not be updated every time the combined condition is evaluated.
+    /// 
+    /// [`Local<T>`]: crate::system::Local
+    /// [`MessageReader<T>`]: crate::message::MessageReader
     ///
     /// See also [`and_eager`], which always evaluates both conditions.
     ///
@@ -211,7 +216,12 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// Short-circuiting may not be desired in all cases; when utilizing change detection,
     /// the `then_run` condition will react to changes since the last time that _`self` returned `true`_,
-    /// which may introduce subtle inconsistencies if short-circuiting was not intended.
+    /// which may introduce subtle inconsistencies if short-circuiting was not intended. Similar issues
+    /// may arise for run conditions that rely on internal state, such as those using [`Local<T>`] parameters
+    /// or [`MessageReader<T>`], as they may not be updated every time the combined condition is evaluated.
+    /// 
+    /// [`Local<T>`]: crate::system::Local
+    /// [`MessageReader<T>`]: crate::message::MessageReader
     ///
     /// See also [`nand_eager`], which always evaluates both conditions.
     ///
@@ -347,7 +357,12 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// Short-circuiting may not be desired in all cases; when utilizing change detection,
     /// the `else_run` condition will react to changes since the last time that _`self` returned `true`_,
-    /// which may introduce subtle inconsistencies if short-circuiting was not intended.
+    /// which may introduce subtle inconsistencies if short-circuiting was not intended. Similar issues
+    /// may arise for run conditions that rely on internal state, such as those using [`Local<T>`] parameters
+    /// or [`MessageReader<T>`], as they may not be updated every time the combined condition is evaluated.
+    /// 
+    /// [`Local<T>`]: crate::system::Local
+    /// [`MessageReader<T>`]: crate::message::MessageReader
     ///
     /// See also [`nor_eager`], which always evaluates both conditions.
     ///
@@ -436,7 +451,12 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
     ///
     /// Short-circuiting may not be desired in all cases; when utilizing change detection,
     /// the `else_run` condition will react to changes since the last time that _`self` returned `false`_,
-    /// which may introduce subtle inconsistencies if short-circuiting was not intended.
+    /// which may introduce subtle inconsistencies if short-circuiting was not intended. Similar issues
+    /// may arise for run conditions that rely on internal state, such as those using [`Local<T>`] parameters
+    /// or [`MessageReader<T>`], as they may not be updated every time the combined condition is evaluated.
+    /// 
+    /// [`Local<T>`]: crate::system::Local
+    /// [`MessageReader<T>`]: crate::message::MessageReader
     ///
     /// See also [`or_eager`], which always evaluates both conditions.
     ///
