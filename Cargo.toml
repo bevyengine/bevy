@@ -163,6 +163,7 @@ ui = [
   "scene",
   "audio",
   "picking",
+  "ui_widgets",
 ]
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
@@ -3845,7 +3846,6 @@ name = "vertical_slider"
 path = "examples/ui/widgets/vertical_slider.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["bevy_ui_widgets"]
 
 [package.metadata.example.vertical_slider]
 name = "Vertical Slider"
@@ -5245,7 +5245,6 @@ name = "testbed_full_ui"
 path = "examples/testbed/full_ui.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["bevy_ui_widgets"]
 
 [package.metadata.example.testbed_full_ui]
 hidden = true
@@ -5391,7 +5390,6 @@ name = "standard_widgets"
 path = "examples/ui/widgets/standard_widgets.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["bevy_ui_widgets"]
 
 [package.metadata.example.standard_widgets]
 name = "Standard Widgets"
@@ -5404,7 +5402,6 @@ name = "standard_widgets_observers"
 path = "examples/ui/widgets/standard_widgets_observers.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["bevy_ui_widgets"]
 
 [package.metadata.example.standard_widgets_observers]
 name = "Standard Widgets (w/Observers)"
@@ -5417,7 +5414,6 @@ name = "scrollbars"
 path = "examples/ui/scroll_and_overflow/scrollbars.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["bevy_ui_widgets"]
 
 [package.metadata.example.scrollbars]
 name = "Scrollbars"
