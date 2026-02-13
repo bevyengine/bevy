@@ -324,9 +324,6 @@ bevy_gltf = ["bevy_internal/bevy_gltf"]
 # Adds PBR rendering
 bevy_pbr = ["bevy_internal/bevy_pbr"]
 
-# Provides picking functionality
-bevy_picking = ["bevy_internal/bevy_picking"]
-
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
 
