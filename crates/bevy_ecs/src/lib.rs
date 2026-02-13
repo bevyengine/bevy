@@ -75,7 +75,7 @@ pub mod prelude {
         error::{BevyError, Result},
         event::{EntityEvent, Event},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
-        lifecycle::{Add, Despawn, Insert, Remove, RemovedComponents, Replace},
+        lifecycle::{Add, Despawn, Discard, Insert, Remove, RemovedComponents},
         message::{
             Message, MessageMutator, MessageReader, MessageWriter, Messages, PopulatedMessageReader,
         },
@@ -1260,10 +1260,7 @@ mod tests {
         assert!(!world.is_resource_changed::<Num>());
 
         world.insert_resource(Num(123));
-        let resource_id = world
-            .components()
-            .get_resource_id(TypeId::of::<Num>())
-            .unwrap();
+        let resource_id = world.components().get_id(TypeId::of::<Num>()).unwrap();
 
         assert_eq!(world.resource::<Num>().0, 123);
         assert!(world.contains_resource::<Num>());
@@ -1317,10 +1314,7 @@ mod tests {
             "other resources are unaffected"
         );
 
-        let current_resource_id = world
-            .components()
-            .get_resource_id(TypeId::of::<Num>())
-            .unwrap();
+        let current_resource_id = world.components().get_id(TypeId::of::<Num>()).unwrap();
         assert_eq!(
             resource_id, current_resource_id,
             "resource id does not change after removing / re-adding"
