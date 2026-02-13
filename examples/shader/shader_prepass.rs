@@ -47,7 +47,6 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
         Msaa::Off,
         // To enable the prepass you need to add the components associated with the ones you need
         // This will write the depth buffer to a texture that you can use in the main pass
@@ -130,10 +129,12 @@ fn setup(
         },
         children![
             TextSpan::new("Prepass Output: transparent\n"),
+            TextSpan::new(format!("Msaa: {:?}\n", Msaa::Off)),
             TextSpan::new("\n\n"),
             TextSpan::new("Controls\n"),
             TextSpan::new("---------------\n"),
             TextSpan::new("Space - Change output\n"),
+            TextSpan::new("KeyM  - Change MSAA\n"),
         ],
     ));
 }
@@ -215,6 +216,7 @@ fn toggle_prepass_view(
     material_handle: Single<&MeshMaterial3d<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
     text: Single<Entity, With<Text>>,
+    mut camera_msaa: Single<&mut Msaa, With<Camera3d>>,
     mut writer: TextUiWriter,
 ) {
     if keycode.just_pressed(KeyCode::Space) {
@@ -237,5 +239,15 @@ fn toggle_prepass_view(
         mat.settings.show_depth = (*prepass_view == 1) as u32;
         mat.settings.show_normals = (*prepass_view == 2) as u32;
         mat.settings.show_motion_vectors = (*prepass_view == 3) as u32;
+    }
+
+    if keycode.just_pressed(KeyCode::KeyM) {
+        **camera_msaa = if **camera_msaa == Msaa::Off {
+            Msaa::Sample4
+        } else {
+            Msaa::Off
+        };
+        let text = *text;
+        *writer.text(text, 2) = format!("Msaa: {:?}\n", **camera_msaa);
     }
 }

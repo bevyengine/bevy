@@ -14,6 +14,7 @@ pub mod fullscreen_material;
 pub mod mip_generation;
 pub mod oit;
 pub mod prepass;
+pub mod resolve;
 pub mod schedule;
 pub mod tonemapping;
 pub mod upscaling;
@@ -25,6 +26,7 @@ pub use schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
 mod fullscreen_vertex_shader;
 mod skybox;
 
+use crate::resolve::ResolvePlugin;
 use crate::schedule::camera_driver;
 use crate::{
     blit::BlitPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
@@ -47,6 +49,7 @@ impl Plugin for CorePipelinePlugin {
         app.add_plugins((Core2dPlugin, Core3dPlugin, CopyDeferredLightingIdPlugin))
             .add_plugins((
                 BlitPlugin,
+                ResolvePlugin,
                 TonemappingPlugin,
                 UpscalingPlugin,
                 OrderIndependentTransparencyPlugin,

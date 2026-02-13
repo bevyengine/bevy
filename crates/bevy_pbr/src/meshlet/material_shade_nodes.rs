@@ -176,11 +176,11 @@ pub fn meshlet_prepass(
         view_prepass_textures
             .normal
             .as_ref()
-            .map(|normals_texture| normals_texture.get_attachment()),
+            .map(|normals_texture| normals_texture.get_attachment(StoreOp::Store)),
         view_prepass_textures
             .motion_vectors
             .as_ref()
-            .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
+            .map(|motion_vectors_texture| motion_vectors_texture.get_attachment(StoreOp::Store)),
         // Use None in place of Deferred attachments
         None,
         None,
@@ -287,19 +287,21 @@ pub fn meshlet_deferred_gbuffer_prepass(
         view_prepass_textures
             .normal
             .as_ref()
-            .map(|normals_texture| normals_texture.get_attachment()),
+            .map(|normals_texture| normals_texture.get_attachment(StoreOp::Store)),
         view_prepass_textures
             .motion_vectors
             .as_ref()
-            .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
+            .map(|motion_vectors_texture| motion_vectors_texture.get_attachment(StoreOp::Store)),
         view_prepass_textures
             .deferred
             .as_ref()
-            .map(|deferred_texture| deferred_texture.get_attachment()),
+            .map(|deferred_texture| deferred_texture.get_attachment(StoreOp::Store)),
         view_prepass_textures
             .deferred_lighting_pass_id
             .as_ref()
-            .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
+            .map(|deferred_lighting_pass_id| {
+                deferred_lighting_pass_id.get_attachment(StoreOp::Store)
+            }),
     ];
 
     let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {

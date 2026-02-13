@@ -138,13 +138,13 @@ fn run_deferred_prepass_system(
         view_prepass_textures
             .normal
             .as_ref()
-            .map(|normals_texture| normals_texture.get_attachment()),
+            .map(|normals_texture| normals_texture.get_attachment(StoreOp::Store)),
     );
     color_attachments.push(
         view_prepass_textures
             .motion_vectors
             .as_ref()
-            .map(|motion_vectors_texture| motion_vectors_texture.get_attachment()),
+            .map(|motion_vectors_texture| motion_vectors_texture.get_attachment(StoreOp::Store)),
     );
 
     // If we clear the deferred texture with LoadOp::Clear(Default::default()) we get these errors:
@@ -168,7 +168,7 @@ fn run_deferred_prepass_system(
             .as_ref()
             .map(|deferred_texture| {
                 if is_late {
-                    deferred_texture.get_attachment()
+                    deferred_texture.get_attachment(StoreOp::Store)
                 } else {
                     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                     {
@@ -187,7 +187,7 @@ fn run_deferred_prepass_system(
                         not(target_arch = "wasm32"),
                         feature = "webgpu"
                     ))]
-                    deferred_texture.get_attachment()
+                    deferred_texture.get_attachment(StoreOp::Store)
                 }
             }),
     );
@@ -196,7 +196,9 @@ fn run_deferred_prepass_system(
         view_prepass_textures
             .deferred_lighting_pass_id
             .as_ref()
-            .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
+            .map(|deferred_lighting_pass_id| {
+                deferred_lighting_pass_id.get_attachment(StoreOp::Store)
+            }),
     );
 
     // If all color attachments are none: clear the color attachment list so that no fragment shader is required
@@ -243,13 +245,4 @@ fn run_deferred_prepass_system(
 
     pass_span.end(&mut render_pass);
     drop(render_pass);
-
-    // After rendering to the view depth texture, copy it to the prepass depth texture
-    if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-        ctx.command_encoder().copy_texture_to_texture(
-            view_depth_texture.texture.as_image_copy(),
-            prepass_depth_texture.texture.texture.as_image_copy(),
-            view_prepass_textures.size,
-        );
-    }
 }

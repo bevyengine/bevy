@@ -37,7 +37,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::{FallbackImage, GpuImage},
-    view::{Msaa, ViewTarget, ViewUniformOffset},
+    view::{ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -485,13 +485,6 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
             RenderDebugMode::DepthPyramid { .. } => shader_defs.push("DEBUG_DEPTH_PYRAMID".into()),
         }
 
-        if key
-            .view_layout_key
-            .contains(MeshPipelineViewLayoutKey::MULTISAMPLED)
-        {
-            shader_defs.push("MULTISAMPLED".into());
-        }
-
         let mesh_view_layout_descriptor = self
             .mesh_view_layouts
             .get_view_layout(key.view_layout_key)
@@ -535,19 +528,17 @@ fn prepare_debug_overlay_pipelines(
         Entity,
         &ViewTarget,
         &RenderDebugOverlay,
-        &Msaa,
         Option<&bevy_core_pipeline::prepass::ViewPrepassTextures>,
         Has<bevy_core_pipeline::oit::OrderIndependentTransparencySettings>,
         Has<bevy_pbr::ExtractedAtmosphere>,
     )>,
 ) {
-    for (entity, target, config, msaa, prepass_textures, has_oit, has_atmosphere) in &views {
+    for (entity, target, config, prepass_textures, has_oit, has_atmosphere) in &views {
         if !config.enabled {
             continue;
         }
 
-        let mut view_layout_key = MeshPipelineViewLayoutKey::from(*msaa)
-            | MeshPipelineViewLayoutKey::from(prepass_textures);
+        let mut view_layout_key = MeshPipelineViewLayoutKey::from(prepass_textures);
 
         if has_oit {
             view_layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;

@@ -62,7 +62,7 @@ fn pbr_input_from_vertex_output(
     );
 
 #ifdef LOAD_PREPASS_NORMALS
-    pbr_input.N = prepass_utils::prepass_normal(in.position, 0u);
+    pbr_input.N = prepass_utils::prepass_normal(in.position);
 #else
     pbr_input.N = normalize(pbr_input.world_normal);
 #endif

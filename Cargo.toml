@@ -1196,8 +1196,7 @@ doc-scrape-examples = false
 name = "Anti-aliasing"
 description = "Compares different anti-aliasing techniques supported by Bevy"
 category = "3D Rendering"
-# TAA not supported by WebGL
-wasm = false
+wasm = true
 
 [[example]]
 name = "atmospheric_fog"
@@ -4858,7 +4857,7 @@ required-features = ["bluenoise_texture"]
 name = "Screen Space Reflections"
 description = "Demonstrates screen space reflections with water ripples"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "camera_sub_view"
@@ -4907,7 +4906,7 @@ doc-scrape-examples = false
 name = "Depth of field"
 description = "Demonstrates depth of field"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "volumetric_fog"

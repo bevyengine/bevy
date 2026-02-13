@@ -7,7 +7,7 @@
 
 #import bevy_render::view::View
 
-@group(0) @binding(0) var input_depth: texture_depth_2d;
+@group(0) @binding(0) var input_depth: texture_2d<f32>;
 #ifdef USE_R16FLOAT
 @group(0) @binding(1) var preprocessed_depth_mip0: texture_storage_2d<r16float, write>;
 @group(0) @binding(2) var preprocessed_depth_mip1: texture_storage_2d<r16float, write>;

@@ -179,6 +179,9 @@ struct ScreenSpaceReflectionsSettings {
     linear_march_exponent: f32,
     bisection_steps: u32,
     use_secant: u32,
+#ifdef SIXTEEN_BYTE_ALIGNMENT
+    _webgl2_padding: u32,
+#endif
 };
 
 // See the `ContactShadows` rust struct.

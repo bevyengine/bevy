@@ -25,8 +25,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
     view::{
-        Msaa, RenderVisibilityRanges, ViewUniform, ViewUniforms,
-        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        RenderVisibilityRanges, ViewUniform, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
 };
 use core::{array, num::NonZero};
@@ -80,14 +79,13 @@ bitflags::bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     pub struct MeshPipelineViewLayoutKey: u32 {
-        const MULTISAMPLED                = 1 << 0;
-        const DEPTH_PREPASS               = 1 << 1;
-        const NORMAL_PREPASS              = 1 << 2;
-        const MOTION_VECTOR_PREPASS       = 1 << 3;
-        const DEFERRED_PREPASS            = 1 << 4;
-        const OIT_ENABLED                 = 1 << 5;
-        const ATMOSPHERE                  = 1 << 6;
-        const STBN                        = 1 << 7;
+        const DEPTH_PREPASS               = 1 << 0;
+        const NORMAL_PREPASS              = 1 << 1;
+        const MOTION_VECTOR_PREPASS       = 1 << 2;
+        const DEFERRED_PREPASS            = 1 << 3;
+        const OIT_ENABLED                 = 1 << 4;
+        const ATMOSPHERE                  = 1 << 5;
+        const STBN                        = 1 << 6;
     }
 }
 
@@ -100,12 +98,7 @@ impl MeshPipelineViewLayoutKey {
         use MeshPipelineViewLayoutKey as Key;
 
         format!(
-            "mesh_view_layout{}{}{}{}{}{}{}{}",
-            if self.contains(Key::MULTISAMPLED) {
-                "_multisampled"
-            } else {
-                Default::default()
-            },
+            "mesh_view_layout{}{}{}{}{}{}{}",
             if self.contains(Key::DEPTH_PREPASS) {
                 "_depth"
             } else {
@@ -149,9 +142,6 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
     fn from(value: MeshPipelineKey) -> Self {
         let mut result = MeshPipelineViewLayoutKey::empty();
 
-        if value.msaa_samples() > 1 {
-            result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
-        }
         if value.contains(MeshPipelineKey::DEPTH_PREPASS) {
             result |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
         }
@@ -173,18 +163,6 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
 
         if cfg!(feature = "bluenoise_texture") {
             result |= MeshPipelineViewLayoutKey::STBN;
-        }
-
-        result
-    }
-}
-
-impl From<Msaa> for MeshPipelineViewLayoutKey {
-    fn from(value: Msaa) -> Self {
-        let mut result = MeshPipelineViewLayoutKey::empty();
-
-        if value.samples() > 1 {
-            result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
         }
 
         result
@@ -368,17 +346,15 @@ pub fn layout_entries(
     ));
 
     // Prepass
-    if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
-        || (cfg!(all(feature = "webgl", target_arch = "wasm32"))
-            && !layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED))
+    let float32_filterable = render_device
+        .features()
+        .contains(WgpuFeatures::FLOAT32_FILTERABLE);
+    for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key, float32_filterable)
+        .iter()
+        .zip([21, 22, 23, 24])
     {
-        for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
-            .iter()
-            .zip([21, 22, 23, 24])
-        {
-            if let Some(entry) = entry {
-                entries = entries.extend_with_indices(((binding as u32, *entry),));
-            }
+        if let Some(entry) = entry {
+            entries = entries.extend_with_indices(((binding as u32, *entry),));
         }
     }
 
@@ -609,7 +585,6 @@ pub fn prepare_mesh_view_bind_groups(
         Entity,
         &ViewShadowBindings,
         &ViewClusterBindings,
-        &Msaa,
         Option<&ScreenSpaceAmbientOcclusionResources>,
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
@@ -673,7 +648,6 @@ pub fn prepare_mesh_view_bind_groups(
             entity,
             shadow_bindings,
             cluster_bindings,
-            msaa,
             ssao_resources,
             prepass_textures,
             transmission_texture,
@@ -694,8 +668,7 @@ pub fn prepare_mesh_view_bind_groups(
                 .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
                 .unwrap_or(&fallback_ssao);
 
-            let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
-                | MeshPipelineViewLayoutKey::from(prepass_textures);
+            let mut layout_key = MeshPipelineViewLayoutKey::from(prepass_textures);
             if has_oit {
                 layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
             }
@@ -742,20 +715,15 @@ pub fn prepare_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
             entries = entries.extend_with_indices(((19, lut_bindings.0), (20, lut_bindings.1)));
 
-            // When using WebGL, we can't have a depth texture with multisampling
-            let prepass_bindings;
-            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
+            let prepass_bindings = prepass::get_bindings(prepass_textures);
+            for (binding, index) in prepass_bindings
+                .iter()
+                .map(Option::as_ref)
+                .zip([21, 22, 23, 24])
+                .flat_map(|(b, i)| b.map(|b| (b, i)))
             {
-                prepass_bindings = prepass::get_bindings(prepass_textures);
-                for (binding, index) in prepass_bindings
-                    .iter()
-                    .map(Option::as_ref)
-                    .zip([21, 22, 23, 24])
-                    .flat_map(|(b, i)| b.map(|b| (b, i)))
-                {
-                    entries = entries.extend_with_indices(((index, binding),));
-                }
-            };
+                entries = entries.extend_with_indices(((index, binding),));
+            }
 
             let transmission_view = transmission_texture
                 .map(|transmission| &transmission.view)

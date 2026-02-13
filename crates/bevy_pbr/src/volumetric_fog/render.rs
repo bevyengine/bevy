@@ -135,6 +135,8 @@ pub struct VolumetricFogPipelineKey {
 
     /// Flags that specify features on the pipeline key.
     flags: VolumetricFogPipelineKeyFlags,
+
+    msaa: bool,
 }
 
 /// The same as [`VolumetricFog`] and [`FogVolume`], but formatted for
@@ -498,11 +500,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
         // We need a separate layout for MSAA and non-MSAA, as well as one for
         // the presence or absence of the density texture.
         let mut bind_group_layout_key = VolumetricFogBindGroupLayoutKey::empty();
-        bind_group_layout_key.set(
-            VolumetricFogBindGroupLayoutKey::MULTISAMPLED,
-            key.mesh_pipeline_view_key
-                .contains(MeshPipelineViewLayoutKey::MULTISAMPLED),
-        );
+        bind_group_layout_key.set(VolumetricFogBindGroupLayoutKey::MULTISAMPLED, key.msaa);
         bind_group_layout_key.set(
             VolumetricFogBindGroupLayoutKey::DENSITY_TEXTURE,
             key.flags
@@ -520,10 +518,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             .get_layout(&[Mesh::ATTRIBUTE_POSITION.at_shader_location(0)])
             .expect("Failed to get vertex layout for volumetric fog hull");
 
-        if key
-            .mesh_pipeline_view_key
-            .contains(MeshPipelineViewLayoutKey::MULTISAMPLED)
-        {
+        if key.msaa {
             shader_defs.push("MULTISAMPLED".into());
         }
 
@@ -634,7 +629,7 @@ pub fn prepare_volumetric_fog_pipelines(
     ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
-        let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(*msaa);
+        let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::empty();
         mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::NORMAL_PREPASS, normal_prepass);
         mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::DEPTH_PREPASS, depth_prepass);
         mesh_pipeline_view_key.set(
@@ -658,6 +653,7 @@ pub fn prepare_volumetric_fog_pipelines(
             mesh_pipeline_view_key,
             vertex_buffer_layout: plane_mesh.layout.clone(),
             flags: textureless_flags,
+            msaa: msaa.samples() > 1,
         };
         let textureless_pipeline_id = pipelines.specialize(
             &pipeline_cache,

@@ -50,7 +50,7 @@
 // The sampler that lets us sample from the color framebuffer.
 @group(2) @binding(1) var color_sampler: sampler;
 
-// Group 1, bindings 2 and 3 are in `raymarch.wgsl`.
+// Group 2, bindings 2 and 3 are in `raymarch.wgsl`.
 
 @group(2) @binding(4) var stbn_texture: texture_2d_array<f32>;
 
@@ -61,7 +61,7 @@ struct BrdfSample {
 
 fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec2<f32>, N: vec3<f32>) -> BrdfSample {
     var brdf_sample: BrdfSample;
-    
+
     // Use VNDF sampling for the half-vector.
     let wi = lighting::sample_visible_ggx(urand, roughness, N, wo);
     let H = normalize(wo + wi);
@@ -127,7 +127,7 @@ fn evaluate_ssr(R_world: vec3<f32>, P_world: vec3<f32>, jitter: f32) -> vec4<f32
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Sample the depth.
     var frag_coord = in.position;
-    frag_coord.z = prepass_utils::prepass_depth(in.position, 0u);
+    frag_coord.z = prepass_utils::prepass_depth(in.position);
 
     // Load the G-buffer data.
     let fragment = textureLoad(color_texture, vec2<i32>(frag_coord.xy), 0);
@@ -220,7 +220,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Sample the BRDF.
     let N_tangent = vec3(0.0, 0.0, 1.0);
     let V_tangent = V * tangent_to_world;
-    
+
     let brdf_sample = sample_specular_brdf(V_tangent, roughness, F0, urand, N_tangent);
     let R_stochastic = tangent_to_world * brdf_sample.wi;
     let brdf_sample_value_over_pdf = brdf_sample.value_over_pdf;

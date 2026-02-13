@@ -22,9 +22,7 @@ use bevy_render::{
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_resource::{
-        binding_types::{
-            sampler, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
-        },
+        binding_types::{sampler, texture_2d, texture_storage_2d, uniform_buffer},
         *,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue, ViewQuery},
@@ -347,7 +345,7 @@ impl FromWorld for SsaoPipelines {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
                 (
-                    texture_depth_2d(),
+                    texture_2d(TextureSampleType::Float { filterable: false }),
                     texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),
                     texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),
                     texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),

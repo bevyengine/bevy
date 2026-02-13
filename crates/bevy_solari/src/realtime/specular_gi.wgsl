@@ -26,7 +26,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
     var rng = pixel_index + constants.frame_index;
 
-    let depth = textureLoad(depth_buffer, global_id.xy, 0);
+    let depth = textureLoad(depth_buffer, global_id.xy, 0).r;
     if depth == 0.0 {
         return;
     }

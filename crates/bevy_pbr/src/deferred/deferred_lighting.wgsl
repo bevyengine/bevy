@@ -52,7 +52,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     frag_coord.z = unpack_unorm3x4_plus_unorm_20_(deferred_data.b).w;
 #else
 #ifdef DEPTH_PREPASS
-    frag_coord.z = prepass_utils::prepass_depth(in.position, 0u);
+    frag_coord.z = prepass_utils::prepass_depth(in.position);
 #endif
 #endif
 
@@ -68,7 +68,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         pbr_input.diffuse_occlusion = min(pbr_input.diffuse_occlusion, ssao_multibounce);
 
         // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-        let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001); 
+        let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001);
         var perceptual_roughness: f32 = pbr_input.material.perceptual_roughness;
         let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
         // Use SSAO to estimate the specular occlusion.
@@ -85,4 +85,3 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     return output_color;
 }
-

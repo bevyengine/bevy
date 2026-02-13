@@ -33,7 +33,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, ViewQuery},
     sync_component::SyncComponent,
-    view::{Msaa, ViewTarget},
+    view::ViewTarget,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -180,7 +180,6 @@ pub fn motion_blur(
         &MotionBlurPipelineId,
         &ViewPrepassTextures,
         &MotionBlurUniform,
-        &Msaa,
     )>,
     motion_blur_pipeline: Res<MotionBlurPipeline>,
     pipeline_cache: Res<PipelineCache>,
@@ -188,7 +187,7 @@ pub fn motion_blur(
     globals_buffer: Res<GlobalsBuffer>,
     mut ctx: RenderContext,
 ) {
-    let (view_target, pipeline_id, prepass_textures, motion_blur_uniform, msaa) = view.into_inner();
+    let (view_target, pipeline_id, prepass_textures, motion_blur_uniform) = view.into_inner();
 
     if motion_blur_uniform.samples == 0 || motion_blur_uniform.shutter_angle <= 0.0 {
         return; // We can skip running motion blur in these cases.
@@ -212,15 +211,9 @@ pub fn motion_blur(
 
     let post_process = view_target.post_process_write();
 
-    let layout = if msaa.samples() == 1 {
-        &motion_blur_pipeline.layout
-    } else {
-        &motion_blur_pipeline.layout_msaa
-    };
-
     let bind_group = ctx.render_device().create_bind_group(
         Some("motion_blur_bind_group"),
-        &pipeline_cache.get_bind_group_layout(layout),
+        &pipeline_cache.get_bind_group_layout(&motion_blur_pipeline.layout),
         &BindGroupEntries::sequential((
             post_process.source,
             &prepass_motion_vectors_texture.texture.default_view,

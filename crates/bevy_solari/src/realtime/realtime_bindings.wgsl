@@ -14,10 +14,10 @@ enable wgpu_ray_query;
 @group(1) @binding(5) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
 @group(1) @binding(6) var<storage, read_write> gi_reservoirs_b: array<Reservoir>;
 @group(1) @binding(7) var gbuffer: texture_2d<u32>;
-@group(1) @binding(8) var depth_buffer: texture_depth_2d;
+@group(1) @binding(8) var depth_buffer: texture_2d<f32>;
 @group(1) @binding(9) var motion_vectors: texture_2d<f32>;
 @group(1) @binding(10) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(11) var previous_depth_buffer: texture_depth_2d;
+@group(1) @binding(11) var previous_depth_buffer: texture_2d<f32>;
 @group(1) @binding(12) var<uniform> view: View;
 @group(1) @binding(13) var<uniform> previous_view: PreviousViewUniforms;
 

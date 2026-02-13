@@ -5,7 +5,7 @@ use core::ops::Range;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_3d::{main_opaque_pass_3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED},
+    core_3d::main_opaque_pass_3d,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     schedule::{Core3d, Core3dSystems},
     FullscreenShader,
@@ -37,14 +37,14 @@ use bevy_render::{
         TextureViewDimension,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue, ViewQuery},
+    settings::WgpuFeatures,
     sync_component::SyncComponent,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader};
-use bevy_utils::{once, prelude::default};
-use tracing::info;
+use bevy_utils::prelude::default;
 
 use crate::{
     binding_arrays_are_usable, contact_shadows::ViewContactShadowsUniformOffset,
@@ -76,10 +76,6 @@ pub struct ScreenSpaceReflectionsPlugin;
 ///
 /// SSR is an approximation technique and produces artifacts in some situations.
 /// Hand-tuning the settings in this component will likely be useful.
-///
-/// Screen-space reflections are presently unsupported on WebGL 2 because of a
-/// bug whereby Naga doesn't generate correct GLSL when sampling depth buffers,
-/// which is required for screen-space raymarching.
 #[derive(Clone, Component, Reflect)]
 #[reflect(Component, Default, Clone)]
 #[require(DepthPrepass, DeferredPrepass)]
@@ -159,6 +155,8 @@ pub struct ScreenSpaceReflectionsUniform {
     bisection_steps: u32,
     /// A boolean converted to a `u32`.
     use_secant: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _webgl2_padding: u32,
 }
 
 /// Identifies which screen space reflections render pipeline a view needs.
@@ -195,6 +193,7 @@ pub struct ScreenSpaceReflectionsPipelineKey {
     is_hdr: bool,
     has_environment_maps: bool,
     has_atmosphere: bool,
+    depth_filterable: bool,
 }
 
 impl Plugin for ScreenSpaceReflectionsPlugin {
@@ -439,6 +438,7 @@ pub fn prepare_ssr_pipelines(
             With<DeferredPrepass>,
         ),
     >,
+    render_device: Res<RenderDevice>,
 ) {
     for (
         entity,
@@ -451,9 +451,8 @@ pub fn prepare_ssr_pipelines(
     {
         // SSR is only supported in the deferred pipeline, which has no MSAA
         // support. Thus we can assume MSAA is off.
-        let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(Msaa::Off)
-            | MeshPipelineViewLayoutKey::DEPTH_PREPASS
-            | MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
+        let mut mesh_pipeline_view_key =
+            MeshPipelineViewLayoutKey::DEPTH_PREPASS | MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
         mesh_pipeline_view_key.set(
             MeshPipelineViewLayoutKey::NORMAL_PREPASS,
             has_normal_prepass,
@@ -476,6 +475,9 @@ pub fn prepare_ssr_pipelines(
                 is_hdr: extracted_view.hdr,
                 has_environment_maps,
                 has_atmosphere,
+                depth_filterable: render_device
+                    .features()
+                    .contains(WgpuFeatures::FLOAT32_FILTERABLE),
             },
         );
 
@@ -521,14 +523,6 @@ impl ExtractComponent for ScreenSpaceReflections {
     type QueryFilter = ();
 
     fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
-            once!(info!(
-                "Disabling screen-space reflections on this platform because depth textures \
-                aren't supported correctly"
-            ));
-            return None;
-        }
-
         Some(settings.clone().into())
     }
 }
@@ -568,7 +562,12 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             shader_defs.push("BLUE_NOISE_TEXTURE".into());
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
+        if key.depth_filterable {
+            shader_defs.push("DEPTH_FILTERABLE".into());
+        }
+
+        // WebGL2 disallows sampling same texture with different samplers.
+        #[cfg(not(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))))]
         shader_defs.push("USE_DEPTH_SAMPLERS".into());
 
         RenderPipelineDescriptor {
@@ -608,6 +607,8 @@ impl From<ScreenSpaceReflections> for ScreenSpaceReflectionsUniform {
             linear_march_exponent: settings.linear_march_exponent,
             bisection_steps: settings.bisection_steps,
             use_secant: settings.use_secant as u32,
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+            _webgl2_padding: 0,
         }
     }
 }

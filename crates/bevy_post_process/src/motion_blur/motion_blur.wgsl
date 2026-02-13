@@ -3,16 +3,11 @@
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 #import bevy_render::globals::Globals
 
-#ifdef MULTISAMPLED
-@group(0) @binding(0) var screen_texture: texture_2d<f32>;
-@group(0) @binding(1) var motion_vectors: texture_multisampled_2d<f32>;
-@group(0) @binding(2) var depth: texture_depth_multisampled_2d;
-#else
 @group(0) @binding(0) var screen_texture: texture_2d<f32>;
 @group(0) @binding(1) var motion_vectors: texture_2d<f32>;
-@group(0) @binding(2) var depth: texture_depth_2d;
-#endif
+@group(0) @binding(2) var depth: texture_2d<f32>;
 @group(0) @binding(3) var texture_sampler: sampler;
+
 struct MotionBlur {
     shutter_angle: f32,
     samples: u32,
@@ -25,41 +20,16 @@ struct MotionBlur {
 @group(0) @binding(5) var<uniform> globals: Globals;
 
 @fragment
-fn fragment(
-    #ifdef MULTISAMPLED
-        @builtin(sample_index) sample_index: u32,
-    #endif
-    in: FullscreenVertexOutput
-) -> @location(0) vec4<f32> { 
+fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let texture_size = vec2<f32>(textureDimensions(screen_texture));
     let frag_coords = vec2<i32>(in.uv * texture_size);
 
-#ifdef MULTISAMPLED
-    let base_color = textureLoad(screen_texture, frag_coords, i32(sample_index));
-#else
     let base_color = textureSample(screen_texture, texture_sampler, in.uv);
-#endif
-
     let shutter_angle = settings.shutter_angle;
-
-#ifdef MULTISAMPLED
-    let this_motion_vector = textureLoad(motion_vectors, frag_coords, i32(sample_index)).rg;
-#else
     let this_motion_vector = textureSample(motion_vectors, texture_sampler, in.uv).rg;
-#endif
 
-#ifdef NO_DEPTH_TEXTURE_SUPPORT
-    let this_depth = 0.0;
-    let depth_supported = false;
-#else
-    let depth_supported = true;
-#ifdef MULTISAMPLED
-    let this_depth = textureLoad(depth, frag_coords, i32(sample_index));
-#else
-    let this_depth = textureSample(depth, texture_sampler, in.uv);
-#endif
-#endif
-    
+    let this_depth = textureSample(depth, texture_sampler, in.uv).r;
+
     // The exposure vector is the distance that this fragment moved while the camera shutter was
     // open. This is the motion vector (total distance traveled) multiplied by the shutter angle (a
     // fraction). In film, the shutter angle is commonly 0.5 or "180 degrees" (out of 360 total).
@@ -74,7 +44,7 @@ fn fragment(
     var weight_total = 0.0;
     let n_samples = i32(settings.samples);
     let noise = utils::interleaved_gradient_noise(vec2<f32>(frag_coords), globals.frame_count); // 0 to 1
-       
+
     for (var i = -n_samples; i < n_samples; i++) {
         // The current sample step vector, from in.uv
         let step_vector = 0.5 * exposure_vector * (f32(i) + noise) / f32(n_samples);
@@ -87,28 +57,12 @@ fn fragment(
 
         let sample_coords = vec2<i32>(sample_uv * texture_size);
 
-    #ifdef MULTISAMPLED
-        let sample_color = textureLoad(screen_texture, sample_coords, i32(sample_index));
-    #else
         let sample_color = textureSample(screen_texture, texture_sampler, sample_uv);
-    #endif
-    #ifdef MULTISAMPLED
-        let sample_motion = textureLoad(motion_vectors, sample_coords, i32(sample_index)).rg;
-    #else
         let sample_motion = textureSample(motion_vectors, texture_sampler, sample_uv).rg;
-    #endif
-    #ifdef NO_DEPTH_TEXTURE_SUPPORT
-        let sample_depth = 0.0;
-    #else
-    #ifdef MULTISAMPLED
-        let sample_depth = textureLoad(depth, sample_coords, i32(sample_index));
-    #else
-        let sample_depth = textureSample(depth, texture_sampler, sample_uv);
-    #endif
-    #endif
+        let sample_depth = textureSample(depth, texture_sampler, sample_uv).r;
 
         var weight = 1.0;
-        let is_sample_in_fg = !(depth_supported && sample_depth < this_depth && sample_depth > 0.0);
+        let is_sample_in_fg = !(sample_depth < this_depth && sample_depth > 0.0);
         // If the depth is 0.0, this fragment has no depth written to it and we assume it is in the
         // background. This ensures that things like skyboxes, which do not write to depth, are
         // correctly sampled in motion blur.
@@ -146,7 +100,7 @@ fn fragment(
         accumulator += weight * sample_color;
     }
 
-    let has_moved_less_than_a_pixel = 
+    let has_moved_less_than_a_pixel =
         dot(this_motion_vector * texture_size, this_motion_vector * texture_size) < 1.0;
     // In case no samples were accepted, fall back to base color.
     // We also fall back if motion is small, to not break antialiasing.

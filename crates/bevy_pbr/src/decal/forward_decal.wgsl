@@ -34,7 +34,7 @@ fn get_forward_decal_info(in: VertexOutput) -> ForwardDecalInformation {
     let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
 
     let frag_depth = depth_ndc_to_view_z(in.position.z);
-    let depth_pass_depth = depth_ndc_to_view_z(prepass_depth(in.position, 0u));
+    let depth_pass_depth = depth_ndc_to_view_z(prepass_depth(in.position));
     let diff_depth = frag_depth - depth_pass_depth;
     let diff_depth_abs = abs(diff_depth);
 

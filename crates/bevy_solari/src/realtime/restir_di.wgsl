@@ -27,7 +27,7 @@ fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
     var rng = pixel_index + constants.frame_index;
 
-    let depth = textureLoad(depth_buffer, global_id.xy, 0);
+    let depth = textureLoad(depth_buffer, global_id.xy, 0).r;
     if depth == 0.0 {
         store_reservoir_b(global_id.xy, empty_reservoir());
         return;
@@ -50,7 +50,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
     var rng = pixel_index + constants.frame_index;
 
-    let depth = textureLoad(depth_buffer, global_id.xy, 0);
+    let depth = textureLoad(depth_buffer, global_id.xy, 0).r;
     if depth == 0.0 {
         store_reservoir_a(global_id.xy, empty_reservoir());
         return;
@@ -172,7 +172,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
 
 fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> NeighborInfo {
     // Check if the pixel features have changed heavily between the current and previous frame
-    let temporal_depth = textureLoad(previous_depth_buffer, temporal_pixel_id, 0);
+    let temporal_depth = textureLoad(previous_depth_buffer, temporal_pixel_id, 0).r;
     let temporal_surface = gpixel_resolve(textureLoad(previous_gbuffer, temporal_pixel_id, 0), temporal_depth, temporal_pixel_id, view.main_pass_viewport.zw, previous_view.world_from_clip);
     let temporal_diffuse_brdf = temporal_surface.material.base_color / PI;
     if pixel_dissimilar(depth, world_position, temporal_surface.world_position, world_normal, temporal_surface.world_normal, view) {

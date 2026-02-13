@@ -8,7 +8,7 @@
 // Add the fragment to the oit buffer
 fn oit_draw(position: vec4f, color: vec4f) {
 #ifdef DEPTH_PREPASS
-    if position.z < prepass_utils::prepass_depth(position, 0u) {
+    if position.z < prepass_utils::prepass_depth(position) {
         return;
     }
 #endif

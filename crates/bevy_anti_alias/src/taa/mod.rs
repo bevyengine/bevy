@@ -23,7 +23,7 @@ use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     diagnostic::RecordDiagnostics,
     render_resource::{
-        binding_types::{sampler, texture_2d, texture_depth_2d},
+        binding_types::{sampler, texture_2d},
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, Canonical, ColorTargetState, ColorWrites, FilterMode,
         FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
@@ -259,7 +259,7 @@ fn init_taa_pipeline(
                 // Motion Vectors
                 texture_2d(TextureSampleType::Float { filterable: true }),
                 // Depth
-                texture_depth_2d(),
+                texture_2d(TextureSampleType::Float { filterable: false }),
                 // Nearest sampler
                 sampler(SamplerBindingType::NonFiltering),
                 // Linear sampler

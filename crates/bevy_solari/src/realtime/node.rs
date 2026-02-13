@@ -14,9 +14,7 @@ use bevy_ecs::{prelude::*, resource::Resource, system::Commands};
 use bevy_render::{
     diagnostic::RecordDiagnostics as _,
     render_resource::{
-        binding_types::{
-            storage_buffer_sized, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
-        },
+        binding_types::{storage_buffer_sized, texture_2d, texture_storage_2d, uniform_buffer},
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, LoadOp,
         PipelineCache, RenderPassDescriptor, ShaderStages, StorageTextureAccess, TextureFormat,
@@ -413,10 +411,10 @@ pub fn init_solari_lighting_pipelines(
                 storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
                 texture_2d(TextureSampleType::Uint),
-                texture_depth_2d(),
+                texture_2d(TextureSampleType::Float { filterable: false }),
                 texture_2d(TextureSampleType::Float { filterable: true }),
                 texture_2d(TextureSampleType::Uint),
-                texture_depth_2d(),
+                texture_2d(TextureSampleType::Float { filterable: false }),
                 uniform_buffer::<ViewUniform>(true),
                 uniform_buffer::<PreviousViewData>(true),
                 storage_buffer_sized(false, None),

@@ -29,14 +29,18 @@ pub mod node;
 
 use core::ops::Range;
 
+use crate::blit::{BlitPipeline, BlitPipelineKey};
 use crate::deferred::{DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT};
+use crate::resolve::{ResolvePipeline, ResolvePipelineKey};
 use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::mesh::allocator::SlabId;
 use bevy_render::render_phase::PhaseItemBatchSetKey;
+use bevy_render::render_resource::{PipelineCache, SpecializedRenderPipelines};
 use bevy_render::sync_world::MainEntity;
+use bevy_render::view::Msaa;
 use bevy_render::{
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
@@ -49,6 +53,7 @@ use bevy_render::{
     texture::ColorAttachment,
 };
 
+pub const DEPTH_PREPASS_FORMAT: TextureFormat = TextureFormat::R32Float;
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 
@@ -407,4 +412,43 @@ pub fn prepass_target_descriptors(
             write_mask: ColorWrites::ALL,
         }),
     ]
+}
+
+#[derive(Component)]
+pub struct DepthPrepassResolvePipeline(pub CachedRenderPipelineId);
+
+pub fn prepare_depth_prepass_resolve_pipeline(
+    mut commands: Commands,
+    pipeline_cache: ResMut<PipelineCache>,
+    mut blit_pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
+    mut resolve_pipelines: ResMut<SpecializedRenderPipelines<ResolvePipeline>>,
+    blit_pipeline: Res<BlitPipeline>,
+    resolve_pipeline: Res<ResolvePipeline>,
+    view_targets: Query<(Entity, &Msaa), With<DepthPrepass>>,
+) {
+    for (entity, msaa) in view_targets.iter() {
+        let pipeline = if msaa.samples() > 1 {
+            resolve_pipelines.specialize(
+                &pipeline_cache,
+                &resolve_pipeline,
+                ResolvePipelineKey {
+                    texture_format: DEPTH_PREPASS_FORMAT,
+                    samples: msaa.samples(),
+                },
+            )
+        } else {
+            blit_pipelines.specialize(
+                &pipeline_cache,
+                &blit_pipeline,
+                BlitPipelineKey {
+                    texture_format: DEPTH_PREPASS_FORMAT,
+                    blend_state: None,
+                    samples: 1,
+                },
+            )
+        };
+        commands
+            .entity(entity)
+            .insert(DepthPrepassResolvePipeline(pipeline));
+    }
 }
