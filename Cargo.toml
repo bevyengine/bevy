@@ -3957,6 +3957,7 @@ name = "generic_font_families"
 path = "examples/ui/text/generic_font_families.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
+required-features = ["system_font_discovery"]
 
 [package.metadata.example.generic_font_families]
 name = "Generic Font Families"
@@ -4607,6 +4608,20 @@ name = "Text Gizmos Font"
 description = "Example displaying the font used by text gizmos"
 category = "Gizmos"
 wasm = true
+
+[[example]]
+name = "debug_frustum_culling"
+path = "examples/usage/debug_frustum_culling.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+required-features = ["free_camera"]
+
+[package.metadata.example.debug_frustum_culling]
+name = "Debug Frustum Culling"
+description = "Example demonstrating how to debug frustum culling"
+category = "Usage"
+wasm = true
+
 
 [[example]]
 name = "custom_gltf_vertex_attribute"
@@ -5432,6 +5447,7 @@ wasm = true
 name = "system_fonts"
 path = "examples/ui/text/system_fonts.rs"
 doc-scrape-examples = true
+required-features = ["system_font_discovery"]
 
 [package.metadata.example.system_fonts]
 name = "System Fonts"

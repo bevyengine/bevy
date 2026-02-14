@@ -306,7 +306,7 @@ impl Plugin for MaterialsPlugin {
                     Render,
                     (
                         specialize_material_meshes
-                            .in_set(RenderSystems::PrepareMeshes)
+                            .in_set(RenderSystems::Specialize)
                             .after(prepare_assets::<RenderMesh>)
                             .after(collect_meshes_for_gpu_building)
                             .after(set_mesh_motion_vector_flags),
@@ -327,9 +327,9 @@ impl Plugin for MaterialsPlugin {
                     (
                         check_views_lights_need_specialization.in_set(RenderSystems::PrepareAssets),
                         // specialize_shadows also needs to run after prepare_assets::<PreparedMaterial>,
-                        // which is fine since ManageViews is after PrepareAssets
+                        // which is fine since PrepareViews is after PrepareAssets
                         specialize_shadows
-                            .in_set(RenderSystems::ManageViews)
+                            .in_set(RenderSystems::Specialize)
                             .after(prepare_lights),
                         queue_shadows.in_set(RenderSystems::QueueMeshes),
                     ),
