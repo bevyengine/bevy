@@ -160,7 +160,7 @@ impl Plugin for ClusteredDecalPlugin {
             .add_systems(
                 Render,
                 prepare_decals
-                    .in_set(RenderSystems::ManageViews)
+                    .in_set(RenderSystems::PrepareViews)
                     .after(prepare_lights),
             )
             .add_systems(
