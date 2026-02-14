@@ -1,8 +1,10 @@
+use core::any::TypeId;
+
 use alloc::sync::Arc;
 
 use bevy_ecs::resource::Resource;
 use bevy_platform::{
-    collections::HashMap,
+    collections::{hash_map::Entry, HashMap, HashSet},
     sync::{PoisonError, RwLock, RwLockReadGuard},
 };
 use bevy_utils::TypeIdMap;
@@ -15,21 +17,43 @@ use crate::{
 
 /// Maps asset UUIDs to the asset handle assigned to it.
 #[derive(Resource, Clone, Default)]
-pub struct AssetUuidMap(Arc<RwLock<TypeIdMap<HashMap<Uuid, UntypedEntityHandle>>>>);
+pub struct AssetUuidMap(Arc<RwLock<TypeIdMap<AssetUuidMapInner>>>);
+
+#[derive(Default)]
+pub(crate) struct AssetUuidMapInner {
+    pub(crate) uuid_to_handle: HashMap<Uuid, UntypedEntityHandle>,
+    entity_to_uuids: HashMap<AssetEntity, HashSet<Uuid>>,
+}
 
 impl AssetUuidMap {
     /// Sets the handle that a UUID refers to.
     pub fn set_uuid(&mut self, uuid: Uuid, handle: UntypedEntityHandle) {
-        self.0
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .entry(handle.0.type_id)
+        let mut type_id_map = self.0.write().unwrap_or_else(PoisonError::into_inner);
+        let inner = type_id_map.entry(handle.0.type_id).or_default();
+        let new_entity = handle.entity();
+        match inner.uuid_to_handle.entry(uuid) {
+            Entry::Vacant(entry) => {
+                entry.insert(handle);
+            }
+            Entry::Occupied(mut entry) => {
+                let old_entity = entry.get().entity();
+                inner
+                    .entity_to_uuids
+                    .get_mut(&old_entity)
+                    .unwrap()
+                    .remove(&uuid);
+                entry.insert(handle);
+            }
+        }
+        inner
+            .entity_to_uuids
+            .entry(new_entity)
             .or_default()
-            .insert(uuid, handle);
+            .insert(uuid);
     }
 
     /// Convenience function for accessing the internal uuid map.
-    fn read(&self) -> RwLockReadGuard<'_, TypeIdMap<HashMap<Uuid, UntypedEntityHandle>>> {
+    pub(crate) fn read(&self) -> RwLockReadGuard<'_, TypeIdMap<AssetUuidMapInner>> {
         self.0.read().unwrap_or_else(PoisonError::into_inner)
     }
 
@@ -46,7 +70,7 @@ impl AssetUuidMap {
             UntypedHandle::Uuid { type_id, uuid } => self
                 .read()
                 .get(&type_id)
-                .and_then(|map| map.get(&uuid))
+                .and_then(|inner| inner.uuid_to_handle.get(&uuid))
                 .cloned()
                 .ok_or(ResolveUuidError(uuid)),
         }
@@ -79,10 +103,25 @@ impl AssetUuidMap {
             UntypedAssetId::Uuid { type_id, uuid } => self
                 .read()
                 .get(&type_id)
-                .and_then(|map| map.get(&uuid))
+                .and_then(|inner| inner.uuid_to_handle.get(&uuid))
                 .map(|value| value.0.entity)
                 .ok_or(ResolveUuidError(uuid)),
         }
+    }
+
+    /// Returns a reverse mapping from an entity to all UUIDs that reference it.
+    pub(crate) fn entity_to_uuids(
+        &self,
+        entity: AssetEntity,
+        type_id: TypeId,
+    ) -> Option<HashSet<Uuid>> {
+        Some(
+            self.read()
+                .get(&type_id)?
+                .entity_to_uuids
+                .get(&entity)?
+                .clone(),
+        )
     }
 }
 

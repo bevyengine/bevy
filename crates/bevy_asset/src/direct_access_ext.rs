@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{
     insert_asset, meta::Settings, setup_asset, Asset, AssetData, AssetEntity,
-    AssetEntityDoesNotExistError, AssetHandleProvider, AssetId, AssetMut, AssetPath,
+    AssetEntityDoesNotExistError, AssetEvent, AssetHandleProvider, AssetId, AssetMut, AssetPath,
     AssetSelfHandle, AssetServer, AssetUuidMap, EntityHandle, Handle, ResolveUuidError,
     UntypedEntityHandle, UntypedHandle,
 };
@@ -89,6 +89,13 @@ impl DirectAssetAccessExt for World {
         let entity_handle = UntypedEntityHandle::from(EntityHandle::try_from(handle).unwrap());
         self.resource_mut::<AssetUuidMap>()
             .set_uuid(uuid, entity_handle);
+        // Send an asset event that this UUID has been added.
+        // TODO: This isn't quite sufficient, since users can call set_uuid themselves. We should be
+        // sending a message in that case as well. This also doesn't work correctly if the UUID
+        // was already set.
+        self.write_message(AssetEvent::<A>::Added {
+            id: AssetId::Uuid { uuid },
+        });
         Handle::Uuid(uuid, PhantomData)
     }
 
@@ -366,6 +373,13 @@ impl InternalAssetCommands<'_, '_, '_> {
             world
                 .resource_mut::<AssetUuidMap>()
                 .set_uuid(uuid, entity_handle);
+            // Send an asset event that this UUID has been added.
+            // TODO: This isn't quite sufficient, since users can call set_uuid themselves. We should be
+            // sending a message in that case as well. This also doesn't work correctly if the UUID
+            // was already set.
+            world.write_message(AssetEvent::<A>::Added {
+                id: AssetId::Uuid { uuid },
+            });
         });
         Handle::Uuid(uuid, PhantomData)
     }

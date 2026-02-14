@@ -15,7 +15,7 @@ use bevy_ecs::{
     world::{DeferredWorld, Mut, Ref, World},
 };
 use bevy_reflect::TypePath;
-use core::{marker::PhantomData, ops::Deref};
+use core::{any::TypeId, marker::PhantomData, ops::Deref};
 use derive_more::{Deref, DerefMut};
 use thiserror::Error;
 
@@ -256,6 +256,14 @@ fn write_added_asset_event<A: Asset>(
     if let Some(mut changes) = world.get_resource_mut::<AssetChanges<A>>() {
         changes.insert(entity, tick);
     }
+    if let Some(uuid_map) = world.get_resource::<AssetUuidMap>()
+        && let Some(uuids) = uuid_map.entity_to_uuids(entity, TypeId::of::<A>())
+    {
+        for uuid in uuids {
+            let id = AssetId::<A>::Uuid { uuid };
+            world.write_message(AssetEvent::<A>::Added { id });
+        }
+    }
 }
 
 /// Writes [`AssetEvent::Removed`] for this asset.
@@ -273,6 +281,14 @@ fn write_removed_asset_event<A: Asset>(
     if let Some(mut changes) = world.get_resource_mut::<AssetChanges<A>>() {
         changes.remove(&entity);
     }
+    if let Some(uuid_map) = world.get_resource::<AssetUuidMap>()
+        && let Some(uuids) = uuid_map.entity_to_uuids(entity, TypeId::of::<A>())
+    {
+        for uuid in uuids {
+            let id = AssetId::<A>::Uuid { uuid };
+            world.write_message(AssetEvent::<A>::Removed { id });
+        }
+    }
 }
 
 /// Writes [`AssetEvent::Modified`] messages for any assets that have changed.
@@ -282,6 +298,7 @@ pub(crate) fn write_modified_asset_events<A: Asset>(
     ticks: SystemChangeTick,
     mut messages: MessageWriter<AssetEvent<A>>,
     mut changes: Option<ResMut<AssetChanges<A>>>,
+    asset_uuid_map: Option<Res<AssetUuidMap>>,
 ) {
     for (entity, data_ref) in assets.iter() {
         let entity = AssetEntity::new_unchecked(entity);
@@ -300,6 +317,27 @@ pub(crate) fn write_modified_asset_events<A: Asset>(
                 marker: PhantomData,
             },
         });
+    }
+
+    let Some(uuid_map) = asset_uuid_map else {
+        return;
+    };
+
+    for (_, inner) in uuid_map.read().iter() {
+        for (&uuid, handle) in inner.uuid_to_handle.iter() {
+            let Ok((_, data_ref)) = assets.get(handle.entity().raw_entity()) else {
+                continue;
+            };
+
+            if data_ref.last_changed() == data_ref.added() {
+                // The change corresponds to new asset data, which would have been handled by
+                // `AssetData`s hooks.
+                continue;
+            }
+            messages.write(AssetEvent::Modified {
+                id: AssetId::Uuid { uuid },
+            });
+        }
     }
 }
 
