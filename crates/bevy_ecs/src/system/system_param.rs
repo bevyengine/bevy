@@ -33,7 +33,6 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
-use fixedbitset::FixedBitSet;
 use thiserror::Error;
 
 use super::Populated;
@@ -772,19 +771,11 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
-        let combined_access = component_access_set.combined_access();
-        assert!(
-            !combined_access.has_resource_write(component_id),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<T>(),
-            system_meta.name,
-        );
-
         let mut filter = FilteredAccess::default();
-        filter.add_component_read(component_id);
-        filter.add_resource_read(component_id);
+        filter.add_read(component_id);
         filter.and_with(IS_RESOURCE);
 
+        // TODO: output better conflict information
         assert!(component_access_set
             .get_conflicts_single(&filter)
             .is_empty(),
@@ -860,22 +851,11 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
-        let combined_access = component_access_set.combined_access();
-        if combined_access.has_resource_write(component_id) {
-            panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                DebugName::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_resource_read(component_id) {
-            panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                DebugName::type_name::<T>(), system_meta.name);
-        }
-
         let mut filter = FilteredAccess::default();
-        filter.add_component_write(component_id);
-        filter.add_resource_write(component_id);
+        filter.add_write(component_id);
         filter.and_with(IS_RESOURCE);
 
+        // TODO: output better conflict information
         assert!(component_access_set
             .get_conflicts_single(&filter)
             .is_empty(),
@@ -1492,12 +1472,12 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 
         let combined_access = component_access_set.combined_access();
         assert!(
-            !combined_access.has_resource_write(component_id),
+            !combined_access.has_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             DebugName::type_name::<T>(),
             system_meta.name,
         );
-        component_access_set.add_unfiltered_resource_read(component_id);
+        component_access_set.add_unfiltered_component_read(component_id);
     }
 
     #[inline]
@@ -1562,16 +1542,16 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_meta.set_non_send();
 
         let combined_access = component_access_set.combined_access();
-        if combined_access.has_resource_write(component_id) {
+        if combined_access.has_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_resource_read(component_id) {
+        } else if combined_access.has_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
         }
-        component_access_set.add_unfiltered_resource_write(component_id);
+        component_access_set.add_unfiltered_component_write(component_id);
     }
 
     #[inline]
@@ -2794,19 +2774,10 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
-        match access.try_iter_component_access() {
-            Err(_) => {
-                // access reads all resources
-                for component_id in world.resource_entities().indices() {
-                    component_access_set.add_unfiltered_resource_read(*component_id);
-                }
-            }
-            Ok(iter) => {
-                for access_kind in iter {
-                    component_access_set.add_unfiltered_resource_read(*access_kind.index());
-                }
-            }
-        };
+        let mut filter = FilteredAccess::matches_everything();
+        filter.access_mut().extend(access);
+        filter.and_with(IS_RESOURCE);
+        component_access_set.add(filter);
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -2849,18 +2820,10 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
-        match access.try_iter_component_access() {
-            Err(_) => {
-                for component_id in world.resource_entities().indices() {
-                    component_access_set.add_unfiltered_resource_write(*component_id);
-                }
-            }
-            Ok(iter) => {
-                for access_kind in iter {
-                    component_access_set.add_unfiltered_resource_write(*access_kind.index());
-                }
-            }
-        };
+        let mut filter = FilteredAccess::matches_everything();
+        filter.access_mut().extend(access);
+        filter.and_with(IS_RESOURCE);
+        component_access_set.add(filter);
     }
 
     unsafe fn get_param<'world, 'state>(

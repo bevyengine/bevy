@@ -121,6 +121,7 @@ mod tests {
             ArchetypeFilter, ArchetypeQueryData, FilteredAccess, Has, QueryCombinationIter,
             QueryData, QueryFilter, ReadOnlyQueryData, WorldQuery,
         },
+        resource::IS_RESOURCE,
         schedule::{IntoScheduleConfigs, Schedule},
         storage::{Table, TableRow},
         system::{assert_is_system, IntoSystem, Query, System, SystemState},
@@ -861,10 +862,11 @@ mod tests {
 
         fn update_component_access(&component_id: &Self::State, access: &mut FilteredAccess) {
             assert!(
-                !access.access().has_resource_write(component_id),
+                !access.access().has_write(component_id),
                 "ReadsRData conflicts with a previous access in this query. Shared access cannot coincide with exclusive access."
             );
-            access.add_resource_read(component_id);
+            access.add_read(component_id);
+            access.and_with(IS_RESOURCE);
         }
 
         fn init_state(world: &mut World) -> Self::State {

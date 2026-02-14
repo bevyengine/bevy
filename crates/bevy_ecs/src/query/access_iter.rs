@@ -73,7 +73,7 @@ fn has_conflicts_large<'a, Q: QueryData>(
             EcsAccessType::Component(EcsAccessLevel::ReadAll)
             | EcsAccessType::Component(EcsAccessLevel::WriteAll) => true,
             EcsAccessType::Access(access) => {
-                if let Ok(component_iter) = access.try_iter_component_access() {
+                if let Ok(component_iter) = access.try_iter_access() {
                     let mut needs_check = false;
                     for kind in component_iter {
                         let index = match kind {
@@ -153,28 +153,28 @@ impl<'a> EcsAccessType<'a> {
 
             // Borrowed Access
             (Component(Read(component_id)), Access(access))
-            | (Access(access), Component(Read(component_id))) => if access.has_component_write(component_id) {
+            | (Access(access), Component(Read(component_id))) => if access.has_write(component_id) {
                 Err(AccessConflictError(*self, other))
             } else {
                 Ok(())
             },
 
             (Component(Write(component_id)), Access(access))
-            | (Access(access), Component(Write(component_id))) => if access.has_component_read(component_id) {
+            | (Access(access), Component(Write(component_id))) => if access.has_read(component_id) {
                 Err(AccessConflictError(*self, other))
             } else {
                 Ok(())
             },
 
             (Component(ReadAll), Access(access))
-            | (Access(access), Component(ReadAll)) => if access.has_any_component_write() {
+            | (Access(access), Component(ReadAll)) => if access.has_any_write() {
                 Err(AccessConflictError(*self, other))
             } else {
                 Ok(())
             },
 
             (Component(WriteAll), Access(access))
-            | (Access(access), Component(WriteAll))=> if access.has_any_component_read() {
+            | (Access(access), Component(WriteAll))=> if access.has_any_read() {
                 Err(AccessConflictError(*self, other))
             } else {
                 Ok(())
