@@ -128,7 +128,8 @@ impl Plugin for Core3dPlugin {
                     sort_phase_system::<Transparent3d>.in_set(RenderSystems::PhaseSort),
                     configure_occlusion_culling_view_targets
                         .after(prepare_view_targets)
-                        .in_set(RenderSystems::PrepareViews),
+                        .in_set(RenderSystems::PrepareViews)
+                        .ambiguous_with(RenderSystems::PrepareViews),
                     prepare_core_3d_depth_textures.in_set(RenderSystems::PrepareResources),
                     prepare_prepass_textures.in_set(RenderSystems::PrepareResources),
                 ),
