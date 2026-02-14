@@ -162,7 +162,7 @@ impl Plugin for AtmospherePlugin {
             .add_systems(
                 Render,
                 (
-                    configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
+                    configure_camera_depth_usages.in_set(RenderSystems::PrepareViews),
                     queue_render_sky_pipelines.in_set(RenderSystems::Queue),
                     prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
                     prepare_probe_textures
