@@ -354,10 +354,13 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// See [`ComponentHooks`] for a detailed explanation of component's hooks.
 ///
 /// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
+/// - `#[component(before_add = before_add_function)]`
 /// - `#[component(on_add = on_add_function)]`
 /// - `#[component(on_insert = on_insert_function)]`
 /// - `#[component(on_discard = on_discard_function)]`
 /// - `#[component(on_remove = on_remove_function)]`
+/// - `#[component(on_despawn = on_despawn_function)]`
+/// - `#[component(after_remove = after_remove_function)]`
 ///
 /// ```
 /// # use bevy_ecs::component::Component;
