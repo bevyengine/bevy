@@ -10,5 +10,9 @@ pub const DISCARD: usize = 2;
 pub const REMOVE: usize = 3;
 /// `usize` for [`Despawn`](crate::lifecycle::Despawn) component used in lifecycle observers.
 pub const DESPAWN: usize = 4;
+/// `usize` for the [`BeforeAdd`](crate::lifecycle::BeforeAdd) component used in lifecycle observers.
+pub const BEFORE_ADD: usize = 5;
+/// `usize` for the [`AfterRemove`](crate::lifecycle::AfterRemove) component used in lifecycle observers.
+pub const AFTER_REMOVE: usize = 6;
 /// `usize` of the [`IsResource`](crate::resource::IsResource) component used to mark entities with resources.
-pub const IS_RESOURCE: usize = 5;
+pub const IS_RESOURCE: usize = 7;

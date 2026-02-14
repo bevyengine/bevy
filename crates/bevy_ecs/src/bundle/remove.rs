@@ -9,7 +9,7 @@ use crate::{
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     event::EntityComponentsTrigger,
-    lifecycle::{Discard, Remove, DISCARD, REMOVE},
+    lifecycle::{AfterRemove, Discard, Remove, AFTER_REMOVE, DISCARD, REMOVE},
     observer::Observers,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table},
@@ -301,6 +301,42 @@ impl<'w> BundleRemover<'w> {
             world
                 .entities
                 .update_existing_location(entity.index(), Some(new_location));
+        }
+
+        // Trigger AfterRemove for removed components.
+        // The entity is now in the new archetype; component data has been dropped.
+        // SAFETY: all bundle components exist in World
+        unsafe {
+            let old_archetype = self.old_archetype.as_ref();
+            if old_archetype.has_after_remove_hook() || old_archetype.has_after_remove_observer() {
+                let mut deferred_world = self.world.into_deferred();
+                let bundle_components_in_archetype = || {
+                    self.bundle_info
+                        .as_ref()
+                        .iter_explicit_components()
+                        .filter(|component_id| old_archetype.contains(*component_id))
+                };
+                deferred_world.trigger_after_remove(
+                    old_archetype,
+                    entity,
+                    bundle_components_in_archetype(),
+                    caller,
+                );
+                if old_archetype.has_after_remove_observer() {
+                    let removed_components = bundle_components_in_archetype().collect::<Vec<_>>();
+                    let new_archetype = self.new_archetype.as_ref();
+                    deferred_world.trigger_raw(
+                        AFTER_REMOVE,
+                        &mut AfterRemove { entity },
+                        &mut EntityComponentsTrigger {
+                            components: &removed_components,
+                            old_archetype: Some(old_archetype),
+                            new_archetype: Some(new_archetype),
+                        },
+                        caller,
+                    );
+                }
+            }
         }
 
         (new_location, pre_remove_result)

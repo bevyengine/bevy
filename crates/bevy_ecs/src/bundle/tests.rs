@@ -6,23 +6,31 @@ use crate::{
 struct A;
 
 #[derive(Component)]
-#[component(on_add = a_on_add, on_insert = a_on_insert, on_discard = a_on_discard, on_remove = a_on_remove)]
+#[component(before_add = a_before_add, on_add = a_on_add, on_insert = a_on_insert, on_discard = a_on_discard, on_remove = a_on_remove, after_remove = a_after_remove)]
 struct AMacroHooks;
 
-fn a_on_add(mut world: DeferredWorld, _: HookContext) {
+fn a_before_add(mut world: DeferredWorld, _: HookContext) {
     world.resource_mut::<R>().assert_order(0);
 }
 
-fn a_on_insert(mut world: DeferredWorld, _: HookContext) {
+fn a_on_add(mut world: DeferredWorld, _: HookContext) {
     world.resource_mut::<R>().assert_order(1);
 }
 
-fn a_on_discard(mut world: DeferredWorld, _: HookContext) {
+fn a_on_insert(mut world: DeferredWorld, _: HookContext) {
     world.resource_mut::<R>().assert_order(2);
 }
 
-fn a_on_remove(mut world: DeferredWorld, _: HookContext) {
+fn a_on_discard(mut world: DeferredWorld, _: HookContext) {
     world.resource_mut::<R>().assert_order(3);
+}
+
+fn a_on_remove(mut world: DeferredWorld, _: HookContext) {
+    world.resource_mut::<R>().assert_order(4);
+}
+
+fn a_after_remove(mut world: DeferredWorld, _: HookContext) {
+    world.resource_mut::<R>().assert_order(5);
 }
 
 #[derive(Component)]
@@ -74,14 +82,16 @@ fn component_hook_order_spawn_despawn() {
     world.init_resource::<R>();
     world
         .register_component_hooks::<A>()
-        .on_add(|mut world, _| world.resource_mut::<R>().assert_order(0))
-        .on_insert(|mut world, _| world.resource_mut::<R>().assert_order(1))
-        .on_discard(|mut world, _| world.resource_mut::<R>().assert_order(2))
-        .on_remove(|mut world, _| world.resource_mut::<R>().assert_order(3));
+        .before_add(|mut world, _| world.resource_mut::<R>().assert_order(0))
+        .on_add(|mut world, _| world.resource_mut::<R>().assert_order(1))
+        .on_insert(|mut world, _| world.resource_mut::<R>().assert_order(2))
+        .on_discard(|mut world, _| world.resource_mut::<R>().assert_order(3))
+        .on_remove(|mut world, _| world.resource_mut::<R>().assert_order(4))
+        .after_remove(|mut world, _| world.resource_mut::<R>().assert_order(5));
 
     let entity = world.spawn(A).id();
     world.despawn(entity);
-    assert_eq!(4, world.resource::<R>().0);
+    assert_eq!(6, world.resource::<R>().0);
 }
 
 #[test]
@@ -92,7 +102,7 @@ fn component_hook_order_spawn_despawn_with_macro_hooks() {
     let entity = world.spawn(AMacroHooks).id();
     world.despawn(entity);
 
-    assert_eq!(4, world.resource::<R>().0);
+    assert_eq!(6, world.resource::<R>().0);
 }
 
 #[test]
@@ -101,16 +111,18 @@ fn component_hook_order_insert_remove() {
     world.init_resource::<R>();
     world
         .register_component_hooks::<A>()
-        .on_add(|mut world, _| world.resource_mut::<R>().assert_order(0))
-        .on_insert(|mut world, _| world.resource_mut::<R>().assert_order(1))
-        .on_discard(|mut world, _| world.resource_mut::<R>().assert_order(2))
-        .on_remove(|mut world, _| world.resource_mut::<R>().assert_order(3));
+        .before_add(|mut world, _| world.resource_mut::<R>().assert_order(0))
+        .on_add(|mut world, _| world.resource_mut::<R>().assert_order(1))
+        .on_insert(|mut world, _| world.resource_mut::<R>().assert_order(2))
+        .on_discard(|mut world, _| world.resource_mut::<R>().assert_order(3))
+        .on_remove(|mut world, _| world.resource_mut::<R>().assert_order(4))
+        .after_remove(|mut world, _| world.resource_mut::<R>().assert_order(5));
 
     let mut entity = world.spawn_empty();
     entity.insert(A);
     entity.remove::<A>();
     entity.flush();
-    assert_eq!(4, world.resource::<R>().0);
+    assert_eq!(6, world.resource::<R>().0);
 }
 
 #[test]
@@ -262,4 +274,105 @@ struct Ignore {
     foo: i32,
     #[bundle(ignore)]
     bar: i32,
+}
+
+#[test]
+fn before_add_hook_does_not_fire_on_replace() {
+    #[derive(Resource, Default)]
+    struct BeforeAddCount(usize);
+
+    let mut world = World::new();
+    world.init_resource::<BeforeAddCount>();
+    world
+        .register_component_hooks::<A>()
+        .before_add(|mut world, _| {
+            world.resource_mut::<BeforeAddCount>().0 += 1;
+        });
+
+    let entity = world.spawn(A).id();
+    assert_eq!(1, world.resource::<BeforeAddCount>().0);
+
+    let mut entity = world.entity_mut(entity);
+    entity.insert(A);
+    entity.flush();
+    assert_eq!(1, world.resource::<BeforeAddCount>().0);
+}
+
+#[test]
+fn after_remove_component_data_not_accessible() {
+    let mut world = World::new();
+    world
+        .register_component_hooks::<V>()
+        .after_remove(|world, ctx| {
+            assert!(world.entity(ctx.entity).get::<V>().is_none());
+        });
+
+    let mut entity = world.spawn_empty();
+    entity.insert(V("test"));
+    entity.remove::<V>();
+    entity.flush();
+}
+
+#[test]
+fn before_add_component_not_accessible_during_spawn() {
+    let mut world = World::new();
+    world
+        .register_component_hooks::<V>()
+        .before_add(|world, ctx| {
+            assert!(world.get_entity(ctx.entity).is_err());
+        });
+
+    world.spawn(V("test"));
+}
+
+#[test]
+fn before_add_component_not_accessible_during_insert() {
+    let mut world = World::new();
+    world
+        .register_component_hooks::<V>()
+        .before_add(|world, ctx| {
+            assert!(world.entity(ctx.entity).get::<V>().is_none());
+        });
+
+    let mut entity = world.spawn_empty();
+    entity.insert(V("test"));
+    entity.flush();
+}
+
+#[test]
+fn before_add_observer_order() {
+    let mut world = World::new();
+    world.init_resource::<R>();
+    world.add_observer(|_: On<BeforeAdd, A>, mut r: ResMut<R>| r.assert_order(0));
+    world.add_observer(|_: On<Add, A>, mut r: ResMut<R>| r.assert_order(1));
+
+    world.spawn(A);
+    assert_eq!(2, world.resource::<R>().0);
+}
+
+#[test]
+fn after_remove_observer_order() {
+    let mut world = World::new();
+    world.init_resource::<R>();
+    world.add_observer(|_: On<Remove, A>, mut r: ResMut<R>| r.assert_order(0));
+    world.add_observer(|_: On<AfterRemove, A>, mut r: ResMut<R>| r.assert_order(1));
+
+    let mut entity = world.spawn_empty();
+    entity.insert(A);
+    entity.remove::<A>();
+    entity.flush();
+    assert_eq!(2, world.resource::<R>().0);
+}
+
+#[test]
+fn before_add_observer_fires_before_hook() {
+    let mut world = World::new();
+    world.init_resource::<R>();
+    world.add_observer(|_: On<BeforeAdd, A>, mut r: ResMut<R>| r.assert_order(0));
+    world
+        .register_component_hooks::<A>()
+        .before_add(|mut world, _| world.resource_mut::<R>().assert_order(1));
+
+    world.spawn(A);
+    assert_eq!(2, world.resource::<R>().0);
 }
