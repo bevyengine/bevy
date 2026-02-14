@@ -74,6 +74,7 @@ impl Plugin for Mesh2dRenderPlugin {
             render_app
                 .init_resource::<ViewKeyCache>()
                 .init_resource::<RenderMesh2dInstances>()
+                .allow_ambiguous_resource::<RenderMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .init_resource::<ViewSpecializationTicks>()
                 .add_systems(
@@ -84,6 +85,7 @@ impl Plugin for Mesh2dRenderPlugin {
                         load_mesh2d_bindings,
                     ),
                 )
+                .allow_ambiguous_resource::<BatchedInstanceBuffer<Mesh2dUniform>>()
                 .add_systems(ExtractSchedule, extract_mesh2d)
                 .add_systems(
                     Render,
