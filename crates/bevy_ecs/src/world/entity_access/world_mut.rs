@@ -1748,8 +1748,7 @@ impl<'w> EntityWorldMut<'w> {
             // lists) is unchanged by entity-level swap_remove operations.
             // SAFETY: Archetype cannot be mutably aliased by DeferredWorld.
             let (archetype, mut deferred_world) = unsafe {
-                let archetype: *const Archetype =
-                    &self.world.archetypes[location.archetype_id];
+                let archetype: *const Archetype = &self.world.archetypes[location.archetype_id];
                 let world = self.world.as_unsafe_world_cell();
                 (&*archetype, world.into_deferred())
             };
