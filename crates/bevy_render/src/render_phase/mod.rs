@@ -1153,7 +1153,7 @@ where
                                 >,
                             ),
                     )
-                        .in_set(RenderSystems::PrepareResources),
+                        .in_set(RenderSystems::PrepareResourcesBatchPhases),
                     sweep_old_entities::<BPI>.in_set(RenderSystems::QueueSweep),
                     gpu_preprocessing::collect_buffers_for_phase::<BPI, GFBD>
                         .run_if(
@@ -1258,7 +1258,7 @@ where
                                 >,
                             ),
                     )
-                        .in_set(RenderSystems::PrepareResources),
+                        .in_set(RenderSystems::PrepareResourcesBatchPhases),
                     gpu_preprocessing::collect_buffers_for_phase::<SPI, GFBD>
                         .run_if(
                             resource_exists::<

@@ -173,8 +173,10 @@ pub enum RenderSystems {
     Prepare,
     /// A sub-set within [`Prepare`](RenderSystems::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
-    /// Collect phase buffers after
-    /// [`PrepareResources`](RenderSystems::PrepareResources) has run.
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) that creates batches for render phases.
+    PrepareResourcesBatchPhases,
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) to collect phase buffers after
+    /// [`PrepareResourcesBatchBinnedPhases`](RenderSystems::PrepareResourcesBatchBinnedPhases) has run.
     PrepareResourcesCollectPhaseBuffers,
     /// Flush buffers after [`PrepareResources`](RenderSystems::PrepareResources), but before [`PrepareBindGroups`](RenderSystems::PrepareBindGroups).
     PrepareResourcesFlush,
@@ -242,6 +244,7 @@ impl Render {
         schedule.configure_sets(
             (
                 PrepareResources,
+                PrepareResourcesBatchPhases,
                 PrepareResourcesCollectPhaseBuffers,
                 PrepareResourcesFlush,
                 PrepareBindGroups,
