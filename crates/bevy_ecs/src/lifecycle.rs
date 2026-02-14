@@ -29,7 +29,8 @@
 //! - [`Despawn`]: Triggered for each component on an entity when it is despawned.
 //! - [`AfterRemove`]: Triggered after a component has been removed from an entity. Component data is **no longer** accessible.
 //!
-//! [`Discard`] hooks are evaluated before [`Remove`], then [`Despawn`], then finally [`AfterRemove`] hooks are evaluated.
+//! When a component is removed (without despawning), [`Discard`] hooks are evaluated first, then [`Remove`], then [`AfterRemove`].
+//! When an entity is despawned, [`Despawn`] hooks are evaluated first, followed by [`Discard`], then [`Remove`], then [`AfterRemove`].
 //!
 //! [`Add`] and [`Remove`] are counterparts: they are only triggered when a component is added or removed
 //! from an entity in such a way as to cause a change in the component's presence on that entity.
@@ -283,6 +284,8 @@ impl ComponentHooks {
     /// Despawning an entity counts as removing all of its components.
     ///
     /// At the time this hook runs, the component data is **no longer** accessible on the entity.
+    /// During despawn, the entity's location has also been cleared, so
+    /// [`World::get_entity`](crate::world::World::get_entity) will return `Err` for the entity.
     ///
     /// # Panics
     ///

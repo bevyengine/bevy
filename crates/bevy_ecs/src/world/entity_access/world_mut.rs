@@ -1658,6 +1658,10 @@ impl<'w> EntityWorldMut<'w> {
             );
         }
 
+        // Save flags before mutations invalidate the archetype reference.
+        let has_after_remove_hook = archetype.has_after_remove_hook();
+        let has_after_remove_observer = archetype.has_after_remove_observer();
+
         // do the despawn
         let change_tick = self.world.change_tick();
         for component_id in archetype.components() {
@@ -1738,12 +1742,14 @@ impl<'w> EntityWorldMut<'w> {
 
         // Trigger AfterRemove for all components after data has been dropped.
         // The entity's location is None at this point (set above).
-        if archetype.has_after_remove_hook() || archetype.has_after_remove_observer() {
+        if has_after_remove_hook || has_after_remove_observer {
+            // Re-borrow archetype: the original reference from line 1587 was invalidated
+            // by `&mut self.world.archetypes` above. Type-level metadata (flags, component
+            // lists) is unchanged by entity-level swap_remove operations.
             // SAFETY: Archetype cannot be mutably aliased by DeferredWorld.
-            // We only read type-level metadata (flags, component lists) which is not
-            // modified by the swap_remove/table operations above.
             let (archetype, mut deferred_world) = unsafe {
-                let archetype: *const Archetype = archetype;
+                let archetype: *const Archetype =
+                    &self.world.archetypes[location.archetype_id];
                 let world = self.world.as_unsafe_world_cell();
                 (&*archetype, world.into_deferred())
             };
