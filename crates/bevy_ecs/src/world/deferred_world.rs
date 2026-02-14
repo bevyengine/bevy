@@ -826,7 +826,7 @@ impl<'w> DeferredWorld<'w> {
 
     /// Gets the current change tick of [`DeferredWorld`].
     #[inline]
-    pub fn change_tick(self) -> Tick {
+    pub fn change_tick(&mut self) -> Tick {
         self.world.change_tick()
     }
 }
