@@ -329,7 +329,8 @@ impl Plugin for PbrPlugin {
                 ),
             )
             .init_resource::<LightMeta>()
-            .init_resource::<RenderMaterialBindings>();
+            .init_resource::<RenderMaterialBindings>()
+            .allow_ambiguous_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
         render_app
