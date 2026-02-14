@@ -85,7 +85,7 @@ use crate::{
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::PipelineCache,
-    renderer::{render_system, RenderAdapterInfo},
+    renderer::{render_system, RenderAdapterInfo, RenderGraph},
     settings::RenderCreation,
     storage::StoragePlugin,
     texture::TexturePlugin,
@@ -317,6 +317,8 @@ impl Plugin for RenderPlugin {
                     PipelineCache::extract_shaders,
                 ),
             );
+
+            render_app.add_schedule(RenderGraph::base_schedule());
 
             render_app.init_schedule(RenderStartup);
             render_app.update_schedule = Some(RenderRecovery.intern());
