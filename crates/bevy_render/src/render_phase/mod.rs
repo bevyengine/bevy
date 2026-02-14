@@ -1134,6 +1134,7 @@ where
 
         render_app
             .init_resource::<ViewBinnedRenderPhases<BPI>>()
+            .allow_ambiguous_resource::<ViewBinnedRenderPhases<BPI>>()
             .init_resource::<PhaseBatchedInstanceBuffers<BPI, GFBD::BufferData>>()
             .insert_resource(PhaseIndirectParametersBuffers::<BPI>::new(
                 self.debug_flags
@@ -1240,6 +1241,7 @@ where
 
         render_app
             .init_resource::<ViewSortedRenderPhases<SPI>>()
+            .allow_ambiguous_resource::<ViewSortedRenderPhases<SPI>>()
             .init_resource::<PhaseBatchedInstanceBuffers<SPI, GFBD::BufferData>>()
             .insert_resource(PhaseIndirectParametersBuffers::<SPI>::new(
                 self.debug_flags

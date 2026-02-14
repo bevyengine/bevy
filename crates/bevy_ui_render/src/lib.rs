@@ -206,6 +206,7 @@ impl Plugin for UiRenderPlugin {
             .allow_ambiguous_resource::<ExtractedUiNodes>()
             .init_resource::<DrawFunctions<TransparentUi>>()
             .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
+            .allow_ambiguous_resource::<ViewSortedRenderPhases<TransparentUi>>()
             .add_render_command::<TransparentUi, DrawUi>()
             .configure_sets(
                 ExtractSchedule,
