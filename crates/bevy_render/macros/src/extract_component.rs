@@ -4,7 +4,7 @@ use syn::{parse_macro_input, parse_quote, DeriveInput, Path};
 
 pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
-    let bevy_extract_path: Path = crate::bevy_extract_path();
+    let bevy_render_path: Path = crate::bevy_render_path();
     let bevy_ecs_path: Path = bevy_macro_utils::BevyManifest::shared(|manifest| {
         manifest
             .maybe_get_path("bevy_ecs")
@@ -38,12 +38,14 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
         }
     };
 
+    // #bevy_render_path::RenderApp.intern()
+
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_extract_path::sync_component::SyncComponent for #struct_name #type_generics #where_clause {
+        impl #impl_generics #bevy_render_path::sync_component::SyncComponent for #struct_name #type_generics #where_clause {
             type Out = Self;
         }
 
-        impl #impl_generics #bevy_extract_path::extract_component::ExtractBaseComponent for #struct_name #type_generics #where_clause {
+        impl #impl_generics #bevy_render_path::extract_component::ExtractComponent for #struct_name #type_generics #where_clause {
             type QueryData = &'static Self;
 
             type QueryFilter = #filter;

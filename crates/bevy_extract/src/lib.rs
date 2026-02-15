@@ -25,7 +25,6 @@ pub mod extract_resource;
 pub mod sync_component;
 pub mod sync_world;
 
-use bevy_app::AppLabel;
 pub use extract_param::Extract;
 pub use extract_plugin::*;
 pub use extract_plugin::{ExtractSchedule, MainWorld};
@@ -42,5 +41,3 @@ pub mod prelude {
     pub use crate::{ExtractPlugin, ExtractSchedule};
 }
 
-use bevy_ecs::prelude::*;
-use bevy_ecs::schedule::ScheduleLabel;

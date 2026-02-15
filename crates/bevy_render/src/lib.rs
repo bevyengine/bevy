@@ -76,7 +76,7 @@ pub mod sync_world {
     pub use bevy_extract::sync_world::{RenderEntity, MainEntity, MainEntityHashMap, SyncToRenderWorld};
 }
 pub mod extract_resource {
-    pub use bevy_extract::extract_resource::{ExtractResource, ExtractResourcePlugin};
+    pub use bevy_extract::extract_resource::{ExtractBaseResource, ExtractResourcePlugin};
 }
 pub use bevy_extract::{Extract, ExtractSchedule, MainWorld};
 

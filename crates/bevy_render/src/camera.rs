@@ -1,7 +1,7 @@
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     extract_component::{ExtractComponentPlugin},
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    extract_resource::ExtractResourcePlugin,
     render_asset::RenderAssets,
     render_resource::TextureView,
     sync_component::SyncComponent,
@@ -39,7 +39,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
-use bevy_extract::extract_component::ExtractComponent;
+use bevy_extract::extract_component::ExtractBaseComponent;
 use bevy_image::Image;
 use bevy_log::warn;
 use bevy_log::warn_once;
@@ -91,7 +91,7 @@ fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .
     }
 }
 
-impl ExtractResource<CameraPlugin> for ClearColor {
+impl ExtractBaseComponent<CameraPlugin> for ClearColor {
     type Source = Self;
 
     fn extract_resource(source: &Self::Source) -> Self {
@@ -103,7 +103,7 @@ impl SyncComponent<CameraPlugin> for CameraMainTextureUsages {
     type Out = Self;
 }
 
-impl ExtractComponent<CameraPlugin> for CameraMainTextureUsages {
+impl ExtractBaseComponent<CameraPlugin> for CameraMainTextureUsages {
     type QueryData = &'static Self;
     type QueryFilter = ();
 
@@ -116,7 +116,7 @@ impl SyncComponent<CameraPlugin> for Camera2d {
     type Out = Self;
 }
 
-impl ExtractComponent<CameraPlugin> for Camera2d {
+impl ExtractBaseComponent<CameraPlugin> for Camera2d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 
@@ -129,7 +129,7 @@ impl SyncComponent<CameraPlugin> for Camera3d {
     type Out = Self;
 }
 
-impl ExtractComponent<CameraPlugin> for Camera3d {
+impl ExtractBaseComponent<CameraPlugin> for Camera3d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 

@@ -5,7 +5,7 @@ use bevy_app::{App, InternedAppLabel, Plugin, SubApp};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
-    schedule::{InternedScheduleLabel, InternedSystemSet, IntoScheduleConfigs, Schedule, ScheduleBuildSettings, ScheduleLabel, Schedules, SystemSet},
+    schedule::{InternedScheduleLabel, InternedSystemSet, IntoScheduleConfigs, Schedule, ScheduleBuildSettings, ScheduleLabel, Schedules},
     world::{Mut, World},
 };
 use bevy_utils::default;

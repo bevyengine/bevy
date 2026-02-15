@@ -2,6 +2,8 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod as_bind_group;
+mod extract_component;
+mod extract_resource;
 mod specializer;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
@@ -16,9 +18,6 @@ pub(crate) fn bevy_render_path() -> syn::Path {
 pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
-
-// TODO: make a ExtractComponent that specifies Render - bevy_extract_macros::ExtractComponent
-// same for ExtractResource
 
 #[proc_macro_derive(
     AsBindGroup,
@@ -67,4 +66,16 @@ pub fn derive_specialize(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SpecializerKey)]
 pub fn derive_specializer_key(input: TokenStream) -> TokenStream {
     specializer::impl_specializer_key(input)
+}
+
+
+
+#[proc_macro_derive(ExtractResource)]
+pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
+    extract_resource::derive_extract_resource(input)
+}
+
+#[proc_macro_derive(ExtractComponent, attributes(extract_component_filter))]
+pub fn derive_extract_component(input: TokenStream) -> TokenStream {
+    extract_component::derive_extract_component(input)
 }

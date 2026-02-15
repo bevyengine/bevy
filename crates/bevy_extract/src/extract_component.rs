@@ -6,13 +6,12 @@ use crate::{
 use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
-    component::Component,
     prelude::*,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
 };
-use core::{marker::PhantomData, ops::Deref};
+use core::marker::PhantomData;
 
-pub use bevy_extract_macros::ExtractComponent;
+pub use bevy_extract_macros::ExtractBaseComponent;
 
 /// Describes how a component gets extracted for rendering.
 ///
@@ -25,7 +24,7 @@ pub use bevy_extract_macros::ExtractComponent;
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub trait ExtractComponent<F = ()>: SyncComponent<F> {
+pub trait ExtractBaseComponent<L, F = ()>: SyncComponent<F> {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
@@ -37,7 +36,7 @@ pub trait ExtractComponent<F = ()>: SyncComponent<F> {
 
 /// This plugin extracts the components into the render world for synced
 /// entities. To do so, it sets up the [`ExtractSchedule`] step for the
-/// specified [`ExtractComponent`].
+/// specified [`ExtractBaseComponent`].
 ///
 /// It also registers [`SyncComponentPlugin`] to ensure the extracted components
 /// are deleted if the main world components are removed.
@@ -53,7 +52,7 @@ pub struct ExtractComponentPlugin<C, F = ()> {
     pub app_label: InternedAppLabel,
 }
 
-impl <C: ExtractComponent<F>, F> ExtractComponentPlugin<C, F> {
+impl <C: ExtractBaseComponent<F>, F> ExtractComponentPlugin<C, F> {
     pub fn new<L: AppLabel>(app: L) -> Self {
         Self {
             only_extract_visible: false,
@@ -71,7 +70,7 @@ impl <C: ExtractComponent<F>, F> ExtractComponentPlugin<C, F> {
     }
 }
 
-impl<C: ExtractComponent<F>, F: 'static + Send + Sync> Plugin for ExtractComponentPlugin<C, F> {
+impl<C: ExtractBaseComponent<F>, F: 'static + Send + Sync> Plugin for ExtractComponentPlugin<C, F> {
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncComponentPlugin::<C, F>::default());
 
@@ -85,8 +84,8 @@ impl<C: ExtractComponent<F>, F: 'static + Send + Sync> Plugin for ExtractCompone
     }
 }
 
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_components<C: ExtractComponent<F>, F>(
+/// This system extracts all components of the corresponding [`ExtractBaseComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
+fn extract_components<C: ExtractBaseComponent<F>, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
@@ -103,8 +102,8 @@ fn extract_components<C: ExtractComponent<F>, F>(
     commands.try_insert_batch(values);
 }
 
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_visible_components<C: ExtractComponent<F>, F>(
+/// This system extracts all components of the corresponding [`ExtractBaseComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
+fn extract_visible_components<C: ExtractBaseComponent<F>, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,

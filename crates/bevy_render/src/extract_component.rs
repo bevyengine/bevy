@@ -1,20 +1,16 @@
 use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
-    sync_component::{SyncComponent, SyncComponentPlugin},
-    sync_world::RenderEntity,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
-use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
     component::Component,
     prelude::*,
-    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
 };
 use core::{marker::PhantomData, ops::Deref};
 
-pub use bevy_extract_macros::ExtractComponent;
+pub use bevy_render_macros::ExtractComponent;
 pub use bevy_extract::extract_component::ExtractComponentPlugin;
 
 /// Stores the index of a uniform inside of [`ComponentUniforms`].

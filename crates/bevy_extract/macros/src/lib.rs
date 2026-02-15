@@ -11,12 +11,12 @@ pub(crate) fn bevy_extract_path() -> syn::Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy_extract"))
 }
 
-#[proc_macro_derive(ExtractResource)]
+#[proc_macro_derive(ExtractBaseResource)]
 pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
     extract_resource::derive_extract_resource(input)
 }
 
-/// Implements `ExtractComponent` trait for a component.
+/// Implements `ExtractBaseComponent` trait for a component.
 ///
 /// The component must implement [`Clone`].
 /// The component will be extracted into the render world via cloning.
@@ -29,21 +29,21 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 ///
 /// ```no_compile
 /// use bevy_ecs::component::Component;
-/// use bevy_extract_macros::ExtractComponent;
+/// use bevy_extract_macros::ExtractBaseComponent;
 ///
-/// #[derive(Component, Clone, ExtractComponent)]
+/// #[derive(Component, Clone, ExtractBaseComponent)]
 /// #[extract_component_filter(With<Camera>)]
 /// pub struct Foo {
 ///     pub should_foo: bool,
 /// }
 ///
 /// // Without a filter (unconditional).
-/// #[derive(Component, Clone, ExtractComponent)]
+/// #[derive(Component, Clone, ExtractBaseComponent)]
 /// pub struct Bar {
 ///     pub should_bar: bool,
 /// }
 /// ```
-#[proc_macro_derive(ExtractComponent, attributes(extract_component_filter))]
+#[proc_macro_derive(ExtractBaseComponent, attributes(extract_component_filter))]
 pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     extract_component::derive_extract_component(input)
 }
