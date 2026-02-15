@@ -105,10 +105,12 @@ pub struct Swap<Clear>(PhantomData<Clear>);
 /// Gizmos should be spawned before [`GizmoMeshSystems`](bevy_gizmos::GizmoMeshSystems) runs in
 /// either the [`PostUpdate`](bevy_app::PostUpdate) or the [`Last`](bevy_app::Last) schedule,
 /// depending on how the [`GizmoConfigGroup`] is configured. The [`DefaultGizmoConfigGroup`]
-/// runs [`GizmoMeshSystems`](bevy_gizmos::GizmoMeshSystems) in [`PostUpdate`](bevy_app::PostUpdate).
+/// runs [`GizmoMeshSystems`](bevy_gizmos::GizmoMeshSystems) in
+/// [`PostUpdate`](bevy_app::PostUpdate).
 ///
-/// If same frame rendering of gizmos is possible and desired, the [`GizmoConfigGroup`] should be configured to run its
-/// [`GizmoMeshSystems`](bevy_gizmos::GizmoMeshSystems) within [`PostUpdate`](bevy_app::PostUpdate).
+/// If same frame rendering of gizmos is possible and desired, the [`GizmoConfigGroup`] should be
+/// configured to run its [`GizmoMeshSystems`](bevy_gizmos::GizmoMeshSystems) within
+/// [`PostUpdate`](bevy_app::PostUpdate).
 ///
 /// To set up your own clearing context (useful for custom scheduling similar
 /// to [`FixedMain`](bevy_app::FixedMain)):

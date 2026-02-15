@@ -120,7 +120,7 @@ pub trait AppGizmoBuilder {
     ///
     /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
     /// The gizmos in the [`GizmoConfigGroup`] will be prepared to render in the [`PostUpdate`] schedule
-    /// before [`AssetEventSystems`] to ensure they render in the same frame they were
+    /// before [`AssetEventSystems`] to ensure they start to render in the same frame they were
     /// requested. The [`DefaultGizmoConfigGroup`] is initialized with this method.
     ///
     /// If this [`PostUpdate`] schedule is incompatible with the application's systems that request
@@ -134,9 +134,9 @@ pub trait AppGizmoBuilder {
     ///
     /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
     /// The gizmos in the [`GizmoConfigGroup`] will be prepared for rendering in the [`Last`] schedule.
-    /// Note that gizmos in this config group will be drawn with a one frame delay.
+    /// Note that gizmos in this config group will start to render one frame later.
     /// See [`init_gizmo_group`](Self::init_gizmo_group_delayed_render) for reasons why
-    /// a one frame delay may be necessary.
+    /// the delayed start in rendering may be necessary.
     fn init_gizmo_group_delayed_render<Config: GizmoConfigGroup>(&mut self) -> &mut Self;
 
     /// Insert a [`GizmoConfig`] into a specific [`GizmoConfigGroup`].
