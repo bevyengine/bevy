@@ -21,6 +21,7 @@ fn main() {
                 primary_window: Some(Window {
                     title: "bevy_city".into(),
                     resolution: (1920, 1080).into(),
+                    present_mode: bevy::window::PresentMode::AutoNoVsync,
                     ..default()
                 }),
                 ..default()
@@ -294,7 +295,7 @@ fn simulate_cars(mut cars: Query<(&mut Car, &mut Transform)>, time: Res<Time>) {
 
 fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
     let mut rng = SmallRng::seed_from_u64(42);
-    let size = 25;
+    let size = 32;
     let half_size = size / 2;
     for x in -half_size..half_size {
         for z in -half_size..half_size {
