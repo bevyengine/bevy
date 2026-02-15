@@ -297,7 +297,7 @@ fn extract_image_materials_needing_specialization(
 ) {
     for entity in entities_needing_specialization.iter() {
         dirty_specializations
-            .entities
+            .renderables
             .insert(MainEntity::from(*entity));
     }
 }

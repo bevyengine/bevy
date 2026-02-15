@@ -570,7 +570,7 @@ pub fn extract_entities_needs_specialization<M>(
 {
     for entity in entities_needing_specialization.iter() {
         dirty_specializations
-            .entities
+            .renderables
             .insert(MainEntity::from(*entity));
     }
 }

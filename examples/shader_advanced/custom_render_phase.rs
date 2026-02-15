@@ -18,7 +18,10 @@ use bevy::pbr::{SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
     core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
-    ecs::system::{lifetimeless::SRes, SystemParamItem},
+    ecs::{
+        entity::EntityHash,
+        system::{lifetimeless::SRes, SystemParamItem},
+    },
     math::FloatOrd,
     mesh::MeshVertexBufferLayoutRef,
     pbr::{
@@ -36,7 +39,6 @@ use bevy::{
             GetBatchData, GetFullBatchData,
         },
         camera::{DirtySpecializations, ExtractedCamera},
-        entity::EntityHash,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
@@ -309,7 +311,7 @@ impl SortedPhaseItem for Stencil3d {
 
     #[inline]
     fn sort(items: &mut IndexMap<MainEntity, Stencil3d, EntityHash>) {
-        items.sort_by_key(|_, phase_item| phase_item.sort_key());
+        items.sort_by_key(|_, phase_item: &Stencil3d| phase_item.sort_key);
     }
 
     #[inline]

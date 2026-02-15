@@ -740,7 +740,7 @@ pub struct DirtySpecializations {
     /// All renderable objects that must be re-specialized this frame.
     ///
     /// This consists of 2D meshes, 3D meshes, and sprites.
-    pub entities: MainEntityHashSet,
+    pub renderables: MainEntityHashSet,
 
     /// Views that must be respecialized this frame.
     ///
@@ -779,7 +779,7 @@ impl DirtySpecializations {
                 )
             } else {
                 // Only entities that changed must be removed.
-                Either::Right(self.entities.iter())
+                Either::Right(self.renderables.iter())
             })
     }
 
@@ -797,7 +797,7 @@ impl DirtySpecializations {
             Either::Left(render_visible_mesh_entities.entities.iter())
         } else {
             Either::Right(render_visible_mesh_entities.added_entities.iter().chain(
-                self.entities.iter().filter_map(|main_entity| {
+                self.renderables.iter().filter_map(|main_entity| {
                     // Only include entities that need respecialization, are
                     // visible, and *didn't* become visible this frame. The
                     // third criterion exists because we already yielded
@@ -833,13 +833,13 @@ impl DirtySpecializations {
 pub struct DirtyWireframeSpecializations(pub DirtySpecializations);
 
 pub fn clear_dirty_specializations(mut dirty_specializations: ResMut<DirtySpecializations>) {
-    dirty_specializations.entities.clear();
+    dirty_specializations.renderables.clear();
     dirty_specializations.views.clear();
 }
 
 pub fn clear_dirty_wireframe_specializations(
     mut dirty_wireframe_specializations: ResMut<DirtyWireframeSpecializations>,
 ) {
-    dirty_wireframe_specializations.entities.clear();
+    dirty_wireframe_specializations.renderables.clear();
     dirty_wireframe_specializations.views.clear();
 }

@@ -663,7 +663,7 @@ pub fn extract_wireframe_entities_needing_specialization(
 ) {
     for entity in entities_needing_specialization.iter() {
         dirty_specializations
-            .entities
+            .renderables
             .insert(MainEntity::from(*entity));
     }
 }
