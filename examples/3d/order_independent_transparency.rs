@@ -9,14 +9,14 @@ use bevy::{
     camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
     core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
+    ecs::system::SystemParam,
     pbr::{ExtendedMaterial, MaterialExtension},
     picking::window::update_window_hits,
     prelude::*,
+    render::render_resource::AsBindGroup,
     shader::ShaderRef,
     window::{CursorIcon, PrimaryWindow, SystemCursorIcon},
 };
-use bevy_ecs::system::SystemParam;
-use bevy_render::render_resource::AsBindGroup;
 
 #[path = "../helpers/widgets.rs"]
 mod widgets;
@@ -59,14 +59,13 @@ impl Default for AppState {
 enum AppSetting {
     /// Change whether OIT is used or not
     EnableOIT(bool),
-    /// Change whether DepthPrepass is used or not
+    /// Change whether `DepthPrepass` is used or not
     UseDepthPrepass(bool),
     /// Change the displayed scene
     ChangeScene(usize),
 }
 
-/// This struct bundles up the resources used by the scene creation functions.
-/// Derives SystemParam to be able to pass it in systems.
+/// This system param bundles up the resources used by the scene creation functions.
 #[derive(SystemParam)]
 struct SceneResources<'w> {
     meshes: ResMut<'w, Assets<Mesh>>,
@@ -77,8 +76,8 @@ struct SceneResources<'w> {
     asset_server: Res<'w, AssetServer>,
 }
 
-/// This message is similar to WidgetClickEvent<AppSetting>, only for events generated
-/// by the app.
+/// This message is similar to `WidgetClickEvent<AppSetting>`, only for events generated
+/// by the app itself.
 #[derive(Clone, Message, Deref, DerefMut)]
 struct AppEvent(AppSetting);
 
@@ -200,7 +199,7 @@ fn setup(
     SCENES[0].2(&mut commands, &mut resources); //&mut meshes, &mut materials);
 }
 
-/// Watches for key presses and queues corresponding AppEvent's
+/// Watches for key presses and queues corresponding `AppEvent`'s
 fn handle_keyboard_shortcuts(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut app_state: ResMut<AppState>,
@@ -311,8 +310,8 @@ fn update_radio_buttons(
     }
 }
 
-/// Runs through the messages (either WidgetClickEvent or AppEvent), updates the AppState,
-/// and performs the actual required changes
+/// Runs through the messages (either `WidgetClickEvent` or `AppEvent`), updates the `AppState`,
+/// and performs the corresponding ECS changes.
 fn handle_setting_change(
     mut commands: Commands,
     mut click_events: MessageReader<WidgetClickEvent<AppSetting>>,
@@ -331,9 +330,7 @@ fn handle_setting_change(
             AppSetting::EnableOIT(value) => {
                 app_state.use_oit = value;
                 if app_state.use_oit {
-                    commands
-                        .entity(camera.0)
-                        .insert(app_state.oit_settings.clone());
+                    commands.entity(camera.0).insert(app_state.oit_settings);
                 } else {
                     commands
                         .entity(camera.0)
@@ -359,7 +356,7 @@ fn handle_setting_change(
     }
 }
 
-/// Watches changes on the AppState and loads the appropriate scene
+/// Watches changes on the `AppState` and loads the appropriate scene
 fn scene_change_watcher(
     app_state: Res<AppState>,
     mut prev_scene_id: Local<usize>,
@@ -566,7 +563,7 @@ fn spawn_occlusion_test(commands: &mut Commands, resources: &mut SceneResources)
 }
 
 /// Spawns multiple entities with the same Mesh+Material. They should automatically be drawn using
-/// instancing (when GPU preprocessing is not active) or MultiDrawIndirect (when it is).
+/// instancing (when GPU preprocessing is not active) or `MultiDrawIndirect` (when it is).
 fn spawn_auto_instancing_test(commands: &mut Commands, resources: &mut SceneResources) {
     let meshes = &mut resources.meshes;
     let materials = &mut resources.materials;
@@ -600,7 +597,7 @@ fn spawn_auto_instancing_test(commands: &mut Commands, resources: &mut SceneReso
 const EXTENDED_MATERIAL_SHADER_ASSET_PATH: &str = "shaders/oit_compatible_extended_material.wgsl";
 
 /// Material extension that defines the extra data that will be passed to your shader
-/// Used as ExtendedMaterial<StandardMaterial, CheckeredMaterialExtension>
+/// Used as `ExtendedMaterial<StandardMaterial, CheckeredMaterialExtension>`
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default)]
 struct CheckeredMaterialExtension {
     #[uniform(100)]
@@ -669,8 +666,8 @@ fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources
                 ..default()
             },
             extension: CheckeredMaterialExtension {
-                color_1: LinearRgba::new(0.9, 0.1, 0.2, 0.4).into(),
-                color_2: LinearRgba::new(0.2, 0.1, 0.9, 0.7).into(),
+                color_1: LinearRgba::new(0.9, 0.1, 0.2, 0.4),
+                color_2: LinearRgba::new(0.2, 0.1, 0.9, 0.7),
             },
         })),
         Transform::from_rotation(Quat::from_rotation_z(0.4)),
@@ -681,7 +678,7 @@ fn spawn_custom_material(commands: &mut Commands, resources: &mut SceneResources
     commands.spawn((
         Mesh3d(torus.clone()),
         MeshMaterial3d(custom_materials.add(NoisyOpacityMaterial {
-            color: LinearRgba::new(0.9, 0.6, 0.0, 0.5).into(),
+            color: LinearRgba::new(0.9, 0.6, 0.0, 0.5),
         })),
         Transform::from_rotation(Quat::from_rotation_z(1.0)),
         render_layers.clone(),
