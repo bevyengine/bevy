@@ -60,8 +60,8 @@ pub struct FrustumGizmoSystems;
 impl Plugin for FrustumGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // Due to an issue with initializing the PostUpdate schedule when
-        // TransformSystems::Propagate runs before GizmoMeshSystems,
-        // frustum gizmo's must start to be rendered with a frame delay. Since frustum's are expected
+        // VisibilitySystems::UpdateFrusta runs before GizmoMeshSystems,
+        // frustum gizmo's must start to be rendered with one frame delay. Since frustum's are expected
         // to be rendered for multiple consecutive frames, this should not be a problem.
         app.init_gizmo_group_delayed_render::<FrustumGizmoConfigGroup>()
             .add_systems(
