@@ -121,7 +121,7 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
 // Returns the index of the clusterable object at the given offset.
 //
 // Note that, in the case of a light probe, the index refers to an element in
-// one of the two `light_probes` sublists, not the `clusterable_objects` list.
+// one of the two `light_probes` sublists, not the `clustered_lights` list.
 fn get_clusterable_object_id(index: u32) -> u32 {
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
     return bindings::clusterable_object_index_lists.data[index];

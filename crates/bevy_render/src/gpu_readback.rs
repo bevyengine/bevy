@@ -5,7 +5,7 @@ use crate::{
         Buffer, BufferUsages, CommandEncoder, Extent3d, TexelCopyBufferLayout, Texture,
         TextureFormat,
     },
-    renderer::{render_system, RenderDevice},
+    renderer::RenderDevice,
     storage::{GpuShaderBuffer, ShaderBuffer},
     sync_world::MainEntity,
     texture::GpuImage,
@@ -24,13 +24,13 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_image::{Image, TextureFormatPixelInfo};
+use bevy_log::warn;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
 use encase::internal::ReadFrom;
 use encase::private::Reader;
 use encase::ShaderType;
-use tracing::warn;
 
 /// A plugin that enables reading back gpu buffers and textures to the cpu.
 pub struct GpuReadbackPlugin {
@@ -61,9 +61,8 @@ impl Plugin for GpuReadbackPlugin {
                     Render,
                     (
                         prepare_buffers.in_set(RenderSystems::PrepareResources),
-                        map_buffers
-                            .after(render_system)
-                            .in_set(RenderSystems::Render),
+                        // TODO: this should be in the graph somehow
+                        map_buffers.in_set(RenderSystems::Cleanup),
                     ),
                 );
         }

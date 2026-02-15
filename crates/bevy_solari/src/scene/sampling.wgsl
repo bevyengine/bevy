@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #define_import_path bevy_solari::sampling
 
 #import bevy_pbr::lighting::D_GGX
@@ -67,6 +69,8 @@ fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) ->
     }
     return ndf * (t - i.z) / (2.0 * len2);
 }
+
+const NULL_LIGHT_ID = 0xFFFFFFFFu;
 
 struct LightSample {
     light_id: u32,

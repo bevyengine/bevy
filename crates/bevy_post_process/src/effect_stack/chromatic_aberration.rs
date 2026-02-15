@@ -9,7 +9,9 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, render_resource::ShaderType};
+use bevy_render::{
+    extract_component::ExtractComponent, render_resource::ShaderType, sync_component::SyncComponent,
+};
 
 /// The raw RGBA data for the default chromatic aberration gradient.
 ///
@@ -26,7 +28,7 @@ const DEFAULT_CHROMATIC_ABERRATION_INTENSITY: f32 = 0.02;
 const DEFAULT_CHROMATIC_ABERRATION_MAX_SAMPLES: u32 = 8;
 
 #[derive(Resource)]
-pub(super) struct DefaultChromaticAberrationLut(pub(super) Handle<Image>);
+pub(crate) struct DefaultChromaticAberrationLut(pub(crate) Handle<Image>);
 
 /// Adds colored fringes to the edges of objects in the scene.
 ///
@@ -83,12 +85,13 @@ impl Default for ChromaticAberration {
     }
 }
 
+impl SyncComponent for ChromaticAberration {
+    type Out = Self;
+}
+
 impl ExtractComponent for ChromaticAberration {
     type QueryData = Read<ChromaticAberration>;
-
     type QueryFilter = With<Camera>;
-
-    type Out = ChromaticAberration;
 
     fn extract_component(
         chromatic_aberration: QueryItem<'_, '_, Self::QueryData>,

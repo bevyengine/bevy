@@ -6,14 +6,17 @@ use core::any::TypeId;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::world::DeferredWorld;
+use bevy_mesh::skinning::{
+    entity_aabb_from_skinned_mesh_bounds, SkinnedMesh, SkinnedMeshInverseBindposes,
+};
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
 pub use render_layers::*;
 
-use bevy_app::{Plugin, PostUpdate};
+use bevy_app::{Plugin, PostUpdate, ValidateParentHasComponentPlugin};
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{AssetEventSystems, Assets};
-use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
+use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::{Parallel, TypeIdMap};
@@ -26,6 +29,13 @@ use crate::{
 };
 use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d};
 
+/// Use this component to opt-out of the built-in CPU frustum culling, see
+/// [`Frustum`]. This can be attached to a [`Camera`] or to individual entities.
+///
+/// It can be used for example:
+/// - disabling CPU culling completely for a [`Camera`], using only GPU culling.
+/// - when overwriting a [`Mesh`]'s transform on the GPU side (e.g. overwriting `MeshInputUniform`'s
+///   `world_from_local`), resulting in stale CPU-side positions.
 #[derive(Component, Default)]
 pub struct NoCpuCulling;
 
@@ -113,7 +123,6 @@ impl PartialEq<&Visibility> for Visibility {
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[component(on_insert = validate_parent_has_component::<Self>)]
 pub struct InheritedVisibility(bool);
 
 impl InheritedVisibility {
@@ -265,6 +274,19 @@ impl<'a> SetViewVisibility for Mut<'a, ViewVisibility> {
 #[reflect(Component, Default, Debug)]
 pub struct NoFrustumCulling;
 
+/// Use this component to enable dynamic skinned mesh bounds. The [`Aabb`]
+/// component of the skinned mesh will be automatically updated each frame based
+/// on the current joint transforms.
+///
+/// `DynamicSkinnedMeshBounds` depends on data from `Mesh::skinned_mesh_bounds`
+/// and `SkinnedMesh`. The resulting `Aabb` will reliably enclose meshes where
+/// vertex positions are only affected by skinning. But the `Aabb` may be larger
+/// than is optimal, and doesn't account for morph targets, vertex shaders, and
+/// anything else that modifies vertex positions.
+#[derive(Debug, Component, Default, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct DynamicSkinnedMeshBounds;
+
 /// Collection of entities visible from the current view.
 ///
 /// This component contains all entities which are visible from the currently
@@ -394,7 +416,8 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.register_required_components::<Mesh3d, Visibility>()
+        app.add_plugins(ValidateParentHasComponentPlugin::<InheritedVisibility>::default())
+            .register_required_components::<Mesh3d, Visibility>()
             .register_required_components::<Mesh3d, VisibilityClass>()
             .register_required_components::<Mesh2d, Visibility>()
             .register_required_components::<Mesh2d, VisibilityClass>()
@@ -420,7 +443,9 @@ impl Plugin for VisibilityPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    calculate_bounds.in_set(CalculateBounds),
+                    (calculate_bounds, update_skinned_mesh_bounds)
+                        .chain()
+                        .in_set(CalculateBounds),
                     (visibility_propagate_system, reset_view_visibility)
                         .in_set(VisibilityPropagate),
                     check_visibility.in_set(CheckVisibility),
@@ -481,6 +506,36 @@ pub fn calculate_bounds(
         .for_each(|(mesh_handle, mut old_aabb)| {
             if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
                 *old_aabb = aabb;
+            }
+        });
+}
+
+// Update the `Aabb` component of all skinned mesh entities with a `DynamicSkinnedMeshBounds`
+// component.
+fn update_skinned_mesh_bounds(
+    inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
+    mesh_assets: Res<Assets<Mesh>>,
+    mut mesh_entities: Query<
+        (&mut Aabb, &Mesh3d, &SkinnedMesh, Option<&GlobalTransform>),
+        With<DynamicSkinnedMeshBounds>,
+    >,
+    joint_entities: Query<&GlobalTransform>,
+) {
+    mesh_entities
+        .par_iter_mut()
+        .for_each(|(mut aabb, mesh, skinned_mesh, world_from_entity)| {
+            if let Some(inverse_bindposes_asset) =
+                inverse_bindposes_assets.get(&skinned_mesh.inverse_bindposes)
+                && let Some(mesh_asset) = mesh_assets.get(mesh)
+                && let Ok(skinned_aabb) = entity_aabb_from_skinned_mesh_bounds(
+                    &joint_entities,
+                    mesh_asset,
+                    skinned_mesh,
+                    inverse_bindposes_asset,
+                    world_from_entity,
+                )
+            {
+                *aabb = skinned_aabb.into();
             }
         });
 }
@@ -602,15 +657,17 @@ pub fn check_visibility(
         Option<&VisibilityClass>,
         Option<&RenderLayers>,
         Option<&Aabb>,
+        Option<&Sphere>,
         &GlobalTransform,
         Has<NoFrustumCulling>,
         Has<VisibilityRange>,
+        Has<NoCpuCulling>,
     )>,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
-    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
+    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling_camera) in
         &mut view_query
     {
         if !camera.is_active {
@@ -629,9 +686,11 @@ pub fn check_visibility(
                     visibility_class,
                     maybe_entity_mask,
                     maybe_model_aabb,
+                    maybe_model_sphere,
                     transform,
                     no_frustum_culling,
                     has_visibility_range,
+                    no_cpu_culling_entity,
                 ) = query_item;
 
                 // Skip computing visibility for entities that are configured to be hidden.
@@ -654,22 +713,26 @@ pub fn check_visibility(
                     return;
                 }
 
-                // If we have an aabb, do frustum culling
-                if !no_frustum_culling
-                    && !no_cpu_culling
-                    && let Some(model_aabb) = maybe_model_aabb
-                {
-                    let world_from_local = transform.affine();
-                    let model_sphere = Sphere {
-                        center: world_from_local.transform_point3a(model_aabb.center),
-                        radius: transform.radius_vec3a(model_aabb.half_extents),
-                    };
-                    // Do quick sphere-based frustum culling
-                    if !frustum.intersects_sphere(&model_sphere, false) {
-                        return;
-                    }
-                    // Do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                // If we have an aabb or a bounding sphere, do frustum culling
+                if !no_frustum_culling && !no_cpu_culling_camera && !no_cpu_culling_entity {
+                    if let Some(model_aabb) = maybe_model_aabb {
+                        let world_from_local = transform.affine();
+                        let model_sphere = Sphere {
+                            center: world_from_local.transform_point3a(model_aabb.center),
+                            radius: transform.radius_vec3a(model_aabb.half_extents),
+                        };
+                        // Do quick sphere-based frustum culling
+                        if !frustum.intersects_sphere(&model_sphere, false) {
+                            return;
+                        }
+                        // Do aabb-based frustum culling
+                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                            return;
+                        }
+                    } else if let Some(model_sphere) = maybe_model_sphere
+                        && !frustum.intersects_sphere(model_sphere, false)
+                    {
+                        // Do sphere-based frustum culling in this case
                         return;
                     }
                 }

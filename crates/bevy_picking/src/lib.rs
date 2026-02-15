@@ -152,8 +152,6 @@
 //! Because it is completely agnostic to the earlier stages of the pipeline, you can easily extend
 //! the plugin with arbitrary backends and input methods, yet still use all the high level features.
 
-#![deny(missing_docs)]
-
 extern crate alloc;
 
 pub mod backend;

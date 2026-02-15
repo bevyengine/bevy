@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #define_import_path bevy_solari::realtime_bindings
 
 #import bevy_render::view::View
@@ -42,7 +44,7 @@
 #endif
 
 struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
+var<immediate> constants: PushConstants;
 
 // Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
 struct ResolvedLightSamplePacked {

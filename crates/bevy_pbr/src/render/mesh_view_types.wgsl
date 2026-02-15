@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::mesh_view_types
 
-struct ClusterableObject {
+struct ClusteredLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spot lights: the direction (x,z), spot_scale and spot_offset
     light_custom_data: vec4<f32>,
@@ -99,25 +99,25 @@ const FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
 const FOG_MODE_ATMOSPHERIC: u32           = 4u;
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-struct ClusterableObjects {
-    data: array<ClusterableObject>,
+struct ClusteredLights {
+    data: array<ClusteredLight>,
 };
-struct ClusterLightIndexLists {
+struct ClusterableObjectIndexLists {
     data: array<u32>,
 };
 struct ClusterOffsetsAndCounts {
     data: array<array<vec4<u32>, 2>>,
 };
 #else
-struct ClusterableObjects {
-    data: array<ClusterableObject, 204u>,
+struct ClusteredLights {
+    data: array<ClusteredLight, 204u>,
 };
-struct ClusterLightIndexLists {
+struct ClusterableObjectIndexLists {
     // each u32 contains 4 u8 indices into the ClusterableObjects array
     data: array<vec4<u32>, 1024u>,
 };
 struct ClusterOffsetsAndCounts {
-    // each u32 contains a 24-bit index into ClusterLightIndexLists in the high 24 bits
+    // each u32 contains a 24-bit index into ClusterableObjectIndexLists in the high 24 bits
     // and an 8-bit count of the number of lights in the low 8 bits
     data: array<vec4<u32>, 1024u>,
 };
@@ -132,6 +132,12 @@ struct LightProbe {
     // This is stored as the transpose in order to save space in this structure.
     // It'll be transposed in the `environment_map_light` function.
     light_from_world_transposed: mat3x4<f32>,
+    // The falloff region, specified as a fraction of the light probe's
+    // bounding box.
+    falloff: vec3<f32>,
+    // The boundaries of the simulated space used for parallax correction,
+    // specified as *half* extents in light probe space.
+    parallax_correction_bounds: vec3<f32>,
     cubemap_index: i32,
     intensity: f32,
     // Various flags that apply to this light probe.
@@ -192,8 +198,15 @@ struct EnvironmentMapUniform {
 
 // Shader version of the order independent transparency settings component.
 struct OrderIndependentTransparencySettings {
-  layers_count: i32,
+  sorted_fragment_max_count: u32,
+  fragments_per_pixel_average: f32,
   alpha_threshold: f32,
+};
+
+struct OitFragmentNode {
+    color: u32,
+    depth_alpha: u32,
+    next: u32,
 };
 
 struct ClusteredDecal {

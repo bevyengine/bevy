@@ -3,11 +3,11 @@
 use std::f32::consts::*;
 
 use bevy::{
+    camera::Hdr,
     color::palettes::basic::{MAROON, RED},
     light::NotShadowCaster,
     math::ops,
     prelude::*,
-    render::view::Hdr,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;

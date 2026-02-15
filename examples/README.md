@@ -60,7 +60,6 @@ git checkout v0.4.0
   - [Reflection](#reflection)
   - [Remote Protocol](#remote-protocol)
   - [Scene](#scene)
-  - [Shader Advanced](#shader-advanced)
   - [Shaders](#shaders)
   - [Shaders Advanced](#shaders-advanced)
   - [State](#state)
@@ -166,6 +165,7 @@ Example | Description
 [Fog volumes](../examples/3d/fog_volumes.rs) | Demonstrates fog volumes
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes
+[Light Probe Blending](../examples/3d/light_probe_blending.rs) | Demonstrates blending between multiple reflection probes
 [Light Textures](../examples/3d/light_textures.rs) | Demonstrates light textures
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
@@ -242,6 +242,7 @@ Example | Description
 [No Renderer](../examples/app/no_renderer.rs) | An application that runs with default plugins and displays an empty window, but without an actual renderer
 [Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
+[Render Recovery](../examples/app/render_recovery.rs) | Demonstrates how bevy can recover from rendering failures.
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
 [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
 [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
@@ -255,6 +256,7 @@ Example | Description
 [Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
+[Asset Saving](../examples/asset/asset_saving.rs) | Demonstrates how to save an asset (with subassets)
 [Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
@@ -319,6 +321,7 @@ Example | Description
 --- | ---
 [Change Detection](../examples/ecs/change_detection.rs) | Change detection on components and resources
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
+[Contiguous Query](../examples/ecs/contiguous_query.rs) | Demonstrates contiguous queries
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
@@ -372,8 +375,12 @@ Example | Description
 --- | ---
 [2D Gizmos](../examples/gizmos/2d_gizmos.rs) | A scene showcasing 2D gizmos
 [3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
+[Anchored Text Gizmos](../examples/gizmos/anchored_text_gizmos.rs) | Demonstrates anchored text gizmos
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
+[Text Gizmos 2d](../examples/gizmos/2d_text_gizmos.rs) | A scene showcasing 2d text gizmos
+[Text Gizmos 3d](../examples/gizmos/3d_text_gizmos.rs) | A scene showcasing 3d text gizmos
+[Text Gizmos Font](../examples/gizmos/text_gizmos_font.rs) | Example displaying the font used by text gizmos
 
 ### Helpers
 
@@ -454,12 +461,6 @@ Example | Description
 --- | ---
 [Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
 
-### Shader Advanced
-
-Example | Description
---- | ---
-[Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
-
 ### Shaders
 
 These examples demonstrate how to implement different shaders in user code.
@@ -501,6 +502,7 @@ Example | Description
 Example | Description
 --- | ---
 [Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
+[Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
 
 ### State
 
@@ -572,57 +574,58 @@ Example | Description
 
 Example | Description
 --- | ---
-[Anchor Layout](../examples/ui/anchor_layout.rs) | Shows an 'anchor layout' style of ui layout
-[Borders](../examples/ui/borders.rs) | Demonstrates how to create a node with a border
-[Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
-[Button](../examples/ui/button.rs) | Illustrates creating and updating a button
-[CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
+[Anchor Layout](../examples/ui/layout/anchor_layout.rs) | Shows an 'anchor layout' style of ui layout
+[Borders](../examples/ui/styling/borders.rs) | Demonstrates how to create a node with a border
+[Box Shadow](../examples/ui/styling/box_shadow.rs) | Demonstrates how to create a node with a shadow
+[Button](../examples/ui/widgets/button.rs) | Illustrates creating and updating a button
+[CSS Grid](../examples/ui/layout/grid.rs) | An example for CSS Grid layout
 [Directional Navigation](../examples/ui/navigation/directional_navigation.rs) | Demonstration of automatic directional navigation based on UI element positions
 [Directional Navigation Overrides](../examples/ui/navigation/directional_navigation_overrides.rs) | Demonstration of automatic directional navigation between UI elements with manual overrides
-[Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
-[Drag to Scroll](../examples/ui/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
-[Feathers Widgets](../examples/ui/feathers.rs) | Gallery of Feathers Widgets
-[Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
-[Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
-[Font Queries](../examples/ui/font_query.rs) | Demonstrates font querying
-[Font Weights](../examples/ui/font_weights.rs) | Demonstrates how to use font weights.
-[Generic Font Families](../examples/ui/generic_font_families.rs) | Demonstrates how to use generic font families
-[Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
-[Gradients](../examples/ui/gradients.rs) | An example demonstrating gradients
-[Image Node](../examples/ui/image_node.rs) | Demonstrates how to create an image node
-[Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
-[Overflow Clip Margin](../examples/ui/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
-[Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
+[Display and Visibility](../examples/ui/layout/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
+[Drag to Scroll](../examples/ui/scroll_and_overflow/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
+[Feathers Widgets](../examples/ui/widgets/feathers.rs) | Gallery of Feathers Widgets
+[Flex Layout](../examples/ui/layout/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
+[Font Atlas Debug](../examples/ui/text/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Font Queries](../examples/ui/text/font_query.rs) | Demonstrates font querying
+[Font Weights](../examples/ui/text/font_weights.rs) | Demonstrates how to use font weights.
+[Generic Font Families](../examples/ui/text/generic_font_families.rs) | Demonstrates how to use generic font families
+[Ghost Nodes](../examples/ui/layout/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
+[Gradients](../examples/ui/styling/gradients.rs) | An example demonstrating gradients
+[Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
+[Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node
+[Overflow](../examples/ui/scroll_and_overflow/overflow.rs) | Simple example demonstrating overflow behavior
+[Overflow Clip Margin](../examples/ui/scroll_and_overflow/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
+[Overflow and Clipping Debug](../examples/ui/scroll_and_overflow/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
-[Scroll](../examples/ui/scroll.rs) | Demonstrates scrolling UI containers
-[Scrollbars](../examples/ui/scrollbars.rs) | Demonstrates use of core scrollbar in Bevy UI
-[Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
-[Stacked Gradients](../examples/ui/stacked_gradients.rs) | An example demonstrating stacked gradients
-[Standard Widgets](../examples/ui/standard_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
-[Standard Widgets (w/Observers)](../examples/ui/standard_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers
-[Strikethrough and Underline](../examples/ui/strikethrough_and_underline.rs) | Demonstrates how to display text with strikethrough and underline.
-[Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
-[Text](../examples/ui/text.rs) | Illustrates creating and updating text
-[Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors
-[Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
-[Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
-[Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
+[Scroll](../examples/ui/scroll_and_overflow/scroll.rs) | Demonstrates scrolling UI containers
+[Scrollbars](../examples/ui/scroll_and_overflow/scrollbars.rs) | Demonstrates use of core scrollbar in Bevy UI
+[Size Constraints](../examples/ui/layout/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
+[Stacked Gradients](../examples/ui/styling/stacked_gradients.rs) | An example demonstrating stacked gradients
+[Standard Widgets](../examples/ui/widgets/standard_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
+[Standard Widgets (w/Observers)](../examples/ui/widgets/standard_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers
+[Strikethrough and Underline](../examples/ui/text/strikethrough_and_underline.rs) | Demonstrates how to display text with strikethrough and underline.
+[System Fonts](../examples/ui/text/system_fonts.rs) | Demonstrates how to use system fonts
+[Tab Navigation](../examples/ui/widgets/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
+[Text](../examples/ui/text/text.rs) | Illustrates creating and updating text
+[Text Background Colors](../examples/ui/text/text_background_colors.rs) | Demonstrates text background colors
+[Text Debug](../examples/ui/text/text_debug.rs) | An example for debugging text layout
+[Text Wrap Debug](../examples/ui/text/text_wrap_debug.rs) | Demonstrates text wrapping
+[Transparency UI](../examples/ui/styling/transparency_ui.rs) | Demonstrates transparency for UI
 [UI Drag and Drop](../examples/ui/ui_drag_and_drop.rs) | Demonstrates dragging and dropping UI nodes
 [UI Material](../examples/ui/ui_material.rs) | Demonstrates creating and using custom Ui materials
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Target Camera](../examples/ui/ui_target_camera.rs) | Demonstrates how to use `UiTargetCamera` and camera ordering.
-[UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
-[UI Texture Atlas Slice](../examples/ui/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI
-[UI Texture Slice](../examples/ui/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
-[UI Texture Slice Flipping and Tiling](../examples/ui/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
+[UI Texture Atlas](../examples/ui/images/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
+[UI Texture Atlas Slice](../examples/ui/images/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI
+[UI Texture Slice](../examples/ui/images/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
+[UI Texture Slice Flipping and Tiling](../examples/ui/images/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
 [UI Transform](../examples/ui/ui_transform.rs) | An example demonstrating how to translate, rotate and scale UI elements.
-[UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
-[Vertical Slider](../examples/ui/vertical_slider.rs) | Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
-[Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
-[Virtual Keyboard](../examples/ui/virtual_keyboard.rs) | Example demonstrating a virtual keyboard widget
+[UI Z-Index](../examples/ui/layout/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
+[Vertical Slider](../examples/ui/widgets/vertical_slider.rs) | Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
+[Viewport Node](../examples/ui/widgets/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
+[Virtual Keyboard](../examples/ui/widgets/virtual_keyboard.rs) | Example demonstrating a virtual keyboard widget
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
-[system_fonts](../examples/ui/system_fonts.rs) | Demonstrates how to use system fonts
 
 ### Usage
 
@@ -630,6 +633,7 @@ Example | Description
 --- | ---
 [Context Menu](../examples/usage/context_menu.rs) | Example of a context menu
 [Cooldown](../examples/usage/cooldown.rs) | Example for cooldown on button clicks
+[Debug Frustum Culling](../examples/usage/debug_frustum_culling.rs) | Example demonstrating how to debug frustum culling
 
 ### Window
 

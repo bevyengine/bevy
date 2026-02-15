@@ -180,6 +180,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |symphonia-vorbis|OGG/VORBIS audio format support (through symphonia)|
 |symphonia-wav|WAV audio format support (through symphonia)|
 |sysinfo_plugin|Enables system information diagnostic plugin|
+|system_font_discovery|Allows for discovery of preloaded system fonts|
 |tga|TGA image format support|
 |tiff|TIFF image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
@@ -189,6 +190,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |trace_tracy|Tracing support, exposing a port for Tracy|
 |trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|
 |track_location|Enables source location tracking for change detection and spawning/despawning, which can assist with debugging|
+|type_label_buffers|Pre-populate buffer labels with buffer types for debugging.|
 |ui_picking|Provides an implementation for picking UI|
 |vorbis|OGG/VORBIS audio format support|
 |wav|WAV audio format support|

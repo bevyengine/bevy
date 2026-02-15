@@ -8,10 +8,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Hdr,
     light::CascadeShadowConfigBuilder,
     post_process::effect_stack::{ChromaticAberration, Vignette},
     prelude::*,
-    render::view::Hdr,
 };
 
 /// The number of units per frame to add to or subtract from intensity when the
@@ -237,7 +237,6 @@ fn update_chromatic_aberration_settings(
 /// [`AppSettings`].
 fn update_help_text(mut text: Single<&mut Text>, app_settings: Res<AppSettings>) {
     text.clear();
-    //let vignette_mode_list = ["Cosine Fourth Law", "Higher-order Powers", "Smoothstep"];
     let text_list = [
         format!(
             "Chromatic aberration intensity: {:.2}\n",

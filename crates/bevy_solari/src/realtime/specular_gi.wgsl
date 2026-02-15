@@ -1,7 +1,8 @@
+enable wgpu_ray_query;
+
 #define_import_path bevy_solari::specular_gi
 
 #import bevy_pbr::pbr_functions::{calculate_tbn_mikktspace, calculate_diffuse_color, calculate_F0}
-#import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
@@ -17,7 +18,6 @@
 
 const DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD: f32 = 0.4;
 const SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD: f32 = 0.0225;
-const TERMINATE_IN_WORLD_CACHE_THRESHOLD: f32 = 0.03;
 
 @compute @workgroup_size(8, 8, 1)
 fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -33,7 +33,8 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
     let wo_unnormalized = view.world_position - surface.world_position;
-    let wo = normalize(wo_unnormalized);
+    let wo_length = length(wo_unnormalized);
+    let wo = wo_unnormalized / wo_length;
 
     var radiance: vec3<f32>;
     var wi: vec3<f32>;
@@ -53,12 +54,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
         let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, surface.material.roughness);
 
-        // https://d1qx31qr3h6wln.cloudfront.net/publications/mueller21realtime.pdf#subsection.3.4, equation (4)
-        let cos_theta = saturate(dot(wo, surface.world_normal));
-        var a0 = dot(wo_unnormalized, wo_unnormalized) / (4.0 * PI * cos_theta);
-        a0 *= TERMINATE_IN_WORLD_CACHE_THRESHOLD;
-
-        radiance = trace_glossy_path(global_id.xy, surface, wi, pdf, a0, &rng) / pdf;
+        radiance = trace_glossy_path(global_id.xy, surface, wo_length, wi, pdf, &rng) / pdf;
     }
 
     let brdf = evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
@@ -74,7 +70,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #endif
 }
 
-fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initial_wi: vec3<f32>, initial_p_bounce: f32, a0: f32, rng: ptr<function, u32>) -> vec3<f32> {
+fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initial_ray_t: f32, initial_wi: vec3<f32>, initial_p_bounce: f32, rng: ptr<function, u32>) -> vec3<f32> {
     var radiance = vec3(0.0);
     var throughput = vec3(1.0);
 
@@ -82,7 +78,7 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
     var wi = initial_wi;
     var p_bounce = initial_p_bounce;
     var surface_perfect_mirror = false;
-    var path_spread = 0.0;
+    var path_spread = path_spread_heuristic(initial_ray_t, primary_surface.material.roughness);
 
 #ifdef DLSS_RR_GUIDE_BUFFERS
     var mirror_rotations = reflection_matrix(primary_surface.world_normal);
@@ -111,9 +107,6 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         // Should not perform NEE for mirror-like surfaces
         surface_perfect_mirror = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
 
-        // https://d1qx31qr3h6wln.cloudfront.net/publications/mueller21realtime.pdf#subsection.3.4, equation (3)
-        path_spread += sqrt((ray.t * ray.t) / (p_bounce * wo_tangent.z));
-
         // Primary surface replacement for perfect mirrors
         // https://developer.nvidia.com/blog/rendering-perfect-reflections-and-refractions-in-path-traced-games/#primary_surface_replacement
 #ifdef DLSS_RR_GUIDE_BUFFERS
@@ -127,8 +120,12 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         }
 #endif
 
-        if path_spread * path_spread > a0 * get_cell_size(ray_hit.world_position, view.world_position) {
-            // Path spread is wide enough, terminate path in the world cache
+        // Terminate path in the world cache if the ray is long enough and the path spread is large enough
+        let world_cache_cell_size = get_cell_size(ray_hit.world_position, view.world_position);
+        let ray_longer_than_cell = ray.t > sqrt(3.0) * world_cache_cell_size;
+        let path_spread_large_enough = path_spread > world_cache_cell_size * world_cache_cell_size;
+
+        if ray_longer_than_cell && path_spread_large_enough {
             let diffuse_brdf = ray_hit.material.base_color / PI;
             radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray.t, WORLD_CACHE_CELL_LIFETIME, rng);
             break;
@@ -148,8 +145,10 @@ fn trace_glossy_path(pixel_id: vec2<u32>, primary_surface: ResolvedGPixel, initi
         // Update throughput for next bounce
         p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
         let brdf = evaluate_brdf(N, wo, wi, ray_hit.material);
-        let cos_theta = saturate(dot(wi, N));
-        throughput *= (brdf * cos_theta) / p_bounce;
+        throughput *= brdf / p_bounce;
+
+        // Path spread increase
+        path_spread += path_spread_heuristic(ray.t, ray_hit.material.roughness);
     }
 
     return radiance;
@@ -184,6 +183,12 @@ fn nee_mis_weight(inverse_p_light: f32, brdf_rays_can_hit: bool, wo_tangent: vec
     let p_light = 1.0 / inverse_p_light;
     let p_bounce = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
     return power_heuristic(p_light, p_bounce);
+}
+
+fn path_spread_heuristic(ray_t: f32, roughness: f32) -> f32 {
+    let alpha_squared = min(roughness * roughness, 0.99);
+    let distance_squared = ray_t * ray_t;
+    return distance_squared * 0.5 * (alpha_squared / (1.0 - alpha_squared));
 }
 
 #ifdef DLSS_RR_GUIDE_BUFFERS
