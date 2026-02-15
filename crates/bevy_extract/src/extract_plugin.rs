@@ -1,6 +1,5 @@
 use crate::{
     sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin},
-    Render, RenderSystems,
 };
 use bevy_app::{App, InternedAppLabel, Plugin, SubApp};
 use bevy_derive::{Deref, DerefMut};
@@ -131,7 +130,7 @@ mod test {
         extract_plugin::ExtractPlugin,
         sync_component::SyncComponent,
         sync_world::MainEntity,
-        AppLabel, Render,
+        AppLabel,
     };
 
     #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]

@@ -2,10 +2,10 @@ use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-pub use bevy_render_macros::ExtractResource;
+pub use bevy_extract_macros::ExtractResource;
 use bevy_utils::once;
 
-use crate::{Extract, ExtractSchedule, RenderApp};
+use crate::{Extract, ExtractSchedule};
 
 /// Describes how a resource gets extracted for rendering.
 ///
