@@ -1,7 +1,6 @@
 use crate::contact_shadows::ViewContactShadowsUniformOffset;
 use crate::{
-    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
-    resources::write_atmosphere_buffer,
+    material_bind_groups::MaterialBindGroupSlot, resources::write_atmosphere_buffer,
     skin::skin_uniforms_from_world,
 };
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
@@ -36,6 +35,7 @@ use bevy_mesh::{
     VertexAttributeDescriptor,
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_render::mesh::allocator::SlabId;
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
@@ -2091,6 +2091,23 @@ pub fn get_image_texture<'a>(
     }
 }
 
+/// Data that must be identical for meshes to be multi-drawn together.
+#[derive(Clone, Copy, PartialEq)]
+pub struct MeshBatchSetCompareData {
+    /// The bind group for the material.
+    material_bind_group_index: MaterialBindGroupIndex,
+    /// The slab in the mesh allocator that stores the vertex buffer data for
+    /// the mesh.
+    vertex_slab: SlabId,
+    /// The slab in the mesh allocator that stores the index buffer data for the
+    /// mesh.
+    ///
+    /// This will be `None` if the mesh has no index data.
+    index_slab: Option<SlabId>,
+    /// The bindless slab that stores the lightmap for this mesh, if applicable.
+    lightmap_slab: Option<NonMaxU32>,
+}
+
 impl GetBatchData for MeshPipeline {
     type Param = (
         SRes<RenderMeshInstances>,
@@ -2099,13 +2116,8 @@ impl GetBatchData for MeshPipeline {
         SRes<MeshAllocator>,
         SRes<SkinUniforms>,
     );
-    // The material bind group ID, the mesh ID, and the lightmap ID,
-    // respectively.
-    type CompareData = (
-        MaterialBindGroupIndex,
-        AssetId<Mesh>,
-        Option<LightmapSlabIndex>,
-    );
+    type BatchSetCompareData = MeshBatchSetCompareData;
+    type BatchCompareData = AssetId<Mesh>;
 
     type BufferData = MeshUniform;
 
@@ -2114,7 +2126,10 @@ impl GetBatchData for MeshPipeline {
             Self::Param,
         >,
         (_entity, main_entity): (Entity, MainEntity),
-    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+    ) -> Option<(
+        Self::BufferData,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
                 "`get_batch_data` should never be called in GPU mesh uniform \
@@ -2128,6 +2143,7 @@ impl GetBatchData for MeshPipeline {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
+        let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
@@ -2143,9 +2159,13 @@ impl GetBatchData for MeshPipeline {
                 Some(mesh_instance.tag),
             ),
             mesh_instance.should_batch().then_some((
-                material_bind_group_index.group,
+                MeshBatchSetCompareData {
+                    material_bind_group_index: material_bind_group_index.group,
+                    vertex_slab: vertex_slab?,
+                    index_slab,
+                    lightmap_slab: maybe_lightmap.map(|lightmap| lightmap.slab_index.0),
+                },
                 mesh_instance.mesh_asset_id,
-                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }
@@ -2155,9 +2175,12 @@ impl GetFullBatchData for MeshPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_index_and_compare_data(
-        (mesh_instances, lightmaps, _, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, mesh_allocator, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
-    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
+    ) -> Option<(
+        NonMaxU32,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
@@ -2168,14 +2191,20 @@ impl GetFullBatchData for MeshPipeline {
         };
 
         let mesh_instance = mesh_instances.get(&main_entity)?;
+        let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
+        let material_bind_group_index = mesh_instance.material_bindings_index;
 
         Some((
             mesh_instance.current_uniform_index,
             mesh_instance.should_batch().then_some((
-                mesh_instance.material_bindings_index.group,
+                MeshBatchSetCompareData {
+                    material_bind_group_index: material_bind_group_index.group,
+                    vertex_slab: vertex_slab?,
+                    index_slab,
+                    lightmap_slab: maybe_lightmap.map(|lightmap| lightmap.slab_index.0),
+                },
                 mesh_instance.mesh_asset_id,
-                maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
     }
