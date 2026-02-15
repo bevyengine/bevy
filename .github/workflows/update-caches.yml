@@ -20,7 +20,7 @@ env:
   CARGO_PROFILE_TEST_DEBUG: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: nightly
+  NIGHTLY_TOOLCHAIN: "nightly-2026-02-11"
 
 jobs:
   env:
@@ -121,6 +121,7 @@ jobs:
           wayland: true
           xkb: true
           x264: true
+          fontconfig: true
 
       # Fetch the cache using the complete key - to avoid rebuilding the cache if nothing changed
       - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3

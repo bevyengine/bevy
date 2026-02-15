@@ -38,10 +38,10 @@ impl<C: Component> DynamicUniformIndex<C> {
 ///
 /// The Out type is defined in [`SyncComponent`].
 ///
-/// The marker type is only used as a way to bypass the orphan rules. To
+/// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub trait ExtractComponent<Marker = ()>: SyncComponent {
+pub trait ExtractComponent<F = ()>: SyncComponent<F> {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
@@ -151,6 +151,10 @@ fn prepare_uniform_components<C>(
 ///
 /// It also registers [`SyncComponentPlugin`] to ensure the extracted components
 /// are deleted if the main world components are removed.
+///
+/// The marker type `F` is only used as a way to bypass the orphan rules. To
+/// implement the trait for a foreign type you can use a local type as the
+/// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
 pub struct ExtractComponentPlugin<C, F = ()> {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (C, F)>,
@@ -174,22 +178,22 @@ impl<C, F> ExtractComponentPlugin<C, F> {
     }
 }
 
-impl<C: ExtractComponent<Marker>, Marker: 'static> Plugin for ExtractComponentPlugin<C, Marker> {
+impl<C: ExtractComponent<F>, F: 'static + Send + Sync> Plugin for ExtractComponentPlugin<C, F> {
     fn build(&self, app: &mut App) {
-        app.add_plugins(SyncComponentPlugin::<C>::default());
+        app.add_plugins(SyncComponentPlugin::<C, F>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible_components::<C, Marker>);
+                render_app.add_systems(ExtractSchedule, extract_visible_components::<C, F>);
             } else {
-                render_app.add_systems(ExtractSchedule, extract_components::<C, Marker>);
+                render_app.add_systems(ExtractSchedule, extract_components::<C, F>);
             }
         }
     }
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_components<C: ExtractComponent<Marker>, Marker>(
+fn extract_components<C: ExtractComponent<F>, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
@@ -207,7 +211,7 @@ fn extract_components<C: ExtractComponent<Marker>, Marker>(
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_visible_components<C: ExtractComponent<Marker>, Marker>(
+fn extract_visible_components<C: ExtractComponent<F>, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,

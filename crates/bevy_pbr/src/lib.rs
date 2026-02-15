@@ -323,7 +323,7 @@ impl Plugin for PbrPlugin {
                 Render,
                 (
                     prepare_lights
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::CreateViews)
                         .after(sort_cameras),
                     prepare_clusters.in_set(RenderSystems::PrepareResources),
                 ),

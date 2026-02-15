@@ -4,17 +4,19 @@ use bevy_camera::Camera;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_light::{
     cluster::{ClusterableObjectCounts, Clusters, GlobalClusterSettings},
-    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, LightProbe, PointLight, SpotLight,
+    ClusteredDecal, EnvironmentMapLight, IrradianceVolume, PointLight, SpotLight,
 };
 use bevy_math::{uvec4, UVec3, UVec4, Vec4};
 use bevy_render::{
     render_resource::{
-        BindingResource, BufferBindingType, ShaderSize, ShaderType, StorageBuffer, UniformBuffer,
+        BindingResource, BufferBindingType, BufferUsages, RawBufferVec, ShaderSize, ShaderType,
+        StorageBuffer, UniformBuffer,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::{MainEntity, RenderEntity},
     Extract,
 };
+use bytemuck::{Pod, Zeroable};
 use tracing::{error, trace, warn};
 
 use crate::{MeshPipeline, RenderViewLightProbes};
@@ -59,7 +61,8 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
 /// (point or spot).
 ///
 /// This is *not* used for other clustered objects, such as light probes.
-#[derive(Copy, Clone, ShaderType, Default, Debug)]
+#[derive(Copy, Clone, ShaderType, Default, Pod, Zeroable, Debug)]
+#[repr(C)]
 pub struct GpuClusteredLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spot lights: 2 components of the direction (x,z), spot_scale and spot_offset
@@ -105,20 +108,9 @@ pub struct GlobalClusterableObjectMeta {
 ///
 /// This has two variants in order to handle platforms in which storage buffers
 /// aren't available.
-pub enum GpuClusteredLights {
-    Uniform(UniformBuffer<GpuClusteredLightsUniform>),
-    Storage(StorageBuffer<GpuClusteredLightsStorage>),
-}
-
-#[derive(ShaderType)]
-pub struct GpuClusteredLightsUniform {
-    data: Box<[GpuClusteredLight; MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS]>,
-}
-
-#[derive(ShaderType, Default)]
-pub struct GpuClusteredLightsStorage {
-    #[shader(size(runtime))]
-    data: Vec<GpuClusteredLight>,
+pub struct GpuClusteredLights {
+    data: RawBufferVec<GpuClusteredLight>,
+    is_storage_buffer: bool,
 }
 
 #[derive(Component)]
@@ -226,27 +218,30 @@ impl GpuClusteredLights {
     }
 
     fn uniform() -> Self {
-        Self::Uniform(UniformBuffer::default())
+        GpuClusteredLights {
+            data: RawBufferVec::new(BufferUsages::UNIFORM),
+            is_storage_buffer: false,
+        }
     }
 
     fn storage() -> Self {
-        Self::Storage(StorageBuffer::default())
+        GpuClusteredLights {
+            data: RawBufferVec::new(BufferUsages::STORAGE),
+            is_storage_buffer: true,
+        }
     }
 
-    pub(crate) fn set(&mut self, mut clusterable_objects: Vec<GpuClusteredLight>) {
-        match self {
-            GpuClusteredLights::Uniform(buffer) => {
-                let len = clusterable_objects
-                    .len()
-                    .min(MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS);
-                let src = &clusterable_objects[..len];
-                let dst = &mut buffer.get_mut().data[..len];
-                dst.copy_from_slice(src);
-            }
-            GpuClusteredLights::Storage(buffer) => {
-                buffer.get_mut().data.clear();
-                buffer.get_mut().data.append(&mut clusterable_objects);
-            }
+    pub(crate) fn clear(&mut self) {
+        self.data.clear();
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    pub(crate) fn add(&mut self, light: GpuClusteredLight) {
+        if self.is_storage_buffer || self.data.len() < MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS {
+            self.data.push(light);
         }
     }
 
@@ -255,35 +250,39 @@ impl GpuClusteredLights {
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
     ) {
-        match self {
-            GpuClusteredLights::Uniform(buffer) => {
-                buffer.write_buffer(render_device, render_queue);
+        if self.is_storage_buffer {
+            if self.data.is_empty() {
+                self.data.push(GpuClusteredLight::default());
             }
-            GpuClusteredLights::Storage(buffer) => {
-                buffer.write_buffer(render_device, render_queue);
+        } else {
+            while self.data.len() < MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS {
+                self.data.push(GpuClusteredLight::default());
             }
         }
+
+        self.data.write_buffer(render_device, render_queue);
     }
 
     pub fn binding(&self) -> Option<BindingResource<'_>> {
-        match self {
-            GpuClusteredLights::Uniform(buffer) => buffer.binding(),
-            GpuClusteredLights::Storage(buffer) => buffer.binding(),
-        }
+        self.data.binding()
     }
 
     pub fn min_size(buffer_binding_type: BufferBindingType) -> NonZero<u64> {
         match buffer_binding_type {
-            BufferBindingType::Storage { .. } => GpuClusteredLightsStorage::min_size(),
-            BufferBindingType::Uniform => GpuClusteredLightsUniform::min_size(),
+            BufferBindingType::Storage { .. } => GpuClusteredLight::min_size(),
+            BufferBindingType::Uniform => NonZero::try_from(
+                u64::from(GpuClusteredLight::min_size())
+                    * MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS as u64,
+            )
+            .unwrap(),
         }
     }
-}
 
-impl Default for GpuClusteredLightsUniform {
-    fn default() -> Self {
-        Self {
-            data: Box::new([GpuClusteredLight::default(); MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS]),
+    pub fn max_clustered_lights(&self) -> Option<usize> {
+        if self.is_storage_buffer {
+            None
+        } else {
+            Some(MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS)
         }
     }
 }
@@ -296,6 +295,8 @@ pub fn extract_clusters(
         Query<
             (
                 Option<&RenderEntity>,
+                Has<PointLight>,
+                Has<SpotLight>,
                 Has<EnvironmentMapLight>,
                 Has<IrradianceVolume>,
                 Has<ClusteredDecal>,
@@ -303,7 +304,8 @@ pub fn extract_clusters(
             Or<(
                 With<PointLight>,
                 With<SpotLight>,
-                With<LightProbe>,
+                With<EnvironmentMapLight>,
+                With<IrradianceVolume>,
                 With<ClusteredDecal>,
             )>,
         >,
@@ -326,6 +328,8 @@ pub fn extract_clusters(
             for clusterable_entity in cluster_objects.iter() {
                 let Ok((
                     maybe_render_entity,
+                    is_point_light,
+                    is_spot_light,
                     is_reflection_probe,
                     is_irradiance_volume,
                     is_clustered_decal,
@@ -341,7 +345,7 @@ pub fn extract_clusters(
                 if let Some(render_entity) = maybe_render_entity {
                     if is_clustered_decal {
                         data.push(ExtractedClusterableObjectElement::Decal(**render_entity));
-                    } else {
+                    } else if is_point_light || is_spot_light {
                         data.push(ExtractedClusterableObjectElement::Light(**render_entity));
                     }
                 }

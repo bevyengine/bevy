@@ -65,7 +65,7 @@ impl Plugin for BatchingPlugin {
             )
             .add_systems(
                 Render,
-                clear_indirect_parameters_buffers.in_set(RenderSystems::ManageViews),
+                clear_indirect_parameters_buffers.in_set(RenderSystems::PrepareViews),
             );
     }
 

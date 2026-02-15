@@ -471,11 +471,18 @@ impl App {
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing resource
+    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing data
+    /// of the same type.
+    #[deprecated(since = "0.19.0", note = "use App::insert_non_send")]
+    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
+        self.insert_non_send(resource)
+    }
+
+    /// Inserts the [`!Send`](Send) data into the app, overwriting any existing data
     /// of the same type.
     ///
-    /// There is also an [`init_non_send_resource`](Self::init_non_send_resource) for
-    /// resources that implement [`Default`]
+    /// There is also an [`init_non_send`](Self::init_non_send) for [`!Send`](Send) data
+    /// that implement [`Default`]
     ///
     /// # Examples
     ///
@@ -488,20 +495,26 @@ impl App {
     /// }
     ///
     /// App::new()
-    ///     .insert_non_send_resource(MyCounter { counter: 0 });
+    ///     .insert_non_send(MyCounter { counter: 0 });
     /// ```
-    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.world_mut().insert_non_send_resource(resource);
+    pub fn insert_non_send<R: 'static>(&mut self, resource: R) -> &mut Self {
+        self.world_mut().insert_non_send(resource);
         self
     }
 
     /// Inserts the [`!Send`](Send) resource into the app if there is no existing instance of `R`.
+    #[deprecated(since = "0.19.0", note = "use App::init_non_send")]
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
+        self.init_non_send::<R>()
+    }
+
+    /// Inserts the [`!Send`](Send) data into the app if there is no existing instance of `R`.
     ///
     /// `R` must implement [`FromWorld`].
     /// If `R` implements [`Default`], [`FromWorld`] will be automatically implemented and
     /// initialize the [`Resource`] with [`Default::default`].
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
-        self.world_mut().init_non_send_resource::<R>();
+    pub fn init_non_send<R: 'static + FromWorld>(&mut self) -> &mut Self {
+        self.world_mut().init_non_send::<R>();
         self
     }
 
@@ -1961,7 +1974,7 @@ mod tests {
         }
 
         App::new()
-            .init_non_send_resource::<NonSendTestResource>()
+            .init_non_send::<NonSendTestResource>()
             .init_resource::<TestResource>();
     }
 

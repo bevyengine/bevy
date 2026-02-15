@@ -249,7 +249,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        let resource_id = components.resource_id::<AssetChanges<A::Asset>>()?;
+        let resource_id = components.component_id::<AssetChanges<A::Asset>>()?;
         let asset_id = components.component_id::<A>()?;
         Some(AssetChangedState {
             asset_id,
@@ -363,7 +363,7 @@ mod tests {
                 .iter()
                 .find_map(|(h, a)| (a.0 == i).then_some(h))
                 .unwrap();
-            let asset = assets.get_mut(id).unwrap();
+            let mut asset = assets.get_mut(id).unwrap();
             println!("setting new value for {}", asset.0);
             asset.1 = "new_value";
         };

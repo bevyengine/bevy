@@ -2,13 +2,13 @@
 
 use bevy_camera::{
     primitives::{Aabb, Frustum, Sphere},
-    visibility::{RenderLayers, ViewVisibility},
+    visibility::RenderLayers,
     Camera,
 };
 use bevy_ecs::{
     entity::Entity,
     query::{Has, With},
-    system::{Commands, Local, Query, Res, ResMut},
+    system::{Commands, Local, Query, Res},
 };
 use bevy_math::{
     ops::{self, sin_cos},
@@ -20,7 +20,7 @@ use tracing::warn;
 
 use super::{
     ClusterConfig, ClusterFarZMode, ClusteredDecal, Clusters, GlobalClusterSettings,
-    GlobalVisibleClusterableObjects, VisibleClusterableObjects,
+    VisibleClusterableObjects,
 };
 use crate::{
     cluster::ObjectsInCluster, EnvironmentMapLight, LightProbe, PointLight, SpotLight,
@@ -128,7 +128,6 @@ impl ClusterableObjectType {
 /// NOTE: Run this before `update_point_light_frusta`!
 pub(crate) fn assign_objects_to_clusters(
     mut commands: Commands,
-    mut global_clusterable_objects: ResMut<GlobalVisibleClusterableObjects>,
     mut views: Query<(
         Entity,
         &GlobalTransform,
@@ -145,7 +144,6 @@ pub(crate) fn assign_objects_to_clusters(
         &PointLight,
         Option<&RenderLayers>,
         Option<&VolumetricLight>,
-        &ViewVisibility,
     )>,
     spot_lights_query: Query<(
         Entity,
@@ -153,7 +151,6 @@ pub(crate) fn assign_objects_to_clusters(
         &SpotLight,
         Option<&RenderLayers>,
         Option<&VolumetricLight>,
-        &ViewVisibility,
     )>,
     light_probes_query: Query<
         (Entity, &GlobalTransform, Has<EnvironmentMapLight>),
@@ -169,48 +166,37 @@ pub(crate) fn assign_objects_to_clusters(
         return;
     };
 
-    global_clusterable_objects.entities.clear();
     clusterable_objects.clear();
     // collect just the relevant query data into a persisted vec to avoid reallocating each frame
-    clusterable_objects.extend(
-        point_lights_query
-            .iter()
-            .filter(|(.., visibility)| visibility.get())
-            .map(
-                |(entity, transform, point_light, maybe_layers, volumetric, _visibility)| {
-                    ClusterableObjectAssignmentData {
-                        entity,
-                        transform: GlobalTransform::from_translation(transform.translation()),
-                        range: point_light.range,
-                        object_type: ClusterableObjectType::PointLight {
-                            shadow_maps_enabled: point_light.shadow_maps_enabled,
-                            volumetric: volumetric.is_some(),
-                        },
-                        render_layers: maybe_layers.unwrap_or_default().clone(),
-                    }
+    clusterable_objects.extend(point_lights_query.iter().map(
+        |(entity, transform, point_light, maybe_layers, volumetric)| {
+            ClusterableObjectAssignmentData {
+                entity,
+                transform: GlobalTransform::from_translation(transform.translation()),
+                range: point_light.range,
+                object_type: ClusterableObjectType::PointLight {
+                    shadow_maps_enabled: point_light.shadow_maps_enabled,
+                    volumetric: volumetric.is_some(),
                 },
-            ),
-    );
-    clusterable_objects.extend(
-        spot_lights_query
-            .iter()
-            .filter(|(.., visibility)| visibility.get())
-            .map(
-                |(entity, transform, spot_light, maybe_layers, volumetric, _visibility)| {
-                    ClusterableObjectAssignmentData {
-                        entity,
-                        transform: *transform,
-                        range: spot_light.range,
-                        object_type: ClusterableObjectType::SpotLight {
-                            outer_angle: spot_light.outer_angle,
-                            shadow_maps_enabled: spot_light.shadow_maps_enabled,
-                            volumetric: volumetric.is_some(),
-                        },
-                        render_layers: maybe_layers.unwrap_or_default().clone(),
-                    }
+                render_layers: maybe_layers.unwrap_or_default().clone(),
+            }
+        },
+    ));
+    clusterable_objects.extend(spot_lights_query.iter().map(
+        |(entity, transform, spot_light, maybe_layers, volumetric)| {
+            ClusterableObjectAssignmentData {
+                entity,
+                transform: *transform,
+                range: spot_light.range,
+                object_type: ClusterableObjectType::SpotLight {
+                    outer_angle: spot_light.outer_angle,
+                    shadow_maps_enabled: spot_light.shadow_maps_enabled,
+                    volumetric: volumetric.is_some(),
                 },
-            ),
-    );
+                render_layers: maybe_layers.unwrap_or_default().clone(),
+            }
+        },
+    ));
 
     // Gather up light probes, but only if we're clustering them.
     //
@@ -555,9 +541,6 @@ pub(crate) fn assign_objects_to_clusters(
 
                     // NOTE: The clusterable object intersects the frustum so it
                     // must be visible and part of the global set
-                    global_clusterable_objects
-                        .entities
-                        .insert(clusterable_object.entity);
                     visible_clusterable_objects
                         .add(clusterable_object.entity, &clusterable_object.object_type);
 
@@ -645,7 +628,7 @@ pub(crate) fn assign_objects_to_clusters(
                         Some(cluster_coordinates.y)
                     };
                     for z in min_cluster.z..=max_cluster.z {
-                        let mut z_object = view_clusterable_object_sphere.clone();
+                        let mut z_object = view_clusterable_object_sphere;
                         if z_center.is_none() || z != z_center.unwrap() {
                             // The z plane closer to the clusterable object has the
                             // larger radius circle where the light sphere
@@ -664,7 +647,7 @@ pub(crate) fn assign_objects_to_clusters(
                             }
                         }
                         for y in min_cluster.y..=max_cluster.y {
-                            let mut y_object = z_object.clone();
+                            let mut y_object = z_object;
                             if y_center.is_none() || y != y_center.unwrap() {
                                 // The y plane closer to the clusterable object has
                                 // the larger radius circle where the light sphere

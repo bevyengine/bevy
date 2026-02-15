@@ -17,7 +17,7 @@ env:
   CARGO_PROFILE_TEST_DEBUG: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: nightly
+  NIGHTLY_TOOLCHAIN: "nightly-2026-02-11"
   RUSTFLAGS: "-D warnings"
 
 concurrency:
@@ -91,6 +91,7 @@ jobs:
           wayland: true
           xkb: true
           x264: true
+          fontconfig: true
       - name: CI job
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
@@ -413,6 +414,7 @@ jobs:
           wayland: true
           xkb: true
           x264: true
+          fontconfig: true
       - name: Build and check doc
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- doc

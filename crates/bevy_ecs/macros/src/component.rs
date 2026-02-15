@@ -32,6 +32,37 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         return err.into_compile_error().into();
     }
 
+    // Implement the Component trait.
+    let map_entities = map_entities(
+        &ast.data,
+        &bevy_ecs_path,
+        Ident::new("this", Span::call_site()),
+        false,
+        false,
+        None
+    ).map(|map_entities_impl| quote! {
+        fn map_entities<M: #bevy_ecs_path::entity::EntityMapper>(this: &mut Self, mapper: &mut M) {
+            use #bevy_ecs_path::entity::MapEntities;
+            #map_entities_impl
+        }
+    });
+
+    let storage = storage_path(&bevy_ecs_path, StorageTy::Table);
+
+    let on_add_path = None;
+    let on_remove_path = None;
+    let on_insert_path = None;
+    let on_replace_path = None;
+    let on_despawn_path = None;
+
+    let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
+    let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
+    let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_path);
+    let on_replace =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, on_replace_path);
+    let on_despawn =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_path);
+
     ast.generics
         .make_where_clause()
         .predicates
@@ -40,10 +71,58 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    TokenStream::from(quote! {
+    let mut register_required = Vec::with_capacity(1);
+    // We add the component_id existence check here to avoid recursive init during required components initialization.
+    register_required.push(quote! {
+        let resource_component_id = if let Some(id) = required_components.components_registrator().component_id::<#struct_name #type_generics>() {
+            id
+        } else {
+            required_components.components_registrator().register_component::<#struct_name #type_generics>()
+        };
+        required_components.register_required::<#bevy_ecs_path::resource::IsResource>(move || #bevy_ecs_path::resource::IsResource::new(resource_component_id));
+    });
+
+    // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
+    // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
+    let component_derive_token_stream = TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
+            const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
+            type Mutability = #bevy_ecs_path::component::Mutable;
+            fn register_required_components(
+                _requiree: #bevy_ecs_path::component::ComponentId,
+                required_components: &mut #bevy_ecs_path::component::RequiredComponentsRegistrator,
+            ) {
+                #(#register_required)*
+            }
+
+            #on_add
+            #on_insert
+            #on_replace
+            #on_remove
+            #on_despawn
+
+            fn clone_behavior() -> #bevy_ecs_path::component::ComponentCloneBehavior {
+                #bevy_ecs_path::component::ComponentCloneBehavior::Default
+            }
+
+            #map_entities
+
+            fn relationship_accessor() -> Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
+                None
+            }
+        }
+    });
+
+    // Implement the Resource trait.
+    let resource_impl_token_stream = TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::resource::Resource for #struct_name #type_generics #where_clause {
         }
-    })
+    });
+
+    resource_impl_token_stream
+        .into_iter()
+        .chain(component_derive_token_stream)
+        .collect()
 }
 
 /// Component derive syntax is documented on both the macro and the trait.
@@ -105,31 +184,31 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .map(|path| path.to_token_stream(&bevy_ecs_path))
     };
 
-    let on_replace_path = if relationship.is_some() {
-        if attrs.on_replace.is_some() {
+    let on_discard_path = if relationship.is_some() {
+        if attrs.on_discard.is_some() {
             return syn::Error::new(
                 ast.span(),
-                "Custom on_replace hooks are not supported as Relationships already define an on_replace hook",
+                "Custom on_discard hooks are not supported as Relationships already define an on_discard hook",
             )
             .into_compile_error()
             .into();
         }
 
-        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace))
+        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_discard))
     } else if attrs.relationship_target.is_some() {
-        if attrs.on_replace.is_some() {
+        if attrs.on_discard.is_some() {
             return syn::Error::new(
                 ast.span(),
-                "Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook",
+                "Custom on_discard hooks are not supported as RelationshipTarget already defines an on_discard hook",
             )
             .into_compile_error()
             .into();
         }
 
-        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace))
+        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_discard))
     } else {
         attrs
-            .on_replace
+            .on_discard
             .map(|path| path.to_token_stream(&bevy_ecs_path))
     };
 
@@ -155,8 +234,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
     let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_path);
-    let on_replace =
-        hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, on_replace_path);
+    let on_discard =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_discard}, on_discard_path);
     let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
     let on_despawn =
         hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_path);
@@ -261,7 +340,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
             #on_add
             #on_insert
-            #on_replace
+            #on_discard
             #on_remove
             #on_despawn
 
@@ -383,7 +462,7 @@ pub const RELATIONSHIP_TARGET: &str = "relationship_target";
 
 pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";
-pub const ON_REPLACE: &str = "on_replace";
+pub const ON_DISCARD: &str = "on_discard";
 pub const ON_REMOVE: &str = "on_remove";
 pub const ON_DESPAWN: &str = "on_despawn";
 pub const MAP_ENTITIES: &str = "map_entities";
@@ -506,7 +585,7 @@ struct Attrs {
     requires: Option<Punctuated<Require, Comma>>,
     on_add: Option<HookAttributeKind>,
     on_insert: Option<HookAttributeKind>,
-    on_replace: Option<HookAttributeKind>,
+    on_discard: Option<HookAttributeKind>,
     on_remove: Option<HookAttributeKind>,
     on_despawn: Option<HookAttributeKind>,
     relationship: Option<Relationship>,
@@ -546,7 +625,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         storage: StorageTy::Table,
         on_add: None,
         on_insert: None,
-        on_replace: None,
+        on_discard: None,
         on_remove: None,
         on_despawn: None,
         requires: None,
@@ -582,9 +661,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         parse_quote! { Self::on_insert }
                     })?);
                     Ok(())
-                } else if nested.path.is_ident(ON_REPLACE) {
-                    attrs.on_replace = Some(HookAttributeKind::parse(nested.input, || {
-                        parse_quote! { Self::on_replace }
+                } else if nested.path.is_ident(ON_DISCARD) {
+                    attrs.on_discard = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_discard }
                     })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REMOVE) {

@@ -41,7 +41,6 @@ bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", default-fea
 bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
-tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true

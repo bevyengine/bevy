@@ -288,6 +288,21 @@ pub struct GltfSceneExtras {
     pub value: String,
 }
 
+/// The name of a glTF scene.
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-scene).
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component, Clone)]
+pub struct GltfSceneName(pub String);
+
+impl Deref for GltfSceneName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
+
 /// Additional untyped data that can be present on most glTF types at the mesh level.
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
