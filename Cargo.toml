@@ -315,6 +315,9 @@ bevy_post_process = ["bevy_internal/bevy_post_process"]
 # Provides various anti aliasing solutions
 bevy_anti_alias = ["bevy_internal/bevy_anti_alias"]
 
+# Adds extract
+bevy_extract = ["bevy_internal/bevy_extract"]
+
 # Adds gamepad support
 bevy_gilrs = ["gamepad", "bevy_internal/bevy_gilrs"]
 

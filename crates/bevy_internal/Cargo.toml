@@ -16,6 +16,7 @@ trace = [
   "bevy_core_pipeline?/trace",
   "bevy_anti_alias?/trace",
   "bevy_ecs/trace",
+  "bevy_extract/trace",
   "bevy_log/trace",
   "bevy_pbr?/trace",
   "bevy_render?/trace",
@@ -217,6 +218,8 @@ morph = ["bevy_mesh?/morph", "bevy_render?/morph"]
 # Enables bevy_mesh and bevy_animation morph weight support
 morph_animation = ["morph", "bevy_animation?/bevy_mesh"]
 
+bevy_extract = ["dep:bevy_extract"]
+
 bevy_shader = ["dep:bevy_shader"]
 bevy_image = ["dep:bevy_image", "bevy_color", "bevy_asset"]
 bevy_sprite = ["dep:bevy_sprite", "bevy_camera"]
@@ -239,6 +242,7 @@ bevy_light = ["dep:bevy_light", "bevy_camera"]
 bevy_render = [
   "dep:bevy_render",
   "bevy_camera",
+  "bevy_extract",
   "bevy_shader",
   "bevy_color/wgpu-types",
   "bevy_color/encase",
@@ -506,6 +510,7 @@ bevy_post_process = { path = "../bevy_post_process", optional = true, version = 
 bevy_ui_widgets = { path = "../bevy_ui_widgets", optional = true, version = "0.19.0-dev" }
 bevy_anti_alias = { path = "../bevy_anti_alias", optional = true, version = "0.19.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.19.0-dev" }
+bevy_extract = { path = "../bevy_extract", version = "0.19.0-dev", optional = true }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.19.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.19.0-dev", default-features = false }
 bevy_gizmos_render = { path = "../bevy_gizmos_render", optional = true, version = "0.19.0-dev", default-features = false }

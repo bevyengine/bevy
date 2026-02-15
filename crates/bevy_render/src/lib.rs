@@ -41,10 +41,6 @@ pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod error_handler;
 pub mod extract_component;
-pub mod extract_instances;
-mod extract_param;
-pub mod extract_plugin;
-pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod gpu_readback;
@@ -58,8 +54,6 @@ pub mod render_resource;
 pub mod renderer;
 pub mod settings;
 pub mod storage;
-pub mod sync_component;
-pub mod sync_world;
 pub mod texture;
 pub mod view;
 
@@ -70,20 +64,14 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews, view::Msaa,
-        ExtractSchedule,
     };
 }
-
-pub use extract_param::Extract;
-pub use extract_plugin::{ExtractSchedule, MainWorld};
 
 use crate::{
     camera::CameraPlugin,
     error_handler::{RenderErrorHandler, RenderState},
-    extract_plugin::ExtractPlugin,
     gpu_readback::GpuReadbackPlugin,
-    mesh::{MeshRenderAssetPlugin, RenderMesh},
-    render_asset::prepare_assets,
+    mesh::MeshRenderAssetPlugin,
     render_resource::PipelineCache,
     renderer::{render_system, RenderAdapterInfo},
     settings::RenderCreation,
@@ -97,6 +85,7 @@ use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bevy_extract::{ExtractPlugin, ExtractSchedule, Render, RenderApp, RenderSystems};
 use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_time::TimeSender;

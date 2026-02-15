@@ -59,8 +59,8 @@ impl Plugin for CameraPlugin {
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
             .add_plugins((
-                ExtractResourcePlugin::<ClearColor>::default(),
-                ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
+                ExtractResourcePlugin::<ClearColor, Self>::default(),
+                ExtractComponentPlugin::<CameraMainTextureUsages, Self>::default(),
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
             .add_systems(
@@ -90,7 +90,7 @@ fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .
     }
 }
 
-impl ExtractResource for ClearColor {
+impl ExtractResource<CameraPlugin> for ClearColor {
     type Source = Self;
 
     fn extract_resource(source: &Self::Source) -> Self {
@@ -98,11 +98,11 @@ impl ExtractResource for ClearColor {
     }
 }
 
-impl SyncComponent for CameraMainTextureUsages {
+impl SyncComponent<CameraPlugin> for CameraMainTextureUsages {
     type Out = Self;
 }
 
-impl ExtractComponent for CameraMainTextureUsages {
+impl ExtractComponent<CameraPlugin> for CameraMainTextureUsages {
     type QueryData = &'static Self;
     type QueryFilter = ();
 
@@ -111,11 +111,11 @@ impl ExtractComponent for CameraMainTextureUsages {
     }
 }
 
-impl SyncComponent for Camera2d {
+impl SyncComponent<CameraPlugin> for Camera2d {
     type Out = Self;
 }
 
-impl ExtractComponent for Camera2d {
+impl ExtractComponent<CameraPlugin> for Camera2d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 
@@ -124,11 +124,11 @@ impl ExtractComponent for Camera2d {
     }
 }
 
-impl SyncComponent for Camera3d {
+impl SyncComponent<CameraPlugin> for Camera3d {
     type Out = Self;
 }
 
-impl ExtractComponent for Camera3d {
+impl ExtractComponent<CameraPlugin> for Camera3d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 
