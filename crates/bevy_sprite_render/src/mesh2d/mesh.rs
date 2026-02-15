@@ -137,7 +137,9 @@ pub fn check_views_need_specialization(
             .is_some_and(|current_key| *current_key == view_key)
         {
             view_key_cache.insert(*view_entity, view_key);
-            dirty_specializations.views.insert(view.retained_view_entity);
+            dirty_specializations
+                .views
+                .insert(view.retained_view_entity);
         }
     }
 }
