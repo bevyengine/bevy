@@ -1,19 +1,32 @@
 //! A procedurally generated city
 
+// TODO force reload failed assets
+
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::Exposure,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    color::palettes::css::WHITE,
     light::{atmosphere::ScatteringMedium, Atmosphere, AtmosphereEnvironmentMapLight},
     pbr::AtmosphereSettings,
     post_process::bloom::Bloom,
     prelude::*,
 };
-use rand::Rng;
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FreeCameraPlugin))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "bevy_city".into(),
+                    resolution: (1920, 1080).into(),
+                    ..default()
+                }),
+                ..default()
+            }),
+            FreeCameraPlugin,
+        ))
         .add_systems(Startup, (setup, load_assets, setup_city.after(load_assets)))
         .run();
 }
@@ -54,6 +67,17 @@ struct CityAssets {
     high_density: Buildings,
     medium_density: Buildings,
     low_density: Buildings,
+    ground_tile: (
+        Handle<Mesh>,
+        Handle<StandardMaterial>,
+        Handle<StandardMaterial>,
+    ),
+}
+
+impl CityAssets {
+    fn get_random_car<R: Rng>(&self, rng: &mut R) -> Handle<Scene> {
+        self.cars[rng.random_range(0..self.cars.len())].clone()
+    }
 }
 
 struct Buildings {
@@ -81,7 +105,7 @@ fn load_assets(
 
     let cars = {
         // We need to trigger a load of the texture even if we never use it directly
-        let car_texture: Handle<Image> =
+        let _car_texture: Handle<Image> =
             asset_server.load(format!("{base_url}/car-kit/Textures/colormap.png"));
 
         // TODO generate variations
@@ -103,7 +127,8 @@ fn load_assets(
         .collect::<Vec<_>>()
     };
 
-    let road_texture: Handle<Image> =
+    // We need to trigger a load of the texture even if we never use it directly
+    let _road_texture: Handle<Image> =
         asset_server.load(format!("{base_url}/city-kit-roads/Textures/colormap.png"));
 
     let crossroad = asset_server.load(
@@ -210,6 +235,27 @@ fn load_assets(
 
         Buildings { meshes, materials }
     };
+
+    let ground_tile = {
+        let mesh = asset_server.load(
+            GltfAssetLabel::Primitive {
+                mesh: 0,
+                primitive: 0,
+            }
+            .from_asset(format!("{base_url}/city-kit-roads/tile-low.glb")),
+        );
+        // TODO use this once https://github.com/bevyengine/bevy/pull/22943 is merged
+        // let default_material: Handle<StandardMaterial> = asset_server.load(format!(
+        //     "ground_tile/tile-low.glb#{}/std",
+        //     GltfAssetLabel::DefaultMaterial
+        // ));
+        let white_material = materials.add(StandardMaterial::from_color(WHITE));
+        let grass_material =
+            materials.add(StandardMaterial::from_color(Color::srgb_u8(97, 203, 139)));
+
+        (mesh, white_material, grass_material)
+    };
+
     commands.insert_resource(CityAssets {
         cars,
         crossroad,
@@ -217,27 +263,102 @@ fn load_assets(
         high_density,
         medium_density,
         low_density,
+        ground_tile,
     });
 }
 
 fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
-    let mut rng = rand::rng();
-    let size = 3;
-    for x in 0..size {
-        for z in 0..size {
+    let mut rng = SmallRng::seed_from_u64(42);
+    let size = 25;
+    let half_size = size / 2;
+    for x in -half_size..half_size {
+        for z in -half_size..half_size {
             let x = x as f32 * 5.5;
             let z = z as f32 * 4.0;
+            let offset = Vec3::new(x, 0.0, z);
+
+            // spawn roads
+            {
+                commands.spawn((
+                    SceneRoot(assets.crossroad.clone()),
+                    Transform::from_xyz(x, 0.0, z),
+                ));
+                commands.spawn((
+                    SceneRoot(assets.road_straight.clone()),
+                    Transform::from_translation(Vec3::new(2.75, 0.0, 0.0) + offset)
+                        .with_scale(Vec3::new(4.5, 1.0, 1.0)),
+                ));
+                commands.spawn((
+                    SceneRoot(assets.road_straight.clone()),
+                    Transform::from_translation(Vec3::new(0.0, 0.0, 2.0) + offset)
+                        .with_scale(Vec3::new(3.0, 1.0, 1.0))
+                        .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::FRAC_PI_2)),
+                ));
+            }
+
+            // TODO use noise
+            let density = rng.random::<f32>();
+            let low_density = 0.6;
+            let medium_density = 0.7;
+
+            let ground_tile_scale = Vec3::new(4.5, 1.0, 3.0);
             commands.spawn((
-                SceneRoot(assets.crossroad.clone()),
-                // assets.high_density.get_random_building(&mut rng),
-                Transform::from_xyz(x, 0.0, z),
+                Mesh3d(assets.ground_tile.0.clone()),
+                MeshMaterial3d(assets.ground_tile.1.clone()),
+                Transform::from_translation(
+                    Vec3::new(0.5, -0.5005, 0.5) + ground_tile_scale / 2.0 + offset,
+                )
+                .with_scale(ground_tile_scale),
             ));
+
+            if density < low_density {
+                for x in 1..=2 {
+                    let x_factor = 1.8;
+                    commands.spawn((
+                        assets.low_density.get_random_building(&mut rng),
+                        Transform::from_translation(
+                            Vec3::new(x as f32 * x_factor, 0.0, 1.25) + offset,
+                        ),
+                    ));
+                    commands.spawn((
+                        assets.low_density.get_random_building(&mut rng),
+                        Transform::from_translation(
+                            Vec3::new(x as f32 * x_factor, 0.0, 2.75) + offset,
+                        )
+                        .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
+                    ));
+                }
+            } else if density < medium_density {
+                let x_factor = 0.9;
+                for x in 1..=5 {
+                    commands.spawn((
+                        assets.medium_density.get_random_building(&mut rng),
+                        Transform::from_translation(
+                            Vec3::new(x as f32 * x_factor, 0.0, 1.0) + offset,
+                        ),
+                    ));
+                    commands.spawn((
+                        assets.medium_density.get_random_building(&mut rng),
+                        Transform::from_translation(
+                            Vec3::new(x as f32 * x_factor, 0.0, 3.0) + offset,
+                        )
+                        .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
+                    ));
+                }
+            } else {
+                for x in 0..3 {
+                    let x = x as f32;
+                    commands.spawn((
+                        assets.high_density.get_random_building(&mut rng),
+                        Transform::from_translation(Vec3::new(1.25 + x * 1.5, 0.0, 1.25) + offset),
+                    ));
+                    commands.spawn((
+                        assets.high_density.get_random_building(&mut rng),
+                        Transform::from_translation(Vec3::new(1.25 + x * 1.5, 0.0, 2.75) + offset)
+                            .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
+                    ));
+                }
+            }
         }
     }
-    // for (i, car) in assets.cars.iter().enumerate() {
-    //     commands.spawn((
-    //         SceneRoot(car.clone()),
-    //         Transform::from_xyz(i as f32 * 1.5, 0.0, 0.0),
-    //     ));
-    // }
 }
