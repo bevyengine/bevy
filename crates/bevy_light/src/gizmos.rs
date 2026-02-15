@@ -118,7 +118,7 @@ impl Plugin for LightGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // Due to an issue with initializing the PostUpdate schedule when
         // TransformSystems::Propagate runs before GizmoMeshSystems,
-        // light gizmo's must be rendered with a frame delay. Since light gizmos are expected
+        // light gizmo's must start to be rendered with one frame delay. Since light gizmos are expected
         // to be rendered for multiple consecutive frames, this should not be a problem.
         app.init_gizmo_group_delayed_render::<LightGizmoConfigGroup>()
             .add_systems(

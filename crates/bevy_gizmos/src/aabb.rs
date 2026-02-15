@@ -18,7 +18,7 @@ use crate::{
     color_from_entity,
     config::{GizmoConfigGroup, GizmoConfigStore},
     gizmos::Gizmos,
-    AppGizmoBuilder,
+    AppGizmoBuilder, GizmoMeshSystems,
 };
 
 /// A [`Plugin`] that provides visualization of [`Aabb`]s for debugging.
@@ -28,10 +28,9 @@ impl Plugin for AabbGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // Due to system ordering between `VisibilitySystems` and
         // `AssetEventSystems` that would cause a cycle,
-        // aabb's must be rendered one frame later. Since aabb's are expected
+        // aabb's must start to be rendered with one frame delay. Since aabb's are expected
         // to be rendered for multiple frames, this should not be a problem.
-        app.init_gizmo_group_delayed_render::<AabbGizmoConfigGroup>()
-        .add_systems(
+        app.init_gizmo_group::<AabbGizmoConfigGroup>().add_systems(
             PostUpdate,
             (
                 draw_aabbs,
@@ -40,7 +39,8 @@ impl Plugin for AabbGizmoPlugin {
                 }),
             )
                 .after(bevy_camera::visibility::VisibilitySystems::MarkNewlyHiddenEntitiesInvisible)
-                .after(TransformSystems::Propagate),
+                .after(TransformSystems::Propagate)
+                .before(GizmoMeshSystems),
         );
     }
 }
