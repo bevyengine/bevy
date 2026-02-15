@@ -10,6 +10,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use bevy_ecs_macros::Event;
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
@@ -351,10 +352,6 @@ pub struct Schedule {
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
-    /// Metadata produced by the schedule build process.
-    ///
-    /// Is [`Some`] if the schedule has been built.
-    build_metadata: Option<ScheduleBuildMetadata>,
 }
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
@@ -379,7 +376,6 @@ impl Schedule {
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
-            build_metadata: None,
         };
         // Call `set_build_settings` to add any default build passes
         this.set_build_settings(Default::default());
@@ -568,22 +564,35 @@ impl Schedule {
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
     /// and re-initializes the executor.
     ///
-    /// Moves all systems and run conditions out of the [`ScheduleGraph`].
-    pub fn initialize(&mut self, world: &mut World) -> Result<(), ScheduleBuildError> {
+    /// Moves all systems and run conditions out of the [`ScheduleGraph`]. If the schedule is built
+    /// successfully, returns [`Some`] with the metadata. If the schedule has previously been built
+    /// successfully, returns [`None`].
+    pub fn initialize(
+        &mut self,
+        world: &mut World,
+    ) -> Result<Option<ScheduleBuildMetadata>, ScheduleBuildError> {
+        let mut build_metadata = None;
         if self.graph.changed {
             self.graph.initialize(world);
             let ignored_ambiguities = world
                 .get_resource_or_init::<Schedules>()
                 .ignored_scheduling_ambiguities
                 .clone();
-            self.build_metadata = Some(self.graph.update_schedule(
-                world,
-                &mut self.executable,
-                &ignored_ambiguities,
-                self.label,
-            )?);
+
+            let mut event = ScheduleBuilt {
+                label: self.label,
+                build_metadata: self.graph.update_schedule(
+                    world,
+                    &mut self.executable,
+                    &ignored_ambiguities,
+                    self.label,
+                )?,
+            };
             self.graph.changed = false;
             self.executor_initialized = false;
+
+            world.trigger_ref(&mut event);
+            build_metadata = Some(event.build_metadata);
         }
 
         if !self.executor_initialized {
@@ -591,7 +600,7 @@ impl Schedule {
             self.executor_initialized = true;
         }
 
-        Ok(())
+        Ok(build_metadata)
     }
 
     /// Returns the [`ScheduleGraph`].
@@ -675,14 +684,6 @@ impl Schedule {
         } else {
             self.executable.systems.len()
         }
-    }
-
-    /// Returns metadata about that build process that was generated during the last call to
-    /// [`Schedule::initialize`].
-    ///
-    /// Is [`None`] if the schedule was never (successfully) initialized.
-    pub fn build_metadata(&self) -> Option<&ScheduleBuildMetadata> {
-        self.build_metadata.as_ref()
     }
 }
 
@@ -1610,6 +1611,17 @@ pub struct ScheduleBuildMetadata {
     /// These edges are not stored in the [`ScheduleGraph`], and so are only available during the
     /// build process.
     pub edges_added_by_build_passes: HashSet<(SystemKey, SystemKey)>,
+}
+
+/// An event triggered when a schedule is successfully built.
+///
+/// Note: When this event is triggered, the corresponding [`Schedule`] is not present in the world.
+#[derive(Event)]
+pub struct ScheduleBuilt {
+    /// The schedule that was built.
+    pub label: InternedScheduleLabel,
+    /// The metadata for the build process of this schedule.
+    pub build_metadata: ScheduleBuildMetadata,
 }
 
 /// Error to denote that [`Schedule::initialize`] or [`Schedule::run`] has not yet been called for
