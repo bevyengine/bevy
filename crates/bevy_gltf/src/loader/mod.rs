@@ -3,6 +3,7 @@ pub mod gltf_ext;
 
 use alloc::sync::Arc;
 use async_lock::RwLock;
+use atomicow::CowArc;
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
@@ -26,6 +27,7 @@ use bevy_image::{
     ImageType, TextureError,
 };
 use bevy_light::{DirectionalLight, PointLight, SpotLight};
+use bevy_log::warn_once;
 use bevy_math::{Mat4, Vec3};
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_mesh::UvChannel;
@@ -34,12 +36,16 @@ use bevy_mesh::{
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
 };
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{hash_map::Entry, HashMap, HashSet},
+    hash::RandomState,
+};
 use bevy_reflect::TypePath;
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
+use core::hash::{BuildHasher, Hasher};
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -55,9 +61,12 @@ use tracing::{error, info_span, warn};
 use wgpu_types::Face;
 
 use crate::{
-    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
-    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
-    GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
+    convert_coordinates::ConvertCoordinates as _,
+    label::{GltfLabelMode, GltfNamedAssetLabel},
+    vertex_attributes::convert_attribute,
+    Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
+    GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin,
+    GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -66,10 +75,7 @@ use self::{
     extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
     gltf_ext::{
         check_for_cycles, get_linear_textures,
-        material::{
-            alpha_mode, material_label, needs_tangents, uv_channel,
-            warn_on_differing_texture_transforms,
-        },
+        material::{alpha_mode, needs_tangents, uv_channel, warn_on_differing_texture_transforms},
         mesh::{primitive_name, primitive_topology},
         scene::{node_name, node_transform},
         texture::{texture_sampler, texture_transform_to_affine2},
@@ -134,6 +140,9 @@ pub enum GltfError {
     #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
     #[from(ignore)]
     CircularChildren(String),
+    /// Duplicate name found when using [`GltfLabelMode::Names`].
+    #[error("glTF file contained a duplicate subasset label: {0}")]
+    DuplicateName(String),
     /// Failed to load a file.
     #[error("failed to load file: {0}")]
     Io(#[from] Error),
@@ -155,6 +164,9 @@ pub struct GltfLoader {
     /// The default glTF coordinate conversion setting. This can be overridden
     /// per-load by [`GltfLoaderSettings::convert_coordinates`].
     pub default_convert_coordinates: GltfConvertCoordinates,
+    /// The default label mode setting. This can be overridden per-load by
+    /// [`GltfLoaderSettings::label_mode`].
+    pub default_label_mode: GltfLabelMode,
     /// glTF extension data processors.
     /// These are Bevy-side processors designed to access glTF
     /// extension data during the loading process.
@@ -211,8 +223,13 @@ pub struct GltfLoaderSettings {
     pub validate: bool,
     /// Overrides the default glTF coordinate conversion setting.
     ///
-    /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
+    /// If [`None`], uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
     pub convert_coordinates: Option<GltfConvertCoordinates>,
+    /// Overrides the default option for how labels are assigned.
+    ///
+    /// If [`None`] uses the global default set by
+    /// [`GltfPlugin::label_mode`](crate::GltfPlugin::label_mode).
+    pub label_mode: Option<GltfLabelMode>,
     /// Optionally overrides [`GltfPlugin::skinned_mesh_bounds_policy`](crate::GltfPlugin).
     pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
 }
@@ -230,6 +247,7 @@ impl Default for GltfLoaderSettings {
             override_sampler: false,
             validate: true,
             convert_coordinates: None,
+            label_mode: None,
             skinned_mesh_bounds_policy: None,
         }
     }
@@ -291,6 +309,20 @@ impl GltfLoader {
             None => loader.default_convert_coordinates,
         };
 
+        let label_mode = match settings.label_mode {
+            Some(label_mode) => label_mode,
+            None => {
+                if loader.default_label_mode == GltfLabelMode::Indices
+                    && !cfg!(feature = "gltf_named_subassets_default")
+                {
+                    warn_once!("Starting from Bevy 0.20, by default all glTF subassets will be renamed to use their names instead of their indices. \
+                    You are currently loading glTF files using the old behavior. Consider opting-in to the new loading behavior by enabling the `gltf_named_subassets_default` feature. \
+                    If you want to continue using the old behavior going forward (even after 0.20), manually set the `label_mode` option in the `GltfPlugin` or `GltfLoaderSettings`. See the release notes for more.");
+                }
+                loader.default_label_mode
+            }
+        };
+
         let skinned_mesh_bounds_policy = settings
             .skinned_mesh_bounds_policy
             .unwrap_or(loader.default_skinned_mesh_bounds_policy);
@@ -304,7 +336,20 @@ impl GltfLoader {
                 curve::{ConstantCurve, Interval, UnevenSampleAutoCurve},
                 Quat, Vec4,
             };
-            use gltf::animation::util::ReadOutputs;
+            use gltf::{animation::util::ReadOutputs, Animation};
+
+            let mut animation_label_maker = create_label_maker::<Animation>(
+                label_mode,
+                "anim",
+                |animation| {
+                    (
+                        GltfAssetLabel::Animation(animation.index()),
+                        IndexUsage::Normal,
+                    )
+                },
+                |name, _| GltfNamedAssetLabel::Animation(name),
+            );
+
             let mut animations = vec![];
             let mut named_animations = <HashMap<_, _>>::default();
             let mut animation_roots = <HashSet<_>>::default();
@@ -577,7 +622,7 @@ impl GltfLoader {
                 }
 
                 let handle = load_context.add_labeled_asset(
-                    GltfAssetLabel::Animation(animation.index()).to_string(),
+                    animation_label_maker(animation.clone(), animation.name())?,
                     animation_clip,
                 );
                 if let Some(name) = animation.name() {
@@ -608,6 +653,90 @@ impl GltfLoader {
             Some(sampler) => sampler,
             None => &loader.default_sampler.lock().unwrap().clone(),
         };
+
+        let mut texture_label_maker = create_label_maker::<gltf::Texture>(
+            label_mode,
+            "tex",
+            |texture| (GltfAssetLabel::Texture(texture.index()), IndexUsage::Normal),
+            |name, _| GltfNamedAssetLabel::Texture(name),
+        );
+        let mut material_label_maker = create_label_maker::<(Material, bool)>(
+            label_mode,
+            "mat",
+            |(material, is_scale_inverted)| match material.index() {
+                // TODO: The default material should also probably be invertible?
+                // If the material is the default material, then just abort immediately. Otherwise,
+                // since the default material JSON has name = null, we'd give this material a name
+                // like `__mat_0_2137`, which is not useful.
+                None => (GltfAssetLabel::DefaultMaterial, IndexUsage::Abort),
+                Some(index) => (
+                    GltfAssetLabel::Material {
+                        index,
+                        is_scale_inverted,
+                    },
+                    IndexUsage::Normal,
+                ),
+            },
+            // We don't need to handle `DefaultMaterial` here since, the default material never has
+            // a name!
+            |name, (_, is_scale_inverted)| GltfNamedAssetLabel::Material {
+                name,
+                is_scale_inverted,
+            },
+        );
+        let mut primitive_label_maker = create_label_maker::<(gltf::Mesh, gltf::Primitive)>(
+            label_mode,
+            "prim",
+            |(mesh, primitive)| {
+                (
+                    GltfAssetLabel::Primitive {
+                        mesh: mesh.index(),
+                        primitive: primitive.index(),
+                    },
+                    IndexUsage::Normal,
+                )
+            },
+            |name, (_, primitive)| GltfNamedAssetLabel::Primitive {
+                mesh: name,
+                primitive_index: primitive.index(),
+            },
+        );
+        let mut mesh_label_maker = create_label_maker::<gltf::Mesh>(
+            label_mode,
+            "mesh",
+            |mesh| (GltfAssetLabel::Mesh(mesh.index()), IndexUsage::Normal),
+            |name, _| GltfNamedAssetLabel::Mesh(name),
+        );
+        let mut inverse_bindposes_label_maker = create_label_maker::<gltf::Skin>(
+            label_mode,
+            "ibp",
+            |skin| {
+                (
+                    GltfAssetLabel::InverseBindMatrices(skin.index()),
+                    IndexUsage::Normal,
+                )
+            },
+            |name, _| GltfNamedAssetLabel::InverseBindMatrices { skin: name },
+        );
+        let mut node_label_maker = create_label_maker::<Node>(
+            label_mode,
+            "node",
+            |node| (GltfAssetLabel::Node(node.index()), IndexUsage::Normal),
+            |name, _| GltfNamedAssetLabel::Node(name),
+        );
+        let mut skin_label_maker = create_label_maker::<gltf::Skin>(
+            label_mode,
+            "skin",
+            |skin| (GltfAssetLabel::Skin(skin.index()), IndexUsage::Normal),
+            |name, _| GltfNamedAssetLabel::Skin(name),
+        );
+        let mut scene_label_maker = create_label_maker::<gltf::Scene>(
+            label_mode,
+            "scene",
+            |scene| (GltfAssetLabel::Scene(scene.index()), IndexUsage::Normal),
+            |name, _| GltfNamedAssetLabel::Scene(name),
+        );
+
         // We collect handles to ensure loaded images from paths are not unloaded before they are used elsewhere
         // in the loader. This prevents "reloads", but it also prevents dropping the is_srgb context on reload.
         //
@@ -617,6 +746,7 @@ impl GltfLoader {
         let mut texture_handles = Vec::new();
         if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
             for texture in gltf.textures() {
+                let label = texture_label_maker(texture.clone(), texture.name())?;
                 let image = load_image(
                     texture.clone(),
                     &buffer_data,
@@ -625,6 +755,7 @@ impl GltfLoader {
                     loader.supported_compressed_formats,
                     default_sampler,
                     settings,
+                    label,
                 )
                 .await?;
                 image.process_loaded_texture(load_context, &mut texture_handles);
@@ -641,6 +772,7 @@ impl GltfLoader {
                         let asset_path = load_context.path().clone();
                         let linear_textures = &linear_textures;
                         let buffer_data = &buffer_data;
+                        let label = texture_label_maker(gltf_texture.clone(), gltf_texture.name());
                         scope.spawn(async move {
                             load_image(
                                 gltf_texture,
@@ -650,6 +782,7 @@ impl GltfLoader {
                                 loader.supported_compressed_formats,
                                 default_sampler,
                                 settings,
+                                label?,
                             )
                             .await
                         });
@@ -678,12 +811,14 @@ impl GltfLoader {
         if !settings.load_materials.is_empty() {
             // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
             for material in gltf.materials() {
-                let (label, gltf_material) = load_material(
+                let gltf_material = load_material(
                     &material,
                     &texture_handles,
                     false,
                     load_context.path().clone(),
                 );
+                let label: CowArc<'static, str> =
+                    material_label_maker((material.clone(), false), material.name())?;
                 let handle = load_context.add_labeled_asset(label.clone(), gltf_material.clone());
 
                 if let Some(name) = material.name() {
@@ -697,7 +832,7 @@ impl GltfLoader {
                         &material,
                         handle.clone(),
                         &gltf_material,
-                        &label.clone(),
+                        &label,
                     );
                 }
 
@@ -725,10 +860,10 @@ impl GltfLoader {
                 meshes_on_non_skinned_nodes.contains(&gltf_mesh.index());
 
             for primitive in gltf_mesh.primitives() {
-                let primitive_label = GltfAssetLabel::Primitive {
-                    mesh: gltf_mesh.index(),
-                    primitive: primitive.index(),
-                };
+                let primitive_label = primitive_label_maker(
+                    (gltf_mesh.clone(), primitive.clone()),
+                    gltf_mesh.name(),
+                )?;
 
                 // a Mesh that can be generated by a user's extension,
                 // such as when decompressing draco buffers
@@ -864,7 +999,7 @@ impl GltfLoader {
                     warn!("Failed to generate skinned mesh bounds: {err}");
                 }
 
-                let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
+                let mesh_handle = load_context.add_labeled_asset(primitive_label, mesh);
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
                     &primitive,
@@ -888,7 +1023,8 @@ impl GltfLoader {
                 gltf_mesh.extras().as_deref().map(GltfExtras::from),
             );
 
-            let handle = load_context.add_labeled_asset(mesh.asset_label().to_string(), mesh);
+            let mesh_label = mesh_label_maker(gltf_mesh.clone(), gltf_mesh.name())?;
+            let handle = load_context.add_labeled_asset(mesh_label, mesh);
             if let Some(name) = gltf_mesh.name() {
                 named_meshes.insert(name.into(), handle.clone());
             }
@@ -899,39 +1035,43 @@ impl GltfLoader {
             meshes.push(handle);
         }
 
-        let skinned_mesh_inverse_bindposes: Vec<_> = gltf
+        let skinned_mesh_inverse_bindposes = gltf
             .skins()
-            .map(|gltf_skin| {
-                let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
-                let local_to_bone_bind_matrices: Vec<Mat4> = reader
-                    .read_inverse_bind_matrices()
-                    .map(|mats| {
-                        mats.map(|mat| {
-                            Mat4::from_cols_array_2d(&mat)
-                                * convert_coordinates.mesh_conversion_mat4()
+            .map(
+                #[expect(clippy::result_large_err, reason = "GltfError holds an AssetLoadError")]
+                |gltf_skin| -> Result<Handle<SkinnedMeshInverseBindposes>, GltfError> {
+                    let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
+                    let local_to_bone_bind_matrices: Vec<Mat4> = reader
+                        .read_inverse_bind_matrices()
+                        .map(|mats| {
+                            mats.map(|mat| {
+                                Mat4::from_cols_array_2d(&mat)
+                                    * convert_coordinates.mesh_conversion_mat4()
+                            })
+                            .collect()
                         })
-                        .collect()
-                    })
-                    .unwrap_or_else(|| {
-                        core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
-                    });
+                        .unwrap_or_else(|| {
+                            core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
+                        });
 
-                load_context.add_labeled_asset(
-                    GltfAssetLabel::InverseBindMatrices(gltf_skin.index()).to_string(),
-                    SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
-                )
-            })
-            .collect();
+                    let label = inverse_bindposes_label_maker(gltf_skin.clone(), gltf_skin.name())?;
+                    Ok(load_context.add_labeled_asset(
+                        label,
+                        SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
+                    ))
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
 
         let mut nodes = HashMap::<usize, Handle<GltfNode>>::default();
         let mut named_nodes = <HashMap<_, _>>::default();
-        let mut skins = <HashMap<_, _>>::default();
+        let mut skins = HashMap::<usize, Handle<GltfSkin>>::default();
         let mut named_skins = <HashMap<_, _>>::default();
 
         // First, create the node handles.
         for node in gltf.nodes() {
-            let label = GltfAssetLabel::Node(node.index());
-            let label_handle = load_context.get_label_handle(label.to_string());
+            let label = node_label_maker(node.clone(), node.name())?;
+            let label_handle = load_context.get_label_handle(label);
             nodes.insert(node.index(), label_handle);
         }
 
@@ -940,17 +1080,20 @@ impl GltfLoader {
 
         // Now populate the nodes.
         for node in gltf.nodes() {
-            let skin = node.skin().map(|skin| {
-                skins
-                    .entry(skin.index())
-                    .or_insert_with(|| {
-                        let joints: Vec<_> = skin
-                            .joints()
-                            .map(|joint| nodes.get(&joint.index()).unwrap().clone())
-                            .collect();
+            #[expect(clippy::result_large_err, reason = "GltfError holds an AssetLoadError")]
+            let skin = node
+                .skin()
+                .map(|skin| -> Result<Handle<GltfSkin>, GltfError> {
+                    match skins.entry(skin.index()) {
+                        Entry::Occupied(entry) => Ok(entry.get().clone()),
+                        Entry::Vacant(entry) => {
+                            let joints: Vec<_> = skin
+                                .joints()
+                                .map(|joint| nodes.get(&joint.index()).unwrap().clone())
+                                .collect();
 
-                        if joints.len() > MAX_JOINTS {
-                            warn!(
+                            if joints.len() > MAX_JOINTS {
+                                warn!(
                                 "The glTF skin {} has {} joints, but the maximum supported is {}",
                                 skin.name()
                                     .map(ToString::to_string)
@@ -958,26 +1101,33 @@ impl GltfLoader {
                                 joints.len(),
                                 MAX_JOINTS
                             );
+                            }
+
+                            let gltf_skin = GltfSkin::new(
+                                &skin,
+                                joints,
+                                skinned_mesh_inverse_bindposes[skin.index()].clone(),
+                                skin.extras().as_deref().map(GltfExtras::from),
+                            );
+
+                            let label = skin_label_maker(skin.clone(), skin.name())?;
+                            let handle = load_context.add_labeled_asset(label, gltf_skin);
+
+                            if let Some(name) = skin.name() {
+                                named_skins.insert(name.into(), handle.clone());
+                            }
+
+                            entry.insert(handle.clone());
+
+                            Ok(handle)
                         }
-
-                        let gltf_skin = GltfSkin::new(
-                            &skin,
-                            joints,
-                            skinned_mesh_inverse_bindposes[skin.index()].clone(),
-                            skin.extras().as_deref().map(GltfExtras::from),
-                        );
-
-                        let handle = load_context
-                            .add_labeled_asset(gltf_skin.asset_label().to_string(), gltf_skin);
-
-                        if let Some(name) = skin.name() {
-                            named_skins.insert(name.into(), handle.clone());
-                        }
-
-                        handle
-                    })
-                    .clone()
-            });
+                    }
+                });
+            let skin = if let Some(skin) = skin {
+                Some(skin?)
+            } else {
+                None
+            };
 
             let children = node
                 .children()
@@ -1001,8 +1151,8 @@ impl GltfLoader {
             #[cfg(feature = "bevy_animation")]
             let gltf_node = gltf_node.with_animation_root(animation_roots.contains(&node.index()));
 
-            let handle =
-                load_context.add_labeled_asset(gltf_node.asset_label().to_string(), gltf_node);
+            let label = node_label_maker(node.clone(), node.name())?;
+            let handle = load_context.add_labeled_asset(label, gltf_node);
             nodes.insert(node.index(), handle.clone());
             if let Some(name) = node.name() {
                 named_nodes.insert(name.into(), handle);
@@ -1059,6 +1209,8 @@ impl GltfLoader {
                             &convert_coordinates,
                             &mut extensions,
                             skinned_mesh_bounds_policy,
+                            &mut material_label_maker,
+                            &mut primitive_label_maker,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -1122,16 +1274,25 @@ impl GltfLoader {
             }
 
             let loaded_scene = scene_load_context.finish(Scene::new(world));
-            let scene_handle = load_context.add_loaded_labeled_asset(
-                GltfAssetLabel::Scene(scene.index()).to_string(),
-                loaded_scene,
-            );
+            let label = scene_label_maker(scene.clone(), scene.name())?;
+            let scene_handle = load_context.add_loaded_labeled_asset(label, loaded_scene);
 
             if let Some(name) = scene.name() {
                 named_scenes.insert(name.into(), scene_handle.clone());
             }
             scenes.push(scene_handle);
         }
+
+        // Rust thinks these label makers could use the `gltf` borrow in their drop impl. Drop
+        // them early to allow us to move the `gltf`.
+        drop(texture_label_maker);
+        drop(material_label_maker);
+        drop(primitive_label_maker);
+        drop(mesh_label_maker);
+        drop(inverse_bindposes_label_maker);
+        drop(skin_label_maker);
+        drop(node_label_maker);
+        drop(scene_label_maker);
 
         Ok(Gltf {
             default_scene: gltf
@@ -1191,6 +1352,7 @@ async fn load_image<'a, 'b>(
     supported_compressed_formats: CompressedImageFormats,
     default_sampler: &ImageSamplerDescriptor,
     settings: &GltfLoaderSettings,
+    label: CowArc<'static, str>,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let sampler_descriptor = if settings.override_sampler {
@@ -1212,10 +1374,7 @@ async fn load_image<'a, 'b>(
                 ImageSampler::Descriptor(sampler_descriptor),
                 settings.load_materials,
             )?;
-            Ok(ImageOrPath::Image {
-                image,
-                label: GltfAssetLabel::Texture(gltf_texture.index()),
-            })
+            Ok(ImageOrPath::Image { image, label })
         }
         Source::Uri { uri, mime_type } => {
             let uri = percent_encoding::percent_decode_str(uri)
@@ -1234,7 +1393,7 @@ async fn load_image<'a, 'b>(
                         ImageSampler::Descriptor(sampler_descriptor),
                         settings.load_materials,
                     )?,
-                    label: GltfAssetLabel::Texture(gltf_texture.index()),
+                    label,
                 })
             } else {
                 let image_path = gltf_path
@@ -1257,7 +1416,7 @@ fn load_material(
     textures: &[Handle<Image>],
     is_scale_inverted: bool,
     asset_path: AssetPath<'_>,
-) -> (String, GltfMaterial) {
+) -> GltfMaterial {
     let pbr = material.pbr_metallic_roughness();
 
     // TODO: handle missing label handle errors here?
@@ -1416,7 +1575,7 @@ fn load_material(
     let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
     let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
 
-    let gltf_material = GltfMaterial {
+    GltfMaterial {
         base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
         base_color_channel,
         base_color_texture,
@@ -1495,12 +1654,7 @@ fn load_material(
         specular_tint_channel: specular.specular_color_channel,
         #[cfg(feature = "pbr_specular_textures")]
         specular_tint_texture: specular.specular_color_texture,
-    };
-
-    (
-        material_label(material, is_scale_inverted).to_string(),
-        gltf_material,
-    )
+    }
 }
 
 /// Loads a glTF node.
@@ -1511,8 +1665,8 @@ fn load_material(
         reason = "`GltfError` is only barely past the threshold for large errors."
     )
 )]
-fn load_node(
-    gltf_node: &Node,
+fn load_node<'document>(
+    gltf_node: &Node<'document>,
     child_spawner: &mut ChildSpawner,
     root_load_context: &LoadContext,
     load_context: &mut LoadContext,
@@ -1527,6 +1681,14 @@ fn load_node(
     convert_coordinates: &GltfConvertCoordinates,
     extensions: &mut [Box<dyn extensions::ErasedGltfExtensionHandler>],
     skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+    material_label_maker: &mut dyn for<'b> FnMut(
+        (Material<'document>, bool),
+        Option<&'b str>,
+    ) -> Result<CowArc<'static, str>, GltfError>,
+    primitive_label_maker: &mut dyn for<'b> FnMut(
+        (gltf::Mesh<'document>, gltf::Primitive<'document>),
+        Option<&'b str>,
+    ) -> Result<CowArc<'static, str>, GltfError>,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
@@ -1627,22 +1789,30 @@ fn load_node(
             // append primitives
             for primitive in mesh.primitives() {
                 let material = primitive.material();
-                let mat_label = material_label(&material, is_scale_inverted);
-                let material_label = mat_label.to_string();
+                let material_label = match material_label_maker(
+                    (material.clone(), is_scale_inverted),
+                    material.name(),
+                ) {
+                    Ok(label) => label,
+                    Err(err) => {
+                        gltf_error = Some(err);
+                        return;
+                    }
+                };
 
                 // This adds materials that Bevy modifies depending on how they're used, like those with inverted scale.
-                if !root_load_context.has_labeled_asset(&material_label)
-                    && !load_context.has_labeled_asset(&material_label)
+                if !root_load_context.has_labeled_asset(material_label.clone())
+                    && !load_context.has_labeled_asset(material_label.clone())
                 {
-                    let (label, gltf_material) = load_material(
+                    let gltf_material = load_material(
                         &material,
                         textures,
                         is_scale_inverted,
                         load_context.path().clone(),
                     );
                     // TODO: maybe move this into `load_material` ?
-                    let handle =
-                        load_context.add_labeled_asset(label.clone(), gltf_material.clone());
+                    let handle = load_context
+                        .add_labeled_asset(material_label.clone(), gltf_material.clone());
 
                     // let extensions handle material data
                     for extension in extensions.iter_mut() {
@@ -1651,15 +1821,19 @@ fn load_node(
                             &material,
                             handle.clone(),
                             &gltf_material,
-                            &label.clone(),
+                            &material_label,
                         );
                     }
                 }
 
-                let primitive_label = GltfAssetLabel::Primitive {
-                    mesh: mesh.index(),
-                    primitive: primitive.index(),
-                };
+                let primitive_label =
+                    match primitive_label_maker((mesh.clone(), primitive.clone()), mesh.name()) {
+                        Ok(label) => label,
+                        Err(err) => {
+                            gltf_error = Some(err);
+                            return;
+                        }
+                    };
                 let bounds = primitive.bounding_box();
                 let parent_entity = parent.target_entity();
 
@@ -1670,7 +1844,7 @@ fn load_node(
 
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
-                    Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
+                    Mesh3d(load_context.get_label_handle(primitive_label)),
                     // TODO: could add the `GltfMaterial` here
                     mesh_entity_transform,
                 ));
@@ -1748,7 +1922,7 @@ fn load_node(
                         &mesh,
                         &material,
                         &mut mesh_entity,
-                        &mat_label.to_string(),
+                        material_label.as_ref(),
                     );
                 }
             }
@@ -1852,6 +2026,8 @@ fn load_node(
                 convert_coordinates,
                 extensions,
                 skinned_mesh_bounds_policy,
+                material_label_maker,
+                primitive_label_maker,
             ) {
                 gltf_error = Some(err);
                 return;
@@ -1878,12 +2054,12 @@ fn load_node(
                 weights.resize(max_morph_target_count, 0.0);
             }
 
-            let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
-                mesh: mesh.index(),
-                primitive: p.index(),
-            });
-            let first_mesh =
-                primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
+            let primitive_label = mesh
+                .primitives()
+                .next()
+                .map(|primitive| primitive_label_maker((mesh.clone(), primitive), mesh.name()))
+                .transpose()?;
+            let first_mesh = primitive_label.map(|label| load_context.get_label_handle(label));
             node.insert(MorphWeights::new(weights, first_mesh)?);
         }
     }
@@ -1988,7 +2164,7 @@ impl<'a> DataUri<'a> {
 enum ImageOrPath {
     Image {
         image: Image,
-        label: GltfAssetLabel,
+        label: CowArc<'static, str>,
     },
     Path {
         path: AssetPath<'static>,
@@ -2010,9 +2186,7 @@ impl ImageOrPath {
         handles: &mut Vec<Handle<Image>>,
     ) {
         let handle = match self {
-            ImageOrPath::Image { label, image } => {
-                load_context.add_labeled_asset(label.to_string(), image)
-            }
+            ImageOrPath::Image { label, image } => load_context.add_labeled_asset(label, image),
             ImageOrPath::Path {
                 path,
                 is_srgb,
@@ -2100,6 +2274,89 @@ struct AnimationContext {
 pub struct MorphTargetNames {
     /// The list of target names (or shape keys)
     pub target_names: Vec<String>,
+}
+
+/// The intended usage of a returned [`GltfAssetLabel`].
+enum IndexUsage {
+    /// The normal case. In [`GltfLabelMode::Indices`], the index is used as the label. In
+    /// [`GltfLabelMode::Names`], the index is used to dedupe labels.
+    Normal,
+    /// The index should be used as the label for the element, ignoring any other steps.
+    ///
+    /// This should only be used when the [`GltfAssetLabel`] matches the [`GltfNamedAssetLabel`].
+    Abort,
+}
+
+/// Returns a function that creates the label to use for calls like
+/// [`LoadContext::add_labeled_asset`].
+///
+/// For [`GltfLabelMode::Indices`], labels are deduped to reduce memory usage. For
+/// [`GltfLabelMode::Names`], if the element has a name, the name is checked for duplicates
+/// (returning error if one is found), and then the name is used (through `create_named`). If the
+/// element does not have a name, the label is randomly assigned, ensuring there are no duplicates.
+/// The `unnamed_prefix` is used to ensure unnamed elements are distinct across multiple "label
+/// makers".
+fn create_label_maker<T: Clone>(
+    label_mode: GltfLabelMode,
+    unnamed_prefix: &'static str,
+    mut create_index: impl FnMut(T) -> (GltfAssetLabel, IndexUsage),
+    mut create_named: impl for<'a> FnMut(&'a str, T) -> GltfNamedAssetLabel<'a>,
+) -> impl for<'a> FnMut(T, Option<&'a str>) -> Result<CowArc<'static, str>, GltfError> {
+    let mut source_index_to_label = HashMap::<_, CowArc<'static, str>>::new();
+    let mut used_names = HashSet::new();
+    let mut unlabeled_index = 0;
+    let mut source_index_to_unlabeled_index = HashMap::new();
+    let hasher_state = RandomState::default();
+    #[expect(clippy::result_large_err, reason = "GltfError holds an AssetLoadError")]
+    move |value: T, name: Option<&str>| {
+        let (index, index_usage) = create_index(value.clone());
+        // First, check if the `GltfAssetLabel` has already been handled. If we're using
+        // `GltfLabelMode::Names`, we only want to check for duplicate names between different
+        // entries, not the same element called multiple times.
+        let label_entry = match source_index_to_label.entry(index) {
+            Entry::Occupied(entry) => return Ok(entry.get().clone()),
+            Entry::Vacant(entry) => entry,
+        };
+        match index_usage {
+            IndexUsage::Normal => {}
+            IndexUsage::Abort => {
+                return Ok(label_entry.insert(index.to_string().into()).clone());
+            }
+        }
+        let label = match (label_mode, name) {
+            // Note: We could handle this case earlier, but doing it here means that the label
+            // `Arc`s are shared for repeated calls, since we look up into the HashMap to dedupe.
+            (GltfLabelMode::Indices, _) => index.to_string().into(),
+            (GltfLabelMode::Names, Some(name)) => {
+                let label: CowArc<'static, str> = create_named(name, value).to_string().into();
+                if !used_names.insert(label.clone()) {
+                    return Err(GltfError::DuplicateName(label.to_string()));
+                }
+                label
+            }
+            (GltfLabelMode::Names, None) => {
+                let unlabeled_index = match source_index_to_unlabeled_index.entry(index) {
+                    Entry::Occupied(entry) => *entry.get(),
+                    Entry::Vacant(entry) => {
+                        let new_index = *entry.insert(unlabeled_index);
+                        unlabeled_index += 1;
+                        new_index
+                    }
+                };
+                // Make the label be the unnamed_prefix, the index of its usage, and a hash of that
+                // string so users don't try to use this name. Since we also use the `RandomState`,
+                // every load should result in a different set of labels.
+                format!("__{unnamed_prefix}_{unlabeled_index}_{:x}", {
+                    let mut hasher = hasher_state.build_hasher();
+                    hasher.write(unnamed_prefix.as_bytes());
+                    hasher.write_u32(unlabeled_index);
+                    hasher.finish() as u16
+                })
+                .into()
+            }
+        };
+        Ok(label_entry.insert(label).clone())
+    }
 }
 
 #[cfg(test)]
