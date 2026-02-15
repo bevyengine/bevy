@@ -2,17 +2,20 @@
 
 // TODO force reload failed assets
 
+use assets::{load_assets, CityAssets};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::Exposure,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    color::palettes::css::WHITE,
     light::{atmosphere::ScatteringMedium, Atmosphere, AtmosphereEnvironmentMapLight},
     pbr::AtmosphereSettings,
     post_process::bloom::Bloom,
     prelude::*,
 };
 use rand::{rngs::SmallRng, seq::SliceRandom, Rng, SeedableRng};
+
+#[path = "bevy_city/assets.rs"]
+mod assets;
 
 fn main() {
     App::new()
@@ -59,225 +62,6 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
         },
         Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
-}
-
-#[derive(Resource)]
-struct CityAssets {
-    cars: Vec<Handle<Scene>>,
-    crossroad: Handle<Scene>,
-    road_straight: Handle<Scene>,
-    high_density: Buildings,
-    medium_density: Buildings,
-    low_density: Buildings,
-    ground_tile: (
-        Handle<Mesh>,
-        Handle<StandardMaterial>,
-        Handle<StandardMaterial>,
-    ),
-    tree_small: Handle<Scene>,
-    tree_large: Handle<Scene>,
-}
-
-impl CityAssets {
-    fn get_random_car<R: Rng>(&self, rng: &mut R) -> Handle<Scene> {
-        self.cars[rng.random_range(0..self.cars.len())].clone()
-    }
-}
-
-struct Buildings {
-    meshes: Vec<Handle<Mesh>>,
-    materials: Vec<Handle<StandardMaterial>>,
-}
-
-impl Buildings {
-    fn get_random_building<R: Rng>(
-        &self,
-        rng: &mut R,
-    ) -> (Mesh3d, MeshMaterial3d<StandardMaterial>) {
-        let mesh = self.meshes[rng.random_range(0..self.meshes.len())].clone();
-        let material = self.materials[rng.random_range(0..self.materials.len())].clone();
-        (Mesh3d(mesh), MeshMaterial3d(material))
-    }
-}
-
-fn load_assets(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let base_url = "https://github.com/bevyengine/bevy_asset_files/raw/main/kenney";
-
-    let cars = {
-        // We need to trigger a load of the texture even if we never use it directly
-        let _car_texture: Handle<Image> =
-            asset_server.load(format!("{base_url}/car-kit/Textures/colormap.png"));
-
-        // TODO generate variations
-        [
-            "hatchback-sports",
-            "suv",
-            "suv-luxury",
-            "sedan",
-            "sedan-sports",
-            "truck",
-            "truck-flat",
-            "van",
-        ]
-        .iter()
-        .map(|t| {
-            asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/car-kit/{t}.glb")))
-        })
-        .collect::<Vec<_>>()
-    };
-
-    // We need to trigger a load of the texture even if we never use it directly
-    let _road_texture: Handle<Image> =
-        asset_server.load(format!("{base_url}/city-kit-roads/Textures/colormap.png"));
-
-    let crossroad = asset_server.load(
-        GltfAssetLabel::Scene(0)
-            .from_asset(format!("{base_url}/city-kit-roads/road-crossroad-path.glb")),
-    );
-    let road_straight = asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-roads/road-straight.glb")),
-    );
-
-    let high_density = {
-        let materials = ["colormap", "variation-a", "variation-b"]
-            .iter()
-            .map(|variation| {
-                materials.add(StandardMaterial {
-                    base_color_texture: Some(asset_server.load(format!(
-                        "{base_url}/city-kit-commercial/Textures/{variation}.png"
-                    ))),
-                    ..Default::default()
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let mut meshes = ["a", "b", "c", "d", "e"]
-            .iter()
-            .map(|t| {
-                asset_server.load(
-                    GltfAssetLabel::Primitive {
-                        mesh: 0,
-                        primitive: 0,
-                    }
-                    .from_asset(format!(
-                        "{base_url}/city-kit-commercial/building-skyscraper-{t}.glb"
-                    )),
-                )
-            })
-            .collect::<Vec<_>>();
-        meshes.extend(["m", "l"].iter().map(|t| {
-            asset_server.load(
-                GltfAssetLabel::Primitive {
-                    mesh: 0,
-                    primitive: 0,
-                }
-                .from_asset(format!("{base_url}/city-kit-commercial/building-{t}.glb")),
-            )
-        }));
-
-        Buildings { meshes, materials }
-    };
-
-    let medium_density = {
-        let materials = ["colormap", "variation-a", "variation-b"]
-            .iter()
-            .map(|variation| {
-                materials.add(StandardMaterial {
-                    base_color_texture: Some(asset_server.load(format!(
-                        "{base_url}/city-kit-commercial/Textures/{variation}.png"
-                    ))),
-                    ..Default::default()
-                })
-            })
-            .collect::<Vec<_>>();
-        let meshes = ["a", "b", "c", "d", "f", "g", "h"]
-            .iter()
-            .map(|t| {
-                asset_server.load(
-                    GltfAssetLabel::Primitive {
-                        mesh: 0,
-                        primitive: 0,
-                    }
-                    .from_asset(format!("{base_url}/city-kit-commercial/building-{t}.glb")),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        Buildings { meshes, materials }
-    };
-    let low_density = {
-        let materials = ["colormap", "variation-a", "variation-b", "variation-c"]
-            .iter()
-            .map(|variation| {
-                materials.add(StandardMaterial {
-                    base_color_texture: Some(asset_server.load(format!(
-                        "{base_url}/city-kit-suburban/Textures/{variation}.png"
-                    ))),
-                    ..Default::default()
-                })
-            })
-            .collect::<Vec<_>>();
-        let meshes = ["b", "c", "d", "e", "f", "g", "h", "i", "k", "l", "o", "u"]
-            .iter()
-            .map(|t| {
-                asset_server.load(
-                    GltfAssetLabel::Primitive {
-                        mesh: 0,
-                        primitive: 0,
-                    }
-                    .from_asset(format!(
-                        "{base_url}/city-kit-suburban/building-type-{t}.glb"
-                    )),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        Buildings { meshes, materials }
-    };
-
-    let ground_tile = {
-        let mesh = asset_server.load(
-            GltfAssetLabel::Primitive {
-                mesh: 0,
-                primitive: 0,
-            }
-            .from_asset(format!("{base_url}/city-kit-roads/tile-low.glb")),
-        );
-        // TODO use this once https://github.com/bevyengine/bevy/pull/22943 is merged
-        // let default_material: Handle<StandardMaterial> = asset_server.load(format!(
-        //     "ground_tile/tile-low.glb#{}/std",
-        //     GltfAssetLabel::DefaultMaterial
-        // ));
-        let white_material = materials.add(StandardMaterial::from_color(WHITE));
-        let grass_material =
-            materials.add(StandardMaterial::from_color(Color::srgb_u8(97, 203, 139)));
-
-        (mesh, white_material, grass_material)
-    };
-
-    let tree_small: Handle<Scene> = asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/tree-small.glb")),
-    );
-    let tree_large: Handle<Scene> = asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/tree-large.glb")),
-    );
-
-    commands.insert_resource(CityAssets {
-        cars,
-        crossroad,
-        road_straight,
-        high_density,
-        medium_density,
-        low_density,
-        ground_tile,
-        tree_small,
-        tree_large,
-    });
 }
 
 #[derive(Component)]
