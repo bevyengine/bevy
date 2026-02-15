@@ -29,7 +29,7 @@ use bevy_math::{Affine3A, Mat4, Vec4};
 use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
-    camera::DirtySpecializations,
+    camera::{DirtySpecializations, PendingQueues},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},
@@ -159,6 +159,7 @@ impl Plugin for PrepassPlugin {
         render_app
             .init_resource::<ViewKeyPrepassCache>()
             .init_resource::<SpecializedPrepassMaterialPipelineCache>()
+            .init_resource::<PendingPrepassMeshMaterialQueues>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass>()
             .add_render_command::<Opaque3dPrepass, DrawDepthOnlyPrepass>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass>()
@@ -837,6 +838,13 @@ pub(crate) struct PrepassSpecializationWorkItem {
     material_type_id: TypeId,
 }
 
+/// Holds all entities with mesh materials for which the prepass couldn't be
+/// specialized and/or queued because their materials hadn't loaded yet.
+///
+/// See the [`PendingQueues`] documentation for more information.
+#[derive(Default, Deref, DerefMut, Resource)]
+pub struct PendingPrepassMeshMaterialQueues(pub PendingQueues);
+
 #[derive(SystemParam)]
 pub(crate) struct SpecializePrepassSystemParam<'w, 's> {
     render_meshes: Res<'w, RenderAssets<RenderMesh>>,
@@ -863,6 +871,7 @@ pub(crate) struct SpecializePrepassSystemParam<'w, 's> {
     alpha_mask_deferred_render_phases: Res<'w, ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
     specialized_prepass_material_pipeline_cache:
         ResMut<'w, SpecializedPrepassMaterialPipelineCache>,
+    pending_prepass_mesh_material_queues: ResMut<'w, PendingPrepassMeshMaterialQueues>,
     dirty_specializations: Res<'w, DirtySpecializations>,
     this_run: SystemChangeTick,
 }
@@ -895,6 +904,7 @@ pub(crate) fn specialize_prepass_material_meshes(
             opaque_deferred_render_phases,
             alpha_mask_deferred_render_phases,
             mut specialized_prepass_material_pipeline_cache,
+            mut pending_prepass_mesh_material_queues,
             dirty_specializations,
             this_run: system_change_tick,
         } = state.get_mut(world);
@@ -924,28 +934,55 @@ pub(crate) fn specialize_prepass_material_meshes(
                 continue;
             };
 
+            // Fetch the pending mesh material queues for this view.
+            let view_pending_prepass_mesh_material_queues = pending_prepass_mesh_material_queues
+                .prepare_for_new_frame(extracted_view.retained_view_entity);
+
+            // Initialize the pending queues.
+            let mut maybe_specialized_prepass_material_pipeline_cache =
+                specialized_prepass_material_pipeline_cache
+                    .get_mut(&extracted_view.retained_view_entity);
+
             // Remove cached pipeline IDs corresponding to entities that
             // either have been removed or need to be respecialized.
-            if let Some(specialized_prepass_material_pipeline_cache) =
-                specialized_prepass_material_pipeline_cache
-                    .get_mut(&extracted_view.retained_view_entity)
+            if let Some(ref mut specialized_prepass_material_pipeline_cache) =
+                maybe_specialized_prepass_material_pipeline_cache
             {
-                for &invisible_entity in dirty_specializations.iter_to_remove(
-                    extracted_view.retained_view_entity,
-                    render_visible_mesh_entities,
-                ) {
-                    specialized_prepass_material_pipeline_cache.remove(&invisible_entity);
+                if dirty_specializations
+                    .must_wipe_specializations_for_view(extracted_view.retained_view_entity)
+                {
+                    specialized_prepass_material_pipeline_cache.clear();
+                } else {
+                    for &renderable_entity in dirty_specializations.iter_to_despecialize() {
+                        specialized_prepass_material_pipeline_cache.remove(&renderable_entity);
+                    }
                 }
             }
 
-            // Now process all meshes that need to be re-specialized.
-            for (_, visible_entity) in dirty_specializations.iter_to_respecialize(
+            // Now process all meshes that need to be specialized.
+            for (render_entity, visible_entity) in dirty_specializations.iter_to_specialize(
                 extracted_view.retained_view_entity,
                 render_visible_mesh_entities,
+                &view_pending_prepass_mesh_material_queues.prev_frame,
             ) {
+                if maybe_specialized_prepass_material_pipeline_cache
+                    .as_ref()
+                    .is_some_and(|specialized_prepass_material_pipeline_cache| {
+                        specialized_prepass_material_pipeline_cache.contains_key(visible_entity)
+                    })
+                {
+                    continue;
+                }
+
                 let Some(material_instance) =
                     render_material_instances.instances.get(visible_entity)
                 else {
+                    // We couldn't fetch the material instance, probably because
+                    // the material hasn't been loaded yet. Add the entity to
+                    // the list of pending mesh materials and bail.
+                    view_pending_prepass_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
                 let Some(mesh_instance) =
@@ -954,6 +991,12 @@ pub(crate) fn specialize_prepass_material_meshes(
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
+                    // We couldn't fetch the material instance, probably because
+                    // the material hasn't been loaded yet. Add the entity to
+                    // the list of pending mesh materials and bail.
+                    view_pending_prepass_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
                 if !material.properties.prepass_enabled {
@@ -1048,6 +1091,8 @@ pub(crate) fn specialize_prepass_material_meshes(
                 });
             }
         }
+
+        pending_prepass_mesh_material_queues.expire_stale_views(&all_views);
     }
 
     let depth_clip_control_supported = world
@@ -1136,6 +1181,7 @@ pub fn queue_prepass_material_meshes(
     mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     specialized_material_pipeline_cache: Res<SpecializedPrepassMaterialPipelineCache>,
+    mut pending_prepass_mesh_material_queues: ResMut<PendingPrepassMeshMaterialQueues>,
     dirty_specializations: Res<DirtySpecializations>,
 ) {
     for (extracted_view, visible_entities) in &views {
@@ -1170,8 +1216,16 @@ pub fn queue_prepass_material_meshes(
             continue;
         };
 
+        // Fetch the pending mesh material queues for this view.
+        let view_pending_prepass_mesh_material_queues = pending_prepass_mesh_material_queues
+            .get_mut(&extracted_view.retained_view_entity)
+            .expect(
+                "View pending prepass mesh material queues should have been created in \
+                 `specialize_prepass_material_meshes`",
+            );
+
         // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
-        for &main_entity in dirty_specializations.iter_to_remove(
+        for &main_entity in dirty_specializations.iter_to_dequeue(
             extracted_view.retained_view_entity,
             render_visible_mesh_entities,
         ) {
@@ -1190,9 +1244,10 @@ pub fn queue_prepass_material_meshes(
         }
 
         // Now iterate through all newly-visible entities and those needing respecialization.
-        for (render_entity, visible_entity) in dirty_specializations.iter_to_respecialize(
+        for (render_entity, visible_entity) in dirty_specializations.iter_to_queue(
             extracted_view.retained_view_entity,
             render_visible_mesh_entities,
+            &view_pending_prepass_mesh_material_queues.prev_frame,
         ) {
             let Some(&(_, pipeline_id, draw_function)) =
                 view_specialized_material_pipeline_cache.get(visible_entity)
@@ -1202,6 +1257,12 @@ pub fn queue_prepass_material_meshes(
 
             let Some(material_instance) = render_material_instances.instances.get(visible_entity)
             else {
+                // We couldn't fetch the material, probably because the material
+                // hasn't been loaded yet. Add the entity to the list of pending
+                // mesh materials and bail.
+                view_pending_prepass_mesh_material_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
@@ -1209,6 +1270,12 @@ pub fn queue_prepass_material_meshes(
                 continue;
             };
             let Some(material) = render_materials.get(material_instance.asset_id) else {
+                // We couldn't fetch the material, probably because the material
+                // hasn't been loaded yet. Add the entity to the list of pending
+                // mesh materials and bail.
+                view_pending_prepass_mesh_material_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);

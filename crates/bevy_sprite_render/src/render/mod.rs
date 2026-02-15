@@ -545,7 +545,7 @@ pub fn queue_sprites(
             let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
 
             // Add the item to the render phase
-            transparent_phase.add(Transparent2d {
+            transparent_phase.add_transient(Transparent2d {
                 draw_function: draw_sprite_function,
                 pipeline,
                 entity: (

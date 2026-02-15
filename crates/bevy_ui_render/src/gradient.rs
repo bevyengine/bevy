@@ -616,7 +616,7 @@ pub fn queue_gradient(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (gradient.render_entity, gradient.main_entity),

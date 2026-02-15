@@ -47,7 +47,7 @@ use crate::batching::gpu_preprocessing::{
 };
 use crate::renderer::RenderDevice;
 use crate::sync_world::{MainEntity, MainEntityHashMap};
-use crate::view::RetainedViewEntity;
+use crate::view::{ExtractedView, RetainedViewEntity};
 use crate::RenderDebugFlags;
 use bevy_material::descriptor::CachedRenderPipelineId;
 
@@ -811,6 +811,9 @@ where
         }
     }
 
+    /// Removes a single entity from its bin.
+    ///
+    /// If doing so makes the bin empty, this method removes the bin as well.
     pub fn remove(&mut self, main_entity: MainEntity) {
         let Some(cached_binned_entity) = self.cached_entity_bin_keys.remove(&main_entity) else {
             return;
@@ -1080,7 +1083,19 @@ where
     /// Ensures that a set of phases are present for the given
     /// [`RetainedViewEntity`].
     pub fn prepare_for_new_frame(&mut self, retained_view_entity: RetainedViewEntity) {
-        self.entry(retained_view_entity).or_default();
+        match self.entry(retained_view_entity) {
+            Entry::Occupied(mut entry) => {
+                let render_phase = entry.get_mut();
+                for (render_entity, main_entity) in render_phase.transient_items.drain(..) {
+                    render_phase
+                        .items
+                        .swap_remove(&(render_entity, main_entity));
+                }
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(default());
+            }
+        }
     }
 }
 
@@ -1270,7 +1285,10 @@ where
     I: SortedPhaseItem,
 {
     /// The items within this [`SortedRenderPhase`].
-    pub items: IndexMap<MainEntity, I, EntityHash>,
+    pub items: IndexMap<(Entity, MainEntity), I, EntityHash>,
+    /// Items within this render phase that will be automatically removed after
+    /// this frame.
+    pub transient_items: Vec<(Entity, MainEntity)>,
 }
 
 impl<I> Default for SortedRenderPhase<I>
@@ -1280,6 +1298,7 @@ where
     fn default() -> Self {
         Self {
             items: IndexMap::default(),
+            transient_items: vec![],
         }
     }
 }
@@ -1291,20 +1310,38 @@ where
     /// Adds a [`PhaseItem`] to this render phase.
     #[inline]
     pub fn add(&mut self, item: I) {
-        self.items.insert(item.main_entity(), item);
+        self.items.insert((item.entity(), item.main_entity()), item);
+    }
+
+    /// Adds a [`PhaseItem`] which will be automatically removed after this
+    /// frame to this phase.
+    #[inline]
+    pub fn add_transient(&mut self, item: I) {
+        let key = (item.entity(), item.main_entity());
+        self.items.insert(key, item);
+        self.transient_items.push(key);
     }
 
     /// Removes the [`PhaseItem`] corresponding to the given main-world entity
     /// from this render phase.
     #[inline]
-    pub fn remove(&mut self, main_entity: MainEntity) {
-        self.items.swap_remove(&main_entity);
+    pub fn remove(&mut self, render_entity: Entity, main_entity: MainEntity) {
+        self.items.swap_remove(&(render_entity, main_entity));
     }
 
     /// Removes all [`PhaseItem`]s from this render phase.
     #[inline]
     pub fn clear(&mut self) {
         self.items.clear();
+    }
+
+    /// Populates whatever internal fields are necessary in order to perform the
+    /// sort.
+    ///
+    /// For example, for transparent 3D phases, this calculates the distance
+    /// from each obejct to the view.
+    pub fn recalculate_sort_keys(&mut self, view: &ExtractedView) {
+        I::recalculate_sort_keys(&mut self.items, view);
     }
 
     /// Sorts all of its [`PhaseItem`]s.
@@ -1566,9 +1603,21 @@ pub trait SortedPhaseItem: PhaseItem {
     ///
     /// It's advised to always profile for performance changes when changing this implementation.
     #[inline]
-    fn sort(items: &mut IndexMap<MainEntity, Self, EntityHash>) {
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>) {
         items.sort_unstable_by_key(|_, value| Self::sort_key(value));
     }
+
+    /// Populates whatever internal fields are necessary in order to perform the
+    /// sort.
+    ///
+    /// The renderer calls this method right before calling [`Self::sort`]. For
+    /// 3D transparent phases that need to be depth sorted, it populates the
+    /// `distance` field with the actual distance from the view. For other
+    /// phases, this method is generally a no-op.
+    fn recalculate_sort_keys(
+        items: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        view: &ExtractedView,
+    );
 
     /// Whether this phase item targets indexed meshes (those with both vertex
     /// and index buffers as opposed to just vertex buffers).
@@ -1621,11 +1670,17 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
 
 /// This system sorts the [`PhaseItem`]s of all [`SortedRenderPhase`]s of this
 /// type.
-pub fn sort_phase_system<I>(mut render_phases: ResMut<ViewSortedRenderPhases<I>>)
-where
+pub fn sort_phase_system<I>(
+    views: Query<&ExtractedView>,
+    mut render_phases: ResMut<ViewSortedRenderPhases<I>>,
+) where
     I: SortedPhaseItem,
 {
-    for phase in render_phases.values_mut() {
+    for view in &views {
+        let Some(phase) = render_phases.get_mut(&view.retained_view_entity) else {
+            continue;
+        };
+        phase.recalculate_sort_keys(view);
         phase.sort();
     }
 }

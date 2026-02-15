@@ -10,8 +10,7 @@ use bevy::{
     material::{key::ErasedMeshPipelineKey, MaterialProperties},
     pbr::{
         base_specialize, DrawMaterial, EntitiesNeedingSpecialization, MainPassOpaqueDrawFunction,
-        MaterialBindGroupAllocator, MaterialBindGroupAllocators,
-        MaterialExtractEntitiesNeedingSpecializationSystems, MaterialFragmentShader,
+        MaterialBindGroupAllocator, MaterialBindGroupAllocators, MaterialFragmentShader,
         MeshPipelineKey, PreparedMaterial, RenderMaterialBindings, RenderMaterialInstance,
         RenderMaterialInstances,
     },
@@ -35,6 +34,7 @@ use bevy::{
     },
     utils::Parallel,
 };
+use bevy_render::camera::DirtySpecializationSystems;
 use std::{any::TypeId, sync::Arc};
 
 const SHADER_ASSET_PATH: &str = "shaders/manual_material.wgsl";
@@ -69,7 +69,9 @@ impl Plugin for ImageMaterialPlugin {
                 (
                     extract_image_materials,
                     extract_image_materials_needing_specialization
-                        .in_set(MaterialExtractEntitiesNeedingSpecializationSystems),
+                        .in_set(DirtySpecializationSystems::CheckForChanges),
+                    extract_image_materials_that_need_specializations_removed
+                        .in_set(DirtySpecializationSystems::CheckForRemovals),
                 ),
             );
     }
@@ -281,23 +283,50 @@ fn check_entities_needing_specialization(
     >,
     mut par_local: Local<Parallel<Vec<Entity>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<ImageMaterial>>,
+    mut removed_mesh_3d_components: RemovedComponents<Mesh3d>,
+    mut removed_mesh_material_3d_components: RemovedComponents<ImageMaterial3d>,
 ) {
-    entities_needing_specialization.clear();
+    entities_needing_specialization.changed.clear();
+    entities_needing_specialization.removed.clear();
 
+    // Gather all entities that need their specializations regenerated.
     needs_specialization
         .par_iter()
         .for_each(|entity| par_local.borrow_local_mut().push(entity));
+    par_local.drain_into(&mut entities_needing_specialization.changed);
 
-    par_local.drain_into(&mut entities_needing_specialization);
+    // All entities that removed their `Mesh3d` or `ImageMaterial3d` components
+    // need to have their specializations removed as well.
+    for entity in removed_mesh_3d_components
+        .read()
+        .chain(removed_mesh_material_3d_components.read())
+    {
+        entities_needing_specialization.removed.push(entity);
+    }
 }
 
 fn extract_image_materials_needing_specialization(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<ImageMaterial>>>,
     mut dirty_specializations: ResMut<DirtySpecializations>,
 ) {
-    for entity in entities_needing_specialization.iter() {
+    // Drain the list of entities needing specialization from the main world
+    // into the render-world `DirtySpecializations` table.
+    for entity in entities_needing_specialization.changed.iter() {
         dirty_specializations
-            .renderables
+            .changed_renderables
+            .insert(MainEntity::from(*entity));
+    }
+}
+
+/// A system that adds entities that were judged to need their specializations
+/// removed to the appropriate table in [`DirtySpecializations`].
+fn extract_image_materials_that_need_specializations_removed(
+    entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<ImageMaterial>>>,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
+) {
+    for entity in entities_needing_specialization.removed.iter() {
+        dirty_specializations
+            .removed_renderables
             .insert(MainEntity::from(*entity));
     }
 }

@@ -14,14 +14,13 @@ use bevy::{
     },
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
-        change_detection::Tick,
         query::ROQueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
     mesh::VertexBufferLayout,
     prelude::*,
     render::{
-        camera::DirtySpecializations,
+        camera::{DirtySpecializations, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
@@ -170,6 +169,7 @@ fn main() {
     // We make sure to add these to the render app, not the main app.
     app.sub_app_mut(RenderApp)
         .init_resource::<CustomPhasePipeline>()
+        .init_resource::<PendingCustomPhaseItemQueues>()
         .add_render_command::<Opaque3d, DrawCustomPhaseItemCommands>()
         .add_systems(
             Render,
@@ -210,6 +210,17 @@ fn prepare_custom_phase_item_buffers(mut commands: Commands) {
     commands.init_resource::<CustomPhaseItemBuffers>();
 }
 
+/// A resource that holds entities that couldn't be specialized and/or queued
+/// yet because their dependent assets haven't loaded yet.
+///
+/// In this particular example, entities with custom rendering can always be
+/// specialized, so this resource goes unused in practice. However, we still
+/// need it, because [`DirtySpecializations`] requires such a resource.
+///
+/// See the documentation of [`PendingQueues`] for more information.
+#[derive(Default, Deref, DerefMut, Resource)]
+pub struct PendingCustomPhaseItemQueues(pub PendingQueues);
+
 /// A render-world system that enqueues the entity with custom rendering into
 /// the opaque render phases of each view.
 fn queue_custom_phase_item(
@@ -219,7 +230,7 @@ fn queue_custom_phase_item(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
     dirty_specializations: Res<DirtySpecializations>,
-    mut next_tick: Local<Tick>,
+    mut pending_custom_phase_item_queues: ResMut<PendingCustomPhaseItemQueues>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()
@@ -242,19 +253,24 @@ fn queue_custom_phase_item(
             continue;
         };
 
+        let view_pending_custom_phase_item_queues =
+            pending_custom_phase_item_queues.prepare_for_new_frame(view.retained_view_entity);
+
         // First, remove meshes that need to be respecialized, and those that
         // were removed, from the bins.
         for &main_entity in dirty_specializations
-            .iter_to_remove(view.retained_view_entity, render_visible_mesh_entities)
+            .iter_to_dequeue(view.retained_view_entity, render_visible_mesh_entities)
         {
             opaque_phase.remove(main_entity);
         }
 
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &entity in dirty_specializations
-            .iter_to_respecialize(view.retained_view_entity, render_visible_mesh_entities)
-        {
+        for entity_pair in dirty_specializations.iter_to_queue(
+            view.retained_view_entity,
+            render_visible_mesh_entities,
+            &view_pending_custom_phase_item_queues.prev_frame,
+        ) {
             // Ordinarily, the [`SpecializedRenderPipeline::Key`] would contain
             // some per-view settings, such as whether the view is HDR, but for
             // simplicity's sake we simply hard-code the view's characteristics,
@@ -265,10 +281,6 @@ fn queue_custom_phase_item(
             else {
                 continue;
             };
-
-            // Bump the change tick in order to force Bevy to rebuild the bin.
-            let this_tick = next_tick.get() + 1;
-            next_tick.set(this_tick);
 
             // Add the custom render item. We use the
             // [`BinnedRenderPhaseType::NonMesh`] type to skip the special
@@ -290,7 +302,7 @@ fn queue_custom_phase_item(
                 Opaque3dBinKey {
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                 },
-                entity,
+                *entity_pair,
                 InputUniformIndex::default(),
                 BinnedRenderPhaseType::NonMesh,
             );

@@ -130,8 +130,15 @@ impl SortedPhaseItem for TransparentUi {
     }
 
     #[inline]
-    fn sort(items: &mut IndexMap<MainEntity, TransparentUi, EntityHash>) {
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), TransparentUi, EntityHash>) {
         items.sort_by_key(|_, value| value.sort_key());
+    }
+
+    fn recalculate_sort_keys(
+        _: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        _: &ExtractedView,
+    ) {
+        // Sort keys are precalculated for UI phase items.
     }
 
     #[inline]

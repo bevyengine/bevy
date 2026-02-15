@@ -29,9 +29,10 @@ pub struct RenderVisibleEntities {
 /// Note that all lists in this component are guaranteed to be sorted. Thus you
 /// can test for the presence of an entity in these lists via binary search.
 ///
-/// Note that, for 3D meshes, the render-world [`Entity`] values will always be
-/// [`Entity::PLACEHOLDER`]. The render-world entities are kept for legacy
-/// passes that still need to process visibility of render-world entities.
+/// Note also that, for 3D meshes, the render-world [`Entity`] values will
+/// always be [`Entity::PLACEHOLDER`]. The render-world entities are kept for
+/// legacy passes that still need to process visibility of render-world
+/// entities.
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct RenderVisibleMeshEntities {

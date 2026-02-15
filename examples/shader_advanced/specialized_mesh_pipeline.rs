@@ -38,6 +38,7 @@ use bevy::{
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
+use bevy_render::camera::PendingQueues;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
@@ -112,6 +113,7 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
         render_app
             // This is needed to tell bevy about your custom pipeline
             .init_resource::<SpecializedMeshPipelines<CustomMeshPipeline>>()
+            .init_resource::<PendingCustomMeshQueues>()
             // We need to use a custom draw command so we need to register it
             .add_render_command::<Opaque3d, DrawSpecializedPipelineCommands>()
             .add_systems(RenderStartup, init_custom_mesh_pipeline)
@@ -263,6 +265,13 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
     }
 }
 
+/// A resource that stores meshes that couldn't be specialized yet because their
+/// materials hadn't loaded.
+///
+/// See the documentation for [`PendingQueues`] for more information.
+#[derive(Default, Deref, DerefMut, Resource)]
+struct PendingCustomMeshQueues(pub PendingQueues);
+
 /// A render-world system that enqueues the entity with custom rendering into
 /// the opaque render phases of each view.
 fn queue_custom_mesh_pipeline(
@@ -283,6 +292,7 @@ fn queue_custom_mesh_pipeline(
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     dirty_specializations: Res<DirtySpecializations>,
+    mut pending_custom_mesh_queues: ResMut<PendingCustomMeshQueues>,
 ) {
     // Get the id for our custom draw function
     let draw_function = opaque_draw_functions
@@ -307,18 +317,24 @@ fn queue_custom_mesh_pipeline(
             continue;
         };
 
+        // Initialize the pending queues.
+        let view_pending_custom_mesh_queues =
+            pending_custom_mesh_queues.prepare_for_new_frame(view.retained_view_entity);
+
         // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
         for &main_entity in dirty_specializations
-            .iter_to_remove(view.retained_view_entity, render_visible_mesh_entities)
+            .iter_to_dequeue(view.retained_view_entity, render_visible_mesh_entities)
         {
             opaque_phase.remove(main_entity);
         }
 
         // Find all the custom rendered entities that are visible from this
         // view.
-        for (render_entity, visible_entity) in dirty_specializations
-            .iter_to_respecialize(view.retained_view_entity, render_visible_mesh_entities)
-        {
+        for (render_entity, visible_entity) in dirty_specializations.iter_to_queue(
+            view.retained_view_entity,
+            render_visible_mesh_entities,
+            &view_pending_custom_mesh_queues.prev_frame,
+        ) {
             // Get the mesh instance
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {

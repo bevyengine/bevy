@@ -338,7 +338,7 @@ pub fn queue_shadows(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (entity, extracted_shadow.main_entity),

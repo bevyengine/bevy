@@ -1362,7 +1362,7 @@ pub fn queue_uinodes(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),

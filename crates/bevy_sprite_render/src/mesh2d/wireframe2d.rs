@@ -25,8 +25,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
     camera::{
-        clear_dirty_wireframe_specializations, extract_cameras, DirtyWireframeSpecializations,
-        ExtractedCamera,
+        extract_cameras, DirtySpecializationSystems, DirtyWireframeSpecializations,
+        ExtractedCamera, PendingQueues,
     },
     extract_resource::ExtractResource,
     mesh::{
@@ -117,6 +117,7 @@ impl Plugin for Wireframe2dPlugin {
             .add_render_command::<Wireframe2dPhaseItem, DrawWireframe2d>()
             .init_resource::<RenderWireframeInstances>()
             .init_resource::<SpecializedMeshPipelines<Wireframe2dPipeline>>()
+            .init_resource::<PendingWireframe2dQueues>()
             .add_systems(
                 Core2d,
                 wireframe_2d
@@ -131,10 +132,13 @@ impl Plugin for Wireframe2dPlugin {
                 ExtractSchedule,
                 (
                     extract_wireframe_2d_camera,
-                    extract_wireframe_entities_needing_specialization
-                        .after(extract_cameras)
-                        .after(clear_dirty_wireframe_specializations),
                     extract_wireframe_materials,
+                    extract_wireframe_2d_entities_needing_specialization
+                        .after(extract_cameras)
+                        .in_set(DirtySpecializationSystems::CheckForChanges),
+                    extract_wireframe_2d_entities_that_need_specializations_removed
+                        .after(extract_cameras)
+                        .in_set(DirtySpecializationSystems::CheckForRemovals),
                 ),
             )
             .add_systems(
@@ -465,10 +469,15 @@ impl RenderAsset for RenderWireframeMaterial {
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct RenderWireframeInstances(MainEntityHashMap<AssetId<Wireframe2dMaterial>>);
 
-#[derive(Clone, Resource, Deref, DerefMut, Debug, Default)]
+/// Temporarily stores entities that were determined to either need their
+/// specialized pipelines for wireframes updated or to have their specialized
+/// pipelines for wireframes rmeoved.
+#[derive(Clone, Resource, Debug, Default)]
 pub struct WireframeEntitiesNeedingSpecialization {
-    #[deref]
-    pub entities: Vec<Entity>,
+    /// Entities that need to have their pipelines updated.
+    pub changed: Vec<Entity>,
+    /// Entities that need to have their pipelines removed.
+    pub removed: Vec<Entity>,
 }
 
 /// Stores the [`SpecializedWireframeViewPipelineCache`] for each view.
@@ -657,17 +666,33 @@ fn extract_wireframe_2d_camera(
     wireframe_2d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
-pub fn extract_wireframe_entities_needing_specialization(
+pub fn extract_wireframe_2d_entities_needing_specialization(
     entities_needing_specialization: Extract<Res<WireframeEntitiesNeedingSpecialization>>,
     mut dirty_specializations: ResMut<DirtyWireframeSpecializations>,
 ) {
-    for entity in entities_needing_specialization.iter() {
+    for entity in entities_needing_specialization.changed.iter() {
         dirty_specializations
-            .renderables
+            .changed_renderables
             .insert(MainEntity::from(*entity));
     }
 }
 
+/// A system that adds entities that were judged to need their specializations
+/// removed to the appropriate table in [`DirtyWireframeSpecializations`].
+pub fn extract_wireframe_2d_entities_that_need_specializations_removed(
+    entities_needing_specialization: Extract<Res<WireframeEntitiesNeedingSpecialization>>,
+    mut dirty_specializations: ResMut<DirtyWireframeSpecializations>,
+) {
+    for entity in entities_needing_specialization.removed.iter() {
+        dirty_specializations
+            .removed_renderables
+            .insert(MainEntity::from(*entity));
+    }
+}
+
+/// Finds 2D wireframe entities that have changed in such a way as to
+/// potentially require specialization and adds them to the
+/// [`WireframeEntitiesNeedingSpecialization`] list.
 pub fn check_wireframe_entities_needing_specialization(
     needs_specialization: Query<
         Entity,
@@ -678,26 +703,33 @@ pub fn check_wireframe_entities_needing_specialization(
             AssetChanged<Mesh2dWireframe>,
         )>,
     >,
-    live_entities: Query<Entity>,
     mut entities_needing_specialization: ResMut<WireframeEntitiesNeedingSpecialization>,
     mut removed_mesh_2d_components: RemovedComponents<Mesh2d>,
     mut removed_mesh_2d_wireframe_components: RemovedComponents<Mesh2dWireframe>,
 ) {
-    entities_needing_specialization.clear();
+    // Gather all entities that need their specializations regenerated.
     for entity in &needs_specialization {
-        entities_needing_specialization.push(entity);
+        entities_needing_specialization.changed.push(entity);
     }
-    // An entity might lose its `Mesh2d` and/or `Mesh2dWireframe` while
-    // remaining visible. Marking it as needing specialization forces queuing to
-    // remove that entity from its bin.
+
+    // All entities that removed their `Mesh2d` or `Mesh2dWireframe` components
+    // need to have their specializations removed as well.
+    //
+    // It's possible that `Mesh2d` was removed and re-added in the same frame,
+    // but we don't have to handle that situation specially here, because
+    // `specialize_wireframes` processes specialization removals before
+    // additions. So, if the pipeline specialization gets spuriously removed,
+    // it'll just be immediately re-added again, which is harmless.
     for entity in removed_mesh_2d_components
         .read()
         .chain(removed_mesh_2d_wireframe_components.read())
-        .filter(|entity| live_entities.contains(*entity))
     {
-        entities_needing_specialization.push(entity);
+        entities_needing_specialization.removed.push(entity);
     }
 }
+
+#[derive(Default, Deref, DerefMut, Resource)]
+pub struct PendingWireframe2dQueues(pub PendingQueues);
 
 pub fn specialize_wireframes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
@@ -708,6 +740,7 @@ pub fn specialize_wireframes(
     view_key_cache: Res<ViewKeyCache>,
     dirty_wireframe_specializations: Res<DirtyWireframeSpecializations>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedWireframePipelineCache>,
+    mut pending_wireframe2d_queues: ResMut<PendingWireframe2dQueues>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Wireframe2dPipeline>>,
     pipeline: Res<Wireframe2dPipeline>,
     pipeline_cache: Res<PipelineCache>,
@@ -736,18 +769,32 @@ pub fn specialize_wireframes(
             continue;
         };
 
+        // Initialize the pending queues.
+        let view_pending_wireframe2d_queues =
+            pending_wireframe2d_queues.prepare_for_new_frame(view.retained_view_entity);
+
         // Remove cached pipeline IDs corresponding to entities that
         // either have been removed or need to be respecialized.
-        for &invisible_entity in dirty_wireframe_specializations
-            .iter_to_remove(view.retained_view_entity, visible_entities)
+        if dirty_wireframe_specializations
+            .must_wipe_specializations_for_view(view.retained_view_entity)
         {
-            view_specialized_material_pipeline_cache.remove(&invisible_entity);
+            view_specialized_material_pipeline_cache.clear();
+        } else {
+            for &renderable_entity in dirty_wireframe_specializations.iter_to_despecialize() {
+                view_specialized_material_pipeline_cache.remove(&renderable_entity);
+            }
         }
 
         // Now iterate over all 2D wireframes that need specialization.
-        for (_, visible_entity) in dirty_wireframe_specializations
-            .iter_to_respecialize(view.retained_view_entity, visible_entities)
-        {
+        for (_, visible_entity) in dirty_wireframe_specializations.iter_to_specialize(
+            view.retained_view_entity,
+            visible_entities,
+            &view_pending_wireframe2d_queues.prev_frame,
+        ) {
+            if view_specialized_material_pipeline_cache.contains_key(visible_entity) {
+                continue;
+            }
+
             if !render_wireframe_instances.contains_key(visible_entity) {
                 continue;
             };
@@ -776,6 +823,8 @@ pub fn specialize_wireframes(
         }
     }
 
+    pending_wireframe2d_queues.expire_stale_views(&all_views);
+
     // Delete specialized pipelines belonging to views that have expired.
     specialized_material_pipeline_cache
         .retain(|retained_view_entity, _| all_views.contains(retained_view_entity));
@@ -789,6 +838,7 @@ fn queue_wireframes(
     render_wireframe_instances: Res<RenderWireframeInstances>,
     dirty_wireframe_specializations: Res<DirtyWireframeSpecializations>,
     mut wireframe_2d_phases: ResMut<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>,
+    mut pending_wireframe2d_queues: ResMut<PendingWireframe2dQueues>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
 ) {
     for (view, visible_entities) in &mut views {
@@ -807,17 +857,27 @@ fn queue_wireframes(
             continue;
         };
 
+        // Fetch the pending queues.
+        let view_pending_wireframe2d_queues = pending_wireframe2d_queues
+            .get_mut(&view.retained_view_entity)
+            .expect(
+                "View pending 2D wireframe queues should have been created in \
+                 `specialize_wireframes`",
+            );
+
         // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
         for &main_entity in dirty_wireframe_specializations
-            .iter_to_remove(view.retained_view_entity, visible_entities)
+            .iter_to_dequeue(view.retained_view_entity, visible_entities)
         {
             wireframe_phase.remove(main_entity);
         }
 
         // Now iterate through all newly-visible entities and those needing respecialization.
-        for (render_entity, visible_entity) in dirty_wireframe_specializations
-            .iter_to_respecialize(view.retained_view_entity, visible_entities)
-        {
+        for (render_entity, visible_entity) in dirty_wireframe_specializations.iter_to_queue(
+            view.retained_view_entity,
+            visible_entities,
+            &view_pending_wireframe2d_queues.prev_frame,
+        ) {
             let Some(wireframe_instance) = render_wireframe_instances.get(visible_entity) else {
                 continue;
             };
@@ -825,6 +885,12 @@ fn queue_wireframes(
                 .get(visible_entity)
                 .map(|(_, pipeline_id)| *pipeline_id)
             else {
+                // We couldn't fetch the material, probably because the material
+                // hasn't been loaded yet. Add the entity to the list of pending
+                // mesh materials and bail.
+                view_pending_wireframe2d_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
 

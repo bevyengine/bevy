@@ -339,7 +339,7 @@ pub fn queue_ui_slices(
             UiTextureSlicePipelineKey { hdr: view.hdr },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),

@@ -1,7 +1,7 @@
 use crate::{
     init_line_gizmo_uniform_bind_group_layout, line_gizmo_vertex_buffer_layouts,
     line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo, DrawLineJointGizmo, GizmoRenderSystems,
-    GpuLineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
+    GpuLineGizmo, LineGizmoEntities, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
@@ -296,6 +296,7 @@ fn queue_line_and_joint_gizmos_2d(
     pipeline_cache: Res<PipelineCache>,
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
+    line_gizmo_entities: Res<LineGizmoEntities>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(&ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
@@ -319,7 +320,7 @@ fn queue_line_and_joint_gizmos_2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         let render_layers = render_layers.unwrap_or_default();
-        for (entity, main_entity, config) in &line_gizmos {
+        for (entity, _, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
@@ -339,8 +340,8 @@ fn queue_line_and_joint_gizmos_2d(
                         line_style: config.line_style,
                     },
                 );
-                transparent_phase.add(Transparent2d {
-                    entity: (entity, *main_entity),
+                transparent_phase.add_transient(Transparent2d {
+                    entity: (entity, line_gizmo_entities.line_gizmo_renderer),
                     draw_function,
                     pipeline,
                     sort_key: FloatOrd(f32::INFINITY),
@@ -361,8 +362,8 @@ fn queue_line_and_joint_gizmos_2d(
                         line_style: config.line_style,
                     },
                 );
-                transparent_phase.add(Transparent2d {
-                    entity: (entity, *main_entity),
+                transparent_phase.add_transient(Transparent2d {
+                    entity: (entity, line_gizmo_entities.line_strip_gizmo_renderer),
                     draw_function: draw_line_function_strip,
                     pipeline,
                     sort_key: FloatOrd(f32::INFINITY),
@@ -386,8 +387,8 @@ fn queue_line_and_joint_gizmos_2d(
                     joints: config.line_joints,
                 },
             );
-            transparent_phase.add(Transparent2d {
-                entity: (entity, *main_entity),
+            transparent_phase.add_transient(Transparent2d {
+                entity: (entity, line_gizmo_entities.line_joint_gizmo_renderer),
                 draw_function: draw_line_joint_function,
                 pipeline,
                 sort_key: FloatOrd(f32::INFINITY),

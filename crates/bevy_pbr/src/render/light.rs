@@ -22,8 +22,8 @@ use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectTy
 use bevy_light::SunDisk;
 use bevy_light::{
     spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
-    Cascades, DirectionalLight, DirectionalLightShadowMap, GlobalAmbientLight, NotShadowCaster,
-    PointLight, PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
+    Cascades, DirectionalLight, DirectionalLightShadowMap, GlobalAmbientLight, PointLight,
+    PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
 };
 use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
@@ -37,7 +37,7 @@ use bevy_math::{
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
-use bevy_render::camera::DirtySpecializations;
+use bevy_render::camera::{DirtySpecializations, PendingQueues};
 use bevy_render::erased_render_asset::ErasedRenderAssets;
 use bevy_render::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
@@ -426,6 +426,7 @@ pub fn extract_lights(
             continue;
         }
 
+        // Initialize the visible entities for each cubemap face.
         let mut render_cubemap_visible_entities =
             match existing_render_cubemap_visible_entities.get_mut(render_entity) {
                 Ok(ref mut existing_cubemap_visible_entities) => {
@@ -436,6 +437,7 @@ pub fn extract_lights(
                 },
             };
 
+        // Calculate the added and removed entities for each face.
         for (render_visible_mesh_entities, visible_mesh_entities) in render_cubemap_visible_entities
             .iter_mut()
             .zip(cubemap_visible_entities.iter())
@@ -581,6 +583,7 @@ pub fn extract_lights(
         // TODO: update in place instead of reinserting.
         let mut extracted_cascades = EntityHashMap::default();
         let mut extracted_frusta = EntityHashMap::default();
+        // Initialize the visible entities set for each cascade.
         let mut cascade_visible_entities =
             match existing_render_cascades_visible_entities.get_mut(entity) {
                 Ok(ref mut existing_cascade_visible_entities) => {
@@ -604,8 +607,9 @@ pub fn extract_lights(
                 break;
             }
         }
-        for (e, visible_mesh_entities_list) in visible_entities.entities.iter() {
-            let Ok(entity) = mapper.get(*e) else { break };
+        // Calculate the added and removed entities for each cascade.
+        for (entity, visible_mesh_entities_list) in visible_entities.entities.iter() {
+            let Ok(entity) = mapper.get(*entity) else { break };
             let render_visible_mesh_entities_list: &mut Vec<RenderVisibleMeshEntities> =
                 cascade_visible_entities
                     .entities
@@ -1799,26 +1803,6 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
     });
 }
 
-// These will be extracted in the material extraction, which will also clear the needs_specialization
-// collection.
-pub fn check_light_entities_needing_specialization<M: Material>(
-    needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
-    live_entities: Query<Entity>,
-    mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
-    mut removed_components: RemovedComponents<NotShadowCaster>,
-) {
-    for entity in &needs_specialization {
-        entities_needing_specialization.push(entity);
-    }
-
-    for removed in removed_components.read() {
-        // Only require specialization if the entity still exists.
-        if live_entities.contains(removed) {
-            entities_needing_specialization.entities.push(removed);
-        }
-    }
-}
-
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct LightKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
 
@@ -1892,6 +1876,13 @@ pub(crate) struct ShadowSpecializationWorkItem {
     material_type_id: TypeId,
 }
 
+/// Holds all entities with mesh materials for which the shadow pass couldn't be
+/// specialized and/or queued because their materials hadn't loaded yet.
+///
+/// See the [`PendingQueues`] documentation for more information.
+#[derive(Default, Deref, DerefMut, Resource)]
+pub struct PendingShadowQueues(pub PendingQueues);
+
 #[derive(SystemParam)]
 pub(crate) struct SpecializeShadowsSystemParam<'w, 's> {
     render_meshes: Res<'w, RenderAssets<RenderMesh>>,
@@ -1910,6 +1901,7 @@ pub(crate) struct SpecializeShadowsSystemParam<'w, 's> {
         Query<'w, 's, &'static RenderVisibleMeshEntities, With<ExtractedPointLight>>,
     light_key_cache: Res<'w, LightKeyCache>,
     specialized_shadow_material_pipeline_cache: ResMut<'w, SpecializedShadowMaterialPipelineCache>,
+    pending_shadow_queues: ResMut<'w, PendingShadowQueues>,
     dirty_specializations: Res<'w, DirtySpecializations>,
 }
 
@@ -1937,6 +1929,7 @@ pub(crate) fn specialize_shadows(
             spot_light_entities,
             light_key_cache,
             mut specialized_shadow_material_pipeline_cache,
+            mut pending_shadow_queues,
             dirty_specializations,
         } = state.get_mut(world);
 
@@ -1983,30 +1976,57 @@ pub(crate) fn specialize_shadows(
                         .expect("Failed to get spot light visible entities"),
                 };
 
+                let mut maybe_specialized_shadow_material_pipeline_cache =
+                    specialized_shadow_material_pipeline_cache
+                        .get_mut(&extracted_view_light.retained_view_entity);
+
                 // Remove cached pipeline IDs corresponding to entities that
                 // either have been removed or need to be respecialized.
-                if let Some(specialized_shadow_material_pipeline_cache) =
-                    specialized_shadow_material_pipeline_cache
-                        .get_mut(&extracted_view_light.retained_view_entity)
+                if let Some(ref mut specialized_shadow_material_pipeline_cache) =
+                    maybe_specialized_shadow_material_pipeline_cache
                 {
-                    for &invisible_entity in dirty_specializations
-                        .iter_to_remove(extracted_view_light.retained_view_entity, visible_entities)
-                    {
-                        specialized_shadow_material_pipeline_cache.remove(&invisible_entity);
+                    if dirty_specializations.must_wipe_specializations_for_view(
+                        extracted_view_light.retained_view_entity,
+                    ) {
+                        specialized_shadow_material_pipeline_cache.clear();
+                    } else {
+                        for &renderable_entity in dirty_specializations.iter_to_despecialize() {
+                            specialized_shadow_material_pipeline_cache.remove(&renderable_entity);
+                        }
                     }
                 }
+
+                // Initialize the pending queues.
+                let view_pending_shadow_queues = pending_shadow_queues
+                    .prepare_for_new_frame(extracted_view_light.retained_view_entity);
 
                 // NOTE: Lights with shadow mapping disabled will have no visible entities
                 // so no meshes will be queued
 
                 // Now process all shadow meshes that need to be re-specialized.
-                for (_, visible_entity) in dirty_specializations.iter_to_respecialize(
+                for (render_entity, visible_entity) in dirty_specializations.iter_to_specialize(
                     extracted_view_light.retained_view_entity,
                     visible_entities,
+                    &view_pending_shadow_queues.prev_frame,
                 ) {
+                    if maybe_specialized_shadow_material_pipeline_cache
+                        .as_ref()
+                        .is_some_and(|specialized_shadow_material_pipeline_cache| {
+                            specialized_shadow_material_pipeline_cache.contains_key(visible_entity)
+                        })
+                    {
+                        continue;
+                    }
+
                     let Some(material_instance) =
                         render_material_instances.instances.get(visible_entity)
                     else {
+                        // We couldn't fetch the material, probably because the
+                        // material hasn't been loaded yet. Add the entity to
+                        // the list of pending mesh materials and bail.
+                        view_pending_shadow_queues
+                            .current_frame
+                            .insert((*render_entity, *visible_entity));
                         continue;
                     };
 
@@ -2016,6 +2036,12 @@ pub(crate) fn specialize_shadows(
                         continue;
                     };
                     let Some(material) = render_materials.get(material_instance.asset_id) else {
+                        // We couldn't fetch the material, probably because the
+                        // material hasn't been loaded yet. Add the entity to
+                        // the list of pending mesh materials and bail.
+                        view_pending_shadow_queues
+                            .current_frame
+                            .insert((*render_entity, *visible_entity));
                         continue;
                     };
                     if !material.properties.shadows_enabled {
@@ -2067,6 +2093,8 @@ pub(crate) fn specialize_shadows(
                 }
             }
         }
+
+        pending_shadow_queues.expire_stale_views(&all_shadow_views);
     }
 
     let depth_clip_control_supported = world
@@ -2140,6 +2168,7 @@ pub fn queue_shadows(
     >,
     spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
     specialized_material_pipeline_cache: Res<SpecializedShadowMaterialPipelineCache>,
+    mut pending_shadow_queues: ResMut<PendingShadowQueues>,
     dirty_specializations: Res<DirtySpecializations>,
 ) {
     for (entity, view_lights, camera_layers) in &view_lights {
@@ -2160,6 +2189,13 @@ pub fn queue_shadows(
             else {
                 continue;
             };
+
+            // Fetch the pending mesh material queues for this view.
+            let view_pending_shadow_queues = pending_shadow_queues
+                .get_mut(&extracted_view_light.retained_view_entity)
+                .expect(
+                    "View pending shadow queues should have been created in `specialize_shadows`",
+                );
 
             let visible_entities = match light_entity {
                 LightEntity::Directional {
@@ -2187,15 +2223,17 @@ pub fn queue_shadows(
 
             // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
             for &main_entity in dirty_specializations
-                .iter_to_remove(extracted_view_light.retained_view_entity, visible_entities)
+                .iter_to_dequeue(extracted_view_light.retained_view_entity, visible_entities)
             {
                 shadow_phase.remove(main_entity);
             }
 
             // Now iterate through all newly-visible entities and those needing respecialization.
-            for (render_entity, main_entity) in dirty_specializations
-                .iter_to_respecialize(extracted_view_light.retained_view_entity, visible_entities)
-            {
+            for (render_entity, main_entity) in dirty_specializations.iter_to_queue(
+                extracted_view_light.retained_view_entity,
+                visible_entities,
+                &view_pending_shadow_queues.prev_frame,
+            ) {
                 let Some(&(pipeline_id, draw_function)) =
                     view_specialized_material_pipeline_cache.get(main_entity)
                 else {
@@ -2231,6 +2269,9 @@ pub fn queue_shadows(
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
+                    // We couldn't fetch the material, probably because the
+                    // material hasn't been loaded yet. Add the entity to the
+                    // list of pending mesh materials and bail.
                     continue;
                 };
 

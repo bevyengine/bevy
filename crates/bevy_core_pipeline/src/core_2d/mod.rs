@@ -364,8 +364,15 @@ impl SortedPhaseItem for Transparent2d {
     }
 
     #[inline]
-    fn sort(items: &mut IndexMap<MainEntity, Transparent2d, EntityHash>) {
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), Transparent2d, EntityHash>) {
         items.sort_by_key(|_, item| item.sort_key());
+    }
+
+    fn recalculate_sort_keys(
+        _: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        _: &ExtractedView,
+    ) {
+        // Sort keys are precalculated for 2D phase items.
     }
 
     fn indexed(&self) -> bool {

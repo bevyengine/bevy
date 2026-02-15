@@ -13,6 +13,7 @@
 use std::ops::Range;
 
 use bevy::camera::Viewport;
+use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::math::Affine3Ext;
 use bevy::pbr::{SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
@@ -38,7 +39,7 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData,
         },
-        camera::{DirtySpecializations, ExtractedCamera},
+        camera::{DirtySpecializations, ExtractedCamera, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
@@ -129,6 +130,7 @@ impl Plugin for MeshStencilPhasePlugin {
             .init_resource::<DrawFunctions<Stencil3d>>()
             .add_render_command::<Stencil3d, DrawMesh3dStencil>()
             .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
+            .init_resource::<PendingCustomMeshQueues>()
             .add_systems(RenderStartup, init_stencil_pipeline)
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
@@ -252,7 +254,10 @@ type DrawMesh3dStencil = (
 // If you want to see how a batched phase implementation looks, you should look at the Opaque2d
 // phase.
 struct Stencil3d {
-    pub sort_key: FloatOrd,
+    /// Information needed to sort the objects in the phase by distance to the
+    /// view.
+    pub sorting_info: TransparentSortingInfo3d,
+    pub distance: FloatOrd,
     pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -306,12 +311,29 @@ impl SortedPhaseItem for Stencil3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
+        self.distance
     }
 
     #[inline]
-    fn sort(items: &mut IndexMap<MainEntity, Stencil3d, EntityHash>) {
-        items.sort_by_key(|_, phase_item: &Stencil3d| phase_item.sort_key);
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), Stencil3d, EntityHash>) {
+        items.sort_by_key(|_, phase_item: &Stencil3d| phase_item.distance);
+    }
+
+    fn recalculate_sort_keys(
+        items: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        view: &ExtractedView,
+    ) {
+        // Determine the distance to the view for each phase item.
+        let rangefinder = view.rangefinder3d();
+        for item in items.values_mut() {
+            item.distance = match item.sorting_info {
+                TransparentSortingInfo3d::AlwaysOnTop => FloatOrd(0.0),
+                TransparentSortingInfo3d::Sorted {
+                    mesh_center,
+                    depth_bias,
+                } => FloatOrd(rangefinder.distance(&mesh_center) + depth_bias),
+            };
+        }
     }
 
     #[inline]
@@ -487,6 +509,13 @@ fn extract_camera_phases(
     stencil_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
+/// A resource that stores meshes that couldn't be specialized yet because their
+/// materials hadn't loaded.
+///
+/// See the documentation for [`PendingQueues`] for more information.
+#[derive(Default, Deref, DerefMut, Resource)]
+struct PendingCustomMeshQueues(pub PendingQueues);
+
 // This is a very important step when writing a custom phase.
 //
 // This system determines which meshes will be added to the phase.
@@ -501,6 +530,7 @@ fn queue_custom_meshes(
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
     dirty_specializations: Res<DirtySpecializations>,
+    mut pending_custom_mesh_queues: ResMut<PendingCustomMeshQueues>,
     has_marker: Query<(), With<DrawStencil>>,
 ) {
     for (view, visible_entities) in &mut views {
@@ -518,17 +548,21 @@ fn queue_custom_meshes(
             continue;
         };
 
+        let view_pending_custom_mesh_queues =
+            pending_custom_mesh_queues.prepare_for_new_frame(view.retained_view_entity);
+
         // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
         for &main_entity in dirty_specializations
-            .iter_to_remove(view.retained_view_entity, render_visible_mesh_entities)
+            .iter_to_dequeue(view.retained_view_entity, render_visible_mesh_entities)
         {
-            custom_phase.remove(main_entity);
+            custom_phase.remove(Entity::PLACEHOLDER, main_entity);
         }
 
-        let rangefinder = view.rangefinder3d();
-        for (render_entity, visible_entity) in dirty_specializations
-            .iter_to_respecialize(view.retained_view_entity, render_visible_mesh_entities)
-        {
+        for (render_entity, visible_entity) in dirty_specializations.iter_to_queue(
+            view.retained_view_entity,
+            render_visible_mesh_entities,
+            &view_pending_custom_mesh_queues.prev_frame,
+        ) {
             // We only want meshes with the marker component to be queued to our phase.
             if has_marker.get(*render_entity).is_err() {
                 continue;
@@ -560,13 +594,15 @@ fn queue_custom_meshes(
                     continue;
                 }
             };
-            let distance = rangefinder.distance(&mesh_instance.center);
             // At this point we have all the data we need to create a phase item and add it to our
             // phase
             custom_phase.add(Stencil3d {
-                // Sort the data based on the distance to the view
-                sort_key: FloatOrd(distance),
-                entity: (*render_entity, *visible_entity),
+                sorting_info: TransparentSortingInfo3d::Sorted {
+                    mesh_center: mesh_instance.center,
+                    depth_bias: 0.0,
+                },
+                distance: FloatOrd(0.0),
+                entity: (Entity::PLACEHOLDER, *visible_entity),
                 pipeline: pipeline_id,
                 draw_function: draw_custom,
                 // Sorted phase items aren't batched

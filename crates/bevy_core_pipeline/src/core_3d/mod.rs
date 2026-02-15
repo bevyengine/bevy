@@ -47,7 +47,7 @@ use bevy_color::LinearRgba;
 use bevy_ecs::{entity::EntityHash, prelude::*};
 use bevy_image::ToExtents;
 use bevy_log::warn;
-use bevy_math::FloatOrd;
+use bevy_math::{FloatOrd, Vec3};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -371,6 +371,7 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3d {
 }
 
 pub struct Transparent3d {
+    pub sorting_info: TransparentSortingInfo3d,
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: (Entity, MainEntity),
@@ -428,8 +429,25 @@ impl SortedPhaseItem for Transparent3d {
     }
 
     #[inline]
-    fn sort(items: &mut IndexMap<MainEntity, Transparent3d, EntityHash>) {
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), Transparent3d, EntityHash>) {
         items.sort_by_key(|_, item| item.sort_key());
+    }
+
+    fn recalculate_sort_keys(
+        items: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        view: &ExtractedView,
+    ) {
+        // Determine the distance to the view for each phase item.
+        let rangefinder = view.rangefinder3d();
+        for item in items.values_mut() {
+            item.distance = match item.sorting_info {
+                TransparentSortingInfo3d::AlwaysOnTop => 0.0,
+                TransparentSortingInfo3d::Sorted {
+                    mesh_center,
+                    depth_bias,
+                } => rangefinder.distance(&mesh_center) + depth_bias,
+            };
+        }
     }
 
     #[inline]
@@ -443,6 +461,24 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
     }
+}
+
+/// Information needed to perform a depth sort.
+#[derive(Clone, Copy)]
+pub enum TransparentSortingInfo3d {
+    /// No information is needed because this object should always appear on top
+    /// of other objects.
+    AlwaysOnTop,
+    /// Information needed to sort the object based on distance to the view.
+    Sorted {
+        /// The center of the mesh.
+        ///
+        /// This is the point that is used to sort.
+        mesh_center: Vec3,
+        /// An additional value that's artificially added to the distance before
+        /// sorting.
+        depth_bias: f32,
+    },
 }
 
 pub fn extract_core_3d_camera_phases(
