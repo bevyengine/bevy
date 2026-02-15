@@ -1,6 +1,6 @@
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    extract_component::{ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
     render_resource::TextureView,
@@ -39,6 +39,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
+use bevy_extract::extract_component::ExtractComponent;
 use bevy_image::Image;
 use bevy_log::warn;
 use bevy_log::warn_once;
@@ -59,8 +60,8 @@ impl Plugin for CameraPlugin {
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
             .add_plugins((
-                ExtractResourcePlugin::<ClearColor, Self>::default(),
-                ExtractComponentPlugin::<CameraMainTextureUsages, Self>::default(),
+                ExtractResourcePlugin::<ClearColor, Self>::new(RenderApp),
+                ExtractComponentPlugin::<CameraMainTextureUsages, Self>::new(RenderApp),
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
             .add_systems(

@@ -14,7 +14,8 @@ use bevy_ecs::{
 };
 use core::{marker::PhantomData, ops::Deref};
 
-pub use bevy_render_macros::ExtractComponent;
+pub use bevy_extract_macros::ExtractComponent;
+pub use bevy_extract::extract_component::ExtractComponentPlugin;
 
 /// Stores the index of a uniform inside of [`ComponentUniforms`].
 #[derive(Component)]

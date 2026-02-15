@@ -3,7 +3,7 @@ use crate::{
     sync_world::RenderEntity,
     Extract, ExtractSchedule,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
     component::Component,
@@ -48,22 +48,25 @@ pub trait ExtractComponent<F = ()>: SyncComponent<F> {
 pub struct ExtractComponentPlugin<C, F = ()> {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (C, F)>,
+
+    /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`] to set up with extraction.
+    pub app_label: InternedAppLabel,
 }
 
-impl<C, F> Default for ExtractComponentPlugin<C, F> {
-    fn default() -> Self {
+impl <C: ExtractComponent<F>, F> ExtractComponentPlugin<C, F> {
+    pub fn new<L: AppLabel>(app: L) -> Self {
         Self {
             only_extract_visible: false,
             marker: PhantomData,
+            app_label: app.intern(),
         }
     }
-}
 
-impl<C, F> ExtractComponentPlugin<C, F> {
-    pub fn extract_visible() -> Self {
+    pub fn extract_visible<L: AppLabel>(app: L) -> Self {
         Self {
             only_extract_visible: true,
             marker: PhantomData,
+            app_label: app.intern(),
         }
     }
 }
@@ -72,7 +75,7 @@ impl<C: ExtractComponent<F>, F: 'static + Send + Sync> Plugin for ExtractCompone
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncComponentPlugin::<C, F>::default());
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(self.app_label) {
             if self.only_extract_visible {
                 render_app.add_systems(ExtractSchedule, extract_visible_components::<C, F>);
             } else {

@@ -5,7 +5,7 @@ use bevy_app::{App, InternedAppLabel, Plugin, SubApp};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
-    schedule::{IntoScheduleConfigs, Schedule, ScheduleBuildSettings, ScheduleLabel, Schedules},
+    schedule::{InternedScheduleLabel, InternedSystemSet, IntoScheduleConfigs, Schedule, ScheduleBuildSettings, ScheduleLabel, Schedules, SystemSet},
     world::{Mut, World},
 };
 use bevy_utils::default;
@@ -20,6 +20,12 @@ pub struct ExtractPlugin {
 
     /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`] to set up with extraction.
     pub app_label: InternedAppLabel,
+
+    pub base_schedule: fn() -> Schedule, // Render::base_schedule()
+    pub schedule_label: InternedScheduleLabel, // Render
+
+    pub extract_set: InternedSystemSet, // RenderSystems::ExtractCommands
+    pub despawn_set: InternedSystemSet, // RenderSystems::PostCleanup
 }
 
 impl Plugin for ExtractPlugin {
@@ -38,15 +44,15 @@ impl Plugin for ExtractPlugin {
         });
         extract_schedule.set_apply_final_deferred(false);
 
-        sub_app.add_schedule(Render::base_schedule());
+        sub_app.add_schedule((self.base_schedule)());
         sub_app.add_schedule(extract_schedule);
         sub_app.add_systems(
-            Render,
+            self.schedule_label,
             (
                 // This set applies the commands from the extract schedule while the render schedule
                 // is running in parallel with the main app.
-                apply_extract_commands.in_set(RenderSystems::ExtractCommands),
-                despawn_temporary_render_entities.in_set(RenderSystems::PostCleanup),
+                apply_extract_commands.in_set(self.extract_set),
+                despawn_temporary_render_entities.in_set(self.despawn_set),
             ),
         );
 

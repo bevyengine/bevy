@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_ecs::prelude::*;
 pub use bevy_extract_macros::ExtractResource;
 use bevy_utils::once;
@@ -30,17 +30,25 @@ pub trait ExtractResource<F = ()>: Resource {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractResourcePlugin`].
-pub struct ExtractResourcePlugin<R: ExtractResource<F>, F = ()>(PhantomData<(R, F)>);
+pub struct ExtractResourcePlugin<R: ExtractResource<F>, F = ()> {
+    marker: PhantomData<(R, F)>,
 
-impl<R: ExtractResource<F>, F> Default for ExtractResourcePlugin<R, F> {
-    fn default() -> Self {
-        Self(PhantomData)
+    /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`] to set up with extraction.
+    pub app_label: InternedAppLabel,
+}
+
+impl <R: ExtractResource<F>, F> ExtractResourcePlugin<R, F> {
+    pub fn new<L: AppLabel>(app: L) -> Self {
+        Self {
+            marker: PhantomData,
+            app_label: app.intern(),
+        }
     }
 }
 
 impl<R: ExtractResource<F>, F: 'static + Send + Sync> Plugin for ExtractResourcePlugin<R, F> {
     fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(self.app_label) {
             render_app.add_systems(ExtractSchedule, extract_resource::<R, F>);
         } else {
             once!(bevy_log::error!(

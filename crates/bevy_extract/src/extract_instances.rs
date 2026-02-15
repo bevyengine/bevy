@@ -6,7 +6,7 @@
 
 use core::marker::PhantomData;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, InternedAppLabel, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -43,13 +43,16 @@ pub trait ExtractInstance: Send + Sync + Sized + 'static {
 ///
 /// Therefore it sets up the [`ExtractSchedule`] step for the specified
 /// [`ExtractedInstances`].
-#[derive(Default)]
+// #[derive(Default)]
 pub struct ExtractInstancesPlugin<EI>
 where
     EI: ExtractInstance,
 {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> EI>,
+
+    /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`] to set up with extraction.
+    pub app_label: InternedAppLabel,
 }
 
 /// Stores all extract instances of a type in the render world.
@@ -73,19 +76,21 @@ where
 {
     /// Creates a new [`ExtractInstancesPlugin`] that unconditionally extracts to
     /// the render world, whether the entity is visible or not.
-    pub fn new() -> Self {
+    pub fn new(app_label: InternedAppLabel) -> Self {
         Self {
             only_extract_visible: false,
             marker: PhantomData,
+            app_label,
         }
     }
 
     /// Creates a new [`ExtractInstancesPlugin`] that extracts to the render world
     /// if and only if the entity it's attached to is visible.
-    pub fn extract_visible() -> Self {
+    pub fn extract_visible(app_label: InternedAppLabel) -> Self {
         Self {
             only_extract_visible: true,
             marker: PhantomData,
+            app_label,
         }
     }
 }
@@ -95,7 +100,7 @@ where
     EI: ExtractInstance,
 {
     fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(self.app_label) {
             render_app.init_resource::<ExtractedInstances<EI>>();
             if self.only_extract_visible {
                 render_app.add_systems(ExtractSchedule, extract_visible::<EI>);

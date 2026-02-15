@@ -17,6 +17,9 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
 
+// TODO: make a ExtractComponent that specifies Render - bevy_extract_macros::ExtractComponent
+// same for ExtractResource
+
 #[proc_macro_derive(
     AsBindGroup,
     attributes(

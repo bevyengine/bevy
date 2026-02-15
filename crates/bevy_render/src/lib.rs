@@ -67,17 +67,21 @@ pub mod prelude {
     };
 }
 
+
+// Re-exports
+pub mod sync_component {
+    pub use bevy_extract::sync_component::{SyncComponent, SyncComponentPlugin};
+}
+pub mod sync_world {
+    pub use bevy_extract::sync_world::{RenderEntity, MainEntity, MainEntityHashMap, SyncToRenderWorld};
+}
+pub mod extract_resource {
+    pub use bevy_extract::extract_resource::{ExtractResource, ExtractResourcePlugin};
+}
+pub use bevy_extract::{Extract, ExtractSchedule, MainWorld};
+
 use crate::{
-    camera::CameraPlugin,
-    error_handler::{RenderErrorHandler, RenderState},
-    gpu_readback::GpuReadbackPlugin,
-    mesh::MeshRenderAssetPlugin,
-    render_resource::PipelineCache,
-    renderer::{render_system, RenderAdapterInfo},
-    settings::RenderCreation,
-    storage::StoragePlugin,
-    texture::TexturePlugin,
-    view::{ViewPlugin, WindowRenderPlugin},
+    camera::CameraPlugin, error_handler::{RenderErrorHandler, RenderState}, gpu_readback::GpuReadbackPlugin, mesh::{MeshRenderAssetPlugin, RenderMesh}, render_asset::prepare_assets, render_resource::PipelineCache, renderer::{RenderAdapterInfo, render_system}, settings::RenderCreation, storage::StoragePlugin, texture::TexturePlugin, view::{ViewPlugin, WindowRenderPlugin}
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
@@ -85,7 +89,7 @@ use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
-use bevy_extract::{ExtractPlugin, ExtractSchedule, Render, RenderApp, RenderSystems};
+use bevy_extract::{ExtractPlugin};
 use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_time::TimeSender;
@@ -272,6 +276,12 @@ impl Plugin for RenderPlugin {
             app.add_plugins(ExtractPlugin {
                 pre_extract: error_handler::update_state,
                 app_label: RenderApp.intern(),
+
+                base_schedule: Render::base_schedule,
+                schedule_label: Render.intern(),
+
+                extract_set: RenderSystems::ExtractCommands.intern(),
+                despawn_set: RenderSystems::PostCleanup.intern(),
             });
         };
 

@@ -28,7 +28,7 @@ impl Plugin for TexturePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             RenderAssetPlugin::<GpuImage>::default(),
-            ExtractResourcePlugin::<ManualTextureViews>::default(),
+            ExtractResourcePlugin::<ManualTextureViews>::new(RenderApp),
         ))
         .init_resource::<ManualTextureViews>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

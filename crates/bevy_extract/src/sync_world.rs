@@ -14,6 +14,8 @@ use bevy_ecs::{
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
+// TODO: remove Render terminology from here
+
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
 /// All entities with the [`SyncToRenderWorld`] component are kept in sync. It
