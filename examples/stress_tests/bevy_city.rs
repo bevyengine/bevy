@@ -28,6 +28,7 @@ fn main() {
             FreeCameraPlugin,
         ))
         .add_systems(Startup, (setup, load_assets, setup_city.after(load_assets)))
+        .add_systems(Update, simulate_cars)
         .run();
 }
 
@@ -51,7 +52,7 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
     ));
     commands.spawn((
         DirectionalLight {
-            shadow_maps_enabled: false,
+            shadow_maps_enabled: true,
             illuminance: light_consts::lux::RAW_SUNLIGHT,
             ..default()
         },
@@ -267,6 +268,30 @@ fn load_assets(
     });
 }
 
+#[derive(Component)]
+struct Car {
+    start: Vec3,
+    end: Vec3,
+    distance_traveled: f32,
+}
+
+fn simulate_cars(mut cars: Query<(&mut Car, &mut Transform)>, time: Res<Time>) {
+    let speed = 2.0;
+    for (mut car, mut transform) in &mut cars {
+        car.distance_traveled += speed * time.delta_secs();
+
+        let road_len = (car.end - car.start).length();
+
+        if car.distance_traveled > road_len {
+            car.distance_traveled = 0.0;
+        }
+        let direction = (car.end - car.start).normalize();
+
+        let progress = car.distance_traveled / road_len;
+        transform.translation = car.start + direction * road_len * progress;
+    }
+}
+
 fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
     let mut rng = SmallRng::seed_from_u64(42);
     let size = 25;
@@ -283,23 +308,98 @@ fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
                     SceneRoot(assets.crossroad.clone()),
                     Transform::from_xyz(x, 0.0, z),
                 ));
+
+                // horizontal road
                 commands.spawn((
                     SceneRoot(assets.road_straight.clone()),
                     Transform::from_translation(Vec3::new(2.75, 0.0, 0.0) + offset)
                         .with_scale(Vec3::new(4.5, 1.0, 1.0)),
                 ));
+
+                let car_density = 0.75;
+                for i in 0..9 {
+                    if rng.random::<f32>() > car_density {
+                        commands.spawn((
+                            SceneRoot(assets.get_random_car(&mut rng)),
+                            Transform::from_translation(
+                                Vec3::new(0.75 + i as f32 * 0.5, 0.0, 0.15) + offset,
+                            )
+                            .with_scale(Vec3::splat(0.15))
+                            .with_rotation(Quat::from_axis_angle(
+                                Vec3::Y,
+                                3.0 * -std::f32::consts::FRAC_PI_2,
+                            )),
+                            Car {
+                                start: Vec3::new(0.3, 0.0, 0.15) + offset,
+                                end: Vec3::new(5.2, 0.0, 0.15) + offset,
+                                distance_traveled: i as f32 * 0.55,
+                            },
+                        ));
+                    }
+                    if rng.random::<f32>() > car_density {
+                        commands.spawn((
+                            SceneRoot(assets.get_random_car(&mut rng)),
+                            Transform::from_translation(
+                                Vec3::new(0.75 + i as f32 * 0.5, 0.0, -0.15) + offset,
+                            )
+                            .with_scale(Vec3::splat(0.15))
+                            .with_rotation(Quat::from_axis_angle(
+                                Vec3::Y,
+                                -std::f32::consts::FRAC_PI_2,
+                            )),
+                            Car {
+                                start: Vec3::new(5.2, 0.0, -0.15) + offset,
+                                end: Vec3::new(0.3, 0.0, -0.15) + offset,
+                                distance_traveled: i as f32 * 0.55,
+                            },
+                        ));
+                    }
+                }
+
+                // vertical road
                 commands.spawn((
                     SceneRoot(assets.road_straight.clone()),
                     Transform::from_translation(Vec3::new(0.0, 0.0, 2.0) + offset)
                         .with_scale(Vec3::new(3.0, 1.0, 1.0))
                         .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::FRAC_PI_2)),
                 ));
+                for i in 0..6 {
+                    if rng.random::<f32>() > car_density {
+                        commands.spawn((
+                            SceneRoot(assets.get_random_car(&mut rng)),
+                            Transform::from_translation(
+                                Vec3::new(-0.15, 0.0, 0.75 + i as f32 * 0.5) + offset,
+                            )
+                            .with_scale(Vec3::splat(0.15)),
+                            Car {
+                                start: Vec3::new(-0.15, 0.0, 0.75) + offset,
+                                end: Vec3::new(-0.15, 0.0, 3.25) + offset,
+                                distance_traveled: i as f32 * 0.5,
+                            },
+                        ));
+                    }
+                    if rng.random::<f32>() > car_density {
+                        commands.spawn((
+                            SceneRoot(assets.get_random_car(&mut rng)),
+                            Transform::from_translation(
+                                Vec3::new(0.15, 0.0, 0.75 + i as f32 * 0.5) + offset,
+                            )
+                            .with_scale(Vec3::splat(0.15))
+                            .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
+                            Car {
+                                start: Vec3::new(0.15, 0.0, 3.25) + offset,
+                                end: Vec3::new(0.15, 0.0, 0.75) + offset,
+                                distance_traveled: i as f32 * 0.5,
+                            },
+                        ));
+                    }
+                }
             }
 
             // TODO use noise
             let density = rng.random::<f32>();
             let low_density = 0.6;
-            let medium_density = 0.7;
+            let medium_density = 0.9;
 
             let ground_tile_scale = Vec3::new(4.5, 1.0, 3.0);
             commands.spawn((
