@@ -18,7 +18,7 @@ use crate::{
     color_from_entity,
     config::{GizmoConfigGroup, GizmoConfigStore},
     gizmos::Gizmos,
-    AppGizmoBuilder, GizmoMeshSystems,
+    AppGizmoBuilder,
 };
 
 /// A [`Plugin`] that provides visualization of [`Aabb`]s for debugging.
@@ -30,7 +30,7 @@ impl Plugin for AabbGizmoPlugin {
         // `AssetEventSystems` that would cause a cycle,
         // aabb's must start to be rendered with one frame delay. Since aabb's are expected
         // to be rendered for multiple frames, this should not be a problem.
-        app.init_gizmo_group::<AabbGizmoConfigGroup>().add_systems(
+        app.init_gizmo_group_delayed_render::<AabbGizmoConfigGroup>().add_systems(
             PostUpdate,
             (
                 draw_aabbs,
@@ -39,8 +39,7 @@ impl Plugin for AabbGizmoPlugin {
                 }),
             )
                 .after(bevy_camera::visibility::VisibilitySystems::MarkNewlyHiddenEntitiesInvisible)
-                .after(TransformSystems::Propagate)
-                .before(GizmoMeshSystems),
+                .after(TransformSystems::Propagate),
         );
     }
 }
