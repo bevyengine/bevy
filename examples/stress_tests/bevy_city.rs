@@ -515,18 +515,18 @@ fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
     }
 }
 
-pub struct ValueNoise {
+pub(crate) struct ValueNoise {
     values: [f32; 256],
     perm: [u8; 256],
 }
 
 impl ValueNoise {
-    pub fn new(seed: u64) -> Self {
+    pub(crate) fn new(seed: u64) -> Self {
         let mut rng = SmallRng::seed_from_u64(seed);
         let mut values = [0.0f32; 256];
         let mut perm = [0u8; 256];
 
-        for (i, v) in values.iter_mut().enumerate() {
+        for v in &mut values {
             *v = rng.random_range(-1.0..=1.0);
         }
         for (i, p) in perm.iter_mut().enumerate() {
@@ -538,7 +538,8 @@ impl ValueNoise {
     }
 
     /// Sample 2-D noise at `pos`.
-    pub fn sample(&self, pos: Vec2) -> f32 {
+    /// Range: -1..1
+    pub(crate) fn sample(&self, pos: Vec2) -> f32 {
         let cell = pos.floor();
         let frac = pos - cell;
 
