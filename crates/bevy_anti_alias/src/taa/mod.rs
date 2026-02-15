@@ -62,7 +62,7 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_taa_jitter.in_set(RenderSystems::ManageViews),
+                    prepare_taa_jitter.in_set(RenderSystems::PrepareViews),
                     prepare_taa_pipelines.in_set(RenderSystems::Prepare),
                     prepare_taa_history_textures.in_set(RenderSystems::PrepareResources),
                 ),

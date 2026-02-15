@@ -306,7 +306,7 @@ where
                     Render,
                     (
                         specialize_material2d_meshes::<M>
-                            .in_set(RenderSystems::PrepareMeshes)
+                            .in_set(RenderSystems::Specialize)
                             .after(prepare_assets::<PreparedMaterial2d<M>>)
                             .after(prepare_assets::<RenderMesh>),
                         queue_material2d_meshes::<M>
