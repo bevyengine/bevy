@@ -6,7 +6,10 @@
 
 use bevy_ecs::{
     component::{ComponentId, Components},
-    schedule::{ApplyDeferred, ConditionWithAccess, NodeId, Schedule, Schedules},
+    schedule::{
+        ApplyDeferred, ConditionWithAccess, InternedScheduleLabel, NodeId, Schedule,
+        ScheduleBuildMetadata, Schedules,
+    },
     system::SystemStateFlags,
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
@@ -29,11 +32,18 @@ impl AppData {
     pub fn from_schedules(
         schedules: &Schedules,
         world_components: &Components,
+        label_to_build_metadata: &HashMap<InternedScheduleLabel, ScheduleBuildMetadata>,
     ) -> Result<Self, ExtractAppDataError> {
         Ok(Self {
             schedules: schedules
                 .iter()
-                .map(|(_, schedule)| ScheduleData::from_schedule(schedule, world_components))
+                .map(|(_, schedule)| {
+                    ScheduleData::from_schedule(
+                        schedule,
+                        world_components,
+                        label_to_build_metadata.get(&schedule.label()),
+                    )
+                })
                 .collect::<Result<_, ExtractAppDataError>>()?,
         })
     }
@@ -128,6 +138,7 @@ impl ScheduleData {
     pub fn from_schedule(
         schedule: &Schedule,
         world_components: &Components,
+        build_metadata: Option<&ScheduleBuildMetadata>,
     ) -> Result<Self, ExtractAppDataError> {
         let graph = schedule.graph();
 
@@ -214,12 +225,27 @@ impl ScheduleData {
             })
             .collect();
 
-        let dependency = graph
+        let mut dependency = graph
             .dependency()
             .graph()
             .all_edges()
             .map(|(a, b)| (node_id_to_schedule_index(a), node_id_to_schedule_index(b)))
-            .collect();
+            .collect::<Vec<_>>();
+
+        if let Some(build_metadata) = build_metadata {
+            // Add in all the edges that were created by build passes.
+            dependency.extend(
+                build_metadata
+                    .edges_added_by_build_passes
+                    .iter()
+                    .map(|(a, b)| {
+                        (
+                            node_id_to_schedule_index(NodeId::System(*a)),
+                            node_id_to_schedule_index(NodeId::System(*b)),
+                        )
+                    }),
+            );
+        }
 
         let mut component_id_to_index = HashMap::<ComponentId, usize>::new();
         let mut components = vec![];
@@ -304,6 +330,8 @@ mod tests {
             .map(|(_, schedule)| schedule.label())
             .collect::<Vec<_>>();
 
+        let mut label_to_build_metadata = HashMap::new();
+
         for label in interned_labels {
             let mut schedule = app
                 .world_mut()
@@ -311,7 +339,8 @@ mod tests {
                 .remove(label)
                 .expect("we just copied the label from this schedule");
 
-            schedule.initialize(app.world_mut()).unwrap();
+            let build_metadata = schedule.initialize(app.world_mut()).unwrap().unwrap();
+            label_to_build_metadata.insert(label, build_metadata);
 
             app.world_mut().resource_mut::<Schedules>().insert(schedule);
         }
@@ -319,6 +348,7 @@ mod tests {
         let mut app_data = AppData::from_schedules(
             app.world().resource::<Schedules>(),
             app.world().components(),
+            &label_to_build_metadata,
         )?;
 
         // We don't want the names of items to include module paths for this test (otherwise moving
@@ -702,15 +732,16 @@ mod tests {
         assert_eq!(
             schedule.dependency,
             [
-                // TODO: These dependencies are incomplete - after the schedule is built, the
-                // execution schedule contains edges a->sync->b. However these edges only get
-                // attached to the execution scheudule: not the original graph, where we get edges
-                // from.
-                // a->b
+                // a->sync and a->b
+                (ScheduleIndex::System(0), ScheduleIndex::System(2)),
                 (ScheduleIndex::System(0), ScheduleIndex::System(3)),
                 (ScheduleIndex::System(0), ScheduleIndex::System(4)),
+                (ScheduleIndex::System(1), ScheduleIndex::System(2)),
                 (ScheduleIndex::System(1), ScheduleIndex::System(3)),
                 (ScheduleIndex::System(1), ScheduleIndex::System(4)),
+                // sync->b
+                (ScheduleIndex::System(2), ScheduleIndex::System(3)),
+                (ScheduleIndex::System(2), ScheduleIndex::System(4)),
                 // c0->c1
                 (ScheduleIndex::System(5), ScheduleIndex::System(6)),
             ]

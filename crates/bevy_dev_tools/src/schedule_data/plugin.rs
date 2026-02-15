@@ -11,6 +11,7 @@ use bevy_ecs::{
     },
     world::World,
 };
+use bevy_platform::collections::HashMap;
 use ron::ser::PrettyConfig;
 
 use crate::schedule_data::serde::AppData;
@@ -76,17 +77,24 @@ fn collect_system_data(world: &mut World) -> Result<(), BevyError> {
         .iter()
         .map(|schedule| schedule.1.label())
         .collect::<Vec<_>>();
+    let mut label_to_build_metadata = HashMap::new();
+
     for label in labels {
         let mut schedules = world.resource_mut::<Schedules>();
         let mut schedule = schedules.remove(label).unwrap();
-        schedule.initialize(world)?;
+        let Some(build_metadata) = schedule.initialize(world)? else {
+            return Err("Main hasn't run yet so the schedules hasn't been built".into());
+        };
+
+        label_to_build_metadata.insert(label, build_metadata);
 
         let mut schedules = world.resource_mut::<Schedules>();
         schedules.insert(schedule);
     }
 
     let schedules = world.resource::<Schedules>();
-    let app_data = AppData::from_schedules(schedules, world.components())?;
+    let app_data =
+        AppData::from_schedules(schedules, world.components(), &label_to_build_metadata)?;
 
     let file_path = world
         .get_resource::<SerializeSchedulesFilePath>()
