@@ -1,7 +1,12 @@
 //! A procedurally generated city
 
 use bevy::{
+    anti_alias::taa::TemporalAntiAliasing,
+    camera::Exposure,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    light::{atmosphere::ScatteringMedium, Atmosphere, AtmosphereEnvironmentMapLight},
+    pbr::AtmosphereSettings,
+    post_process::bloom::Bloom,
     prelude::*,
 };
 use rand::Rng;
@@ -13,11 +18,23 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<ScatteringMedium>>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
+        Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
+        AtmosphereSettings::default(),
+        // The directional light illuminance used in this scene is
+        // quite bright, so raising the exposure compensation helps
+        // bring the scene to a nicer brightness range.
+        Exposure { ev100: 13.0 },
+        // Bloom gives the sun a much more natural look.
+        Bloom::NATURAL,
+        // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
+        AtmosphereEnvironmentMapLight::default(),
+        Msaa::Off,
+        TemporalAntiAliasing::default(),
     ));
     commands.spawn((
         DirectionalLight {
