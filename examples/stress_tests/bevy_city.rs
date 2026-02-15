@@ -12,7 +12,7 @@ use bevy::{
     post_process::bloom::Bloom,
     prelude::*,
 };
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use rand::{rngs::SmallRng, seq::SliceRandom, Rng, SeedableRng};
 
 fn main() {
     App::new()
@@ -408,9 +408,9 @@ fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
                 }
             }
 
-            // TODO use noise
-            let density = rng.random::<f32>();
-            let low_density = 0.6;
+            let noise = ValueNoise::new(42);
+            let density = noise.sample(Vec2::new(x, z) / 20.0) * 0.5 + 0.5;
+            let low_density = 0.65;
             let medium_density = 0.9;
 
             let ground_tile_scale = Vec3::new(4.5, 1.0, 3.0);
@@ -427,7 +427,9 @@ fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
                 .with_scale(ground_tile_scale),
             ));
 
-            if density < low_density {
+            if density < 0.35 {
+                // forest
+            } else if density < low_density {
                 for x in 1..=2 {
                     let x_factor = 1.8;
                     commands.spawn((
@@ -510,5 +512,57 @@ fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
                 }
             }
         }
+    }
+}
+
+pub struct ValueNoise {
+    values: [f32; 256],
+    perm: [u8; 256],
+}
+
+impl ValueNoise {
+    pub fn new(seed: u64) -> Self {
+        let mut rng = SmallRng::seed_from_u64(seed);
+        let mut values = [0.0f32; 256];
+        let mut perm = [0u8; 256];
+
+        for (i, v) in values.iter_mut().enumerate() {
+            *v = rng.random_range(-1.0..=1.0);
+        }
+        for (i, p) in perm.iter_mut().enumerate() {
+            *p = i as u8;
+        }
+        perm.shuffle(&mut rng);
+
+        ValueNoise { values, perm }
+    }
+
+    /// Sample 2-D noise at `pos`.
+    pub fn sample(&self, pos: Vec2) -> f32 {
+        let cell = pos.floor();
+        let frac = pos - cell;
+
+        let ux = frac.x * frac.x * (3.0 - 2.0 * frac.x);
+        let uy = frac.y * frac.y * (3.0 - 2.0 * frac.y);
+
+        let g00 = self.grad(cell);
+        let g10 = self.grad(cell + Vec2::new(1.0, 0.0));
+        let g01 = self.grad(cell + Vec2::new(0.0, 1.0));
+        let g11 = self.grad(cell + Vec2::new(1.0, 1.0));
+
+        let lerp = |a, b, t| a + t * (b - a);
+        lerp(lerp(g00, g10, ux), lerp(g01, g11, ux), uy)
+    }
+
+    fn grad(&self, cell: Vec2) -> f32 {
+        let x = cell.x as i32;
+        let y = cell.y as i32;
+        let idx = self.hash(x, y) as usize;
+        self.values[idx & 255]
+    }
+
+    fn hash(&self, x: i32, y: i32) -> u8 {
+        let h = (x.wrapping_mul(1836311903) ^ y.wrapping_mul(297121507)) as u32;
+        self.perm[h as usize & 255]
     }
 }
