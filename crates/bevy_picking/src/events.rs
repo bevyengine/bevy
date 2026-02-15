@@ -72,6 +72,9 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
     /// Additional event-specific data. [`DragDrop`] for example, has an additional field to describe
     /// the `Entity` that is being dropped on the target.
     pub event: E,
+    /// Whether to propagate the event via PointerTraversal
+    /// For Enter and Leave events, this is set to false.
+    pub(crate) propagate: bool,
 }
 
 /// A traversal query (i.e. it implements [`Traversal`]) intended for use with [`Pointer`] events.
@@ -89,6 +92,10 @@ where
     E: Debug + Clone + Reflect,
 {
     fn traverse(item: Self::Item<'_, '_>, pointer: &Pointer<E>) -> Option<Entity> {
+        if (!pointer.propagate) {
+            return None;
+        }
+
         let PointerTraversalItem { child_of, window } = item;
 
         // Send event to parent, if it has one.
@@ -125,13 +132,23 @@ impl<E: Debug + Clone + Reflect> core::ops::Deref for Pointer<E> {
 }
 
 impl<E: Debug + Clone + Reflect> Pointer<E> {
-    /// Construct a new `Pointer<E>` event.
+    /// Construct a new `Pointer<E>` event that propagates
     pub fn new(id: PointerId, location: Location, event: E, entity: Entity) -> Self {
+        Self::new_inner(id, location, event, entity, true)
+    }
+
+    /// Construct a new `Pointer<E>` event that does not propagate
+    pub fn new_without_propagate(id: PointerId, location: Location, event: E, entity: Entity) -> Self {
+        Self::new_inner(id, location, event, entity, false)
+    }
+
+    fn new_inner(id: PointerId, location: Location, event: E, entity: Entity, propagate: bool) -> Self {
         Self {
             pointer_id: id,
             pointer_location: location,
             event,
             entity,
+            propagate,
         }
     }
 }
