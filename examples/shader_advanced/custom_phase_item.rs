@@ -21,6 +21,7 @@ use bevy::{
     mesh::VertexBufferLayout,
     prelude::*,
     render::{
+        camera::DirtySpecializations,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
@@ -38,7 +39,6 @@ use bevy::{
         Render, RenderApp, RenderSystems,
     },
 };
-use bevy_render::camera::DirtySpecializations;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using

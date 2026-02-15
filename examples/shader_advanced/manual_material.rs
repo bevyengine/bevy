@@ -18,6 +18,7 @@ use bevy::{
     platform::collections::hash_map::Entry,
     prelude::*,
     render::{
+        camera::DirtySpecializations,
         erased_render_asset::{ErasedRenderAsset, ErasedRenderAssetPlugin, PrepareAssetError},
         render_asset::RenderAssets,
         render_phase::DrawFunctions,
@@ -34,7 +35,6 @@ use bevy::{
     },
     utils::Parallel,
 };
-use bevy_render::camera::DirtySpecializations;
 use std::{any::TypeId, sync::Arc};
 
 const SHADER_ASSET_PATH: &str = "shaders/manual_material.wgsl";

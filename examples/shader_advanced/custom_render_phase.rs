@@ -35,7 +35,8 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData,
         },
-        camera::ExtractedCamera,
+        camera::{DirtySpecializations, ExtractedCamera},
+        entity::EntityHash,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
@@ -56,8 +57,6 @@ use bevy::{
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
-use bevy_ecs::entity::EntityHash;
-use bevy_render::camera::DirtySpecializations;
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 

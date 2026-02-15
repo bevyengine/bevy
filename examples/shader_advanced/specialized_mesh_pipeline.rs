@@ -20,6 +20,7 @@ use bevy::{
     prelude::*,
     render::{
         batching::gpu_preprocessing::GpuPreprocessingSupport,
+        camera::DirtySpecializations,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
@@ -37,7 +38,6 @@ use bevy::{
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
-use bevy_render::camera::DirtySpecializations;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
