@@ -80,13 +80,6 @@ impl<'a> Serialize for SceneSerializer<'a> {
     {
         let mut state = serializer.serialize_struct(SCENE_STRUCT, 2)?;
         state.serialize_field(
-            SCENE_RESOURCES,
-            &SceneMapSerializer {
-                entries: &self.scene.resources,
-                registry: self.registry,
-            },
-        )?;
-        state.serialize_field(
             SCENE_ENTITIES,
             &EntitiesSerializer {
                 entities: &self.scene.entities,
@@ -197,7 +190,6 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
 #[derive(Deserialize)]
 #[serde(field_identifier, rename_all = "lowercase")]
 enum SceneField {
-    Resources,
     Entities,
 }
 
@@ -222,7 +214,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
     {
         deserializer.deserialize_struct(
             SCENE_STRUCT,
-            &[SCENE_RESOURCES, SCENE_ENTITIES],
+            &[SCENE_ENTITIES],
             SceneVisitor {
                 type_registry: self.type_registry,
             },
@@ -245,40 +237,22 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
     where
         A: SeqAccess<'de>,
     {
-        let resources = seq
-            .next_element_seed(SceneMapDeserializer {
-                registry: self.type_registry,
-            })?
-            .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
-
         let entities = seq
             .next_element_seed(SceneEntitiesDeserializer {
                 type_registry: self.type_registry,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
 
-        Ok(DynamicScene {
-            resources,
-            entities,
-        })
+        Ok(DynamicScene { entities })
     }
 
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
     {
-        let mut resources = None;
         let mut entities = None;
         while let Some(key) = map.next_key()? {
             match key {
-                SceneField::Resources => {
-                    if resources.is_some() {
-                        return Err(Error::duplicate_field(SCENE_RESOURCES));
-                    }
-                    resources = Some(map.next_value_seed(SceneMapDeserializer {
-                        registry: self.type_registry,
-                    })?);
-                }
                 SceneField::Entities => {
                     if entities.is_some() {
                         return Err(Error::duplicate_field(SCENE_ENTITIES));
@@ -290,13 +264,9 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
             }
         }
 
-        let resources = resources.ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
         let entities = entities.ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
 
-        Ok(DynamicScene {
-            resources,
-            entities,
-        })
+        Ok(DynamicScene { entities })
     }
 }
 
@@ -518,6 +488,7 @@ mod tests {
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::AppTypeRegistry,
+        resource::IsResource,
         world::FromWorld,
     };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -611,6 +582,7 @@ mod tests {
             registry.register::<MyEntityRef>();
             registry.register::<Entity>();
             registry.register::<MyResource>();
+            registry.register::<IsResource>();
         }
         world.insert_resource(registry);
         world
@@ -632,12 +604,15 @@ mod tests {
             .build();
 
         let expected = r#"(
-  resources: {
-    "bevy_scene::serde::tests::MyResource": (
-      foo: 123,
-    ),
-  },
   entities: {
+    4294967290: (
+      components: {
+        "bevy_ecs::resource::IsResource": ((13)),
+        "bevy_scene::serde::tests::MyResource": (
+          foo: 123,
+        ),
+      },
+    ),
     4294967291: (
       components: {
         "bevy_scene::serde::tests::Bar": (345),
@@ -667,26 +642,28 @@ mod tests {
     #[test]
     fn should_deserialize() {
         let world = create_world();
-
         let input = r#"(
-  resources: {
-    "bevy_scene::serde::tests::MyResource": (
-      foo: 123,
-    ),
-  },
   entities: {
     8589934591: (
+        components: {
+          "bevy_scene::serde::tests::MyResource": (
+            foo: 123,
+          ),
+          "bevy_ecs::resource::IsResource": ((42)),
+        },
+    ),
+    8589934590: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    8589934590: (
+    8589934589: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    8589934589: (
+    8589934588: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
@@ -702,14 +679,9 @@ mod tests {
         let scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
 
         assert_eq!(
-            1,
-            scene.resources.len(),
-            "expected `resources` to contain 1 resource"
-        );
-        assert_eq!(
-            3,
+            4,
             scene.entities.len(),
-            "expected `entities` to contain 3 entities"
+            "expected `entities` to contain 1 resource"
         );
 
         let mut map = EntityHashMap::default();
@@ -815,7 +787,7 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 1, 253, 255, 255, 255, 15, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
+                1, 253, 255, 255, 255, 15, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
                 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
                 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204,
                 108, 64, 1, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
@@ -856,10 +828,10 @@ mod tests {
 
         assert_eq!(
             vec![
-                146, 128, 129, 206, 255, 255, 255, 253, 145, 129, 217, 37, 98, 101, 118, 121, 95,
-                115, 99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115,
-                116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1,
-                2, 3, 146, 202, 63, 166, 102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112,
+                146, 129, 206, 255, 255, 255, 253, 145, 129, 217, 37, 98, 101, 118, 121, 95, 115,
+                99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116,
+                115, 58, 58, 77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1, 2,
+                3, 146, 202, 63, 166, 102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112,
                 108, 101, 172, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             buf

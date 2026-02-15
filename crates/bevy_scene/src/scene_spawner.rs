@@ -122,12 +122,6 @@ pub enum SceneSpawnError {
         /// Type of the unregistered component.
         type_path: String,
     },
-    /// Scene contains an unregistered resource type.
-    #[error("scene contains the unregistered resource `{type_path}`. consider adding `#[reflect(Resource)]` to your type")]
-    UnregisteredResource {
-        /// Type of the unregistered resource.
-        type_path: String,
-    },
     /// Scene contains an unregistered type.
     #[error(
         "scene contains the unregistered type `{std_type_name}`. \
@@ -715,10 +709,12 @@ mod tests {
     use bevy_asset::{AssetPlugin, AssetServer, Handle};
     use bevy_ecs::{
         component::Component,
+        entity_disabling::DefaultQueryFilters,
         hierarchy::Children,
         observer::On,
         prelude::{ReflectComponent, ReflectResource},
         query::With,
+        resource::IsResource,
         system::{Commands, Query, Res, ResMut, RunSystemOnce},
     };
     use bevy_reflect::Reflect;
@@ -867,6 +863,8 @@ mod tests {
         app.init_resource::<TriggerCount>();
 
         app.register_type::<ComponentF>();
+        app.register_type::<IsResource>();
+        app.register_type::<DefaultQueryFilters>();
         app.world_mut().spawn(ComponentF);
         app.world_mut().spawn(ComponentF);
 
@@ -1074,7 +1072,9 @@ mod tests {
             .register_type::<ComponentA>()
             .register_type::<ChildOf>()
             .register_type::<Children>()
-            .register_type::<ComponentF>();
+            .register_type::<ComponentF>()
+            .register_type::<IsResource>()
+            .register_type::<DefaultQueryFilters>();
         app.update();
 
         let mut scene_world = World::new();

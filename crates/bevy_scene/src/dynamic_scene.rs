@@ -1,12 +1,11 @@
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
-use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypePath};
+use bevy_reflect::{PartialReflect, Reflect, TypePath};
 
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
@@ -14,7 +13,7 @@ use bevy_ecs::relationship::RelationshipHookMode;
 #[cfg(feature = "serialize")]
 use {crate::serde::SceneSerializer, bevy_reflect::TypeRegistry, serde::Serialize};
 
-/// A collection of serializable resources and dynamic entities.
+/// A collection of serializable dynamic entities.
 ///
 /// Each dynamic entity in the collection contains its own run-time defined set of components.
 /// To spawn a dynamic scene, you can use either:
@@ -23,8 +22,6 @@ use {crate::serde::SceneSerializer, bevy_reflect::TypeRegistry, serde::Serialize
 /// * using the [`DynamicSceneBuilder`] to construct a `DynamicScene` from `World`.
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
-    /// Resources stored in the dynamic scene.
-    pub resources: Vec<Box<dyn PartialReflect>>,
     /// Entities contained in the dynamic scene.
     pub entities: Vec<DynamicEntity>,
 }
@@ -38,6 +35,18 @@ pub struct DynamicEntity {
     /// A vector of boxed components that belong to the given entity and
     /// implement the [`PartialReflect`] trait.
     pub components: Vec<Box<dyn PartialReflect>>,
+}
+
+impl DynamicEntity {
+    /// Returns true if a dynamic entity has a particular component
+    pub fn has<T: Reflect + TypePath>(&self) -> bool {
+        for component in &self.components {
+            if component.represents::<T>() {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl DynamicScene {
@@ -58,7 +67,6 @@ impl DynamicScene {
                     .flat_map(bevy_ecs::archetype::Archetype::entities)
                     .map(bevy_ecs::archetype::ArchetypeEntity::id),
             )
-            .extract_resources()
             .build()
     }
 
@@ -136,50 +144,6 @@ impl DynamicScene {
                 });
             }
         }
-
-        // Insert resources after all entities have been added to the world.
-        // This ensures the entities are available for the resources to reference during mapping.
-        for resource in &self.resources {
-            let type_info = resource.get_represented_type_info().ok_or_else(|| {
-                SceneSpawnError::NoRepresentedType {
-                    type_path: resource.reflect_type_path().to_string(),
-                }
-            })?;
-            let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
-                SceneSpawnError::UnregisteredButReflectedType {
-                    type_path: type_info.type_path().to_string(),
-                }
-            })?;
-            registration.data::<ReflectResource>().ok_or_else(|| {
-                SceneSpawnError::UnregisteredResource {
-                    type_path: type_info.type_path().to_string(),
-                }
-            })?;
-            // reflect_resource existing, implies that reflect_component also exists
-            let reflect_component = registration
-                .data::<ReflectComponent>()
-                .expect("ReflectComponent is depended on ReflectResource");
-
-            let resource_id = reflect_component.register_component(world);
-
-            // check if the resource already exists, if not spawn it, otherwise override the value
-            let entity = if let Some(entity) = world.resource_entities().get(resource_id) {
-                *entity
-            } else {
-                world.spawn_empty().id()
-            };
-
-            SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
-                reflect_component.apply_or_insert_mapped(
-                    &mut world.entity_mut(entity),
-                    resource.as_partial_reflect(),
-                    &type_registry,
-                    mapper,
-                    RelationshipHookMode::Skip,
-                );
-            });
-        }
-
         Ok(())
     }
 

@@ -122,8 +122,10 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
+        entity_disabling::DefaultQueryFilters,
         hierarchy::{ChildOf, Children},
         reflect::{AppTypeRegistry, ReflectComponent},
+        resource::IsResource,
         world::World,
     };
     use bevy_reflect::Reflect;
@@ -166,6 +168,8 @@ mod tests {
             .register_type::<Circle>()
             .register_type::<Rectangle>()
             .register_type::<Triangle>()
+            .register_type::<IsResource>()
+            .register_type::<DefaultQueryFilters>()
             .register_type::<FinishLine>();
 
         let scene_handle = app
