@@ -74,6 +74,8 @@ struct CityAssets {
         Handle<StandardMaterial>,
         Handle<StandardMaterial>,
     ),
+    tree_small: Handle<Scene>,
+    tree_large: Handle<Scene>,
 }
 
 impl CityAssets {
@@ -258,6 +260,13 @@ fn load_assets(
         (mesh, white_material, grass_material)
     };
 
+    let tree_small: Handle<Scene> = asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/tree-small.glb")),
+    );
+    let tree_large: Handle<Scene> = asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/tree-large.glb")),
+    );
+
     commands.insert_resource(CityAssets {
         cars,
         crossroad,
@@ -266,6 +275,8 @@ fn load_assets(
         medium_density,
         low_density,
         ground_tile,
+        tree_small,
+        tree_large,
     });
 }
 
@@ -405,7 +416,11 @@ fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
             let ground_tile_scale = Vec3::new(4.5, 1.0, 3.0);
             commands.spawn((
                 Mesh3d(assets.ground_tile.0.clone()),
-                MeshMaterial3d(assets.ground_tile.1.clone()),
+                if density < low_density {
+                    MeshMaterial3d(assets.ground_tile.2.clone())
+                } else {
+                    MeshMaterial3d(assets.ground_tile.1.clone())
+                },
                 Transform::from_translation(
                     Vec3::new(0.5, -0.5005, 0.5) + ground_tile_scale / 2.0 + offset,
                 )
@@ -429,6 +444,20 @@ fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
                         .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
                     ));
                 }
+                for z in 0..=8 {
+                    commands.spawn((
+                        SceneRoot(assets.tree_small.clone()),
+                        Transform::from_translation(
+                            Vec3::new(0.75, 0.0, 0.75 + z as f32 * 0.3) + offset,
+                        ),
+                    ));
+                    commands.spawn((
+                        SceneRoot(assets.tree_small.clone()),
+                        Transform::from_translation(
+                            Vec3::new(4.75, 0.0, 0.75 + z as f32 * 0.3) + offset,
+                        ),
+                    ));
+                }
             } else if density < medium_density {
                 let x_factor = 0.9;
                 for x in 1..=5 {
@@ -438,6 +467,26 @@ fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
                             Vec3::new(x as f32 * x_factor, 0.0, 1.0) + offset,
                         ),
                     ));
+
+                    for tree_x in 0..=1 {
+                        let tree_x = tree_x as f32 * 0.5;
+                        if x == 5 && tree_x == 0.5 {
+                            break;
+                        }
+                        commands.spawn((
+                            SceneRoot(assets.tree_large.clone()),
+                            Transform::from_translation(
+                                Vec3::new(tree_x + x as f32 * x_factor, 0.0, 1.75) + offset,
+                            ),
+                        ));
+                        commands.spawn((
+                            SceneRoot(assets.tree_large.clone()),
+                            Transform::from_translation(
+                                Vec3::new(tree_x + x as f32 * x_factor, 0.0, 2.25) + offset,
+                            ),
+                        ));
+                    }
+
                     commands.spawn((
                         assets.medium_density.get_random_building(&mut rng),
                         Transform::from_translation(
