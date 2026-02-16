@@ -134,7 +134,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     })?;
 
     #[cfg(target_os = "windows")]
-    let str_path = &str_path.replace('\\', "/");
+    let str_path = &str_path.replace(std::path::MAIN_SEPARATOR, "/");
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
     if let Some(data) = web_asset_cache::try_load_from_cache(str_path).await? {
