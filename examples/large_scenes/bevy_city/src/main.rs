@@ -4,7 +4,7 @@ use argh::FromArgs;
 use assets::{load_assets, CityAssets};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera::Exposure,
+    camera::{Exposure, Hdr},
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
     feathers::{
         self,
@@ -14,7 +14,7 @@ use bevy::{
         FeathersPlugins,
     },
     light::{atmosphere::ScatteringMedium, Atmosphere, AtmosphereEnvironmentMapLight},
-    pbr::AtmosphereSettings,
+    pbr::{AtmosphereSettings, ContactShadows},
     post_process::bloom::Bloom,
     prelude::*,
     ui::Checked,
@@ -33,6 +33,7 @@ mod generate_city;
 struct Settings {
     simulate_cars: bool,
     shadow_maps_enabled: bool,
+    contact_shadows_enabled: bool,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -41,6 +42,7 @@ impl Default for Settings {
         Self {
             simulate_cars: true,
             shadow_maps_enabled: true,
+            contact_shadows_enabled: true,
         }
     }
 }
@@ -87,6 +89,7 @@ fn main() {
 fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<ScatteringMedium>>) {
     commands.spawn((
         Camera3d::default(),
+        Hdr,
         Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
         Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
@@ -101,10 +104,13 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
         AtmosphereEnvironmentMapLight::default(),
         Msaa::Off,
         TemporalAntiAliasing::default(),
+        ContactShadows::default(),
     ));
+
     commands.spawn((
         DirectionalLight {
             shadow_maps_enabled: Settings::default().shadow_maps_enabled,
+            contact_shadows_enabled: Settings::default().shadow_maps_enabled,
             illuminance: light_consts::lux::RAW_SUNLIGHT,
             ..default()
         },
@@ -163,6 +169,24 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
                             settings.shadow_maps_enabled = change.value;
                             for mut light in &mut directional_lights {
                                 light.shadow_maps_enabled = change.value;
+
+                            }
+                        }
+                    )
+                ),
+                (
+                    checkbox(
+                        Checked,
+                        Spawn((Text::new("Contact shadows enabled"), ThemedText))
+                    ),
+                    observe(checkbox_self_update),
+                    observe(
+                        |change: On<ValueChange<bool>>,
+                         mut settings: ResMut<Settings>,
+                         mut directional_lights: Query<&mut DirectionalLight>| {
+                            settings.contact_shadows_enabled = change.value;
+                            for mut light in &mut directional_lights {
+                                light.contact_shadows_enabled = change.value;
 
                             }
                         }
