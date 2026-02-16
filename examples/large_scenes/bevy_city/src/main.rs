@@ -187,37 +187,48 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
 }
 
 fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
-    spawn_city(&mut commands, &assets, 42, 32);
+    spawn_city(&mut commands, &assets, 42, 30);
+}
+
+#[derive(Component)]
+struct Road {
+    start: Vec3,
+    end: Vec3,
 }
 
 #[derive(Component)]
 struct Car {
-    start: Vec3,
-    end: Vec3,
-    distance_traveled: f32,
+    offset: Vec3,
+    distance_travelled: f32,
+    dir: f32,
 }
 
 fn simulate_cars(
     settings: Res<Settings>,
-    mut cars: Query<(&mut Car, &mut Transform)>,
+    roads: Query<(&Road, &Transform, &Children), Without<Car>>,
+    mut cars: Query<(&mut Car, &mut Transform), Without<Road>>,
     time: Res<Time>,
 ) {
     if !settings.simulate_cars {
         return;
     }
+    let speed = 1.5;
 
-    let speed = 2.0;
-    for (mut car, mut transform) in &mut cars {
-        car.distance_traveled += speed * time.delta_secs();
+    for (road, _, children) in &roads {
+        for child in children {
+            let Ok((mut car, mut car_transform)) = cars.get_mut(*child) else {
+                continue;
+            };
 
-        let road_len = (car.end - car.start).length();
+            car.distance_travelled += speed * time.delta_secs();
+            let road_len = (road.end - road.start).length();
+            if car.distance_travelled > road_len {
+                car.distance_travelled = 0.0;
+            }
+            let direction = (road.end - road.start).normalize() * car.dir;
 
-        if car.distance_traveled > road_len {
-            car.distance_traveled = 0.0;
+            let progress = car.distance_travelled / road_len;
+            car_transform.translation = (road.start + car.offset) + direction * road_len * progress;
         }
-        let direction = (car.end - car.start).normalize();
-
-        let progress = car.distance_traveled / road_len;
-        transform.translation = car.start + direction * road_len * progress;
     }
 }

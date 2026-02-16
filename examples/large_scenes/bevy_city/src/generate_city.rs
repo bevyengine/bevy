@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use noise::{NoiseFn, OpenSimplex};
 use rand::{rngs::SmallRng, RngExt, SeedableRng};
 
-use crate::{assets::CityAssets, Car};
+use crate::{assets::CityAssets, Car, Road};
 
 #[derive(Component)]
 pub struct CityRoot;
@@ -92,84 +92,120 @@ fn spawn_roads_and_cars<R: RngExt>(
         Transform::from_xyz(x, 0.0, z),
     ));
 
+    let max_car_density = 0.4;
+
     // When spawning roads we rotate and stretch a single road asset instead of spawning multiple
     // road segments
 
-    // horizontal road
-    commands.spawn((
-        SceneRoot(assets.road_straight.clone()),
-        Transform::from_translation(Vec3::new(2.75, 0.0, 0.0) + offset)
-            .with_scale(Vec3::new(4.5, 1.0, 1.0)),
-    ));
+    // NOTE most of the magic numbers were hand tweaked for something that looks visually nice
 
-    let car_density = 0.75;
-    for i in 0..9 {
-        if rng.random::<f32>() > car_density {
+    // horizontal road
+    let car_count = 9;
+    commands
+        .spawn((
+            Transform::from_translation(offset),
+            Visibility::default(),
+            Road {
+                start: Vec3::new(0.75, 0.0, 0.0),
+                end: Vec3::new(0.75 + (0.5 * car_count as f32), 0.0, 0.0),
+            },
+        ))
+        .with_children(|commands| {
             commands.spawn((
-                SceneRoot(assets.get_random_car(rng)),
-                Transform::from_translation(Vec3::new(0.75 + i as f32 * 0.5, 0.0, 0.15) + offset)
-                    .with_scale(Vec3::splat(0.15))
-                    .with_rotation(Quat::from_axis_angle(
-                        Vec3::Y,
-                        3.0 * -std::f32::consts::FRAC_PI_2,
-                    )),
-                Car {
-                    start: Vec3::new(0.3, 0.0, 0.15) + offset,
-                    end: Vec3::new(5.2, 0.0, 0.15) + offset,
-                    distance_traveled: i as f32 * 0.55,
-                },
+                SceneRoot(assets.road_straight.clone()),
+                Transform::from_translation(Vec3::new(2.75, 0.0, 0.0))
+                    .with_scale(Vec3::new(4.5, 1.0, 1.0)),
             ));
-        }
-        if rng.random::<f32>() > car_density {
-            commands.spawn((
-                SceneRoot(assets.get_random_car(rng)),
-                Transform::from_translation(Vec3::new(0.75 + i as f32 * 0.5, 0.0, -0.15) + offset)
-                    .with_scale(Vec3::splat(0.15))
-                    .with_rotation(Quat::from_axis_angle(Vec3::Y, -std::f32::consts::FRAC_PI_2)),
-                Car {
-                    start: Vec3::new(5.2, 0.0, -0.15) + offset,
-                    end: Vec3::new(0.3, 0.0, -0.15) + offset,
-                    distance_traveled: i as f32 * 0.55,
-                },
-            ));
-        }
-    }
+
+            for i in 0..car_count {
+                let car_pos = Vec3::new(0.0, 0.0, 0.75 + i as f32 * 0.5);
+
+                if rng.random::<f32>() < max_car_density {
+                    commands.spawn((
+                        SceneRoot(assets.get_random_car(rng)),
+                        Transform::from_translation(car_pos + Vec3::new(0.0, 0.0, -0.15))
+                            .with_scale(Vec3::splat(0.15))
+                            .with_rotation(Quat::from_axis_angle(
+                                Vec3::Y,
+                                3.0 * std::f32::consts::FRAC_PI_2,
+                            )),
+                        Car {
+                            distance_travelled: i as f32 * 0.5,
+                            dir: -1.0,
+                            offset: Vec3::new(4.25, 0.0, -0.15),
+                        },
+                    ));
+                }
+
+                if rng.random::<f32>() < max_car_density {
+                    commands.spawn((
+                        SceneRoot(assets.get_random_car(rng)),
+                        Transform::from_translation(car_pos + Vec3::new(0.0, 0.0, 0.15))
+                            .with_scale(Vec3::splat(0.15))
+                            .with_rotation(Quat::from_axis_angle(
+                                Vec3::Y,
+                                std::f32::consts::FRAC_PI_2,
+                            )),
+                        Car {
+                            distance_travelled: i as f32 * 0.5,
+                            dir: 1.0,
+                            offset: Vec3::new(-0.25, 0.0, 0.15),
+                        },
+                    ));
+                }
+            }
+        });
 
     // vertical road
-    commands.spawn((
-        SceneRoot(assets.road_straight.clone()),
-        Transform::from_translation(Vec3::new(0.0, 0.0, 2.0) + offset)
-            .with_scale(Vec3::new(3.0, 1.0, 1.0))
-            .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::FRAC_PI_2)),
-    ));
+    let car_count = 6;
+    commands
+        .spawn((
+            Transform::from_translation(offset),
+            Visibility::default(),
+            Road {
+                start: Vec3::new(0.0, 0.0, 0.75),
+                end: Vec3::new(0.0, 0.0, 0.75 + (0.5 * car_count as f32)),
+            },
+        ))
+        .with_children(|commands| {
+            commands.spawn((
+                SceneRoot(assets.road_straight.clone()),
+                Transform::from_translation(Vec3::new(0.0, 0.0, 2.0))
+                    .with_scale(Vec3::new(3.0, 1.0, 1.0))
+                    .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::FRAC_PI_2)),
+            ));
 
-    for i in 0..6 {
-        if rng.random::<f32>() > car_density {
-            commands.spawn((
-                SceneRoot(assets.get_random_car(rng)),
-                Transform::from_translation(Vec3::new(-0.15, 0.0, 0.75 + i as f32 * 0.5) + offset)
-                    .with_scale(Vec3::splat(0.15)),
-                Car {
-                    start: Vec3::new(-0.15, 0.0, 0.75) + offset,
-                    end: Vec3::new(-0.15, 0.0, 3.25) + offset,
-                    distance_traveled: i as f32 * 0.5,
-                },
-            ));
-        }
-        if rng.random::<f32>() > car_density {
-            commands.spawn((
-                SceneRoot(assets.get_random_car(rng)),
-                Transform::from_translation(Vec3::new(0.15, 0.0, 0.75 + i as f32 * 0.5) + offset)
-                    .with_scale(Vec3::splat(0.15))
-                    .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
-                Car {
-                    start: Vec3::new(0.15, 0.0, 3.25) + offset,
-                    end: Vec3::new(0.15, 0.0, 0.75) + offset,
-                    distance_traveled: i as f32 * 0.5,
-                },
-            ));
-        }
-    }
+            for i in 0..car_count {
+                let car_pos = Vec3::new(0.0, 0.0, 0.75 + i as f32 * 0.5);
+
+                if rng.random::<f32>() < max_car_density {
+                    commands.spawn((
+                        SceneRoot(assets.get_random_car(rng)),
+                        Transform::from_translation(car_pos + Vec3::new(0.15, 0.0, 0.0))
+                            .with_scale(Vec3::splat(0.15)),
+                        Car {
+                            distance_travelled: i as f32 * 0.5,
+                            dir: 1.0,
+                            offset: Vec3::new(-0.15, 0.0, -0.25),
+                        },
+                    ));
+                }
+
+                if rng.random::<f32>() < max_car_density {
+                    commands.spawn((
+                        SceneRoot(assets.get_random_car(rng)),
+                        Transform::from_translation(car_pos + Vec3::new(-0.15, 0.0, 0.0))
+                            .with_scale(Vec3::splat(0.15))
+                            .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
+                        Car {
+                            distance_travelled: i as f32 * 0.5,
+                            dir: -1.0,
+                            offset: Vec3::new(0.15, 0.0, 2.75),
+                        },
+                    ));
+                }
+            }
+        });
 }
 
 fn spawn_low_density<R: RngExt>(
