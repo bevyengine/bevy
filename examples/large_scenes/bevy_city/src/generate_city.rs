@@ -65,7 +65,7 @@ pub fn spawn_city(commands: &mut Commands, assets: &CityAssets, seed: u64, size:
                     ));
 
                     if density < forest {
-                        // TODO spawn a bunch of trees and rocks
+                        spawn_forest(commands, assets, &mut rng, offset);
                     } else if density < low_density {
                         spawn_low_density(commands, assets, &mut rng, offset);
                     } else if density < medium_density {
@@ -319,5 +319,33 @@ fn spawn_high_density<R: RngExt>(
             Transform::from_translation(Vec3::new(1.25 + x * 1.5, 0.0, 2.75) + offset)
                 .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
         ));
+    }
+}
+
+fn spawn_forest<R: RngExt>(
+    commands: &mut ChildSpawnerCommands,
+    assets: &CityAssets,
+    rng: &mut R,
+    offset: Vec3,
+) {
+    for x in 0..=16 {
+        for z in 0..=10 {
+            let transform = Transform::from_translation(
+                Vec3::new(x as f32, 0.0, z as f32) * Vec3::splat(0.25)
+                    + Vec3::new(0.75, 0.0, 0.85)
+                    + offset,
+            );
+
+            match rng.random_range(0..3) {
+                0 => {}
+                1 => {
+                    commands.spawn((SceneRoot(assets.tree_small.clone()), transform));
+                }
+                2 => {
+                    commands.spawn((SceneRoot(assets.tree_large.clone()), transform));
+                }
+                _ => {}
+            }
+        }
     }
 }
