@@ -50,10 +50,6 @@ pub fn load_assets(
     let base_url = "https://github.com/bevyengine/bevy_asset_files/raw/main/kenney";
 
     let cars = {
-        // We need to trigger a load of the texture even if we never use it directly
-        let _car_texture: Handle<Image> =
-            asset_server.load(format!("{base_url}/car-kit/Textures/colormap.png"));
-
         // TODO generate variations
         [
             "hatchback-sports",
@@ -72,10 +68,6 @@ pub fn load_assets(
         })
         .collect::<Vec<_>>()
     };
-
-    // We need to trigger a load of the texture even if we never use it directly
-    let _road_texture: Handle<Image> =
-        asset_server.load(format!("{base_url}/city-kit-roads/Textures/colormap.png"));
 
     let crossroad = asset_server.load(
         GltfAssetLabel::Scene(0)
