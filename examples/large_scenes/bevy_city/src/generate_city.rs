@@ -328,10 +328,10 @@ fn spawn_forest<R: RngExt>(
     rng: &mut R,
     offset: Vec3,
 ) {
-    for x in 0..=16 {
-        for z in 0..=10 {
+    for x in 0..=12 {
+        for z in 0..=8 {
             let transform = Transform::from_translation(
-                Vec3::new(x as f32, 0.0, z as f32) * Vec3::splat(0.25)
+                Vec3::new(x as f32, 0.0, z as f32) * Vec3::new(0.325, 0.0, 0.3)
                     + Vec3::new(0.75, 0.0, 0.85)
                     + offset,
             );
