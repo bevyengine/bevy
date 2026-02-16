@@ -41,6 +41,8 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    lifecycle::Remove,
+    observer::On,
     query::With,
     reflect::ReflectComponent,
     resource::Resource,
@@ -328,6 +330,12 @@ impl Plugin for SmaaPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        render_app.add_observer(|event: On<Remove, Smaa>, mut commands: Commands| {
+            commands
+                .entity(event.entity)
+                .remove::<(SmaaTextures, SmaaPipelines, ViewSmaaPipelines)>();
+        });
 
         render_app
             .insert_resource(smaa_luts)
