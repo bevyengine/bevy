@@ -222,7 +222,7 @@ impl Plugin for DepthOfFieldPlugin {
                     prepare_auxiliary_depth_of_field_textures,
                 )
                     .after(prepare_view_targets)
-                    .in_set(RenderSystems::ManageViews),
+                    .in_set(RenderSystems::PrepareViews),
             )
             .add_systems(
                 Render,

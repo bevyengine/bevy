@@ -758,7 +758,7 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.23"
+accesskit = "0.24"
 nonmax = "0.5"
 gltf = "1.4"
 
@@ -3520,6 +3520,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_morph_targets"
+path = "examples/stress_tests/many_morph_targets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_morph_targets]
+name = "Many Morph Targets"
+description = "Simple benchmark to test rendering many meshes with animated morph targets."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_glyphs"
 path = "examples/stress_tests/many_glyphs.rs"
 # Causes an ICE on docs.rs
@@ -3957,6 +3968,7 @@ name = "generic_font_families"
 path = "examples/ui/text/generic_font_families.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
+required-features = ["system_font_discovery"]
 
 [package.metadata.example.generic_font_families]
 name = "Generic Font Families"
@@ -5446,6 +5458,7 @@ wasm = true
 name = "system_fonts"
 path = "examples/ui/text/system_fonts.rs"
 doc-scrape-examples = true
+required-features = ["system_font_discovery"]
 
 [package.metadata.example.system_fonts]
 name = "System Fonts"
