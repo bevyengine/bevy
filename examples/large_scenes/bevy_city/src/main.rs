@@ -61,12 +61,6 @@ fn main() {
             }),
             FreeCameraPlugin,
             FeathersPlugins,
-            FpsOverlayPlugin {
-                config: FpsOverlayConfig {
-                    frame_time_graph_config: FrameTimeGraphConfig::target_fps(144.0),
-                    ..default()
-                },
-            },
         ))
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(WinitSettings::continuous())
