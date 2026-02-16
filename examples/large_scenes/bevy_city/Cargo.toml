@@ -1,0 +1,17 @@
+[package]
+name = "bevy_city"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+bevy = { path = "../../../", features = [
+  "https",
+  "free_camera",
+  "bevy_dev_tools",
+  "experimental_bevy_feathers"
+] }
+
+argh = "0.1"
+

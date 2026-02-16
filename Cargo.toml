@@ -33,6 +33,7 @@ members = [
   # Examples of large bevy scenes.
   "examples/large_scenes/bistro",
   "examples/large_scenes/caldera_hotel",
+  "examples/large_scenes/bevy_city",
   # Mipmap generator for testing large bevy scenes with mips and texture compression.
   "examples/large_scenes/mipmap_generator",
   # Benchmarks
@@ -3409,19 +3410,6 @@ doc-scrape-examples = true
 [package.metadata.example.bevymark_3d]
 name = "Bevymark 3D"
 description = "A heavy 3D cube rendering workload to benchmark your system with Bevy"
-category = "Stress Tests"
-wasm = true
-
-[[example]]
-name = "bevy_city"
-path = "examples/stress_tests/bevy_city.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
-required-features = ["https", "free_camera", "experimental_bevy_feathers", "bevy_dev_tools"]
-
-[package.metadata.example.bevy_city]
-name = "Bevy City"
-description = "A procedurally generated city that stresses rendering and ecs at the same time"
 category = "Stress Tests"
 wasm = true
 
