@@ -66,6 +66,7 @@ fn main() {
                 },
             },
         ))
+        .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(WinitSettings::continuous())
         .init_resource::<Settings>()
         .insert_resource(UiTheme(create_dark_theme()))
