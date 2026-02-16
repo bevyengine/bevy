@@ -271,8 +271,6 @@ impl<'w> DynamicSceneBuilder<'w> {
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
         for entity in entities {
-            let mut skip_entity = false;
-
             if self.extracted_scene.contains_key(&entity) {
                 continue;
             }
@@ -299,13 +297,6 @@ impl<'w> DynamicSceneBuilder<'w> {
                         return None;
                     }
 
-                    let is_resource_denied = self.resource_filter.is_denied_by_id(type_id);
-
-                    if is_resource_denied {
-                        skip_entity = true;
-                        return None;
-                    }
-
                     let type_registration = type_registry.get(type_id)?;
 
                     let component = type_registration
@@ -320,9 +311,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                 };
                 extract_and_push();
             }
-            if !skip_entity {
-                self.extracted_scene.insert(entity, entry);
-            }
+            self.extracted_scene.insert(entity, entry);
         }
 
         self
@@ -355,13 +344,62 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [`allow_resource`]: Self::allow_resource
     /// [`deny_resource`]: Self::deny_resource
     pub fn extract_resources(self) -> Self {
-        // TODO: Add a filter that filters out the entities whose resources are not registered by type.
-        let entities: Vec<Entity> = self
-            .original_world
-            .resource_entities()
-            .values()
-            .cloned()
-            .collect();
+        let dqf_id = self.original_world.resource_id::<DefaultQueryFilters>();
+        let atr_id = self.original_world.resource_id::<AppTypeRegistry>();
+        let entities = match self.resource_filter {
+            SceneFilter::Unset => {
+                // extract all resources, excluding DefaultQueryFilters and AppTypeRegistry
+                let mut entities = vec![];
+                for (component_id, entity) in self.original_world.resource_entities().iter() {
+                    if dqf_id.is_some_and(|id| *component_id == id)
+                        || atr_id.is_some_and(|id| *component_id == id)
+                    {
+                        continue;
+                    }
+                    entities.push(*entity);
+                }
+                entities
+            }
+            SceneFilter::Allowlist(ref list) => {
+                // if DefaultQueryFilters or AppTypeRegistry has specifically been allowed to be added, we don't change that
+                let mut entities = vec![];
+                for type_id in list {
+                    if let Some(component_id) = self.original_world.components().get_id(*type_id)
+                        && let Some(entity) =
+                            self.original_world.resource_entities().get(component_id)
+                    {
+                        entities.push(*entity);
+                    }
+                }
+                entities
+            }
+            SceneFilter::Denylist(ref list) => {
+                // also deny DefaultQueryFilters and AppTypeRegistry
+                let mut deny_component_id: bevy_platform::collections::hash_set::HashSet<
+                    bevy_ecs::component::ComponentId,
+                > = list
+                    .clone()
+                    .iter()
+                    .filter_map(|type_id| self.original_world.components().get_id(*type_id))
+                    .collect();
+                if let Some(id) = dqf_id {
+                    deny_component_id.insert(id);
+                }
+                if let Some(id) = atr_id {
+                    deny_component_id.insert(id);
+                }
+                let mut entities = vec![];
+                for (component_id, entity) in self.original_world.resource_entities().iter() {
+                    if deny_component_id.contains(component_id) {
+                        continue;
+                    } else {
+                        entities.push(*entity);
+                    }
+                }
+                entities
+            }
+        };
+
         self.extract_entities(entities.into_iter())
     }
 }

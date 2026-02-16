@@ -10,7 +10,7 @@ use core::any::{Any, TypeId};
 /// [`DynamicScene`]: crate::DynamicScene
 /// [components]: bevy_ecs::prelude::Component
 /// [resources]: bevy_ecs::prelude::Resource
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum SceneFilter {
     /// Represents an unset filter.
     ///
@@ -24,7 +24,8 @@ pub enum SceneFilter {
     /// [`Allowlist`]: SceneFilter::Allowlist
     /// [Allowing]: SceneFilter::allow
     /// [denying]: SceneFilter::deny
-    DenyByDefault(HashSet<TypeId>),
+    #[default]
+    Unset,
     /// Contains the set of permitted types by their [`TypeId`].
     ///
     /// Types not contained within this set should not be allowed to be saved to an associated [`DynamicScene`].
@@ -37,12 +38,6 @@ pub enum SceneFilter {
     ///
     /// [`DynamicScene`]: crate::DynamicScene
     Denylist(HashSet<TypeId>),
-}
-
-impl Default for SceneFilter {
-    fn default() -> Self {
-        SceneFilter::DenyByDefault(HashSet::default())
-    }
 }
 
 impl SceneFilter {
@@ -92,7 +87,7 @@ impl SceneFilter {
     #[must_use]
     pub fn allow_by_id(mut self, type_id: TypeId) -> Self {
         match &mut self {
-            Self::DenyByDefault(_) => {
+            Self::Unset => {
                 self = Self::Allowlist([type_id].into_iter().collect());
             }
             Self::Allowlist(list) => {
@@ -133,9 +128,8 @@ impl SceneFilter {
     #[must_use]
     pub fn deny_by_id(mut self, type_id: TypeId) -> Self {
         match &mut self {
-            Self::DenyByDefault(list) => {
-                list.insert(type_id);
-                self = Self::Denylist(list.clone()); // TODO: shouldn't need a clone here
+            Self::Unset => {
+                self = Self::Denylist([type_id].into_iter().collect());
             }
             Self::Allowlist(list) => {
                 list.remove(&type_id);
@@ -163,7 +157,7 @@ impl SceneFilter {
     /// [`Unset`]: SceneFilter::Unset
     pub fn is_allowed_by_id(&self, type_id: TypeId) -> bool {
         match self {
-            Self::DenyByDefault(list) => !list.contains(&type_id),
+            Self::Unset => true,
             Self::Allowlist(list) => list.contains(&type_id),
             Self::Denylist(list) => !list.contains(&type_id),
         }
@@ -194,9 +188,8 @@ impl SceneFilter {
     /// [`Unset`]: SceneFilter::Unset
     pub fn iter(&self) -> Box<dyn ExactSizeIterator<Item = &TypeId> + '_> {
         match self {
-            Self::DenyByDefault(list) | Self::Allowlist(list) | Self::Denylist(list) => {
-                Box::new(list.iter())
-            }
+            Self::Unset => Box::new(core::iter::empty()),
+            Self::Allowlist(list) | Self::Denylist(list) => Box::new(list.iter()),
         }
     }
 
@@ -207,7 +200,8 @@ impl SceneFilter {
     /// [`Unset`]: SceneFilter::Unset
     pub fn len(&self) -> usize {
         match self {
-            Self::DenyByDefault(list) | Self::Allowlist(list) | Self::Denylist(list) => list.len(),
+            Self::Unset => 0,
+            Self::Allowlist(list) | Self::Denylist(list) => list.len(),
         }
     }
 
@@ -218,9 +212,8 @@ impl SceneFilter {
     /// [`Unset`]: SceneFilter::Unset
     pub fn is_empty(&self) -> bool {
         match self {
-            Self::DenyByDefault(list) | Self::Allowlist(list) | Self::Denylist(list) => {
-                list.is_empty()
-            }
+            Self::Unset => true,
+            Self::Allowlist(list) | Self::Denylist(list) => list.is_empty(),
         }
     }
 }
@@ -231,9 +224,8 @@ impl IntoIterator for SceneFilter {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            Self::DenyByDefault(list) | Self::Allowlist(list) | Self::Denylist(list) => {
-                list.into_iter()
-            }
+            Self::Unset => Default::default(),
+            Self::Allowlist(list) | Self::Denylist(list) => list.into_iter(),
         }
     }
 }
@@ -244,10 +236,10 @@ mod tests {
 
     #[test]
     fn should_set_list_type_if_none() {
-        let filter = SceneFilter::DenyByDefault(HashSet::default()).allow::<i32>();
+        let filter = SceneFilter::Unset.allow::<i32>();
         assert!(matches!(filter, SceneFilter::Allowlist(_)));
 
-        let filter = SceneFilter::DenyByDefault(HashSet::default()).deny::<i32>();
+        let filter = SceneFilter::Unset.deny::<i32>();
         assert!(matches!(filter, SceneFilter::Denylist(_)));
     }
 
