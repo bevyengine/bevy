@@ -599,7 +599,7 @@ pub fn extract_entities_that_need_specializations_removed<M>(
 
 /// Temporarily stores entities that were determined to either need their
 /// specialized pipelines updated or to have their specialized pipelines
-/// rmeoved.
+/// removed.
 #[derive(Clone, Resource, Debug)]
 pub struct EntitiesNeedingSpecialization<M> {
     /// Entities that need to have their pipelines updated.

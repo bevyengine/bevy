@@ -1339,7 +1339,7 @@ where
     /// sort.
     ///
     /// For example, for transparent 3D phases, this calculates the distance
-    /// from each obejct to the view.
+    /// from each object to the view.
     pub fn recalculate_sort_keys(&mut self, view: &ExtractedView) {
         I::recalculate_sort_keys(&mut self.items, view);
     }

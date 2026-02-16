@@ -471,7 +471,7 @@ pub struct RenderWireframeInstances(MainEntityHashMap<AssetId<Wireframe2dMateria
 
 /// Temporarily stores entities that were determined to either need their
 /// specialized pipelines for wireframes updated or to have their specialized
-/// pipelines for wireframes rmeoved.
+/// pipelines for wireframes removed.
 #[derive(Clone, Resource, Debug, Default)]
 pub struct WireframeEntitiesNeedingSpecialization {
     /// Entities that need to have their pipelines updated.
