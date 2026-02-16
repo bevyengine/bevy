@@ -7,6 +7,7 @@ use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::Exposure,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
+    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin, FrameTimeGraphConfig},
     feathers::{
         self,
         controls::{button, checkbox, ButtonProps},
@@ -57,6 +58,12 @@ fn main() {
             }),
             FreeCameraPlugin,
             FeathersPlugins,
+            FpsOverlayPlugin {
+                config: FpsOverlayConfig {
+                    frame_time_graph_config: FrameTimeGraphConfig::target_fps(144.0),
+                    ..default()
+                },
+            },
         ))
         .init_resource::<Settings>()
         .insert_resource(UiTheme(create_dark_theme()))

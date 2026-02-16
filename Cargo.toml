@@ -3417,7 +3417,7 @@ name = "bevy_city"
 path = "examples/stress_tests/bevy_city.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["https", "free_camera", "experimental_bevy_feathers"]
+required-features = ["https", "free_camera", "experimental_bevy_feathers", "bevy_dev_tools"]
 
 [package.metadata.example.bevy_city]
 name = "Bevy City"
