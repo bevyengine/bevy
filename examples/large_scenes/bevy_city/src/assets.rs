@@ -1,5 +1,5 @@
 use bevy::{color::palettes::css::WHITE, prelude::*};
-use rand::Rng;
+use rand::RngExt;
 
 #[derive(Resource)]
 pub struct CityAssets {
@@ -21,7 +21,7 @@ pub struct CityAssets {
 }
 
 impl CityAssets {
-    pub fn get_random_car<R: Rng>(&self, rng: &mut R) -> Handle<Scene> {
+    pub fn get_random_car<R: RngExt>(&self, rng: &mut R) -> Handle<Scene> {
         self.cars[rng.random_range(0..self.cars.len())].clone()
     }
 }
@@ -32,7 +32,7 @@ pub struct Buildings {
 }
 
 impl Buildings {
-    pub fn get_random_building<R: Rng>(
+    pub fn get_random_building<R: RngExt>(
         &self,
         rng: &mut R,
     ) -> (Mesh3d, MeshMaterial3d<StandardMaterial>) {

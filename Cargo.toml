@@ -762,7 +762,6 @@ anyhow = "1"
 accesskit = "0.23"
 nonmax = "0.5"
 gltf = "1.4"
-noise = "0.9.0"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 ureq = { version = "3.0.8", features = ["json"] }

@@ -21,11 +21,11 @@ use bevy::{
     prelude::*,
     ui::Checked,
     ui_widgets::{checkbox_self_update, observe, Activate, ValueChange},
+    winit::WinitSettings,
 };
 use noise::{NoiseFn, OpenSimplex};
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use rand::{rngs::SmallRng, RngExt, SeedableRng};
 
-#[path = "bevy_city/assets.rs"]
 mod assets;
 
 #[derive(Resource)]
@@ -65,6 +65,7 @@ fn main() {
                 },
             },
         ))
+        .insert_resource(WinitSettings::continuous())
         .init_resource::<Settings>()
         .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, (setup, load_assets, setup_city.after(load_assets)))
@@ -276,7 +277,7 @@ fn spawn_city(commands: &mut Commands, assets: &CityAssets, seed: u64, size: u32
         });
 }
 
-fn spawn_roads_and_cars<R: Rng>(
+fn spawn_roads_and_cars<R: RngExt>(
     commands: &mut ChildSpawnerCommands,
     assets: &CityAssets,
     rng: &mut R,
@@ -366,7 +367,7 @@ fn spawn_roads_and_cars<R: Rng>(
     }
 }
 
-fn spawn_low_density<R: Rng>(
+fn spawn_low_density<R: RngExt>(
     commands: &mut ChildSpawnerCommands,
     assets: &CityAssets,
     rng: &mut R,
@@ -403,7 +404,7 @@ fn spawn_low_density<R: Rng>(
     }
 }
 
-fn spawn_medium_density<R: Rng>(
+fn spawn_medium_density<R: RngExt>(
     commands: &mut ChildSpawnerCommands,
     assets: &CityAssets,
     rng: &mut R,
@@ -460,7 +461,7 @@ fn spawn_medium_density<R: Rng>(
     }
 }
 
-fn spawn_high_density<R: Rng>(
+fn spawn_high_density<R: RngExt>(
     commands: &mut ChildSpawnerCommands,
     assets: &CityAssets,
     rng: &mut R,
