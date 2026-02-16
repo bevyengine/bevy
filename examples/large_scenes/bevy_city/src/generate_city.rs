@@ -130,7 +130,7 @@ fn spawn_roads_and_cars<R: RngExt>(
                                 3.0 * std::f32::consts::FRAC_PI_2,
                             )),
                         Car {
-                            distance_travelled: i as f32 * 0.5,
+                            distance_traveled: i as f32 * 0.5,
                             dir: -1.0,
                             offset: Vec3::new(4.25, 0.0, -0.15),
                         },
@@ -147,7 +147,7 @@ fn spawn_roads_and_cars<R: RngExt>(
                                 std::f32::consts::FRAC_PI_2,
                             )),
                         Car {
-                            distance_travelled: i as f32 * 0.5,
+                            distance_traveled: i as f32 * 0.5,
                             dir: 1.0,
                             offset: Vec3::new(-0.25, 0.0, 0.15),
                         },
@@ -184,7 +184,7 @@ fn spawn_roads_and_cars<R: RngExt>(
                         Transform::from_translation(car_pos + Vec3::new(0.15, 0.0, 0.0))
                             .with_scale(Vec3::splat(0.15)),
                         Car {
-                            distance_travelled: i as f32 * 0.5,
+                            distance_traveled: i as f32 * 0.5,
                             dir: 1.0,
                             offset: Vec3::new(-0.15, 0.0, -0.25),
                         },
@@ -198,7 +198,7 @@ fn spawn_roads_and_cars<R: RngExt>(
                             .with_scale(Vec3::splat(0.15))
                             .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
                         Car {
-                            distance_travelled: i as f32 * 0.5,
+                            distance_traveled: i as f32 * 0.5,
                             dir: -1.0,
                             offset: Vec3::new(0.15, 0.0, 2.75),
                         },
