@@ -21,6 +21,7 @@ use bevy::{
     prelude::*,
     ui::Checked,
     ui_widgets::{checkbox_self_update, observe, Activate, ValueChange},
+    window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
 use noise::{NoiseFn, OpenSimplex};
@@ -50,8 +51,8 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "bevy_city".into(),
-                    resolution: (1920, 1080).into(),
-                    present_mode: bevy::window::PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+                    present_mode: PresentMode::Immediate,
                     ..default()
                 }),
                 ..default()
