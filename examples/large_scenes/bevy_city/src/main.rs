@@ -5,47 +5,22 @@ use assets::{load_assets, CityAssets};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::{Exposure, Hdr},
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
-    feathers::{
-        self,
-        controls::{button, checkbox, ButtonProps},
-        dark_theme::create_dark_theme,
-        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
-        FeathersPlugins,
-    },
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
     light::{atmosphere::ScatteringMedium, Atmosphere, AtmosphereEnvironmentMapLight},
     pbr::{AtmosphereSettings, ContactShadows},
     post_process::bloom::Bloom,
     prelude::*,
-    ui::Checked,
-    ui_widgets::{checkbox_self_update, observe, Activate, ValueChange},
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
-use rand::RngExt;
 
-use crate::generate_city::{spawn_city, CityRoot};
+use crate::settings::Settings;
+use crate::{generate_city::spawn_city, settings::setup_settings_ui};
 
 mod assets;
 mod generate_city;
-
-#[derive(Resource)]
-struct Settings {
-    simulate_cars: bool,
-    shadow_maps_enabled: bool,
-    contact_shadows_enabled: bool,
-}
-
-#[allow(clippy::derivable_impls)]
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            simulate_cars: true,
-            shadow_maps_enabled: true,
-            contact_shadows_enabled: true,
-        }
-    }
-}
+mod settings;
 
 #[derive(FromArgs, Resource, Clone)]
 /// Config
@@ -81,7 +56,15 @@ fn main() {
         .insert_resource(WinitSettings::continuous())
         .init_resource::<Settings>()
         .insert_resource(UiTheme(create_dark_theme()))
-        .add_systems(Startup, (setup, load_assets, setup_city.after(load_assets)))
+        .add_systems(
+            Startup,
+            (
+                setup,
+                setup_settings_ui,
+                load_assets,
+                setup_city.after(load_assets),
+            ),
+        )
         .add_systems(Update, simulate_cars)
         .run();
 }
@@ -110,110 +93,11 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
     commands.spawn((
         DirectionalLight {
             shadow_maps_enabled: Settings::default().shadow_maps_enabled,
-            contact_shadows_enabled: Settings::default().shadow_maps_enabled,
+            contact_shadows_enabled: Settings::default().contact_shadows_enabled,
             illuminance: light_consts::lux::RAW_SUNLIGHT,
             ..default()
         },
         Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
-
-    commands.spawn((
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
-            padding: UiRect::all(Val::Px(8.0)),
-            ..default()
-        },
-        ThemeBackgroundColor(feathers::tokens::WINDOW_BG),
-        observe(
-            |_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {
-                free_camera_state.enabled = false;
-            },
-        ),
-        observe(
-            |_: On<Pointer<Out>>, mut free_camera_state: Single<&mut FreeCameraState>| {
-                free_camera_state.enabled = true;
-            },
-        ),
-        children![(
-            Node {
-                display: Display::Flex,
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Stretch,
-                justify_content: JustifyContent::Start,
-                row_gap: px(8),
-                ..default()
-            },
-            children![
-                (Text("Settings".to_owned())),
-                (
-                    checkbox(Checked, Spawn((Text::new("Simulate Cars"), ThemedText))),
-                    observe(checkbox_self_update),
-                    observe(
-                        |change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
-                            settings.simulate_cars = change.value;
-                        }
-                    )
-                ),
-                (
-                    checkbox(
-                        Checked,
-                        Spawn((Text::new("Shadow maps enabled"), ThemedText))
-                    ),
-                    observe(checkbox_self_update),
-                    observe(
-                        |change: On<ValueChange<bool>>,
-                         mut settings: ResMut<Settings>,
-                         mut directional_lights: Query<&mut DirectionalLight>| {
-                            settings.shadow_maps_enabled = change.value;
-                            for mut light in &mut directional_lights {
-                                light.shadow_maps_enabled = change.value;
-
-                            }
-                        }
-                    )
-                ),
-                (
-                    checkbox(
-                        Checked,
-                        Spawn((Text::new("Contact shadows enabled"), ThemedText))
-                    ),
-                    observe(checkbox_self_update),
-                    observe(
-                        |change: On<ValueChange<bool>>,
-                         mut settings: ResMut<Settings>,
-                         mut directional_lights: Query<&mut DirectionalLight>| {
-                            settings.contact_shadows_enabled = change.value;
-                            for mut light in &mut directional_lights {
-                                light.contact_shadows_enabled = change.value;
-
-                            }
-                        }
-                    )
-                ),
-                (
-                    button(
-                        ButtonProps::default(),
-                        (),
-                        Spawn((Text::new("Regenerate City"), ThemedText))
-                    ),
-                    observe(
-                        |_activate: On<Activate>,
-                         mut commands: Commands,
-                         city_root: Single<Entity, With<CityRoot>>,
-                         assets: Res<CityAssets>| {
-                            commands.entity(*city_root).despawn();
-
-                            let mut rng = rand::rng();
-                            let seed = rng.random::<u64>();
-                            println!("new seed: {seed}");
-                            spawn_city(&mut commands, &assets, seed, 32);
-                        }
-                    )
-                ),
-            ]
-        )],
     ));
 }
 
