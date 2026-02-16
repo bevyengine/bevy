@@ -6,9 +6,13 @@ use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::{Exposure, Hdr},
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    color::palettes::css::WHITE,
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
     light::{atmosphere::ScatteringMedium, Atmosphere, AtmosphereEnvironmentMapLight},
-    pbr::{AtmosphereSettings, ContactShadows},
+    pbr::{
+        wireframe::{WireframeConfig, WireframePlugin},
+        AtmosphereSettings, ContactShadows,
+    },
     post_process::bloom::Bloom,
     prelude::*,
     window::{PresentMode, WindowResolution},
@@ -50,12 +54,17 @@ fn main() {
             }),
             FreeCameraPlugin,
             FeathersPlugins,
+            WireframePlugin::default(),
         ))
         .insert_resource(args.clone())
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(WinitSettings::continuous())
         .init_resource::<Settings>()
         .insert_resource(UiTheme(create_dark_theme()))
+        .insert_resource(WireframeConfig {
+            global: false,
+            default_color: WHITE.into(),
+        })
         .add_systems(
             Startup,
             (

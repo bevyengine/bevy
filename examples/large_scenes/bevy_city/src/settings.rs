@@ -5,6 +5,7 @@ use bevy::{
         controls::{button, checkbox, ButtonProps},
         theme::{ThemeBackgroundColor, ThemedText},
     },
+    pbr::wireframe::WireframeConfig,
     prelude::*,
     ui::Checked,
     ui_widgets::{checkbox_self_update, observe, Activate, ValueChange},
@@ -19,15 +20,16 @@ pub struct Settings {
     pub simulate_cars: bool,
     pub shadow_maps_enabled: bool,
     pub contact_shadows_enabled: bool,
+    pub wireframe_enabled: bool,
 }
 
-#[allow(clippy::derivable_impls)]
 impl Default for Settings {
     fn default() -> Self {
         Self {
             simulate_cars: true,
             shadow_maps_enabled: true,
             contact_shadows_enabled: true,
+            wireframe_enabled: false,
         }
     }
 }
@@ -105,6 +107,18 @@ pub fn setup_settings_ui(mut commands: Commands) {
                                 light.contact_shadows_enabled = change.value;
 
                             }
+                        }
+                    )
+                ),
+                (
+                    checkbox((), Spawn((Text::new("Wireframe Enabled"), ThemedText))),
+                    observe(checkbox_self_update),
+                    observe(
+                        |change: On<ValueChange<bool>>,
+                         mut settings: ResMut<Settings>,
+                         mut wireframe_config: ResMut<WireframeConfig>| {
+                            settings.wireframe_enabled = change.value;
+                            wireframe_config.global = change.value;
                         }
                     )
                 ),
