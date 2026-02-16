@@ -114,7 +114,7 @@ struct Road {
 #[derive(Component)]
 struct Car {
     offset: Vec3,
-    distance_travelled: f32,
+    distance_traveled: f32,
     dir: f32,
 }
 
@@ -135,14 +135,14 @@ fn simulate_cars(
                 continue;
             };
 
-            car.distance_travelled += speed * time.delta_secs();
+            car.distance_traveled += speed * time.delta_secs();
             let road_len = (road.end - road.start).length();
-            if car.distance_travelled > road_len {
-                car.distance_travelled = 0.0;
+            if car.distance_traveled > road_len {
+                car.distance_traveled = 0.0;
             }
             let direction = (road.end - road.start).normalize() * car.dir;
 
-            let progress = car.distance_travelled / road_len;
+            let progress = car.distance_traveled / road_len;
             car_transform.translation = (road.start + car.offset) + direction * road_len * progress;
         }
     }
