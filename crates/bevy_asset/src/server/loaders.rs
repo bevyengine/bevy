@@ -14,11 +14,12 @@ use tracing::warn;
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
     loaders: Vec<MaybeAssetLoader>,
+    // each usize in the following fields corresponds to an index in the `loaders` field above
     type_id_to_loaders: TypeIdMap<Vec<usize>>,
+    type_id_to_no_extension_loaders: TypeIdMap<Vec<usize>>,
     extension_to_loaders: HashMap<Box<str>, Vec<usize>>,
     type_path_to_loader: HashMap<&'static str, usize>,
     type_path_to_preregistered_loader: HashMap<&'static str, usize>,
-    loaders_with_no_extension: HashSet<usize>,
 }
 
 impl AssetLoaders {
@@ -70,7 +71,10 @@ impl AssetLoaders {
             }
 
             if extensions.is_empty() {
-                self.loaders_with_no_extension.insert(loader_index);
+                self.type_id_to_loaders
+                    .entry(loader_asset_type)
+                    .or_default()
+                    .push(loader_index);
             }
 
             self.type_path_to_loader.insert(type_path, loader_index);
@@ -140,7 +144,10 @@ impl AssetLoaders {
         }
 
         if extensions.is_empty() {
-            self.loaders_with_no_extension.insert(loader_index);
+            self.type_id_to_loaders
+                .entry(loader_asset_type)
+                .or_default()
+                .push(loader_index);
         }
 
         self.type_id_to_loaders
@@ -239,20 +246,18 @@ impl AssetLoaders {
         }
 
         // If no extension is a direct match, look for compatible asset loaders with no extensions.
-        let mut extensionless_loaders = candidates
-            .iter()
-            .copied()
-            .flatten()
-            .copied()
-            .filter(|index| self.loaders_with_no_extension.contains(index));
-        if let Some(index) = extensionless_loaders.next() {
-            if extensionless_loaders.next().is_some() {
+        if let Some(type_id) = asset_type_id
+            && let Some(candidates_no_extension) =
+                self.type_id_to_no_extension_loaders.get(&type_id)
+            && let Some(&first_candidate_index) = candidates_no_extension.first()
+        {
+            if candidates_no_extension.len() > 1 {
                 warn!(
                     "Multiple AssetLoaders found for Asset: {:?}; Path: {:?}; Extension: {:?}",
-                    asset_type_id, asset_path, extension
+                    type_id, asset_path, extension
                 );
+                return self.get_by_index(first_candidate_index);
             }
-            return self.get_by_index(index);
         }
 
         // Fallback if no resolution step was conclusive
