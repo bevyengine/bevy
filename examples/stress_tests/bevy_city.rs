@@ -22,7 +22,7 @@ use bevy::{
     ui_widgets::{checkbox_self_update, observe, Activate, ValueChange},
 };
 use noise::{NoiseFn, OpenSimplex};
-use rand::{rngs::SmallRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 #[path = "bevy_city/assets.rs"]
 mod assets;
@@ -377,6 +377,13 @@ fn spawn_low_density<R: Rng>(
                 .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
         ));
     }
+    for i in 0..=6 {
+        commands.spawn((
+            SceneRoot(assets.fence.clone()),
+            Transform::from_translation(Vec3::new(2.75, 0.0, 0.75 + i as f32 * 0.4) + offset)
+                .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::FRAC_PI_2)),
+        ));
+    }
     for z in 0..=8 {
         commands.spawn((
             SceneRoot(assets.tree_small.clone()),
@@ -425,6 +432,23 @@ fn spawn_medium_density<R: Rng>(
             assets.medium_density.get_random_building(rng),
             Transform::from_translation(Vec3::new(x as f32 * x_factor, 0.0, 3.0) + offset)
                 .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::PI)),
+        ));
+    }
+
+    for x in 0..=10 {
+        commands.spawn((
+            SceneRoot(assets.path_stones_long.clone()),
+            Transform::from_translation(Vec3::new(0.75 + (x as f32 * 0.4), 0.02, 2.0) + offset)
+                .with_scale(Vec3::new(1.0, 2.0, 1.0))
+                .with_rotation(Quat::from_axis_angle(Vec3::Y, std::f32::consts::FRAC_PI_2)),
+        ));
+        commands.spawn((
+            SceneRoot(assets.fence.clone()),
+            Transform::from_translation(Vec3::new(0.75 + (x as f32 * 0.4), 0.02, 1.85) + offset),
+        ));
+        commands.spawn((
+            SceneRoot(assets.fence.clone()),
+            Transform::from_translation(Vec3::new(0.75 + (x as f32 * 0.4), 0.02, 2.15) + offset),
         ));
     }
 }

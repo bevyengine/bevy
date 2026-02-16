@@ -16,6 +16,8 @@ pub struct CityAssets {
     ),
     pub tree_small: Handle<Scene>,
     pub tree_large: Handle<Scene>,
+    pub path_stones_long: Handle<Scene>,
+    pub fence: Handle<Scene>,
 }
 
 impl CityAssets {
@@ -207,6 +209,15 @@ pub fn load_assets(
         GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/tree-large.glb")),
     );
 
+    let path_stones_long: Handle<Scene> = asset_server.load(
+        GltfAssetLabel::Scene(0)
+            .from_asset(format!("{base_url}/city-kit-suburban/path-stones-long.glb")),
+    );
+
+    let fence: Handle<Scene> = asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset(format!("{base_url}/city-kit-suburban/fence.glb")),
+    );
+
     commands.insert_resource(CityAssets {
         cars,
         crossroad,
@@ -217,5 +228,7 @@ pub fn load_assets(
         ground_tile,
         tree_small,
         tree_large,
+        path_stones_long,
+        fence,
     });
 }
