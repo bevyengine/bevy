@@ -51,8 +51,8 @@ pub fn load_assets(
 
     let cars = {
         // We need to trigger a load of the texture even if we never use it directly
-        // let _car_texture: Handle<Image> =
-        //     asset_server.load(format!("{base_url}/car-kit/Textures/colormap.png"));
+        let _car_texture: Handle<Image> =
+            asset_server.load(format!("{base_url}/car-kit/Textures/colormap.png"));
 
         // TODO generate variations
         [
