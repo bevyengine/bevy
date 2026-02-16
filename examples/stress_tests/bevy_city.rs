@@ -6,16 +6,42 @@ use assets::{load_assets, CityAssets};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::Exposure,
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
+    feathers::{
+        self,
+        controls::{button, checkbox, ButtonProps},
+        dark_theme::create_dark_theme,
+        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
+        FeathersPlugins,
+    },
     light::{atmosphere::ScatteringMedium, Atmosphere, AtmosphereEnvironmentMapLight},
     pbr::AtmosphereSettings,
     post_process::bloom::Bloom,
     prelude::*,
+    ui::Checked,
+    ui_widgets::{checkbox_self_update, observe, Activate, ValueChange},
 };
+use noise::{NoiseFn, OpenSimplex};
 use rand::{rngs::SmallRng, seq::SliceRandom, Rng, SeedableRng};
 
 #[path = "bevy_city/assets.rs"]
 mod assets;
+
+#[derive(Resource)]
+struct Settings {
+    simulate_cars: bool,
+    shadow_maps_enabled: bool,
+}
+
+#[allow(clippy::derivable_impls)]
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            simulate_cars: true,
+            shadow_maps_enabled: true,
+        }
+    }
+}
 
 fn main() {
     App::new()
@@ -30,7 +56,10 @@ fn main() {
                 ..default()
             }),
             FreeCameraPlugin,
+            FeathersPlugins,
         ))
+        .init_resource::<Settings>()
+        .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, (setup, load_assets, setup_city.after(load_assets)))
         .add_systems(Update, simulate_cars)
         .run();
@@ -39,7 +68,7 @@ fn main() {
 fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<ScatteringMedium>>) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
         Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
         AtmosphereSettings::default(),
@@ -56,11 +85,92 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
     ));
     commands.spawn((
         DirectionalLight {
-            shadow_maps_enabled: true,
+            shadow_maps_enabled: Settings::default().shadow_maps_enabled,
             illuminance: light_consts::lux::RAW_SUNLIGHT,
             ..default()
         },
         Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            right: Val::Px(10.0),
+            padding: UiRect::all(Val::Px(8.0)),
+            ..default()
+        },
+        ThemeBackgroundColor(feathers::tokens::WINDOW_BG),
+        observe(
+            |_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+                free_camera_state.enabled = false;
+            },
+        ),
+        observe(
+            |_: On<Pointer<Out>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+                free_camera_state.enabled = true;
+            },
+        ),
+        children![(
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Stretch,
+                justify_content: JustifyContent::Start,
+                row_gap: px(8),
+                ..default()
+            },
+            children![
+                (Text("Settings".to_owned())),
+                (
+                    checkbox(Checked, Spawn((Text::new("Simulate Cars"), ThemedText))),
+                    observe(checkbox_self_update),
+                    observe(
+                        |change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
+                            settings.simulate_cars = change.value;
+                        }
+                    )
+                ),
+                (
+                    checkbox(
+                        Checked,
+                        Spawn((Text::new("Shadow maps enabled"), ThemedText))
+                    ),
+                    observe(checkbox_self_update),
+                    observe(
+                        |change: On<ValueChange<bool>>,
+                         mut settings: ResMut<Settings>,
+                         mut directional_lights: Query<&mut DirectionalLight>| {
+                            settings.shadow_maps_enabled = change.value;
+                            for mut light in &mut directional_lights {
+                                light.shadow_maps_enabled = change.value;
+
+                            }
+                        }
+                    )
+                ),
+                (
+                    button(
+                        ButtonProps::default(),
+                        (),
+                        Spawn((Text::new("Reload"), ThemedText))
+                    ),
+                    observe(
+                        |_activate: On<Activate>,
+                         mut commands: Commands,
+                         city_root: Single<Entity, With<CityRoot>>,
+                         assets: Res<CityAssets>| {
+                            commands.entity(*city_root).despawn();
+
+                            let mut rng = rand::rng();
+                            let seed = rng.random::<u64>();
+                            println!("new seed: {seed}");
+                            spawn_city(&mut commands, &assets, seed, 32);
+                        }
+                    )
+                ),
+            ]
+        )],
     ));
 }
 
@@ -71,7 +181,15 @@ struct Car {
     distance_traveled: f32,
 }
 
-fn simulate_cars(mut cars: Query<(&mut Car, &mut Transform)>, time: Res<Time>) {
+fn simulate_cars(
+    settings: Res<Settings>,
+    mut cars: Query<(&mut Car, &mut Transform)>,
+    time: Res<Time>,
+) {
+    if !settings.simulate_cars {
+        return;
+    }
+
     let speed = 2.0;
     for (mut car, mut transform) in &mut cars {
         car.distance_traveled += speed * time.delta_secs();
