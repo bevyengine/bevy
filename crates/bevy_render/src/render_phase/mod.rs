@@ -156,9 +156,9 @@ where
 
     /// The batch and bin key for each entity.
     ///
-    /// We retain these so that, when the entity changes,
-    /// [`Self::sweep_old_entities`] can quickly find the bin it was located in
-    /// and remove it.
+    /// We retain these so that, when the entity changes, the methods that
+    /// remove items from bins can quickly find the bin each entity was located
+    /// in in order to remove it.
     cached_entity_bin_keys: MainEntityHashMap<CachedBinnedEntity<BPI>>,
 
     /// The gpu preprocessing mode configured for the view this phase is associated

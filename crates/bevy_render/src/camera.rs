@@ -814,13 +814,13 @@ impl DirtySpecializations {
         }))
     }
 
-    /// Iterates over all meshes that should have cached pipeline data cleared
-    /// for them.
+    /// Iterates over all renderables that should be removed from the phase.
     ///
-    /// This includes both meshes that became invisible this frame and those
-    /// that are in [`DirtySpecializations::entities`]. If this view must itself
-    /// be re-specialized, this will iterate over all visible entities in
-    /// addition to those that became invisible.
+    /// This includes renderables that became invisible this frame, renderables
+    /// that are in [`DirtySpecializations::changed_renderables`], and
+    /// renderables that are in [`DirtySpecializations::removed_renderables`].
+    /// If this view must itself be re-specialized, this will iterate over all
+    /// visible entities in addition to those that became invisible.
     pub fn iter_to_dequeue<'a>(
         &'a self,
         view: RetainedViewEntity,
@@ -851,11 +851,11 @@ impl DirtySpecializations {
             })
     }
 
-    /// Iterates over all meshes that potentially need to be re-queued.
+    /// Iterates over all renderables that potentially need to be re-queued.
     ///
-    /// This includes both meshes that became visible and those that are in
-    /// [`DirtySpecializations::entities`]. If this view must itself be
-    /// re-specialized, this will iterate over all visible entities.
+    /// This includes both renderables that became visible and those that are in
+    /// [`DirtySpecializations::changed_renderables`]. If this view must itself
+    /// be re-specialized, this will iterate over all visible renderables.
     ///
     /// `last_frame_view_pending_queues` should be the contents of the
     /// [`ViewPendingQueues::prev_frame`] list.
