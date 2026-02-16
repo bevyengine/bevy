@@ -629,6 +629,7 @@ pub struct LineGizmoEntities {
 
 impl FromWorld for LineGizmoEntities {
     fn from_world(world: &mut World) -> LineGizmoEntities {
+        // Create the entities for line gizmo phase items to be associated with.
         let line_gizmo_renderer = world.spawn(Name::new("LineGizmoRenderer")).id();
         let line_strip_gizmo_renderer = world.spawn(Name::new("LineStripGizmoRenderer")).id();
         let line_joint_gizmo_renderer = world.spawn(Name::new("LineJointGizmoRenderer")).id();

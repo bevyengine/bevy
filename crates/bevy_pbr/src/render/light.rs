@@ -609,7 +609,9 @@ pub fn extract_lights(
         }
         // Calculate the added and removed entities for each cascade.
         for (entity, visible_mesh_entities_list) in visible_entities.entities.iter() {
-            let Ok(entity) = mapper.get(*entity) else { break };
+            let Ok(entity) = mapper.get(*entity) else {
+                break;
+            };
             let render_visible_mesh_entities_list: &mut Vec<RenderVisibleMeshEntities> =
                 cascade_visible_entities
                     .entities
@@ -2023,7 +2025,7 @@ pub(crate) fn specialize_shadows(
                     else {
                         // We couldn't fetch the material, probably because the
                         // material hasn't been loaded yet. Add the entity to
-                        // the list of pending mesh materials and bail.
+                        // the list of pending shadows and bail.
                         view_pending_shadow_queues
                             .current_frame
                             .insert((*render_entity, *visible_entity));
@@ -2033,12 +2035,18 @@ pub(crate) fn specialize_shadows(
                     let Some(mesh_instance) =
                         render_mesh_instances.render_mesh_queue_data(*visible_entity)
                     else {
+                        // We couldn't fetch the mesh, probably because it
+                        // hasn't loaded yet. Add the entity to the list of
+                        // pending shadows and bail.
+                        view_pending_shadow_queues
+                            .current_frame
+                            .insert((*render_entity, *visible_entity));
                         continue;
                     };
                     let Some(material) = render_materials.get(material_instance.asset_id) else {
                         // We couldn't fetch the material, probably because the
                         // material hasn't been loaded yet. Add the entity to
-                        // the list of pending mesh materials and bail.
+                        // the list of pending shadows and bail.
                         view_pending_shadow_queues
                             .current_frame
                             .insert((*render_entity, *visible_entity));
@@ -2243,6 +2251,12 @@ pub fn queue_shadows(
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(*main_entity)
                 else {
+                    // We couldn't fetch the mesh, probably because it hasn't
+                    // loaded yet. Add the entity to the list of pending shadows
+                    // and bail.
+                    view_pending_shadow_queues
+                        .current_frame
+                        .insert((*render_entity, *main_entity));
                     continue;
                 };
                 if !mesh_instance
@@ -2271,7 +2285,7 @@ pub fn queue_shadows(
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
                     // We couldn't fetch the material, probably because the
                     // material hasn't been loaded yet. Add the entity to the
-                    // list of pending mesh materials and bail.
+                    // list of pending shadows and bail.
                     continue;
                 };
 

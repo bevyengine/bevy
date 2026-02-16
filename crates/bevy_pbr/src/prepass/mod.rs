@@ -979,7 +979,7 @@ pub(crate) fn specialize_prepass_material_meshes(
                 else {
                     // We couldn't fetch the material instance, probably because
                     // the material hasn't been loaded yet. Add the entity to
-                    // the list of pending mesh materials and bail.
+                    // the list of pending prepass mesh materials and bail.
                     view_pending_prepass_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
@@ -988,12 +988,18 @@ pub(crate) fn specialize_prepass_material_meshes(
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(*visible_entity)
                 else {
+                    // We couldn't fetch the mesh, probably because it hasn't
+                    // loaded yet. Add the entity to the list of pending prepass
+                    // mesh materials and bail.
+                    view_pending_prepass_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
                     // We couldn't fetch the material instance, probably because
                     // the material hasn't been loaded yet. Add the entity to
-                    // the list of pending mesh materials and bail.
+                    // the list of pending prepass mesh materials and bail.
                     view_pending_prepass_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
@@ -1259,7 +1265,7 @@ pub fn queue_prepass_material_meshes(
             else {
                 // We couldn't fetch the material, probably because the material
                 // hasn't been loaded yet. Add the entity to the list of pending
-                // mesh materials and bail.
+                // prepass mesh materials and bail.
                 view_pending_prepass_mesh_material_queues
                     .current_frame
                     .insert((*render_entity, *visible_entity));
@@ -1267,12 +1273,18 @@ pub fn queue_prepass_material_meshes(
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
+                // We couldn't fetch the mesh, probably because the it hasn't
+                // been loaded yet. Add the entity to the list of pending
+                // prepass mesh materials and bail.
+                view_pending_prepass_mesh_material_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
             let Some(material) = render_materials.get(material_instance.asset_id) else {
                 // We couldn't fetch the material, probably because the material
                 // hasn't been loaded yet. Add the entity to the list of pending
-                // mesh materials and bail.
+                // prepass mesh materials and bail.
                 view_pending_prepass_mesh_material_queues
                     .current_frame
                     .insert((*render_entity, *visible_entity));

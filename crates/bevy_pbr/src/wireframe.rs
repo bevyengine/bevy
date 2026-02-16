@@ -808,7 +808,7 @@ pub fn specialize_wireframes(
         }
 
         // Now process all wireframe meshes that need to be re-specialized.
-        for (_, visible_entity) in dirty_wireframe_specializations.iter_to_specialize(
+        for (render_entity, visible_entity) in dirty_wireframe_specializations.iter_to_specialize(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_wireframe_queues.prev_frame,
@@ -822,6 +822,12 @@ pub fn specialize_wireframes(
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
+                // We couldn't fetch the mesh, probably because it hasn't loaded
+                // yet. Add the entity to the list of pending wireframes and
+                // bail.
+                view_pending_wireframe_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
@@ -943,6 +949,12 @@ fn queue_wireframes(
 
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
+                // We couldn't fetch the mesh, probably because it hasn't loaded
+                // yet. Add the entity to the list of pending wireframes and
+                // bail.
+                view_pending_wireframe_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
