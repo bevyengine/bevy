@@ -1,8 +1,8 @@
 use crate::{
     sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin},
-    Render, RenderApp, RenderSystems,
+    Render, RenderSystems,
 };
-use bevy_app::{App, Plugin, SubApp};
+use bevy_app::{App, InternedAppLabel, Plugin, SubApp};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
@@ -11,21 +11,16 @@ use bevy_ecs::{
 };
 use bevy_utils::default;
 
-/// Plugin that sets up the [`RenderApp`] and handles extracting data from the
-/// main world to the render world.
+/// Plugin that sets up a [`SubApp`] with extraction from the
+/// main world to the sub world.
 pub struct ExtractPlugin {
     /// Function that gets run at the beginning of each extraction.
     ///
     /// Gets the main world and render world as arguments (in that order).
     pub pre_extract: fn(&mut World, &mut World),
-}
 
-impl Default for ExtractPlugin {
-    fn default() -> Self {
-        Self {
-            pre_extract: |_, _| {},
-        }
-    }
+    /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`] to set up with extraction.
+    pub app_label: InternedAppLabel,
 }
 
 impl Plugin for ExtractPlugin {
@@ -33,7 +28,7 @@ impl Plugin for ExtractPlugin {
         app.add_plugins(SyncWorldPlugin);
         app.init_resource::<ScratchMainWorld>();
 
-        let mut render_app = SubApp::new();
+        let mut sub_app = SubApp::new();
 
         let mut extract_schedule = Schedule::new(ExtractSchedule);
         // We skip applying any commands during the ExtractSchedule
@@ -44,9 +39,9 @@ impl Plugin for ExtractPlugin {
         });
         extract_schedule.set_apply_final_deferred(false);
 
-        render_app.add_schedule(Render::base_schedule());
-        render_app.add_schedule(extract_schedule);
-        render_app.add_systems(
+        sub_app.add_schedule(Render::base_schedule());
+        sub_app.add_schedule(extract_schedule);
+        sub_app.add_systems(
             Render,
             (
                 // This set applies the commands from the extract schedule while the render schedule
@@ -57,7 +52,7 @@ impl Plugin for ExtractPlugin {
         );
 
         let pre_extract = self.pre_extract;
-        render_app.set_extract(move |main_world, render_world| {
+        sub_app.set_extract(move |main_world, render_world| {
             pre_extract(main_world, render_world);
 
             {
@@ -71,9 +66,9 @@ impl Plugin for ExtractPlugin {
         });
 
         let (sender, receiver) = bevy_time::create_time_channels();
-        render_app.insert_resource(sender);
+        sub_app.insert_resource(sender);
         app.insert_resource(receiver);
-        app.insert_sub_app(RenderApp, render_app);
+        app.insert_sub_app(self.app_label, sub_app);
     }
 }
 
@@ -136,8 +131,11 @@ mod test {
         extract_plugin::ExtractPlugin,
         sync_component::SyncComponent,
         sync_world::MainEntity,
-        Render, RenderApp,
+        AppLabel, Render,
     };
+
+    #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+    struct ExtractApp;
 
     #[derive(Component, Clone, Debug)]
     struct RenderComponent;
@@ -171,20 +169,23 @@ mod test {
     fn extraction_works() {
         let mut app = App::new();
 
-        app.add_plugins(ExtractPlugin::default());
+        app.add_plugins(ExtractPlugin {
+            pre_extract: |_, _| {},
+            app_label: ExtractApp.intern(),
+        });
         app.add_plugins(ExtractComponentPlugin::<RenderComponent>::default());
         app.add_plugins(ExtractComponentPlugin::<RenderComponentSeparate>::default());
         app.add_systems(Startup, |mut commands: Commands| {
             commands.spawn((RenderComponent, RenderComponentSeparate));
         });
 
-        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
+        let sub_app = app.get_sub_app_mut(ExtractApp).unwrap();
 
         // Normally RenderPlugin sets the RenderRecovery schedule as update, but for
         // testing we just use the Render schedule directly.
-        render_app.update_schedule = Some(Render.intern());
+        sub_app.update_schedule = Some(Render.intern());
 
-        render_app.world_mut().add_observer(
+        sub_app.world_mut().add_observer(
             |event: On<Add, (RenderComponent, RenderComponentExtra)>, mut commands: Commands| {
                 // Simulate data that's not extracted
                 commands
@@ -197,8 +198,8 @@ mod test {
 
         // Check that all components have been extracted
         {
-            let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-            render_app
+            let sub_app = app.get_sub_app_mut(ExtractApp).unwrap();
+            sub_app
                 .world_mut()
                 .run_system_cached(
                     |entity: Single<(
@@ -232,8 +233,8 @@ mod test {
 
         // Check that the extracted components have been removed
         {
-            let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-            render_app
+            let sub_app = app.get_sub_app_mut(ExtractApp).unwrap();
+            sub_app
                 .world_mut()
                 .run_system_cached(
                     |entity: Single<(
