@@ -63,7 +63,7 @@ pub fn load_assets(
             "delivery",
             "delivery-flat",
             "taxi",
-            "gargabe-truck",
+            "garbage-truck",
             "ambulance",
             "police",
             "firetruck",
