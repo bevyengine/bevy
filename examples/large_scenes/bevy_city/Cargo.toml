@@ -10,7 +10,7 @@ bevy = { path = "../../../", features = [
   "https",
   "free_camera",
   "bevy_dev_tools",
-  "experimental_bevy_feathers"
+  "experimental_bevy_feathers",
 ] }
 
 argh = "0.1"

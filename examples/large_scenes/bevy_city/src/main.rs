@@ -238,7 +238,7 @@ fn spawn_city(commands: &mut Commands, assets: &CityAssets, seed: u64, size: u32
                     let z = z as f32 * 4.0;
                     let offset = Vec3::new(x, 0.0, z);
 
-                    spawn_roads_and_cars(commands, &assets, &mut rng, offset);
+                    spawn_roads_and_cars(commands, assets, &mut rng, offset);
 
                     let density = noise.get([
                         offset.x as f64 * noise_scale,
@@ -268,11 +268,11 @@ fn spawn_city(commands: &mut Commands, assets: &CityAssets, seed: u64, size: u32
                     if density < forest {
                         // TODO spawn a bunch of trees and rocks
                     } else if density < low_density {
-                        spawn_low_density(commands, &assets, &mut rng, offset);
+                        spawn_low_density(commands, assets, &mut rng, offset);
                     } else if density < medium_density {
-                        spawn_medium_density(commands, &assets, &mut rng, offset);
+                        spawn_medium_density(commands, assets, &mut rng, offset);
                     } else {
-                        spawn_high_density(commands, &assets, &mut rng, offset);
+                        spawn_high_density(commands, assets, &mut rng, offset);
                     }
                 }
             }
