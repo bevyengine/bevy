@@ -1,5 +1,6 @@
 //! A procedurally generated city
 
+use argh::FromArgs;
 use assets::{load_assets, CityAssets};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
@@ -44,7 +45,21 @@ impl Default for Settings {
     }
 }
 
+#[derive(FromArgs, Resource, Clone)]
+/// Config
+pub struct Args {
+    /// seed
+    #[argh(option, default = "42")]
+    seed: u64,
+
+    /// size
+    #[argh(option, default = "30")]
+    size: u32,
+}
+
 fn main() {
+    let args: Args = argh::from_env();
+
     App::new()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
@@ -59,6 +74,7 @@ fn main() {
             FreeCameraPlugin,
             FeathersPlugins,
         ))
+        .insert_resource(args.clone())
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(WinitSettings::continuous())
         .init_resource::<Settings>()
@@ -177,8 +193,8 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
     ));
 }
 
-fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
-    spawn_city(&mut commands, &assets, 42, 30);
+fn setup_city(mut commands: Commands, assets: Res<CityAssets>, args: Res<Args>) {
+    spawn_city(&mut commands, &assets, args.seed, args.size);
 }
 
 #[derive(Component)]
