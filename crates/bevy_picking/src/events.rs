@@ -30,7 +30,7 @@
 //! # Events Types
 //!
 //! The events this module defines fall into a few broad categories:
-//! + Hovering and movement: [`Over`], [`Move`], and [`Out`].
+//! + Hovering and movement: [`Over`], [`Enter`], [`Move`], [`Leave`], and [`Out`].
 //! + Clicking and pressing: [`Press`], [`Release`], and [`Click`].
 //! + Dragging and dropping: [`DragStart`], [`Drag`], [`DragEnd`], [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
 //!
@@ -38,8 +38,10 @@
 //! general metadata about the pointer event.
 
 use core::{fmt::Debug, time::Duration};
+use std::collections::HashSet;
 
 use bevy_camera::NormalizedRenderTarget;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
@@ -51,7 +53,7 @@ use tracing::debug;
 
 use crate::{
     backend::{prelude::PointerLocation, HitData},
-    hover::{HoverMap, PreviousHoverMap},
+    hover::{get_hovered_entities, HoverMap, PreviousHoverMap},
     pointer::{Location, PointerAction, PointerButton, PointerId, PointerInput, PointerMap},
 };
 
@@ -92,7 +94,7 @@ where
     E: Debug + Clone + Reflect,
 {
     fn traverse(item: Self::Item<'_, '_>, pointer: &Pointer<E>) -> Option<Entity> {
-        if (!pointer.propagate) {
+        if !pointer.propagate {
             return None;
         }
 
@@ -138,11 +140,22 @@ impl<E: Debug + Clone + Reflect> Pointer<E> {
     }
 
     /// Construct a new `Pointer<E>` event that does not propagate
-    pub fn new_without_propagate(id: PointerId, location: Location, event: E, entity: Entity) -> Self {
+    pub fn new_without_propagate(
+        id: PointerId,
+        location: Location,
+        event: E,
+        entity: Entity,
+    ) -> Self {
         Self::new_inner(id, location, event, entity, false)
     }
 
-    fn new_inner(id: PointerId, location: Location, event: E, entity: Entity, propagate: bool) -> Self {
+    fn new_inner(
+        id: PointerId,
+        location: Location,
+        event: E,
+        entity: Entity,
+        propagate: bool,
+    ) -> Self {
         Self {
             pointer_id: id,
             pointer_location: location,
@@ -169,10 +182,30 @@ pub struct Over {
     pub hit: HitData,
 }
 
+/// Fires when a pointer crosses into the bounds of the [target entity](EntityEvent::event_target).
+/// Unlike [`Over`], this event does not bubble to ancestors unless the ancestor's
+/// bounds are also crossed into.
+#[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
+pub struct Enter {
+    /// Information about the picking intersection.
+    pub hit: HitData,
+}
+
 /// Fires when a pointer crosses out of the bounds of the [target entity](EntityEvent::event_target).
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Out {
+    /// Information about the latest prior picking intersection.
+    pub hit: HitData,
+}
+
+/// Fires when a pointer crosses out of the bounds of the [target entity](EntityEvent::event_target).
+/// Unlike [`Out`], this event does not bubble to ancestors unless the ancestor's
+/// bounds are also crossed out of.
+#[derive(Clone, PartialEq, Debug, Reflect)]
+#[reflect(Clone, PartialEq)]
+pub struct Leave {
     /// Information about the latest prior picking intersection.
     pub hit: HitData,
 }
@@ -377,11 +410,67 @@ impl PointerButtonState {
     }
 }
 
+/// A cache map containing the ancestry of hovered entities
+#[derive(Debug, Clone, Default, Deref, DerefMut)]
+pub(crate) struct HoveredEntityAncestors(HashMap<Entity, HashSet<Entity>>);
+
+impl HoveredEntityAncestors {
+    /// Generates a map of every hovered entity to its ancestors.
+    ///
+    /// This map is used to calculate which entities should receive [`Enter`] or [`Leave`] events.
+    pub(crate) fn generate(
+        hover_map: &HoverMap,
+        pointer_state: &PointerState,
+        ancestors_query: &Query<&ChildOf>,
+    ) -> Self {
+        let mut hovered_entity_ancestors = HoveredEntityAncestors(HashMap::default());
+        for hovered_entity in hover_map
+            .iter()
+            .flat_map(|(_, hashmap)| hashmap.iter().map(|data| *data.0))
+        {
+            // If the ancestors were already added into the map, do not re-fetch
+            if hovered_entity_ancestors.contains_key(&hovered_entity) {
+                continue;
+            }
+            // If the ancestors were previously fetched, just re-use the entry.
+            if let Some(previous_entry) =
+                pointer_state.hovered_entity_ancestors.get(&hovered_entity)
+            {
+                hovered_entity_ancestors.insert(hovered_entity, previous_entry.clone());
+            } else {
+                let mut ancestors = HashSet::new();
+                for member in ancestors_query.iter_ancestors(hovered_entity) {
+                    ancestors.insert(member);
+                }
+                hovered_entity_ancestors.insert(hovered_entity, ancestors);
+            }
+        }
+
+        hovered_entity_ancestors
+    }
+
+    /// Returns a new combined `HashSet` of ancestors for the provided `hover_entities`
+    pub(crate) fn get_ancestors_union(&self, hover_entities: &HashSet<Entity>) -> HashSet<Entity> {
+        hover_entities
+            .iter()
+            .flat_map(|entity| self.get(entity))
+            .flat_map(|set| set.iter().map(|&entity| entity))
+            .collect::<HashSet<Entity>>()
+    }
+
+    /// Returns the ancestors for the provided `hover_entity`, if it has been created
+    pub(crate) fn get_ancestors(&self, hover_entity: &Entity) -> Option<&HashSet<Entity>> {
+        self.get(hover_entity)
+    }
+}
+
 /// State for all pointers.
 #[derive(Debug, Clone, Default, Resource)]
 pub struct PointerState {
     /// Pressing and dragging state, organized by pointer and button.
     pub pointer_buttons: HashMap<(PointerId, PointerButton), PointerButtonState>,
+    /// The set of an entity's ancestors for a given hovered entity.
+    pub(crate) hovered_entity_ancestors: HoveredEntityAncestors,
 }
 
 impl PointerState {
@@ -401,12 +490,27 @@ impl PointerState {
             .or_default()
     }
 
+    /// Retrieves the ancestors for a given hovered entity
+    pub(crate) fn get_ancestors(&self, hovered_entity: &Entity) -> Option<&HashSet<Entity>> {
+        self.hovered_entity_ancestors.get_ancestors(hovered_entity)
+    }
+
+    /// Retrieves the union of ancestors for the given hovered entities
+    pub(crate) fn get_ancestors_union(
+        &self,
+        hovered_entities: &HashSet<Entity>,
+    ) -> HashSet<Entity> {
+        self.hovered_entity_ancestors
+            .get_ancestors_union(hovered_entities)
+    }
+
     /// Clears all the data associated with all of the buttons on a pointer. Does not free the underlying memory.
     pub fn clear(&mut self, pointer_id: PointerId) {
         for button in PointerButton::iter() {
             if let Some(state) = self.pointer_buttons.get_mut(&(pointer_id, button)) {
                 state.clear();
             }
+            self.hovered_entity_ancestors.clear();
         }
     }
 }
@@ -428,12 +532,15 @@ pub struct PickingMessageWriters<'w> {
     move_events: MessageWriter<'w, Pointer<Move>>,
     out_events: MessageWriter<'w, Pointer<Out>>,
     over_events: MessageWriter<'w, Pointer<Over>>,
+    leave_events: MessageWriter<'w, Pointer<Leave>>,
+    enter_events: MessageWriter<'w, Pointer<Enter>>,
     released_events: MessageWriter<'w, Pointer<Release>>,
 }
 
 /// Dispatches interaction events to the target entities.
 ///
 /// Within a single frame, events are dispatched in the following order:
+/// TODO update this after implemented
 /// + [`Out`] → [`DragLeave`].
 /// + [`DragEnter`] → [`Over`].
 /// + Any number of any of the following:
@@ -444,7 +551,7 @@ pub struct PickingMessageWriters<'w> {
 /// Additionally, across multiple frames, the following are also strictly
 /// ordered by the interaction state machine:
 /// + When a pointer moves over the target:
-///   [`Over`], [`Move`], [`Out`].
+///   [`Over`], [`Enter`], [`Move`], [`Leave`], [`Out`].
 /// + When a pointer presses buttons on the target:
 ///   [`Press`], [`Click`], [`Release`].
 /// + When a pointer drags the target:
@@ -454,19 +561,21 @@ pub struct PickingMessageWriters<'w> {
 /// + When a pointer is canceled:
 ///   No other events will follow the [`Cancel`] event for that pointer.
 ///
-/// Two events -- [`Over`] and [`Out`] -- are driven only by the [`HoverMap`].
+/// Four events -- [`Over`], [`Enter`], [`Leave`] and [`Out`] -- are driven only by the [`HoverMap`].
 /// The rest rely on additional data from the [`PointerInput`] event stream. To
 /// receive these events for a custom pointer, you must add [`PointerInput`]
 /// events.
 ///
 /// When the pointer goes from hovering entity A to entity B, entity A will
-/// receive [`Out`] and then entity B will receive [`Over`]. No entity will ever
-/// receive both an [`Over`] and an [`Out`] event during the same frame.
+/// receive [`Out`] and [`Enter`] and then entity B will receive [`Leave`] and [`Over`].
+/// No entity will ever receive both an [`Over`] and an [`Out`] or
+/// an [`Enter`] and a [`Leave`] event during the same frame.
 ///
-/// When we account for event bubbling, this is no longer true. When the hovering focus shifts
-/// between children, parent entities may receive redundant [`Out`] → [`Over`] pairs.
-/// In the context of UI, this is especially problematic. Additional hierarchy-aware
-/// events will be added in a future release.
+/// When we account for event bubbling, the two pairs of events,
+/// [`Out`] [`Over`] and [`Enter`] [`Leave`], behave differently. When the hovering focus shifts
+/// between children, parent entities may receive redundant [`Out`] → [`Over`] pairs. In
+/// the case for [`Enter`] → [`Leave`], shared parent entities will not receive [`Enter`]
+/// or [`Leave`].
 ///
 /// Both [`Click`] and [`Release`] target the entity hovered in the *previous frame*,
 /// rather than the current frame. This is because touch pointers hover nothing
@@ -488,6 +597,7 @@ pub fn pointer_events(
     hover_map: Res<HoverMap>,
     previous_hover_map: Res<PreviousHoverMap>,
     mut pointer_state: ResMut<PointerState>,
+    ancestors_query: Query<&ChildOf>,
     // Output
     mut commands: Commands,
     mut message_writers: PickingMessageWriters,
@@ -500,6 +610,8 @@ pub fn pointer_events(
             .and_then(|entity| pointers.get(entity).ok())
             .and_then(|pointer| pointer.location.clone())
     };
+    let mut hovered_entity_ancestors =
+        HoveredEntityAncestors::generate(&hover_map, &pointer_state, &ancestors_query);
 
     // If the entity was hovered by a specific pointer last frame...
     for (pointer_id, hovered_entity, hit) in previous_hover_map
@@ -895,4 +1007,9 @@ pub fn pointer_events(
             }
         }
     }
+
+    core::mem::swap(
+        &mut hovered_entity_ancestors,
+        &mut pointer_state.hovered_entity_ancestors,
+    );
 }
