@@ -50,7 +50,7 @@ pub fn load_assets(
     let base_url = "https://github.com/bevyengine/bevy_asset_files/raw/main/kenney";
 
     let cars = {
-        // TODO generate variations
+        // TODO generate color variations
         [
             "hatchback-sports",
             "suv",
@@ -60,6 +60,13 @@ pub fn load_assets(
             "truck",
             "truck-flat",
             "van",
+            "delivery",
+            "delivery-flat",
+            "taxi",
+            "gargabe-truck",
+            "ambulance",
+            "police",
+            "firetruck",
         ]
         .iter()
         .map(|t| {
