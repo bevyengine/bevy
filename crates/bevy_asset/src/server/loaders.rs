@@ -4,7 +4,7 @@ use crate::{
 };
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_tasks::IoTaskPool;
 use bevy_utils::TypeIdMap;
 use core::any::TypeId;
@@ -18,6 +18,7 @@ pub(crate) struct AssetLoaders {
     extension_to_loaders: HashMap<Box<str>, Vec<usize>>,
     type_path_to_loader: HashMap<&'static str, usize>,
     type_path_to_preregistered_loader: HashMap<&'static str, usize>,
+    loaders_with_no_extension: HashSet<usize>,
 }
 
 impl AssetLoaders {
@@ -45,7 +46,8 @@ impl AssetLoaders {
         if is_new {
             let existing_loaders_for_type_id = self.type_id_to_loaders.get(&loader_asset_type);
             let mut duplicate_extensions = Vec::new();
-            for extension in AssetLoader::extensions(&*loader) {
+            let extensions = AssetLoader::extensions(&*loader);
+            for extension in extensions {
                 let list = self
                     .extension_to_loaders
                     .entry((*extension).into())
@@ -65,6 +67,10 @@ impl AssetLoaders {
             if !duplicate_extensions.is_empty() {
                 warn!("Duplicate AssetLoader registered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
                 Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
+            }
+
+            if extensions.is_empty() {
+                self.loaders_with_no_extension.insert(loader_index);
             }
 
             self.type_path_to_loader.insert(type_path, loader_index);
@@ -131,6 +137,10 @@ impl AssetLoaders {
         if !duplicate_extensions.is_empty() {
             warn!("Duplicate AssetLoader preregistered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
             Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
+        }
+
+        if extensions.is_empty() {
+            self.loaders_with_no_extension.insert(loader_index);
         }
 
         self.type_id_to_loaders
@@ -226,6 +236,23 @@ impl AssetLoaders {
                     return self.get_by_index(index);
                 }
             }
+        }
+
+        // If no extension is a direct match, look for compatible asset loaders with no extensions.
+        let mut extensionless_loaders = candidates
+            .iter()
+            .copied()
+            .flatten()
+            .copied()
+            .filter(|index| self.loaders_with_no_extension.contains(index));
+        if let Some(index) = extensionless_loaders.next() {
+            if extensionless_loaders.next().is_some() {
+                warn!(
+                    "Multiple AssetLoaders found for Asset: {:?}; Path: {:?}; Extension: {:?}",
+                    asset_type_id, asset_path, extension
+                );
+            }
+            return self.get_by_index(index);
         }
 
         // Fallback if no resolution step was conclusive
