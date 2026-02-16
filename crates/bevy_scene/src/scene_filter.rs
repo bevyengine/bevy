@@ -1,5 +1,5 @@
+use bevy_ecs::component::ComponentId;
 use bevy_platform::collections::{hash_set::IntoIter, HashSet};
-use core::any::{Any, TypeId};
 
 /// A filter used to control which types can be added to a [`DynamicScene`].
 ///
@@ -31,13 +31,13 @@ pub enum SceneFilter {
     /// Types not contained within this set should not be allowed to be saved to an associated [`DynamicScene`].
     ///
     /// [`DynamicScene`]: crate::DynamicScene
-    Allowlist(HashSet<TypeId>),
+    Allowlist(HashSet<ComponentId>),
     /// Contains the set of prohibited types by their [`TypeId`].
     ///
     /// Types contained within this set should not be allowed to be saved to an associated [`DynamicScene`].
     ///
     /// [`DynamicScene`]: crate::DynamicScene
-    Denylist(HashSet<TypeId>),
+    Denylist(HashSet<ComponentId>),
 }
 
 impl SceneFilter {
@@ -59,7 +59,7 @@ impl SceneFilter {
         Self::Allowlist(HashSet::default())
     }
 
-    /// Allow the given type, `T`.
+    /// Allow the given component.
     ///
     /// If this filter is already set as a [`Denylist`],
     /// then the given type will be removed from the denied set.
@@ -70,37 +70,22 @@ impl SceneFilter {
     /// [`Unset`]: SceneFilter::Unset
     /// [`Allowlist`]: SceneFilter::Allowlist
     #[must_use]
-    pub fn allow<T: Any>(self) -> Self {
-        self.allow_by_id(TypeId::of::<T>())
-    }
-
-    /// Allow the given type.
-    ///
-    /// If this filter is already set as a [`Denylist`],
-    /// then the given type will be removed from the denied set.
-    ///
-    /// If this filter is [`Unset`], then it will be completely replaced by a new [`Allowlist`].
-    ///
-    /// [`Denylist`]: SceneFilter::Denylist
-    /// [`Unset`]: SceneFilter::Unset
-    /// [`Allowlist`]: SceneFilter::Allowlist
-    #[must_use]
-    pub fn allow_by_id(mut self, type_id: TypeId) -> Self {
+    pub fn allow(mut self, id: ComponentId) -> Self {
         match &mut self {
             Self::Unset => {
-                self = Self::Allowlist([type_id].into_iter().collect());
+                self = Self::Allowlist([id].into_iter().collect());
             }
             Self::Allowlist(list) => {
-                list.insert(type_id);
+                list.insert(id);
             }
             Self::Denylist(list) => {
-                list.remove(&type_id);
+                list.remove(&id);
             }
         }
         self
     }
 
-    /// Deny the given type, `T`.
+    /// Deny the given component.
     ///
     /// If this filter is already set as an [`Allowlist`],
     /// then the given type will be removed from the allowed set.
@@ -111,74 +96,41 @@ impl SceneFilter {
     /// [`Unset`]: SceneFilter::Unset
     /// [`Denylist`]: SceneFilter::Denylist
     #[must_use]
-    pub fn deny<T: Any>(self) -> Self {
-        self.deny_by_id(TypeId::of::<T>())
-    }
-
-    /// Deny the given type.
-    ///
-    /// If this filter is already set as an [`Allowlist`],
-    /// then the given type will be removed from the allowed set.
-    ///
-    /// If this filter is [`Unset`], then it will be completely replaced by a new [`Denylist`].
-    ///
-    /// [`Allowlist`]: SceneFilter::Allowlist
-    /// [`Unset`]: SceneFilter::Unset
-    /// [`Denylist`]: SceneFilter::Denylist
-    #[must_use]
-    pub fn deny_by_id(mut self, type_id: TypeId) -> Self {
+    pub fn deny(mut self, id: ComponentId) -> Self {
         match &mut self {
             Self::Unset => {
-                self = Self::Denylist([type_id].into_iter().collect());
+                self = Self::Denylist([id].into_iter().collect());
             }
             Self::Allowlist(list) => {
-                list.remove(&type_id);
+                list.remove(&id);
             }
             Self::Denylist(list) => {
-                list.insert(type_id);
+                list.insert(id);
             }
         }
         self
     }
 
-    /// Returns true if the given type, `T`, is allowed by the filter.
+    /// Returns true if the given component is allowed by the filter.
     ///
     /// If the filter is [`Unset`], this will always return `true`.
     ///
     /// [`Unset`]: SceneFilter::Unset
-    pub fn is_allowed<T: Any>(&self) -> bool {
-        self.is_allowed_by_id(TypeId::of::<T>())
-    }
-
-    /// Returns true if the given type is allowed by the filter.
-    ///
-    /// If the filter is [`Unset`], this will always return `true`.
-    ///
-    /// [`Unset`]: SceneFilter::Unset
-    pub fn is_allowed_by_id(&self, type_id: TypeId) -> bool {
+    pub fn is_allowed(&self, id: ComponentId) -> bool {
         match self {
             Self::Unset => true,
-            Self::Allowlist(list) => list.contains(&type_id),
-            Self::Denylist(list) => !list.contains(&type_id),
+            Self::Allowlist(list) => list.contains(&id),
+            Self::Denylist(list) => !list.contains(&id),
         }
     }
 
-    /// Returns true if the given type, `T`, is denied by the filter.
+    /// Returns true if the given component is denied by the filter.
     ///
     /// If the filter is [`Unset`], this will always return `false`.
     ///
     /// [`Unset`]: SceneFilter::Unset
-    pub fn is_denied<T: Any>(&self) -> bool {
-        self.is_denied_by_id(TypeId::of::<T>())
-    }
-
-    /// Returns true if the given type is denied by the filter.
-    ///
-    /// If the filter is [`Unset`], this will always return `false`.
-    ///
-    /// [`Unset`]: SceneFilter::Unset
-    pub fn is_denied_by_id(&self, type_id: TypeId) -> bool {
-        !self.is_allowed_by_id(type_id)
+    pub fn is_denied(&self, id: ComponentId) -> bool {
+        !self.is_allowed(id)
     }
 
     /// Returns an iterator over the items in the filter.
@@ -186,7 +138,7 @@ impl SceneFilter {
     /// If the filter is [`Unset`], this will return an empty iterator.
     ///
     /// [`Unset`]: SceneFilter::Unset
-    pub fn iter(&self) -> Box<dyn ExactSizeIterator<Item = &TypeId> + '_> {
+    pub fn iter(&self) -> Box<dyn ExactSizeIterator<Item = &ComponentId> + '_> {
         match self {
             Self::Unset => Box::new(core::iter::empty()),
             Self::Allowlist(list) | Self::Denylist(list) => Box::new(list.iter()),
@@ -219,8 +171,8 @@ impl SceneFilter {
 }
 
 impl IntoIterator for SceneFilter {
-    type Item = TypeId;
-    type IntoIter = IntoIter<TypeId>;
+    type Item = ComponentId;
+    type IntoIter = IntoIter<ComponentId>;
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
@@ -234,44 +186,41 @@ impl IntoIterator for SceneFilter {
 mod tests {
     use super::*;
 
+    const ID1: ComponentId = ComponentId::new(1);
+    const ID2: ComponentId = ComponentId::new(2);
+
     #[test]
     fn should_set_list_type_if_none() {
-        let filter = SceneFilter::Unset.allow::<i32>();
+        let filter = SceneFilter::Unset.allow(ID2);
         assert!(matches!(filter, SceneFilter::Allowlist(_)));
 
-        let filter = SceneFilter::Unset.deny::<i32>();
+        let filter = SceneFilter::Unset.deny(ID2);
         assert!(matches!(filter, SceneFilter::Denylist(_)));
     }
 
     #[test]
     fn should_add_to_list() {
-        let filter = SceneFilter::default().allow::<i16>().allow::<i32>();
+        let filter = SceneFilter::default().allow(ID1).allow(ID2);
         assert_eq!(2, filter.len());
-        assert!(filter.is_allowed::<i16>());
-        assert!(filter.is_allowed::<i32>());
+        assert!(filter.is_allowed(ID1));
+        assert!(filter.is_allowed(ID2));
 
-        let filter = SceneFilter::default().deny::<i16>().deny::<i32>();
+        let filter = SceneFilter::default().deny(ID1).deny(ID2);
         assert_eq!(2, filter.len());
-        assert!(filter.is_denied::<i16>());
-        assert!(filter.is_denied::<i32>());
+        assert!(filter.is_denied(ID1));
+        assert!(filter.is_denied(ID2));
     }
 
     #[test]
     fn should_remove_from_list() {
-        let filter = SceneFilter::default()
-            .allow::<i16>()
-            .allow::<i32>()
-            .deny::<i32>();
+        let filter = SceneFilter::default().allow(ID1).allow(ID2).deny(ID2);
         assert_eq!(1, filter.len());
-        assert!(filter.is_allowed::<i16>());
-        assert!(!filter.is_allowed::<i32>());
+        assert!(filter.is_allowed(ID1));
+        assert!(!filter.is_allowed(ID2));
 
-        let filter = SceneFilter::default()
-            .deny::<i16>()
-            .deny::<i32>()
-            .allow::<i32>();
+        let filter = SceneFilter::default().deny(ID1).deny(ID2).allow(ID2);
         assert_eq!(1, filter.len());
-        assert!(filter.is_denied::<i16>());
-        assert!(!filter.is_denied::<i32>());
+        assert!(filter.is_denied(ID1));
+        assert!(!filter.is_denied(ID2));
     }
 }

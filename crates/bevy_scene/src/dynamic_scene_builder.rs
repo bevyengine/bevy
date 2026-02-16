@@ -65,14 +65,10 @@ pub struct DynamicSceneBuilder<'w> {
 impl<'w> DynamicSceneBuilder<'w> {
     /// Prepare a builder that will extract entities and their component from the given [`World`].
     pub fn from_world(world: &'w World) -> Self {
-        // allow everything except DefaultQueryFilters and AppTypeRegistry
-        let resource_filter = SceneFilter::allow_all()
-            .deny::<DefaultQueryFilters>()
-            .deny::<AppTypeRegistry>();
         Self {
             extracted_scene: default(),
             component_filter: SceneFilter::default(),
-            resource_filter,
+            resource_filter: SceneFilter::default(),
             original_world: world,
         }
     }
@@ -119,7 +115,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// If `T` has already been denied, then it will be removed from the denylist.
     #[must_use]
     pub fn allow_component<T: Component>(mut self) -> Self {
-        self.component_filter = self.component_filter.allow::<T>();
+        if let Some(component_id) = self.original_world.component_id::<T>() {
+            self.component_filter = self.component_filter.allow(component_id);
+        }
         self
     }
 
@@ -131,7 +129,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// If `T` has already been allowed, then it will be removed from the allowlist.
     #[must_use]
     pub fn deny_component<T: Component>(mut self) -> Self {
-        self.component_filter = self.component_filter.deny::<T>();
+        if let Some(component_id) = self.original_world.component_id::<T>() {
+            self.component_filter = self.component_filter.deny(component_id);
+        }
         self
     }
 
@@ -165,7 +165,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// If `T` has already been denied, then it will be removed from the denylist.
     #[must_use]
     pub fn allow_resource<T: Resource>(mut self) -> Self {
-        self.resource_filter = self.resource_filter.allow::<T>();
+        if let Some(component_id) = self.original_world.component_id::<T>() {
+            self.resource_filter = self.resource_filter.allow(component_id);
+        }
         self
     }
 
@@ -177,7 +179,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// If `T` has already been allowed, then it will be removed from the allowlist.
     #[must_use]
     pub fn deny_resource<T: Resource>(mut self) -> Self {
-        self.resource_filter = self.resource_filter.deny::<T>();
+        if let Some(component_id) = self.original_world.component_id::<T>() {
+            self.resource_filter = self.resource_filter.deny(component_id);
+        }
         self
     }
 
@@ -283,19 +287,16 @@ impl<'w> DynamicSceneBuilder<'w> {
             let original_entity = self.original_world.entity(entity);
 
             for &component_id in original_entity.archetype().components().iter() {
+                if self.component_filter.is_denied(component_id) {
+                    continue;
+                }
+
                 let mut extract_and_push = || {
                     let type_id = self
                         .original_world
                         .components()
                         .get_info(component_id)?
                         .type_id()?;
-
-                    let is_denied = self.component_filter.is_denied_by_id(type_id);
-
-                    if is_denied {
-                        // Component is either in the denylist or _not_ in the allowlist
-                        return None;
-                    }
 
                     let type_registration = type_registry.get(type_id)?;
 
@@ -363,10 +364,8 @@ impl<'w> DynamicSceneBuilder<'w> {
             SceneFilter::Allowlist(ref list) => {
                 // if DefaultQueryFilters or AppTypeRegistry has specifically been allowed to be added, we don't change that
                 let mut entities = vec![];
-                for type_id in list {
-                    if let Some(component_id) = self.original_world.components().get_id(*type_id)
-                        && let Some(entity) =
-                            self.original_world.resource_entities().get(component_id)
+                for component_id in list {
+                    if let Some(entity) = self.original_world.resource_entities().get(*component_id)
                     {
                         entities.push(*entity);
                     }
@@ -375,13 +374,7 @@ impl<'w> DynamicSceneBuilder<'w> {
             }
             SceneFilter::Denylist(ref list) => {
                 // also deny DefaultQueryFilters and AppTypeRegistry
-                let mut deny_component_id: bevy_platform::collections::hash_set::HashSet<
-                    bevy_ecs::component::ComponentId,
-                > = list
-                    .clone()
-                    .iter()
-                    .filter_map(|type_id| self.original_world.components().get_id(*type_id))
-                    .collect();
+                let mut deny_component_id = list.clone();
                 if let Some(id) = dqf_id {
                     deny_component_id.insert(id);
                 }
