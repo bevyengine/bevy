@@ -1,13 +1,10 @@
 //! A procedurally generated city
 
-// TODO force reload failed assets
-
 use assets::{load_assets, CityAssets};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::Exposure,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
-    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin, FrameTimeGraphConfig},
     feathers::{
         self,
         controls::{button, checkbox, ButtonProps},

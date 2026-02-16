@@ -9,7 +9,6 @@ license = "MIT OR Apache-2.0"
 bevy = { path = "../../../", features = [
   "https",
   "free_camera",
-  "bevy_dev_tools",
   "experimental_bevy_feathers",
 ] }
 
