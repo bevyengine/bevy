@@ -88,52 +88,63 @@ fn simulate_cars(mut cars: Query<(&mut Car, &mut Transform)>, time: Res<Time>) {
     }
 }
 
+#[derive(Component)]
+struct CityRoot;
+
 fn setup_city(mut commands: Commands, assets: Res<CityAssets>) {
-    let mut rng = SmallRng::seed_from_u64(42);
-    let size = 32;
-    let half_size = size / 2;
-    for x in -half_size..half_size {
-        for z in -half_size..half_size {
-            let x = x as f32 * 5.5;
-            let z = z as f32 * 4.0;
-            let offset = Vec3::new(x, 0.0, z);
+    spawn_city(&mut commands, &assets, 42, 32);
+}
 
-            spawn_roads_and_cars(&mut commands, &assets, &mut rng, offset);
+fn spawn_city(commands: &mut Commands, assets: &CityAssets, seed: u64, size: u32) {
+    let mut rng = SmallRng::seed_from_u64(seed);
+    let noise = ValueNoise::new(rng.random());
 
-            let noise = ValueNoise::new(42);
-            let density = noise.sample(Vec2::new(x, z) / 20.0) * 0.5 + 0.5;
-            let low_density = 0.65;
-            let medium_density = 0.9;
+    commands
+        .spawn((CityRoot, Transform::default(), Visibility::default()))
+        .with_children(|commands| {
+            let half_size = size as i32 / 2;
+            for x in -half_size..half_size {
+                for z in -half_size..half_size {
+                    let x = x as f32 * 5.5;
+                    let z = z as f32 * 4.0;
+                    let offset = Vec3::new(x, 0.0, z);
 
-            let ground_tile_scale = Vec3::new(4.5, 1.0, 3.0);
-            commands.spawn((
-                Mesh3d(assets.ground_tile.0.clone()),
-                if density < low_density {
-                    MeshMaterial3d(assets.ground_tile.2.clone())
-                } else {
-                    MeshMaterial3d(assets.ground_tile.1.clone())
-                },
-                Transform::from_translation(
-                    Vec3::new(0.5, -0.5005, 0.5) + ground_tile_scale / 2.0 + offset,
-                )
-                .with_scale(ground_tile_scale),
-            ));
+                    spawn_roads_and_cars(commands, &assets, &mut rng, offset);
 
-            if density < 0.35 {
-                // forest
-            } else if density < low_density {
-                spawn_low_density(&mut commands, &assets, &mut rng, offset);
-            } else if density < medium_density {
-                spawn_medium_density(&mut commands, &assets, &mut rng, offset);
-            } else {
-                spawn_high_density(&mut commands, &assets, &mut rng, offset);
+                    let density = noise.sample(Vec2::new(x, z) / 20.0) * 0.5 + 0.5;
+                    let low_density = 0.65;
+                    let medium_density = 0.9;
+
+                    let ground_tile_scale = Vec3::new(4.5, 1.0, 3.0);
+                    commands.spawn((
+                        Mesh3d(assets.ground_tile.0.clone()),
+                        if density < low_density {
+                            MeshMaterial3d(assets.ground_tile.2.clone())
+                        } else {
+                            MeshMaterial3d(assets.ground_tile.1.clone())
+                        },
+                        Transform::from_translation(
+                            Vec3::new(0.5, -0.5005, 0.5) + ground_tile_scale / 2.0 + offset,
+                        )
+                        .with_scale(ground_tile_scale),
+                    ));
+
+                    if density < 0.35 {
+                        // forest
+                    } else if density < low_density {
+                        spawn_low_density(commands, &assets, &mut rng, offset);
+                    } else if density < medium_density {
+                        spawn_medium_density(commands, &assets, &mut rng, offset);
+                    } else {
+                        spawn_high_density(commands, &assets, &mut rng, offset);
+                    }
+                }
             }
-        }
-    }
+        });
 }
 
 fn spawn_roads_and_cars<R: Rng>(
-    commands: &mut Commands,
+    commands: &mut ChildSpawnerCommands,
     assets: &CityAssets,
     rng: &mut R,
     offset: Vec3,
@@ -223,7 +234,7 @@ fn spawn_roads_and_cars<R: Rng>(
 }
 
 fn spawn_low_density<R: Rng>(
-    commands: &mut Commands,
+    commands: &mut ChildSpawnerCommands,
     assets: &CityAssets,
     rng: &mut R,
     offset: Vec3,
@@ -253,7 +264,7 @@ fn spawn_low_density<R: Rng>(
 }
 
 fn spawn_medium_density<R: Rng>(
-    commands: &mut Commands,
+    commands: &mut ChildSpawnerCommands,
     assets: &CityAssets,
     rng: &mut R,
     offset: Vec3,
@@ -293,7 +304,7 @@ fn spawn_medium_density<R: Rng>(
 }
 
 fn spawn_high_density<R: Rng>(
-    commands: &mut Commands,
+    commands: &mut ChildSpawnerCommands,
     assets: &CityAssets,
     rng: &mut R,
     offset: Vec3,
