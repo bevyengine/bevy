@@ -140,7 +140,7 @@ fn check_fox_asset_ready(
 // `SceneInstanceReady` fires. There will be only one player in this example,
 // so we use `Single`.
 fn setup_scene(
-    ready: On<SceneInstanceReady>,
+    _ready: On<SceneInstanceReady>,
     mut commands: Commands,
     animations: Res<Animations>,
     mut player: Single<(Entity, &mut AnimationPlayer)>,
