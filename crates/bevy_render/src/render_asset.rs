@@ -138,6 +138,7 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
             render_app
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
+                .allow_ambiguous_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(
                     ExtractSchedule,
