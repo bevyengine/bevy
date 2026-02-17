@@ -408,7 +408,7 @@ bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 
 # Feathers widget collection.
-bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
+experimental_bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -4119,7 +4119,7 @@ wasm = true
 name = "virtual_keyboard"
 path = "examples/ui/widgets/virtual_keyboard.rs"
 doc-scrape-examples = true
-required-features = ["bevy_feathers"]
+required-features = ["experimental_bevy_feathers"]
 
 [package.metadata.example.virtual_keyboard]
 name = "Virtual Keyboard"
@@ -5462,7 +5462,7 @@ name = "feathers"
 path = "examples/ui/widgets/feathers.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["bevy_feathers"]
+required-features = ["experimental_bevy_feathers"]
 
 [package.metadata.example.feathers]
 name = "Feathers Widgets"
