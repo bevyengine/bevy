@@ -77,6 +77,36 @@ The registration process for components and resources is very similar and now th
 - `ComponentDescriptor::new_resource` was deprecated in favor of `ComponentDescriptor::new`
 - `World::register_resource_with_descriptor was renamed to World::register_non_send_with_descriptor`.
 
+## Access
+
+Resources were also removed from `Access`, which keeps track what data any given query / system has access to.
+
+- `Access::add_component_read` and `Access::add_resource_read` were deprecated in favor of `Access::add_read`.
+- `Access::add_component_write` and `Access::add_resource_write` were deprecated in favor of `Access::add_write`.
+- `Access::remove_component_read` was deprecated in favor of `Access::remove_read`.
+- `Access::remove_component_write` was deprecated in favor of `Access::remove_write`.
+- `Access::has_component_read` and `Access::has_resource_read` were deprecated in favor of `Access::has_read`.
+- `Access::has_any_component_read` and `Access::has_any_resource_read` were deprecated in favor of `Access::has_any_read`.
+- `Access::has_component_write` and `Access::has_resource_write` were deprecated in favor of `Access::has_write`.
+- `Access::has_any_component_write` and `Access::has_any_resource_write` were deprecated in favor of `Access::has_any_write`.
+- `Access::read_all_components` was deprectated in favor of `Access::read_all`.
+- `Access::write_all_components` was deprecated in favor of `Access::write_all`.
+- `Access::read_all_resources` and `Access::write_all_resources` were removed.
+- `Access::has_read_all_components` was deprecated in favor of `Access::has_read_all`.
+- `Access::has_write_all_components` was deprecated in favor of `Access::has_write_all`.
+- `Access::has_read_all_resources` and `Access::has_write_all_resources` were removed.
+- `Access::is_components_compatible` was deprecated in favor of `Access::is_compatible`.
+- `Access::is_resource_compatible` was removed.
+- `Access::is_subset_components` was deprecated in favor of `Access::is_subset`.
+- `Access::is_subset_resources` was removed.
+- `Access::try_iter_component_access` was deprecated in favor of `Access::try_iter_access`.
+- `FilteredAccess::add_component_read` was deprecated in favor of `FilteredAccess::add_read`.
+- `FiteredAccess::add_component_write` was deprecated in favor of `FilteredAccess::add_write`.
+- `FilteredAccess::add_resource_read` and `FilteredAccess::add_resource_write` were removed.
+- `FilteredAccess::read_all_components` was deprecated in favor of `FilteredAccess::read_all`.
+- `FilteredAccess::write_all_components` was deprecated in favor of `FilteredAccess::write_all`.
+- More To Write.
+
 ## Miscellaneous
 
 Since `MapEntities` is implemented by default for components, it's no longer necessary to add `derive(MapEntities)` to a resource.
