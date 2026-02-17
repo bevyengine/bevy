@@ -57,9 +57,9 @@ pub struct GlobalClusterSettings {
 #[derive(Debug, Copy, Clone, Reflect)]
 #[reflect(Clone)]
 pub enum ClusterFarZMode {
-    /// Calculate the required maximum z-depth based on currently visible
-    /// clusterable objects.  Makes better use of available clusters, speeding
-    /// up GPU lighting operations at the expense of some CPU time and using
+    /// Calculate the required maximum z-depth based on the clusterable objects
+    /// that were visible on the previous frame. Makes better use of available
+    /// clusters, speeding up GPU lighting operations at the expense of using
     /// more indices in the clusterable object index lists.
     MaxClusterableObjectRange,
     /// Constant max z-depth
@@ -125,6 +125,17 @@ pub struct Clusters {
     pub near: f32,
     /// Distance to the far plane of the last depth slice. This may change depending on [`ClusterZConfig`] used.
     pub far: f32,
+    /// The farthest Z value of any bounding sphere of any clusterable object on
+    /// the previous frame.
+    ///
+    /// This is used for the [`ClusterFarZMode::MaxClusterableObjectRange`]
+    /// feature.
+    pub last_frame_farthest_z: Option<f32>,
+    /// The sum of the number of objects that all clusters contained last frame.
+    ///
+    /// This is used for the `dynamic_resizing` feature, which automatically
+    /// grows the number of clusters if clusters have likely become too large.
+    pub last_frame_total_cluster_index_count: Option<usize>,
     /// All objects within the cluster.
     pub clusterable_objects: Vec<ObjectsInCluster>,
 }
