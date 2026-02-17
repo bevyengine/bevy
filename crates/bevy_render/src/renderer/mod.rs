@@ -33,8 +33,31 @@ pub struct RenderGraph;
 
 impl RenderGraph {
     pub fn base_schedule() -> Schedule {
-        Schedule::new(Self)
+        let mut schedule = Schedule::new(Self);
+        schedule.configure_sets(
+            (
+                RenderGraphSystems::Begin,
+                RenderGraphSystems::Render,
+                RenderGraphSystems::Submit,
+                RenderGraphSystems::Finish,
+            )
+                .chain(),
+        );
+        schedule
     }
+}
+
+/// System sets for the root [`RenderGraph`] schedule.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum RenderGraphSystems {
+    /// Runs before rendering. Used for per-frame setup.
+    Begin,
+    /// The main rendering phase.
+    Render,
+    /// Submits pending command buffers generated during [`RenderGraphSystems::Render`]
+    Submit,
+    /// Runs after rendering and submit. Used for per-frame finalization.
+    Finish,
 }
 
 /// The main render system that drives the rendering process. This system runs the [`RenderGraph`]

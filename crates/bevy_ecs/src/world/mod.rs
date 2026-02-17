@@ -3269,13 +3269,12 @@ impl World {
         Some(check)
     }
 
-    /// Clears all entities and resources, invalidating all [`Entity`] and resource fetches
-    /// such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
-    ///
-    /// Since resources are entities, this is identical to [`clear_entities`](Self::clear_entities).
-    /// Non-send data is not cleared.
+    /// Clears all entities, resources, and non-send data.
+    /// This invalidates all [`Entity`] and resource fetches such as [`Res`](crate::system::Res),
+    /// [`ResMut`](crate::system::ResMut)
     pub fn clear_all(&mut self) {
         self.clear_entities();
+        self.clear_non_send();
     }
 
     /// Despawns all entities in this [`World`].
