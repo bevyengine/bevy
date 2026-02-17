@@ -20,7 +20,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            check_fox_asset_ready.run_if(not(resource_exists::<Animations>)),
+            spawn_fox_asset_when_ready.run_if(not(resource_exists::<Animations>)),
         )
         .add_systems(
             Update,
@@ -94,7 +94,7 @@ fn setup(
     ));
 }
 
-fn check_fox_asset_ready(
+fn spawn_fox_asset_when_ready(
     mut commands: Commands,
     fox_handle: Res<Fox>,
     asset_server: Res<AssetServer>,
