@@ -151,7 +151,7 @@ impl Access {
     /// Adds access to the component given by `index`.
     #[deprecated(since = "0.19.0", note = "use Asset::add_read")]
     pub fn add_component_read(&mut self, index: ComponentId) {
-        self.add_read(index)
+        self.add_read(index);
     }
 
     /// Adds access to the component given by `index`.
@@ -336,7 +336,7 @@ impl Access {
     /// Sets this as having access to all components (i.e. `EntityRef`).
     #[deprecated(since = "0.19.0", note = "use Asset::read_all")]
     pub fn read_all_components(&mut self) {
-        self.read_all()
+        self.read_all();
     }
 
     /// Sets this as having access to all components (i.e. `EntityRef` and `&World`).
