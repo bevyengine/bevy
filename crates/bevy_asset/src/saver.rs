@@ -2,7 +2,7 @@ use crate::{
     io::{AssetWriterError, MissingAssetSourceError, MissingAssetWriterError, Writer},
     meta::{AssetAction, AssetMeta, AssetMetaDyn, Settings},
     transformer::TransformedAsset,
-    Asset, AssetContainer, AssetLoader, AssetPath, AssetServer, ErasedLoadedAsset, Handle,
+    Asset, AssetContainer, AssetId, AssetLoader, AssetPath, AssetServer, ErasedLoadedAsset, Handle,
     LabeledAsset, UntypedAssetId, UntypedHandle,
 };
 use alloc::{boxed::Box, string::ToString, sync::Arc, vec::Vec};
@@ -206,6 +206,32 @@ impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
     /// Returns the type-erased labeled asset, if it exists and matches this type.
     pub fn get_erased_labeled(&self, label: impl AsRef<str>) -> Option<&ErasedSavedAsset<'a, '_>> {
         let index = self.label_to_asset_index.get(label.as_ref())?;
+        let labeled = &self.labeled_assets[*index];
+        Some(&labeled.asset)
+    }
+
+    /// Returns the labeled asset given its asset ID if it exists and matches the type.
+    ///
+    /// This can be used to get the asset from its handle since `&Handle` implements
+    /// [`Into<AssetId<B>>`].
+    pub fn get_labeled_by_id<B: Asset>(
+        &self,
+        id: impl Into<AssetId<B>>,
+    ) -> Option<SavedAsset<'a, '_, B>> {
+        let index = self.asset_id_to_asset_index.get(&id.into().untyped())?;
+        let labeled = &self.labeled_assets[*index];
+        labeled.asset.downcast()
+    }
+
+    /// Returns the type-erased labeled asset given its asset ID if it exists.
+    ///
+    /// This can be used to get the asset from its handle since `&UntypedHandle` implements
+    /// [`Into<UntypedAssetId>`].
+    pub fn get_erased_labeled_by_id(
+        &self,
+        id: impl Into<UntypedAssetId>,
+    ) -> Option<&ErasedSavedAsset<'a, '_>> {
+        let index = self.asset_id_to_asset_index.get(&id.into())?;
         let labeled = &self.labeled_assets[*index];
         Some(&labeled.asset)
     }

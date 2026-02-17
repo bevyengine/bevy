@@ -193,6 +193,16 @@ impl<A: Asset> LoadedAsset<A> {
             .map(|a| &a.asset)
     }
 
+    /// Returns the labeled asset given its asset ID if it exists.
+    ///
+    /// This can be used to get the asset from its handle since `&Handle` implements
+    /// [`Into<UntypedAssetId>`].
+    pub fn get_labeled_by_id(&self, id: impl Into<UntypedAssetId>) -> Option<&ErasedLoadedAsset> {
+        let index = self.asset_id_to_asset_index.get(&id.into())?;
+        let labeled = &self.labeled_assets[*index];
+        Some(&labeled.asset)
+    }
+
     /// Iterate over all labels for "labeled assets" in the loaded asset
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
         self.label_to_asset_index.keys().map(|s| &**s)
@@ -265,6 +275,16 @@ impl ErasedLoadedAsset {
             .get(&label.into())
             .map(|index| self.labeled_assets.get(*index).unwrap())
             .map(|a| &a.asset)
+    }
+
+    /// Returns the labeled asset given its asset ID if it exists.
+    ///
+    /// This can be used to get the asset from its handle since `&Handle` implements
+    /// [`Into<UntypedAssetId>`].
+    pub fn get_labeled_by_id(&self, id: impl Into<UntypedAssetId>) -> Option<&ErasedLoadedAsset> {
+        let index = self.asset_id_to_asset_index.get(&id.into())?;
+        let labeled = &self.labeled_assets[*index];
+        Some(&labeled.asset)
     }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset
@@ -596,6 +616,23 @@ impl<'a> LoadContext<'a> {
         let index = (&handle).try_into().unwrap();
         self.dependencies.insert(index);
         handle
+    }
+
+    /// Returns the labeled asset if it exists.
+    pub fn get_labeled(&self, label: impl AsRef<str>) -> Option<&ErasedLoadedAsset> {
+        let index = self.label_to_asset_index.get(label.as_ref())?;
+        let labeled = &self.labeled_assets[*index];
+        Some(&labeled.asset)
+    }
+
+    /// Returns the labeled asset given its asset ID if it exists.
+    ///
+    /// This can be used to get the asset from its handle since `&Handle` implemented
+    /// [`Into<UntypedAssetId>`].
+    pub fn get_labeled_by_id(&self, id: impl Into<UntypedAssetId>) -> Option<&ErasedLoadedAsset> {
+        let index = self.asset_id_to_asset_index.get(&id.into())?;
+        let labeled = &self.labeled_assets[*index];
+        Some(&labeled.asset)
     }
 
     pub(crate) async fn load_direct_internal(

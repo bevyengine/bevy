@@ -1,5 +1,6 @@
 use crate::{
-    meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedAssetId, UntypedHandle,
+    meta::Settings, Asset, AssetId, ErasedLoadedAsset, Handle, LabeledAsset, UntypedAssetId,
+    UntypedHandle,
 };
 use alloc::{boxed::Box, vec::Vec};
 use atomicow::CowArc;
@@ -76,6 +77,7 @@ impl<A: Asset> TransformedAsset<A> {
         }
         None
     }
+
     /// Creates a new [`TransformedAsset`] from `asset`, transferring the `labeled_assets` from this [`TransformedAsset`] to the new one
     pub fn replace_asset<B: Asset>(self, asset: B) -> TransformedAsset<B> {
         TransformedAsset {
@@ -85,22 +87,26 @@ impl<A: Asset> TransformedAsset<A> {
             asset_id_to_asset_index: self.asset_id_to_asset_index,
         }
     }
+
     /// Takes the labeled assets from `labeled_source` and places them in this [`TransformedAsset`]
     pub fn take_labeled_assets<B: Asset>(&mut self, labeled_source: TransformedAsset<B>) {
         self.labeled_assets = labeled_source.labeled_assets;
         self.label_to_asset_index = labeled_source.label_to_asset_index;
         self.asset_id_to_asset_index = labeled_source.asset_id_to_asset_index;
     }
+
     /// Retrieves the value of this asset.
     #[inline]
     pub fn get(&self) -> &A {
         &self.value
     }
+
     /// Mutably retrieves the value of this asset.
     #[inline]
     pub fn get_mut(&mut self) -> &mut A {
         &mut self.value
     }
+
     /// Returns the labeled asset, if it exists and matches this type.
     pub fn get_labeled<B: Asset, Q>(&mut self, label: &Q) -> Option<TransformedSubAsset<'_, B>>
     where
@@ -117,7 +123,8 @@ impl<A: Asset> TransformedAsset<A> {
             asset_id_to_asset_index: &mut labeled.asset.asset_id_to_asset_index,
         })
     }
-    /// Returns the type-erased labeled asset, if it exists and matches this type.
+
+    /// Returns the type-erased labeled asset, if it exists.
     pub fn get_erased_labeled<Q>(&self, label: &Q) -> Option<&ErasedLoadedAsset>
     where
         CowArc<'static, str>: Borrow<Q>,
@@ -127,6 +134,47 @@ impl<A: Asset> TransformedAsset<A> {
         let labeled = &self.labeled_assets[*index];
         Some(&labeled.asset)
     }
+
+    /// Returns the labeled asset given its asset ID if it exists and matches the type.
+    ///
+    /// This can be used to get the asset from its handle since `&Handle` implements
+    /// [`Into<AssetId<B>>`].
+    pub fn get_labeled_by_id<B: Asset, Q>(
+        &mut self,
+        id: impl Into<AssetId<B>>,
+    ) -> Option<TransformedSubAsset<'_, B>>
+    where
+        CowArc<'static, str>: Borrow<Q>,
+        Q: ?Sized + Hash + Eq,
+    {
+        let index = self.asset_id_to_asset_index.get(&id.into().untyped())?;
+        let labeled = &mut self.labeled_assets[*index];
+        let value = labeled.asset.value.downcast_mut::<B>()?;
+        Some(TransformedSubAsset {
+            value,
+            labeled_assets: &mut labeled.asset.labeled_assets,
+            label_to_asset_index: &mut labeled.asset.label_to_asset_index,
+            asset_id_to_asset_index: &mut labeled.asset.asset_id_to_asset_index,
+        })
+    }
+
+    /// Returns the type-erased labeled asset, if it exists.
+    ///
+    /// This can be used to get the asset from its handle since `&UntypedHandle` implements
+    /// [`Into<UntypedAssetId>`].
+    pub fn get_erased_labeled_by_id<Q>(
+        &self,
+        id: impl Into<UntypedAssetId>,
+    ) -> Option<&ErasedLoadedAsset>
+    where
+        CowArc<'static, str>: Borrow<Q>,
+        Q: ?Sized + Hash + Eq,
+    {
+        let index = self.asset_id_to_asset_index.get(&id.into())?;
+        let labeled = &self.labeled_assets[*index];
+        Some(&labeled.asset)
+    }
+
     /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
     pub fn get_untyped_handle<Q>(&self, label: &Q) -> Option<UntypedHandle>
     where
@@ -137,6 +185,7 @@ impl<A: Asset> TransformedAsset<A> {
         let labeled = &self.labeled_assets[*index];
         Some(labeled.handle.clone())
     }
+
     /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
     pub fn get_handle<Q, B: Asset>(&self, label: &Q) -> Option<Handle<B>>
     where
@@ -150,6 +199,7 @@ impl<A: Asset> TransformedAsset<A> {
         }
         None
     }
+
     /// Adds `asset` as a labeled sub asset using `label` and `handle`
     pub fn insert_labeled(
         &mut self,
@@ -180,6 +230,7 @@ impl<A: Asset> TransformedAsset<A> {
             }
         }
     }
+
     /// Iterate over all labels for "labeled assets" in the loaded asset
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
         self.label_to_asset_index.keys().map(|s| &**s)
@@ -222,16 +273,19 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
             asset_id_to_asset_index: &mut asset.asset_id_to_asset_index,
         })
     }
+
     /// Retrieves the value of this asset.
     #[inline]
     pub fn get(&self) -> &A {
         self.value
     }
+
     /// Mutably retrieves the value of this asset.
     #[inline]
     pub fn get_mut(&mut self) -> &mut A {
         self.value
     }
+
     /// Returns the labeled asset, if it exists and matches this type.
     pub fn get_labeled<B: Asset, Q>(&mut self, label: &Q) -> Option<TransformedSubAsset<'_, B>>
     where
@@ -248,7 +302,8 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
             asset_id_to_asset_index: &mut labeled.asset.asset_id_to_asset_index,
         })
     }
-    /// Returns the type-erased labeled asset, if it exists and matches this type.
+
+    /// Returns the type-erased labeled asset, if it exists.
     pub fn get_erased_labeled<Q>(&self, label: &Q) -> Option<&ErasedLoadedAsset>
     where
         CowArc<'static, str>: Borrow<Q>,
@@ -258,6 +313,47 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         let labeled = &self.labeled_assets[*index];
         Some(&labeled.asset)
     }
+
+    /// Returns the labeled asset given its asset ID if it exists and matches the type.
+    ///
+    /// This can be used to get the asset from its handle since `&Handle` implements
+    /// [`Into<AssetId<B>>`].
+    pub fn get_labeled_by_id<B: Asset, Q>(
+        &mut self,
+        id: impl Into<AssetId<B>>,
+    ) -> Option<TransformedSubAsset<'_, B>>
+    where
+        CowArc<'static, str>: Borrow<Q>,
+        Q: ?Sized + Hash + Eq,
+    {
+        let index = self.asset_id_to_asset_index.get(&id.into().untyped())?;
+        let labeled = &mut self.labeled_assets[*index];
+        let value = labeled.asset.value.downcast_mut::<B>()?;
+        Some(TransformedSubAsset {
+            value,
+            labeled_assets: &mut labeled.asset.labeled_assets,
+            label_to_asset_index: &mut labeled.asset.label_to_asset_index,
+            asset_id_to_asset_index: &mut labeled.asset.asset_id_to_asset_index,
+        })
+    }
+
+    /// Returns the type-erased labeled asset given its asset ID if it exists.
+    ///
+    /// This can be used to get the asset from its handle since `&UntypedHandle` implements
+    /// [`Into<UntypedAssetId>`].
+    pub fn get_erased_labeled_by_id<Q>(
+        &self,
+        id: impl Into<UntypedAssetId>,
+    ) -> Option<&ErasedLoadedAsset>
+    where
+        CowArc<'static, str>: Borrow<Q>,
+        Q: ?Sized + Hash + Eq,
+    {
+        let index = self.asset_id_to_asset_index.get(&id.into())?;
+        let labeled = &self.labeled_assets[*index];
+        Some(&labeled.asset)
+    }
+
     /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
     pub fn get_untyped_handle<Q>(&self, label: &Q) -> Option<UntypedHandle>
     where
@@ -268,6 +364,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         let labeled = &self.labeled_assets[*index];
         Some(labeled.handle.clone())
     }
+
     /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
     pub fn get_handle<Q, B: Asset>(&self, label: &Q) -> Option<Handle<B>>
     where
@@ -281,6 +378,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         }
         None
     }
+
     /// Adds `asset` as a labeled sub asset using `label` and `handle`
     pub fn insert_labeled(
         &mut self,
