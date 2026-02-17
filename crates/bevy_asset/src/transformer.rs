@@ -1,4 +1,6 @@
-use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
+use crate::{
+    meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedAssetId, UntypedHandle,
+};
 use alloc::{boxed::Box, vec::Vec};
 use atomicow::CowArc;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
@@ -41,6 +43,11 @@ pub struct TransformedAsset<A: Asset> {
     pub(crate) value: A,
     pub(crate) labeled_assets: Vec<LabeledAsset>,
     pub(crate) label_to_asset_index: HashMap<CowArc<'static, str>, usize>,
+    /// The mapping from a subasset asset IDs to their index in [`Self::labeled_assets`].
+    ///
+    /// This is entirely redundant with [`Self::labeled_assets`], but it allows looking up the
+    /// labeled asset by its asset ID.
+    pub(crate) asset_id_to_asset_index: HashMap<UntypedAssetId, usize>,
 }
 
 impl<A: Asset> Deref for TransformedAsset<A> {
@@ -64,6 +71,7 @@ impl<A: Asset> TransformedAsset<A> {
                 value: *value,
                 labeled_assets: asset.labeled_assets,
                 label_to_asset_index: asset.label_to_asset_index,
+                asset_id_to_asset_index: asset.asset_id_to_asset_index,
             });
         }
         None
@@ -74,12 +82,14 @@ impl<A: Asset> TransformedAsset<A> {
             value: asset,
             labeled_assets: self.labeled_assets,
             label_to_asset_index: self.label_to_asset_index,
+            asset_id_to_asset_index: self.asset_id_to_asset_index,
         }
     }
     /// Takes the labeled assets from `labeled_source` and places them in this [`TransformedAsset`]
     pub fn take_labeled_assets<B: Asset>(&mut self, labeled_source: TransformedAsset<B>) {
         self.labeled_assets = labeled_source.labeled_assets;
         self.label_to_asset_index = labeled_source.label_to_asset_index;
+        self.asset_id_to_asset_index = labeled_source.asset_id_to_asset_index;
     }
     /// Retrieves the value of this asset.
     #[inline]
@@ -104,6 +114,7 @@ impl<A: Asset> TransformedAsset<A> {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,
             label_to_asset_index: &mut labeled.asset.label_to_asset_index,
+            asset_id_to_asset_index: &mut labeled.asset.asset_id_to_asset_index,
         })
     }
     /// Returns the type-erased labeled asset, if it exists and matches this type.
@@ -152,10 +163,19 @@ impl<A: Asset> TransformedAsset<A> {
         };
         match self.label_to_asset_index.entry(label.into()) {
             Entry::Occupied(entry) => {
-                self.labeled_assets[*entry.get()] = labeled;
+                let labeled_entry = &mut self.labeled_assets[*entry.get()];
+                if labeled.handle != labeled_entry.handle {
+                    self.asset_id_to_asset_index
+                        .remove(&labeled_entry.handle.id());
+                    self.asset_id_to_asset_index
+                        .insert(labeled.handle.id(), *entry.get());
+                }
+                *labeled_entry = labeled;
             }
             Entry::Vacant(entry) => {
                 entry.insert(self.labeled_assets.len());
+                self.asset_id_to_asset_index
+                    .insert(labeled.handle.id(), self.labeled_assets.len());
                 self.labeled_assets.push(labeled);
             }
         }
@@ -171,6 +191,11 @@ pub struct TransformedSubAsset<'a, A: Asset> {
     value: &'a mut A,
     labeled_assets: &'a mut Vec<LabeledAsset>,
     label_to_asset_index: &'a mut HashMap<CowArc<'static, str>, usize>,
+    /// The mapping from a subasset asset IDs to their index in [`Self::labeled_assets`].
+    ///
+    /// This is entirely redundant with [`Self::labeled_assets`], but it allows looking up the
+    /// labeled asset by its asset ID.
+    asset_id_to_asset_index: &'a mut HashMap<UntypedAssetId, usize>,
 }
 
 impl<'a, A: Asset> Deref for TransformedSubAsset<'a, A> {
@@ -194,6 +219,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
             value,
             labeled_assets: &mut asset.labeled_assets,
             label_to_asset_index: &mut asset.label_to_asset_index,
+            asset_id_to_asset_index: &mut asset.asset_id_to_asset_index,
         })
     }
     /// Retrieves the value of this asset.
@@ -219,6 +245,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,
             label_to_asset_index: &mut labeled.asset.label_to_asset_index,
+            asset_id_to_asset_index: &mut labeled.asset.asset_id_to_asset_index,
         })
     }
     /// Returns the type-erased labeled asset, if it exists and matches this type.
@@ -267,10 +294,19 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         };
         match self.label_to_asset_index.entry(label.into()) {
             Entry::Occupied(entry) => {
-                self.labeled_assets[*entry.get()] = labeled;
+                let labeled_entry = &mut self.labeled_assets[*entry.get()];
+                if labeled.handle != labeled_entry.handle {
+                    self.asset_id_to_asset_index
+                        .remove(&labeled_entry.handle.id());
+                    self.asset_id_to_asset_index
+                        .insert(labeled.handle.id(), *entry.get());
+                }
+                *labeled_entry = labeled;
             }
             Entry::Vacant(entry) => {
                 entry.insert(self.labeled_assets.len());
+                self.asset_id_to_asset_index
+                    .insert(labeled.handle.id(), self.labeled_assets.len());
                 self.labeled_assets.push(labeled);
             }
         }

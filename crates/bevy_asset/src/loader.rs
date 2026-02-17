@@ -145,6 +145,11 @@ pub struct LoadedAsset<A: Asset> {
     pub(crate) labeled_assets: Vec<LabeledAsset>,
     /// The mapping from subasset labels to their index in [`Self::labeled_assets`].
     pub(crate) label_to_asset_index: HashMap<CowArc<'static, str>, usize>,
+    /// The mapping from a subasset asset IDs to their index in [`Self::labeled_assets`].
+    ///
+    /// This is entirely redundant with [`Self::labeled_assets`], but it allows looking up the
+    /// labeled asset by its asset ID.
+    pub(crate) asset_id_to_asset_index: HashMap<UntypedAssetId, usize>,
 }
 
 impl<A: Asset> LoadedAsset<A> {
@@ -163,6 +168,7 @@ impl<A: Asset> LoadedAsset<A> {
             loader_dependencies: HashMap::default(),
             labeled_assets: Default::default(),
             label_to_asset_index: Default::default(),
+            asset_id_to_asset_index: Default::default(),
         }
     }
 
@@ -208,6 +214,11 @@ pub struct ErasedLoadedAsset {
     pub(crate) labeled_assets: Vec<LabeledAsset>,
     /// The mapping from subasset labels to their index in [`Self::labeled_assets`].
     pub(crate) label_to_asset_index: HashMap<CowArc<'static, str>, usize>,
+    /// The mapping from subasset asset IDs to their index in [`Self::labeled_assets`].
+    ///
+    /// This is entirely redundant with [`Self::labeled_assets`], but it allows looking up the
+    /// labeled asset by its asset ID.
+    pub(crate) asset_id_to_asset_index: HashMap<UntypedAssetId, usize>,
 }
 
 impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
@@ -218,6 +229,7 @@ impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
             loader_dependencies: asset.loader_dependencies,
             labeled_assets: asset.labeled_assets,
             label_to_asset_index: asset.label_to_asset_index,
+            asset_id_to_asset_index: asset.asset_id_to_asset_index,
         }
     }
 }
@@ -274,6 +286,7 @@ impl ErasedLoadedAsset {
                 loader_dependencies: self.loader_dependencies,
                 labeled_assets: self.labeled_assets,
                 label_to_asset_index: self.label_to_asset_index,
+                asset_id_to_asset_index: self.asset_id_to_asset_index,
             }),
             Err(value) => {
                 self.value = value;
@@ -349,6 +362,11 @@ pub struct LoadContext<'a> {
     pub(crate) labeled_assets: Vec<LabeledAsset>,
     /// Maps the label of a subasset to the index into [`Self::labeled_assets`].
     pub(crate) label_to_asset_index: HashMap<CowArc<'static, str>, usize>,
+    /// Maps the subasset asset ID to the index into [`Self::labeled_assets`].
+    ///
+    /// This is entirely redundant with [`Self::labeled_assets`], but it allows looking up the
+    /// labeled asset by its asset ID.
+    pub(crate) asset_id_to_asset_index: HashMap<UntypedAssetId, usize>,
 }
 
 impl<'a> LoadContext<'a> {
@@ -368,6 +386,7 @@ impl<'a> LoadContext<'a> {
             loader_dependencies: HashMap::default(),
             labeled_assets: Default::default(),
             label_to_asset_index: Default::default(),
+            asset_id_to_asset_index: Default::default(),
         }
     }
 
@@ -472,10 +491,15 @@ impl<'a> LoadContext<'a> {
                 // TODO: We should probably treat this as an error. It seems unlikely someone wants
                 // to replace a subasset - this is probably accidental.
                 let index = *entry.get();
+                // Note: we don't need to mess with the `asset_id_to_asset_index` here, since we
+                // know the same path to `get_or_create_path_handle` will return the same handle as
+                // long as the handle remains alive, and we hold the handle in `LabeledAsset`.
                 self.labeled_assets[index] = asset;
             }
             Entry::Vacant(entry) => {
                 entry.insert(self.labeled_assets.len());
+                self.asset_id_to_asset_index
+                    .insert(handle.id().untyped(), self.labeled_assets.len());
                 self.labeled_assets.push(asset);
             }
         }
@@ -513,6 +537,7 @@ impl<'a> LoadContext<'a> {
             loader_dependencies: self.loader_dependencies,
             labeled_assets: self.labeled_assets,
             label_to_asset_index: self.label_to_asset_index,
+            asset_id_to_asset_index: self.asset_id_to_asset_index,
         }
     }
 
