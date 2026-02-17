@@ -4,7 +4,7 @@ use crate::{
 };
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::HashMap;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::TypeIdMap;
 use core::any::TypeId;
@@ -256,8 +256,8 @@ impl AssetLoaders {
                     "Multiple AssetLoaders found for Asset: {:?}; Path: {:?}; Extension: {:?}",
                     type_id, asset_path, extension
                 );
-                return self.get_by_index(first_candidate_index);
             }
+            return self.get_by_index(first_candidate_index);
         }
 
         // Fallback if no resolution step was conclusive
