@@ -5,10 +5,10 @@ use crate::{
     Asset, AssetContainer, AssetLoader, AssetPath, AssetServer, ErasedLoadedAsset, Handle,
     LabeledAsset, UntypedHandle,
 };
-use alloc::{boxed::Box, string::ToString, sync::Arc};
+use alloc::{boxed::Box, string::ToString, sync::Arc, vec::Vec};
 use atomicow::CowArc;
 use bevy_ecs::error::BevyError;
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::{any::TypeId, borrow::Borrow, ops::Deref};
@@ -90,7 +90,8 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
 #[derive(Clone)]
 pub struct SavedAsset<'a, 'b, A: Asset> {
     value: &'a A,
-    labeled_assets: Moo<'b, HashMap<CowArc<'a, str>, LabeledSavedAsset<'a>>>,
+    labeled_assets: Moo<'b, Vec<LabeledSavedAsset<'a>>>,
+    label_to_asset_index: Moo<'b, HashMap<CowArc<'a, str>, usize>>,
 }
 
 impl<A: Asset> Deref for SavedAsset<'_, '_, A> {
@@ -104,29 +105,33 @@ impl<A: Asset> Deref for SavedAsset<'_, '_, A> {
 impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
     fn from_value_and_labeled_saved_assets(
         value: &'a A,
-        labeled_saved_assets: &'b HashMap<CowArc<'a, str>, LabeledSavedAsset<'a>>,
+        labeled_saved_assets: &'b Vec<LabeledSavedAsset<'a>>,
+        label_to_asset_index: &'b HashMap<CowArc<'a, str>, usize>,
     ) -> Self {
         Self {
             value,
             labeled_assets: Moo::Borrowed(labeled_saved_assets),
+            label_to_asset_index: Moo::Borrowed(label_to_asset_index),
         }
     }
 
     fn from_value_and_labeled_assets(
         value: &'a A,
-        labeled_assets: &'a HashMap<CowArc<'static, str>, LabeledAsset>,
+        labeled_assets: &'a [LabeledAsset],
+        label_to_asset_index: &'a HashMap<CowArc<'static, str>, usize>,
     ) -> Self {
         Self {
             value,
             labeled_assets: Moo::Owned(
                 labeled_assets
                     .iter()
-                    .map(|(label, labeled_asset)| {
-                        (
-                            CowArc::Borrowed(label.borrow()),
-                            LabeledSavedAsset::from_labeled_asset(labeled_asset),
-                        )
-                    })
+                    .map(LabeledSavedAsset::from_labeled_asset)
+                    .collect(),
+            ),
+            label_to_asset_index: Moo::Owned(
+                label_to_asset_index
+                    .iter()
+                    .map(|(label, &index)| (CowArc::Borrowed(label.borrow()), index))
                     .collect(),
             ),
         }
@@ -138,19 +143,25 @@ impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
         Some(Self::from_value_and_labeled_assets(
             value,
             &asset.labeled_assets,
+            &asset.label_to_asset_index,
         ))
     }
 
     /// Creates a new [`SavedAsset`] from the a [`TransformedAsset`]
     pub fn from_transformed(asset: &'a TransformedAsset<A>) -> Self {
-        Self::from_value_and_labeled_assets(&asset.value, &asset.labeled_assets)
+        Self::from_value_and_labeled_assets(
+            &asset.value,
+            &asset.labeled_assets,
+            &asset.label_to_asset_index,
+        )
     }
 
     /// Creates a new [`SavedAsset`] holding only the provided value with no labeled assets.
     pub fn from_asset(value: &'a A) -> Self {
         Self {
             value,
-            labeled_assets: Moo::Owned(HashMap::default()),
+            labeled_assets: Moo::Owned(Vec::default()),
+            label_to_asset_index: Moo::Owned(HashMap::default()),
         }
     }
 
@@ -162,6 +173,7 @@ impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
         ErasedSavedAsset {
             value: self.value,
             labeled_assets: self.labeled_assets,
+            label_to_asset_index: self.label_to_asset_index,
         }
     }
 
@@ -173,25 +185,29 @@ impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
 
     /// Returns the labeled asset, if it exists and matches this type.
     pub fn get_labeled<B: Asset>(&self, label: impl AsRef<str>) -> Option<SavedAsset<'a, '_, B>> {
-        let labeled = self.labeled_assets.get(label.as_ref())?;
+        let index = self.label_to_asset_index.get(label.as_ref())?;
+        let labeled = &self.labeled_assets[*index];
         labeled.asset.downcast()
     }
 
     /// Returns the type-erased labeled asset, if it exists and matches this type.
     pub fn get_erased_labeled(&self, label: impl AsRef<str>) -> Option<&ErasedSavedAsset<'a, '_>> {
-        let labeled = self.labeled_assets.get(label.as_ref())?;
+        let index = self.label_to_asset_index.get(label.as_ref())?;
+        let labeled = &self.labeled_assets[*index];
         Some(&labeled.asset)
     }
 
     /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
     pub fn get_untyped_handle(&self, label: impl AsRef<str>) -> Option<UntypedHandle> {
-        let labeled = self.labeled_assets.get(label.as_ref())?;
+        let index = self.label_to_asset_index.get(label.as_ref())?;
+        let labeled = &self.labeled_assets[*index];
         Some(labeled.handle.clone())
     }
 
     /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
     pub fn get_handle<B: Asset>(&self, label: impl AsRef<str>) -> Option<Handle<B>> {
-        let labeled = self.labeled_assets.get(label.as_ref())?;
+        let index = self.label_to_asset_index.get(label.as_ref())?;
+        let labeled = &self.labeled_assets[*index];
         if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
             return Some(handle);
         }
@@ -200,14 +216,15 @@ impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
 
     /// Iterate over all labels for "labeled assets" in the loaded asset
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
-        self.labeled_assets.keys().map(|s| &**s)
+        self.label_to_asset_index.keys().map(|s| &**s)
     }
 }
 
 #[derive(Clone)]
 pub struct ErasedSavedAsset<'a: 'b, 'b> {
     value: &'a dyn AssetContainer,
-    labeled_assets: Moo<'b, HashMap<CowArc<'a, str>, LabeledSavedAsset<'a>>>,
+    labeled_assets: Moo<'b, Vec<LabeledSavedAsset<'a>>>,
+    label_to_asset_index: Moo<'b, HashMap<CowArc<'a, str>, usize>>,
 }
 
 impl<'a> ErasedSavedAsset<'a, '_> {
@@ -218,12 +235,14 @@ impl<'a> ErasedSavedAsset<'a, '_> {
                 asset
                     .labeled_assets
                     .iter()
-                    .map(|(label, asset)| {
-                        (
-                            CowArc::Borrowed(label.borrow()),
-                            LabeledSavedAsset::from_labeled_asset(asset),
-                        )
-                    })
+                    .map(LabeledSavedAsset::from_labeled_asset)
+                    .collect(),
+            ),
+            label_to_asset_index: Moo::Owned(
+                asset
+                    .label_to_asset_index
+                    .iter()
+                    .map(|(label, &index)| (CowArc::Borrowed(label.borrow()), index))
                     .collect(),
             ),
         }
@@ -239,6 +258,7 @@ impl<'a> ErasedSavedAsset<'a, '_> {
         Some(SavedAsset::from_value_and_labeled_saved_assets(
             value,
             &self.labeled_assets,
+            &self.label_to_asset_index,
         ))
     }
 }
@@ -268,7 +288,9 @@ impl<'a> LabeledSavedAsset<'a> {
 /// This is commonly used in tandem with [`save_using_saver`].
 pub struct SavedAssetBuilder<'a> {
     /// The labeled assets for this saved asset.
-    labeled_assets: HashMap<CowArc<'a, str>, LabeledSavedAsset<'a>>,
+    labeled_assets: Vec<LabeledSavedAsset<'a>>,
+    /// Maps the labels of subassets to their index in [`Self::labeled_assets`].
+    label_to_asset_index: HashMap<CowArc<'a, str>, usize>,
     /// The asset path (with no label) that this saved asset is "tied" to.
     ///
     /// All labeled assets will use this asset path (with their substituted labels). Note labeled
@@ -288,6 +310,7 @@ impl<'a> SavedAssetBuilder<'a> {
             asset_server,
             asset_path,
             labeled_assets: Default::default(),
+            label_to_asset_index: Default::default(),
         }
     }
 
@@ -379,8 +402,16 @@ impl<'a> SavedAssetBuilder<'a> {
         handle: UntypedHandle,
     ) {
         // TODO: Check asset and handle have the same type.
-        self.labeled_assets
-            .insert(label.into(), LabeledSavedAsset { asset, handle });
+        let labeled = LabeledSavedAsset { asset, handle };
+        match self.label_to_asset_index.entry(label.into()) {
+            Entry::Occupied(entry) => {
+                self.labeled_assets[*entry.get()] = labeled;
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(self.labeled_assets.len());
+                self.labeled_assets.push(labeled);
+            }
+        }
     }
 
     /// Creates the final saved asset from this builder.
@@ -391,6 +422,7 @@ impl<'a> SavedAssetBuilder<'a> {
         SavedAsset {
             value: asset,
             labeled_assets: Moo::Owned(self.labeled_assets),
+            label_to_asset_index: Moo::Owned(self.label_to_asset_index),
         }
     }
 }
@@ -568,7 +600,7 @@ pub(crate) mod tests {
 
         let saved_asset = saved_asset_builder.build(&main_asset);
         let mut asset_labels = saved_asset
-            .labeled_assets
+            .label_to_asset_index
             .keys()
             .map(|label| label.as_ref().to_string())
             .collect::<Vec<_>>();
@@ -658,7 +690,7 @@ pub(crate) mod tests {
 
         let saved_asset = saved_asset_builder.build(cool_texts.get(&cool_text_handle).unwrap());
         let mut asset_labels = saved_asset
-            .labeled_assets
+            .label_to_asset_index
             .keys()
             .map(|label| label.as_ref().to_string())
             .collect::<Vec<_>>();

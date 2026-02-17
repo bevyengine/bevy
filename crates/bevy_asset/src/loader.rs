@@ -9,7 +9,7 @@ use crate::{
 use alloc::{boxed::Box, string::ToString, vec::Vec};
 use atomicow::CowArc;
 use bevy_ecs::{error::BevyError, world::World};
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::any::{Any, TypeId};
@@ -141,7 +141,10 @@ pub struct LoadedAsset<A: Asset> {
     pub(crate) value: A,
     pub(crate) dependencies: HashSet<ErasedAssetIndex>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
-    pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
+    /// The subassets of this asset.
+    pub(crate) labeled_assets: Vec<LabeledAsset>,
+    /// The mapping from subasset labels to their index in [`Self::labeled_assets`].
+    pub(crate) label_to_asset_index: HashMap<CowArc<'static, str>, usize>,
 }
 
 impl<A: Asset> LoadedAsset<A> {
@@ -158,7 +161,8 @@ impl<A: Asset> LoadedAsset<A> {
             value,
             dependencies,
             loader_dependencies: HashMap::default(),
-            labeled_assets: HashMap::default(),
+            labeled_assets: Default::default(),
+            label_to_asset_index: Default::default(),
         }
     }
 
@@ -177,12 +181,15 @@ impl<A: Asset> LoadedAsset<A> {
         &self,
         label: impl Into<CowArc<'static, str>>,
     ) -> Option<&ErasedLoadedAsset> {
-        self.labeled_assets.get(&label.into()).map(|a| &a.asset)
+        self.label_to_asset_index
+            .get(&label.into())
+            .map(|index| self.labeled_assets.get(*index).unwrap())
+            .map(|a| &a.asset)
     }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
-        self.labeled_assets.keys().map(|s| &**s)
+        self.label_to_asset_index.keys().map(|s| &**s)
     }
 }
 
@@ -197,7 +204,10 @@ pub struct ErasedLoadedAsset {
     pub(crate) value: Box<dyn AssetContainer>,
     pub(crate) dependencies: HashSet<ErasedAssetIndex>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
-    pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
+    /// The subassets of this asset.
+    pub(crate) labeled_assets: Vec<LabeledAsset>,
+    /// The mapping from subasset labels to their index in [`Self::labeled_assets`].
+    pub(crate) label_to_asset_index: HashMap<CowArc<'static, str>, usize>,
 }
 
 impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
@@ -207,6 +217,7 @@ impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
             dependencies: asset.dependencies,
             loader_dependencies: asset.loader_dependencies,
             labeled_assets: asset.labeled_assets,
+            label_to_asset_index: asset.label_to_asset_index,
         }
     }
 }
@@ -238,16 +249,23 @@ impl ErasedLoadedAsset {
         &self,
         label: impl Into<CowArc<'static, str>>,
     ) -> Option<&ErasedLoadedAsset> {
-        self.labeled_assets.get(&label.into()).map(|a| &a.asset)
+        self.label_to_asset_index
+            .get(&label.into())
+            .map(|index| self.labeled_assets.get(*index).unwrap())
+            .map(|a| &a.asset)
     }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
-        self.labeled_assets.keys().map(|s| &**s)
+        self.label_to_asset_index.keys().map(|s| &**s)
     }
 
     /// Cast this loaded asset as the given type. If the type does not match,
     /// the original type-erased asset is returned.
+    #[expect(
+        clippy::result_large_err,
+        reason = "Returning the passed in ErasedLoadedAsset"
+    )]
     pub fn downcast<A: Asset>(mut self) -> Result<LoadedAsset<A>, ErasedLoadedAsset> {
         match self.value.downcast::<A>() {
             Ok(value) => Ok(LoadedAsset {
@@ -255,6 +273,7 @@ impl ErasedLoadedAsset {
                 dependencies: self.dependencies,
                 loader_dependencies: self.loader_dependencies,
                 labeled_assets: self.labeled_assets,
+                label_to_asset_index: self.label_to_asset_index,
             }),
             Err(value) => {
                 self.value = value;
@@ -326,7 +345,10 @@ pub struct LoadContext<'a> {
     pub(crate) dependencies: HashSet<ErasedAssetIndex>,
     /// Direct dependencies used by this loader.
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
-    pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
+    /// Stores the subassets added to this context.
+    pub(crate) labeled_assets: Vec<LabeledAsset>,
+    /// Maps the label of a subasset to the index into [`Self::labeled_assets`].
+    pub(crate) label_to_asset_index: HashMap<CowArc<'static, str>, usize>,
 }
 
 impl<'a> LoadContext<'a> {
@@ -344,7 +366,8 @@ impl<'a> LoadContext<'a> {
             should_load_dependencies,
             dependencies: HashSet::default(),
             loader_dependencies: HashMap::default(),
-            labeled_assets: HashMap::default(),
+            labeled_assets: Default::default(),
+            label_to_asset_index: Default::default(),
         }
     }
 
@@ -440,13 +463,22 @@ impl<'a> LoadContext<'a> {
         let handle = self
             .asset_server
             .get_or_create_path_handle(labeled_path, None);
-        self.labeled_assets.insert(
-            label,
-            LabeledAsset {
-                asset: loaded_asset,
-                handle: handle.clone().untyped(),
-            },
-        );
+        let asset = LabeledAsset {
+            asset: loaded_asset,
+            handle: handle.clone().untyped(),
+        };
+        match self.label_to_asset_index.entry(label) {
+            Entry::Occupied(entry) => {
+                // TODO: We should probably treat this as an error. It seems unlikely someone wants
+                // to replace a subasset - this is probably accidental.
+                let index = *entry.get();
+                self.labeled_assets[index] = asset;
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(self.labeled_assets.len());
+                self.labeled_assets.push(asset);
+            }
+        }
         handle
     }
 
@@ -480,6 +512,7 @@ impl<'a> LoadContext<'a> {
             dependencies: self.dependencies,
             loader_dependencies: self.loader_dependencies,
             labeled_assets: self.labeled_assets,
+            label_to_asset_index: self.label_to_asset_index,
         }
     }
 

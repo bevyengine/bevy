@@ -1,7 +1,7 @@
 use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec::Vec};
 use atomicow::CowArc;
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::TypePath;
 use bevy_tasks::ConditionalSendFuture;
 use core::{
@@ -39,7 +39,8 @@ pub trait AssetTransformer: TypePath + Send + Sync + 'static {
 /// An [`Asset`] (and any "sub assets") intended to be transformed
 pub struct TransformedAsset<A: Asset> {
     pub(crate) value: A,
-    pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
+    pub(crate) labeled_assets: Vec<LabeledAsset>,
+    pub(crate) label_to_asset_index: HashMap<CowArc<'static, str>, usize>,
 }
 
 impl<A: Asset> Deref for TransformedAsset<A> {
@@ -62,6 +63,7 @@ impl<A: Asset> TransformedAsset<A> {
             return Some(TransformedAsset {
                 value: *value,
                 labeled_assets: asset.labeled_assets,
+                label_to_asset_index: asset.label_to_asset_index,
             });
         }
         None
@@ -71,11 +73,13 @@ impl<A: Asset> TransformedAsset<A> {
         TransformedAsset {
             value: asset,
             labeled_assets: self.labeled_assets,
+            label_to_asset_index: self.label_to_asset_index,
         }
     }
     /// Takes the labeled assets from `labeled_source` and places them in this [`TransformedAsset`]
     pub fn take_labeled_assets<B: Asset>(&mut self, labeled_source: TransformedAsset<B>) {
         self.labeled_assets = labeled_source.labeled_assets;
+        self.label_to_asset_index = labeled_source.label_to_asset_index;
     }
     /// Retrieves the value of this asset.
     #[inline]
@@ -93,11 +97,13 @@ impl<A: Asset> TransformedAsset<A> {
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get_mut(label)?;
+        let index = self.label_to_asset_index.get(label)?;
+        let labeled = &mut self.labeled_assets[*index];
         let value = labeled.asset.value.downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,
+            label_to_asset_index: &mut labeled.asset.label_to_asset_index,
         })
     }
     /// Returns the type-erased labeled asset, if it exists and matches this type.
@@ -106,7 +112,8 @@ impl<A: Asset> TransformedAsset<A> {
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
+        let index = self.label_to_asset_index.get(label)?;
+        let labeled = &self.labeled_assets[*index];
         Some(&labeled.asset)
     }
     /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
@@ -115,7 +122,8 @@ impl<A: Asset> TransformedAsset<A> {
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
+        let index = self.label_to_asset_index.get(label)?;
+        let labeled = &self.labeled_assets[*index];
         Some(labeled.handle.clone())
     }
     /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
@@ -124,7 +132,8 @@ impl<A: Asset> TransformedAsset<A> {
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
+        let index = self.label_to_asset_index.get(label)?;
+        let labeled = &self.labeled_assets[*index];
         if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
             return Some(handle);
         }
@@ -141,18 +150,27 @@ impl<A: Asset> TransformedAsset<A> {
             asset: asset.into(),
             handle: handle.into(),
         };
-        self.labeled_assets.insert(label.into(), labeled);
+        match self.label_to_asset_index.entry(label.into()) {
+            Entry::Occupied(entry) => {
+                self.labeled_assets[*entry.get()] = labeled;
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(self.labeled_assets.len());
+                self.labeled_assets.push(labeled);
+            }
+        }
     }
     /// Iterate over all labels for "labeled assets" in the loaded asset
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
-        self.labeled_assets.keys().map(|s| &**s)
+        self.label_to_asset_index.keys().map(|s| &**s)
     }
 }
 
 /// A labeled sub-asset of [`TransformedAsset`]
 pub struct TransformedSubAsset<'a, A: Asset> {
     value: &'a mut A,
-    labeled_assets: &'a mut HashMap<CowArc<'static, str>, LabeledAsset>,
+    labeled_assets: &'a mut Vec<LabeledAsset>,
+    label_to_asset_index: &'a mut HashMap<CowArc<'static, str>, usize>,
 }
 
 impl<'a, A: Asset> Deref for TransformedSubAsset<'a, A> {
@@ -175,6 +193,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut asset.labeled_assets,
+            label_to_asset_index: &mut asset.label_to_asset_index,
         })
     }
     /// Retrieves the value of this asset.
@@ -193,11 +212,13 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get_mut(label)?;
+        let index = self.label_to_asset_index.get(label)?;
+        let labeled = &mut self.labeled_assets[*index];
         let value = labeled.asset.value.downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,
+            label_to_asset_index: &mut labeled.asset.label_to_asset_index,
         })
     }
     /// Returns the type-erased labeled asset, if it exists and matches this type.
@@ -206,7 +227,8 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
+        let index = self.label_to_asset_index.get(label)?;
+        let labeled = &self.labeled_assets[*index];
         Some(&labeled.asset)
     }
     /// Returns the [`UntypedHandle`] of the labeled asset with the provided 'label', if it exists.
@@ -215,7 +237,8 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
+        let index = self.label_to_asset_index.get(label)?;
+        let labeled = &self.labeled_assets[*index];
         Some(labeled.handle.clone())
     }
     /// Returns the [`Handle`] of the labeled asset with the provided 'label', if it exists and is an asset of type `B`
@@ -224,7 +247,8 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
-        let labeled = self.labeled_assets.get(label)?;
+        let index = self.label_to_asset_index.get(label)?;
+        let labeled = &self.labeled_assets[*index];
         if let Ok(handle) = labeled.handle.clone().try_typed::<B>() {
             return Some(handle);
         }
@@ -241,11 +265,19 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
             asset: asset.into(),
             handle: handle.into(),
         };
-        self.labeled_assets.insert(label.into(), labeled);
+        match self.label_to_asset_index.entry(label.into()) {
+            Entry::Occupied(entry) => {
+                self.labeled_assets[*entry.get()] = labeled;
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(self.labeled_assets.len());
+                self.labeled_assets.push(labeled);
+            }
+        }
     }
     /// Iterate over all labels for "labeled assets" in the loaded asset
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
-        self.labeled_assets.keys().map(|s| &**s)
+        self.label_to_asset_index.keys().map(|s| &**s)
     }
 }
 
