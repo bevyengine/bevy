@@ -186,7 +186,7 @@ impl Plugin for DlssPlugin {
                     prepare::prepare_dlss::<DlssSuperResolutionFeature>,
                     prepare::prepare_dlss::<DlssRayReconstructionFeature>,
                 )
-                    .in_set(RenderSystems::ManageViews)
+                    .in_set(RenderSystems::PrepareViews)
                     .before(prepare_view_targets),
             );
 

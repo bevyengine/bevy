@@ -59,13 +59,14 @@ impl Plugin for BatchingPlugin {
                 self.debug_flags
                     .contains(RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS),
             ))
+            .allow_ambiguous_resource::<IndirectParametersBuffers>()
             .add_systems(
                 Render,
                 write_indirect_parameters_buffers.in_set(RenderSystems::PrepareResourcesFlush),
             )
             .add_systems(
                 Render,
-                clear_indirect_parameters_buffers.in_set(RenderSystems::ManageViews),
+                clear_indirect_parameters_buffers.in_set(RenderSystems::PrepareViews),
             );
     }
 
