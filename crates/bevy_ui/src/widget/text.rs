@@ -19,8 +19,8 @@ use bevy_log::warn_once;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, FontHinting, LineBreak, LineHeight,
-    RemSize, SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak, LineHeight,
+    RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
     TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
@@ -254,7 +254,8 @@ pub fn measure_text_system(
     >,
     mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut font_system: ResMut<CosmicFontSystem>,
+    mut font_system: ResMut<FontCx>,
+    mut layout_cx: ResMut<LayoutCx>,
     rem_size: Res<RemSize>,
 ) {
     for (
@@ -288,6 +289,7 @@ pub fn measure_text_system(
             &block,
             computed.as_mut(),
             &mut font_system,
+            &mut layout_cx,
             *hinting,
             computed_target.logical_size(),
             rem_size.0,
@@ -303,7 +305,11 @@ pub fn measure_text_system(
                 text_flags.needs_measure_fn = false;
                 text_flags.needs_recompute = true;
             }
-            Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
+            Err(
+                TextError::NoSuchFont
+                | TextError::NoSuchFontFamily(_)
+                | TextError::DegenerateScaleFactor,
+            ) => {
                 // Try again next frame
                 text_flags.needs_measure_fn = true;
             }
@@ -339,11 +345,13 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
+        &FontHinting,
     )>,
-    mut font_system: ResMut<CosmicFontSystem>,
-    mut swash_cache: ResMut<SwashCache>,
+    mut scale_cx: ResMut<ScaleCx>,
 ) {
-    for (node, block, mut text_layout_info, mut text_flags, mut computed) in &mut text_query {
+    for (node, block, mut text_layout_info, mut text_flags, mut computed, hinting) in
+        &mut text_query
+    {
         if node.is_changed() || text_flags.needs_recompute {
             // Skip the text node if it is waiting for a new measure func
             if text_flags.needs_measure_fn {
@@ -364,17 +372,21 @@ pub fn text_system(
                 &mut texture_atlases,
                 &mut textures,
                 &mut computed,
-                &mut font_system,
-                &mut swash_cache,
+                &mut scale_cx,
                 physical_node_size,
                 block.justify,
+                *hinting,
             ) {
-                Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
+                Err(
+                    TextError::NoSuchFont
+                    | TextError::NoSuchFontFamily(_)
+                    | TextError::DegenerateScaleFactor,
+                ) => {
                     // There was an error processing the text layout, try again next frame
                     text_flags.needs_recompute = true;
                 }
-                Err(e @ TextError::FailedToGetGlyphImage(key)) => {
-                    warn_once!("{e}. Face: {:?}", font_system.get_face_details(key.font_id));
+                Err(e @ TextError::FailedToGetGlyphImage(_)) => {
+                    warn_once!("{e}.");
                     text_flags.needs_recompute = false;
                     text_layout_info.clear();
                 }

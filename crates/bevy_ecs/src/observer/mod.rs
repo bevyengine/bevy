@@ -253,7 +253,7 @@ mod tests {
         error::Result,
         event::{EntityComponentsTrigger, Event, GlobalTrigger},
         hierarchy::ChildOf,
-        observer::{Observer, Replace},
+        observer::{Discard, Observer},
         prelude::*,
         world::DeferredWorld,
     };
@@ -304,15 +304,15 @@ mod tests {
 
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
         assert_eq!(
-            vec!["add", "insert", "replace", "remove"],
+            vec!["add", "insert", "discard", "remove"],
             world.resource::<Order>().0
         );
     }
@@ -324,8 +324,8 @@ mod tests {
 
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
@@ -334,7 +334,7 @@ mod tests {
         entity.remove::<A>();
         entity.flush();
         assert_eq!(
-            vec!["add", "insert", "replace", "remove"],
+            vec!["add", "insert", "discard", "remove"],
             world.resource::<Order>().0
         );
     }
@@ -346,8 +346,8 @@ mod tests {
 
         world.add_observer(|_: On<Add, S>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, S>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, S>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, S>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, S>, mut res: ResMut<Order>| res.observed("remove"));
 
@@ -356,7 +356,7 @@ mod tests {
         entity.remove::<S>();
         entity.flush();
         assert_eq!(
-            vec!["add", "insert", "replace", "remove"],
+            vec!["add", "insert", "discard", "remove"],
             world.resource::<Order>().0
         );
     }
@@ -370,15 +370,15 @@ mod tests {
 
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
         world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Replace, A>, mut res: ResMut<Order>| {
-            res.observed("replace");
+        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+            res.observed("discard");
         });
         world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         let mut entity = world.entity_mut(entity);
         entity.insert(A);
         entity.flush();
-        assert_eq!(vec!["replace", "insert"], world.resource::<Order>().0);
+        assert_eq!(vec!["discard", "insert"], world.resource::<Order>().0);
     }
 
     #[test]
@@ -1353,7 +1353,7 @@ mod tests {
 
         world.add_observer(observer::<Add>);
         world.add_observer(observer::<Insert>);
-        world.add_observer(observer::<Replace>);
+        world.add_observer(observer::<Discard>);
         world.add_observer(observer::<Remove>);
         world.add_observer(observer::<Despawn>);
 
@@ -1368,14 +1368,14 @@ mod tests {
             &[
                 ("bevy_ecs::lifecycle::Add", None, Some(ab)),
                 ("bevy_ecs::lifecycle::Insert", None, Some(ab)),
-                ("bevy_ecs::lifecycle::Replace", Some(ab), Some(empty)),
+                ("bevy_ecs::lifecycle::Discard", Some(ab), Some(empty)),
                 ("bevy_ecs::lifecycle::Remove", Some(ab), Some(empty)),
                 ("bevy_ecs::lifecycle::Add", Some(empty), Some(a)),
                 ("bevy_ecs::lifecycle::Insert", Some(empty), Some(a)),
-                ("bevy_ecs::lifecycle::Replace", Some(a), Some(a)),
+                ("bevy_ecs::lifecycle::Discard", Some(a), Some(a)),
                 ("bevy_ecs::lifecycle::Insert", Some(a), Some(a)),
                 ("bevy_ecs::lifecycle::Despawn", Some(a), None),
-                ("bevy_ecs::lifecycle::Replace", Some(a), None),
+                ("bevy_ecs::lifecycle::Discard", Some(a), None),
                 ("bevy_ecs::lifecycle::Remove", Some(a), None),
             ],
         );
