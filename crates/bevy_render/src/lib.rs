@@ -85,7 +85,7 @@ use crate::{
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::PipelineCache,
-    renderer::{render_system, RenderAdapterInfo},
+    renderer::{render_system, RenderAdapterInfo, RenderGraph},
     settings::RenderCreation,
     storage::StoragePlugin,
     texture::TexturePlugin,
@@ -177,8 +177,10 @@ pub enum RenderSystems {
     Prepare,
     /// A sub-set within [`Prepare`](RenderSystems::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
-    /// Collect phase buffers after
-    /// [`PrepareResources`](RenderSystems::PrepareResources) has run.
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) that creates batches for render phases.
+    PrepareResourcesBatchPhases,
+    /// A sub-set within [`Prepare`](RenderSystems::Prepare) to collect phase buffers after
+    /// [`PrepareResourcesBatchPhases`](RenderSystems::PrepareResourcesBatchPhases) has run.
     PrepareResourcesCollectPhaseBuffers,
     /// Flush buffers after [`PrepareResources`](RenderSystems::PrepareResources), but before [`PrepareBindGroups`](RenderSystems::PrepareBindGroups).
     PrepareResourcesFlush,
@@ -249,6 +251,7 @@ impl Render {
         schedule.configure_sets(
             (
                 PrepareResources,
+                PrepareResourcesBatchPhases,
                 PrepareResourcesCollectPhaseBuffers,
                 PrepareResourcesFlush,
                 PrepareBindGroups,
@@ -302,12 +305,16 @@ impl Plugin for RenderPlugin {
             diagnostic::RenderDiagnosticsPlugin,
         ));
 
+        let (sender, receiver) = bevy_time::create_time_channels();
+        app.insert_resource(receiver);
+
         let asset_server = app.world().resource::<AssetServer>().clone();
         app.init_resource::<RenderAssetBytesPerFrame>()
             .init_resource::<RenderErrorHandler>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
             render_app.init_resource::<renderer::PendingCommandBuffers>();
+            render_app.insert_resource(sender);
             render_app.insert_resource(asset_server);
             render_app.insert_resource(RenderState::Initializing);
             render_app.add_systems(
@@ -317,6 +324,8 @@ impl Plugin for RenderPlugin {
                     PipelineCache::extract_shaders,
                 ),
             );
+
+            render_app.add_schedule(RenderGraph::base_schedule());
 
             render_app.init_schedule(RenderStartup);
             render_app.update_schedule = Some(RenderRecovery.intern());
