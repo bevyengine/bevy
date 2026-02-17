@@ -295,7 +295,9 @@ impl Plugin for MaterialsPlugin {
                 .init_resource::<SpecializedShadowMaterialPipelineCache>()
                 .init_resource::<DrawFunctions<Shadow>>()
                 .init_resource::<RenderMaterialInstances>()
+                .allow_ambiguous_resource::<RenderMaterialInstances>()
                 .init_resource::<MaterialBindGroupAllocators>()
+                .allow_ambiguous_resource::<MaterialBindGroupAllocators>()
                 .add_render_command::<Shadow, DrawPrepass>()
                 .add_render_command::<Shadow, DrawDepthOnlyPrepass>()
                 .add_render_command::<Transparent3d, DrawMaterial>()
@@ -306,7 +308,7 @@ impl Plugin for MaterialsPlugin {
                     Render,
                     (
                         specialize_material_meshes
-                            .in_set(RenderSystems::PrepareMeshes)
+                            .in_set(RenderSystems::Specialize)
                             .after(prepare_assets::<RenderMesh>)
                             .after(collect_meshes_for_gpu_building)
                             .after(set_mesh_motion_vector_flags),
@@ -327,9 +329,9 @@ impl Plugin for MaterialsPlugin {
                     (
                         check_views_lights_need_specialization.in_set(RenderSystems::PrepareAssets),
                         // specialize_shadows also needs to run after prepare_assets::<PreparedMaterial>,
-                        // which is fine since ManageViews is after PrepareAssets
+                        // which is fine since PrepareViews is after PrepareAssets
                         specialize_shadows
-                            .in_set(RenderSystems::ManageViews)
+                            .in_set(RenderSystems::Specialize)
                             .after(prepare_lights),
                         queue_shadows.in_set(RenderSystems::QueueMeshes),
                     ),
@@ -395,8 +397,11 @@ where
                         // `sweep_entities_needing_specialization` for an
                         // explanation of why the systems are ordered this way.
                         extract_entities_needs_specialization::<M>
-                            .in_set(MaterialExtractEntitiesNeedingSpecializationSystems),
+                            .in_set(MaterialExtractEntitiesNeedingSpecializationSystems)
+                            .ambiguous_with(MaterialExtractEntitiesNeedingSpecializationSystems),
                         sweep_entities_needing_specialization::<M>
+                            .in_set(MaterialSweepEntitiesNeedingSpecializationSystems)
+                            .ambiguous_with(MaterialSweepEntitiesNeedingSpecializationSystems)
                             .after(MaterialExtractEntitiesNeedingSpecializationSystems)
                             .after(MaterialExtractionSystems)
                             .after(extract_cameras)
@@ -614,6 +619,11 @@ pub struct MaterialExtractionSystems;
 /// systems.
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct MaterialExtractEntitiesNeedingSpecializationSystems;
+
+/// A [`SystemSet`] that contains all `sweep_entities_needing_specialization`
+/// systems.
+#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct MaterialSweepEntitiesNeedingSpecializationSystems;
 
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {

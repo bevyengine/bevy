@@ -114,17 +114,17 @@ impl Plugin for ViewPlugin {
                 (
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .before(create_surfaces),
                     cleanup_view_targets_for_resize
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .before(create_surfaces),
                     prepare_view_attachments
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .before(prepare_view_targets)
                         .after(prepare_windows),
                     prepare_view_targets
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .after(prepare_windows)
                         .after(crate::render_asset::prepare_assets::<GpuImage>)
                         .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`

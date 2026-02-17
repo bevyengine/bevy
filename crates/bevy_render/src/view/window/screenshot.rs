@@ -434,7 +434,7 @@ impl Plugin for ScreenshotPlugin {
                 prepare_screenshots
                     .after(prepare_view_attachments)
                     .before(prepare_view_targets)
-                    .in_set(RenderSystems::ManageViews),
+                    .in_set(RenderSystems::PrepareViews),
             );
     }
 }
