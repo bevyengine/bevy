@@ -33,6 +33,7 @@ members = [
   # Examples of large bevy scenes.
   "examples/large_scenes/bistro",
   "examples/large_scenes/caldera_hotel",
+  "examples/large_scenes/bevy_city",
   # Mipmap generator for testing large bevy scenes with mips and texture compression.
   "examples/large_scenes/mipmap_generator",
   # Benchmarks
@@ -179,7 +180,7 @@ audio = ["bevy_audio", "vorbis"]
 scene = ["bevy_scene"]
 
 # COLLECTION: Enables picking functionality.
-picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
+picking = ["mesh_picking", "sprite_picking", "ui_picking"]
 
 # COLLECTION: The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc).
 default_app = [
@@ -323,9 +324,6 @@ bevy_gltf = ["bevy_internal/bevy_gltf"]
 
 # Adds PBR rendering
 bevy_pbr = ["bevy_internal/bevy_pbr"]
-
-# Provides picking functionality
-bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]
@@ -758,7 +756,7 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.23"
+accesskit = "0.24"
 nonmax = "0.5"
 gltf = "1.4"
 
@@ -2036,7 +2034,7 @@ wasm = false
 name = "asset_saving"
 path = "examples/asset/asset_saving.rs"
 doc-scrape-examples = true
-required-features = ["bevy_picking", "sprite_picking"]
+required-features = ["ui_picking", "sprite_picking"]
 
 [package.metadata.example.asset_saving]
 name = "Asset Saving"
@@ -3516,6 +3514,17 @@ doc-scrape-examples = false
 [package.metadata.example.many_foxes]
 name = "Many Foxes"
 description = "Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_morph_targets"
+path = "examples/stress_tests/many_morph_targets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_morph_targets]
+name = "Many Morph Targets"
+description = "Simple benchmark to test rendering many meshes with animated morph targets."
 category = "Stress Tests"
 wasm = true
 
@@ -5051,7 +5060,7 @@ name = "simple_picking"
 path = "examples/picking/simple_picking.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["bevy_picking"]
+required-features = ["ui_picking"]
 
 [package.metadata.example.simple_picking]
 name = "Showcases simple picking events and usage"

@@ -232,7 +232,10 @@ impl Plugin for MeshRenderPlugin {
                 self.use_gpu_instance_buffer_builder && gpu_preprocessing_support.is_available();
 
             let render_mesh_instances = RenderMeshInstances::new(use_gpu_instance_buffer_builder);
-            render_app.insert_resource(render_mesh_instances);
+            render_app
+                .allow_ambiguous_resource::<no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>>()
+                .allow_ambiguous_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
+                .insert_resource(render_mesh_instances);
 
             if use_gpu_instance_buffer_builder {
                 render_app
