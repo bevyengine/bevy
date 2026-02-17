@@ -331,10 +331,15 @@ impl Plugin for SmaaPlugin {
             return;
         };
 
+        // TODO: remove this manual cleanup when ExtractComponent gets support
+        // for cleanup of derived components
         render_app.add_observer(|event: On<Remove, Smaa>, mut commands: Commands| {
-            commands
-                .entity(event.entity)
-                .remove::<(SmaaTextures, SmaaPipelines, ViewSmaaPipelines)>();
+            commands.entity(event.entity).remove::<(
+                SmaaTextures,
+                SmaaPipelines,
+                SmaaBindGroups,
+                ViewSmaaPipelines,
+            )>();
         });
 
         render_app
