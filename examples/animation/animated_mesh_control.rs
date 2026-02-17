@@ -143,7 +143,7 @@ fn setup_scene(
     _ready: On<SceneInstanceReady>,
     mut commands: Commands,
     animations: Res<Animations>,
-    mut player: Single<(Entity, &mut AnimationPlayer)>,
+    player: Single<(Entity, &mut AnimationPlayer)>,
 ) {
     let (entity, mut player) = player.into_inner();
     let mut transitions = AnimationTransitions::new();
