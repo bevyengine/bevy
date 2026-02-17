@@ -235,7 +235,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
         <&A>::update_component_access(&state.asset_id, access);
-        access.add_resource_read(state.resource_id);
+        access.add_read(state.resource_id);
     }
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {
@@ -294,6 +294,7 @@ mod tests {
     use crate::tests::create_app;
     use crate::{AssetEventSystems, Handle};
     use alloc::{vec, vec::Vec};
+    use bevy_ecs::system::assert_is_system;
     use core::num::NonZero;
     use std::println;
 
@@ -341,6 +342,13 @@ mod tests {
             exit.write(AppExit::Error(NonZero::<u8>::MIN));
         }
         run_app(compatible_filter);
+    }
+
+    #[test]
+    #[should_panic]
+    fn asset_changed_conflict() {
+        fn system(_: Query<&mut AssetChanges<MyAsset>>, _: Query<(), AssetChanged<MyComponent>>) {}
+        assert_is_system(system);
     }
 
     #[derive(Default, PartialEq, Debug, Resource)]
