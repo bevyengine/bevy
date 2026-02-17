@@ -64,8 +64,6 @@ pub struct ComputedTextBlock {
     // Used by dependents to determine if they should update a text block on changes to
     // the rem size.
     pub(crate) uses_rem_sizes: bool,
-    /// Hinting mode to use when rasterizing glyphs for this block.
-    pub(crate) font_hinting: FontHinting,
 }
 
 impl Debug for ComputedTextBlock {
@@ -76,7 +74,6 @@ impl Debug for ComputedTextBlock {
             .field("needs_rerender", &self.needs_rerender)
             .field("uses_viewport_sizes", &self.uses_viewport_sizes)
             .field("uses_rem_sizes", &self.uses_rem_sizes)
-            .field("font_hinting", &self.font_hinting)
             .finish()
     }
 }
@@ -118,7 +115,6 @@ impl Default for ComputedTextBlock {
             needs_rerender: true,
             uses_rem_sizes: false,
             uses_viewport_sizes: false,
-            font_hinting: FontHinting::Disabled,
         }
     }
 }

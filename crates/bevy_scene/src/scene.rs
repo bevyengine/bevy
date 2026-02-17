@@ -69,7 +69,7 @@ impl Scene {
         let self_dqf_id = self
             .world
             .components()
-            .get_resource_id(TypeId::of::<DefaultQueryFilters>());
+            .get_id(TypeId::of::<DefaultQueryFilters>());
 
         // Resources archetype
         for (component_id, source_entity) in self.world.resource_entities().iter() {

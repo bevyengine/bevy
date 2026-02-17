@@ -65,6 +65,9 @@ impl Plugin for Core2dPlugin {
             .init_resource::<ViewSortedRenderPhases<Transparent2d>>()
             .init_resource::<ViewBinnedRenderPhases<Opaque2d>>()
             .init_resource::<ViewBinnedRenderPhases<AlphaMask2d>>()
+            .allow_ambiguous_resource::<ViewSortedRenderPhases<Transparent2d>>()
+            .allow_ambiguous_resource::<ViewBinnedRenderPhases<Opaque2d>>()
+            .allow_ambiguous_resource::<ViewBinnedRenderPhases<AlphaMask2d>>()
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
                 Render,

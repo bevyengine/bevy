@@ -78,7 +78,7 @@ impl Plugin for CameraPlugin {
             render_app
                 .init_resource::<SortedCameras>()
                 .add_systems(ExtractSchedule, extract_cameras)
-                .add_systems(Render, sort_cameras.in_set(RenderSystems::ManageViews));
+                .add_systems(Render, sort_cameras.in_set(RenderSystems::CreateViews));
         }
     }
 }
