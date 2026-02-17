@@ -136,7 +136,7 @@ fn check_fox_asset_ready(
 }
 
 // An `AnimationPlayer` is automatically added to the scene when loading the
-// glTF file, so it already exists on the appropraite entity when
+// glTF file, so it already exists on the appropriate entity when
 // `SceneInstanceReady` fires. There will be only one player in this example,
 // so we use `Single`.
 fn setup_scene(
