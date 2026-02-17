@@ -45,6 +45,12 @@ fn main() {
         0,
         "Main app has unexpected ambiguities among the following schedules: \n{main_app_ambiguities:#?}.",
     );
+    let render_app_ambiguities = count_ambiguities(app.sub_app(bevy_render::RenderApp));
+    assert_eq!(
+        render_app_ambiguities.total(),
+        0,
+        "Render app has unexpected ambiguities among the following schedules: \n{render_app_ambiguities:#?}.",
+    );
 }
 
 /// Contains the number of conflicting systems per schedule.
