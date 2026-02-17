@@ -330,9 +330,6 @@ pan_camera = ["bevy_camera_controller/pan_camera"]
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
 
-# Provides picking functionality
-bevy_picking = ["dep:bevy_picking", "bevy_input_focus?/bevy_picking"]
-
 # Provides a mesh picking backend
 mesh_picking = ["bevy_picking", "bevy_picking/mesh_picking"]
 
@@ -340,7 +337,11 @@ mesh_picking = ["bevy_picking", "bevy_picking/mesh_picking"]
 sprite_picking = ["bevy_picking", "bevy_sprite?/bevy_picking"]
 
 # Provides a UI picking backend
-ui_picking = ["bevy_picking", "bevy_ui?/bevy_picking"]
+ui_picking = [
+  "bevy_picking",
+  "bevy_ui?/bevy_picking",
+  "bevy_input_focus?/bevy_picking",
+]
 
 # Provides a UI debug overlay
 bevy_ui_debug = ["bevy_ui_render?/bevy_ui_debug"]
