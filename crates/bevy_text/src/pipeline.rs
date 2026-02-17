@@ -55,7 +55,6 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut FontCx,
         layout_cx: &mut LayoutCx,
-        hinting: FontHinting,
         logical_viewport_size: Vec2,
         base_rem_size: f32,
     ) -> Result<(), TextError> {
@@ -63,7 +62,6 @@ impl TextPipeline {
         computed.needs_rerender = false;
         computed.uses_rem_sizes = false;
         computed.uses_viewport_sizes = false;
-        computed.font_hinting = hinting;
 
         if scale_factor <= 0.0 {
             warn_once!("Text scale factor is <= 0.0. No text will be displayed.");
@@ -227,7 +225,6 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut FontCx,
         layout_cx: &mut LayoutCx,
-        hinting: FontHinting,
         logical_viewport_size: Vec2,
         base_rem_size: f32,
     ) -> Result<TextMeasureInfo, TextError> {
@@ -245,7 +242,6 @@ impl TextPipeline {
             computed,
             font_system,
             layout_cx,
-            hinting,
             logical_viewport_size,
             base_rem_size,
         )?;
@@ -282,8 +278,6 @@ impl TextPipeline {
         let layout = &mut computed.layout;
         layout_with_bounds(layout, bounds, justify);
 
-        let hint = computed.font_hinting.should_hint();
-
         for (line_index, line) in layout.lines().enumerate() {
             for item in line.items() {
                 if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
@@ -310,6 +304,8 @@ impl TextPipeline {
                         return Err(TextError::NoSuchFont);
                     };
 
+                    let hint =
+                        hinting.should_hint() && font_smoothing == FontSmoothing::AntiAliased;
                     let mut scaler = scale_cx
                         .0
                         .builder(font_ref)
