@@ -60,7 +60,7 @@ pub struct HoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
 #[derive(Debug, Deref, DerefMut, Default, Resource)]
 pub struct PreviousHoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
 
-/// Gets the hovered entities for a `pointer_id` from a provided HoverMap
+/// Gets the hovered entities for a `pointer_id` from a provided `HoverMap`
 pub(crate) fn get_hovered_entities(
     hover_map: &HashMap<PointerId, HashMap<Entity, HitData>>,
     pointer_id: &PointerId,

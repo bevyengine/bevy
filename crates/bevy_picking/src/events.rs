@@ -74,8 +74,8 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
     /// Additional event-specific data. [`DragDrop`] for example, has an additional field to describe
     /// the `Entity` that is being dropped on the target.
     pub event: E,
-    /// Whether to propagate the event via PointerTraversal
-    /// For Enter and Leave events, this is set to false.
+    /// Whether to propagate the event via `PointerTraversal`
+    /// For [`Enter`] and [`Leave`] events, this is set to false.
     pub(crate) propagate: bool,
 }
 
@@ -454,7 +454,7 @@ impl HoveredEntityAncestors {
         hover_entities
             .iter()
             .flat_map(|entity| self.get(entity))
-            .flat_map(|set| set.iter().map(|&entity| entity))
+            .flat_map(|set| set.iter().copied())
             .collect::<HashSet<Entity>>()
     }
 
@@ -540,9 +540,8 @@ pub struct PickingMessageWriters<'w> {
 /// Dispatches interaction events to the target entities.
 ///
 /// Within a single frame, events are dispatched in the following order:
-/// TODO update this after implemented
-/// + [`Out`] → [`DragLeave`].
-/// + [`DragEnter`] → [`Over`].
+/// + [`Out`] → [`Leave`] → [`DragLeave`].
+/// + [`DragEnter`] → [`Enter`] → [`Over`].
 /// + Any number of any of the following:
 ///   + For each movement: [`DragStart`] → [`Drag`] → [`DragOver`] → [`Move`].
 ///   + For each button press: [`Press`] or [`Click`] → [`Release`] → [`DragDrop`] → [`DragEnd`] → [`DragLeave`].
@@ -650,7 +649,7 @@ pub fn pointer_events(
                             .iter_ancestors(hovered_entity)
                             .collect::<HashSet<Entity>>()
                     },
-                    |set| set.clone(),
+                    Clone::clone,
                 );
             entities_to_send_leave.insert(hovered_entity);
             // Fetch the currently hovered entities and their ancestors
@@ -659,7 +658,7 @@ pub fn pointer_events(
                 hovered_entity_ancestors.get_ancestors_union(&new_hovered_entities);
             let union = new_hovered_entities
                 .union(&new_hovered_ancestors)
-                .map(|&entity| entity)
+                .copied()
                 .collect::<HashSet<Entity>>();
             // Keep entities and ancestors that are not going to continue to be hovered over
             entities_to_send_leave.retain(|entity| !union.contains(entity));
@@ -758,7 +757,7 @@ pub fn pointer_events(
                             .iter_ancestors(hovered_entity)
                             .collect::<HashSet<Entity>>()
                     },
-                    |set| set.clone(),
+                    Clone::clone,
                 );
             entities_to_send_enter.insert(hovered_entity);
             // Fetch the previously hovered entities and their ancestors
@@ -766,7 +765,7 @@ pub fn pointer_events(
             let prev_hovered_ancestors = pointer_state.get_ancestors_union(&prev_hovered_entities);
             let union = prev_hovered_entities
                 .union(&prev_hovered_ancestors)
-                .map(|&entity| entity)
+                .copied()
                 .collect::<HashSet<Entity>>();
             // Keep entities and ancestors that were not hovered over previously
             entities_to_send_enter.retain(|entity| !union.contains(entity));
@@ -785,7 +784,7 @@ pub fn pointer_events(
                 message_writers.enter_events.write(enter_event);
             }
 
-            // Emit an Over event
+            // Always send Over events
             let over_event = Pointer::new(
                 pointer_id,
                 location.clone(),
