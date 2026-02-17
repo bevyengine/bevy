@@ -119,6 +119,7 @@ pub struct PostProcessingUniformBufferOffsets {
 
 impl Plugin for EffectStackPlugin {
     fn build(&self, app: &mut App) {
+        load_shader_library!(app, "bindings.wgsl");
         load_shader_library!(app, "chromatic_aberration.wgsl");
         load_shader_library!(app, "vignette.wgsl");
 
