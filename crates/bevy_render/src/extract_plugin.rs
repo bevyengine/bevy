@@ -44,17 +44,19 @@ impl Plugin for ExtractPlugin {
         });
         extract_schedule.set_apply_final_deferred(false);
 
-        render_app.add_schedule(Render::base_schedule());
-        render_app.add_schedule(extract_schedule);
-        render_app.add_systems(
-            Render,
-            (
-                // This set applies the commands from the extract schedule while the render schedule
-                // is running in parallel with the main app.
-                apply_extract_commands.in_set(RenderSystems::ExtractCommands),
-                despawn_temporary_render_entities.in_set(RenderSystems::PostCleanup),
-            ),
-        );
+        render_app
+            .add_schedule(Render::base_schedule())
+            .add_schedule(extract_schedule)
+            .allow_ambiguous_resource::<MainWorld>()
+            .add_systems(
+                Render,
+                (
+                    // This set applies the commands from the extract schedule while the render schedule
+                    // is running in parallel with the main app.
+                    apply_extract_commands.in_set(RenderSystems::ExtractCommands),
+                    despawn_temporary_render_entities.in_set(RenderSystems::PostCleanup),
+                ),
+            );
 
         let pre_extract = self.pre_extract;
         render_app.set_extract(move |main_world, render_world| {
