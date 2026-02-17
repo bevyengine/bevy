@@ -608,10 +608,12 @@ pub fn extract_lights(
             }
         }
         // Calculate the added and removed entities for each cascade.
+        let mut all_cascades_seen = EntityHashSet::default();
         for (entity, visible_mesh_entities_list) in visible_entities.entities.iter() {
             let Ok(entity) = mapper.get(*entity) else {
                 break;
             };
+            all_cascades_seen.insert(entity);
             let render_visible_mesh_entities_list: &mut Vec<RenderVisibleMeshEntities> =
                 cascade_visible_entities
                     .entities
@@ -629,6 +631,12 @@ pub fn extract_lights(
                 render_visible_mesh_entities.update_from(&mapper, &visible_mesh_entities.entities);
             }
         }
+
+        // Clear out visible entity lists corresponding to cascades that no
+        // longer exist.
+        cascade_visible_entities
+            .entities
+            .retain(|cascade_entity, _| all_cascades_seen.contains(cascade_entity));
 
         commands
             .get_entity(entity)
@@ -1379,13 +1387,6 @@ pub fn prepare_lights(
             let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
                 continue;
             };
-
-            if !light.shadow_maps_enabled {
-                if let Some(entities) = light_view_entities.remove(&entity) {
-                    despawn_entities(&mut commands, entities);
-                }
-                continue;
-            }
 
             let light_index = *global_clusterable_object_meta
                 .entity_to_index

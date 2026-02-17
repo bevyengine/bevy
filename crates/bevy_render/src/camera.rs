@@ -98,6 +98,8 @@ impl Plugin for CameraPlugin {
                         clear_dirty_specializations.in_set(DirtySpecializationSystems::Clear),
                         clear_dirty_wireframe_specializations
                             .in_set(DirtySpecializationSystems::Clear),
+                        expire_specializations_for_views.in_set(RenderSystems::Cleanup),
+                        expire_wireframe_specializations_for_views.in_set(RenderSystems::Cleanup),
                     ),
                 )
                 .add_systems(Render, sort_cameras.in_set(RenderSystems::CreateViews));
@@ -930,6 +932,34 @@ pub fn clear_dirty_wireframe_specializations(
     dirty_wireframe_specializations.changed_renderables.clear();
     dirty_wireframe_specializations.removed_renderables.clear();
     dirty_wireframe_specializations.views.clear();
+}
+
+/// A system that removes views that don't exist any longer from
+/// [`DirtySpecializations`].
+pub fn expire_specializations_for_views(
+    views: Query<&ExtractedView>,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
+) {
+    let all_live_retained_view_entities: HashSet<_> =
+        views.iter().map(|view| view.retained_view_entity).collect();
+    dirty_specializations.views.retain(|retained_view_entity| {
+        all_live_retained_view_entities.contains(retained_view_entity)
+    });
+}
+
+/// A system that removes views that don't exist any longer from
+/// [`DirtyWireframeSpecializations`].
+pub fn expire_wireframe_specializations_for_views(
+    views: Query<&ExtractedView>,
+    mut dirty_wireframe_specializations: ResMut<DirtyWireframeSpecializations>,
+) {
+    let all_live_retained_view_entities: HashSet<_> =
+        views.iter().map(|view| view.retained_view_entity).collect();
+    dirty_wireframe_specializations
+        .views
+        .retain(|retained_view_entity| {
+            all_live_retained_view_entities.contains(retained_view_entity)
+        });
 }
 
 /// A [`SystemSet`] that contains all systems that mutate the

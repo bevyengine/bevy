@@ -377,6 +377,7 @@ pub fn check_dir_light_mesh_visibility(
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
         if !directional_light.shadow_maps_enabled || !light_view_visibility.get() {
+            visible_entities.entities.clear();
             continue;
         }
 
