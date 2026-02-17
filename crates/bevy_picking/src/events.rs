@@ -175,6 +175,9 @@ pub struct Cancel {
 }
 
 /// Fires when a pointer crosses into the bounds of the [target entity](EntityEvent::event_target).
+/// Unlike [`Enter`], this event bubbles through all ancestors, even if the ancestor's
+/// bounds are not crossed into. Refer to [`pointer_events`] for more information
+/// on how these events are triggered.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Over {
@@ -184,7 +187,8 @@ pub struct Over {
 
 /// Fires when a pointer crosses into the bounds of the [target entity](EntityEvent::event_target).
 /// Unlike [`Over`], this event does not bubble to ancestors unless the ancestor's
-/// bounds are also crossed into.
+/// bounds are also crossed into. Refer to [`pointer_events`] for more information
+/// on how these events are triggered.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Enter {
@@ -193,6 +197,9 @@ pub struct Enter {
 }
 
 /// Fires when a pointer crosses out of the bounds of the [target entity](EntityEvent::event_target).
+/// Unlike [`Leave`], this event bubbles through all ancestors, even if the ancestor's
+/// bounds are not crossed out of. Refer to [`pointer_events`] for more information
+/// on how these events are triggered.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Out {
@@ -202,7 +209,8 @@ pub struct Out {
 
 /// Fires when a pointer crosses out of the bounds of the [target entity](EntityEvent::event_target).
 /// Unlike [`Out`], this event does not bubble to ancestors unless the ancestor's
-/// bounds are also crossed out of.
+/// bounds are also crossed out of. Refer to [`pointer_events`] for more information
+/// on how these events are triggered.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Leave {
@@ -568,7 +576,7 @@ pub struct PickingMessageWriters<'w> {
 /// When we account for event bubbling, the two pairs of events,
 /// [`Out`] [`Over`] and [`Enter`] [`Leave`], behave differently. When the hovering focus shifts
 /// between children, parent entities may receive redundant [`Out`] → [`Over`] pairs. In
-/// the case for [`Enter`] → [`Leave`], shared parent entities will not receive [`Enter`]
+/// the case of [`Enter`] → [`Leave`], shared parent entities will not receive [`Enter`]
 /// or [`Leave`].
 ///
 /// Both [`Click`] and [`Release`] target the entity hovered in the *previous frame*,
