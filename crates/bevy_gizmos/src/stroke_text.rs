@@ -116,21 +116,24 @@ impl<'a> StrokeTextLayout<'a> {
         let mut current_x = 0.0;
 
         core::iter::from_fn(move || loop {
-            if !current_strokes.is_empty() {
-                for stroke_index in current_strokes.by_ref() {
-                    let stroke = self.font.strokes[stroke_index].clone();
-                    if stroke.len() < 2 {
-                        continue;
-                    }
-
-                    return Some(stroke.map(move |index| {
-                        let [p, q] = self.font.positions[index];
-                        Vec2::new(
-                            current_x + self.scale * p as f32,
-                            y - self.scale * (self.font.cap_height - q as f32),
-                        )
-                    }));
+            for stroke_index in current_strokes.by_ref() {
+                let stroke = self.font.strokes[stroke_index].clone();
+                if stroke.len() < 2 {
+                    continue;
                 }
+
+                // If this stroke is a closed loop, append one extra point to add a join at the seam.
+                let join = (self.font.positions[stroke.start]
+                    == self.font.positions[stroke.end - 1])
+                    .then_some(stroke.start + 1);
+
+                return Some(stroke.chain(join.into_iter()).map(move |index| {
+                    let [p, q] = self.font.positions[index];
+                    Vec2::new(
+                        current_x + self.scale * p as f32,
+                        y - self.scale * (self.font.cap_height - q as f32),
+                    )
+                }));
             }
 
             let c = chars.next()?;

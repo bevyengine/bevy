@@ -206,6 +206,7 @@ impl Plugin for UiRenderPlugin {
             .allow_ambiguous_resource::<ExtractedUiNodes>()
             .init_resource::<DrawFunctions<TransparentUi>>()
             .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
+            .allow_ambiguous_resource::<ViewSortedRenderPhases<TransparentUi>>()
             .add_render_command::<TransparentUi, DrawUi>()
             .configure_sets(
                 ExtractSchedule,
@@ -1571,7 +1572,7 @@ pub fn prepare_uinodes(
                             points[3] + positions_diff[3],
                         ];
 
-                        let transformed_rect_size = transform.transform_vector2(rect_size);
+                        let transformed_rect_size = transform.transform_vector2(rect_size).abs();
 
                         // Don't try to cull nodes that have a rotation
                         // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -1714,12 +1715,13 @@ pub fn prepare_uinodes(
                             ];
 
                             // cull nodes that are completely clipped
-                            let transformed_rect_size =
-                                extracted_uinode.transform.transform_vector2(rect_size);
-                            if positions_diff[0].x - positions_diff[1].x
-                                >= transformed_rect_size.x.abs()
+                            let transformed_rect_size = extracted_uinode
+                                .transform
+                                .transform_vector2(rect_size)
+                                .abs();
+                            if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                                 || positions_diff[1].y - positions_diff[2].y
-                                    >= transformed_rect_size.y.abs()
+                                    >= transformed_rect_size.y
                             {
                                 continue;
                             }

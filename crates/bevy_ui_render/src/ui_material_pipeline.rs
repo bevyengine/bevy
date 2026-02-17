@@ -473,8 +473,10 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         positions[3] + positions_diff[3].extend(0.),
                     ];
 
-                    let transformed_rect_size =
-                        extracted_uinode.transform.transform_vector2(rect_size);
+                    let transformed_rect_size = extracted_uinode
+                        .transform
+                        .transform_vector2(rect_size)
+                        .abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
