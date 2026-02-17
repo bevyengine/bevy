@@ -7,7 +7,8 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::change_detection::Tick;
 use bevy_ecs::component::ComponentId;
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::{FilteredAccessSet, QueryData, QueryFilter, QueryState};
+use bevy_ecs::query::{FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState};
+use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::system::{
     Deferred, SystemBuffer, SystemMeta, SystemParam, SystemParamValidationError,
 };
@@ -249,7 +250,10 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        component_access_set.add_unfiltered_resource_read(state.resource_id);
+        let mut filter = FilteredAccess::default();
+        filter.add_read(state.resource_id);
+        filter.and_with(IS_RESOURCE);
+        component_access_set.add(filter);
 
         <Query<'_, '_, D, F> as SystemParam>::init_access(
             &state.query_state,
