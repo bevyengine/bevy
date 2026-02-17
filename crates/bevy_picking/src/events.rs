@@ -412,45 +412,44 @@ impl PointerButtonState {
 
 /// A cache map containing the ancestry of hovered entities
 #[derive(Debug, Clone, Default, Deref, DerefMut)]
-pub(crate) struct HoveredEntityAncestors(HashMap<Entity, HashSet<Entity>>);
+pub struct HoveredEntityAncestors(HashMap<Entity, HashSet<Entity>>);
 
 impl HoveredEntityAncestors {
-    /// Generates a map of every hovered entity to its ancestors.
+    /// Clears self and rebuilds a map of every hovered entity to its ancestors.
     ///
     /// This map is used to calculate which entities should receive [`Enter`] or [`Leave`] events.
-    pub(crate) fn generate(
+    pub fn rebuild(
+        &mut self,
         hover_map: &HoverMap,
         pointer_state: &PointerState,
         ancestors_query: &Query<&ChildOf>,
-    ) -> Self {
-        let mut hovered_entity_ancestors = HoveredEntityAncestors(HashMap::default());
+    ) {
+        self.clear();
         for hovered_entity in hover_map
             .iter()
             .flat_map(|(_, hashmap)| hashmap.iter().map(|data| *data.0))
         {
             // If the ancestors were already added into the map, do not re-fetch
-            if hovered_entity_ancestors.contains_key(&hovered_entity) {
+            if self.contains_key(&hovered_entity) {
                 continue;
             }
             // If the ancestors were previously fetched, just re-use the entry.
             if let Some(previous_entry) =
                 pointer_state.hovered_entity_ancestors.get(&hovered_entity)
             {
-                hovered_entity_ancestors.insert(hovered_entity, previous_entry.clone());
+                self.insert(hovered_entity, previous_entry.clone());
             } else {
                 let mut ancestors = HashSet::new();
                 for member in ancestors_query.iter_ancestors(hovered_entity) {
                     ancestors.insert(member);
                 }
-                hovered_entity_ancestors.insert(hovered_entity, ancestors);
+                self.insert(hovered_entity, ancestors);
             }
         }
-
-        hovered_entity_ancestors
     }
 
     /// Returns a new combined `HashSet` of ancestors for the provided `hover_entities`
-    pub(crate) fn get_ancestors_union(&self, hover_entities: &HashSet<Entity>) -> HashSet<Entity> {
+    pub fn get_ancestors_union(&self, hover_entities: &HashSet<Entity>) -> HashSet<Entity> {
         hover_entities
             .iter()
             .flat_map(|entity| self.get(entity))
@@ -459,7 +458,7 @@ impl HoveredEntityAncestors {
     }
 
     /// Returns the ancestors for the provided `hover_entity`, if it has been created
-    pub(crate) fn get_ancestors(&self, hover_entity: &Entity) -> Option<&HashSet<Entity>> {
+    pub fn get_ancestors(&self, hover_entity: &Entity) -> Option<&HashSet<Entity>> {
         self.get(hover_entity)
     }
 }
@@ -469,8 +468,8 @@ impl HoveredEntityAncestors {
 pub struct PointerState {
     /// Pressing and dragging state, organized by pointer and button.
     pub pointer_buttons: HashMap<(PointerId, PointerButton), PointerButtonState>,
-    /// The set of an entity's ancestors for a given hovered entity.
-    pub(crate) hovered_entity_ancestors: HoveredEntityAncestors,
+    /// A cache map providing the set of an entity's ancestors for a given hovered entity.
+    pub hovered_entity_ancestors: HoveredEntityAncestors,
 }
 
 impl PointerState {
@@ -491,15 +490,12 @@ impl PointerState {
     }
 
     /// Retrieves the ancestors for a given hovered entity
-    pub(crate) fn get_ancestors(&self, hovered_entity: &Entity) -> Option<&HashSet<Entity>> {
+    pub fn get_ancestors(&self, hovered_entity: &Entity) -> Option<&HashSet<Entity>> {
         self.hovered_entity_ancestors.get_ancestors(hovered_entity)
     }
 
     /// Retrieves the union of ancestors for the given hovered entities
-    pub(crate) fn get_ancestors_union(
-        &self,
-        hovered_entities: &HashSet<Entity>,
-    ) -> HashSet<Entity> {
+    pub fn get_ancestors_union(&self, hovered_entities: &HashSet<Entity>) -> HashSet<Entity> {
         self.hovered_entity_ancestors
             .get_ancestors_union(hovered_entities)
     }
@@ -510,7 +506,6 @@ impl PointerState {
             if let Some(state) = self.pointer_buttons.get_mut(&(pointer_id, button)) {
                 state.clear();
             }
-            self.hovered_entity_ancestors.clear();
         }
     }
 }
@@ -597,6 +592,7 @@ pub fn pointer_events(
     hover_map: Res<HoverMap>,
     previous_hover_map: Res<PreviousHoverMap>,
     mut pointer_state: ResMut<PointerState>,
+    mut hovered_entity_ancestors: Local<HoveredEntityAncestors>,
     mut sent_leave: Local<HashSet<(PointerId, Entity)>>,
     mut sent_enter: Local<HashSet<(PointerId, Entity)>>,
     // Output
@@ -611,8 +607,7 @@ pub fn pointer_events(
             .and_then(|entity| pointers.get(entity).ok())
             .and_then(|pointer| pointer.location.clone())
     };
-    let mut hovered_entity_ancestors =
-        HoveredEntityAncestors::generate(&hover_map, &pointer_state, &ancestors_query);
+    hovered_entity_ancestors.rebuild(&hover_map, &pointer_state, &ancestors_query);
     sent_leave.clear();
     sent_enter.clear();
 
@@ -814,9 +809,11 @@ pub fn pointer_events(
         }
     }
 
-    // Update hovered entity ancestors
+    // Update pointer_state with the current hovered entity ancestors
+    // We swap with the Local SystemParam's map, which will be rebuilt
+    // on the next invocation of `pointer_events`
     core::mem::swap(
-        &mut hovered_entity_ancestors,
+        &mut hovered_entity_ancestors.0,
         &mut pointer_state.hovered_entity_ancestors,
     );
 
