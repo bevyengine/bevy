@@ -769,22 +769,24 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
-        _world: &mut World,
+        world: &mut World,
     ) {
         let mut filter = FilteredAccess::default();
         filter.add_read(component_id);
         filter.and_with(IS_RESOURCE);
 
-        // TODO: output better conflict information
-        assert!(component_access_set
-            .get_conflicts_single(&filter)
-            .is_empty(),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<T>(),
-            system_meta.name
-        );
+        let conflicts = component_access_set.get_conflicts_single(&filter);
+        if conflicts.is_empty() {
+            component_access_set.add(filter);
+            return;
+        }
 
-        component_access_set.add(filter);
+        let mut accesses = conflicts.format_conflict_list(world);
+        // Access list may be empty (if access to all components requested)
+        if !accesses.is_empty() {
+            accesses.push(' ');
+        }
+        panic!("error[B0002]: Res<{}> in system {} conflicts with a previous system parameter. Consider using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
     }
 
     #[inline]
@@ -849,22 +851,24 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
-        _world: &mut World,
+        world: &mut World,
     ) {
         let mut filter = FilteredAccess::default();
         filter.add_write(component_id);
         filter.and_with(IS_RESOURCE);
 
-        // TODO: output better conflict information
-        assert!(component_access_set
-            .get_conflicts_single(&filter)
-            .is_empty(),
-            "error[B0002]: ResMut<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<T>(),
-            system_meta.name
-        );
+        let conflicts = component_access_set.get_conflicts_single(&filter);
+        if conflicts.is_empty() {
+            component_access_set.add(filter);
+            return;
+        }
 
-        component_access_set.add(filter);
+        let mut accesses = conflicts.format_conflict_list(world);
+        // Access list may be empty (if access to all components requested)
+        if !accesses.is_empty() {
+            accesses.push(' ');
+        }
+        panic!("error[B0002]: ResMut<{}> in system {} conflicts with a previous system parameter. Consider using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
     }
 
     #[inline]
