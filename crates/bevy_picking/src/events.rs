@@ -81,8 +81,9 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
 
 /// A traversal query (i.e. it implements [`Traversal`]) intended for use with [`Pointer`] events.
 ///
-/// This will always traverse to the parent, if the entity being visited has one. Otherwise, it
-/// propagates to the pointer's window and stops there.
+/// Unless shortcircuited out by the [`Pointer`] event itself, this will always traverse to the
+/// parent if the entity being visited has one. Otherwise, it propagates to the pointer's
+/// window and stops there.
 #[derive(QueryData)]
 pub struct PointerTraversal {
     child_of: Option<&'static ChildOf>,
@@ -1107,5 +1108,249 @@ pub fn pointer_events(
                 pointer_state.clear(pointer_id);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::App;
+    use bevy_camera::{Camera, ManualTextureViewHandle};
+
+    use crate::pointer::update_pointer_map;
+
+    use super::*;
+
+    const POINTER_ID: PointerId = PointerId::Mouse;
+    const STUB_LOCATION: Location = Location {
+        target: NormalizedRenderTarget::TextureView(ManualTextureViewHandle(5)),
+        position: Vec2::new(3., 4.),
+    };
+
+    fn initialize_app_for_test(app: &mut App) {
+        // Init all the resources and messages necessary to run `pointer_events`
+        app.init_resource::<HoverMap>()
+            .init_resource::<PreviousHoverMap>()
+            .init_resource::<PointerState>()
+            .add_message::<PointerInput>()
+            .add_message::<Pointer<Cancel>>()
+            .add_message::<Pointer<Click>>()
+            .add_message::<Pointer<Press>>()
+            .add_message::<Pointer<DragDrop>>()
+            .add_message::<Pointer<DragEnd>>()
+            .add_message::<Pointer<DragEnter>>()
+            .add_message::<Pointer<Drag>>()
+            .add_message::<Pointer<DragLeave>>()
+            .add_message::<Pointer<DragOver>>()
+            .add_message::<Pointer<DragStart>>()
+            .add_message::<Pointer<Scroll>>()
+            .add_message::<Pointer<Move>>()
+            .add_message::<Pointer<Out>>()
+            .add_message::<Pointer<Over>>()
+            .add_message::<Pointer<Leave>>()
+            .add_message::<Pointer<Enter>>()
+            .add_message::<Pointer<Release>>();
+
+        // Initialize the pointer map resource manually with a stub location for the mouse
+        app.world_mut()
+            .spawn((POINTER_ID, PointerLocation::new(STUB_LOCATION)));
+        app.world_mut().insert_resource(PointerMap::default());
+        assert!(app
+            .world_mut()
+            .run_system_cached(update_pointer_map)
+            .is_ok());
+    }
+
+    fn update_hover_map_with_hovered_entities(app: &mut App, camera: Entity, entities: &[Entity]) {
+        let mut hover_map = HoverMap::default();
+        let mut entity_map = HashMap::default();
+        for entity in entities {
+            entity_map.insert(
+                *entity,
+                HitData {
+                    depth: 0.0,
+                    camera,
+                    position: None,
+                    normal: None,
+                },
+            );
+        }
+        hover_map.insert(PointerId::Mouse, entity_map);
+
+        let previous_hover_map = app.world().resource::<HoverMap>().0.clone();
+        app.world_mut()
+            .insert_resource(PreviousHoverMap(previous_hover_map));
+        app.world_mut().insert_resource(hover_map);
+    }
+
+    #[test]
+    fn enter_leave_events() {
+        #[derive(Resource, Default)]
+        struct EnterEventCounts(HashMap<Entity, usize>);
+
+        #[derive(Resource, Default)]
+        struct LeaveEventCounts(HashMap<Entity, usize>);
+
+        fn observe_enter(event: On<Pointer<Enter>>, mut counts: ResMut<EnterEventCounts>) {
+            *counts.0.entry(event.entity).or_insert(0 as usize) += 1;
+        }
+
+        fn observe_leave(event: On<Pointer<Leave>>, mut counts: ResMut<LeaveEventCounts>) {
+            *counts.0.entry(event.entity).or_insert(0 as usize) += 1;
+        }
+
+        fn assert_msg_event_counts(app: &App, enter_count: usize, leave_count: usize) {
+            let enter_messages = app.world().resource::<Messages<Pointer<Enter>>>();
+            let leave_messages = app.world().resource::<Messages<Pointer<Leave>>>();
+            assert_eq!(enter_messages.len(), enter_count);
+            assert_eq!(leave_messages.len(), leave_count);
+        }
+
+        fn assert_observer_event_counts(
+            app: &App,
+            entity: Entity,
+            enter_counts: usize,
+            leave_counts: usize,
+        ) {
+            assert_eq!(
+                *app.world()
+                    .resource::<EnterEventCounts>()
+                    .0
+                    .get(&entity)
+                    .unwrap_or(&0),
+                enter_counts
+            );
+            assert_eq!(
+                *app.world()
+                    .resource::<LeaveEventCounts>()
+                    .0
+                    .get(&entity)
+                    .unwrap_or(&0),
+                leave_counts
+            );
+        }
+
+        let mut app = App::new();
+        initialize_app_for_test(&mut app);
+        app.init_resource::<EnterEventCounts>()
+            .init_resource::<LeaveEventCounts>();
+        let enter_messages = app.world().resource::<Messages<Pointer<Enter>>>();
+        let leave_messages = app.world().resource::<Messages<Pointer<Leave>>>();
+        assert_eq!(enter_messages.len(), 0);
+        assert_eq!(leave_messages.len(), 0);
+        // Setup test entities
+        let camera = app.world_mut().spawn(Camera::default()).id();
+        let child_one = app
+            .world_mut()
+            .spawn_empty()
+            .observe(observe_enter)
+            .observe(observe_leave)
+            .id();
+        let child_two = app
+            .world_mut()
+            .spawn_empty()
+            .observe(observe_enter)
+            .observe(observe_leave)
+            .id();
+        let parent = app
+            .world_mut()
+            .spawn_empty()
+            .add_children(&[child_one, child_two])
+            .observe(observe_enter)
+            .observe(observe_leave)
+            .id();
+
+        // FIRST: parent is hovered over
+        update_hover_map_with_hovered_entities(&mut app, camera, &[parent]);
+
+        assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
+
+        // The parent received an `Enter` event.
+        assert_msg_event_counts(&app, 1, 0);
+        assert_observer_event_counts(&app, parent, 1, 0);
+        assert_observer_event_counts(&app, child_one, 0, 0);
+        assert_observer_event_counts(&app, child_two, 0, 0);
+        app.world_mut().increment_change_tick();
+        // ---
+
+        // SECOND: child_one is hovered over within parent
+        update_hover_map_with_hovered_entities(&mut app, camera, &[child_one, parent]);
+
+        assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
+
+        // child_one received an `Enter` event.
+        assert_msg_event_counts(&app, 2, 0);
+        assert_observer_event_counts(&app, parent, 1, 0);
+        assert_observer_event_counts(&app, child_one, 1, 0);
+        assert_observer_event_counts(&app, child_two, 0, 0);
+        app.world_mut().increment_change_tick();
+        // ---
+
+        // THIRD: child_one is hovered out of, child_two is hovered over, still within parent
+        update_hover_map_with_hovered_entities(&mut app, camera, &[child_two, parent]);
+
+        assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
+
+        // child_one directly received an `Exit` event.
+        // child_two directly received an `Enter` event.
+        assert_msg_event_counts(&app, 3, 1);
+        assert_observer_event_counts(&app, parent, 1, 0);
+        assert_observer_event_counts(&app, child_one, 1, 1);
+        assert_observer_event_counts(&app, child_two, 1, 0);
+        app.world_mut().increment_change_tick();
+        // ---
+
+        // FOURTH: child_two is hovered out of, parent is still hovered
+        update_hover_map_with_hovered_entities(&mut app, camera, &[parent]);
+
+        assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
+
+        // child_two received an `Exit` event.
+        assert_msg_event_counts(&app, 3, 2);
+        assert_observer_event_counts(&app, parent, 1, 0);
+        assert_observer_event_counts(&app, child_one, 1, 1);
+        assert_observer_event_counts(&app, child_two, 1, 1);
+        app.world_mut().increment_change_tick();
+        // ---
+
+        // FIFTH: child_two is hovered back into, parent is still hovered
+        update_hover_map_with_hovered_entities(&mut app, camera, &[parent, child_two]);
+
+        assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
+
+        // child_two received an `Enter` event
+        assert_msg_event_counts(&app, 4, 2);
+        assert_observer_event_counts(&app, parent, 1, 0);
+        assert_observer_event_counts(&app, child_one, 1, 1);
+        assert_observer_event_counts(&app, child_two, 2, 1);
+        app.world_mut().increment_change_tick();
+        // ---
+
+        // SIXTH: parent and child_two are hovered out of
+        update_hover_map_with_hovered_entities(&mut app, camera, &[]);
+
+        assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
+
+        // The parent received one `Leave` event
+        // child_two received one `Leave` event
+        assert_msg_event_counts(&app, 4, 4);
+        assert_observer_event_counts(&app, parent, 1, 1);
+        assert_observer_event_counts(&app, child_one, 1, 1);
+        assert_observer_event_counts(&app, child_two, 2, 2);
+        app.world_mut().increment_change_tick();
+        // ---
+
+        // FINAL: parent and child_one are hovered into
+        update_hover_map_with_hovered_entities(&mut app, camera, &[parent, child_one]);
+
+        assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
+
+        // The parent received one `Enter` event
+        // child_one received one `Enter` event
+        assert_msg_event_counts(&app, 6, 4);
+        assert_observer_event_counts(&app, parent, 2, 1);
+        assert_observer_event_counts(&app, child_one, 2, 1);
+        assert_observer_event_counts(&app, child_two, 2, 2);
+        app.world_mut().increment_change_tick();
+        // ---
     }
 }
