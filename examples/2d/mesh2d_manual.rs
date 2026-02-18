@@ -26,7 +26,7 @@ use bevy::{
             SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
             VertexFormat, VertexState, VertexStepMode,
         },
-        sync_component::SyncComponentPlugin,
+        sync_component::{SyncComponent, SyncComponentPlugin},
         sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderStartup, RenderSystems,
@@ -124,6 +124,10 @@ fn star(
 /// A marker component for colored 2d meshes
 #[derive(Component, Default)]
 pub struct ColoredMesh2d;
+
+impl SyncComponent for ColoredMesh2d {
+    type Out = Self;
+}
 
 /// Custom pipeline for 2d meshes with vertex colors
 #[derive(Resource)]
@@ -353,7 +357,7 @@ pub fn extract_colored_mesh2d(
         }
 
         let transforms = Mesh2dTransforms {
-            world_from_local: (&transform.affine()).into(),
+            world_from_local: transform.affine().into(),
             flags: MeshFlags::empty().bits(),
         };
 

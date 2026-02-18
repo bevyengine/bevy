@@ -210,10 +210,6 @@ fn update_config(
         };
     }
     if keyboard.just_pressed(KeyCode::Space) {
-        if virtual_time.is_paused() {
-            virtual_time.unpause();
-        } else {
-            virtual_time.pause();
-        }
+        virtual_time.toggle();
     }
 }

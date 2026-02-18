@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
 #import bevy_pbr::utils::{rand_f, rand_vec2f, sample_cosine_hemisphere}
@@ -5,7 +7,7 @@
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_brdf
 #import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, sample_ggx_vndf, ggx_vndf_pdf, power_heuristic}
-#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
+#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
 @group(1) @binding(1) var view_output: texture_storage_2d<rgba16float, write>;
@@ -39,11 +41,10 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var throughput = vec3(1.0);
     var p_bounce = 0.0;
     var bounce_was_perfect_reflection = true;
-    var previous_normal = vec3(0.0);
     loop {
-        let ray_hit = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
-        if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
-            let ray_hit = resolve_ray_hit_full(ray_hit);
+        let ray = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
+        if ray.kind != RAY_QUERY_INTERSECTION_NONE {
+            let ray_hit = resolve_ray_hit_full(ray);
             let wo = -ray_direction;
 
             var mis_weight = 1.0;
@@ -54,7 +55,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             radiance += mis_weight * throughput * ray_hit.material.emissive;
 
             // Sample direct lighting, but only if the surface is not mirror-like
-            let is_perfectly_specular = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
+            let is_perfectly_specular = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
             if !is_perfectly_specular {
                 let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
 
@@ -75,12 +76,10 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             ray_t_min = RAY_T_MIN;
             p_bounce = next_bounce.pdf;
             bounce_was_perfect_reflection = next_bounce.perfectly_specular_bounce;
-            previous_normal = ray_hit.world_normal;
 
             // Update throughput for next bounce
             let brdf = evaluate_brdf(ray_hit.world_normal, wo, next_bounce.wi, ray_hit.material);
-            let cos_theta = dot(next_bounce.wi, ray_hit.world_normal);
-            throughput *= (brdf * cos_theta) / next_bounce.pdf;
+            throughput *= brdf / next_bounce.pdf;
 
             // Russian roulette for early termination
             let p = luminance(throughput);
@@ -105,7 +104,7 @@ struct NextBounce {
 }
 
 fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng: ptr<function, u32>) -> NextBounce {
-    let is_perfectly_specular = ray_hit.material.roughness <= 0.001 && ray_hit.material.metallic > 0.9999;
+    let is_perfectly_specular = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
     if is_perfectly_specular {
         return NextBounce(reflect(-wo, ray_hit.world_normal), 1.0, true);
     }

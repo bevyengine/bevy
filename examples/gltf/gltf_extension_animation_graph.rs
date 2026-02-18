@@ -98,7 +98,7 @@ fn setup_camera_and_environment(
     commands.spawn((
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {
@@ -114,6 +114,16 @@ struct GltfExtensionHandlerAnimationPlugin;
 
 impl Plugin for GltfExtensionHandlerAnimationPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(target_family = "wasm")]
+        bevy::tasks::block_on(async {
+            app.world_mut()
+                .resource_mut::<GltfExtensionHandlers>()
+                .0
+                .write()
+                .await
+                .push(Box::new(GltfExtensionHandlerAnimation::default()))
+        });
+        #[cfg(not(target_family = "wasm"))]
         app.world_mut()
             .resource_mut::<GltfExtensionHandlers>()
             .0

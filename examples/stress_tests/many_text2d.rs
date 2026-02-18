@@ -171,40 +171,41 @@ fn print_counts(
     mut timer: Local<PrintingTimer>,
     texts: Query<&ViewVisibility, With<Text2d>>,
     font_atlas_set: Res<FontAtlasSet>,
-    font: Res<FontHandle>,
+    images: Res<Assets<Image>>,
 ) {
     timer.tick(time.delta());
     if !timer.just_finished() {
         return;
     }
 
-    let font_id = font.0.id();
     let num_atlases = font_atlas_set
         .iter()
-        .filter(|(key, _)| key.id == font_id)
+        // Removed this filter for now as the keys no longer include the AssetIds
+        //        .filter(|(key, _)| key.0 == font_id)
         .map(|(_, atlases)| atlases.len())
         .sum::<usize>();
 
     let visible_texts = texts.iter().filter(|visibility| visibility.get()).count();
 
     info!(
-        "Texts: {} Visible: {} Atlases: {}",
+        "Texts: {} Visible: {} Atlases: {} Bytes: {}",
         texts.iter().count(),
         visible_texts,
-        num_atlases
+        num_atlases,
+        font_atlas_set.total_bytes(images.as_ref())
     );
 }
 
 fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<Font>) -> TextFont {
-    let font_size = if args.many_font_sizes {
+    let font_size = FontSize::Px(if args.many_font_sizes {
         *[10.0, 20.0, 30.0, 40.0, 50.0, 60.0].choose(rng).unwrap()
     } else {
         60.0
-    };
+    });
 
     TextFont {
         font_size,
-        font,
+        font: font.into(),
         ..default()
     }
 }

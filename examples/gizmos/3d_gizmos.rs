@@ -68,7 +68,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -292,10 +292,6 @@ fn update_config(
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
     }
     if keyboard.just_pressed(KeyCode::Space) {
-        if virtual_time.is_paused() {
-            virtual_time.unpause();
-        } else {
-            virtual_time.pause();
-        }
+        virtual_time.toggle();
     }
 }

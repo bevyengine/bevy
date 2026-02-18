@@ -65,12 +65,10 @@ plugin_group! {
         bevy_ui:::UiPlugin,
         #[cfg(feature = "bevy_ui_render")]
         bevy_ui_render:::UiRenderPlugin,
-        #[cfg(feature = "bevy_pbr")]
-        bevy_pbr:::PbrPlugin,
-        // NOTE: Load this after renderer initialization so that it knows about the supported
-        // compressed texture formats.
         #[cfg(feature = "bevy_gltf")]
         bevy_gltf:::GltfPlugin,
+        #[cfg(feature = "bevy_pbr")]
+        bevy_pbr:::PbrPlugin,
         #[cfg(feature = "bevy_audio")]
         bevy_audio:::AudioPlugin,
         #[cfg(feature = "bevy_gilrs")]
@@ -85,6 +83,8 @@ plugin_group! {
         bevy_state::app:::StatesPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
+        #[cfg(feature = "bevy_dev_tools")]
+        bevy_dev_tools::render_debug:::RenderDebugOverlayPlugin,
         #[cfg(feature = "hotpatching")]
         bevy_app::hotpatch:::HotPatchPlugin,
         #[plugin_group]

@@ -20,7 +20,7 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
+use bevy_camera::{Camera, Camera2d, Camera3d, Hdr, RenderTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
@@ -34,29 +34,29 @@ use bevy_ui::{
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
-use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
+use bevy_core_pipeline::upscaling::upscaling;
 use bevy_ecs::prelude::*;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
 use bevy_render::{
     render_asset::RenderAssets,
-    render_graph::{Node as RenderGraphNode, NodeRunError, RenderGraph, RenderGraphContext},
     render_phase::{
         sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderDevice, RenderQueue},
     sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
-    view::{ExtractedView, Hdr, RetainedViewEntity, ViewUniforms},
+    view::{ExtractedView, RetainedViewEntity, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_ui_debug")]
-pub use debug_overlay::UiDebugOptions;
+pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
 use color_space::ColorSpacePlugin;
 use gradient::GradientPlugin;
@@ -71,27 +71,14 @@ use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
 
-use graph::{NodeUi, SubGraphUi};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
-pub mod graph {
-    use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
-    pub struct SubGraphUi;
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum NodeUi {
-        UiPass,
-    }
-}
-
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::debug_overlay::UiDebugOptions;
+    pub use crate::debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
     pub use crate::{
         ui_material::*, ui_material_pipeline::UiMaterialPlugin, BoxShadowSamples, UiAntiAlias,
@@ -205,7 +192,7 @@ impl Plugin for UiRenderPlugin {
         load_shader_library!(app, "ui.wgsl");
 
         #[cfg(feature = "bevy_ui_debug")]
-        app.init_resource::<UiDebugOptions>();
+        app.init_resource::<GlobalUiDebugOptions>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -219,6 +206,7 @@ impl Plugin for UiRenderPlugin {
             .allow_ambiguous_resource::<ExtractedUiNodes>()
             .init_resource::<DrawFunctions<TransparentUi>>()
             .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
+            .allow_ambiguous_resource::<ViewSortedRenderPhases<TransparentUi>>()
             .add_render_command::<TransparentUi, DrawUi>()
             .configure_sets(
                 ExtractSchedule,
@@ -259,43 +247,21 @@ impl Plugin for UiRenderPlugin {
                     sort_phase_system::<TransparentUi>.in_set(RenderSystems::PhaseSort),
                     prepare_uinodes.in_set(RenderSystems::PrepareBindGroups),
                 ),
+            )
+            .add_systems(
+                Core2d,
+                ui_pass.after(Core2dSystems::PostProcess).before(upscaling),
+            )
+            .add_systems(
+                Core3d,
+                ui_pass.after(Core3dSystems::PostProcess).before(upscaling),
             );
-
-        // Render graph
-        render_app
-            .world_mut()
-            .resource_scope(|world, mut graph: Mut<RenderGraph>| {
-                if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
-                    let ui_graph_2d = new_ui_graph(world);
-                    graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
-                    graph_2d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
-                    graph_2d.add_node_edge(Node2d::EndMainPass, NodeUi::UiPass);
-                    graph_2d.add_node_edge(Node2d::EndMainPassPostProcessing, NodeUi::UiPass);
-                    graph_2d.add_node_edge(NodeUi::UiPass, Node2d::Upscaling);
-                }
-
-                if let Some(graph_3d) = graph.get_sub_graph_mut(Core3d) {
-                    let ui_graph_3d = new_ui_graph(world);
-                    graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
-                    graph_3d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
-                    graph_3d.add_node_edge(Node3d::EndMainPass, NodeUi::UiPass);
-                    graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
-                    graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
-                }
-            });
 
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(ColorSpacePlugin);
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
     }
-}
-
-fn new_ui_graph(world: &mut World) -> RenderGraph {
-    let ui_pass_node = UiPassNode::new(world);
-    let mut ui_graph = RenderGraph::default();
-    ui_graph.add_node(NodeUi::UiPass, ui_pass_node);
-    ui_graph
 }
 
 #[derive(SystemParam)]
@@ -403,31 +369,6 @@ impl ExtractedUiNodes {
     pub fn clear(&mut self) {
         self.uinodes.clear();
         self.glyphs.clear();
-    }
-}
-
-/// A [`RenderGraphNode`] that executes the UI rendering subgraph on the UI
-/// view.
-struct RunUiSubgraphOnUiViewNode;
-
-impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
-    fn run<'w>(
-        &self,
-        graph: &mut RenderGraphContext,
-        _: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        // Fetch the UI view.
-        let Some(mut render_views) = world.try_query::<&UiCameraView>() else {
-            return Ok(());
-        };
-        let Ok(ui_camera_view) = render_views.get(world, graph.view_entity()) else {
-            return Ok(());
-        };
-
-        // Run the subgraph on the UI view.
-        graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.0), None)?;
-        Ok(())
     }
 }
 
@@ -902,7 +843,6 @@ pub fn extract_viewport_nodes(
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -971,15 +911,10 @@ pub fn extract_text_sections(
                 current_span_index = *span_index;
             }
 
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color,
                 translation: *position,
-                rect,
+                rect: atlas_info.rect,
             });
 
             if text_layout_info
@@ -1008,7 +943,6 @@ pub fn extract_text_sections(
 pub fn extract_text_shadows(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -1065,15 +999,10 @@ pub fn extract_text_shadows(
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color: shadow.color.into(),
                 translation: *position,
-                rect,
+                rect: atlas_info.rect,
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
@@ -1631,7 +1560,7 @@ pub fn prepare_uinodes(
                             points[3] + positions_diff[3],
                         ];
 
-                        let transformed_rect_size = transform.transform_vector2(rect_size);
+                        let transformed_rect_size = transform.transform_vector2(rect_size).abs();
 
                         // Don't try to cull nodes that have a rotation
                         // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -1774,12 +1703,13 @@ pub fn prepare_uinodes(
                             ];
 
                             // cull nodes that are completely clipped
-                            let transformed_rect_size =
-                                extracted_uinode.transform.transform_vector2(rect_size);
-                            if positions_diff[0].x - positions_diff[1].x
-                                >= transformed_rect_size.x.abs()
+                            let transformed_rect_size = extracted_uinode
+                                .transform
+                                .transform_vector2(rect_size)
+                                .abs();
+                            if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                                 || positions_diff[1].y - positions_diff[2].y
-                                    >= transformed_rect_size.y.abs()
+                                    >= transformed_rect_size.y
                             {
                                 continue;
                             }

@@ -118,7 +118,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
         };
 
         let shader_defs = vec![
-            #[cfg(feature = "webgl")]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
         ];
 
@@ -203,7 +203,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
         };
 
         let shader_defs = vec![
-            #[cfg(feature = "webgl")]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
         ];
 

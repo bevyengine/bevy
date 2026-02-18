@@ -120,7 +120,7 @@ fn setup_pica_pica(
     commands.spawn((
         DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
-            shadows_enabled: false, // Solari replaces shadow mapping
+            shadow_maps_enabled: false, // Solari replaces shadow mapping
             ..default()
         },
         Transform::from_rotation(Quat::from_xyzw(
@@ -190,7 +190,7 @@ fn setup_pica_pica(
             PerformanceText,
             Text::default(),
             TextFont {
-                font_size: 8.0,
+                font_size: FontSize::Px(8.0),
                 ..default()
             },
         )],
@@ -360,7 +360,7 @@ fn setup_many_lights(
             PerformanceText,
             Text::default(),
             TextFont {
-                font_size: 8.0,
+                font_size: FontSize::Px(8.0),
                 ..default()
             },
         )],
@@ -390,7 +390,7 @@ fn add_raytracing_meshes_on_scene_load(
                 .insert(RaytracingMesh3d(mesh_handle.clone()));
 
             // Ensure meshes are Solari compatible
-            let mesh = meshes.get_mut(mesh_handle).unwrap();
+            let mut mesh = meshes.get_mut(mesh_handle).unwrap();
             if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
                 let vertex_count = mesh.count_vertices();
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; vertex_count]);
@@ -413,11 +413,11 @@ fn add_raytracing_meshes_on_scene_load(
 
             // Adjust scene materials to better demo Solari features
             if material_name.map(|s| s.0.as_str()) == Some("material") {
-                let material = materials.get_mut(material_handle).unwrap();
+                let mut material = materials.get_mut(material_handle).unwrap();
                 material.emissive = LinearRgba::BLACK;
             }
             if material_name.map(|s| s.0.as_str()) == Some("Lights") {
-                let material = materials.get_mut(material_handle).unwrap();
+                let mut material = materials.get_mut(material_handle).unwrap();
                 material.emissive =
                     LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1_000_000.0;
                 material.alpha_mode = AlphaMode::Opaque;
@@ -426,7 +426,7 @@ fn add_raytracing_meshes_on_scene_load(
                 commands.insert_resource(RobotLightMaterial(material_handle.clone()));
             }
             if material_name.map(|s| s.0.as_str()) == Some("Glass_Dark_01") {
-                let material = materials.get_mut(material_handle).unwrap();
+                let mut material = materials.get_mut(material_handle).unwrap();
                 material.alpha_mode = AlphaMode::Opaque;
                 material.specular_transmission = 0.0;
             }
@@ -457,7 +457,7 @@ fn toggle_lights(
             commands.spawn((
                 DirectionalLight {
                     illuminance: light_consts::lux::FULL_DAYLIGHT,
-                    shadows_enabled: false, // Solari replaces shadow mapping
+                    shadow_maps_enabled: false, // Solari replaces shadow mapping
                     ..default()
                 },
                 Transform::from_rotation(Quat::from_xyzw(
@@ -473,7 +473,7 @@ fn toggle_lights(
     if key_input.just_pressed(KeyCode::Digit2)
         && let Some(robot_light_material) = robot_light_material
     {
-        let material = materials.get_mut(&robot_light_material.0).unwrap();
+        let mut material = materials.get_mut(&robot_light_material.0).unwrap();
         if material.emissive == LinearRgba::BLACK {
             material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1_000_000.0;
         } else {
@@ -601,6 +601,19 @@ fn update_performance_text(
         "Specular indirect",
         "render/solari_lighting/specular_indirect_lighting/elapsed_gpu",
     );
-    text.push_str(&format!("{:17}     TODO\n", "DLSS-RR"));
-    text.push_str(&format!("\n{:17}  {total:.2} ms", "Total"));
+    (add_diagnostic)("DLSS-RR", "render/dlss_ray_reconstruction/elapsed_gpu");
+    text.push_str(&format!("{:17}  {total:.2} ms\n", "Total"));
+
+    if let Some(world_cache_active_cells_count) = diagnostics
+        .get(&DiagnosticPath::new(
+            "render/solari_lighting/world_cache_active_cells_count",
+        ))
+        .and_then(Diagnostic::average)
+    {
+        text.push_str(&format!(
+            "\nWorld cache cells {} ({:.0}%)",
+            world_cache_active_cells_count as u32,
+            (world_cache_active_cells_count * 100.0) / (2u64.pow(20) as f64)
+        ));
+    }
 }

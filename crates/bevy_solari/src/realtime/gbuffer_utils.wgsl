@@ -18,8 +18,7 @@ fn gpixel_resolve(gpixel: vec4<u32>, depth: f32, pixel_id: vec2<u32>, view_size:
 
     let base_rough = unpack4x8unorm(gpixel.r);
     let base_color = pow(base_rough.rgb, vec3(2.2));
-    // Clamp roughness to prevent NaNs
-    let perceptual_roughness = clamp(base_rough.a, 0.0316227766, 1.0); // Clamp roughness to 0.001
+    let perceptual_roughness = base_rough.a;
     let roughness = perceptual_roughness * perceptual_roughness;
     let props = unpack4x8unorm(gpixel.b);
     let reflectance = vec3(props.r);

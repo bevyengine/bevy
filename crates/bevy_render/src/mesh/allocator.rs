@@ -17,10 +17,10 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_log::error;
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_utils::default;
 use offset_allocator::{Allocation, Allocator};
-use tracing::error;
 use wgpu::{
     BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
     COPY_BUFFER_ALIGNMENT,
