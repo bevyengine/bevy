@@ -82,6 +82,8 @@ impl Plugin for CameraPlugin {
                 .init_resource::<SortedCameras>()
                 .init_resource::<DirtySpecializations>()
                 .init_resource::<DirtyWireframeSpecializations>()
+                .allow_ambiguous_resource::<DirtySpecializations>()
+                .allow_ambiguous_resource::<DirtyWireframeSpecializations>()
                 .configure_sets(
                     ExtractSchedule,
                     (

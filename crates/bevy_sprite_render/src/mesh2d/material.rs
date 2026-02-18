@@ -290,6 +290,7 @@ where
                 .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
                 .init_resource::<PendingMeshMaterial2dQueues>()
+                .allow_ambiguous_resource::<PendingMeshMaterial2dQueues>()
                 .add_systems(
                     RenderStartup,
                     init_material_2d_pipeline::<M>.after(init_mesh_2d_pipeline),
