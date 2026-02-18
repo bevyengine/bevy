@@ -729,13 +729,13 @@ impl GltfLoader {
 
                 let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
 
-                let mut input = GltfPrimitiveInput {
+                let input = GltfPrimitiveInput {
                     document: &gltf,
                     buffers: &buffer_data,
                 };
                 let mut output = GltfPrimitiveOutput::default();
                 for extension in extensions.iter_mut() {
-                    extension.on_gltf_primitive(load_context, &primitive, &mut input, &mut output);
+                    extension.on_gltf_primitive(load_context, &primitive, &input, &mut output);
                 }
                 let primitive = if let Some(doc) = &output.document
                     && let Some(mesh) = doc.meshes().next()

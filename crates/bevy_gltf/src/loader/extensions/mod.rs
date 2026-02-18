@@ -40,6 +40,7 @@ pub struct GltfPrimitiveInput<'a> {
 
 /// Output data for glTF primitive processing.
 /// Allows extensions to provide modified versions of the document or buffers.
+#[derive(Default)]
 pub struct GltfPrimitiveOutput {
     /// Optional output for a modified glTF document. If set, the loader will use this
     /// modified document for subsequent primitive processing.
@@ -47,15 +48,6 @@ pub struct GltfPrimitiveOutput {
     /// Optional output for modified buffer data. If set, the loader will use this
     /// modified buffer data instead of the original input buffers.
     pub buffers: Option<Vec<Vec<u8>>>,
-}
-
-impl Default for GltfPrimitiveOutput {
-    fn default() -> Self {
-        Self {
-            document: None,
-            buffers: None,
-        }
-    }
 }
 
 /// Stores the `GltfExtensionHandler` implementations so that they
