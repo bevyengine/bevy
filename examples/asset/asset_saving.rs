@@ -4,7 +4,7 @@ use bevy::{
     asset::{
         io::{Reader, Writer},
         saver::{save_using_saver, AssetSaver, SavedAsset, SavedAssetBuilder},
-        AssetLoader, AsyncWriteExt, LoadContext,
+        AssetLoader, AssetPath, AsyncWriteExt, LoadContext,
     },
     color::palettes::tailwind,
     input::common_conditions::input_just_pressed,
@@ -171,6 +171,7 @@ impl AssetSaver for ManyBoxesSaver {
         writer: &mut Writer,
         asset: SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
     ) -> Result<(), Self::Error> {
         let boxes = asset
             .boxes
