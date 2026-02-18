@@ -331,7 +331,6 @@ pub fn measure_text_system(
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
@@ -364,7 +363,6 @@ pub fn text_system(
             match text_pipeline.update_text_layout_info(
                 &mut text_layout_info,
                 &mut font_atlas_set,
-                &mut texture_atlases,
                 &mut textures,
                 &mut computed,
                 &mut scale_cx,

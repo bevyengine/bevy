@@ -378,7 +378,14 @@ fn prepare_bloom_textures(
 
 #[derive(Component)]
 pub struct BloomBindGroups {
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
     cache_key: (TextureId, BufferId),
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    cache_key: (Vec<TextureId>, BufferId),
     downsampling_bind_groups: Box<[BindGroup]>,
     upsampling_bind_groups: Box<[BindGroup]>,
     sampler: Sampler,
@@ -396,12 +403,27 @@ fn prepare_bloom_bind_groups(
     let sampler = &downsampling_pipeline.sampler;
 
     for (entity, bloom_texture, bloom_bind_groups) in &views {
+        #[cfg(any(
+            not(feature = "webgl"),
+            not(target_arch = "wasm32"),
+            feature = "webgpu"
+        ))]
+        let cache_key = (
+            bloom_texture.texture.texture.id(),
+            uniforms.buffer().unwrap().id(),
+        );
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+        let cache_key = (
+            bloom_texture
+                .texture
+                .iter()
+                .map(|tex| tex.texture.id())
+                .collect(),
+            uniforms.buffer().unwrap().id(),
+        );
+
         if let Some(b) = bloom_bind_groups
-            && b.cache_key
-                == (
-                    bloom_texture.texture.texture.id(),
-                    uniforms.buffer().unwrap().id(),
-                )
+            && b.cache_key == cache_key
         {
             continue;
         }
@@ -435,10 +457,7 @@ fn prepare_bloom_bind_groups(
         }
 
         commands.entity(entity).insert(BloomBindGroups {
-            cache_key: (
-                bloom_texture.texture.texture.id(),
-                uniforms.buffer().unwrap().id(),
-            ),
+            cache_key,
             downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
             upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
             sampler: sampler.clone(),

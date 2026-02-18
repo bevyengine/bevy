@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_log::warn_once;
-use bevy_math::{Rect, UVec2, Vec2};
+use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use parley::style::{OverflowWrap, TextWrapMode};
@@ -264,7 +264,6 @@ impl TextPipeline {
         &mut self,
         layout_info: &mut TextLayoutInfo,
         font_atlas_set: &mut FontAtlasSet,
-        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         computed: &mut ComputedTextBlock,
         scale_cx: &mut ScaleCx,
@@ -326,7 +325,6 @@ impl TextPipeline {
                                 .unwrap_or_else(|| {
                                     add_glyph_to_atlas(
                                         font_atlases,
-                                        texture_atlases,
                                         textures,
                                         &mut scaler,
                                         font_smoothing,
@@ -334,22 +332,17 @@ impl TextPipeline {
                                     )
                                 })?;
 
-                        let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
-                        let location = atlas_info.location;
-                        let glyph_rect = texture_atlas.textures[location.glyph_index];
-                        let glyph_size =
-                            UVec2::new(glyph_rect.width(), glyph_rect.height()).as_vec2();
                         let glyph_pos = Vec2::new(glyph.x, glyph.y);
+                        let size = atlas_info.rect.size();
 
                         layout_info.glyphs.push(PositionedGlyph {
-                            position: glyph_size / 2.
+                            position: size / 2.
                                 + if font_smoothing == FontSmoothing::None {
                                     glyph_pos.floor()
                                 } else {
                                     glyph_pos
                                 }
-                                + location.offset.as_vec2() * Vec2::new(1., -1.),
-                            size: glyph_size,
+                                + atlas_info.offset,
                             atlas_info,
                             span_index,
                             byte_index: text_range.start,

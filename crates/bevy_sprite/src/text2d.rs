@@ -173,7 +173,6 @@ pub fn update_text2d_layout(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
@@ -300,7 +299,6 @@ pub fn update_text2d_layout(
         match text_pipeline.update_text_layout_info(
             &mut text_layout_info,
             &mut font_atlas_set,
-            &mut texture_atlases,
             &mut textures,
             &mut computed,
             &mut scale_cx,

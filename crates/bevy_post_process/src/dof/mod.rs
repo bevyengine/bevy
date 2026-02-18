@@ -218,7 +218,8 @@ impl Plugin for DepthOfFieldPlugin {
             .add_systems(
                 Render,
                 (
-                    configure_depth_of_field_view_targets,
+                    configure_depth_of_field_view_targets
+                        .ambiguous_with(RenderSystems::PrepareViews),
                     prepare_auxiliary_depth_of_field_textures,
                 )
                     .after(prepare_view_targets)

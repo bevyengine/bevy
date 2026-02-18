@@ -44,7 +44,7 @@ fn main() {
                         .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
                 )
                 .set(PbrPlugin {
-                    gltf_render_enabled: false,
+                    gltf_enable_standard_materials: false,
                     ..Default::default()
                 }),
             GltfToMesh2dPlugin,
