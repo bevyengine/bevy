@@ -6,20 +6,8 @@ use bevy::{
     window::{ExitCondition, WindowCloseRequested},
 };
 use serde::{Deserialize, Serialize};
-// use bevy_state::reflect;
 
 fn main() {
-    // Configure preferences store
-    // let mut preferences = Preferences::new("org.bevy.example.prefs");
-    // let count: i32 = preferences
-    //     .get("prefs")
-    //     .map(|file| {
-    //         file.get_group("counter")
-    //             .map(|group| group.get::<i32>("count").unwrap_or(0))
-    //             .unwrap_or(0)
-    //     })
-    //     .unwrap_or(0);
-
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             // We want to intercept the exit so that we can save prefs.
@@ -32,8 +20,6 @@ fn main() {
         }))
         .add_plugins(PreferencesPlugin::new("org.bevy.examples.prefs_counter"))
         // .add_plugins(AutosavePrefsPlugin)
-        // .insert_resource(preferences)
-        // .insert_resource(Counter { count: 0 })
         .add_systems(Startup, setup)
         .add_systems(Update, (show_count, change_count, on_window_close))
         .load_preferences()
@@ -92,7 +78,6 @@ fn show_count(mut query: Query<&mut Text, With<CounterDisplay>>, counter: Res<Co
 fn change_count(
     mut counter: ResMut<Counter>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    // mut prefs: ResMut<Preferences>,
     mut commands: Commands,
 ) {
     let mut changed = false;
@@ -109,14 +94,8 @@ fn change_count(
     }
 
     if changed {
-        commands.queue(SavePreferencesSync::Always);
+        commands.queue(SavePreferencesSync::IfChanged);
     }
-
-    // if changed && let Some(app_prefs) = prefs.get_mut("prefs") {
-    //     // let mut counter_prefs = app_prefs.get_group_mut("counter").unwrap();
-    //     // counter_prefs.set("count", counter.count);
-    //     // commands.queue(StartAutosaveTimer);
-    // }
 }
 
 fn on_window_close(mut close: MessageReader<WindowCloseRequested>, mut commands: Commands) {

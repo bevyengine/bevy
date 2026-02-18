@@ -92,24 +92,7 @@ pub enum SavePreferencesSync {
 
 impl Command for SavePreferencesSync {
     fn apply(self, world: &mut World) {
-        // TODO: if self is `IfChanged` then only save if file.last_save is >= the change time
-        // of all resources.
-        let Some(registry) = world.get_resource::<PreferencesFileRegistry>() else {
-            warn!("Preferences registry not found - did you forget to call load_preferences()?");
-            return;
-        };
-        let Some(app_types) = world.get_resource::<AppTypeRegistry>() else {
-            return;
-        };
-        let app_types = app_types.clone();
-        let types = app_types.read();
-
-        for (filename, manifest) in registry.files.iter() {
-            // TODO: See if changed
-            let table = resources_to_toml(world, &types, manifest);
-            let store = PreferencesStore::new(&registry.app_name);
-            store.save(filename, table);
-        }
+        save_preferences(world, false, self == SavePreferencesSync::Always);
     }
 }
 
@@ -171,9 +154,39 @@ pub enum SavePreferences {
 }
 
 impl Command for SavePreferences {
-    fn apply(self, _world: &mut World) {
-        // let prefs = world.get_resource::<Preferences>().unwrap();
-        // prefs.save_async(self == SavePreferences::Always);
+    fn apply(self, world: &mut World) {
+        save_preferences(world, true, self == SavePreferences::Always);
+    }
+}
+
+fn save_preferences(world: &mut World, use_async: bool, _force: bool) {
+    let this_run = world.change_tick();
+    let Some(registry) = world.get_resource::<PreferencesFileRegistry>() else {
+        warn!("Preferences registry not found - did you forget to call load_preferences()?");
+        return;
+    };
+    let Some(app_types) = world.get_resource::<AppTypeRegistry>() else {
+        return;
+    };
+    let app_types = app_types.clone();
+    let types = app_types.read();
+
+    for (filename, manifest) in registry.files.iter() {
+        // TODO: See if changed unless _force is true
+        // only save if file.last_save is >= the change time of all resources.
+        let table = resources_to_toml(world, &types, manifest);
+        let store = PreferencesStore::new(&registry.app_name);
+        if use_async {
+            store.save_async(filename, table);
+        } else {
+            store.save(filename, table);
+        }
+    }
+
+    // Update timestamps
+    let mut registry = world.get_resource_mut::<PreferencesFileRegistry>().unwrap();
+    for (_, manifest) in registry.files.iter_mut() {
+        manifest.last_save = this_run;
     }
 }
 

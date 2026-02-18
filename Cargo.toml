@@ -5156,7 +5156,7 @@ path = "examples/app/prefs_counter.rs"
 doc-scrape-examples = true
 required-features = ["bevy_preferences"]
 
-[package.metadata.example.prefs]
+[package.metadata.example.prefs_counter]
 name = "User Preferences"
 description = "Demonstrates persistence of user preferences"
 category = "Application"
