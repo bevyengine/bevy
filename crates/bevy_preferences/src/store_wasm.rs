@@ -10,7 +10,7 @@ pub(crate) struct PreferencesStore {
 }
 
 impl PreferencesStore {
-    /// Construct a new preferecnes store for browser local storage.
+    /// Construct a new preferences store for browser local storage.
     ///
     /// # Arguments
     /// * `app_name` - The name of the application. This is used to uniquely identify the
