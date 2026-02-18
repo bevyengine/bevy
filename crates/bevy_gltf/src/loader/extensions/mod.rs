@@ -130,11 +130,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         load_context: &mut LoadContext<'_>,
         gltf_document: &gltf::Gltf,
         gltf_primitive: &gltf::Primitive,
-        #[expect(
-            clippy::ptr_arg,
-            reason = "on_gltf_primitive requires &Vec<Vec<u8>> for external API compatibility"
-        )]
-        buffer_data: &Vec<Vec<u8>>,
+        buffer_data: &[Vec<u8>],
         out_doc: &mut Option<gltf::Document>,
         out_data: &mut Option<Vec<Vec<u8>>>,
     ) {
