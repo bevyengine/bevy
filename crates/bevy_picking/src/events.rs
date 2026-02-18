@@ -1191,11 +1191,11 @@ mod tests {
         struct LeaveEventCounts(HashMap<Entity, usize>);
 
         fn observe_enter(event: On<Pointer<Enter>>, mut counts: ResMut<EnterEventCounts>) {
-            *counts.0.entry(event.entity).or_insert(0 as usize) += 1;
+            *counts.0.entry(event.entity).or_insert(0_usize) += 1;
         }
 
         fn observe_leave(event: On<Pointer<Leave>>, mut counts: ResMut<LeaveEventCounts>) {
-            *counts.0.entry(event.entity).or_insert(0 as usize) += 1;
+            *counts.0.entry(event.entity).or_insert(0_usize) += 1;
         }
 
         fn assert_msg_event_counts(app: &App, enter_count: usize, leave_count: usize) {
