@@ -410,6 +410,9 @@ bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 # Headless widget collection for Bevy UI.
 bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 
+# Load and save user preferences
+bevy_preferences = ["bevy_internal/bevy_preferences"]
+
 # Feathers widget collection.
 experimental_bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
@@ -5145,6 +5148,18 @@ doc-scrape-examples = true
 name = "Scrollbars"
 description = "Demonstrates use of core scrollbar in Bevy UI"
 category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "prefs_counter"
+path = "examples/app/prefs_counter.rs"
+doc-scrape-examples = true
+required-features = ["bevy_preferences"]
+
+[package.metadata.example.prefs]
+name = "User Preferences"
+description = "Demonstrates persistence of user preferences"
+category = "Application"
 wasm = true
 
 [[example]]
