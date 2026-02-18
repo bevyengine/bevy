@@ -503,15 +503,15 @@ impl<'a> AssetPath<'a> {
     /// Ex: Returns `"config.ron"` for `"my_asset.config.ron"`
     ///
     /// Also strips out anything following a `?` to handle query parameters in URIs
-    pub fn get_full_extension(&self) -> Option<String> {
+    pub fn get_full_extension(&self) -> Option<&str> {
         let file_name = self.path().file_name()?.to_str()?;
         let index = file_name.find('.')?;
-        let mut extension = file_name[index + 1..].to_owned();
+        let mut extension = &file_name[index + 1..];
 
         // Strip off any query parameters
         let query = extension.find('?');
         if let Some(offset) = query {
-            extension.truncate(offset);
+            extension = &extension[..offset];
         }
 
         Some(extension)
@@ -706,7 +706,6 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use crate::AssetPath;
-    use alloc::string::ToString;
     use std::path::Path;
 
     #[test]
@@ -1254,15 +1253,15 @@ mod tests {
     #[test]
     fn test_get_extension() {
         let result = AssetPath::from("http://a.tar.gz#Foo");
-        assert_eq!(result.get_full_extension(), Some("tar.gz".to_string()));
+        assert_eq!(result.get_full_extension(), Some("tar.gz"));
 
         let result = AssetPath::from("http://a#Foo");
         assert_eq!(result.get_full_extension(), None);
 
         let result = AssetPath::from("http://a.tar.bz2?foo=bar#Baz");
-        assert_eq!(result.get_full_extension(), Some("tar.bz2".to_string()));
+        assert_eq!(result.get_full_extension(), Some("tar.bz2"));
 
         let result = AssetPath::from("asset.Custom");
-        assert_eq!(result.get_full_extension(), Some("Custom".to_string()));
+        assert_eq!(result.get_full_extension(), Some("Custom"));
     }
 }
