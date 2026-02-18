@@ -304,6 +304,7 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         message::MessageWriter,
+        query::Without,
         resource::Resource,
         system::{Commands, IntoSystem, Local, Query, Res, ResMut},
     };
@@ -348,6 +349,21 @@ mod tests {
     #[should_panic]
     fn asset_changed_conflict() {
         fn system(_: Query<&mut AssetChanges<MyAsset>>, _: Query<(), AssetChanged<MyComponent>>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn asset_changed_conflict_without() {
+        #[derive(Component)]
+        struct Foo;
+
+        fn system(
+            _: Query<&Foo, AssetChanged<MyComponent>>,
+            _: Query<&mut AssetChanges<MyAsset>, Without<Foo>>,
+        ) {
+        }
+
         assert_is_system(system);
     }
 
