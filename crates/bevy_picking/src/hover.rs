@@ -60,6 +60,21 @@ pub struct HoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
 #[derive(Debug, Deref, DerefMut, Default, Resource)]
 pub struct PreviousHoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
 
+/// Gets the hovered entities for a `pointer_id` from a provided `HoverMap`
+pub(crate) fn get_hovered_entities(
+    hover_map: &HashMap<PointerId, HashMap<Entity, HitData>>,
+    pointer_id: &PointerId,
+) -> HashSet<Entity> {
+    hover_map
+        .get(pointer_id)
+        .map_or(HashSet::default(), |entity_hit| {
+            entity_hit
+                .iter()
+                .map(|(&entity, _)| entity)
+                .collect::<HashSet<Entity>>()
+        })
+}
+
 /// Coalesces all data from inputs and backends to generate a map of the currently hovered entities.
 /// This is the final focusing step to determine which entity the pointer is hovering over.
 pub fn generate_hovermap(
