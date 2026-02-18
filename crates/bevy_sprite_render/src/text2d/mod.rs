@@ -1,15 +1,14 @@
 use crate::{
     ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind, ExtractedSprites,
 };
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::AssetId;
 use bevy_camera::visibility::ViewVisibility;
 use bevy_color::LinearRgba;
 use bevy_ecs::{
     entity::Entity,
     query::Has,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, ResMut},
 };
-use bevy_image::prelude::*;
 use bevy_math::{Vec2, Vec3};
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
@@ -26,7 +25,6 @@ pub fn extract_text2d_sprite(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut extracted_slices: ResMut<ExtractedSlices>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     text2d_query: Extract<
         Query<(
             Entity,
@@ -122,15 +120,10 @@ pub fn extract_text2d_sprite(
                 },
             ) in text_layout_info.glyphs.iter().enumerate()
             {
-                let rect = texture_atlases
-                    .get(atlas_info.texture_atlas)
-                    .unwrap()
-                    .textures[atlas_info.location.glyph_index]
-                    .as_rect();
                 extracted_slices.slices.push(ExtractedSlice {
                     offset: *position,
-                    rect,
-                    size: rect.size(),
+                    rect: atlas_info.rect,
+                    size: atlas_info.rect.size(),
                 });
 
                 if text_layout_info
@@ -239,15 +232,10 @@ pub fn extract_text2d_sprite(
                     .unwrap_or_default();
                 current_span = *span_index;
             }
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
             extracted_slices.slices.push(ExtractedSlice {
                 offset: *position,
-                rect,
-                size: rect.size(),
+                rect: atlas_info.rect,
+                size: atlas_info.rect.size(),
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {

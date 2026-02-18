@@ -33,6 +33,13 @@ const NDC_MAX: Vec2 = Vec2::ONE;
 const VEC2_HALF: Vec2 = Vec2::splat(0.5);
 const VEC2_HALF_NEGATIVE_Y: Vec2 = Vec2::new(0.5, -0.5);
 
+/// The depth of the farthest cluster that we use for the first frame if
+/// [`ClusterFarZMode::MaxClusterableObjectRange`] is in use.
+///
+/// We use this arbitrary value because, on the first frame, we have no
+/// clustering from the previous frame to refer to.
+const DEFAULT_FAR_DEPTH: f32 = 1000.0;
+
 /// Data required for assigning objects to clusters.
 #[derive(Clone, Debug)]
 pub(crate) struct ClusterableObjectAssignmentData {
@@ -328,15 +335,7 @@ pub(crate) fn assign_objects_to_clusters(
 
         let far_z = match config.far_z_mode() {
             ClusterFarZMode::MaxClusterableObjectRange => {
-                let view_from_world_row_2 = view_from_world.row(2);
-                clusterable_objects
-                    .iter()
-                    .map(|object| {
-                        -view_from_world_row_2.dot(object.transform.translation().extend(1.0))
-                            + object.range * view_from_world_scale.z
-                    })
-                    .reduce(f32::max)
-                    .unwrap_or(0.0)
+                clusters.last_frame_farthest_z.unwrap_or(DEFAULT_FAR_DEPTH)
             }
             ClusterFarZMode::Constant(far) => far,
         };
@@ -366,81 +365,28 @@ pub(crate) fn assign_objects_to_clusters(
             is_orthographic,
         );
 
-        if config.dynamic_resizing() {
-            let mut cluster_index_estimate = 0.0;
-            for clusterable_object in &clusterable_objects {
-                let clusterable_object_sphere = clusterable_object.sphere();
+        // If the dynamic resizing feature is on, use the last frame's cluster
+        // index count to determine the new number of clusters.
+        if config.dynamic_resizing()
+            && let Some(last_frame_cluster_index_count) =
+                clusters.last_frame_total_cluster_index_count
+            && last_frame_cluster_index_count
+                > global_cluster_settings.view_cluster_bindings_max_indices
+        {
+            // scale x and y cluster count to be able to fit all our indices
 
-                // Check if the clusterable object is within the view frustum
-                if !frustum.intersects_sphere(&clusterable_object_sphere, true) {
-                    continue;
-                }
+            // we take the ratio of the actual indices over the index estimate.
+            // this is not guaranteed to be small enough due to overlapped tiles, but
+            // the conservative estimate is more than sufficient to cover the
+            // difference
+            let index_ratio = global_cluster_settings.view_cluster_bindings_max_indices as f32
+                / last_frame_cluster_index_count as f32;
+            let xy_ratio = index_ratio.sqrt();
 
-                // calculate a conservative aabb estimate of number of clusters affected by this light
-                // this overestimates index counts by at most 50% (and typically much less) when the whole light range is in view
-                // it can overestimate more significantly when light ranges are only partially in view
-                let (clusterable_object_aabb_min, clusterable_object_aabb_max) =
-                    cluster_space_clusterable_object_aabb(
-                        view_from_world,
-                        view_from_world_scale,
-                        camera.clip_from_view(),
-                        &clusterable_object_sphere,
-                    );
-
-                // since we won't adjust z slices we can calculate exact number of slices required in z dimension
-                let z_cluster_min = view_z_to_z_slice(
-                    cluster_factors,
-                    requested_cluster_dimensions.z,
-                    clusterable_object_aabb_min.z,
-                    is_orthographic,
-                );
-                let z_cluster_max = view_z_to_z_slice(
-                    cluster_factors,
-                    requested_cluster_dimensions.z,
-                    clusterable_object_aabb_max.z,
-                    is_orthographic,
-                );
-                let z_count =
-                    z_cluster_min.max(z_cluster_max) - z_cluster_min.min(z_cluster_max) + 1;
-
-                // calculate x/y count using floats to avoid overestimating counts due to large initial tile sizes
-                let xy_min = clusterable_object_aabb_min.xy();
-                let xy_max = clusterable_object_aabb_max.xy();
-                // multiply by 0.5 to move from [-1,1] to [-0.5, 0.5], max extent of 1 in each dimension
-                let xy_count = (xy_max - xy_min)
-                    * 0.5
-                    * Vec2::new(
-                        requested_cluster_dimensions.x as f32,
-                        requested_cluster_dimensions.y as f32,
-                    );
-
-                // add up to 2 to each axis to account for overlap
-                let x_overlap = if xy_min.x <= -1.0 { 0.0 } else { 1.0 }
-                    + if xy_max.x >= 1.0 { 0.0 } else { 1.0 };
-                let y_overlap = if xy_min.y <= -1.0 { 0.0 } else { 1.0 }
-                    + if xy_max.y >= 1.0 { 0.0 } else { 1.0 };
-                cluster_index_estimate +=
-                    (xy_count.x + x_overlap) * (xy_count.y + y_overlap) * z_count as f32;
-            }
-
-            if cluster_index_estimate
-                > global_cluster_settings.view_cluster_bindings_max_indices as f32
-            {
-                // scale x and y cluster count to be able to fit all our indices
-
-                // we take the ratio of the actual indices over the index estimate.
-                // this is not guaranteed to be small enough due to overlapped tiles, but
-                // the conservative estimate is more than sufficient to cover the
-                // difference
-                let index_ratio = global_cluster_settings.view_cluster_bindings_max_indices as f32
-                    / cluster_index_estimate;
-                let xy_ratio = index_ratio.sqrt();
-
-                requested_cluster_dimensions.x =
-                    ((requested_cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
-                requested_cluster_dimensions.y =
-                    ((requested_cluster_dimensions.y as f32 * xy_ratio).floor() as u32).max(1);
-            }
+            requested_cluster_dimensions.x =
+                ((requested_cluster_dimensions.x as f32 * xy_ratio).floor() as u32).max(1);
+            requested_cluster_dimensions.y =
+                ((requested_cluster_dimensions.y as f32 * xy_ratio).floor() as u32).max(1);
         }
 
         clusters.update(screen_size, requested_cluster_dimensions);
@@ -524,6 +470,9 @@ pub(crate) fn assign_objects_to_clusters(
             z_planes.push(HalfSpace::new(normal.extend(d)));
         }
 
+        let (mut total_cluster_index_count, mut farthest_z) = (0, 0.0f32);
+        let view_from_world_row_2 = view_from_world.row(2);
+
         let mut update_from_object_intersections =
             |visible_clusterable_objects: &mut VisibleClusterableObjects| {
                 for clusterable_object in &clusterable_objects {
@@ -543,6 +492,11 @@ pub(crate) fn assign_objects_to_clusters(
                     // must be visible and part of the global set
                     visible_clusterable_objects
                         .add(clusterable_object.entity, &clusterable_object.object_type);
+
+                    let this_object_far_z = -view_from_world_row_2
+                        .dot(clusterable_object.transform.translation().extend(1.0))
+                        + clusterable_object.range * view_from_world_scale.z;
+                    farthest_z = farthest_z.max(this_object_far_z);
 
                     // note: caching seems to be slower than calling twice for this aabb calculation
                     let (
@@ -756,6 +710,7 @@ pub(crate) fn assign_objects_to_clusters(
                                             // this cluster is affected by the spot light
                                             clusters.clusterable_objects[cluster_index]
                                                 .add_spot_light(clusterable_object.entity);
+                                            total_cluster_index_count += 1;
                                         }
                                         cluster_index += clusters.dimensions.z as usize;
                                     }
@@ -768,6 +723,7 @@ pub(crate) fn assign_objects_to_clusters(
                                             .add_point_light(clusterable_object.entity);
                                         cluster_index += clusters.dimensions.z as usize;
                                     }
+                                    total_cluster_index_count += (max_x - min_x + 1) as usize;
                                 }
 
                                 ClusterableObjectType::ReflectionProbe => {
@@ -781,6 +737,7 @@ pub(crate) fn assign_objects_to_clusters(
                                             .add_reflection_probe(clusterable_object.entity);
                                         cluster_index += clusters.dimensions.z as usize;
                                     }
+                                    total_cluster_index_count += (max_x - min_x + 1) as usize;
                                 }
 
                                 ClusterableObjectType::IrradianceVolume => {
@@ -794,6 +751,7 @@ pub(crate) fn assign_objects_to_clusters(
                                             .add_irradiance_volume(clusterable_object.entity);
                                         cluster_index += clusters.dimensions.z as usize;
                                     }
+                                    total_cluster_index_count += (max_x - min_x + 1) as usize;
                                 }
 
                                 ClusterableObjectType::Decal => {
@@ -807,6 +765,7 @@ pub(crate) fn assign_objects_to_clusters(
                                             .add_decal(clusterable_object.entity);
                                         cluster_index += clusters.dimensions.z as usize;
                                     }
+                                    total_cluster_index_count += (max_x - min_x + 1) as usize;
                                 }
                             }
                         }
@@ -825,6 +784,12 @@ pub(crate) fn assign_objects_to_clusters(
                 .entity(view_entity)
                 .insert(visible_clusterable_objects);
         }
+
+        // Save statistics for this frame so that the `dynamic_resizing` and
+        // `ClusterFarZMode::MaxClusterableObjectRange` features can use them as
+        // heuristics on the next frame.
+        clusters.last_frame_total_cluster_index_count = Some(total_cluster_index_count);
+        clusters.last_frame_farthest_z = Some(farthest_z);
     }
 }
 
