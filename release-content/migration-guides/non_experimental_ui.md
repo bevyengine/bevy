@@ -1,5 +1,5 @@
 ---
-title: "`experimental_ui_widgets` and `experimental_bevy_feathers` features are no longer experimental"
+title: "`experimental_ui_widgets` feature is no longer experimental"
 pull_requests: [22934]
 ---
 
