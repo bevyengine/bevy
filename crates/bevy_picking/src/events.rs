@@ -53,7 +53,7 @@ use tracing::debug;
 
 use crate::{
     backend::{prelude::PointerLocation, HitData},
-    hover::{get_hovered_entities, HoverMap, PreviousHoverMap},
+    hover::{get_hovered_entities, is_directly_hovered, HoverMap, PreviousHoverMap},
     pointer::{Location, PointerAction, PointerButton, PointerId, PointerInput, PointerMap},
 };
 
@@ -210,7 +210,7 @@ pub struct Over {
 /// two [`Enter`] events are still emitted for both the child and the parent.
 /// This matches the triggering behavior of `mouseenter` events on the web.
 /// To find out whether a pointer is within an entity's bounds upon entering,
-/// check whether a [`HitData`] entry exists for that pointer and entity within the [`HoverMap`].
+/// check the value of [`is_in_bounds`](Enter::is_in_bounds).
 ///
 /// Refer to [`pointer_events`] for more information on how these events are triggered.
 #[derive(Clone, PartialEq, Debug, Reflect)]
@@ -218,6 +218,11 @@ pub struct Over {
 pub struct Enter {
     /// Information about the picking intersection.
     pub hit: HitData,
+    /// Whether this pointer directly entered into the target entity's bounds at the
+    /// time of the event.
+    /// This may be false if this entity's child's bounds extended beyond the entity and
+    /// the pointer entered within the child's bounds only.
+    pub is_in_bounds: bool,
 }
 
 /// Fires when a pointer crosses out of the bounds of a [target entity](EntityEvent::event_target).
@@ -254,9 +259,8 @@ pub struct Out {
 /// and the pointer enters the child's bounds without crossing into the parent's,
 /// two [`Enter`] events are still emitted for both the child and the parent.
 /// This matches the triggering behavior of `mouseleave` events on the web.
-/// To find out whether a pointer was within an entity's bounds before it left,
-/// check whether a [`HitData`] entry exists for that pointer and entity within the
-/// [`PreviousHoverMap`].
+/// To find out whether the pointer was within an entity's bounds before leaving,
+/// check the value of [`was_in_bounds`](Leave::was_in_bounds).
 ///
 /// Refer to [`pointer_events`] for more information on how these events are triggered.
 #[derive(Clone, PartialEq, Debug, Reflect)]
@@ -264,6 +268,11 @@ pub struct Out {
 pub struct Leave {
     /// Information about the latest prior picking intersection.
     pub hit: HitData,
+    /// Whether this pointer directly exited out of the target entity's bounds
+    /// at the time of the event.
+    /// This may be false if this entity's child's bounds extended beyond the entity and
+    /// the pointer exited out of the child's bounds only.
+    pub was_in_bounds: bool,
 }
 
 /// Fires when a pointer button is pressed over the [target entity](EntityEvent::event_target).
@@ -727,7 +736,14 @@ pub fn pointer_events(
                     Pointer::new_without_propagate(
                         pointer_id,
                         location.clone(),
-                        Leave { hit: hit.clone() },
+                        Leave {
+                            hit: hit.clone(),
+                            was_in_bounds: is_directly_hovered(
+                                &previous_hover_map.0,
+                                &pointer_id,
+                                entity,
+                            ),
+                        },
                         *entity,
                     )
                 }) {
@@ -842,7 +858,10 @@ pub fn pointer_events(
                     Pointer::new_without_propagate(
                         pointer_id,
                         location.clone(),
-                        Enter { hit: hit.clone() },
+                        Enter {
+                            hit: hit.clone(),
+                            is_in_bounds: is_directly_hovered(&hover_map.0, &pointer_id, entity),
+                        },
                         *entity,
                     )
                 }) {
@@ -1231,18 +1250,25 @@ mod tests {
 
     #[test]
     fn enter_leave_events() {
+        // the bool distinguishes between different *_in_bounds bool vals
         #[derive(Resource, Default)]
-        struct EnterEventCounts(HashMap<Entity, usize>);
+        struct EnterEventCounts(HashMap<(Entity, bool), usize>);
 
         #[derive(Resource, Default)]
-        struct LeaveEventCounts(HashMap<Entity, usize>);
+        struct LeaveEventCounts(HashMap<(Entity, bool), usize>);
 
         fn observe_enter(event: On<Pointer<Enter>>, mut counts: ResMut<EnterEventCounts>) {
-            *counts.0.entry(event.entity).or_insert(0_usize) += 1;
+            *counts
+                .0
+                .entry((event.entity, event.event().is_in_bounds))
+                .or_insert(0_usize) += 1;
         }
 
         fn observe_leave(event: On<Pointer<Leave>>, mut counts: ResMut<LeaveEventCounts>) {
-            *counts.0.entry(event.entity).or_insert(0_usize) += 1;
+            *counts
+                .0
+                .entry((event.entity, event.event().was_in_bounds))
+                .or_insert(0_usize) += 1;
         }
 
         fn assert_msg_event_counts(app: &App, enter_count: usize, leave_count: usize) {
@@ -1255,24 +1281,42 @@ mod tests {
         fn assert_observer_event_counts(
             app: &App,
             entity: Entity,
-            enter_counts: usize,
-            leave_counts: usize,
+            enter_in_bounds_counts: usize,
+            enter_out_of_bounds_counts: usize,
+            leave_in_bounds_counts: usize,
+            leave_out_of_bounds_counts: usize,
         ) {
             assert_eq!(
                 *app.world()
                     .resource::<EnterEventCounts>()
                     .0
-                    .get(&entity)
+                    .get(&(entity, true))
                     .unwrap_or(&0),
-                enter_counts
+                enter_in_bounds_counts
+            );
+            assert_eq!(
+                *app.world()
+                    .resource::<EnterEventCounts>()
+                    .0
+                    .get(&(entity, false))
+                    .unwrap_or(&0),
+                enter_out_of_bounds_counts
             );
             assert_eq!(
                 *app.world()
                     .resource::<LeaveEventCounts>()
                     .0
-                    .get(&entity)
+                    .get(&(entity, true))
                     .unwrap_or(&0),
-                leave_counts
+                leave_in_bounds_counts
+            );
+            assert_eq!(
+                *app.world()
+                    .resource::<LeaveEventCounts>()
+                    .0
+                    .get(&(entity, false))
+                    .unwrap_or(&0),
+                leave_out_of_bounds_counts
             );
         }
 
@@ -1311,12 +1355,12 @@ mod tests {
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
 
-        // child_one received an `Enter` event
-        // The parent also received an `Enter` event because its child was hovered into
+        // child_one received an in_bounds `Enter` event
+        // The parent received an indirect `Enter` event because its child was hovered into
         assert_msg_event_counts(&app, 2, 0);
-        assert_observer_event_counts(&app, parent, 1, 0);
-        assert_observer_event_counts(&app, child_one, 1, 0);
-        assert_observer_event_counts(&app, child_two, 0, 0);
+        assert_observer_event_counts(&app, parent, 0, 1, 0, 0);
+        assert_observer_event_counts(&app, child_one, 1, 0, 0, 0);
+        assert_observer_event_counts(&app, child_two, 0, 0, 0, 0);
         app.world_mut().increment_change_tick();
         // ---
 
@@ -1325,13 +1369,13 @@ mod tests {
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
 
-        // child_one directly received an `Leave` event.
-        // child_two directly received an `Enter` event.
+        // child_one received an in_bounds `Leave` event.
+        // child_two received an in_bounds `Enter` event.
         // The parent did not receive any events because it is a shared ancestor
         assert_msg_event_counts(&app, 3, 1);
-        assert_observer_event_counts(&app, parent, 1, 0);
-        assert_observer_event_counts(&app, child_one, 1, 1);
-        assert_observer_event_counts(&app, child_two, 1, 0);
+        assert_observer_event_counts(&app, parent, 0, 1, 0, 0);
+        assert_observer_event_counts(&app, child_one, 1, 0, 1, 0);
+        assert_observer_event_counts(&app, child_two, 1, 0, 0, 0);
         app.world_mut().increment_change_tick();
         // ---
 
@@ -1340,11 +1384,11 @@ mod tests {
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
 
-        // child_two received an `Leave` event.
+        // child_two received an in_bounds `Leave` event.
         assert_msg_event_counts(&app, 3, 2);
-        assert_observer_event_counts(&app, parent, 1, 0);
-        assert_observer_event_counts(&app, child_one, 1, 1);
-        assert_observer_event_counts(&app, child_two, 1, 1);
+        assert_observer_event_counts(&app, parent, 0, 1, 0, 0);
+        assert_observer_event_counts(&app, child_one, 1, 0, 1, 0);
+        assert_observer_event_counts(&app, child_two, 1, 0, 1, 0);
         app.world_mut().increment_change_tick();
         // ---
 
@@ -1353,12 +1397,12 @@ mod tests {
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
 
-        // child_two received an `Enter` event
+        // child_two received an in_bounds `Enter` event
         // The parent did not receive an `Leave` event because its child is still hovered
         assert_msg_event_counts(&app, 4, 2);
-        assert_observer_event_counts(&app, parent, 1, 0);
-        assert_observer_event_counts(&app, child_one, 1, 1);
-        assert_observer_event_counts(&app, child_two, 2, 1);
+        assert_observer_event_counts(&app, parent, 0, 1, 0, 0);
+        assert_observer_event_counts(&app, child_one, 1, 0, 1, 0);
+        assert_observer_event_counts(&app, child_two, 2, 0, 1, 0);
         app.world_mut().increment_change_tick();
         // ---
 
@@ -1367,13 +1411,13 @@ mod tests {
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
 
-        // child_two received one `Leave` event
-        // The parent received one `Leave` event because the pointer is no longer hovering
+        // child_two received one in_bounds `Leave` event
+        // The parent received one indirect `Leave` event because the pointer is no longer hovering
         // any of its children
         assert_msg_event_counts(&app, 4, 4);
-        assert_observer_event_counts(&app, parent, 1, 1);
-        assert_observer_event_counts(&app, child_one, 1, 1);
-        assert_observer_event_counts(&app, child_two, 2, 2);
+        assert_observer_event_counts(&app, parent, 0, 1, 0, 1);
+        assert_observer_event_counts(&app, child_one, 1, 0, 1, 0);
+        assert_observer_event_counts(&app, child_two, 2, 0, 2, 0);
         app.world_mut().increment_change_tick();
         // ---
 
@@ -1382,12 +1426,12 @@ mod tests {
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
 
-        // The parent received one `Enter` event
-        // child_one received one `Enter` event
+        // The parent received one in_bounds `Enter` event
+        // child_one received one in_bounds `Enter` event
         assert_msg_event_counts(&app, 6, 4);
-        assert_observer_event_counts(&app, parent, 2, 1);
-        assert_observer_event_counts(&app, child_one, 2, 1);
-        assert_observer_event_counts(&app, child_two, 2, 2);
+        assert_observer_event_counts(&app, parent, 1, 1, 0, 1);
+        assert_observer_event_counts(&app, child_one, 2, 0, 1, 0);
+        assert_observer_event_counts(&app, child_two, 2, 0, 2, 0);
         app.world_mut().increment_change_tick();
         // ---
     }
