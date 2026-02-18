@@ -450,6 +450,7 @@ pub fn extract_cameras(
             ),
         )>,
     >,
+    mut render_visible_entities: Query<&mut RenderVisibleEntities>,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mapper: Extract<Query<&RenderEntity>>,
@@ -514,29 +515,36 @@ pub fn extract_cameras(
                     .remove::<ExtractedCameraComponents>();
                 continue;
             }
-
-            let render_visible_entities = RenderVisibleEntities {
-                entities: visible_entities
-                    .entities
-                    .iter()
-                    .map(|(type_id, entities)| {
-                        let entities = entities
-                            .iter()
-                            .map(|entity| {
-                                let render_entity = mapper
-                                    .get(*entity)
-                                    .cloned()
-                                    .map(|entity| entity.id())
-                                    .unwrap_or(Entity::PLACEHOLDER);
-                                (render_entity, (*entity).into())
-                            })
-                            .collect();
-                        (*type_id, entities)
-                    })
-                    .collect(),
-            };
-
             let mut commands = commands.entity(render_entity);
+
+            let update_render_visible_entities =
+                |render_visible_entities: &mut RenderVisibleEntities| {
+                    for (type_id, visible_entities) in &visible_entities.entities {
+                        let entities = render_visible_entities
+                            .entities
+                            .entry(*type_id)
+                            .or_default();
+                        entities.clear();
+                        for entity in visible_entities {
+                            let render_entity = mapper
+                                .get(*entity)
+                                .cloned()
+                                .map(|entity| entity.id())
+                                .unwrap_or(Entity::PLACEHOLDER);
+                            entities.push((render_entity, (*entity).into()));
+                        }
+                    }
+                };
+            if let Ok(mut render_visible_entities) = render_visible_entities.get_mut(render_entity)
+            {
+                render_visible_entities.entities.clear();
+                update_render_visible_entities(&mut render_visible_entities);
+            } else {
+                let mut render_visible_entities = RenderVisibleEntities::default();
+                update_render_visible_entities(&mut render_visible_entities);
+                commands.insert(render_visible_entities);
+            }
+
             commands.insert((
                 ExtractedCamera {
                     target: render_target.normalize(primary_window),
@@ -570,7 +578,6 @@ pub fn extract_cameras(
                     color_grading,
                     invert_culling: camera.invert_culling,
                 },
-                render_visible_entities,
                 *frustum,
             ));
 
