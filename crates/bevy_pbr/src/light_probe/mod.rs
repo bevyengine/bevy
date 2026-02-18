@@ -187,9 +187,9 @@ where
 
     /// The radius of the bounding sphere that encompasses this light probe.
     ///
-    /// This could be computed from [`Self::light_from_world_transposed`], but
-    /// that requires inverting a matrix, which we don't want to do in the GPU
-    /// light clustering kernel.
+    /// This could be computed from [`Self::light_from_world`], but that
+    /// requires inverting a matrix, which we don't want to do in the GPU light
+    /// clustering kernel.
     bounding_sphere_radius: f32,
 
     // The falloff region, specified as a fraction of the light probe's
