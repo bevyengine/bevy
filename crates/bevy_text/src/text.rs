@@ -410,6 +410,11 @@ impl TextFont {
         Self::default().with_font_size(font_size)
     }
 
+    /// Returns a new [`TextFont`] with the specified font weight
+    pub fn from_font_weight(weight: impl Into<FontWeight>) -> Self {
+        Self::default().with_font_weight(weight)
+    }
+
     /// Returns this [`TextFont`] with the specified font face handle.
     pub fn with_font(mut self, font: Handle<Font>) -> Self {
         self.font = FontSource::Handle(font);
@@ -431,6 +436,12 @@ impl TextFont {
     /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
     pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
         self.font_smoothing = font_smoothing;
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified [`FontWeight`].
+    pub fn with_font_weight(mut self, weight: impl Into<FontWeight>) -> Self {
+        self.weight = weight.into();
         self
     }
 }
