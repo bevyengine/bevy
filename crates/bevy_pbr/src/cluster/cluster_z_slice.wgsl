@@ -76,8 +76,8 @@ fn z_slice_main(
     // We use a sphere to conservatively construct our AABB.
     if (id < last_clustered_light_id) {
         // We're a light (either point light or spot light).
-        let flags = clustered_lights.data[object_index].flags;
         object_index = id;
+        let flags = clustered_lights.data[object_index].flags;
         object_type = select(
             CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT,
             CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT,
