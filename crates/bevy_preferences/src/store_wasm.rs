@@ -10,7 +10,7 @@ pub(crate) struct PreferencesStore {
 }
 
 impl PreferencesStore {
-    /// Construct a new `StoreWasm` instance.
+    /// Construct a new preferecnes store for browser local storage.
     ///
     /// # Arguments
     /// * `app_name` - The name of the application. This is used to uniquely identify the
@@ -29,7 +29,7 @@ impl PreferencesStore {
         format!("{}-{}", self.app_name, filename)
     }
 
-    /// Save a [`PreferencesFile`] to browser storage, synchronously.
+    /// Save a [`toml::Table`] to browser storage, synchronously.
     ///
     /// # Arguments
     /// * `filename` - the name of the file to be saved
@@ -43,7 +43,7 @@ impl PreferencesStore {
         }
     }
 
-    /// Save the content of a [`PreferencesFile`] to disk, in another thread.
+    /// Save the content of a [`toml::Table`] to disk, in another thread.
     ///
     /// # Arguments
     /// * `filename` - the name of the file to be saved
@@ -61,7 +61,7 @@ impl PreferencesStore {
         });
     }
 
-    /// Deserialize a preferences file. If the file does not exist, `None` will
+    /// Deserialize a [`toml::Table`]. If the file does not exist, `None` will
     /// be returned.
     ///
     /// # Arguments

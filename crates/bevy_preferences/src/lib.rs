@@ -225,7 +225,7 @@ impl LoadPreferences for App {
             files: HashMap::new(),
         };
 
-        // Scan through types looking for resources that have the neccessary traits and
+        // Scan through types looking for resources that have the necessary traits and
         // annotations.
         for ty in types.iter() {
             if !(ty.contains::<ReflectResource>()

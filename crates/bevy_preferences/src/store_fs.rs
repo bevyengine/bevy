@@ -30,7 +30,7 @@ impl PreferencesStore {
         }
     }
 
-    /// Save a [`PreferencesFile`] to disk.
+    /// Save a [`toml::Table`] to disk.
     ///
     /// # Arguments
     /// * `filename` - the name of the file to be saved
@@ -59,7 +59,7 @@ impl PreferencesStore {
         }
     }
 
-    /// Save the contents of a [`PreferencesFile`] to disk in another thread.
+    /// Save the contents of a [`toml::Table`] to disk in another thread.
     ///
     /// # Arguments
     /// * `filename` - the name of the file to be saved
@@ -92,7 +92,7 @@ impl PreferencesStore {
         }
     }
 
-    /// Deserialize a preferences file from disk. If the file does not exist, `None` will
+    /// Deserialize a [`toml::Table`] from disk. If the file does not exist, `None` will
     /// be returned.
     ///
     /// # Arguments
