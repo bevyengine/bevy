@@ -1259,25 +1259,13 @@ mod tests {
             .observe(observe_leave)
             .id();
 
-        // FIRST: parent is hovered over
-        update_hover_map_with_hovered_entities(&mut app, camera, &[parent]);
+        // FIRST: child_one is hovered over
+        update_hover_map_with_hovered_entities(&mut app, camera, &[child_one]);
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
 
-        // The parent received an `Enter` event.
-        assert_msg_event_counts(&app, 1, 0);
-        assert_observer_event_counts(&app, parent, 1, 0);
-        assert_observer_event_counts(&app, child_one, 0, 0);
-        assert_observer_event_counts(&app, child_two, 0, 0);
-        app.world_mut().increment_change_tick();
-        // ---
-
-        // SECOND: child_one is hovered over within parent
-        update_hover_map_with_hovered_entities(&mut app, camera, &[child_one, parent]);
-
-        assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
-
-        // child_one received an `Enter` event.
+        // child_one received an `Enter` event
+        // The parent also received an `Enter` event because its child was hovered into
         assert_msg_event_counts(&app, 2, 0);
         assert_observer_event_counts(&app, parent, 1, 0);
         assert_observer_event_counts(&app, child_one, 1, 0);
@@ -1285,13 +1273,14 @@ mod tests {
         app.world_mut().increment_change_tick();
         // ---
 
-        // THIRD: child_one is hovered out of, child_two is hovered over, still within parent
+        // SECOND: child_one is hovered out of, child_two and parent are directly hovered over
         update_hover_map_with_hovered_entities(&mut app, camera, &[child_two, parent]);
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
 
-        // child_one directly received an `Exit` event.
+        // child_one directly received an `Leave` event.
         // child_two directly received an `Enter` event.
+        // The parent did not receive any events because it is a shared ancestor
         assert_msg_event_counts(&app, 3, 1);
         assert_observer_event_counts(&app, parent, 1, 0);
         assert_observer_event_counts(&app, child_one, 1, 1);
@@ -1299,12 +1288,12 @@ mod tests {
         app.world_mut().increment_change_tick();
         // ---
 
-        // FOURTH: child_two is hovered out of, parent is still hovered
+        // THIRD: child_two is hovered out of, parent is still hovered
         update_hover_map_with_hovered_entities(&mut app, camera, &[parent]);
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
 
-        // child_two received an `Exit` event.
+        // child_two received an `Leave` event.
         assert_msg_event_counts(&app, 3, 2);
         assert_observer_event_counts(&app, parent, 1, 0);
         assert_observer_event_counts(&app, child_one, 1, 1);
@@ -1312,12 +1301,13 @@ mod tests {
         app.world_mut().increment_change_tick();
         // ---
 
-        // FIFTH: child_two is hovered back into, parent is still hovered
-        update_hover_map_with_hovered_entities(&mut app, camera, &[parent, child_two]);
+        // FOURTH: child_two is hovered back into, parent is no longer directly hovered
+        update_hover_map_with_hovered_entities(&mut app, camera, &[child_two]);
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
 
         // child_two received an `Enter` event
+        // The parent did not receive an `Leave` event because its child is still hovered
         assert_msg_event_counts(&app, 4, 2);
         assert_observer_event_counts(&app, parent, 1, 0);
         assert_observer_event_counts(&app, child_one, 1, 1);
@@ -1325,13 +1315,14 @@ mod tests {
         app.world_mut().increment_change_tick();
         // ---
 
-        // SIXTH: parent and child_two are hovered out of
+        // FIFTH: child_two is hovered out of
         update_hover_map_with_hovered_entities(&mut app, camera, &[]);
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
 
-        // The parent received one `Leave` event
         // child_two received one `Leave` event
+        // The parent received one `Leave` event because the pointer is no longer hovering
+        // any of its children
         assert_msg_event_counts(&app, 4, 4);
         assert_observer_event_counts(&app, parent, 1, 1);
         assert_observer_event_counts(&app, child_one, 1, 1);
@@ -1339,7 +1330,7 @@ mod tests {
         app.world_mut().increment_change_tick();
         // ---
 
-        // FINAL: parent and child_one are hovered into
+        // FINAL: parent and child_one are directly hovered into
         update_hover_map_with_hovered_entities(&mut app, camera, &[parent, child_one]);
 
         assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
