@@ -14,7 +14,7 @@
 //! | Default Key Binding | Action                 |
 //! |:--------------------|:-----------------------|
 //! | Mouse               | Look around            |
-//! | Left click          | Capture mouse (hold)   |
+//! | Right click         | Capture mouse (hold)   |
 //! | M                   | Capture mouse (toggle) |
 //! | WASD                | Horizontal movement    |
 //! | QE                  | Vertical movement      |

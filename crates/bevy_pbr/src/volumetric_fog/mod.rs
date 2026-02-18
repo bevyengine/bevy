@@ -43,7 +43,8 @@ use bevy_math::{
 };
 use bevy_mesh::{Mesh, Meshable};
 use bevy_render::{
-    render_resource::SpecializedRenderPipelines, sync_component::SyncComponentPlugin,
+    render_resource::SpecializedRenderPipelines,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use render::{volumetric_fog, VolumetricFogPipeline, VolumetricFogUniformBuffer};
@@ -69,7 +70,7 @@ impl Plugin for VolumetricFogPlugin {
         let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh());
         let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
 
-        app.add_plugins(SyncComponentPlugin::<FogVolume>::default());
+        app.add_plugins(SyncComponentPlugin::<FogVolume, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -101,4 +102,8 @@ impl Plugin for VolumetricFogPlugin {
                     .before(Core3dSystems::PostProcess),
             );
     }
+}
+
+impl SyncComponent<VolumetricFogPlugin> for FogVolume {
+    type Out = Self;
 }

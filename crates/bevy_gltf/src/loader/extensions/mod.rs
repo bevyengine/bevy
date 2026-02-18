@@ -13,7 +13,6 @@ use bevy_ecs::{
     resource::Resource,
     world::{EntityWorldMut, World},
 };
-use bevy_pbr::StandardMaterial;
 use gltf::Node;
 
 #[cfg(feature = "bevy_animation")]
@@ -22,7 +21,7 @@ use {
     bevy_platform::collections::{HashMap, HashSet},
 };
 
-use crate::GltfMesh;
+use crate::{GltfMaterial, GltfMesh};
 
 pub(crate) use self::{
     khr_materials_anisotropy::AnisotropyExtension, khr_materials_clearcoat::ClearcoatExtension,
@@ -70,7 +69,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
-    fn on_root(&mut self, gltf: &gltf::Gltf) {}
+    fn on_root(&mut self, load_context: &mut LoadContext<'_>, gltf: &gltf::Gltf) {}
 
     #[cfg(feature = "bevy_animation")]
     #[expect(
@@ -114,7 +113,9 @@ pub trait GltfExtensionHandler: Send + Sync {
         &mut self,
         load_context: &mut LoadContext<'_>,
         gltf_material: &gltf::Material,
-        material: Handle<StandardMaterial>,
+        material: Handle<GltfMaterial>,
+        material_asset: &GltfMaterial,
+        material_label: &str,
     ) {
     }
 
@@ -145,6 +146,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         mesh: &gltf::Mesh,
         material: &gltf::Material,
         entity: &mut EntityWorldMut,
+        material_label: &str,
     ) {
     }
 

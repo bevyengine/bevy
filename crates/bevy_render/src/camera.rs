@@ -4,6 +4,7 @@ use crate::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
     render_resource::TextureView,
+    sync_component::SyncComponent,
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
@@ -77,7 +78,7 @@ impl Plugin for CameraPlugin {
             render_app
                 .init_resource::<SortedCameras>()
                 .add_systems(ExtractSchedule, extract_cameras)
-                .add_systems(Render, sort_cameras.in_set(RenderSystems::ManageViews));
+                .add_systems(Render, sort_cameras.in_set(RenderSystems::CreateViews));
         }
     }
 }
@@ -96,28 +97,40 @@ impl ExtractResource for ClearColor {
         source.clone()
     }
 }
+
+impl SyncComponent for CameraMainTextureUsages {
+    type Out = Self;
+}
+
 impl ExtractComponent for CameraMainTextureUsages {
     type QueryData = &'static Self;
     type QueryFilter = ();
-    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(*item)
     }
 }
+
+impl SyncComponent for Camera2d {
+    type Out = Self;
+}
+
 impl ExtractComponent for Camera2d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
-    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }
+
+impl SyncComponent for Camera3d {
+    type Out = Self;
+}
+
 impl ExtractComponent for Camera3d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
-    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())

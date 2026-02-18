@@ -11,7 +11,7 @@ env:
   CARGO_TERM_COLOR: always
   RUSTDOCFLAGS: --html-in-header header.html
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: nightly
+  NIGHTLY_TOOLCHAIN: "nightly-2026-02-11"
 
 # Sets the permissions to allow deploying to Github pages.
 permissions:
@@ -49,6 +49,7 @@ jobs:
           wayland: true
           xkb: true
           x264: true
+          fontconfig: true
 
       #  This does the following:
       #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io

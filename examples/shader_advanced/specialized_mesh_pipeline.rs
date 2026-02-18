@@ -15,7 +15,7 @@ use bevy::{
     mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
-        SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
+        SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup, ViewKeyCache,
     },
     prelude::*,
     render::{
@@ -272,7 +272,8 @@ fn queue_custom_mesh_pipeline(
         Res<DrawFunctions<Opaque3d>>,
     ),
     mut specialized_mesh_pipelines: ResMut<SpecializedMeshPipelines<CustomMeshPipeline>>,
-    views: Query<(&RenderVisibleEntities, &ExtractedView, &Msaa)>,
+    views: Query<(&RenderVisibleEntities, &ExtractedView)>,
+    view_key_cache: Res<ViewKeyCache>,
     (render_meshes, render_mesh_instances): (
         Res<RenderAssets<RenderMesh>>,
         Res<RenderMeshInstances>,
@@ -289,14 +290,14 @@ fn queue_custom_mesh_pipeline(
     // Render phases are per-view, so we need to iterate over all views so that
     // the entity appears in them. (In this example, we have only one view, but
     // it's good practice to loop over all views anyway.)
-    for (view_visible_entities, view, msaa) in views.iter() {
+    for (view_visible_entities, view) in views.iter() {
         let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
 
-        // Create the key based on the view. In this case we only care about MSAA and HDR
-        let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let Some(&view_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
 
         // Find all the custom rendered entities that are visible from this
         // view.

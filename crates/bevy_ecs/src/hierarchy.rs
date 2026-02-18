@@ -1156,7 +1156,7 @@ mod tests {
         assert_eq!(
             &**world.entity(parent).get::<Children>().unwrap(),
             &[child],
-            "Children should still have the old value, as on_insert/on_replace didn't run"
+            "Children should still have the old value, as on_insert/on_discard didn't run"
         );
     }
 }

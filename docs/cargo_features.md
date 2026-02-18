@@ -39,7 +39,7 @@ collections to build your own "profile" equivalent, without needing to manually 
 |dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps! **Feature set:** `debug`, `bevy_dev_tools`, `file_watcher`.|
 |audio|Features used to build audio Bevy apps. **Feature set:** `bevy_audio`, `vorbis`.|
 |scene|Features used to compose Bevy scenes. **Feature set:** `bevy_scene`.|
-|picking|Enables picking functionality. **Feature set:** `bevy_picking`, `mesh_picking`, `sprite_picking`, `ui_picking`.|
+|picking|Enables picking with all backends. **Feature set:** `bevy_picking`, `mesh_picking`, `sprite_picking`, `ui_picking`.|
 |default_app|The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc). **Feature set:** `async_executor`, `bevy_asset`, `bevy_input_focus`, `bevy_log`, `bevy_state`, `bevy_window`, `custom_cursor`, `reflect_auto_register`.|
 |default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc. **Feature set:** `std`, `android-game-activity`, `android_shared_stdcxx`, `bevy_gilrs`, `bevy_winit`, `default_font`, `multi_threaded`, `webgl2`, `x11`, `wayland`, `sysinfo_plugin`.|
 |common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend). **Feature set:** `bevy_animation`, `bevy_camera`, `bevy_color`, `bevy_gizmos`, `bevy_image`, `bevy_mesh`, `bevy_shader`, `bevy_material`, `bevy_text`, `hdr`, `png`.|
@@ -88,7 +88,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_mesh|Provides a mesh format and some primitive meshing routines.|
 |bevy_mikktspace|Provides vertex tangent generation for use with bevy_mesh.|
 |bevy_pbr|Adds PBR rendering|
-|bevy_picking|Provides picking functionality|
+|bevy_picking|Provides picking functionality without any backend|
 |bevy_post_process|Provides post process effects such as depth of field, bloom, chromatic aberration.|
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
@@ -180,6 +180,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |symphonia-vorbis|OGG/VORBIS audio format support (through symphonia)|
 |symphonia-wav|WAV audio format support (through symphonia)|
 |sysinfo_plugin|Enables system information diagnostic plugin|
+|system_font_discovery|Allows for discovery of preloaded system fonts|
 |tga|TGA image format support|
 |tiff|TIFF image format support|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|

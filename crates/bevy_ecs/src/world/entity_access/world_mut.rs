@@ -7,8 +7,8 @@ use crate::{
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
     event::{EntityComponentsTrigger, EntityEvent},
-    lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
-    observer::Observer,
+    lifecycle::{Despawn, Discard, Remove, DESPAWN, DISCARD, REMOVE},
+    observer::IntoEntityObserver,
     query::{
         has_conflicts, DebugCheckedUnwrap, QueryAccessError, ReadOnlyQueryData,
         ReleaseStateQueryData,
@@ -16,7 +16,6 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSets, Table},
-    system::IntoObserverSystem,
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
         DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut,
@@ -39,6 +38,17 @@ use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 /// See also [`EntityMut`], which allows disjoint mutable access to multiple
 /// entities at once.  Unlike `EntityMut`, this type allows adding and
 /// removing components, and despawning the entity.
+///
+/// # Invariants and Risk
+///
+/// An [`EntityWorldMut`] may point to a despawned entity.
+/// You can check this via [`is_despawned`](Self::is_despawned).
+/// Using an [`EntityWorldMut`] of a despawned entity may panic in some contexts, so read method documentation carefully.
+///
+/// Unless you have strong reason to assume these invariants, you should generally avoid keeping an [`EntityWorldMut`] to an entity that is potentially not spawned.
+/// For example, when inserting a component, that component insert may trigger an observer that despawns the entity.
+/// So, when you don't have full knowledge of what commands may interact with this entity,
+/// do not further use this value without first checking [`is_despawned`](Self::is_despawned).
 pub struct EntityWorldMut<'w> {
     world: &'w mut World,
     entity: Entity,
@@ -109,18 +119,17 @@ impl<'w> EntityWorldMut<'w> {
 
     /// # Safety
     ///
-    ///  - `entity` must be valid for `world`: the generation should match that of the entity at the same index.
-    ///  - `location` must be sourced from `world`'s `Entities` and must exactly match the location for `entity`
+    ///  The `location` must be sourced from `world`'s `Entities` and must exactly match the location for `entity`.
+    ///  If the `entity` is not spawned for any reason (See [`EntityNotSpawnedError`](crate::entity::EntityNotSpawnedError)), the location should be `None`.
     ///
-    ///  The above is trivially satisfied if `location` was sourced from `world.entities().get(entity)`.
+    ///  The above is trivially satisfied if `location` was sourced from `world.entities().get_spawned(entity).ok()`.
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w mut World,
         entity: Entity,
         location: Option<EntityLocation>,
     ) -> Self {
-        debug_assert!(world.entities().contains(entity));
-        debug_assert_eq!(world.entities().get(entity).unwrap(), location);
+        debug_assert_eq!(world.entities().get_spawned(entity).ok(), location);
 
         EntityWorldMut {
             world,
@@ -511,7 +520,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Temporarily removes a [`Component`] `T` from this [`Entity`] and runs the
     /// provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// This will trigger the `Remove` and `Discard` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -564,7 +573,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Temporarily removes a [`Component`] `T` from this [`Entity`] and runs the
     /// provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// This will trigger the `Remove` and `Discard` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -727,6 +736,18 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         self.as_readonly().get_change_ticks::<T>()
+    }
+
+    /// Get the [`MaybeLocation`] from where the given [`Component`] was last changed from.
+    /// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
+    /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn get_changed_by<T: Component>(&self) -> Option<MaybeLocation> {
+        self.as_readonly().get_changed_by::<T>()
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -1540,6 +1561,11 @@ impl<'w> EntityWorldMut<'w> {
     /// This returns the new [`Entity`], which you must manage.
     /// Note that this still increases the generation to differentiate different spawns of the same row.
     ///
+    /// Additionally, keep in mind the limitations documented in the type-level docs.
+    /// Unless you have full knowledge of this [`EntityWorldMut`]'s lifetime,
+    /// you may not assume that nothing else has taken responsibility of this [`Entity`].
+    /// If you are not careful, this could cause a double free.
+    ///
     /// This may be later [`spawn_at`](World::spawn_at).
     /// See [`World::despawn_no_free`] for details and usage examples.
     #[track_caller]
@@ -1575,6 +1601,8 @@ impl<'w> EntityWorldMut<'w> {
                     },
                     &mut EntityComponentsTrigger {
                         components: archetype.components(),
+                        old_archetype: Some(archetype),
+                        new_archetype: None,
                     },
                     caller,
                 );
@@ -1585,20 +1613,22 @@ impl<'w> EntityWorldMut<'w> {
                 archetype.iter_components(),
                 caller,
             );
-            if archetype.has_replace_observer() {
-                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+            if archetype.has_discard_observer() {
+                // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                 deferred_world.trigger_raw(
-                    REPLACE,
-                    &mut Replace {
+                    DISCARD,
+                    &mut Discard {
                         entity: self.entity,
                     },
                     &mut EntityComponentsTrigger {
                         components: archetype.components(),
+                        old_archetype: Some(archetype),
+                        new_archetype: None,
                     },
                     caller,
                 );
             }
-            deferred_world.trigger_on_replace(
+            deferred_world.trigger_on_discard(
                 archetype,
                 self.entity,
                 archetype.iter_components(),
@@ -1614,6 +1644,8 @@ impl<'w> EntityWorldMut<'w> {
                     },
                     &mut EntityComponentsTrigger {
                         components: archetype.components(),
+                        old_archetype: Some(archetype),
+                        new_archetype: None,
                     },
                     caller,
                 );
@@ -1813,9 +1845,11 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// This is *only* required when using the unsafe function [`EntityWorldMut::world_mut`],
     /// which enables the location to change.
+    ///
+    /// Note that if the entity is not spawned for any reason,
+    /// this will have a location of `None`, leading some methods to panic.
     pub fn update_location(&mut self) {
-        self.location = self.world.entities().get(self.entity)
-            .expect("Attempted to update the location of a despawned entity, which is impossible. This was the result of performing an operation on this EntityWorldMut that queued a despawn command");
+        self.location = self.world.entities().get_spawned(self.entity).ok();
     }
 
     /// Returns if the entity has been despawned.
@@ -1869,7 +1903,7 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
-    /// Creates an [`Observer`] watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
+    /// Creates an [`Observer`](crate::observer::Observer) watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
     /// targets this entity.
     ///
     /// # Panics
@@ -1878,20 +1912,17 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the given system is an exclusive system.
     #[track_caller]
-    pub fn observe<E: EntityEvent, B: Bundle, M>(
-        &mut self,
-        observer: impl IntoObserverSystem<E, B, M>,
-    ) -> &mut Self {
+    pub fn observe<M>(&mut self, observer: impl IntoEntityObserver<M>) -> &mut Self {
         self.observe_with_caller(observer, MaybeLocation::caller())
     }
 
-    pub(crate) fn observe_with_caller<E: EntityEvent, B: Bundle, M>(
+    pub(crate) fn observe_with_caller<M>(
         &mut self,
-        observer: impl IntoObserverSystem<E, B, M>,
+        observer: impl IntoEntityObserver<M>,
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
-        let bundle = Observer::new(observer).with_entity(self.entity);
+        let bundle = observer.into_observer_for_entity(self.entity);
         move_as_ptr!(bundle);
         self.world.spawn_with_caller(bundle, caller);
         self.world.flush();

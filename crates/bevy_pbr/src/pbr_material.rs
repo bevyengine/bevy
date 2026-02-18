@@ -2,26 +2,12 @@ use bevy_asset::Asset;
 use bevy_color::{Alpha, ColorToComponents};
 use bevy_material::OpaqueRendererMethod;
 use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
-use bevy_mesh::MeshVertexBufferLayoutRef;
+use bevy_mesh::{MeshVertexBufferLayoutRef, UvChannel};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
 use bitflags::bitflags;
 
 use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
-
-/// An enum to define which UV attribute to use for a texture.
-///
-/// It is used for every texture in the [`StandardMaterial`].
-/// It only supports two UV attributes, [`bevy_mesh::Mesh::ATTRIBUTE_UV_0`] and
-/// [`bevy_mesh::Mesh::ATTRIBUTE_UV_1`].
-/// The default is [`UvChannel::Uv0`].
-#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
-#[reflect(Default, Debug, Clone, PartialEq)]
-pub enum UvChannel {
-    #[default]
-    Uv0,
-    Uv1,
-}
 
 /// A material with "standard" properties used in PBR lighting.
 /// Standard property values with pictures here:
@@ -258,10 +244,10 @@ pub struct StandardMaterial {
     /// Specular transmission is implemented as a relatively expensive screen-space effect that allows occluded objects to be seen through the material,
     /// with distortion and blur effects.
     ///
-    /// - [`crate::ScreenSpaceTransmission::screen_space_specular_transmission_steps`] can be used to enable transmissive objects
+    /// - [`crate::ScreenSpaceTransmission::steps`] can be used to enable transmissive objects
     ///   to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
     ///   - If a simplified approximation of specular transmission using only environment map lighting is sufficient, consider setting
-    ///     [`crate::ScreenSpaceTransmission::screen_space_specular_transmission_steps`] to `0`.
+    ///     [`crate::ScreenSpaceTransmission::steps`] to `0`.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
     ///   for a much less expensive effect.
     /// - Specular transmission is rendered before alpha blending, so any material with [`AlphaMode::Blend`], [`AlphaMode::Premultiplied`], [`AlphaMode::Add`] or [`AlphaMode::Multiply`]

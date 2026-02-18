@@ -125,6 +125,7 @@ impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
             render_app
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<ErasedRenderAssets<A::ErasedAsset>>()
+                .allow_ambiguous_resource::<ErasedRenderAssets<A::ErasedAsset>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(
                     ExtractSchedule,

@@ -1,11 +1,19 @@
-/// Defines an id type which guarantees global uniqueness via atomics on a static global.
+/// Defines a 32-bit id type which guarantees global uniqueness via atomics on a static global.
+///
+/// Note that this means the id space is process-wide, as such it may potentially be exhausted
+/// by a combination of long-running processes and multiple bevy `World`s, at which point we panic.
 #[macro_export]
 macro_rules! define_atomic_id {
     ($atomic_id_type:ident) => {
+        /// Globally unique 32-bit id, guaranteed via atomics on a static global.
+        ///
+        /// Note that this means the id space is process-wide, as such it may potentially be exhausted
+        /// by a combination of long-running processes and multiple bevy `World`s, at which point we panic.
         #[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Debug)]
         pub struct $atomic_id_type(core::num::NonZero<u32>);
 
         impl $atomic_id_type {
+            /// Creates a new id via fetch_add atomic on a static global.
             #[expect(
                 clippy::new_without_default,
                 reason = "Implementing the `Default` trait on atomic IDs would imply that two `<AtomicIdType>::default()` equal each other. By only implementing `new()`, we indicate that each atomic ID created will be unique."

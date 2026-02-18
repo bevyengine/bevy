@@ -84,6 +84,10 @@ struct ColorPlaneMaterial {
 
     #[uniform(0)]
     fixed_channel: f32,
+
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    #[uniform(0)]
+    _webgl2_padding_12b: Vec3,
 }
 
 impl From<&ColorPlaneMaterial> for ColorPlaneMaterialKey {
@@ -197,7 +201,7 @@ fn update_plane_color(
 
         if let Ok(material_node) = q_material_node.get(*inner_ent) {
             // Node component exists, update it
-            if let Some(material) = r_materials.get_mut(material_node.id()) {
+            if let Some(mut material) = r_materials.get_mut(material_node.id()) {
                 // Update properties
                 material.plane = *plane;
                 material.fixed_channel = plane_value.0.z;
@@ -207,6 +211,8 @@ fn update_plane_color(
             let material = r_materials.add(ColorPlaneMaterial {
                 plane: *plane,
                 fixed_channel: plane_value.0.z,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding_12b: Default::default(),
             });
             commands.entity(*inner_ent).insert(MaterialNode(material));
         }

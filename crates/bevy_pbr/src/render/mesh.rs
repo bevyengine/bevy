@@ -232,7 +232,10 @@ impl Plugin for MeshRenderPlugin {
                 self.use_gpu_instance_buffer_builder && gpu_preprocessing_support.is_available();
 
             let render_mesh_instances = RenderMeshInstances::new(use_gpu_instance_buffer_builder);
-            render_app.insert_resource(render_mesh_instances);
+            render_app
+                .allow_ambiguous_resource::<no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>>()
+                .allow_ambiguous_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
+                .insert_resource(render_mesh_instances);
 
             if use_gpu_instance_buffer_builder {
                 render_app
@@ -303,6 +306,8 @@ impl Plugin for MeshRenderPlugin {
     }
 }
 
+/// This resource caches [`MeshPipelineKey`]s for each view with pre-enabled features needed to properly
+/// setup the [`MeshViewBindGroup`] layout in specialized [`MeshPipeline`]s.
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct ViewKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
 
@@ -440,9 +445,7 @@ pub fn check_views_need_specialization(
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
         if let Some(transmission) = transmission {
-            view_key |= screen_space_specular_transmission_pipeline_key(
-                transmission.screen_space_specular_transmission_quality,
-            );
+            view_key |= transmission.quality.pipeline_key();
         }
         if !view_key_cache
             .get_mut(&view.retained_view_entity)
@@ -2294,7 +2297,15 @@ bitflags::bitflags! {
         const DISTANCE_FOG                      = 1 << 21;
         const ATMOSPHERE                        = 1 << 22;
         const INVERT_CULLING                    = 1 << 23;
-        const LAST_FLAG                         = Self::INVERT_CULLING.bits();
+        const PREPASS_READS_MATERIAL            = 1 << 24;
+        const LAST_FLAG                         = Self::PREPASS_READS_MATERIAL.bits();
+
+        const ALL_PREPASS_BITS                  = Self::DEPTH_PREPASS.bits()
+                                                | Self::NORMAL_PREPASS.bits()
+                                                | Self::DEFERRED_PREPASS.bits()
+                                                | Self::MOTION_VECTOR_PREPASS.bits()
+                                                | Self::MAY_DISCARD.bits()
+                                                | Self::PREPASS_READS_MATERIAL.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;

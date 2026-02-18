@@ -28,6 +28,8 @@ mod atmosphere;
 mod cluster;
 mod components;
 pub mod contact_shadows;
+mod gltf;
+use bevy_render::sync_component::SyncComponent;
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -55,10 +57,7 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
-use bevy_light::{
-    AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SimulationLightSystems,
-    SpotLight,
-};
+use bevy_light::{AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SpotLight};
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use components::*;
@@ -140,6 +139,8 @@ pub struct PbrPlugin {
     pub use_gpu_instance_buffer_builder: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
+    /// Builds and inserts `StandardMaterial` when loading glTF files
+    pub gltf_enable_standard_materials: bool,
 }
 
 impl Default for PbrPlugin {
@@ -149,6 +150,7 @@ impl Default for PbrPlugin {
             add_default_deferred_lighting_plugin: true,
             use_gpu_instance_buffer_builder: true,
             debug_flags: RenderDebugFlags::default(),
+            gltf_enable_standard_materials: true,
         }
     }
 }
@@ -201,7 +203,7 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceAmbientOcclusionPlugin,
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
-                SyncComponentPlugin::<ShadowFilteringMethod>::default(),
+                SyncComponentPlugin::<ShadowFilteringMethod, Self>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
                 GpuMeshPreprocessPlugin {
@@ -215,20 +217,16 @@ impl Plugin for PbrPlugin {
             ))
             .add_plugins((
                 decal::ForwardDecalPlugin,
-                SyncComponentPlugin::<DirectionalLight>::default(),
-                SyncComponentPlugin::<PointLight>::default(),
-                SyncComponentPlugin::<SpotLight>::default(),
-                SyncComponentPlugin::<AmbientLight>::default(),
+                SyncComponentPlugin::<DirectionalLight, Self>::default(),
+                SyncComponentPlugin::<PointLight, Self>::default(),
+                SyncComponentPlugin::<SpotLight, Self>::default(),
+                SyncComponentPlugin::<AmbientLight, Self>::default(),
             ))
-            .add_plugins((ScatteringMediumPlugin, AtmospherePlugin))
-            .configure_sets(
-                PostUpdate,
-                (
-                    SimulationLightSystems::AddClusters,
-                    SimulationLightSystems::AssignLightsToClusters,
-                )
-                    .chain(),
-            );
+            .add_plugins((ScatteringMediumPlugin, AtmospherePlugin));
+
+        if self.gltf_enable_standard_materials {
+            gltf::add_gltf(app);
+        }
 
         if self.add_default_deferred_lighting_plugin {
             app.add_plugins(DeferredPbrLightingPlugin);
@@ -305,13 +303,14 @@ impl Plugin for PbrPlugin {
                 Render,
                 (
                     prepare_lights
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::CreateViews)
                         .after(sort_cameras),
                     prepare_clusters.in_set(RenderSystems::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>()
-            .init_resource::<RenderMaterialBindings>();
+            .init_resource::<RenderMaterialBindings>()
+            .allow_ambiguous_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
         render_app
@@ -365,4 +364,20 @@ pub fn stbn_placeholder() -> Image {
         asset_usage: RenderAssetUsages::RENDER_WORLD,
         copy_on_resize: false,
     }
+}
+
+impl SyncComponent<PbrPlugin> for DirectionalLight {
+    type Out = Self;
+}
+impl SyncComponent<PbrPlugin> for PointLight {
+    type Out = Self;
+}
+impl SyncComponent<PbrPlugin> for SpotLight {
+    type Out = Self;
+}
+impl SyncComponent<PbrPlugin> for AmbientLight {
+    type Out = Self;
+}
+impl SyncComponent<PbrPlugin> for ShadowFilteringMethod {
+    type Out = Self;
 }

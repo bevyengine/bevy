@@ -8,10 +8,12 @@ use bevy_ecs::{
 };
 use bevy_math::{Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, render_resource::ShaderType};
+use bevy_render::{
+    extract_component::ExtractComponent, render_resource::ShaderType, sync_component::SyncComponent,
+};
 
 /// The default vignette intensity amount.
-const DEFAULT_VIGNETTE_INTENSITY: f32 = 1.00;
+const DEFAULT_VIGNETTE_INTENSITY: f32 = 1.0;
 
 /// The default vignette radius amount.
 const DEFAULT_VIGNETTE_RADIUS: f32 = 0.75;
@@ -20,10 +22,10 @@ const DEFAULT_VIGNETTE_RADIUS: f32 = 0.75;
 const DEFAULT_VIGNETTE_SMOOTHNESS: f32 = 5.0;
 
 /// The default vignette roundness amount.
-const DEFAULT_VIGNETTE_ROUNDNESS: f32 = 1.00;
+const DEFAULT_VIGNETTE_ROUNDNESS: f32 = 1.0;
 
 /// The default vignette edge compensation
-const DEFAULT_VIGNETTE_EDGE_COMPENSATION: f32 = 1.00;
+const DEFAULT_VIGNETTE_EDGE_COMPENSATION: f32 = 1.0;
 
 /// Adds a gradual shading effect to the edges of the screen, drawing focus
 /// towards the center.
@@ -45,25 +47,25 @@ pub struct Vignette {
     ///
     /// Range: `0.0` (No effect) to `1.0` (Fully black corners)
     ///
-    /// The default value is 0.50
+    /// The default value is 1.0
     pub intensity: f32,
     /// The size of the unvignetted center area.
     ///
     /// Range: `0.0` (Tiny center) to `2.0+` (Large center)
     ///
-    /// The default value is 1.00
+    /// The default value is 0.75
     pub radius: f32,
     /// The softness of the edge between the clear and dark areas.
     ///
     /// Range: `0.01` (Sharp edge) to `1.0+` (Very soft edge)
     ///
-    /// The default value is 0.50
+    /// The default value is 5.0
     pub smoothness: f32,
     /// The shape of the vignette.
     ///
     /// `1.0` represents a perfect circle.
     ///
-    /// The default value is 0.75
+    /// The default value is 1.0
     pub roundness: f32,
     /// The center of the vignette in UV coordinates (0.0 to 1.0).
     ///
@@ -76,7 +78,7 @@ pub struct Vignette {
     ///
     /// Range: `0.0`(No fit) to `1.0` (Perfect fit)
     ///
-    /// The default value is 1.00
+    /// The default value is 1.0
     pub edge_compensation: f32,
     /// The color of the vignette.
     ///
@@ -100,12 +102,13 @@ impl Default for Vignette {
     }
 }
 
+impl SyncComponent for Vignette {
+    type Out = Self;
+}
+
 impl ExtractComponent for Vignette {
     type QueryData = Read<Vignette>;
-
     type QueryFilter = With<Camera>;
-
-    type Out = Vignette;
 
     fn extract_component(vignette: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         // Skip the postprocessing phase entirely if the intensity is zero.

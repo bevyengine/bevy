@@ -295,8 +295,11 @@ impl Plugin for MaterialsPlugin {
                 .init_resource::<SpecializedShadowMaterialPipelineCache>()
                 .init_resource::<DrawFunctions<Shadow>>()
                 .init_resource::<RenderMaterialInstances>()
+                .allow_ambiguous_resource::<RenderMaterialInstances>()
                 .init_resource::<MaterialBindGroupAllocators>()
+                .allow_ambiguous_resource::<MaterialBindGroupAllocators>()
                 .add_render_command::<Shadow, DrawPrepass>()
+                .add_render_command::<Shadow, DrawDepthOnlyPrepass>()
                 .add_render_command::<Transparent3d, DrawMaterial>()
                 .add_render_command::<Opaque3d, DrawMaterial>()
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
@@ -305,7 +308,7 @@ impl Plugin for MaterialsPlugin {
                     Render,
                     (
                         specialize_material_meshes
-                            .in_set(RenderSystems::PrepareMeshes)
+                            .in_set(RenderSystems::Specialize)
                             .after(prepare_assets::<RenderMesh>)
                             .after(collect_meshes_for_gpu_building)
                             .after(set_mesh_motion_vector_flags),
@@ -326,9 +329,9 @@ impl Plugin for MaterialsPlugin {
                     (
                         check_views_lights_need_specialization.in_set(RenderSystems::PrepareAssets),
                         // specialize_shadows also needs to run after prepare_assets::<PreparedMaterial>,
-                        // which is fine since ManageViews is after PrepareAssets
+                        // which is fine since PrepareViews is after PrepareAssets
                         specialize_shadows
-                            .in_set(RenderSystems::ManageViews)
+                            .in_set(RenderSystems::Specialize)
                             .after(prepare_lights),
                         queue_shadows.in_set(RenderSystems::QueueMeshes),
                     ),
@@ -394,8 +397,11 @@ where
                         // `sweep_entities_needing_specialization` for an
                         // explanation of why the systems are ordered this way.
                         extract_entities_needs_specialization::<M>
-                            .in_set(MaterialExtractEntitiesNeedingSpecializationSystems),
+                            .in_set(MaterialExtractEntitiesNeedingSpecializationSystems)
+                            .ambiguous_with(MaterialExtractEntitiesNeedingSpecializationSystems),
                         sweep_entities_needing_specialization::<M>
+                            .in_set(MaterialSweepEntitiesNeedingSpecializationSystems)
+                            .ambiguous_with(MaterialSweepEntitiesNeedingSpecializationSystems)
                             .after(MaterialExtractEntitiesNeedingSpecializationSystems)
                             .after(MaterialExtractionSystems)
                             .after(extract_cameras)
@@ -614,6 +620,11 @@ pub struct MaterialExtractionSystems;
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct MaterialExtractEntitiesNeedingSpecializationSystems;
 
+/// A [`SystemSet`] that contains all `sweep_entities_needing_specialization`
+/// systems.
+#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct MaterialSweepEntitiesNeedingSpecializationSystems;
+
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
@@ -642,25 +653,6 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineK
         }
         Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
         Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-    }
-}
-
-pub const fn screen_space_specular_transmission_pipeline_key(
-    screen_space_transmissive_blur_quality: ScreenSpaceTransmissionQuality,
-) -> MeshPipelineKey {
-    match screen_space_transmissive_blur_quality {
-        ScreenSpaceTransmissionQuality::Low => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW
-        }
-        ScreenSpaceTransmissionQuality::Medium => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM
-        }
-        ScreenSpaceTransmissionQuality::High => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH
-        }
-        ScreenSpaceTransmissionQuality::Ultra => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA
-        }
     }
 }
 
@@ -1427,6 +1419,8 @@ pub struct MainPassTransparentDrawFunction;
 pub struct PrepassOpaqueDrawFunction;
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct PrepassAlphaMaskDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct PrepassOpaqueDepthOnlyDrawFunction;
 
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct DeferredOpaqueDrawFunction;
@@ -1435,6 +1429,8 @@ pub struct DeferredAlphaMaskDrawFunction;
 
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct ShadowsDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct ShadowsDepthOnlyDrawFunction;
 
 /// A resource that maps each untyped material ID to its binding.
 ///
@@ -1630,11 +1626,15 @@ where
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial>();
         let draw_opaque_prepass = opaque_prepass_draw_functions.read().id::<DrawPrepass>();
         let draw_alpha_mask_prepass = alpha_mask_prepass_draw_functions.read().id::<DrawPrepass>();
+        let draw_opaque_prepass_depth_only = opaque_prepass_draw_functions
+            .read()
+            .id::<DrawDepthOnlyPrepass>();
         let draw_opaque_deferred = opaque_deferred_draw_functions.read().id::<DrawPrepass>();
         let draw_alpha_mask_deferred = alpha_mask_deferred_draw_functions
             .read()
             .id::<DrawPrepass>();
         let draw_shadows = shadow_draw_functions.read().id::<DrawPrepass>();
+        let draw_shadows_depth_only = shadow_draw_functions.read().id::<DrawDepthOnlyPrepass>();
 
         let draw_functions = SmallVec::from_iter([
             (MainPassOpaqueDrawFunction.intern(), draw_opaque_pbr),
@@ -1652,12 +1652,20 @@ where
                 PrepassAlphaMaskDrawFunction.intern(),
                 draw_alpha_mask_prepass,
             ),
+            (
+                PrepassOpaqueDepthOnlyDrawFunction.intern(),
+                draw_opaque_prepass_depth_only,
+            ),
             (DeferredOpaqueDrawFunction.intern(), draw_opaque_deferred),
             (
                 DeferredAlphaMaskDrawFunction.intern(),
                 draw_alpha_mask_deferred,
             ),
             (ShadowsDrawFunction.intern(), draw_shadows),
+            (
+                ShadowsDepthOnlyDrawFunction.intern(),
+                draw_shadows_depth_only,
+            ),
         ]);
 
         let render_method = match material.opaque_render_method() {

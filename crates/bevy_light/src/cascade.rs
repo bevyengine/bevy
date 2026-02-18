@@ -1,3 +1,5 @@
+//! Provides shadow cascade configuration and construction helpers.
+
 use bevy_camera::{Camera, Projection};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
@@ -161,6 +163,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
     }
 }
 
+/// A [`DirectionalLight`]'s per-view list of [`Cascade`]s.
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct Cascades {
@@ -168,6 +171,11 @@ pub struct Cascades {
     pub cascades: EntityHashMap<Vec<Cascade>>,
 }
 
+/// A single cascade of a view's shadow map cascade. Several of these are
+/// used to cover most of the view to ensure most geometry gets shadows, with
+/// some overlap for blending at cascade transitions. Farther away cascades
+/// are larger and have a lower effective shadowmap texel per world unit
+/// resolution. All cascades have the same pixel dimensions however.
 #[derive(Clone, Debug, Default, Reflect)]
 #[reflect(Clone, Default)]
 pub struct Cascade {
@@ -183,15 +191,7 @@ pub struct Cascade {
     pub texel_size: f32,
 }
 
-pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &mut Cascades)>) {
-    for (directional_light, mut cascades) in lights.iter_mut() {
-        if !directional_light.shadow_maps_enabled {
-            continue;
-        }
-        cascades.cascades.clear();
-    }
-}
-
+/// Sets up [`Cascades`] for all shadow mapped [`DirectionalLight`]s.
 pub fn build_directional_light_cascades(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     views: Query<(Entity, &GlobalTransform, &Projection, &Camera)>,
@@ -217,18 +217,20 @@ pub fn build_directional_light_cascades(
         if !directional_light.shadow_maps_enabled {
             continue;
         }
+        cascades.cascades.clear();
 
         // It is very important to the numerical and thus visual stability of shadows that
-        // light_to_world has orthogonal upper-left 3x3 and zero translation.
+        // `world_from_light` has orthogonal upper-left 3x3 and zero translation.
         // Even though only the direction (i.e. rotation) of the light matters, we don't constrain
         // users to not change any other aspects of the transform - there's no guarantee
         // `transform.to_matrix()` will give us a matrix with our desired properties.
         // Instead, we directly create a good matrix from just the rotation.
         let world_from_light = Mat4::from_quat(transform.rotation());
-        let light_to_world_inverse = world_from_light.transpose();
+        // The transpose is the inverse for orthogonal matrices.
+        let light_from_world = world_from_light.transpose();
 
-        for (view_entity, projection, view_to_world) in views.iter().copied() {
-            let camera_to_light_view = light_to_world_inverse * view_to_world;
+        for (view_entity, projection, world_from_view) in views.iter().copied() {
+            let light_view_from_camera = light_from_world * world_from_view;
             let overlap_factor = 1.0 - cascades_config.overlap_proportion;
             let far_bounds = cascades_config.bounds.iter();
             let near_bounds = [cascades_config.minimum_distance]
@@ -243,7 +245,7 @@ pub fn build_directional_light_cascades(
                         corners,
                         directional_light_shadow_map.size as f32,
                         world_from_light,
-                        camera_to_light_view,
+                        light_view_from_camera,
                     )
                 })
                 .collect();
