@@ -175,10 +175,11 @@ pub struct Cancel {
     pub hit: HitData,
 }
 
-/// Fires when a pointer crosses into the bounds of the [target entity](EntityEvent::event_target).
-/// Unlike [`Enter`], this event bubbles through all ancestors, even if the ancestor's
-/// bounds are not crossed into. Refer to [`pointer_events`] for more information
-/// on how these events are triggered.
+/// Fires when a pointer crosses into the bounds of a [target entity](EntityEvent::event_target).
+/// Unlike [`Enter`], this event bubbles up to all of the
+/// [target entity's](EntityEvent::event_target) ancestors (traversed via the [`ChildOf`] relationship)
+/// without restriction. Refer to [`pointer_events`] for more information on how these events are triggered.
+/// Refer to [`PointerTraversal`] for how [`Pointer`] events are propagated.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Over {
@@ -186,10 +187,32 @@ pub struct Over {
     pub hit: HitData,
 }
 
-/// Fires when a pointer crosses into the bounds of the [target entity](EntityEvent::event_target).
-/// Unlike [`Over`], this event does not bubble to ancestors unless the ancestor's
-/// bounds are also crossed into. Refer to [`pointer_events`] for more information
-/// on how these events are triggered.
+/// Fires when a pointer crosses into the bounds of a [target entity](EntityEvent::event_target).
+/// Unlike [`Over`], this event bubbles up through a subset of the
+/// [target entity's](EntityEvent::event_target) ancestors
+/// (traversed via the [`ChildOf`] relationship).
+///
+/// ### Event Propagation
+/// An ancestor of a [target entity](EntityEvent::event_target) will receive an [`Enter`] event
+/// when the ancestor does not have a direct relation to any entity hovered by the
+/// pointer in the previous frame. For example, for a given pointer:
+///
+/// If the previously hovered entity C has the following entity ancestry: A -> B -> C
+///
+/// And the currently hovered entity E has the following entity ancestry: A -> D -> E
+///
+/// [`Enter`] events would be sent for both E and its direct ancestor D.
+/// An [`Enter`] event would not be sent for A because it is a shared ancestor of both C and E.
+///
+/// Note: An [`Enter`] event may be fired for an ancestor even if the pointer does not enter
+/// within the ancestor's bounds. More concretely, if a child's bounds extend beyond the parent's,
+/// and the pointer enters the child's bounds without crossing into the parent's,
+/// two [`Enter`] events are still emitted for both the child and the parent.
+/// This matches the triggering behavior of `mouseenter` events on the web.
+/// To find out whether a pointer is within an entity's bounds upon entering,
+/// check whether a [`HitData`] entry exists for that pointer and entity within the [`HoverMap`].
+///
+/// Refer to [`pointer_events`] for more information on how these events are triggered.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Enter {
@@ -197,10 +220,11 @@ pub struct Enter {
     pub hit: HitData,
 }
 
-/// Fires when a pointer crosses out of the bounds of the [target entity](EntityEvent::event_target).
-/// Unlike [`Leave`], this event bubbles through all ancestors, even if the ancestor's
-/// bounds are not crossed out of. Refer to [`pointer_events`] for more information
-/// on how these events are triggered.
+/// Fires when a pointer crosses out of the bounds of a [target entity](EntityEvent::event_target).
+/// Unlike [`Leave`], this event bubbles up to all of the
+/// [target entity's](EntityEvent::event_target) ancestors (traversed via the [`ChildOf`] relationship)
+/// without restriction. Refer to [`pointer_events`] for more information on how these events are triggered.
+/// Refer to [`PointerTraversal`] for how [`Pointer`] events are propagated.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Out {
@@ -208,10 +232,33 @@ pub struct Out {
     pub hit: HitData,
 }
 
-/// Fires when a pointer crosses out of the bounds of the [target entity](EntityEvent::event_target).
-/// Unlike [`Out`], this event does not bubble to ancestors unless the ancestor's
-/// bounds are also crossed out of. Refer to [`pointer_events`] for more information
-/// on how these events are triggered.
+/// Fires when a pointer crosses out of the bounds of a [target entity](EntityEvent::event_target).
+/// Unlike [`Out`], this event bubbles up through a subset of the
+/// [target entity's](EntityEvent::event_target) ancestors
+/// (traversed via the [`ChildOf`] relationship).
+///
+/// ### Event Propagation
+/// An ancestor of a [target entity](EntityEvent::event_target) will receive a [`Leave`] event
+/// when the ancestor does not have a direct relation to any entity hovered by the
+/// pointer in the current frame. For example, for a given pointer:
+///
+/// If the previously hovered entity C has the following entity ancestry: A -> B -> C
+///
+/// And the currently hovered entity E has the following entity ancestry: A -> D -> E
+///
+/// [`Leave`] events would be sent for both C and its direct ancestor B.
+/// A [`Leave`] event would not be sent for A because it is a shared ancestor of both C and E.
+///
+/// Note: An [`Leave`] event may be fired for an ancestor even if the pointer does not leave
+/// the ancestor's bounds. More concretely, if a child's bounds extend beyond the parent's,
+/// and the pointer enters the child's bounds without crossing into the parent's,
+/// two [`Enter`] events are still emitted for both the child and the parent.
+/// This matches the triggering behavior of `mouseleave` events on the web.
+/// To find out whether a pointer was within an entity's bounds before it left,
+/// check whether a [`HitData`] entry exists for that pointer and entity within the
+/// [`PreviousHoverMap`].
+///
+/// Refer to [`pointer_events`] for more information on how these events are triggered.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Leave {
