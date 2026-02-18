@@ -55,12 +55,9 @@ use thiserror::Error;
 use tracing::{error, info_span, warn};
 
 use crate::{
-    convert_coordinates::ConvertCoordinates as _,
-    extensions::{GltfPrimitiveInput, GltfPrimitiveOutput},
-    vertex_attributes::convert_attribute,
-    Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
-    GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin,
-    GltfSkinnedMeshBoundsPolicy,
+    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
+    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
+    GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -729,15 +726,19 @@ impl GltfLoader {
 
                 let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
 
-                let mut input = GltfPrimitiveInput {
-                    document: &gltf,
-                    buffers: &buffer_data,
-                };
-                let mut output = GltfPrimitiveOutput::default();
+                let mut out_doc: Option<gltf::Document> = None;
+                let mut out_data: Option<Vec<Vec<u8>>> = None;
                 for extension in extensions.iter_mut() {
-                    extension.on_gltf_primitive(load_context, &primitive, &mut input, &mut output);
+                    extension.on_gltf_primitive(
+                        load_context,
+                        &gltf,
+                        &primitive,
+                        &buffer_data,
+                        &mut out_doc,
+                        &mut out_data,
+                    );
                 }
-                let primitive = if let Some(doc) = &output.document
+                let primitive = if let Some(doc) = &out_doc
                     && let Some(mesh) = doc.meshes().next()
                     && let Some(primitive) = mesh.primitives().next()
                 {
@@ -745,7 +746,7 @@ impl GltfLoader {
                 } else {
                     primitive
                 };
-                let buffer_data = if let Some(data) = &output.buffers {
+                let buffer_data = if let Some(data) = &out_data {
                     data
                 } else {
                     &buffer_data
