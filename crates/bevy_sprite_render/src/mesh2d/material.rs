@@ -894,7 +894,11 @@ pub fn queue_material2d_meshes<M: Material2d>(
         for &main_entity in
             dirty_specializations.iter_to_dequeue(view.retained_view_entity, visible_entities)
         {
+            // Note that this requires that all entities assigned to the
+            // transparent phase have `Entity::PLACEHOLDER` as their render
+            // entity.
             transparent_phase.remove(Entity::PLACEHOLDER, main_entity);
+
             opaque_phase.remove(main_entity);
             alpha_mask_phase.remove(main_entity);
         }
@@ -965,7 +969,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                             indexed: mesh.indexed(),
                         },
                         bin_key,
-                        (Entity::PLACEHOLDER, *visible_entity),
+                        (*render_entity, *visible_entity),
                         InputUniformIndex::default(),
                         binned_render_phase_type,
                     );
@@ -982,12 +986,26 @@ pub fn queue_material2d_meshes<M: Material2d>(
                             indexed: mesh.indexed(),
                         },
                         bin_key,
-                        (Entity::PLACEHOLDER, *visible_entity),
+                        (*render_entity, *visible_entity),
                         InputUniformIndex::default(),
                         binned_render_phase_type,
                     );
                 }
                 AlphaMode2d::Blend => {
+                    // We have to use `Entity::PLACEHOLDER` as the render entity
+                    // so that we can dequeue the items later with
+                    // `iter_to_dequeue` above.
+                    // Items can be removed from binned phases by knowing their
+                    // main entity alone, but items can only be removed from
+                    // sorted phases if both the render entity and main world
+                    // entity are known. So we have to use a fixed value,
+                    // `Entity::PLACEHOLDER`, here, because
+                    // `DirtySpecializations` only tracks main world entities,
+                    // not render world ones.
+                    // Really, in the future we should get rid of the render
+                    // entity field here entirely, but we currently can't do so
+                    // because UI creates multiple render entities for each main
+                    // entity in its sorted phases.
                     transparent_phase.add(Transparent2d {
                         entity: (Entity::PLACEHOLDER, *visible_entity),
                         draw_function: material_2d.properties.draw_function_id,

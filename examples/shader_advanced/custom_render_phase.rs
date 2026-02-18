@@ -326,13 +326,7 @@ impl SortedPhaseItem for Stencil3d {
         // Determine the distance to the view for each phase item.
         let rangefinder = view.rangefinder3d();
         for item in items.values_mut() {
-            item.distance = match item.sorting_info {
-                TransparentSortingInfo3d::AlwaysOnTop => FloatOrd(0.0),
-                TransparentSortingInfo3d::Sorted {
-                    mesh_center,
-                    depth_bias,
-                } => FloatOrd(rangefinder.distance(&mesh_center) + depth_bias),
-            };
+            item.distance = FloatOrd(item.sorting_info.sort_distance(&rangefinder));
         }
     }
 

@@ -24,7 +24,7 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
-use core::ops::Range;
+use core::{f32, ops::Range};
 
 use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
 use bevy_diagnostic::FrameCount;
@@ -33,7 +33,7 @@ use bevy_render::{
     camera::CameraRenderGraph,
     mesh::allocator::SlabId,
     occlusion_culling::OcclusionCulling,
-    render_phase::PhaseItemBatchSetKey,
+    render_phase::{PhaseItemBatchSetKey, ViewRangefinder3d},
     texture::CachedTexture,
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
@@ -441,13 +441,7 @@ impl SortedPhaseItem for Transparent3d {
         // Determine the distance to the view for each phase item.
         let rangefinder = view.rangefinder3d();
         for item in items.values_mut() {
-            item.distance = match item.sorting_info {
-                TransparentSortingInfo3d::AlwaysOnTop => 0.0,
-                TransparentSortingInfo3d::Sorted {
-                    mesh_center,
-                    depth_bias,
-                } => rangefinder.distance(&mesh_center) + depth_bias,
-            };
+            item.distance = item.sorting_info.sort_distance(&rangefinder);
         }
     }
 
@@ -480,6 +474,20 @@ pub enum TransparentSortingInfo3d {
         /// sorting.
         depth_bias: f32,
     },
+}
+
+impl TransparentSortingInfo3d {
+    /// Calculates the value used for distance sorting for an item.
+    /// For [`Self::AlwaysOnTop`], this is [`f32::NEG_INFINITY`].
+    pub fn sort_distance(&self, rangefinder: &ViewRangefinder3d) -> f32 {
+        match *self {
+            TransparentSortingInfo3d::AlwaysOnTop => f32::NEG_INFINITY,
+            TransparentSortingInfo3d::Sorted {
+                mesh_center,
+                depth_bias,
+            } => rangefinder.distance(&mesh_center) + depth_bias,
+        }
+    }
 }
 
 pub fn extract_core_3d_camera_phases(

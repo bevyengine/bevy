@@ -287,7 +287,7 @@ fn queue_line_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
     mut pipeline: ResMut<LineGizmoPipeline>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(&ExtractedView, Option<&RenderLayers>)>,
@@ -312,7 +312,7 @@ fn queue_line_gizmos_3d(
             continue;
         };
 
-        for (entity, _, config) in &line_gizmos {
+        for (entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }

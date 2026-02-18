@@ -17,6 +17,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::FloatOrd;
+use bevy_render::RenderStartup;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -27,7 +28,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
-use bevy_render::{sync_world::MainEntity, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite_render::{
     init_mesh_2d_pipeline, Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup,
@@ -294,7 +294,7 @@ fn queue_line_and_joint_gizmos_2d(
     mut line_gizmo_pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     mut line_joint_gizmo_pipelines: ResMut<SpecializedRenderPipelines<LineJointGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     line_gizmo_entities: Res<LineGizmoEntities>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
@@ -320,7 +320,7 @@ fn queue_line_and_joint_gizmos_2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         let render_layers = render_layers.unwrap_or_default();
-        for (entity, _, config) in &line_gizmos {
+        for (entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
