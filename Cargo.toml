@@ -164,6 +164,7 @@ ui = [
   "scene",
   "audio",
   "picking",
+  "bevy_ui_widgets",
 ]
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
@@ -406,14 +407,11 @@ bevy_log = ["bevy_internal/bevy_log"]
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
-# Experimental headless widget collection for Bevy UI.
-experimental_bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
+# Headless widget collection for Bevy UI.
+bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 
 # Feathers widget collection.
-experimental_bevy_feathers = [
-  "bevy_internal/bevy_feathers",
-  "experimental_bevy_ui_widgets",
-]
+experimental_bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -3860,7 +3858,6 @@ name = "vertical_slider"
 path = "examples/ui/widgets/vertical_slider.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.vertical_slider]
 name = "Vertical Slider"
@@ -5275,7 +5272,6 @@ name = "testbed_full_ui"
 path = "examples/testbed/full_ui.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.testbed_full_ui]
 hidden = true
@@ -5421,7 +5417,6 @@ name = "standard_widgets"
 path = "examples/ui/widgets/standard_widgets.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.standard_widgets]
 name = "Standard Widgets"
@@ -5434,7 +5429,6 @@ name = "standard_widgets_observers"
 path = "examples/ui/widgets/standard_widgets_observers.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.standard_widgets_observers]
 name = "Standard Widgets (w/Observers)"
@@ -5447,7 +5441,6 @@ name = "scrollbars"
 path = "examples/ui/scroll_and_overflow/scrollbars.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.scrollbars]
 name = "Scrollbars"
