@@ -99,14 +99,14 @@ fn allocate_global_main(@builtin(local_invocation_id) local_id: vec3<u32>) {
     var current_offset = 0u;
     for (var i = 0u; i < cluster_count; i += 256u) {
         offsets_and_counts.data[i + local_id.x][0].x += current_offset;
-        workgroupBarrier();
+        storageBarrier();
 
         if (i + 255u < cluster_count) {
             current_offset = offsets_and_counts.data[i + 255u][0].x +
                 cluster_object_count(i + 255u);
         }
     }
-    workgroupBarrier();
+    storageBarrier();
 
     // Write in the final size. This will be read back to the CPU so that the
     // buffer can be resized if necessary.
