@@ -99,7 +99,9 @@ impl Plugin for OrderIndependentTransparencyPlugin {
             .add_systems(
                 Render,
                 (
-                    configure_camera_depth_usages.in_set(RenderSystems::PrepareViews),
+                    configure_camera_depth_usages
+                        .in_set(RenderSystems::PrepareViews)
+                        .ambiguous_with(RenderSystems::PrepareViews),
                     prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
                 ),
             );

@@ -179,8 +179,8 @@ audio = ["bevy_audio", "vorbis"]
 # COLLECTION: Features used to compose Bevy scenes.
 scene = ["bevy_scene"]
 
-# COLLECTION: Enables picking functionality.
-picking = ["mesh_picking", "sprite_picking", "ui_picking"]
+# COLLECTION: Enables picking with all backends.
+picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
 
 # COLLECTION: The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc).
 default_app = [
@@ -324,6 +324,9 @@ bevy_gltf = ["bevy_internal/bevy_gltf"]
 
 # Adds PBR rendering
 bevy_pbr = ["bevy_internal/bevy_pbr"]
+
+# Provides picking functionality without any backend
+bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render"]

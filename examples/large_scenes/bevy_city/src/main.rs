@@ -64,6 +64,7 @@ fn main() {
         .insert_resource(WireframeConfig {
             global: false,
             default_color: WHITE.into(),
+            ..default()
         })
         .add_systems(
             Startup,

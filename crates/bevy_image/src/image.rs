@@ -1445,6 +1445,7 @@ impl Image {
             }
         };
         image.sampler = image_sampler;
+        image.asset_usage = asset_usage;
         Ok(image)
     }
 
