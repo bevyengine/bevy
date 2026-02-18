@@ -85,7 +85,7 @@ pub(crate) fn is_directly_hovered(
 ) -> bool {
     hover_map
         .get(pointer_id)
-        .is_some_and(|hit_data_map| hit_data_map.get(entity).is_some())
+        .is_some_and(|hit_data_map| hit_data_map.contains_key(entity))
 }
 
 /// Coalesces all data from inputs and backends to generate a map of the currently hovered entities.
