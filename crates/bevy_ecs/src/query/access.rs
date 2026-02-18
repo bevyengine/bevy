@@ -1,5 +1,5 @@
-use crate::component::ComponentId;
 use crate::world::World;
+use crate::{component::ComponentId, resource::IS_RESOURCE};
 use alloc::{format, string::String, vec, vec::Vec};
 use core::{fmt, fmt::Debug};
 use derive_more::From;
@@ -1230,12 +1230,17 @@ impl FilteredAccessSet {
     }
 
     /// Adds a read access to a resource to the set.
-    #[deprecated(
-        since = "0.19.0",
-        note = "FilteredAccessSet::add_unfiltered_component_read"
-    )]
+    #[deprecated(since = "0.19.0", note = "FilteredAccessSet::add_resource_read")]
     pub fn add_unfiltered_resource_read(&mut self, index: ComponentId) {
-        self.add_unfiltered_component_read(index);
+        self.add_resource_read(index);
+    }
+
+    /// Adds a read access to a resource to the set.
+    pub fn add_resource_read(&mut self, index: ComponentId) {
+        let mut filter = FilteredAccess::default();
+        filter.add_read(index);
+        filter.and_with(IS_RESOURCE);
+        self.add(filter);
     }
 
     /// Adds a read access to a component to the set.
@@ -1253,12 +1258,17 @@ impl FilteredAccessSet {
     }
 
     /// Adds a write access to a resource to the set.
-    #[deprecated(
-        since = "0.19.0",
-        note = "FilteredAccessSet::add_unfiltered_component_write"
-    )]
+    #[deprecated(since = "0.19.0", note = "FilteredAccessSet::add_resource_write")]
     pub fn add_unfiltered_resource_write(&mut self, index: ComponentId) {
-        self.add_unfiltered_component_write(index);
+        self.add_resource_write(index);
+    }
+
+    /// Adds a write access to a resource to the set.
+    pub fn add_resource_write(&mut self, index: ComponentId) {
+        let mut filter = FilteredAccess::default();
+        filter.add_write(index);
+        filter.and_with(IS_RESOURCE);
+        self.add(filter);
     }
 
     /// Adds a write access to a resource to the set.

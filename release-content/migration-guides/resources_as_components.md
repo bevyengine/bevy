@@ -75,7 +75,7 @@ The registration process for components and resources is very similar and now th
 - `ComponentsQueuedRegistrator::queue_register_resource` was deprecated in favor of `ComponentsQueuedRegistrator::queue_register_component`.
 - `ComponentDescriptor::new_resource` was deprecated in favor of `ComponentDescriptor::new`
 - `ComponentDescriptor::new_resource` was deprecated in favor of `ComponentDescriptor::new`
-- `World::register_resource_with_descriptor was renamed to World::register_non_send_with_descriptor`.
+- `World::register_resource_with_descriptor` was renamed to `World::register_non_send_with_descriptor`.
 
 ## Access
 
@@ -89,7 +89,7 @@ Resources were also removed from `Access`, which keeps track what data any given
 - `Access::has_any_component_read` and `Access::has_any_resource_read` were deprecated in favor of `Access::has_any_read`.
 - `Access::has_component_write` and `Access::has_resource_write` were deprecated in favor of `Access::has_write`.
 - `Access::has_any_component_write` and `Access::has_any_resource_write` were deprecated in favor of `Access::has_any_write`.
-- `Access::read_all_components` was deprectated in favor of `Access::read_all`.
+- `Access::read_all_components` was deprecated in favor of `Access::read_all`.
 - `Access::write_all_components` was deprecated in favor of `Access::write_all`.
 - `Access::read_all_resources` and `Access::write_all_resources` were removed.
 - `Access::has_read_all_components` was deprecated in favor of `Access::has_read_all`.
@@ -101,11 +101,12 @@ Resources were also removed from `Access`, which keeps track what data any given
 - `Access::is_subset_resources` was removed.
 - `Access::try_iter_component_access` was deprecated in favor of `Access::try_iter_access`.
 - `FilteredAccess::add_component_read` was deprecated in favor of `FilteredAccess::add_read`.
-- `FiteredAccess::add_component_write` was deprecated in favor of `FilteredAccess::add_write`.
+- `FilteredAccess::add_component_write` was deprecated in favor of `FilteredAccess::add_write`.
 - `FilteredAccess::add_resource_read` and `FilteredAccess::add_resource_write` were removed.
 - `FilteredAccess::read_all_components` was deprecated in favor of `FilteredAccess::read_all`.
 - `FilteredAccess::write_all_components` was deprecated in favor of `FilteredAccess::write_all`.
-- More To Write.
+- `FilteredAccessSet::add_unfiltered_resource_read` was deprecated in favor of `FilteredAccessSet::add_resource_read`.
+- `FilteredAccessSet::add_unfiltered_resource_write` was deprecated in favor of `FilteredAccessSet::add_resource_write`.
 
 ## Miscellaneous
 
