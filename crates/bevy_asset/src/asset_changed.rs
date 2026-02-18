@@ -235,7 +235,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
         <&A>::update_component_access(&state.asset_id, access);
-        access.add_read(state.resource_id);
+        access.access_mut().add_read(state.resource_id);
     }
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {
