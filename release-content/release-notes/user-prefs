@@ -1,0 +1,9 @@
+---
+title: Persistent User Preferences
+authors: ["@viridia"]
+pull_requests: [22770]
+---
+
+Games and editors need a way to store user preferences: things like video options,
+keyboard/controller mappings and so on. The new `bevy_user_prefs` crate provides a framework
+for storing key/value pairs that works on both desktop OSs and browsers.
