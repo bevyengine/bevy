@@ -225,7 +225,9 @@ fn batch_and_prepare_sorted_render_phase<I, GBD>(
 {
     let items = phase.items.iter_mut().map(|item| {
         let batch_data = match process_item(item) {
-            Some(compare_data) if I::AUTOMATIC_BATCHING => Some(BatchSetMeta::new(item, compare_data)),
+            Some(compare_data) if I::AUTOMATIC_BATCHING => {
+                Some(BatchSetMeta::new(item, compare_data))
+            }
             _ => None,
         };
         (item.batch_range_mut(), batch_data)
