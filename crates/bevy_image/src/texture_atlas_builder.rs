@@ -43,7 +43,7 @@ pub struct TextureAtlasBuilder<'a> {
     auto_format_conversion: bool,
     /// The amount of padding in pixels to add along the right and bottom edges of the texture rects.
     padding: UVec2,
-    /// The padding along the left and top edges of the TextureAtlas
+    /// The padding along the left and top edges of the `TextureAtlas`
     initial_padding: UVec2,
 }
 
