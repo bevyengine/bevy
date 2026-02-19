@@ -1,5 +1,8 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
+use bevy_log::error;
+#[cfg(feature = "trace")]
+use bevy_log::info_span;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -9,9 +12,6 @@ use bevy_render::{
     renderer::{RenderContext, ViewQuery},
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture, ViewUniformOffset},
 };
-use tracing::error;
-#[cfg(feature = "trace")]
-use tracing::info_span;
 
 use crate::skybox::prepass::{RenderSkyboxPrepassPipeline, SkyboxPrepassBindGroup};
 

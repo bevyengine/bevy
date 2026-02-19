@@ -206,6 +206,7 @@ impl Plugin for UiRenderPlugin {
             .allow_ambiguous_resource::<ExtractedUiNodes>()
             .init_resource::<DrawFunctions<TransparentUi>>()
             .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
+            .allow_ambiguous_resource::<ViewSortedRenderPhases<TransparentUi>>()
             .add_render_command::<TransparentUi, DrawUi>()
             .configure_sets(
                 ExtractSchedule,
@@ -842,7 +843,6 @@ pub fn extract_viewport_nodes(
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -911,15 +911,10 @@ pub fn extract_text_sections(
                 current_span_index = *span_index;
             }
 
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color,
                 translation: *position,
-                rect,
+                rect: atlas_info.rect,
             });
 
             if text_layout_info
@@ -948,7 +943,6 @@ pub fn extract_text_sections(
 pub fn extract_text_shadows(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -1005,15 +999,10 @@ pub fn extract_text_shadows(
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color: shadow.color.into(),
                 translation: *position,
-                rect,
+                rect: atlas_info.rect,
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
@@ -1571,7 +1560,7 @@ pub fn prepare_uinodes(
                             points[3] + positions_diff[3],
                         ];
 
-                        let transformed_rect_size = transform.transform_vector2(rect_size);
+                        let transformed_rect_size = transform.transform_vector2(rect_size).abs();
 
                         // Don't try to cull nodes that have a rotation
                         // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -1714,12 +1703,13 @@ pub fn prepare_uinodes(
                             ];
 
                             // cull nodes that are completely clipped
-                            let transformed_rect_size =
-                                extracted_uinode.transform.transform_vector2(rect_size);
-                            if positions_diff[0].x - positions_diff[1].x
-                                >= transformed_rect_size.x.abs()
+                            let transformed_rect_size = extracted_uinode
+                                .transform
+                                .transform_vector2(rect_size)
+                                .abs();
+                            if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                                 || positions_diff[1].y - positions_diff[2].y
-                                    >= transformed_rect_size.y.abs()
+                                    >= transformed_rect_size.y
                             {
                                 continue;
                             }

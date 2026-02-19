@@ -116,8 +116,7 @@ pub struct SkinUniforms {
     total_joints: usize,
 }
 
-pub fn skin_uniforms_from_world(world: &mut World) {
-    let device = world.resource::<RenderDevice>();
+pub fn skin_uniforms_from_world(device: Res<RenderDevice>, mut commands: Commands) {
     let buffer_usages = (if skins_use_uniform_buffers(&device.limits()) {
         BufferUsages::UNIFORM
     } else {
@@ -150,7 +149,7 @@ pub fn skin_uniforms_from_world(world: &mut World) {
         total_joints: 0,
     };
 
-    world.insert_resource(res);
+    commands.insert_resource(res);
 }
 
 impl SkinUniforms {

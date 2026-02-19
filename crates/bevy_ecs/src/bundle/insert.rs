@@ -12,7 +12,7 @@ use crate::{
     component::{Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
-    lifecycle::{Add, Insert, Replace, ADD, INSERT, REPLACE},
+    lifecycle::{Add, Discard, Insert, ADD, DISCARD, INSERT},
     observer::Observers,
     query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
@@ -174,11 +174,11 @@ impl<'w> BundleInserter<'w> {
                         new_archetype.as_ref()
                     }
                 };
-                if archetype.has_replace_observer() {
-                    // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+                if archetype.has_discard_observer() {
+                    // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                     deferred_world.trigger_raw(
-                        REPLACE,
-                        &mut Replace { entity },
+                        DISCARD,
+                        &mut Discard { entity },
                         &mut EntityComponentsTrigger {
                             components: archetype_after_insert.existing(),
                             old_archetype: Some(archetype),
@@ -187,7 +187,7 @@ impl<'w> BundleInserter<'w> {
                         caller,
                     );
                 }
-                deferred_world.trigger_on_replace(
+                deferred_world.trigger_on_discard(
                     archetype,
                     entity,
                     archetype_after_insert.existing().iter().copied(),
@@ -199,7 +199,7 @@ impl<'w> BundleInserter<'w> {
 
         let table = table.as_mut();
 
-        // SAFETY: Archetype gets borrowed when running the on_replace observers above,
+        // SAFETY: Archetype gets borrowed when running the on_discard observers above,
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
         let archetype = archetype.as_mut();
 

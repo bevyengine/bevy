@@ -56,6 +56,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
+    renderer::RenderDevice,
     sync_component::SyncComponent,
     sync_world::RenderEntity,
     Extract, ExtractSchedule, RenderStartup,
@@ -143,6 +144,15 @@ impl Plugin for AtmospherePlugin {
             return;
         }
 
+        // Check the `RenderDevice` in addition to the `RenderAdapter`. The
+        // former takes the `WGPU_SETTINGS_PRIO` environment variable into
+        // account, and the latter doesn't.
+        let render_device = render_app.world().resource::<RenderDevice>();
+        if render_device.limits().max_storage_textures_per_shader_stage == 0 {
+            warn!("AtmospherePlugin not loaded. GPU lacks support: `max_storage_textures_per_shader_stage` is 0");
+            return;
+        }
+
         render_app
             .insert_resource(AtmosphereBindGroupLayouts::new())
             .init_resource::<RenderSkyBindGroupLayouts>()
@@ -162,15 +172,15 @@ impl Plugin for AtmospherePlugin {
             .add_systems(
                 Render,
                 (
-                    configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
+                    configure_camera_depth_usages.in_set(RenderSystems::PrepareViews),
                     queue_render_sky_pipelines.in_set(RenderSystems::Queue),
                     prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
                     prepare_probe_textures
                         .in_set(RenderSystems::PrepareResources)
                         .after(prepare_atmosphere_textures),
                     prepare_atmosphere_uniforms
-                        .before(RenderSystems::PrepareResources)
-                        .after(RenderSystems::PrepareAssets),
+                        .in_set(RenderSystems::Prepare)
+                        .before(RenderSystems::PrepareResources),
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),

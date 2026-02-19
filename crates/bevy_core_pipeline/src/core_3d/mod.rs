@@ -45,6 +45,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_image::ToExtents;
+use bevy_log::warn;
 use bevy_math::FloatOrd;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
@@ -66,7 +67,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
-use tracing::warn;
 
 use crate::deferred::copy_lighting_id::copy_deferred_lighting_id;
 use crate::deferred::node::{early_deferred_prepass, late_deferred_prepass};
@@ -128,7 +128,8 @@ impl Plugin for Core3dPlugin {
                     sort_phase_system::<Transparent3d>.in_set(RenderSystems::PhaseSort),
                     configure_occlusion_culling_view_targets
                         .after(prepare_view_targets)
-                        .in_set(RenderSystems::ManageViews),
+                        .in_set(RenderSystems::PrepareViews)
+                        .ambiguous_with(RenderSystems::PrepareViews),
                     prepare_core_3d_depth_textures.in_set(RenderSystems::PrepareResources),
                     prepare_prepass_textures.in_set(RenderSystems::PrepareResources),
                 ),

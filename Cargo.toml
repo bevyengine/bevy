@@ -33,6 +33,7 @@ members = [
   # Examples of large bevy scenes.
   "examples/large_scenes/bistro",
   "examples/large_scenes/caldera_hotel",
+  "examples/large_scenes/bevy_city",
   # Mipmap generator for testing large bevy scenes with mips and texture compression.
   "examples/large_scenes/mipmap_generator",
   # Benchmarks
@@ -163,6 +164,7 @@ ui = [
   "scene",
   "audio",
   "picking",
+  "bevy_ui_widgets",
 ]
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
@@ -178,7 +180,7 @@ audio = ["bevy_audio", "vorbis"]
 # COLLECTION: Features used to compose Bevy scenes.
 scene = ["bevy_scene"]
 
-# COLLECTION: Enables picking functionality.
+# COLLECTION: Enables picking with all backends.
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
 
 # COLLECTION: The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc).
@@ -324,7 +326,7 @@ bevy_gltf = ["bevy_internal/bevy_gltf"]
 # Adds PBR rendering
 bevy_pbr = ["bevy_internal/bevy_pbr"]
 
-# Provides picking functionality
+# Provides picking functionality without any backend
 bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
@@ -405,14 +407,11 @@ bevy_log = ["bevy_internal/bevy_log"]
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
-# Experimental headless widget collection for Bevy UI.
-experimental_bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
+# Headless widget collection for Bevy UI.
+bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 
 # Feathers widget collection.
-experimental_bevy_feathers = [
-  "bevy_internal/bevy_feathers",
-  "experimental_bevy_ui_widgets",
-]
+experimental_bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -758,7 +757,7 @@ argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
 anyhow = "1"
-accesskit = "0.23"
+accesskit = "0.24"
 nonmax = "0.5"
 gltf = "1.4"
 
@@ -2036,7 +2035,7 @@ wasm = false
 name = "asset_saving"
 path = "examples/asset/asset_saving.rs"
 doc-scrape-examples = true
-required-features = ["bevy_picking", "sprite_picking"]
+required-features = ["ui_picking", "sprite_picking"]
 
 [package.metadata.example.asset_saving]
 name = "Asset Saving"
@@ -3520,6 +3519,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_morph_targets"
+path = "examples/stress_tests/many_morph_targets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_morph_targets]
+name = "Many Morph Targets"
+description = "Simple benchmark to test rendering many meshes with animated morph targets."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_glyphs"
 path = "examples/stress_tests/many_glyphs.rs"
 # Causes an ICE on docs.rs
@@ -3848,7 +3858,6 @@ name = "vertical_slider"
 path = "examples/ui/widgets/vertical_slider.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.vertical_slider]
 name = "Vertical Slider"
@@ -3957,6 +3966,7 @@ name = "generic_font_families"
 path = "examples/ui/text/generic_font_families.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
+required-features = ["system_font_discovery"]
 
 [package.metadata.example.generic_font_families]
 name = "Generic Font Families"
@@ -4609,6 +4619,20 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "debug_frustum_culling"
+path = "examples/usage/debug_frustum_culling.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+required-features = ["free_camera"]
+
+[package.metadata.example.debug_frustum_culling]
+name = "Debug Frustum Culling"
+description = "Example demonstrating how to debug frustum culling"
+category = "Usage"
+wasm = true
+
+
+[[example]]
 name = "custom_gltf_vertex_attribute"
 path = "examples/gltf/custom_gltf_vertex_attribute.rs"
 # Causes an ICE on docs.rs
@@ -5036,7 +5060,7 @@ name = "simple_picking"
 path = "examples/picking/simple_picking.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["bevy_picking"]
+required-features = ["ui_picking"]
 
 [package.metadata.example.simple_picking]
 name = "Showcases simple picking events and usage"
@@ -5248,7 +5272,6 @@ name = "testbed_full_ui"
 path = "examples/testbed/full_ui.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.testbed_full_ui]
 hidden = true
@@ -5394,7 +5417,6 @@ name = "standard_widgets"
 path = "examples/ui/widgets/standard_widgets.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.standard_widgets]
 name = "Standard Widgets"
@@ -5407,7 +5429,6 @@ name = "standard_widgets_observers"
 path = "examples/ui/widgets/standard_widgets_observers.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.standard_widgets_observers]
 name = "Standard Widgets (w/Observers)"
@@ -5420,7 +5441,6 @@ name = "scrollbars"
 path = "examples/ui/scroll_and_overflow/scrollbars.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
-required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.scrollbars]
 name = "Scrollbars"
@@ -5432,6 +5452,7 @@ wasm = true
 name = "system_fonts"
 path = "examples/ui/text/system_fonts.rs"
 doc-scrape-examples = true
+required-features = ["system_font_discovery"]
 
 [package.metadata.example.system_fonts]
 name = "System Fonts"

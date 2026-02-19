@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_log::warn_once;
-use bevy_math::{Rect, UVec2, Vec2};
+use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use parley::style::{OverflowWrap, TextWrapMode};
@@ -55,7 +55,6 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut FontCx,
         layout_cx: &mut LayoutCx,
-        hinting: FontHinting,
         logical_viewport_size: Vec2,
         base_rem_size: f32,
     ) -> Result<(), TextError> {
@@ -63,7 +62,6 @@ impl TextPipeline {
         computed.needs_rerender = false;
         computed.uses_rem_sizes = false;
         computed.uses_viewport_sizes = false;
-        computed.font_hinting = hinting;
 
         if scale_factor <= 0.0 {
             warn_once!("Text scale factor is <= 0.0. No text will be displayed.");
@@ -227,7 +225,6 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut FontCx,
         layout_cx: &mut LayoutCx,
-        hinting: FontHinting,
         logical_viewport_size: Vec2,
         base_rem_size: f32,
     ) -> Result<TextMeasureInfo, TextError> {
@@ -245,7 +242,6 @@ impl TextPipeline {
             computed,
             font_system,
             layout_cx,
-            hinting,
             logical_viewport_size,
             base_rem_size,
         )?;
@@ -268,7 +264,6 @@ impl TextPipeline {
         &mut self,
         layout_info: &mut TextLayoutInfo,
         font_atlas_set: &mut FontAtlasSet,
-        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         computed: &mut ComputedTextBlock,
         scale_cx: &mut ScaleCx,
@@ -281,8 +276,6 @@ impl TextPipeline {
 
         let layout = &mut computed.layout;
         layout_with_bounds(layout, bounds, justify);
-
-        let hint = computed.font_hinting.should_hint();
 
         for (line_index, line) in layout.lines().enumerate() {
             for item in line.items() {
@@ -310,6 +303,8 @@ impl TextPipeline {
                         return Err(TextError::NoSuchFont);
                     };
 
+                    let hint =
+                        hinting.should_hint() && font_smoothing == FontSmoothing::AntiAliased;
                     let mut scaler = scale_cx
                         .0
                         .builder(font_ref)
@@ -330,7 +325,6 @@ impl TextPipeline {
                                 .unwrap_or_else(|| {
                                     add_glyph_to_atlas(
                                         font_atlases,
-                                        texture_atlases,
                                         textures,
                                         &mut scaler,
                                         font_smoothing,
@@ -338,22 +332,17 @@ impl TextPipeline {
                                     )
                                 })?;
 
-                        let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
-                        let location = atlas_info.location;
-                        let glyph_rect = texture_atlas.textures[location.glyph_index];
-                        let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
-
-                        let mut x = glyph_size.x as f32 / 2.0 + glyph.x + location.offset.x as f32;
-                        let mut y = glyph_size.y as f32 / 2.0 + glyph.y - location.offset.y as f32;
-
-                        if font_smoothing == FontSmoothing::None {
-                            x = x.round();
-                            y = y.round();
-                        }
+                        let glyph_pos = Vec2::new(glyph.x, glyph.y);
+                        let size = atlas_info.rect.size();
 
                         layout_info.glyphs.push(PositionedGlyph {
-                            position: Vec2::new(x, y),
-                            size: glyph_size.as_vec2(),
+                            position: size / 2.
+                                + if font_smoothing == FontSmoothing::None {
+                                    glyph_pos.floor()
+                                } else {
+                                    glyph_pos
+                                }
+                                + atlas_info.offset,
                             atlas_info,
                             span_index,
                             byte_index: text_range.start,
