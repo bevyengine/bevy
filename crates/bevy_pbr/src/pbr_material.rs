@@ -427,7 +427,7 @@ pub struct StandardMaterial {
     ///
     /// It is very common to use an RGB texture that uses the red channel for the [`StandardMaterial::occlusion_texture`],
     /// and the B and G channels for [`StandardMaterial::metallic_roughness_texture`].
-    /// In such cases, use the same image handle for both fields. Notably, this is the standard used by glTF.
+    /// In such cases, use the same image handle for both fields.
     #[texture(7)]
     #[sampler(8)]
     #[dependency]
