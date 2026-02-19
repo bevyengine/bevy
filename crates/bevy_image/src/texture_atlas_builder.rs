@@ -43,6 +43,8 @@ pub struct TextureAtlasBuilder<'a> {
     auto_format_conversion: bool,
     /// The amount of padding in pixels to add along the right and bottom edges of the texture rects.
     padding: UVec2,
+    /// The padding along the left and top edges of the TextureAtlas
+    initial_padding: UVec2,
 }
 
 impl Default for TextureAtlasBuilder<'_> {
@@ -54,6 +56,7 @@ impl Default for TextureAtlasBuilder<'_> {
             format: TextureFormat::Rgba8UnormSrgb,
             auto_format_conversion: true,
             padding: UVec2::ZERO,
+            initial_padding: UVec2::ZERO,
         }
     }
 }
@@ -101,8 +104,20 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// Sets the amount of padding in pixels to add between the textures in the texture atlas.
     ///
     /// The `x` value provide will be added to the right edge, while the `y` value will be added to the bottom edge.
+    ///
+    /// calling this function will also set the initial padding (on the top and left edge).
+    /// call [`initial_padding`] to set that value only
     pub fn padding(&mut self, padding: UVec2) -> &mut Self {
         self.padding = padding;
+        self.initial_padding = padding;
+        self
+    }
+
+    /// Sets the amount of padding in pixels to add on the top and left edge of the texture atlas.
+    ///
+    /// The `x` value provide will be added to the left edge, while the `y` value will be added to the top edge.
+    pub fn initial_padding(&mut self, padding: UVec2) -> &mut Self {
+        self.initial_padding = padding;
         self
     }
 
@@ -198,6 +213,8 @@ impl<'a> TextureAtlasBuilder<'a> {
     ) -> Result<(TextureAtlasLayout, TextureAtlasSources, Image), TextureAtlasBuilderError> {
         let max_width = self.max_size.x;
         let max_height = self.max_size.y;
+        let pad_left = self.initial_padding.x;
+        let pad_top = self.initial_padding.y;
 
         let mut current_width = self.initial_size.x;
         let mut current_height = self.initial_size.y;
@@ -218,6 +235,7 @@ impl<'a> TextureAtlasBuilder<'a> {
             );
         }
 
+        let mut target_bins = alloc::collections::BTreeMap::new();
         while rect_placements.is_none() {
             if current_width > max_width || current_height > max_height {
                 break;
@@ -225,8 +243,11 @@ impl<'a> TextureAtlasBuilder<'a> {
 
             let last_attempt = current_height == max_height && current_width == max_width;
 
-            let mut target_bins = alloc::collections::BTreeMap::new();
-            target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
+            target_bins.clear();
+            target_bins.insert(
+                0,
+                TargetBin::new(current_width - pad_left, current_height - pad_top, 1),
+            );
             rect_placements = match pack_rects(
                 &rects_to_place,
                 &mut target_bins,
@@ -251,8 +272,8 @@ impl<'a> TextureAtlasBuilder<'a> {
                     Some(rect_placements)
                 }
                 Err(rectangle_pack::RectanglePackError::NotEnoughBinSpace) => {
-                    current_height = (current_height * 2).clamp(0, max_height);
-                    current_width = (current_width * 2).clamp(0, max_width);
+                    current_height = (current_height.saturating_mul(2)).clamp(0, max_height);
+                    current_width = (current_width.saturating_mul(2)).clamp(0, max_width);
                     None
                 }
             };
@@ -261,6 +282,7 @@ impl<'a> TextureAtlasBuilder<'a> {
                 break;
             }
         }
+        drop(target_bins);
 
         let rect_placements = rect_placements.ok_or(TextureAtlasBuilderError::NotEnoughSpace)?;
 
@@ -270,7 +292,10 @@ impl<'a> TextureAtlasBuilder<'a> {
         for (index, (image_id, texture)) in self.textures_to_place.iter().enumerate() {
             let (_, packed_location) = rect_placements.packed_locations().get(&index).unwrap();
 
-            let min = UVec2::new(packed_location.x(), packed_location.y());
+            let min = UVec2::new(
+                packed_location.x() + pad_left,
+                packed_location.y() + pad_top,
+            );
             let max =
                 min + UVec2::new(packed_location.width(), packed_location.height()) - self.padding;
             if let Some(image_id) = image_id {
