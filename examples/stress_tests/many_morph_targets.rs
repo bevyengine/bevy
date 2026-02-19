@@ -9,8 +9,8 @@ use bevy::{
     winit::WinitSettings,
 };
 use core::{f32::consts::PI, str::FromStr};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
+use chacha20::ChaCha8Rng;
 
 /// Controls the morph weights.
 #[derive(PartialEq)]
