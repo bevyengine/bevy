@@ -1,5 +1,5 @@
 ---
-title: PlaneMeshBuilder: allow for different number of subdivisions in X and Z directions
+title: PlaneMeshBuilder, allow for different number of subdivisions in X and Z directions
 pull_requests: [19479]
 ---
 
