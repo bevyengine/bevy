@@ -343,7 +343,7 @@ pub fn extract_gradients(
     mut commands: Commands,
     mut extracted_gradients: ResMut<ExtractedGradients>,
     mut extracted_color_stops: ResMut<ExtractedColorStops>,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     gradients_query: Extract<
         Query<(
             Entity,
@@ -358,6 +358,7 @@ pub fn extract_gradients(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut camera_mapper = camera_map.get_mapper();
     let mut sorted_stops = vec![];
 
@@ -573,6 +574,7 @@ pub fn extract_gradients(
             }
         }
     }
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 #[expect(
@@ -629,6 +631,7 @@ pub fn queue_gradient(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            summary_index: u8::MAX,
             index,
             indexed: true,
         });

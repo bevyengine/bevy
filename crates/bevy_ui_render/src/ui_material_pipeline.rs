@@ -641,6 +641,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             sort_key: FloatOrd(extracted_uinode.stack_index as f32 + M::stack_z_offset()),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            summary_index: u8::MAX,
             index,
             indexed: false,
         });

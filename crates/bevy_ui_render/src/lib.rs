@@ -107,8 +107,10 @@ pub mod stack_z_offsets {
     pub const BORDER_GRADIENT: f32 = 0.03;
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
-    pub const TEXT: f32 = 0.06;
-    pub const TEXT_STRIKETHROUGH: f32 = 0.07;
+    pub const TEXT_BACKGROUND: f32 = 0.06;
+    pub const TEXT_SHADOW: f32 = 0.07;
+    pub const TEXT: f32 = 0.08;
+    pub const TEXT_STRIKETHROUGH: f32 = 0.09;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -202,28 +204,12 @@ impl Plugin for UiRenderPlugin {
             .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
             .init_resource::<ImageNodeBindGroups>()
             .init_resource::<UiMeta>()
-            .init_resource::<ExtractedUiNodes>()
-            .allow_ambiguous_resource::<ExtractedUiNodes>()
+            .init_resource::<ExtractedUiNodesAll>()
+            .allow_ambiguous_resource::<ExtractedUiNodesAll>()
             .init_resource::<DrawFunctions<TransparentUi>>()
             .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
             .allow_ambiguous_resource::<ViewSortedRenderPhases<TransparentUi>>()
             .add_render_command::<TransparentUi, DrawUi>()
-            .configure_sets(
-                ExtractSchedule,
-                (
-                    RenderUiSystems::ExtractCameraViews,
-                    RenderUiSystems::ExtractBoxShadows,
-                    RenderUiSystems::ExtractBackgrounds,
-                    RenderUiSystems::ExtractImages,
-                    RenderUiSystems::ExtractTextureSlice,
-                    RenderUiSystems::ExtractBorders,
-                    RenderUiSystems::ExtractTextBackgrounds,
-                    RenderUiSystems::ExtractTextShadows,
-                    RenderUiSystems::ExtractText,
-                    RenderUiSystems::ExtractDebug,
-                )
-                    .chain(),
-            )
             .add_systems(RenderStartup, init_ui_pipeline)
             .add_systems(
                 ExtractSchedule,
@@ -359,22 +345,46 @@ pub struct ExtractedGlyph {
     pub rect: Rect,
 }
 
-#[derive(Resource, Default)]
+#[derive(Default)]
+pub struct ExtractedUiNodesAllocator {
+    uinodes: usize,
+    glyphs: usize,
+}
+
+impl ExtractedUiNodesAllocator {
+    pub fn allocate(&self) -> ExtractedUiNodes {
+        let uinodes = Vec::with_capacity(self.uinodes * 2);
+        let glyphs = Vec::with_capacity(self.glyphs * 2);
+        ExtractedUiNodes { uinodes, glyphs }
+    }
+
+    pub fn queue(&mut self, commands: &mut Commands, extracted_uinodes: ExtractedUiNodes) {
+        self.uinodes = extracted_uinodes.uinodes.len();
+        self.glyphs = extracted_uinodes.glyphs.len();
+        commands.queue(ExtractedUiNodesAllPushCommand(extracted_uinodes));
+    }
+}
+
 pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
     pub glyphs: Vec<ExtractedGlyph>,
 }
 
-impl ExtractedUiNodes {
-    pub fn clear(&mut self) {
-        self.uinodes.clear();
-        self.glyphs.clear();
+#[derive(Resource, Default)]
+pub struct ExtractedUiNodesAll(pub Vec<ExtractedUiNodes>);
+
+pub struct ExtractedUiNodesAllPushCommand(pub ExtractedUiNodes);
+
+impl Command for ExtractedUiNodesAllPushCommand {
+    fn apply(self, world: &mut World) {
+        let mut summary = world.resource_mut::<ExtractedUiNodesAll>();
+        summary.0.push(self.0);
     }
 }
 
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -388,6 +398,7 @@ pub fn extract_uinode_background_colors(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, inherited_visibility, clip, camera, background_color) in
@@ -428,11 +439,12 @@ pub fn extract_uinode_background_colors(
             main_entity: entity.into(),
         });
     }
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 pub fn extract_uinode_images(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
@@ -447,6 +459,7 @@ pub fn extract_uinode_images(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut camera_mapper = camera_map.get_mapper();
     for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &uinode_query {
         // Skip invisible images
@@ -512,11 +525,12 @@ pub fn extract_uinode_images(
             main_entity: entity.into(),
         });
     }
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 pub fn extract_uinode_borders(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -531,6 +545,7 @@ pub fn extract_uinode_borders(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let image = AssetId::<Image>::default();
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -647,6 +662,7 @@ pub fn extract_uinode_borders(
             });
         }
     }
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 /// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
@@ -779,7 +795,7 @@ pub fn extract_ui_camera_view(
 
 pub fn extract_viewport_nodes(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     camera_query: Extract<Query<(&Camera, &RenderTarget)>>,
     uinode_query: Extract<
         Query<(
@@ -794,6 +810,7 @@ pub fn extract_viewport_nodes(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut camera_mapper = camera_map.get_mapper();
     for (entity, uinode, transform, inherited_visibility, clip, camera, viewport_node) in
         &uinode_query
@@ -838,11 +855,12 @@ pub fn extract_viewport_nodes(
             main_entity: entity.into(),
         });
     }
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 pub fn extract_text_sections(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -859,6 +877,7 @@ pub fn extract_text_sections(
     text_styles: Extract<Query<&TextColor>>,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut start = extracted_uinodes.glyphs.len();
     let mut end = start + 1;
 
@@ -938,11 +957,12 @@ pub fn extract_text_sections(
             end += 1;
         }
     }
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 pub fn extract_text_shadows(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -959,6 +979,7 @@ pub fn extract_text_shadows(
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut start = extracted_uinodes.glyphs.len();
     let mut end = start + 1;
 
@@ -1010,7 +1031,7 @@ pub fn extract_text_shadows(
             }) {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: node_transform,
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_SHADOW,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     image: atlas_info.texture,
                     clip: clip.map(|clip| clip.clip),
@@ -1033,7 +1054,7 @@ pub fn extract_text_shadows(
 
             if has_strikethrough {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_SHADOW,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
@@ -1059,7 +1080,7 @@ pub fn extract_text_shadows(
 
             if has_underline {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_SHADOW,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
@@ -1083,11 +1104,12 @@ pub fn extract_text_shadows(
             }
         }
     }
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 pub fn extract_text_decorations(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes_alloc: Local<ExtractedUiNodesAllocator>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -1110,6 +1132,7 @@ pub fn extract_text_decorations(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let mut extracted_uinodes = extracted_uinodes_alloc.allocate();
     let mut camera_mapper = camera_map.get_mapper();
     for (
         entity,
@@ -1148,7 +1171,7 @@ pub fn extract_text_decorations(
 
             if let Some(text_background_color) = text_background_color {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_BACKGROUND,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
@@ -1232,6 +1255,7 @@ pub fn extract_text_decorations(
             }
         }
     }
+    extracted_uinodes_alloc.queue(&mut commands, extracted_uinodes);
 }
 
 #[repr(C)]
@@ -1307,7 +1331,7 @@ pub mod shader_flags {
 }
 
 pub fn queue_uinodes(
-    extracted_uinodes: Res<ExtractedUiNodes>,
+    extracted_uinodes_all: Res<ExtractedUiNodesAll>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -1320,48 +1344,53 @@ pub fn queue_uinodes(
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
 
-    for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
-        if current_camera_entity != extracted_uinode.extracted_camera_entity {
-            current_phase = render_views
-                .get(extracted_uinode.extracted_camera_entity)
-                .ok()
-                .and_then(|(default_camera_view, ui_anti_alias)| {
-                    camera_views
-                        .get(default_camera_view.0)
-                        .ok()
-                        .and_then(|view| {
-                            transparent_render_phases
-                                .get_mut(&view.retained_view_entity)
-                                .map(|transparent_phase| (view, ui_anti_alias, transparent_phase))
-                        })
-                });
-            current_camera_entity = extracted_uinode.extracted_camera_entity;
+    for (summary_index, extracted_uinodes) in extracted_uinodes_all.0.iter().enumerate() {
+        for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
+            if current_camera_entity != extracted_uinode.extracted_camera_entity {
+                current_phase = render_views
+                    .get(extracted_uinode.extracted_camera_entity)
+                    .ok()
+                    .and_then(|(default_camera_view, ui_anti_alias)| {
+                        camera_views
+                            .get(default_camera_view.0)
+                            .ok()
+                            .and_then(|view| {
+                                transparent_render_phases
+                                    .get_mut(&view.retained_view_entity)
+                                    .map(|transparent_phase| {
+                                        (view, ui_anti_alias, transparent_phase)
+                                    })
+                            })
+                    });
+                current_camera_entity = extracted_uinode.extracted_camera_entity;
+            }
+
+            let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
+                continue;
+            };
+
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &ui_pipeline,
+                UiPipelineKey {
+                    hdr: view.hdr,
+                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                },
+            );
+
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
+                sort_key: FloatOrd(extracted_uinode.z_order),
+                summary_index: summary_index as u8,
+                index,
+                // batch_range will be calculated in prepare_uinodes
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
+            });
         }
-
-        let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
-            continue;
-        };
-
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &ui_pipeline,
-            UiPipelineKey {
-                hdr: view.hdr,
-                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
-            },
-        );
-
-        transparent_phase.add(TransparentUi {
-            draw_function,
-            pipeline,
-            entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-            sort_key: FloatOrd(extracted_uinode.z_order),
-            index,
-            // batch_range will be calculated in prepare_uinodes
-            batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::None,
-            indexed: true,
-        });
     }
 }
 
@@ -1376,7 +1405,7 @@ pub fn prepare_uinodes(
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMeta>,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes_all: ResMut<ExtractedUiNodesAll>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<ImageNodeBindGroups>,
@@ -1419,11 +1448,16 @@ pub fn prepare_uinodes(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                let Some(extracted_uinode) = extracted_uinodes
-                    .uinodes
-                    .get(item.index)
-                    .filter(|n| item.entity() == n.render_entity)
-                else {
+
+                let (extracted_uinodes, extracted_uinode) = if let Some(extracted_uinodes) =
+                    extracted_uinodes_all.0.get(item.summary_index as usize)
+                    && let Some(extracted_uinode) = extracted_uinodes
+                        .uinodes
+                        .get(item.index)
+                        .filter(|n| item.entity() == n.render_entity)
+                {
+                    (extracted_uinodes, extracted_uinode)
+                } else {
                     batch_image_handle = AssetId::invalid();
                     continue;
                 };
@@ -1766,5 +1800,5 @@ pub fn prepare_uinodes(
         *previous_len = batches.len();
         commands.try_insert_batch(batches);
     }
-    extracted_uinodes.clear();
+    extracted_uinodes_all.0.clear();
 }
