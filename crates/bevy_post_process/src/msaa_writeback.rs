@@ -117,6 +117,7 @@ fn prepare_msaa_writeback_pipelines(
                 texture_format: view_target.main_texture_format(),
                 samples: msaa.samples(),
                 blend_state: None,
+                source_space: None,
             };
 
             let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);

@@ -927,19 +927,19 @@ pub fn prepare_prepass_textures(
                 frame_count.0,
             ),
             normal: cached_normals_texture
-                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK.into()))),
             // Red and Green channels are X and Y components of the motion vectors
             // Blue channel doesn't matter, but set to 0.0 for possible faster clear
             // https://gpuopen.com/performance/#clears
             motion_vectors: cached_motion_vectors_texture
-                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK.into()))),
             deferred: package_double_buffered_texture(
                 cached_deferred_texture1,
                 cached_deferred_texture2,
                 frame_count.0,
             ),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
-                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK.into()))),
             size,
         });
     }
@@ -955,19 +955,19 @@ fn package_double_buffered_texture(
             t1,
             None,
             None,
-            Some(LinearRgba::BLACK),
+            Some(LinearRgba::BLACK.into()),
         )),
         (Some(t1), Some(t2)) if frame_count.is_multiple_of(2) => Some(ColorAttachment::new(
             t1,
             None,
             Some(t2),
-            Some(LinearRgba::BLACK),
+            Some(LinearRgba::BLACK.into()),
         )),
         (Some(t1), Some(t2)) => Some(ColorAttachment::new(
             t2,
             None,
             Some(t1),
-            Some(LinearRgba::BLACK),
+            Some(LinearRgba::BLACK.into()),
         )),
         _ => None,
     }

@@ -1,6 +1,6 @@
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
-use bevy_camera::{visibility::ViewVisibility, Camera2d};
+use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
 use bevy_render::RenderStartup;
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
@@ -136,6 +136,19 @@ pub fn check_views_need_specialization(
     for (view_entity, view, msaa, tonemapping, dither) in &views {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
+
+        if view
+            .compositing_space
+            .is_some_and(|s| s == CompositingSpace::Srgb)
+        {
+            view_key |= Mesh2dPipelineKey::SRGB_COMPOSITING;
+        }
+        if view
+            .compositing_space
+            .is_some_and(|s| s == CompositingSpace::Oklab)
+        {
+            view_key |= Mesh2dPipelineKey::OKLAB_COMPOSITING;
+        }
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
@@ -431,6 +444,8 @@ bitflags::bitflags! {
         const DEBAND_DITHER                     = 1 << 2;
         const BLEND_ALPHA                       = 1 << 3;
         const MAY_DISCARD                       = 1 << 4;
+        const SRGB_COMPOSITING                  = 1 << 5;
+        const OKLAB_COMPOSITING                 = 1 << 6;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -578,12 +593,22 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         if key.contains(Mesh2dPipelineKey::MAY_DISCARD) {
             shader_defs.push("MAY_DISCARD".into());
         }
+        if key.contains(Mesh2dPipelineKey::SRGB_COMPOSITING) {
+            shader_defs.push("SRGB_OUTPUT".into());
+        }
+        if key.contains(Mesh2dPipelineKey::OKLAB_COMPOSITING) {
+            shader_defs.push("OKLAB_OUTPUT".into());
+        }
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
+        let format = match (
+            key.contains(Mesh2dPipelineKey::HDR),
+            key.contains(Mesh2dPipelineKey::SRGB_COMPOSITING),
+        ) {
+            (true, _) => ViewTarget::TEXTURE_FORMAT_HDR,
+            (_, true) => TextureFormat::Rgba8Unorm,
+            _ => TextureFormat::bevy_default(),
         };
 
         let (depth_write_enabled, label, blend);

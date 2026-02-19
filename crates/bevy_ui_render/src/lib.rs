@@ -8,7 +8,6 @@
 //! Provides rendering functionality for `bevy_ui`.
 
 pub mod box_shadow;
-mod color_space;
 mod gradient;
 mod pipeline;
 mod render_pass;
@@ -58,7 +57,6 @@ use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
-use color_space::ColorSpacePlugin;
 use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
@@ -258,7 +256,6 @@ impl Plugin for UiRenderPlugin {
             );
 
         app.add_plugins(UiTextureSlicerPlugin);
-        app.add_plugins(ColorSpacePlugin);
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
     }
@@ -744,6 +741,7 @@ pub fn extract_ui_camera_view(
                         ),
                         clip_from_world: None,
                         hdr,
+                        compositing_space: None,
                         viewport: UVec4::from((
                             physical_viewport_rect.min,
                             physical_viewport_rect.size(),
