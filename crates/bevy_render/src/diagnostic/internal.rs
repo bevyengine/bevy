@@ -16,7 +16,7 @@ use wgpu::{
 };
 
 use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue};
-use bevy_utils::WgpuWrapper;
+use crate::WgpuWrapper;
 
 use super::RecordDiagnostics;
 

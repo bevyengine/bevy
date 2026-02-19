@@ -137,7 +137,7 @@ fn print_components_iter_mut(
     println!("Print components (iter_mut):");
     for e in &mut query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
-        let e: CustomQueryItem<'_, _, _> = e;
+        let e: CustomQueryItem<'_, '_, _, _> = e;
         println!("Entity: {}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
@@ -155,7 +155,7 @@ fn print_components_iter(
     println!("Print components (iter):");
     for e in &query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
-        let e: CustomQueryReadOnlyItem<'_, _, _> = e;
+        let e: CustomQueryReadOnlyItem<'_, '_, _, _> = e;
         println!("Entity: {}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);

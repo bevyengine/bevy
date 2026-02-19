@@ -16,12 +16,12 @@
 use bevy::{
     color::palettes::css::*,
     core_pipeline::Skybox,
+    light::{IrradianceVolume, NotShadowCaster},
     math::{uvec3, vec3},
-    pbr::{
-        irradiance_volume::IrradianceVolume, ExtendedMaterial, MaterialExtension, NotShadowCaster,
-    },
+    pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render::render_resource::{AsBindGroup, ShaderType},
+    shader::ShaderRef,
     window::PrimaryWindow,
 };
 
@@ -251,7 +251,6 @@ fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
             intensity: IRRADIANCE_VOLUME_INTENSITY,
             ..default()
         },
-        LightProbe,
     ));
 }
 

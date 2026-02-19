@@ -481,7 +481,7 @@ impl<const C: usize> State<C> {
 mod different_executor_tests {
     use core::cell::Cell;
 
-    use futures_lite::future::{block_on, pending, poll_once};
+    use bevy_tasks::{block_on, futures_lite::{pending, poll_once}};
     use futures_lite::pin;
 
     use super::LocalExecutor;

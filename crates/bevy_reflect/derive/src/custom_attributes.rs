@@ -28,6 +28,11 @@ impl CustomAttributes {
         Ok(())
     }
 
+    /// Is the collection empty?
+    pub fn is_empty(&self) -> bool {
+        self.attributes.is_empty()
+    }
+
     /// Parse `@` (custom attribute) attribute.
     ///
     /// Examples:

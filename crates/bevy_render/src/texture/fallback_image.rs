@@ -1,9 +1,9 @@
 use crate::{
-    render_asset::RenderAssetUsages,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{DefaultImageSampler, GpuImage},
 };
+use bevy_asset::RenderAssetUsages;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},

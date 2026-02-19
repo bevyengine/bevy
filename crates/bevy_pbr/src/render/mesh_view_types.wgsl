@@ -13,14 +13,14 @@ struct ClusterableObject {
     spot_light_tan_angle: f32,
     soft_shadow_size: f32,
     shadow_map_near_z: f32,
-    texture_index: u32,
+    decal_index: u32,
     pad: f32,
 };
 
-const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u;
-const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32                  = 2u;
-const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 4u;
-const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 8u;
+const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u << 0u;
+const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32                  = 1u << 1u;
+const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 1u << 2u;
+const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 1u << 3u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,
@@ -40,11 +40,14 @@ struct DirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
+    decal_index: u32,
+    sun_disk_angular_size: f32,
+    sun_disk_intensity: f32,
 };
 
-const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u;
-const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                       = 2u;
-const DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32 = 4u;
+const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u << 0u;
+const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                       = 1u << 1u;
+const DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32 = 1u << 2u;
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
@@ -65,8 +68,7 @@ struct Lights {
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
-    environment_map_smallest_specular_mip_level: u32,
-    environment_map_intensity: f32,
+    ambient_light_affects_lightmapped_meshes: u32
 };
 
 struct Fog {

@@ -236,7 +236,7 @@ pub mod internal {
                 memory: format!("{:.1} GiB", sys.total_memory() as f64 * BYTES_TO_GIB),
             };
 
-            info!("{:?}", system_info);
+            info!("{system_info:?}");
             system_info
         }
     }

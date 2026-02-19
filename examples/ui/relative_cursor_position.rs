@@ -1,8 +1,6 @@
 //! Showcases the [`RelativeCursorPosition`] component, used to check the position of the cursor relative to a UI node.
 
-use bevy::{
-    prelude::*, render::camera::Viewport, ui::RelativeCursorPosition, winit::WinitSettings,
-};
+use bevy::{camera::Viewport, prelude::*, ui::RelativeCursorPosition, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -78,7 +76,7 @@ fn relative_cursor_position_system(
         "unknown".to_string()
     };
 
-    text_color.0 = if relative_cursor_position.mouse_over() {
+    text_color.0 = if relative_cursor_position.cursor_over() {
         Color::srgb(0.1, 0.9, 0.1)
     } else {
         Color::srgb(0.9, 0.1, 0.1)

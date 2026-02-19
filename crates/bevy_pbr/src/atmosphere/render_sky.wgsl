@@ -1,3 +1,5 @@
+enable dual_source_blending;
+
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
     bindings::{atmosphere, view, atmosphere_transforms},
@@ -19,9 +21,11 @@
 #endif
 
 struct RenderSkyOutput {
-    @location(0) inscattering: vec4<f32>,
 #ifdef DUAL_SOURCE_BLENDING
-    @location(0) @second_blend_source transmittance: vec4<f32>,
+    @location(0) @blend_src(0) inscattering: vec4<f32>,
+    @location(0) @blend_src(1) transmittance: vec4<f32>,
+#else
+    @location(0) inscattering: vec4<f32>,
 #endif
 }
 
@@ -42,12 +46,16 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz);
         transmittance = sample_transmittance_lut(r, mu);
         inscattering += sample_sky_view_lut(r, ray_dir_as);
-        inscattering += sun_radiance * transmittance * view.exposure;
+        inscattering += sun_radiance * transmittance;
     } else {
         let t = ndc_to_camera_dist(vec3(uv_to_ndc(in.uv), depth));
         inscattering = sample_aerial_view_lut(in.uv, t);
         transmittance = sample_transmittance_lut_segment(r, mu, t);
     }
+
+    // exposure compensation
+    inscattering *= view.exposure;
+    
 #ifdef DUAL_SOURCE_BLENDING
     return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));
 #else

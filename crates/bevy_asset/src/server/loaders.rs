@@ -59,15 +59,13 @@ impl AssetLoaders {
                     .entry((*extension).into())
                     .or_default();
 
-                if !list.is_empty() {
-                    if let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id {
-                        if list
-                            .iter()
-                            .any(|index| existing_loaders_for_type_id.contains(index))
-                        {
-                            duplicate_extensions.push(extension);
-                        }
-                    }
+                if !list.is_empty()
+                    && let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id
+                    && list
+                        .iter()
+                        .any(|index| existing_loaders_for_type_id.contains(index))
+                {
+                    duplicate_extensions.push(extension);
                 }
 
                 list.push(loader_index);
@@ -125,15 +123,13 @@ impl AssetLoaders {
                 .entry((*extension).into())
                 .or_default();
 
-            if !list.is_empty() {
-                if let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id {
-                    if list
-                        .iter()
-                        .any(|index| existing_loaders_for_type_id.contains(index))
-                    {
-                        duplicate_extensions.push(extension);
-                    }
-                }
+            if !list.is_empty()
+                && let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id
+                && list
+                    .iter()
+                    .any(|index| existing_loaders_for_type_id.contains(index))
+            {
+                duplicate_extensions.push(extension);
             }
 
             list.push(loader_index);
@@ -218,10 +214,10 @@ impl AssetLoaders {
         };
 
         // Try the provided extension
-        if let Some(extension) = extension {
-            if let Some(&index) = try_extension(extension) {
-                return self.get_by_index(index);
-            }
+        if let Some(extension) = extension
+            && let Some(&index) = try_extension(extension)
+        {
+            return self.get_by_index(index);
         }
 
         // Try extracting the extension from the path

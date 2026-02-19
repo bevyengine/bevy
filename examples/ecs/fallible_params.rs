@@ -91,15 +91,18 @@ fn user_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     asset_server: Res<AssetServer>,
 ) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     if keyboard_input.just_pressed(KeyCode::KeyA) {
         let texture = asset_server.load("textures/simplespace/enemy_A.png");
         commands.spawn((
             Enemy {
-                origin: Vec2::new(rng.gen_range(-200.0..200.0), rng.gen_range(-200.0..200.0)),
-                radius: rng.gen_range(50.0..150.0),
-                rotation: rng.gen_range(0.0..std::f32::consts::TAU),
-                rotation_speed: rng.gen_range(0.5..1.5),
+                origin: Vec2::new(
+                    rng.random_range(-200.0..200.0),
+                    rng.random_range(-200.0..200.0),
+                ),
+                radius: rng.random_range(50.0..150.0),
+                rotation: rng.random_range(0.0..std::f32::consts::TAU),
+                rotation_speed: rng.random_range(0.5..1.5),
             },
             Sprite {
                 image: texture,
@@ -110,10 +113,10 @@ fn user_input(
         ));
     }
 
-    if keyboard_input.just_pressed(KeyCode::KeyR) {
-        if let Some(entity) = enemies.iter().next() {
-            commands.entity(entity).despawn();
-        }
+    if keyboard_input.just_pressed(KeyCode::KeyR)
+        && let Some(entity) = enemies.iter().next()
+    {
+        commands.entity(entity).despawn();
     }
 }
 

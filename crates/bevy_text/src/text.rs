@@ -1,15 +1,10 @@
-pub use cosmic_text::{
-    self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
-    Weight as FontWeight,
-};
-
 use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
-use bevy_utils::once;
+use bevy_utils::{default, once};
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -114,26 +109,26 @@ impl Default for ComputedTextBlock {
 /// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
 /// to [`TextLayoutInfo`] for rendering.
 ///
-/// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
+/// See `Text2d` in `bevy_sprite` for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(ComputedTextBlock, TextLayoutInfo)]
 pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
-    pub justify: JustifyText,
+    pub justify: Justify,
     /// How the text should linebreak when running out of the bounds determined by `max_size`.
     pub linebreak: LineBreak,
 }
 
 impl TextLayout {
     /// Makes a new [`TextLayout`].
-    pub const fn new(justify: JustifyText, linebreak: LineBreak) -> Self {
+    pub const fn new(justify: Justify, linebreak: LineBreak) -> Self {
         Self { justify, linebreak }
     }
 
-    /// Makes a new [`TextLayout`] with the specified [`JustifyText`].
-    pub fn new_with_justify(justify: JustifyText) -> Self {
+    /// Makes a new [`TextLayout`] with the specified [`Justify`].
+    pub fn new_with_justify(justify: Justify) -> Self {
         Self::default().with_justify(justify)
     }
 
@@ -148,8 +143,8 @@ impl TextLayout {
         Self::default().with_no_wrap()
     }
 
-    /// Returns this [`TextLayout`] with the specified [`JustifyText`].
-    pub const fn with_justify(mut self, justify: JustifyText) -> Self {
+    /// Returns this [`TextLayout`] with the specified [`Justify`].
+    pub const fn with_justify(mut self, justify: Justify) -> Self {
         self.justify = justify;
         self
     }
@@ -170,43 +165,11 @@ impl TextLayout {
 
 /// A span of text in a tree of spans.
 ///
-/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by `Text`
-/// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
-///
-/// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
-///
-/// ```
-/// # use bevy_asset::Handle;
-/// # use bevy_color::Color;
-/// # use bevy_color::palettes::basic::{RED, BLUE};
-/// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
-///
-/// # let font_handle: Handle<Font> = Default::default();
-/// # let mut world = World::default();
-/// #
-/// world.spawn((
-///     // `Text` or `Text2d` are needed, and will provide default instances
-///     // of the following components.
-///     TextLayout::default(),
-///     TextFont {
-///         font: font_handle.clone().into(),
-///         font_size: 60.0,
-///         ..Default::default()
-///     },
-///     TextColor(BLUE.into()),
-/// ))
-/// .with_child((
-///     // Children must be `TextSpan`, not `Text` or `Text2d`.
-///     TextSpan::new("Hello!"),
-///     TextFont {
-///         font: font_handle.into(),
-///         font_size: 60.0,
-///         ..Default::default()
-///     },
-///     TextColor(RED.into()),
-/// ));
-/// ```
+/// A `TextSpan` is only valid when it exists as a child of a parent that has either `Text` or
+/// `Text2d`. The parent's `Text` / `Text2d` component contains the base text content. Any children
+/// with `TextSpan` extend this text by appending their content to the parent's text in sequence to
+/// form a [`ComputedTextBlock`]. The parent's [`TextLayout`] determines the layout of the block
+/// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(TextFont, TextColor)]
@@ -251,7 +214,7 @@ impl From<String> for TextSpan {
 /// [`TextBounds`](super::bounds::TextBounds) component with an explicit `width` value.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash)]
-pub enum JustifyText {
+pub enum Justify {
     /// Leftmost character is immediately to the right of the render position.
     /// Bounds start from the render position and advance rightwards.
     #[default]
@@ -268,20 +231,20 @@ pub enum JustifyText {
     Justified,
 }
 
-impl From<JustifyText> for cosmic_text::Align {
-    fn from(justify: JustifyText) -> Self {
+impl From<Justify> for cosmic_text::Align {
+    fn from(justify: Justify) -> Self {
         match justify {
-            JustifyText::Left => cosmic_text::Align::Left,
-            JustifyText::Center => cosmic_text::Align::Center,
-            JustifyText::Right => cosmic_text::Align::Right,
-            JustifyText::Justified => cosmic_text::Align::Justified,
+            Justify::Left => cosmic_text::Align::Left,
+            Justify::Center => cosmic_text::Align::Center,
+            Justify::Right => cosmic_text::Align::Right,
+            Justify::Justified => cosmic_text::Align::Justified,
         }
     }
 }
 
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, and the color.
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
     /// The specific font face to use, as a `Handle` to a [`Font`] asset.
@@ -320,6 +283,11 @@ impl TextFont {
         Self::default().with_font_size(font_size)
     }
 
+    /// Returns a new [`TextFont`] with the specified line height.
+    pub fn from_line_height(line_height: LineHeight) -> Self {
+        Self::default().with_line_height(line_height)
+    }
+
     /// Returns this [`TextFont`] with the specified font face handle.
     pub fn with_font(mut self, font: Handle<Font>) -> Self {
         self.font = font;
@@ -345,6 +313,21 @@ impl TextFont {
     }
 }
 
+impl From<Handle<Font>> for TextFont {
+    fn from(font: Handle<Font>) -> Self {
+        Self { font, ..default() }
+    }
+}
+
+impl From<LineHeight> for TextFont {
+    fn from(line_height: LineHeight) -> Self {
+        Self {
+            line_height,
+            ..default()
+        }
+    }
+}
+
 impl Default for TextFont {
     fn default() -> Self {
         Self {
@@ -359,8 +342,8 @@ impl Default for TextFont {
 /// Specifies the height of each line of text for `Text` and `Text2d`
 ///
 /// Default is 1.2x the font size
-#[derive(Debug, Clone, Copy, Reflect)]
-#[reflect(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Debug, Clone, PartialEq)]
 pub enum LineHeight {
     /// Set line height to a specific number of pixels
     Px(f32),
@@ -477,7 +460,7 @@ pub enum FontSmoothing {
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
-/// Generic over the root text component and text span component. For example, [`Text2d`](crate::Text2d)/[`TextSpan`] for
+/// Generic over the root text component and text span component. For example, `Text2d`/[`TextSpan`] for
 /// 2d or `Text`/[`TextSpan`] for UI.
 pub fn detect_text_needs_rerender<Root: Component>(
     changed_roots: Query<

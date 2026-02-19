@@ -15,24 +15,29 @@ use tracing::{info_span, Span};
 use crate::{
     error::{ErrorContext, ErrorHandler, Result},
     prelude::Resource,
-    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::ScheduleSystem,
+    schedule::{
+        is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor, SystemSchedule,
+        SystemWithAccess,
+    },
+    system::{RunSystemError, ScheduleSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
+#[cfg(feature = "hotpatching")]
+use crate::{prelude::DetectChanges, HotPatchChanges};
 
 use super::__rust_begin_short_backtrace;
 
 /// Borrowed data used by the [`MultiThreadedExecutor`].
 struct Environment<'env, 'sys> {
     executor: &'env MultiThreadedExecutor,
-    systems: &'sys [SyncUnsafeCell<ScheduleSystem>],
+    systems: &'sys [SyncUnsafeCell<SystemWithAccess>],
     conditions: SyncUnsafeCell<Conditions<'sys>>,
     world_cell: UnsafeWorldCell<'env>,
 }
 
 struct Conditions<'a> {
-    system_conditions: &'a mut [Vec<BoxedCondition>],
-    set_conditions: &'a mut [Vec<BoxedCondition>],
+    system_conditions: &'a mut [Vec<ConditionWithAccess>],
+    set_conditions: &'a mut [Vec<ConditionWithAccess>],
     sets_with_conditions_of_systems: &'a [FixedBitSet],
     systems_in_sets_with_conditions: &'a [FixedBitSet],
 }
@@ -170,8 +175,8 @@ impl SystemExecutor for MultiThreadedExecutor {
                 conflicting_systems: FixedBitSet::with_capacity(sys_count),
                 condition_conflicting_systems: FixedBitSet::with_capacity(sys_count),
                 dependents: schedule.system_dependents[index].clone(),
-                is_send: schedule.systems[index].is_send(),
-                is_exclusive: schedule.systems[index].is_exclusive(),
+                is_send: schedule.systems[index].system.is_send(),
+                is_exclusive: schedule.systems[index].system.is_exclusive(),
             });
             if schedule.system_dependencies[index] == 0 {
                 self.starting_systems.insert(index);
@@ -185,10 +190,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 let system1 = &schedule.systems[index1];
                 for index2 in 0..index1 {
                     let system2 = &schedule.systems[index2];
-                    if !system2
-                        .component_access_set()
-                        .is_compatible(system1.component_access_set())
-                    {
+                    if !system2.access.is_compatible(&system1.access) {
                         state.system_task_metadata[index1]
                             .conflicting_systems
                             .insert(index2);
@@ -200,11 +202,10 @@ impl SystemExecutor for MultiThreadedExecutor {
 
                 for index2 in 0..sys_count {
                     let system2 = &schedule.systems[index2];
-                    if schedule.system_conditions[index1].iter().any(|condition| {
-                        !system2
-                            .component_access_set()
-                            .is_compatible(condition.component_access_set())
-                    }) {
+                    if schedule.system_conditions[index1]
+                        .iter()
+                        .any(|condition| !system2.access.is_compatible(&condition.access))
+                    {
                         state.system_task_metadata[index1]
                             .condition_conflicting_systems
                             .insert(index2);
@@ -218,11 +219,10 @@ impl SystemExecutor for MultiThreadedExecutor {
                 let mut conflicting_systems = FixedBitSet::with_capacity(sys_count);
                 for sys_index in 0..sys_count {
                     let system = &schedule.systems[sys_index];
-                    if schedule.set_conditions[set_idx].iter().any(|condition| {
-                        !system
-                            .component_access_set()
-                            .is_compatible(condition.component_access_set())
-                    }) {
+                    if schedule.set_conditions[set_idx]
+                        .iter()
+                        .any(|condition| !system.access.is_compatible(&condition.access))
+                    {
                         conflicting_systems.insert(sys_index);
                     }
                 }
@@ -342,7 +342,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             #[cfg(feature = "std")]
             #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
-                eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                eprintln!("Encountered a panic in system `{}`!", system.name());
             }
             // set the payload to propagate the error
             {
@@ -353,6 +353,10 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         self.tick_executor();
     }
 
+    #[expect(
+        clippy::mut_from_ref,
+        reason = "Field is only accessed here and is guarded by lock with a documented safety comment"
+    )]
     fn try_lock<'a>(&'a self) -> Option<(&'a mut Conditions<'sys>, MutexGuard<'a, ExecutorState>)> {
         let guard = self.environment.executor.state.try_lock().ok()?;
         // SAFETY: This is an exclusive access as no other location fetches conditions mutably, and
@@ -443,6 +447,14 @@ impl ExecutorState {
             return;
         }
 
+        #[cfg(feature = "hotpatching")]
+        let hotpatch_tick = context
+            .environment
+            .world_cell
+            .get_resource_ref::<HotPatchChanges>()
+            .map(|r| r.last_changed())
+            .unwrap_or_default();
+
         // can't borrow since loop mutably borrows `self`
         let mut ready_systems = core::mem::take(&mut self.ready_systems_copy);
 
@@ -458,7 +470,16 @@ impl ExecutorState {
                 debug_assert!(!self.running_systems.contains(system_index));
                 // SAFETY: Caller assured that these systems are not running.
                 // Therefore, no other reference to this system exists and there is no aliasing.
-                let system = unsafe { &mut *context.environment.systems[system_index].get() };
+                let system =
+                    &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
+
+                #[cfg(feature = "hotpatching")]
+                if hotpatch_tick.is_newer_than(
+                    system.get_last_run(),
+                    context.environment.world_cell.change_tick(),
+                ) {
+                    system.refresh_hotpatch();
+                }
 
                 if !self.can_run(system_index, conditions) {
                     // NOTE: exclusive systems with ambiguities are susceptible to
@@ -646,7 +667,7 @@ impl ExecutorState {
     ///   used by the specified system.
     unsafe fn spawn_system_task(&mut self, context: &Context, system_index: usize) {
         // SAFETY: this system is not running, no other reference exists
-        let system = unsafe { &mut *context.environment.systems[system_index].get() };
+        let system = &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
         // Move the full context object into the new future.
         let context = *context;
 
@@ -659,10 +680,12 @@ impl ExecutorState {
                 // access the world data used by the system.
                 // - `is_exclusive` returned false
                 unsafe {
-                    if let Err(err) = __rust_begin_short_backtrace::run_unsafe(
-                        system,
-                        context.environment.world_cell,
-                    ) {
+                    if let Err(RunSystemError::Failed(err)) =
+                        __rust_begin_short_backtrace::run_unsafe(
+                            system,
+                            context.environment.world_cell,
+                        )
+                    {
                         (context.error_handler)(
                             err,
                             ErrorContext::System {
@@ -688,11 +711,11 @@ impl ExecutorState {
     /// Caller must ensure no systems are currently borrowed.
     unsafe fn spawn_exclusive_system_task(&mut self, context: &Context, system_index: usize) {
         // SAFETY: this system is not running, no other reference exists
-        let system = unsafe { &mut *context.environment.systems[system_index].get() };
+        let system = &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
         // Move the full context object into the new future.
         let context = *context;
 
-        if is_apply_deferred(system) {
+        if is_apply_deferred(&**system) {
             // TODO: avoid allocation
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
@@ -711,7 +734,9 @@ impl ExecutorState {
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                    if let Err(RunSystemError::Failed(err)) =
+                        __rust_begin_short_backtrace::run(system, world)
+                    {
                         (context.error_handler)(
                             err,
                             ErrorContext::System {
@@ -770,12 +795,12 @@ impl ExecutorState {
 
 fn apply_deferred(
     unapplied_systems: &FixedBitSet,
-    systems: &[SyncUnsafeCell<ScheduleSystem>],
+    systems: &[SyncUnsafeCell<SystemWithAccess>],
     world: &mut World,
 ) -> Result<(), Box<dyn Any + Send>> {
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
-        let system = unsafe { &mut *systems[system_index].get() };
+        let system = &mut unsafe { &mut *systems[system_index].get() }.system;
         let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
             system.apply_deferred(world);
         }));
@@ -785,7 +810,7 @@ fn apply_deferred(
             {
                 eprintln!(
                     "Encountered a panic when applying buffers for system `{}`!",
-                    &*system.name()
+                    system.name()
                 );
             }
             return Err(payload);
@@ -798,7 +823,7 @@ fn apply_deferred(
 /// - `world` must have permission to read any world data
 ///   required by `conditions`.
 unsafe fn evaluate_and_fold_conditions(
-    conditions: &mut [BoxedCondition],
+    conditions: &mut [ConditionWithAccess],
     world: UnsafeWorldCell,
     error_handler: ErrorHandler,
 ) -> bool {
@@ -808,29 +833,33 @@ unsafe fn evaluate_and_fold_conditions(
     )]
     conditions
         .iter_mut()
-        .map(|condition| {
+        .map(|ConditionWithAccess { condition, .. }| {
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data
             //   required by the condition.
-            match unsafe { condition.validate_param_unsafe(world) } {
-                Ok(()) => (),
-                Err(e) => {
-                    if !e.skipped {
+            unsafe { condition.validate_param_unsafe(world) }
+                .map_err(From::from)
+                .and_then(|()| {
+                    // SAFETY:
+                    // - The caller ensures that `world` has permission to read any data
+                    //   required by the condition.
+                    // - `update_archetype_component_access` has been called for condition.
+                    unsafe {
+                        __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)
+                    }
+                })
+                .unwrap_or_else(|err| {
+                    if let RunSystemError::Failed(err) = err {
                         error_handler(
-                            e.into(),
-                            ErrorContext::System {
+                            err,
+                            ErrorContext::RunCondition {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
                             },
                         );
-                    }
-                    return false;
-                }
-            }
-            // SAFETY:
-            // - The caller ensures that `world` has permission to read any data
-            //   required by the condition.
-            unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
+                    };
+                    false
+                })
         })
         .fold(true, |acc, res| acc && res)
 }

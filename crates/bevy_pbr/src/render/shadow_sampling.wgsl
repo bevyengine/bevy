@@ -422,11 +422,7 @@ fn sample_shadow_cubemap_gaussian(
 ) -> f32 {
     // Create an orthonormal basis so we can apply a 2D sampling pattern to a
     // cubemap.
-    var up = vec3(0.0, 1.0, 0.0);
-    if (dot(up, normalize(light_local)) > 0.99) {
-        up = vec3(1.0, 0.0, 0.0);   // Avoid creating a degenerate basis.
-    }
-    let basis = orthonormalize(light_local, up) * scale * distance_to_light;
+    let basis = orthonormalize(normalize(light_local)) * scale * distance_to_light;
 
     var sum: f32 = 0.0;
     sum += sample_shadow_cubemap_at_offset(
@@ -469,11 +465,7 @@ fn sample_shadow_cubemap_jittered(
 ) -> f32 {
     // Create an orthonormal basis so we can apply a 2D sampling pattern to a
     // cubemap.
-    var up = vec3(0.0, 1.0, 0.0);
-    if (dot(up, normalize(light_local)) > 0.99) {
-        up = vec3(1.0, 0.0, 0.0);   // Avoid creating a degenerate basis.
-    }
-    let basis = orthonormalize(light_local, up) * scale * distance_to_light;
+    let basis = orthonormalize(normalize(light_local)) * scale * distance_to_light;
 
     let rotation_matrix = random_rotation_matrix(vec2(1.0), temporal);
 
@@ -553,11 +545,7 @@ fn search_for_blockers_in_shadow_cubemap(
 ) -> f32 {
     // Create an orthonormal basis so we can apply a 2D sampling pattern to a
     // cubemap.
-    var up = vec3(0.0, 1.0, 0.0);
-    if (dot(up, normalize(light_local)) > 0.99) {
-        up = vec3(1.0, 0.0, 0.0);   // Avoid creating a degenerate basis.
-    }
-    let basis = orthonormalize(light_local, up) * scale * distance_to_light;
+    let basis = orthonormalize(normalize(light_local)) * scale * distance_to_light;
 
     var sum: vec2<f32> = vec2(0.0);
     sum += search_for_blockers_in_shadow_cubemap_at_offset(

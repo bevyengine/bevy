@@ -1,11 +1,10 @@
-use crate::{ComputedNodeTarget, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
+use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
-use bevy_image::prelude::*;
+use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_sprite::TextureSlicer;
 use taffy::{MaybeMath, MaybeResolve};
 
@@ -138,8 +137,8 @@ impl From<Handle<Image>> for ImageNode {
 }
 
 /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
-#[derive(Default, Debug, Clone, Reflect)]
-#[reflect(Clone, Default)]
+#[derive(Default, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Clone, Default, PartialEq)]
 pub enum NodeImageMode {
     /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
     #[default]
@@ -261,7 +260,7 @@ pub fn update_image_content_size_system(
             &mut ContentSize,
             Ref<ImageNode>,
             &mut ImageNodeSize,
-            Ref<ComputedNodeTarget>,
+            Ref<ComputedUiRenderTargetInfo>,
         ),
         UpdateImageFilter,
     >,

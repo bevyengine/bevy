@@ -7,7 +7,7 @@ use std::{
 
 use bevy::{
     ecs::system::EntityCommands,
-    pbr::CascadeShadowConfigBuilder,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
 };

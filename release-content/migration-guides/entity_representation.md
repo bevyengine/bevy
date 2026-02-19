@@ -49,7 +49,7 @@ This means that where `Result<T, IdentifierError>` was returned, `Option<T>` is 
 It is well documented that both the bit format, serialization, and `Ord` implementations for `Entity` are subject to change between versions.
 Those have all changed in this version.
 
-For entity ordering, the order still prioretizes an entity's generation, but after that, it now considers higher index entities less than lower index entities.
+For entity ordering, the order still prioritizes an entity's generation, but after that, it now considers higher index entities less than lower index entities.
 
 The changes to serialization and the bit format are directly related.
 Effectively, this means that all serialized and transmuted entities will not work as expected and may crash.

@@ -1,8 +1,8 @@
 //! Displays information about available monitors (displays).
 
 use bevy::{
+    camera::RenderTarget,
     prelude::*,
-    render::camera::RenderTarget,
     window::{ExitCondition, Monitor, WindowMode, WindowRef},
 };
 

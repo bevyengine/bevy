@@ -6,15 +6,24 @@ pub mod prelude {
     pub use crate::{
         dynamic_texture_atlas_builder::DynamicTextureAtlasBuilder,
         texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
-        BevyDefault as _, Image, ImageFormat, TextureAtlasBuilder, TextureError,
+        BevyDefault as _, Image, ImageFormat, ImagePlugin, TextureAtlasBuilder, TextureError,
     };
 }
 
+#[cfg(all(feature = "zstd", not(feature = "zstd_rust"), not(feature = "zstd_c")))]
+compile_error!(
+    "Choosing a zstd backend is required for zstd support. Please enable either the \"zstd_rust\" or the \"zstd_c\" feature."
+);
+
 mod image;
 pub use self::image::*;
+#[cfg(feature = "serialize")]
+mod serialized_image;
+#[cfg(feature = "serialize")]
+pub use self::serialized_image::*;
 #[cfg(feature = "basis-universal")]
 mod basis;
-#[cfg(feature = "basis-universal")]
+#[cfg(feature = "compressed_image_saver")]
 mod compressed_image_saver;
 #[cfg(feature = "dds")]
 mod dds;
@@ -29,7 +38,7 @@ mod ktx2;
 mod texture_atlas;
 mod texture_atlas_builder;
 
-#[cfg(feature = "basis-universal")]
+#[cfg(feature = "compressed_image_saver")]
 pub use compressed_image_saver::*;
 #[cfg(feature = "dds")]
 pub use dds::*;

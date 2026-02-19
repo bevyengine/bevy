@@ -200,6 +200,7 @@ unsafe impl WorldEntityFetch for Entity {
     type Mut<'w> = EntityWorldMut<'w>;
     type DeferredMut<'w> = EntityMut<'w>;
 
+    #[inline]
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -209,6 +210,7 @@ unsafe impl WorldEntityFetch for Entity {
         Ok(unsafe { EntityRef::new(ecell) })
     }
 
+    #[inline]
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -223,6 +225,7 @@ unsafe impl WorldEntityFetch for Entity {
         Ok(unsafe { EntityWorldMut::new(world, self, Some(location)) })
     }
 
+    #[inline]
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -242,6 +245,7 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
     type Mut<'w> = [EntityMut<'w>; N];
     type DeferredMut<'w> = [EntityMut<'w>; N];
 
+    #[inline]
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -249,6 +253,7 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
         <&Self>::fetch_ref(&self, cell)
     }
 
+    #[inline]
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -256,6 +261,7 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
         <&Self>::fetch_mut(&self, cell)
     }
 
+    #[inline]
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -273,6 +279,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
     type Mut<'w> = [EntityMut<'w>; N];
     type DeferredMut<'w> = [EntityMut<'w>; N];
 
+    #[inline]
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -290,6 +297,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -316,6 +324,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -335,6 +344,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
     type Mut<'w> = Vec<EntityMut<'w>>;
     type DeferredMut<'w> = Vec<EntityMut<'w>>;
 
+    #[inline]
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -349,6 +359,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -372,6 +383,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -391,6 +403,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     type Mut<'w> = EntityHashMap<EntityMut<'w>>;
     type DeferredMut<'w> = EntityHashMap<EntityMut<'w>>;
 
+    #[inline]
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -404,6 +417,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
@@ -417,6 +431,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
         Ok(refs)
     }
 
+    #[inline]
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,

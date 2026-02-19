@@ -35,9 +35,6 @@ use std::{fs::File, io::Write};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .register_type::<ComponentA>()
-        .register_type::<ComponentB>()
-        .register_type::<ResourceA>()
         .add_systems(
             Startup,
             (save_scene_system, load_scene_system, infotext_system),
@@ -144,10 +141,10 @@ fn log_system(
             component_a.x, component_a.y
         );
     }
-    if let Some(res) = res {
-        if res.is_added() {
-            info!("  New ResourceA: {{ score: {} }}\n", res.score);
-        }
+    if let Some(res) = res
+        && res.is_added()
+    {
+        info!("  New ResourceA: {{ score: {} }}\n", res.score);
     }
 }
 
@@ -232,7 +229,7 @@ fn infotext_system(mut commands: Commands) {
 fn panic_on_fail(scenes: Query<&DynamicSceneRoot>, asset_server: Res<AssetServer>) {
     for scene in &scenes {
         if let Some(LoadState::Failed(err)) = asset_server.get_load_state(&scene.0) {
-            panic!("Failed to load scene. {}", err);
+            panic!("Failed to load scene. {err}");
         }
     }
 }

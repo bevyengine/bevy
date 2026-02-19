@@ -19,27 +19,12 @@ macro_rules! impl_reflect_for_hashmap {
                         .map(|value| value as &mut dyn $crate::reflect::PartialReflect)
                 }
 
-                fn get_at(&self, index: usize) -> Option<(&dyn $crate::reflect::PartialReflect, &dyn $crate::reflect::PartialReflect)> {
-                    self.iter()
-                        .nth(index)
-                        .map(|(key, value)| (key as &dyn $crate::reflect::PartialReflect, value as &dyn $crate::reflect::PartialReflect))
-                }
-
-                fn get_at_mut(
-                    &mut self,
-                    index: usize,
-                ) -> Option<(&dyn $crate::reflect::PartialReflect, &mut dyn $crate::reflect::PartialReflect)> {
-                    self.iter_mut().nth(index).map(|(key, value)| {
-                        (key as &dyn $crate::reflect::PartialReflect, value as &mut dyn $crate::reflect::PartialReflect)
-                    })
-                }
-
                 fn len(&self) -> usize {
                     Self::len(self)
                 }
 
-                fn iter(&self) -> $crate::map::MapIter {
-                    $crate::map::MapIter::new(self)
+                fn iter(&self) -> bevy_platform::prelude::Box<dyn Iterator<Item = (&dyn $crate::reflect::PartialReflect, &dyn $crate::reflect::PartialReflect)> + '_> {
+                    bevy_platform::prelude::Box::new(self.iter().map(|(k, v)| (k as &dyn $crate::reflect::PartialReflect, v as &dyn $crate::reflect::PartialReflect)))
                 }
 
                 fn drain(&mut self) -> bevy_platform::prelude::Vec<(bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>, bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>)> {
@@ -51,6 +36,10 @@ macro_rules! impl_reflect_for_hashmap {
                             )
                         })
                         .collect()
+                }
+
+                fn retain(&mut self, f: &mut dyn FnMut(&dyn $crate::reflect::PartialReflect, &mut dyn $crate::reflect::PartialReflect) -> bool) {
+                    self.retain(move |key, value| f(key, value));
                 }
 
                 fn to_dynamic_map(&self) -> $crate::map::DynamicMap {
@@ -142,11 +131,11 @@ macro_rules! impl_reflect_for_hashmap {
                     $crate::kind::ReflectKind::Map
                 }
 
-                fn reflect_ref(&self) -> $crate::kind::ReflectRef {
+                fn reflect_ref(&self) -> $crate::kind::ReflectRef<'_> {
                     $crate::kind::ReflectRef::Map(self)
                 }
 
-                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut {
+                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut<'_> {
                     $crate::kind::ReflectMut::Map(self)
                 }
 
@@ -157,18 +146,8 @@ macro_rules! impl_reflect_for_hashmap {
                 fn reflect_clone(&self) -> Result<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>, $crate::error::ReflectCloneError> {
                     let mut map = Self::with_capacity_and_hasher(self.len(), S::default());
                     for (key, value) in self.iter() {
-                        let key = key.reflect_clone()?.take().map_err(|_| {
-                            $crate::error::ReflectCloneError::FailedDowncast {
-                                expected: alloc::borrow::Cow::Borrowed(<K as $crate::type_path::TypePath>::type_path()),
-                                received: alloc::borrow::Cow::Owned(alloc::string::ToString::to_string(key.reflect_type_path())),
-                            }
-                        })?;
-                        let value = value.reflect_clone()?.take().map_err(|_| {
-                            $crate::error::ReflectCloneError::FailedDowncast {
-                                expected: alloc::borrow::Cow::Borrowed(<V as $crate::type_path::TypePath>::type_path()),
-                                received: alloc::borrow::Cow::Owned(alloc::string::ToString::to_string(value.reflect_type_path())),
-                            }
-                        })?;
+                        let key = key.reflect_clone_and_take()?;
+                        let value = value.reflect_clone_and_take()?;
                         map.insert(key, value);
                     }
 

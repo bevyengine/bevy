@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
-use rand::{seq::IteratorRandom, thread_rng, Rng};
+use rand::{rng, seq::IteratorRandom, Rng};
 
 fn main() {
     App::new()
@@ -52,9 +52,9 @@ fn setup(mut commands: Commands) {
 //
 // - **auto_propagate:**
 // We can also choose whether or not this event will propagate by default when triggered. If this is
-// false, it will only propagate following a call to `Trigger::propagate(true)`.
-#[derive(Clone, Component, Event)]
-#[event(traversal = &'static ChildOf, auto_propagate)]
+// false, it will only propagate following a call to `On::propagate(true)`.
+#[derive(Clone, Component, EntityEvent)]
+#[entity_event(traversal = &'static ChildOf, auto_propagate)]
 struct Attack {
     damage: u16,
 }
@@ -69,22 +69,22 @@ struct Armor(u16);
 
 /// A normal bevy system that attacks a piece of the goblin's armor on a timer.
 fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     if let Some(target) = entities.iter().choose(&mut rng) {
-        let damage = rng.gen_range(1..20);
+        let damage = rng.random_range(1..20);
         commands.trigger_targets(Attack { damage }, target);
         info!("⚔️  Attack for {} damage", damage);
     }
 }
 
-fn attack_hits(trigger: Trigger<Attack>, name: Query<&Name>) {
+fn attack_hits(trigger: On<Attack>, name: Query<&Name>) {
     if let Ok(name) = name.get(trigger.target()) {
         info!("Attack hit {}", name);
     }
 }
 
 /// A callback placed on [`Armor`], checking if it absorbed all the [`Attack`] damage.
-fn block_attack(mut trigger: Trigger<Attack>, armor: Query<(&Armor, &Name)>) {
+fn block_attack(mut trigger: On<Attack>, armor: Query<(&Armor, &Name)>) {
     let (armor, name) = armor.get(trigger.target()).unwrap();
     let attack = trigger.event_mut();
     let damage = attack.damage.saturating_sub(**armor);
@@ -104,7 +104,7 @@ fn block_attack(mut trigger: Trigger<Attack>, armor: Query<(&Armor, &Name)>) {
 /// A callback on the armor wearer, triggered when a piece of armor is not able to block an attack,
 /// or the wearer is attacked directly.
 fn take_damage(
-    trigger: Trigger<Attack>,
+    trigger: On<Attack>,
     mut hp: Query<(&mut HitPoints, &Name)>,
     mut commands: Commands,
     mut app_exit: EventWriter<AppExit>,

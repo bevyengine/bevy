@@ -114,7 +114,7 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset, Q>(&self, label: &Q) -> Option<SavedAsset<B>>
+    pub fn get_labeled<B: Asset, Q>(&self, label: &Q) -> Option<SavedAsset<'_, B>>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,

@@ -107,7 +107,7 @@ impl AppExtStates for SubApp {
             );
             S::register_state(schedule);
             let state = self.world().resource::<State<S>>().get().clone();
-            self.world_mut().send_event(StateTransitionEvent {
+            self.world_mut().write_event(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
             });
@@ -116,7 +116,7 @@ impl AppExtStates for SubApp {
             }
         } else {
             let name = core::any::type_name::<S>();
-            warn!("State {} is already initialized.", name);
+            warn!("State {name} is already initialized.");
         }
 
         self
@@ -132,7 +132,7 @@ impl AppExtStates for SubApp {
                 "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling insert_state?"
             );
             S::register_state(schedule);
-            self.world_mut().send_event(StateTransitionEvent {
+            self.world_mut().write_event(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
             });
@@ -145,7 +145,7 @@ impl AppExtStates for SubApp {
             self.world_mut()
                 .resource_mut::<Events<StateTransitionEvent<S>>>()
                 .clear();
-            self.world_mut().send_event(StateTransitionEvent {
+            self.world_mut().write_event(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
             });
@@ -169,7 +169,7 @@ impl AppExtStates for SubApp {
                 .world()
                 .get_resource::<State<S>>()
                 .map(|s| s.get().clone());
-            self.world_mut().send_event(StateTransitionEvent {
+            self.world_mut().write_event(StateTransitionEvent {
                 exited: None,
                 entered: state,
             });
@@ -178,7 +178,7 @@ impl AppExtStates for SubApp {
             }
         } else {
             let name = core::any::type_name::<S>();
-            warn!("Computed state {} is already initialized.", name);
+            warn!("Computed state {name} is already initialized.");
         }
 
         self
@@ -200,7 +200,7 @@ impl AppExtStates for SubApp {
                 .world()
                 .get_resource::<State<S>>()
                 .map(|s| s.get().clone());
-            self.world_mut().send_event(StateTransitionEvent {
+            self.world_mut().write_event(StateTransitionEvent {
                 exited: None,
                 entered: state,
             });
@@ -209,7 +209,7 @@ impl AppExtStates for SubApp {
             }
         } else {
             let name = core::any::type_name::<S>();
-            warn!("Sub state {} is already initialized.", name);
+            warn!("Sub state {name} is already initialized.");
         }
 
         self
@@ -222,7 +222,7 @@ impl AppExtStates for SubApp {
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
             let name = core::any::type_name::<S>();
-            warn!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
+            warn!("State scoped entities are enabled for state `{name}`, but the state isn't installed in the app!");
         }
 
         // Note: We work with `StateTransition` in set

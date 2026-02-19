@@ -151,7 +151,7 @@ fn setup(
                         ..default()
                     },
                     TextColor(Color::Srgba(Srgba::RED)),
-                    TextLayout::new_with_justify(JustifyText::Center),
+                    TextLayout::new_with_justify(Justify::Center),
                 ))
                 // Mark as an animation target.
                 .insert(AnimationTarget {
@@ -171,7 +171,7 @@ struct TextColorProperty;
 impl AnimatableProperty for TextColorProperty {
     type Property = Srgba;
 
-    fn evaluator_id(&self) -> EvaluatorId {
+    fn evaluator_id(&self) -> EvaluatorId<'_> {
         EvaluatorId::Type(TypeId::of::<Self>())
     }
 

@@ -17,9 +17,10 @@ use bevy::{
     },
     prelude::*,
     render::{
-        render_resource::{AsBindGroup, ShaderRef, ShaderType},
+        render_resource::{AsBindGroup, ShaderType},
         view::Hdr,
     },
+    shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory

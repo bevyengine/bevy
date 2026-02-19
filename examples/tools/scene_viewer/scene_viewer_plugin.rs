@@ -125,8 +125,7 @@ fn scene_load_check(
                             maybe_directional_light.is_some() || maybe_point_light.is_some()
                         });
 
-                scene_handle.instance_id =
-                    Some(scene_spawner.spawn(gltf_scene_handle.clone_weak()));
+                scene_handle.instance_id = Some(scene_spawner.spawn(gltf_scene_handle.clone()));
 
                 info!("Spawning scene...");
             }
@@ -219,17 +218,17 @@ fn camera_tracker(
 
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         // disable currently active camera
-        if let Some(e) = camera_tracker.active_camera() {
-            if let Ok(mut camera) = queries.p2().get_mut(e) {
-                camera.is_active = false;
-            }
+        if let Some(e) = camera_tracker.active_camera()
+            && let Ok(mut camera) = queries.p2().get_mut(e)
+        {
+            camera.is_active = false;
         }
 
         // enable next active camera
-        if let Some(e) = camera_tracker.set_next_active() {
-            if let Ok(mut camera) = queries.p2().get_mut(e) {
-                camera.is_active = true;
-            }
+        if let Some(e) = camera_tracker.set_next_active()
+            && let Ok(mut camera) = queries.p2().get_mut(e)
+        {
+            camera.is_active = true;
         }
     }
 }

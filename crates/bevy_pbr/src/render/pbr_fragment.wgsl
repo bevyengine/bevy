@@ -377,7 +377,6 @@ fn pbr_input_from_standard_material(
         var perceptual_roughness: f32 = pbr_bindings::material.perceptual_roughness;
 #endif  // BINDLESS
 
-        let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
 #ifdef VERTEX_UVS
         if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
             let metallic_roughness =
@@ -627,7 +626,7 @@ fn pbr_input_from_standard_material(
         var specular_occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
         if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            diffuse_occlusion *= 
+            diffuse_occlusion *=
 #ifdef MESHLET_MESH_MATERIAL_PASS
                 textureSampleGrad(
 #else   // MESHLET_MESH_MATERIAL_PASS
@@ -660,7 +659,8 @@ fn pbr_input_from_standard_material(
         diffuse_occlusion = min(diffuse_occlusion, ssao_multibounce);
         // Use SSAO to estimate the specular occlusion.
         // Lagarde and Rousiers 2014, "Moving Frostbite to Physically Based Rendering"
-        specular_occlusion =  saturate(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);
+        let roughness = lighting::perceptualRoughnessToRoughness(pbr_input.material.perceptual_roughness);
+        specular_occlusion = saturate(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);
 #endif
         pbr_input.diffuse_occlusion = diffuse_occlusion;
         pbr_input.specular_occlusion = specular_occlusion;

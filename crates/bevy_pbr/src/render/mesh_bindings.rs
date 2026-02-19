@@ -1,8 +1,8 @@
 //! Bind group layout related definitions for the mesh pipeline.
 
 use bevy_math::Mat4;
+use bevy_mesh::morph::MAX_MORPH_WEIGHTS;
 use bevy_render::{
-    mesh::morph::MAX_MORPH_WEIGHTS,
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
 };
@@ -91,7 +91,7 @@ mod entry {
         renderer::RenderDevice,
     };
 
-    fn entry(binding: u32, size: Option<u64>, buffer: &Buffer) -> BindGroupEntry {
+    fn entry(binding: u32, size: Option<u64>, buffer: &Buffer) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::Buffer(BufferBinding {
@@ -116,22 +116,25 @@ mod entry {
         };
         entry(binding, size, buffer)
     }
-    pub(super) fn weights(binding: u32, buffer: &Buffer) -> BindGroupEntry {
+    pub(super) fn weights(binding: u32, buffer: &Buffer) -> BindGroupEntry<'_> {
         entry(binding, Some(MORPH_BUFFER_SIZE as u64), buffer)
     }
-    pub(super) fn targets(binding: u32, texture: &TextureView) -> BindGroupEntry {
+    pub(super) fn targets(binding: u32, texture: &TextureView) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::TextureView(texture),
         }
     }
-    pub(super) fn lightmaps_texture_view(binding: u32, texture: &TextureView) -> BindGroupEntry {
+    pub(super) fn lightmaps_texture_view(
+        binding: u32,
+        texture: &TextureView,
+    ) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::TextureView(texture),
         }
     }
-    pub(super) fn lightmaps_sampler(binding: u32, sampler: &Sampler) -> BindGroupEntry {
+    pub(super) fn lightmaps_sampler(binding: u32, sampler: &Sampler) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::Sampler(sampler),
@@ -175,7 +178,7 @@ pub struct MeshLayouts {
 
     /// Also includes the uniform and [`MorphAttributes`] for morph targets.
     ///
-    /// [`MorphAttributes`]: bevy_render::mesh::morph::MorphAttributes
+    /// [`MorphAttributes`]: bevy_mesh::morph::MorphAttributes
     pub morphed: BindGroupLayout,
 
     /// Like [`MeshLayouts::morphed`], but includes a slot for the previous
@@ -185,7 +188,7 @@ pub struct MeshLayouts {
     /// Also includes both uniforms for skinning and morph targets, also the
     /// morph target [`MorphAttributes`] binding.
     ///
-    /// [`MorphAttributes`]: bevy_render::mesh::morph::MorphAttributes
+    /// [`MorphAttributes`]: bevy_mesh::morph::MorphAttributes
     pub morphed_skinned: BindGroupLayout,
 
     /// Like [`MeshLayouts::morphed_skinned`], but includes slots for the
@@ -197,7 +200,7 @@ pub struct MeshLayouts {
 impl MeshLayouts {
     /// Prepare the layouts used by the default bevy [`Mesh`].
     ///
-    /// [`Mesh`]: bevy_render::prelude::Mesh
+    /// [`Mesh`]: bevy_mesh::Mesh
     pub fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
         MeshLayouts {
             model_only: Self::model_only_layout(render_device),

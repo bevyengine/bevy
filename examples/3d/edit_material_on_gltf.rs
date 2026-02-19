@@ -6,9 +6,10 @@ use bevy::{
     audio::AudioPlugin,
     color::{palettes, Color},
     gltf::GltfAssetLabel,
+    light::DirectionalLight,
     math::{Dir3, Vec3},
-    pbr::{DirectionalLight, MeshMaterial3d, StandardMaterial},
-    prelude::{Camera3d, Children, Commands, Component, Query, Res, ResMut, Transform, Trigger},
+    pbr::{MeshMaterial3d, StandardMaterial},
+    prelude::{Camera3d, Children, Commands, Component, On, Query, Res, ResMut, Transform},
     scene::{SceneInstanceReady, SceneRoot},
     DefaultPlugins,
 };
@@ -57,7 +58,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn change_material(
-    trigger: Trigger<SceneInstanceReady>,
+    trigger: On<SceneInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     color_override: Query<&ColorOverride>,

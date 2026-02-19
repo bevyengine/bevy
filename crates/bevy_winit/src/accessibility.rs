@@ -214,10 +214,10 @@ fn update_accessibility_nodes(
         if focus.is_changed() || !nodes.is_empty() {
             // Don't panic if the focused entity does not currently exist
             // It's probably waiting to be spawned
-            if let Some(focused_entity) = focus.0 {
-                if !node_entities.contains(focused_entity) {
-                    return;
-                }
+            if let Some(focused_entity) = focus.0
+                && !node_entities.contains(focused_entity)
+            {
+                return;
             }
 
             adapter.update_if_active(|| {

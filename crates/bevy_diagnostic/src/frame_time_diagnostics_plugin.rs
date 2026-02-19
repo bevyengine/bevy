@@ -17,11 +17,13 @@ pub struct FrameTimeDiagnosticsPlugin {
     /// The smoothing factor for the exponential moving average. Usually `2.0 / (history_length + 1.0)`.
     pub smoothing_factor: f64,
 }
+
 impl Default for FrameTimeDiagnosticsPlugin {
     fn default() -> Self {
         Self::new(DEFAULT_MAX_HISTORY_LENGTH)
     }
 }
+
 impl FrameTimeDiagnosticsPlugin {
     /// Creates a new `FrameTimeDiagnosticsPlugin` with the specified `max_history_length` and a
     /// reasonable `smoothing_factor`.
@@ -58,10 +60,16 @@ impl Plugin for FrameTimeDiagnosticsPlugin {
 }
 
 impl FrameTimeDiagnosticsPlugin {
+    /// Frames per second.
     pub const FPS: DiagnosticPath = DiagnosticPath::const_new("fps");
+
+    /// Total frames since application start.
     pub const FRAME_COUNT: DiagnosticPath = DiagnosticPath::const_new("frame_count");
+
+    /// Frame time in ms.
     pub const FRAME_TIME: DiagnosticPath = DiagnosticPath::const_new("frame_time");
 
+    /// Updates frame count, frame time and fps measurements.
     pub fn diagnostic_system(
         mut diagnostics: Diagnostics,
         time: Res<Time<Real>>,

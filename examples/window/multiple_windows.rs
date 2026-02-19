@@ -1,6 +1,6 @@
 //! Uses two windows to visualize a 3D model from different angles.
 
-use bevy::{prelude::*, render::camera::RenderTarget, window::WindowRef};
+use bevy::{camera::RenderTarget, prelude::*, window::WindowRef};
 
 fn main() {
     App::new()

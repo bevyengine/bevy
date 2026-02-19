@@ -9,6 +9,7 @@ use bevy::{
         basic::LIME,
         css::{DARK_GRAY, NAVY},
     },
+    core_widgets::CoreScrollbar,
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
     prelude::*,
@@ -221,14 +222,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 justify_content: JustifyContent::Center,
                                 ..default()
                             },
-                            BorderColor::all(LIME.into()),
+                            BorderColor::all(LIME),
                             BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
                         ))
                         .with_children(|parent| {
                             parent.spawn((
                                 ImageNode::new(asset_server.load("branding/bevy_logo_light.png")),
                                 // Uses the transform to rotate the logo image by 45 degrees
-                                Transform::from_rotation(Quat::from_rotation_z(0.25 * PI)),
+                                Node {
+                                    ..Default::default()
+                                },
+                                UiTransform {
+                                    rotation: Rot2::radians(0.25 * PI),
+                                    ..Default::default()
+                                },
                                 BorderRadius::all(Val::Px(10.)),
                                 Outline {
                                     width: Val::Px(2.),
@@ -431,7 +438,7 @@ fn toggle_debug_overlay(
 pub fn update_scroll_position(
     mut mouse_wheel_events: EventReader<MouseWheel>,
     hover_map: Res<HoverMap>,
-    mut scrolled_node_query: Query<&mut ScrollPosition>,
+    mut scrolled_node_query: Query<(&mut ScrollPosition, &ComputedNode), Without<CoreScrollbar>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.read() {
@@ -447,9 +454,17 @@ pub fn update_scroll_position(
 
         for (_pointer, pointer_map) in hover_map.iter() {
             for (entity, _hit) in pointer_map.iter() {
-                if let Ok(mut scroll_position) = scrolled_node_query.get_mut(*entity) {
-                    scroll_position.offset_x -= dx;
-                    scroll_position.offset_y -= dy;
+                if let Ok((mut scroll_position, scroll_content)) =
+                    scrolled_node_query.get_mut(*entity)
+                {
+                    let visible_size = scroll_content.size();
+                    let content_size = scroll_content.content_size();
+
+                    let range = (content_size.y - visible_size.y).max(0.)
+                        * scroll_content.inverse_scale_factor;
+
+                    scroll_position.x -= dx;
+                    scroll_position.y = (scroll_position.y - dy).clamp(0., range);
                 }
             }
         }

@@ -24,7 +24,7 @@ pub fn run_condition_yes(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(format!("{}_systems", amount), |bencher| {
+        group.bench_function(format!("{amount}_systems"), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -46,7 +46,7 @@ pub fn run_condition_no(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(format!("{}_systems", amount), |bencher| {
+        group.bench_function(format!("{amount}_systems"), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -77,7 +77,7 @@ pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(format!("{}_systems", amount), |bencher| {
+        group.bench_function(format!("{amount}_systems"), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -105,7 +105,7 @@ pub fn run_condition_yes_with_resource(criterion: &mut Criterion) {
         }
         // run once to initialize systems
         schedule.run(&mut world);
-        group.bench_function(format!("{}_systems", amount), |bencher| {
+        group.bench_function(format!("{amount}_systems"), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });

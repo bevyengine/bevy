@@ -2,7 +2,7 @@ use core::hint::black_box;
 
 use criterion::{criterion_group, Criterion};
 
-use bevy_render::view::RenderLayers;
+use bevy_camera::visibility::RenderLayers;
 
 fn render_layers(c: &mut Criterion) {
     c.bench_function("layers_intersect", |b| {

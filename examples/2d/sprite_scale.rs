@@ -5,10 +5,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(
-            Startup,
-            (setup_sprites, setup_texture_atlas).after(setup_camera),
-        )
+        .add_systems(Startup, (setup_sprites, setup_texture_atlas, setup_camera))
         .add_systems(Update, animate_sprite)
         .run();
 }
@@ -129,7 +126,7 @@ fn setup_sprites(mut commands: Commands, asset_server: Res<AssetServer>) {
         cmd.with_children(|builder| {
             builder.spawn((
                 Text2d::new(rect.text),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
                 TextFont::from_font_size(15.),
                 Transform::from_xyz(0., -0.5 * rect.size.y - 10., 0.),
                 bevy::sprite::Anchor::TOP_CENTER,
@@ -143,7 +140,6 @@ fn setup_texture_atlas(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    commands.spawn(Camera2d);
     let gabe = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let animation_indices_gabe = AnimationIndices { first: 0, last: 6 };
     let gabe_atlas = TextureAtlas {
@@ -275,7 +271,7 @@ fn setup_texture_atlas(
         cmd.with_children(|builder| {
             builder.spawn((
                 Text2d::new(sprite_sheet.text),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
                 TextFont::from_font_size(15.),
                 Transform::from_xyz(0., -0.5 * sprite_sheet.size.y - 10., 0.),
                 bevy::sprite::Anchor::TOP_CENTER,
@@ -319,14 +315,14 @@ fn animate_sprite(
     for (indices, mut timer, mut sprite) in &mut query {
         timer.tick(time.delta());
 
-        if timer.just_finished() {
-            if let Some(atlas) = &mut sprite.texture_atlas {
-                atlas.index = if atlas.index == indices.last {
-                    indices.first
-                } else {
-                    atlas.index + 1
-                };
-            }
+        if timer.just_finished()
+            && let Some(atlas) = &mut sprite.texture_atlas
+        {
+            atlas.index = if atlas.index == indices.last {
+                indices.first
+            } else {
+                atlas.index + 1
+            };
         }
     }
 }

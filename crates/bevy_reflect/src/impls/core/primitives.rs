@@ -191,11 +191,11 @@ impl PartialReflect for &'static str {
         Some(self)
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -282,6 +282,7 @@ impl GetTypeRegistration for &'static str {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
         registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -291,9 +292,6 @@ impl FromReflect for &'static str {
         reflect.try_downcast_ref::<Self>().copied()
     }
 }
-
-#[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(&'static str);
 
 impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Array for [T; N] {
     #[inline]
@@ -312,7 +310,7 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> A
     }
 
     #[inline]
-    fn iter(&self) -> ArrayIter {
+    fn iter(&self) -> ArrayIter<'_> {
         ArrayIter::new(self)
     }
 
@@ -362,12 +360,12 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Array(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Array(self)
     }
 

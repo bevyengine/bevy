@@ -1,12 +1,10 @@
 //! This example demonstrates how to use a storage buffer with `AsBindGroup` in a custom material.
 use bevy::{
+    mesh::MeshTag,
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::MeshTag,
-        render_resource::{AsBindGroup, ShaderRef},
-        storage::ShaderStorageBuffer,
-    },
+    render::{render_resource::AsBindGroup, storage::ShaderStorageBuffer},
+    shader::ShaderRef,
 };
 
 const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
@@ -87,8 +85,7 @@ fn update(
                     1.0,
                 ]
             })
-            .collect::<Vec<[f32; 4]>>()
-            .as_slice(),
+            .collect::<Vec<[f32; 4]>>(),
     );
 }
 

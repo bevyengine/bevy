@@ -3,10 +3,10 @@
 use bevy::{
     input::mouse::{AccumulatedMouseMotion, MouseButtonInput},
     math::prelude::*,
+    mesh::SphereKind,
     prelude::*,
-    render::mesh::SphereKind,
 };
-use rand::{distributions::Distribution, SeedableRng};
+use rand::{distr::Distribution, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {

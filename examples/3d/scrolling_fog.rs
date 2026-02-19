@@ -17,7 +17,7 @@ use bevy::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
-    pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    light::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
 

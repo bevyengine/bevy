@@ -6,6 +6,7 @@ name: Example Run - PR Comments
 # Also requesting write permissions on PR to be able to comment
 permissions:
   pull-requests: "write"
+  contents: "read"
 
 on:
   workflow_run:
@@ -59,8 +60,10 @@ jobs:
           path: screenshots
       - name: branch name
         id: branch-name
+        env:
+          BRANCH_NAME: ${{ github.event.workflow_run.head_branch }}
         run: |
-          echo "result=PR-$(cat PR)-${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+          echo "result=PR-$(cat PR)-$BRANCH_NAME" >> $GITHUB_OUTPUT
       - name: PR number
         id: pr-number
         run: |

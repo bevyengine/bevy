@@ -1,4 +1,4 @@
-//! This module provides panic handlers for [Bevy](https://bevyengine.org)
+//! This module provides panic handlers for [Bevy](https://bevy.org)
 //! apps, and automatically configures platform specifics (i.e. Wasm or Android).
 //!
 //! By default, the [`PanicHandlerPlugin`] from this crate is included in Bevy's `DefaultPlugins`.

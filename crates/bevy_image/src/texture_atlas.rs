@@ -19,8 +19,7 @@ impl Plugin for TextureAtlasPlugin {
         app.init_asset::<TextureAtlasLayout>();
 
         #[cfg(feature = "bevy_reflect")]
-        app.register_asset_reflect::<TextureAtlasLayout>()
-            .register_type::<TextureAtlas>();
+        app.register_asset_reflect::<TextureAtlasLayout>();
     }
 }
 
@@ -34,6 +33,7 @@ pub struct TextureAtlasSources {
     /// Maps from a specific image handle to the index in `textures` where they can be found.
     pub texture_ids: HashMap<AssetId<Image>, usize>,
 }
+
 impl TextureAtlasSources {
     /// Retrieves the texture *section* index of the given `texture` handle.
     pub fn texture_index(&self, texture: impl Into<AssetId<Image>>) -> Option<usize> {

@@ -13,8 +13,8 @@
 
 use core::f32;
 
+use bevy_camera::NormalizedRenderTarget;
 use bevy_ecs::prelude::*;
-use bevy_render::camera::NormalizedRenderTarget;
 
 use crate::{
     backend::{HitData, PointerHits},

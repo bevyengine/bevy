@@ -175,8 +175,7 @@ fn update(
 
     if let Some(thickness) = ssao.map(|s| s.constant_object_thickness) {
         text.push_str(&format!(
-            "Constant object thickness: {} (Up/Down)\n\n",
-            thickness
+            "Constant object thickness: {thickness} (Up/Down)\n\n"
         ));
     }
 

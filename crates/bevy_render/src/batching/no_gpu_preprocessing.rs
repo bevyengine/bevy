@@ -42,7 +42,7 @@ where
     ///
     /// If we're in the GPU instance buffer building mode, this buffer needs to
     /// be filled in via a compute shader.
-    pub fn instance_data_binding(&self) -> Option<BindingResource> {
+    pub fn instance_data_binding(&self) -> Option<BindingResource<'_>> {
         self.binding()
     }
 }

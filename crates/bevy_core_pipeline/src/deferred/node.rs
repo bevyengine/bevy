@@ -1,3 +1,4 @@
+use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::experimental::occlusion_culling::OcclusionCulling;
 use bevy_render::render_graph::ViewNode;
@@ -5,6 +6,7 @@ use bevy_render::render_graph::ViewNode;
 use bevy_render::view::{ExtractedView, NoIndirectDrawing};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
@@ -36,7 +38,7 @@ impl ViewNode for EarlyDeferredGBufferPrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        view_query: QueryItem<'w, Self::ViewQuery>,
+        view_query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         run_deferred_prepass(
@@ -66,6 +68,7 @@ impl ViewNode for LateDeferredGBufferPrepassNode {
         &'static ExtractedView,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
+        Option<&'static MainPassResolutionOverride>,
         Has<OcclusionCulling>,
         Has<NoIndirectDrawing>,
     );
@@ -74,10 +77,10 @@ impl ViewNode for LateDeferredGBufferPrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        view_query: QueryItem<'w, Self::ViewQuery>,
+        view_query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let (_, _, _, _, occlusion_culling, no_indirect_drawing) = view_query;
+        let (.., occlusion_culling, no_indirect_drawing) = view_query;
         if !occlusion_culling || no_indirect_drawing {
             return Ok(());
         }
@@ -105,8 +108,9 @@ impl ViewNode for LateDeferredGBufferPrepassNode {
 fn run_deferred_prepass<'w>(
     graph: &mut RenderGraphContext,
     render_context: &mut RenderContext<'w>,
-    (camera, extracted_view, view_depth_texture, view_prepass_textures, _, _): QueryItem<
+    (camera, extracted_view, view_depth_texture, view_prepass_textures, resolution_override, _, _): QueryItem<
         'w,
+        '_,
         <LateDeferredGBufferPrepassNode as ViewNode>::ViewQuery,
     >,
     is_late: bool,
@@ -126,6 +130,8 @@ fn run_deferred_prepass<'w>(
     ) else {
         return Ok(());
     };
+
+    let diagnostic = render_context.diagnostic_recorder();
 
     let mut color_attachments = vec![];
     color_attachments.push(
@@ -173,6 +179,7 @@ fn run_deferred_prepass<'w>(
                                 load: bevy_render::render_resource::LoadOp::Load,
                                 store: StoreOp::Store,
                             },
+                            depth_slice: None,
                         }
                     }
                     #[cfg(any(
@@ -218,8 +225,11 @@ fn run_deferred_prepass<'w>(
             occlusion_query_set: None,
         });
         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+        let pass_span = diagnostic.pass_span(&mut render_pass, label);
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_pass.set_camera_viewport(&viewport);
         }
 
         // Opaque draws
@@ -244,6 +254,7 @@ fn run_deferred_prepass<'w>(
             }
         }
 
+        pass_span.end(&mut render_pass);
         drop(render_pass);
 
         // After rendering to the view depth texture, copy it to the prepass depth texture

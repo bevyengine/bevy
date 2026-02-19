@@ -41,25 +41,25 @@ fn atlas_render_system(
     font_atlas_sets: Res<FontAtlasSets>,
     images: Res<Assets<Image>>,
 ) {
-    if let Some(set) = font_atlas_sets.get(&state.handle) {
-        if let Some((_size, font_atlases)) = set.iter().next() {
-            let x_offset = state.atlas_count as f32;
-            if state.atlas_count == font_atlases.len() as u32 {
-                return;
-            }
-            let font_atlas = &font_atlases[state.atlas_count as usize];
-            let image = images.get(&font_atlas.texture).unwrap();
-            state.atlas_count += 1;
-            commands.spawn((
-                ImageNode::new(font_atlas.texture.clone()),
-                Node {
-                    position_type: PositionType::Absolute,
-                    top: Val::ZERO,
-                    left: Val::Px(image.width() as f32 * x_offset),
-                    ..default()
-                },
-            ));
+    if let Some(set) = font_atlas_sets.get(&state.handle)
+        && let Some((_size, font_atlases)) = set.iter().next()
+    {
+        let x_offset = state.atlas_count as f32;
+        if state.atlas_count == font_atlases.len() as u32 {
+            return;
         }
+        let font_atlas = &font_atlases[state.atlas_count as usize];
+        let image = images.get(&font_atlas.texture).unwrap();
+        state.atlas_count += 1;
+        commands.spawn((
+            ImageNode::new(font_atlas.texture.clone()),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::ZERO,
+                left: Val::Px(image.width() as f32 * x_offset),
+                ..default()
+            },
+        ));
     }
 }
 
@@ -74,7 +74,7 @@ fn text_update_system(
     }
 
     for mut text in &mut query {
-        let c = seeded_rng.r#gen::<u8>() as char;
+        let c = seeded_rng.random::<u8>() as char;
         let string = &mut **text;
         if !string.contains(c) {
             string.push(c);

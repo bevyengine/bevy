@@ -1,5 +1,5 @@
 ---
-title: `Anchor` is now a required component on `Sprite`
+title: "`Anchor` is now a required component on `Sprite`"
 pull_requests: [18393]
 ---
 

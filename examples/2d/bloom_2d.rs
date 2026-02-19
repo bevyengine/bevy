@@ -190,7 +190,7 @@ fn update_bloom_settings(
         }
     }
 
-    text.push_str(&format!("(O) Tonemapping: {:?}\n", tonemapping));
+    text.push_str(&format!("(O) Tonemapping: {tonemapping:?}\n"));
     if keycode.just_pressed(KeyCode::KeyO) {
         commands
             .entity(camera_entity)

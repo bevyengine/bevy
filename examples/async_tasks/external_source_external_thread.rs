@@ -20,7 +20,7 @@ fn main() {
 #[derive(Resource, Deref)]
 struct StreamReceiver(Receiver<u32>);
 
-#[derive(Event)]
+#[derive(BufferedEvent)]
 struct StreamEvent(u32);
 
 fn setup(mut commands: Commands) {
@@ -36,7 +36,7 @@ fn setup(mut commands: Commands) {
             // This is where you could connect to an external data source
 
             // This will block until the previous value has been read in system `read_stream`
-            tx.send(rng.gen_range(0..2000)).unwrap();
+            tx.send(rng.random_range(0..2000)).unwrap();
         }
     });
 
@@ -54,7 +54,7 @@ fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
     for (per_frame, event) in reader.read().enumerate() {
         commands.spawn((
             Text2d::new(event.0.to_string()),
-            TextLayout::new_with_justify(JustifyText::Center),
+            TextLayout::new_with_justify(Justify::Center),
             Transform::from_xyz(per_frame as f32 * 100.0, 300.0, 0.0),
         ));
     }

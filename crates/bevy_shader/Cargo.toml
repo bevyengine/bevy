@@ -1,0 +1,58 @@
+[package]
+name = "bevy_shader"
+version = "0.17.0-dev"
+edition = "2024"
+description = "Provides shader asset types and import resolution for Bevy"
+homepage = "https://bevy.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy", "shader"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev" }
+
+# other
+wgpu-types = { version = "26", default-features = false }
+naga = { version = "26", features = ["wgsl-in"] }
+serde = { version = "1", features = ["derive"] }
+thiserror = { version = "2", default-features = false }
+wesl = { version = "0.1.2", optional = true }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Omit the `glsl` feature in non-WebAssembly by default.
+naga_oil = { version = "0.19", default-features = false, features = [
+  "test_shader",
+] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+naga_oil = { version = "0.19" }
+
+[features]
+shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
+shader_format_spirv = ["naga/spv-in", "naga/spv-out"]
+shader_format_wesl = ["wesl"]
+
+# Bevy users should _never_ turn this feature on.
+#
+# Bevy/wgpu developers can turn this feature on to test a newer version of wgpu without needing to also update naga_oil.
+#
+# When turning this feature on, you can add the following to bevy/Cargo.toml (not this file), and then run `cargo update`:
+# [patch.crates-io]
+# wgpu = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-core = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-hal = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-types = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+decoupled_naga = []
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+all-features = true

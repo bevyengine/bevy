@@ -3,8 +3,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![expect(unsafe_code, reason = "Raw pointers are inherently unsafe.")]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 use core::{
@@ -27,7 +27,9 @@ pub struct Unaligned;
 /// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
 /// to have const generics of an enum.
 pub trait IsAligned: sealed::Sealed {}
+
 impl IsAligned for Aligned {}
+
 impl IsAligned for Unaligned {}
 
 mod sealed {

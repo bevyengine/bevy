@@ -1,16 +1,14 @@
 //! A shader that uses the WESL shading language.
 
 use bevy::{
+    mesh::MeshVertexBufferLayoutRef,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::MeshVertexBufferLayoutRef,
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderDefVal, ShaderRef,
-            SpecializedMeshPipelineError,
-        },
+    render::render_resource::{
+        AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
+    shader::{ShaderDefVal, ShaderRef},
 };
 
 /// This example uses shader source files from the assets subdirectory
@@ -101,7 +99,8 @@ struct CustomMaterial {
     party_mode: bool,
 }
 
-#[derive(Eq, PartialEq, Hash, Clone)]
+#[repr(C)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
 struct CustomMaterialKey {
     party_mode: bool,
 }
@@ -120,7 +119,7 @@ impl Material for CustomMaterial {
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,

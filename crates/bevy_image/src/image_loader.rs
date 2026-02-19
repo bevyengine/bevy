@@ -81,19 +81,35 @@ impl ImageLoader {
     }
 }
 
+/// How to determine an image's format when loading.
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub enum ImageFormatSetting {
+    /// Determine the image format from its file extension.
+    ///
+    /// This is the default.
     #[default]
     FromExtension,
+    /// Declare the image format explicitly.
     Format(ImageFormat),
+    /// Guess the image format by looking for magic bytes at the
+    /// beginning of its data.
     Guess,
 }
 
+/// Settings for loading an [`Image`] using an [`ImageLoader`].
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageLoaderSettings {
+    /// How to determine the image's format.
     pub format: ImageFormatSetting,
+    /// Specifies whether image data is linear
+    /// or in sRGB space when this is not determined by
+    /// the image format.
     pub is_srgb: bool,
+    /// [`ImageSampler`] to use when rendering - this does
+    /// not affect the loading of the image data.
     pub sampler: ImageSampler,
+    /// Where the asset will be used - see the docs on
+    /// [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
 }
 
@@ -108,11 +124,14 @@ impl Default for ImageLoaderSettings {
     }
 }
 
+/// An error when loading an image using [`ImageLoader`].
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum ImageLoaderError {
-    #[error("Could load shader: {0}")]
+    /// An error occurred while trying to load the image bytes.
+    #[error("Failed to load image bytes: {0}")]
     Io(#[from] std::io::Error),
+    /// An error occurred while trying to decode the image bytes.
     #[error("Could not load texture file: {0}")]
     FileTexture(#[from] FileTextureError),
 }
@@ -170,7 +189,7 @@ impl AssetLoader for ImageLoader {
 
 /// An error that occurs when loading a texture from a file.
 #[derive(Error, Debug)]
-#[error("Error reading image file {path}: {error}, this is an error in `bevy_render`.")]
+#[error("Error reading image file {path}: {error}.")]
 pub struct FileTextureError {
     error: TextureError,
     path: String,

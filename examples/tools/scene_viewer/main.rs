@@ -11,13 +11,11 @@
 use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
+    camera::primitives::{Aabb, Sphere},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
-    render::{
-        experimental::occlusion_culling::OcclusionCulling,
-        primitives::{Aabb, Sphere},
-    },
+    render::experimental::occlusion_culling::OcclusionCulling,
 };
 
 #[path = "../../helpers/camera_controller.rs"]
@@ -101,13 +99,12 @@ fn main() {
 fn parse_scene(scene_path: String) -> (String, usize) {
     if scene_path.contains('#') {
         let gltf_and_scene = scene_path.split('#').collect::<Vec<_>>();
-        if let Some((last, path)) = gltf_and_scene.split_last() {
-            if let Some(index) = last
+        if let Some((last, path)) = gltf_and_scene.split_last()
+            && let Some(index) = last
                 .strip_prefix("Scene")
                 .and_then(|index| index.parse::<usize>().ok())
-            {
-                return (path.join("#"), index);
-            }
+        {
+            return (path.join("#"), index);
         }
     }
     (scene_path, 0)

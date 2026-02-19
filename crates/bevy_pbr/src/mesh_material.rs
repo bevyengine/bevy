@@ -9,14 +9,14 @@ use derive_more::derive::From;
 ///
 /// See [`Material`] for general information about 3D materials and how to implement your own materials.
 ///
-/// [`Mesh3d`]: bevy_render::mesh::Mesh3d
+/// [`Mesh3d`]: bevy_mesh::Mesh3d
 ///
 /// # Example
 ///
 /// ```
 /// # use bevy_pbr::{Material, MeshMaterial3d, StandardMaterial};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::{Mesh, Mesh3d};
+/// # use bevy_mesh::{Mesh, Mesh3d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
 /// # use bevy_math::primitives::Capsule3d;

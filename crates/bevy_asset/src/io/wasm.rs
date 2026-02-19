@@ -47,7 +47,7 @@ fn js_value_to_err(context: &str) -> impl FnOnce(JsValue) -> std::io::Error + '_
             }
         };
 
-        std::io::Error::new(std::io::ErrorKind::Other, message)
+        std::io::Error::other(message)
     }
 }
 
@@ -62,10 +62,7 @@ impl HttpWasmAssetReader {
             let worker: web_sys::WorkerGlobalScope = global.unchecked_into();
             worker.fetch_with_str(path.to_str().unwrap())
         } else {
-            let error = std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Unsupported JavaScript global context",
-            );
+            let error = std::io::Error::other("Unsupported JavaScript global context");
             return Err(AssetReaderError::Io(error.into()));
         };
         let resp_value = JsFuture::from(promise)

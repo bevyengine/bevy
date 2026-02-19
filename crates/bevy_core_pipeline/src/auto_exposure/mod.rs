@@ -4,12 +4,12 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssetPlugin,
-    render_graph::RenderGraphApp,
+    render_graph::RenderGraphExt,
     render_resource::{
         Buffer, BufferDescriptor, BufferUsages, PipelineCache, SpecializedComputePipelines,
     },
     renderer::RenderDevice,
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 mod buffers;
@@ -25,7 +25,9 @@ use pipeline::{AutoExposurePass, AutoExposurePipeline, ViewAutoExposurePipeline}
 pub use settings::AutoExposure;
 
 use crate::{
-    auto_exposure::compensation_curve::GpuAutoExposureCompensationCurve,
+    auto_exposure::{
+        compensation_curve::GpuAutoExposureCompensationCurve, pipeline::init_auto_exposure_pipeline,
+    },
     core_3d::graph::{Core3d, Node3d},
 };
 
@@ -44,14 +46,13 @@ impl Plugin for AutoExposurePlugin {
         embedded_asset!(app, "auto_exposure.wgsl");
 
         app.add_plugins(RenderAssetPlugin::<GpuAutoExposureCompensationCurve>::default())
-            .register_type::<AutoExposureCompensationCurve>()
             .init_asset::<AutoExposureCompensationCurve>()
             .register_asset_reflect::<AutoExposureCompensationCurve>();
         app.world_mut()
             .resource_mut::<Assets<AutoExposureCompensationCurve>>()
-            .insert(&Handle::default(), AutoExposureCompensationCurve::default());
+            .insert(&Handle::default(), AutoExposureCompensationCurve::default())
+            .unwrap();
 
-        app.register_type::<AutoExposure>();
         app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -61,6 +62,10 @@ impl Plugin for AutoExposurePlugin {
         render_app
             .init_resource::<SpecializedComputePipelines<AutoExposurePipeline>>()
             .init_resource::<AutoExposureBuffers>()
+            .add_systems(
+                RenderStartup,
+                (init_auto_exposure_pipeline, init_auto_exposure_resources),
+            )
             .add_systems(ExtractSchedule, extract_buffers)
             .add_systems(
                 Render,
@@ -75,30 +80,17 @@ impl Plugin for AutoExposurePlugin {
                 (Node3d::EndMainPass, node::AutoExposure, Node3d::Tonemapping),
             );
     }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<AutoExposurePipeline>();
-        render_app.init_resource::<AutoExposureResources>();
-    }
 }
 
-impl FromWorld for AutoExposureResources {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            histogram: world
-                .resource::<RenderDevice>()
-                .create_buffer(&BufferDescriptor {
-                    label: Some("histogram buffer"),
-                    size: pipeline::HISTOGRAM_BIN_COUNT * 4,
-                    usage: BufferUsages::STORAGE,
-                    mapped_at_creation: false,
-                }),
-        }
-    }
+pub fn init_auto_exposure_resources(mut commands: Commands, render_device: Res<RenderDevice>) {
+    commands.insert_resource(AutoExposureResources {
+        histogram: render_device.create_buffer(&BufferDescriptor {
+            label: Some("histogram buffer"),
+            size: pipeline::HISTOGRAM_BIN_COUNT * 4,
+            usage: BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        }),
+    });
 }
 
 fn queue_view_auto_exposure_pipelines(

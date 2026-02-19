@@ -3,8 +3,8 @@
 use bevy::{
     color::palettes::css::RED,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
+    light::{FogVolume, VolumetricFog, VolumetricLight},
     math::vec3,
-    pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
 

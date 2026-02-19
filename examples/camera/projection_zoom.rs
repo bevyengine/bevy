@@ -2,7 +2,7 @@
 
 use std::{f32::consts::PI, ops::Range};
 
-use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, render::camera::ScalingMode};
+use bevy::{camera::ScalingMode, input::mouse::AccumulatedMouseScroll, prelude::*};
 
 #[derive(Debug, Resource)]
 struct CameraSettings {

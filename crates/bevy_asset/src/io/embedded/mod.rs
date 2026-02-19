@@ -141,16 +141,19 @@ impl EmbeddedAssetRegistry {
 pub trait GetAssetServer {
     fn get_asset_server(&self) -> &AssetServer;
 }
+
 impl GetAssetServer for App {
     fn get_asset_server(&self) -> &AssetServer {
         self.world().get_asset_server()
     }
 }
+
 impl GetAssetServer for World {
     fn get_asset_server(&self) -> &AssetServer {
         self.resource()
     }
 }
+
 impl GetAssetServer for AssetServer {
     fn get_asset_server(&self) -> &AssetServer {
         self
@@ -373,7 +376,7 @@ macro_rules! load_internal_asset {
                 .unwrap()
                 .join($path_str)
                 .to_string_lossy()
-        ));
+        )).unwrap();
     }};
     // we can't support params without variadic arguments, so internal assets with additional params can't be hot-reloaded
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
@@ -386,7 +389,7 @@ macro_rules! load_internal_asset {
                 .join($path_str)
                 .to_string_lossy(),
             $($param),+
-        ));
+        )).unwrap();
     }};
 }
 
@@ -395,18 +398,20 @@ macro_rules! load_internal_asset {
 macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
-        assets.insert(
-            $handle.id(),
-            ($loader)(
-                include_bytes!($path_str).as_ref(),
-                std::path::Path::new(file!())
-                    .parent()
-                    .unwrap()
-                    .join($path_str)
-                    .to_string_lossy()
-                    .into(),
-            ),
-        );
+        assets
+            .insert(
+                $handle.id(),
+                ($loader)(
+                    include_bytes!($path_str).as_ref(),
+                    std::path::Path::new(file!())
+                        .parent()
+                        .unwrap()
+                        .join($path_str)
+                        .to_string_lossy()
+                        .into(),
+                ),
+            )
+            .unwrap();
     }};
 }
 

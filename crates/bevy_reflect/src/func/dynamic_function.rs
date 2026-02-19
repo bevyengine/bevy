@@ -409,11 +409,11 @@ impl PartialReflect for DynamicFunction<'static> {
         ReflectKind::Function
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Function(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Function(self)
     }
 
@@ -439,6 +439,7 @@ impl PartialReflect for DynamicFunction<'static> {
 }
 
 impl MaybeTyped for DynamicFunction<'static> {}
+
 impl RegisterForReflection for DynamicFunction<'static> {}
 
 impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
