@@ -1002,9 +1002,9 @@ pub(crate) fn specialize_material_meshes(
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(*visible_entity)
                 else {
-                    // We couldn't fetch the mesh, probably because the it
-                    // hasn't been loaded yet. Add the entity to the list of
-                    // pending mesh materials and bail.
+                    // We couldn't fetch the mesh, probably because it hasn't
+                    // been loaded yet. Add the entity to the list of pending
+                    // mesh materials and bail.
                     view_pending_mesh_material_queues
                         .current_frame
                         .insert((*render_entity, *visible_entity));
@@ -1189,8 +1189,8 @@ pub fn queue_material_meshes(
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
-                // We couldn't fetch the mesh, probably because the it hasn't
-                // been loaded yet. Add the entity to the list of pending mesh
+                // We couldn't fetch the mesh, probably because it hasn't been
+                // loaded yet. Add the entity to the list of pending mesh
                 // materials and bail.
                 view_pending_mesh_material_queues
                     .current_frame

@@ -2287,6 +2287,9 @@ pub fn queue_shadows(
                     // We couldn't fetch the material, probably because the
                     // material hasn't been loaded yet. Add the entity to the
                     // list of pending shadows and bail.
+                    view_pending_shadow_queues
+                        .current_frame
+                        .insert((*render_entity, *main_entity));
                     continue;
                 };
 
