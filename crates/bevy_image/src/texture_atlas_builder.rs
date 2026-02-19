@@ -126,11 +126,12 @@ impl<'a> TextureAtlasBuilder<'a> {
         texture: &Image,
         packed_location: &PackedLocation,
         padding: UVec2,
+        init_padding: UVec2,
     ) -> TextureAtlasBuilderResult<()> {
         let rect_width = (packed_location.width() - padding.x) as usize;
         let rect_height = (packed_location.height() - padding.y) as usize;
-        let rect_x = packed_location.x() as usize;
-        let rect_y = packed_location.y() as usize;
+        let rect_x = packed_location.x() as usize + init_padding.x as usize;
+        let rect_y = packed_location.y() as usize + init_padding.y as usize;
         let atlas_width = atlas_texture.width() as usize;
         let format_size = atlas_texture.texture_descriptor.format.pixel_size();
 
@@ -157,7 +158,13 @@ impl<'a> TextureAtlasBuilder<'a> {
         packed_location: &PackedLocation,
     ) -> TextureAtlasBuilderResult<()> {
         if self.format == texture.texture_descriptor.format {
-            Self::copy_texture_to_atlas(atlas_texture, texture, packed_location, self.padding)?;
+            Self::copy_texture_to_atlas(
+                atlas_texture,
+                texture,
+                packed_location,
+                self.padding,
+                self.initial_padding,
+            )?;
         } else if let Some(converted_texture) = texture.convert(self.format) {
             debug!(
                 "Converting texture from '{:?}' to '{:?}'",
@@ -168,6 +175,7 @@ impl<'a> TextureAtlasBuilder<'a> {
                 &converted_texture,
                 packed_location,
                 self.padding,
+                self.initial_padding,
             )?;
         } else {
             error!(
