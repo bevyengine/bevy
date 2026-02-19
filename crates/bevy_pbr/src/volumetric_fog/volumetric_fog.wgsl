@@ -176,6 +176,13 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // We assume world and view have the same scale here.
     let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
+
+    // If the fog volume's front face is at or behind solid geometry,
+    // the fog is occluded and should not be rendered.
+    if (start_depth_view >= view_end_depth_from_buffer) {
+        return vec4(0.0, 0.0, 0.0, 0.0);
+    }
+
     let ray_length_view = abs(end_depth_view - start_depth_view);
     let inv_step_count = 1.0 / f32(step_count);
     let step_size_world = ray_length_view * inv_step_count;
