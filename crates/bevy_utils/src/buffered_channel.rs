@@ -13,55 +13,6 @@ use core::ops::{Deref, DerefMut};
 /// tasks. Unlike `Parallel`, this allows you to execute a consuming task while producing tasks are
 /// concurrently sending data into the channel, enabling you to run a serial processing consumer
 /// at the same time as many parallel processing producers.
-///
-/// # Usage
-///
-/// ```
-/// use bevy_utils::BufferedChannel;
-/// use bevy_app::{App, TaskPoolPlugin, Update};
-/// use bevy_ecs::system::Local;
-/// use bevy_tasks::ComputeTaskPool;
-///
-/// App::new()
-///     .add_plugins(TaskPoolPlugin::default())
-///     .add_systems(Update, parallel_system)
-///     .update();
-///
-/// fn parallel_system(channel: Local<BufferedChannel<u64>>) {
-///     let (rx, tx) = channel.unbounded();
-///     ComputeTaskPool::get().scope(|scope| {
-///         // Spawn a single consumer task that reads from the producers. Note we can spawn this
-///         // first and have it immediately start processing the messages produced in parallel.
-///         // Because we are receiving asynchronously, we avoid deadlocks even on a single thread.
-///         scope.spawn(async move {
-///             let mut total = 0;
-///             let mut count = 0;
-///             while let Ok(mut chunk) = rx.recv().await {
-///                 count += chunk.len();
-///                 total += chunk.iter().sum::<u64>();
-///             }
-///             assert_eq!(count, 500_000);
-///             assert_eq!(total, 24_999_750_000);
-///         });
-///
-///         // Spawn a few producing tasks in parallel that send data into the buffered channel.
-///         for _ in 0..5 {
-///             let mut tx = tx.clone();
-///             scope.spawn(async move {
-///                 // Because this is buffered, we can iterate over hundreds of thousands of
-///                 // entities in each task while avoiding allocation and channel overhead.
-///                 // The buffer is flushed periodically, sending chunks of data to the receiver.
-///                 for i in 0..100_000 {
-///                     tx.send(i).await;
-///                 }
-///             });
-///         }
-///
-///         // Drop the unused sender so the channel can close.
-///         drop(tx);
-///     });
-/// }
-/// ```
 pub struct BufferedChannel<T: Send> {
     /// The minimum length of a `Vec` of buffered data before it is sent through the channel.
     pub chunk_size: usize,
