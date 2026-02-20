@@ -207,7 +207,14 @@ pub struct ViewVisibility(
 
 impl ViewVisibility {
     /// An entity that cannot be seen from any views.
-    pub const HIDDEN: Self = Self(0);
+    pub const HIDDEN: Self = Self(0b00);
+
+    /// An entity that is visible and was visible last frame.
+    ///
+    /// Entities that have opted out of CPU culling, if not hidden due to
+    /// inherited visibility, will have their [`ViewVisibility`] set to this
+    /// value.
+    pub const VISIBLE: Self = Self(0b11);
 
     /// Returns `true` if the entity is visible in any view.
     /// Otherwise, returns `false`.
@@ -296,11 +303,29 @@ pub struct DynamicSkinnedMeshBounds;
 ///
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
-#[derive(Clone, Component, Default, Debug, Reflect)]
+#[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct VisibleEntities {
     #[reflect(ignore, clone)]
     pub entities: TypeIdMap<Vec<Entity>>,
+}
+
+impl Default for VisibleEntities {
+    fn default() -> VisibleEntities {
+        // Pre-populate with `Mesh3d`.
+        // Otherwise, if all meshes happen to be tagged with `NoCpuCulling`,
+        // then they won't appear at all, because the extraction systems won't
+        // see any `Mesh3d` entities.
+        // We could handle this case in the `DirtySpecializations` methods
+        // instead, but that would complicate what are already some very
+        // complicated method signatures. So it's simpler to just do this.
+        let mut entities = TypeIdMap::default();
+        entities.insert(TypeId::of::<Mesh3d>(), vec![]);
+
+        VisibleEntities {
+            entities,
+        }
+    }
 }
 
 impl VisibleEntities {
@@ -468,7 +493,11 @@ impl Plugin for VisibilityPlugin {
                         .in_set(CalculateBounds),
                     (visibility_propagate_system, reset_view_visibility)
                         .in_set(VisibilityPropagate),
-                    check_visibility.in_set(CheckVisibility),
+                    (
+                        check_visibility_cpu_culling,
+                        check_visibility_no_cpu_culling,
+                    )
+                        .in_set(CheckVisibility),
                     mark_newly_hidden_entities_invisible.in_set(MarkNewlyHiddenEntitiesInvisible),
                 ),
             );
@@ -646,13 +675,14 @@ fn propagate_recursive(
 
 /// Track entities that were visible last frame, used to granularly update [`ViewVisibility`] this
 /// frame without spurious `Change` detecation.
-fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
-    query.par_iter_mut().for_each(|mut view_visibility| {
+fn reset_view_visibility(mut reset_query: Query<&mut ViewVisibility, Without<NoCpuCulling>>) {
+    reset_query.par_iter_mut().for_each(|mut view_visibility| {
         view_visibility.bypass_change_detection().update();
     });
 }
 
-/// System updating the visibility of entities each frame.
+/// System updating the visibility of entities, other than those that have opted
+/// out of CPU culling, each frame.
 ///
 /// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each
 /// frame, it updates the [`ViewVisibility`] of all entities, and for each view
@@ -660,7 +690,7 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 ///
 /// To ensure that an entity is checked for visibility, make sure that it has a
 /// [`VisibilityClass`] component and that that component is nonempty.
-pub fn check_visibility(
+pub fn check_visibility_cpu_culling(
     mut thread_queues: Local<Parallel<TypeIdMap<Vec<Entity>>>>,
     mut view_query: Query<(
         Entity,
@@ -670,19 +700,21 @@ pub fn check_visibility(
         &Camera,
         Has<NoCpuCulling>,
     )>,
-    mut visible_aabb_query: Query<(
-        Entity,
-        &InheritedVisibility,
-        &mut ViewVisibility,
-        Option<&VisibilityClass>,
-        Option<&RenderLayers>,
-        Option<&Aabb>,
-        Option<&Sphere>,
-        &GlobalTransform,
-        Has<NoFrustumCulling>,
-        Has<VisibilityRange>,
-        Has<NoCpuCulling>,
-    )>,
+    mut visible_aabb_query: Query<
+        (
+            Entity,
+            &InheritedVisibility,
+            &mut ViewVisibility,
+            Option<&VisibilityClass>,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            Option<&Sphere>,
+            &GlobalTransform,
+            Has<NoFrustumCulling>,
+            Has<VisibilityRange>,
+        ),
+        Without<NoCpuCulling>,
+    >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
@@ -710,7 +742,6 @@ pub fn check_visibility(
                     transform,
                     no_frustum_culling,
                     has_visibility_range,
-                    no_cpu_culling_entity,
                 ) = query_item;
 
                 // Skip computing visibility for entities that are configured to be hidden.
@@ -734,7 +765,7 @@ pub fn check_visibility(
                 }
 
                 // If we have an aabb or a bounding sphere, do frustum culling
-                if !no_frustum_culling && !no_cpu_culling_camera && !no_cpu_culling_entity {
+                if !no_frustum_culling && !no_cpu_culling_camera {
                     if let Some(model_aabb) = maybe_model_aabb {
                         let world_from_local = transform.affine();
                         let model_sphere = Sphere {
@@ -789,10 +820,39 @@ pub fn check_visibility(
     }
 }
 
+/// Updates the visibility of entities marked with [`NoCpuCulling`].
+///
+/// In this case, the [`ViewVisibility`] of each such mesh simply becomes equal
+/// to its [`InheritedVisibility`], as the CPU has been instructed to perform no
+/// other checks. For performance, we avoid examining any entity that hasn't
+/// changed its inherited visibility.
+fn check_visibility_no_cpu_culling(
+    mut query: Query<
+        (&mut ViewVisibility, &InheritedVisibility),
+        (
+            With<NoCpuCulling>,
+            Or<(Changed<InheritedVisibility>, Added<NoCpuCulling>)>,
+        ),
+    >,
+) {
+    query
+        .par_iter_mut()
+        .for_each(|(mut view_visibility, inherited_visibility)| {
+            let new_view_visibility = if inherited_visibility.0 {
+                ViewVisibility::VISIBLE
+            } else {
+                ViewVisibility::HIDDEN
+            };
+            view_visibility.set_if_neq(new_view_visibility);
+        });
+}
+
 /// The last step in the visibility pipeline. Looks at entities that were visible last frame but not
 /// marked as visible this frame and marks them as hidden by setting the [`ViewVisibility`]. This
 /// process is needed to ensure we only trigger change detection on [`ViewVisibility`] when needed.
-fn mark_newly_hidden_entities_invisible(mut view_visibilities: Query<&mut ViewVisibility>) {
+fn mark_newly_hidden_entities_invisible(
+    mut view_visibilities: Query<&mut ViewVisibility, Without<NoCpuCulling>>,
+) {
     view_visibilities
         .par_iter_mut()
         .for_each(|mut view_visibility| {

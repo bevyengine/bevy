@@ -34,7 +34,7 @@ use bevy_math::{
     primitives::{HalfSpace, ViewFrustum},
     Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
 };
-use bevy_mesh::MeshVertexBufferLayoutRef;
+use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_render::camera::{DirtySpecializations, PendingQueues};
@@ -43,7 +43,7 @@ use bevy_render::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
 use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
-use bevy_render::view::RenderVisibleMeshEntities;
+use bevy_render::view::{RenderVisibleMeshEntities, VisibilityExtractionSystemParam};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
@@ -370,7 +370,7 @@ pub fn extract_lights(
             ),
         >,
     >,
-    mapper: Extract<Query<RenderEntity>>,
+    visibility_extraction_system_param: VisibilityExtractionSystemParam,
     mut existing_render_cascades_visible_entities: Query<&mut RenderCascadesVisibleEntities>,
     mut existing_render_cubemap_visible_entities: Query<&mut RenderCubemapVisibleEntities>,
     mut existing_render_visible_mesh_entities: Query<&mut RenderVisibleMeshEntities>,
@@ -380,6 +380,9 @@ pub fn extract_lights(
         Extract<RemovedComponents<DirectionalLight>>,
     ),
 ) {
+    let prepared_visibility_extraction_system_param = visibility_extraction_system_param.prepare();
+    let mapper = &prepared_visibility_extraction_system_param.mapper;
+
     // NOTE: These shadow map resources are extracted here as they are used here too so this avoids
     // races between scheduling of ExtractResourceSystems and this system.
     if point_light_shadow_map.is_changed() {
@@ -442,7 +445,11 @@ pub fn extract_lights(
             .iter_mut()
             .zip(cubemap_visible_entities.iter())
         {
-            render_visible_mesh_entities.update_from(&mapper, &visible_mesh_entities.entities);
+            render_visible_mesh_entities.update_from(
+                &prepared_visibility_extraction_system_param,
+                &visible_mesh_entities.entities,
+                TypeId::of::<Mesh3d>(),
+            );
         }
 
         let extracted_point_light = ExtractedPointLight {
@@ -510,7 +517,11 @@ pub fn extract_lights(
                 }
                 Err(_) => RenderVisibleMeshEntities::default(),
             };
-        render_visible_entities.update_from(&mapper, &visible_entities.entities);
+        render_visible_entities.update_from(
+            &prepared_visibility_extraction_system_param,
+            &visible_entities.entities,
+            TypeId::of::<Mesh3d>(),
+        );
 
         let texel_size =
             2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
@@ -595,14 +606,14 @@ pub fn extract_lights(
             };
         for (e, v) in cascades.cascades.iter() {
             if let Ok(entity) = mapper.get(*e) {
-                extracted_cascades.insert(entity, v.clone());
+                extracted_cascades.insert(**entity, v.clone());
             } else {
                 break;
             }
         }
         for (e, v) in frusta.frusta.iter() {
             if let Ok(entity) = mapper.get(*e) {
-                extracted_frusta.insert(entity, v.clone());
+                extracted_frusta.insert(**entity, v.clone());
             } else {
                 break;
             }
@@ -613,11 +624,11 @@ pub fn extract_lights(
             let Ok(entity) = mapper.get(*entity) else {
                 break;
             };
-            all_cascades_seen.insert(entity);
+            all_cascades_seen.insert(**entity);
             let render_visible_mesh_entities_list: &mut Vec<RenderVisibleMeshEntities> =
                 cascade_visible_entities
                     .entities
-                    .entry(entity)
+                    .entry(**entity)
                     .or_insert_with(default);
             render_visible_mesh_entities_list.resize_with(
                 visible_mesh_entities_list.len(),
@@ -628,7 +639,11 @@ pub fn extract_lights(
                     .iter_mut()
                     .zip(visible_mesh_entities_list.iter())
             {
-                render_visible_mesh_entities.update_from(&mapper, &visible_mesh_entities.entities);
+                render_visible_mesh_entities.update_from(
+                    &prepared_visibility_extraction_system_param,
+                    &visible_mesh_entities.entities,
+                    TypeId::of::<Mesh3d>(),
+                );
             }
         }
 
@@ -676,19 +691,19 @@ pub fn extract_lights(
     // light components removed.
     remove_components::<PointLight, ExtractedPointLight>(
         &mut commands,
-        &mapper,
+        mapper,
         &mut removed_point_lights,
         &seen_point_light_main_entities,
     );
     remove_components::<SpotLight, ExtractedPointLight>(
         &mut commands,
-        &mapper,
+        &**mapper,
         &mut removed_spot_lights,
         &seen_spot_light_main_entities,
     );
     remove_components::<DirectionalLight, ExtractedDirectionalLight>(
         &mut commands,
-        &mapper,
+        &**mapper,
         &mut removed_directional_lights,
         &seen_directional_light_main_entities,
     );
@@ -704,7 +719,7 @@ pub fn extract_lights(
     // same frame.
     fn remove_components<MC, RWC>(
         commands: &mut Commands,
-        mapper: &Query<RenderEntity>,
+        mapper: &Query<&RenderEntity>,
         removed_components: &mut RemovedComponents<MC>,
         seen_entities: &MainEntityHashSet,
     ) where
@@ -717,7 +732,7 @@ pub fn extract_lights(
         for main_entity in removed_components.read() {
             if !seen_entities.contains(&MainEntity::from(main_entity))
                 && let Ok(render_entity) = mapper.get(main_entity)
-                && let Ok(mut entity_commands) = commands.get_entity(render_entity)
+                && let Ok(mut entity_commands) = commands.get_entity(**render_entity)
             {
                 entity_commands.remove::<RWC>();
             }

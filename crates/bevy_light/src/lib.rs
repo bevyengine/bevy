@@ -9,9 +9,9 @@ use bevy_asset::AssetApp;
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
-        CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoFrustumCulling,
-        RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems, VisibleEntityRanges,
-        VisibleMeshEntities,
+        CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoCpuCulling,
+        NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems,
+        VisibleEntityRanges, VisibleMeshEntities,
     },
     Camera3d, CameraUpdateSystems,
 };
@@ -343,6 +343,7 @@ pub fn check_dir_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
+            Without<NoCpuCulling>,
             With<Mesh3d>,
         ),
     >,
@@ -512,6 +513,7 @@ pub fn check_point_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
+            Without<NoCpuCulling>,
             With<Mesh3d>,
         ),
     >,
