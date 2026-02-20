@@ -426,7 +426,7 @@ impl Table {
             return None;
         }
 
-        // SAFETY: `row.as_usize()` < `len`
+        // SAFETY: `row.index()` < `len`
         self.get_column(component_id)
             .map(|col| unsafe { col.changed_ticks.get_unchecked(row.index()) })
     }
@@ -441,7 +441,7 @@ impl Table {
             return None;
         }
 
-        // SAFETY: `row.as_usize()` < `len`
+        // SAFETY: `row.index()` < `len`
         self.get_column(component_id)
             .map(|col| unsafe { col.added_ticks.get_unchecked(row.index()) })
     }
@@ -458,7 +458,7 @@ impl Table {
             }
 
             self.get_column(component_id).map(|col| {
-                // SAFETY: `row.as_usize()` < `len`
+                // SAFETY: `row.index()` < `len`
                 col.changed_by
                     .as_ref()
                     .map(|changed_by| unsafe { changed_by.get_unchecked(row.index()) })
