@@ -10,10 +10,11 @@ use bevy_ecs::{
     system::Command,
     world::World,
 };
+pub use bevy_ecs_macros::SettingsGroup;
 use bevy_log::warn;
 use bevy_reflect::{
-    prelude::ReflectDefault, serde::TypedReflectDeserializer, Reflect, ReflectDeserialize,
-    ReflectSerialize, TypeInfo,
+    prelude::ReflectDefault, serde::TypedReflectDeserializer, FromReflect, FromType, Reflect,
+    ReflectDeserialize, ReflectSerialize, TypeInfo, TypePath, TypeRegistration,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -54,13 +55,34 @@ impl Plugin for PreferencesPlugin {
 
 /// Annotation for a type which overrides which preferences file the type's contents will be
 /// written to. By default, all preferences are written to a file named "settings".
+/// TODO: Change this to an option on the derive macro once I figure out how to do that.
 #[derive(Debug, Clone, Reflect)]
 pub struct PreferencesFile(pub &'static str);
 
-/// Annotation for a type which causes the type's contents to be placed in a named section
-/// in the preferences file.
-#[derive(Debug, Clone, Reflect)]
-pub struct PreferencesGroup(pub &'static str);
+/// Trait which identifies a type as corresponding to a section with a settings file.
+pub trait SettingsGroup: Resource {
+    /// The name of the logical section within the settings file.
+    fn settings_group_name() -> &'static str;
+}
+
+/// Reflected data from a [`SettingsGroup`].
+#[derive(Clone)]
+pub struct ReflectSettingsGroup {
+    /// The name of the logical section within the settings file.
+    settings_group_name: &'static str,
+}
+
+impl<T: SettingsGroup + FromReflect + TypePath> FromType<T> for ReflectSettingsGroup {
+    fn from_type() -> Self {
+        ReflectSettingsGroup {
+            settings_group_name: T::settings_group_name(),
+        }
+    }
+
+    fn insert_dependencies(type_registration: &mut TypeRegistration) {
+        type_registration.register_type_data::<ReflectResource, T>();
+    }
+}
 
 /// List of resource types that will be associated with a specific preferences file.
 /// Also tracks when that file was last written or read.
@@ -104,41 +126,38 @@ fn resources_to_toml(
     let mut table = toml::Table::new();
     for tid in manifest.resource_types.iter() {
         let ty = types.get(*tid).unwrap();
-        let type_info = ty.type_info();
         let Some(cmp) = ty.data::<ReflectComponent>() else {
             continue;
         };
         let Some(ser) = ty.data::<ReflectSerialize>() else {
             continue;
         };
+        let Some(reflect_settings_group) = ty.data::<ReflectSettingsGroup>() else {
+            continue;
+        };
 
-        if let TypeInfo::Struct(stinfo) = type_info
-            && let Some(group) = stinfo
-                .custom_attributes()
-                .get::<PreferencesGroup>()
-                .map(|g| g.0)
-        {
-            let Some(component_id) = world.components().get_id(*tid) else {
-                continue;
-            };
+        let group = reflect_settings_group.settings_group_name;
 
-            // let Some(resource_tick) = world.get_resource_change_ticks_by_id(component_id) else {
-            //     continue;
-            // };
+        let Some(component_id) = world.components().get_id(*tid) else {
+            continue;
+        };
 
-            let Some(res_entity) = world.resource_entities().get(component_id) else {
-                continue;
-            };
-            let res_entity_ref = world.entity(*res_entity);
+        // let Some(resource_tick) = world.get_resource_change_ticks_by_id(component_id) else {
+        //     continue;
+        // };
 
-            let Some(reflect) = cmp.reflect(res_entity_ref) else {
-                continue;
-            };
-            let ser_value = ser.get_serializable(reflect);
+        let Some(res_entity) = world.resource_entities().get(component_id) else {
+            continue;
+        };
+        let res_entity_ref = world.entity(*res_entity);
 
-            let toml_value = toml::Value::try_from(&*ser_value).unwrap();
-            table.insert(group.to_string(), toml_value);
-        }
+        let Some(reflect) = cmp.reflect(res_entity_ref) else {
+            continue;
+        };
+        let ser_value = ser.get_serializable(reflect);
+
+        let toml_value = toml::Value::try_from(&*ser_value).unwrap();
+        table.insert(group.to_string(), toml_value);
     }
     table
 }
@@ -228,7 +247,7 @@ impl LoadPreferences for App {
         // Scan through types looking for resources that have the necessary traits and
         // annotations.
         for ty in types.iter() {
-            if !(ty.contains::<ReflectResource>()
+            if !(ty.contains::<ReflectSettingsGroup>()
                 && ty.contains::<ReflectSerialize>()
                 && ty.contains::<ReflectDeserialize>()
                 && ty.contains::<ReflectDefault>())
@@ -237,12 +256,7 @@ impl LoadPreferences for App {
             };
 
             let type_info = ty.type_info();
-            if let TypeInfo::Struct(stinfo) = type_info
-                && let Some(_group) = stinfo
-                    .custom_attributes()
-                    .get::<PreferencesGroup>()
-                    .map(|g| g.0)
-            {
+            if let TypeInfo::Struct(stinfo) = type_info {
                 // If no filename is specified, use "settings"
                 let filename = stinfo
                     .custom_attributes()
@@ -276,54 +290,49 @@ impl LoadPreferences for App {
 
             for tid in manifest.resource_types.iter() {
                 let ty = types.get(*tid).unwrap();
-                let type_info = ty.type_info();
+                let Some(reflect_settings_group) = ty.data::<ReflectSettingsGroup>() else {
+                    continue;
+                };
 
-                if let TypeInfo::Struct(stinfo) = type_info
-                    && let Some(group) = stinfo
-                        .custom_attributes()
-                        .get::<PreferencesGroup>()
-                        .map(|g| g.0)
-                {
-                    let reflect_component = ty.data::<ReflectComponent>().unwrap();
-                    let component_id = world.components().get_id(*tid);
-                    let res_entity =
-                        component_id.and_then(|cid| world.resource_entities().get(cid));
+                let group = reflect_settings_group.settings_group_name;
 
-                    let deserializer = TypedReflectDeserializer::new(ty, &types);
-                    if let Some(res_entity) = res_entity {
-                        // Resource already exists, so apply toml properties to it.
-                        let res_entity_mut = world.entity_mut(*res_entity);
-                        let Some(mut reflect) = reflect_component.reflect_mut(res_entity_mut)
-                        else {
-                            continue;
-                        };
+                let reflect_component = ty.data::<ReflectComponent>().unwrap();
+                let component_id = world.components().get_id(*tid);
+                let res_entity = component_id.and_then(|cid| world.resource_entities().get(cid));
 
-                        if let Some(ref toml) = toml
-                            && let Some(value) = toml.get(group)
-                        {
-                            let new_value = deserializer.deserialize(value.clone()).unwrap();
-                            reflect.apply(new_value.as_ref());
-                        }
-                    } else {
-                        // The resource does not exist, so create a default.
-                        let reflect_default = ty.data::<ReflectDefault>().unwrap();
-                        let mut default_value = reflect_default.default();
-                        let types = app_types.read();
-                        let mut res_entity = world.spawn_empty();
+                let deserializer = TypedReflectDeserializer::new(ty, &types);
+                if let Some(res_entity) = res_entity {
+                    // Resource already exists, so apply toml properties to it.
+                    let res_entity_mut = world.entity_mut(*res_entity);
+                    let Some(mut reflect) = reflect_component.reflect_mut(res_entity_mut) else {
+                        continue;
+                    };
 
-                        if let Some(ref toml) = toml
-                            && let Some(value) = toml.get(group)
-                        {
-                            let new_value = deserializer.deserialize(value.clone()).unwrap();
-                            default_value.apply(new_value.as_ref());
-                        }
-
-                        reflect_component.insert(
-                            &mut res_entity,
-                            default_value.as_partial_reflect(),
-                            &types,
-                        );
+                    if let Some(ref toml) = toml
+                        && let Some(value) = toml.get(group)
+                    {
+                        let new_value = deserializer.deserialize(value.clone()).unwrap();
+                        reflect.apply(new_value.as_ref());
                     }
+                } else {
+                    // The resource does not exist, so create a default.
+                    let reflect_default = ty.data::<ReflectDefault>().unwrap();
+                    let mut default_value = reflect_default.default();
+                    let types = app_types.read();
+                    let mut res_entity = world.spawn_empty();
+
+                    if let Some(ref toml) = toml
+                        && let Some(value) = toml.get(group)
+                    {
+                        let new_value = deserializer.deserialize(value.clone()).unwrap();
+                        default_value.apply(new_value.as_ref());
+                    }
+
+                    reflect_component.insert(
+                        &mut res_entity,
+                        default_value.as_partial_reflect(),
+                        &types,
+                    );
                 }
             }
         }

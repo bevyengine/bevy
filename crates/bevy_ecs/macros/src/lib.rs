@@ -567,6 +567,46 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
+/// Implement the `SettingsGroup` trait.
+#[proc_macro_derive(SettingsGroup)]
+pub fn derive_settings_group(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let name = &input.ident;
+    let snake = to_snake_case(&name.to_string());
+
+    let expanded = quote! {
+        impl SettingsGroup for #name {
+            fn settings_group_name() -> &'static str {
+                #snake
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+fn to_snake_case(s: &str) -> String {
+    let mut out = String::new();
+    let chars: Vec<char> = s.chars().collect();
+
+    for (i, &ch) in chars.iter().enumerate() {
+        if ch.is_uppercase() {
+            let prev_is_lower = i > 0 && chars[i - 1].is_lowercase();
+            let next_is_lower = chars.get(i + 1).is_some_and(|c| c.is_lowercase());
+
+            if i > 0 && (prev_is_lower || next_is_lower) {
+                out.push('_');
+            }
+            out.push(ch.to_lowercase().next().unwrap());
+        } else {
+            out.push(ch);
+        }
+    }
+
+    out
+}
+
 /// Cheat sheet for derive syntax,
 /// see full explanation and examples on the `Component` trait doc.
 ///

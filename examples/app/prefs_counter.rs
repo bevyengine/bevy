@@ -1,7 +1,10 @@
 //! Demonstrates persistence of user preferences.
 use bevy::{
     // user_prefs::{Preferences, StartAutosaveTimer},
-    preferences::{LoadPreferences as _, PreferencesGroup, PreferencesPlugin, SavePreferencesSync},
+    preferences::{
+        LoadPreferences as _, PreferencesPlugin, ReflectSettingsGroup, SavePreferencesSync,
+        SettingsGroup,
+    },
     prelude::*,
     window::{ExitCondition, WindowCloseRequested},
 };
@@ -26,8 +29,8 @@ fn main() {
         .run();
 }
 
-#[derive(Resource, Reflect, Default, Serialize, Deserialize)]
-#[reflect(Resource, Serialize, Deserialize, Default, @PreferencesGroup("counter"))]
+#[derive(Resource, SettingsGroup, Reflect, Default, Serialize, Deserialize)]
+#[reflect(Resource, SettingsGroup, Serialize, Deserialize, Default)]
 struct Counter {
     count: i32,
 }
