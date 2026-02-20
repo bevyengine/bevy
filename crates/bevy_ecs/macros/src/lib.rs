@@ -15,7 +15,9 @@ use crate::{
     component::map_entities, query_data::derive_query_data_impl,
     query_filter::derive_query_filter_impl,
 };
-use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
+use bevy_macro_utils::{
+    derive_label, ensure_no_collision, get_struct_fields, pascal_to_snake_case, BevyManifest,
+};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, ToTokens};
@@ -573,7 +575,7 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     let name = &input.ident;
-    let snake = to_snake_case(&name.to_string());
+    let snake = pascal_to_snake_case(&name.to_string());
 
     let expanded = quote! {
         impl SettingsGroup for #name {
@@ -584,27 +586,6 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
-}
-
-fn to_snake_case(s: &str) -> String {
-    let mut out = String::new();
-    let chars: Vec<char> = s.chars().collect();
-
-    for (i, &ch) in chars.iter().enumerate() {
-        if ch.is_uppercase() {
-            let prev_is_lower = i > 0 && chars[i - 1].is_lowercase();
-            let next_is_lower = chars.get(i + 1).is_some_and(|c| c.is_lowercase());
-
-            if i > 0 && (prev_is_lower || next_is_lower) {
-                out.push('_');
-            }
-            out.push(ch.to_lowercase().next().unwrap());
-        } else {
-            out.push(ch);
-        }
-    }
-
-    out
 }
 
 /// Cheat sheet for derive syntax,
