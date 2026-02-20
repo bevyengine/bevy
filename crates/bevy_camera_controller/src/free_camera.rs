@@ -97,8 +97,13 @@ pub struct FreeCamera {
     /// Multiplier for how much the mouse scroll wheel affects [`walk_speed`](FreeCamera::walk_speed)
     /// and [`run_speed`](FreeCamera::run_speed).
     ///
-    /// Mouse scroll affects speed exponentially. For every unit of scroll, the speed of the camera
-    /// is multiplied by a factor of `e^(scroll_factor)`.
+    /// Mouse scroll affects speed exponentially. This is to ensure that scrolling the same
+    /// amount always has the same effect on speed, regardless of how the scroll amount
+    /// is reported by the hardware (i.e. as one big event vs many smaller events). This
+    /// also allows the free camera to navigate very large scenes easier.
+    /// 
+    /// For every unit of scroll, the speed of the camera is multiplied by a factor of
+    /// `e^(scroll_factor)`.
     ///
     /// A reasonable value to start with is a `scroll_factor` between 0.04879016 (~ln(1.05))
     /// and 0.0953102 (~ln(1.1)). They represent an increase by a factor between 1.05 and 1.1 per
@@ -249,6 +254,8 @@ pub fn run_freecamera_controller(
             accumulated_mouse_scroll.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
         }
     };
+    // By using exponentiation we ensure that this scales up and down smoothly
+    // regardless of the amount of scrolling processed per frame
     state.speed_multiplier *= exp(config.scroll_factor * scroll);
     // Clamp the speed multiplier for safety.
     state.speed_multiplier = state.speed_multiplier.clamp(f32::EPSILON, f32::MAX);
