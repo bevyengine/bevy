@@ -134,7 +134,7 @@ concurrent-queue = { version = "2.5.0", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-rand = "0.9"
+rand = "0.10"
 static_assertions = "1.1.0"
 serde_test = "1.0"
 

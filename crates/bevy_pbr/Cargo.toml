@@ -82,12 +82,12 @@ itertools = { version = "0.14", optional = true }
 bitvec = { version = "1", optional = true }
 # direct dependency required for derive macro
 bytemuck = { version = "1", features = ["derive", "must_cast"] }
-radsort = "0.1"
 smallvec = { version = "1", default-features = false }
 nonmax = "0.5"
 static_assertions = "1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 offset-allocator = "0.2"
+indexmap = { version = "2" }
 
 [lints]
 workspace = true

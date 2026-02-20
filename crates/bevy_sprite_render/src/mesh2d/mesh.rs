@@ -1,7 +1,7 @@
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
 use bevy_camera::{visibility::ViewVisibility, Camera2d};
-use bevy_render::RenderStartup;
+use bevy_render::{camera::DirtySpecializations, RenderStartup};
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
 use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
@@ -13,8 +13,6 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::change_detection::Tick;
-use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -38,8 +36,7 @@ use bevy_render::{
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
-        sweep_old_entities, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
-        TrackedRenderPass,
+        PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, TrackedRenderPass,
     },
     render_resource::{binding_types::uniform_buffer, *},
     renderer::RenderDevice,
@@ -76,7 +73,6 @@ impl Plugin for Mesh2dRenderPlugin {
                 .init_resource::<RenderMesh2dInstances>()
                 .allow_ambiguous_resource::<RenderMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .init_resource::<ViewSpecializationTicks>()
                 .add_systems(
                     RenderStartup,
                     (
@@ -91,11 +87,6 @@ impl Plugin for Mesh2dRenderPlugin {
                     Render,
                     (
                         check_views_need_specialization.in_set(PrepareAssets),
-                        (
-                            sweep_old_entities::<Opaque2d>,
-                            sweep_old_entities::<AlphaMask2d>,
-                        )
-                            .in_set(RenderSystems::QueueSweep),
                         batch_and_prepare_binned_render_phase::<Opaque2d, Mesh2dPipeline>
                             .in_set(RenderSystems::PrepareResources),
                         batch_and_prepare_binned_render_phase::<AlphaMask2d, Mesh2dPipeline>
@@ -118,12 +109,9 @@ impl Plugin for Mesh2dRenderPlugin {
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct ViewKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
 
-#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct ViewSpecializationTicks(MainEntityHashMap<Tick>);
-
 pub fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,
-    mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
     views: Query<(
         &MainEntity,
         &ExtractedView,
@@ -131,7 +119,6 @@ pub fn check_views_need_specialization(
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
-    ticks: SystemChangeTick,
 ) {
     for (view_entity, view, msaa, tonemapping, dither) in &views {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
@@ -152,7 +139,9 @@ pub fn check_views_need_specialization(
             .is_some_and(|current_key| *current_key == view_key)
         {
             view_key_cache.insert(*view_entity, view_key);
-            view_specialization_ticks.insert(*view_entity, ticks.this_run());
+            dirty_specializations
+                .views
+                .insert(view.retained_view_entity);
         }
     }
 }

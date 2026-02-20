@@ -347,11 +347,31 @@ impl VisibleEntities {
 ///
 /// This component contains all mesh entities visible from the current light view.
 /// The collection is updated automatically by `bevy_pbr::SimulationLightSystems`.
-#[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct VisibleMeshEntities {
     #[reflect(ignore, clone)]
     pub entities: Vec<Entity>,
+}
+
+impl VisibleMeshEntities {
+    /// Resizes the entity vector so that its capacity isn't too much higher
+    /// than its size.
+    pub fn shrink(&mut self) {
+        // Check that visible entities capacity() is no more than two times greater than len()
+        let capacity = self.entities.capacity();
+        let reserved = capacity
+            .checked_div(self.entities.len())
+            .map_or(0, |reserve| {
+                if reserve > 2 {
+                    capacity / (reserve / 2)
+                } else {
+                    capacity
+                }
+            });
+
+        self.entities.shrink_to(reserved);
+    }
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
@@ -759,6 +779,12 @@ pub fn check_visibility(
             for (class, entities) in class_queues {
                 visible_entities.get_mut(*class).append(entities);
             }
+        }
+
+        // The list must be sorted in order for the O(n) diffing algorithm that
+        // visibility determination uses to work, so do that now.
+        for visible_entities in visible_entities.entities.values_mut() {
+            visible_entities.sort_unstable();
         }
     }
 }

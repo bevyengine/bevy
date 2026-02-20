@@ -17,8 +17,8 @@ use bevy::{
         prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
     },
 };
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 use std::f32::consts::PI;
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]

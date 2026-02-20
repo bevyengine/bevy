@@ -20,6 +20,7 @@ use bevy::{
     prelude::*,
     render::{
         batching::gpu_preprocessing::GpuPreprocessingSupport,
+        camera::{DirtySpecializations, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
@@ -111,6 +112,7 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
         render_app
             // This is needed to tell bevy about your custom pipeline
             .init_resource::<SpecializedMeshPipelines<CustomMeshPipeline>>()
+            .init_resource::<PendingCustomMeshQueues>()
             // We need to use a custom draw command so we need to register it
             .add_render_command::<Opaque3d, DrawSpecializedPipelineCommands>()
             .add_systems(RenderStartup, init_custom_mesh_pipeline)
@@ -262,6 +264,13 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
     }
 }
 
+/// A resource that stores meshes that couldn't be specialized yet because their
+/// materials hadn't loaded.
+///
+/// See the documentation for [`PendingQueues`] for more information.
+#[derive(Default, Deref, DerefMut, Resource)]
+struct PendingCustomMeshQueues(pub PendingQueues);
+
 /// A render-world system that enqueues the entity with custom rendering into
 /// the opaque render phases of each view.
 fn queue_custom_mesh_pipeline(
@@ -281,6 +290,8 @@ fn queue_custom_mesh_pipeline(
     mut change_tick: Local<Tick>,
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    dirty_specializations: Res<DirtySpecializations>,
+    mut pending_custom_mesh_queues: ResMut<PendingCustomMeshQueues>,
 ) {
     // Get the id for our custom draw function
     let draw_function = opaque_draw_functions
@@ -299,14 +310,39 @@ fn queue_custom_mesh_pipeline(
             continue;
         };
 
+        let Some(render_visible_mesh_entities) =
+            view_visible_entities.get::<CustomRenderedEntity>()
+        else {
+            continue;
+        };
+
+        // Initialize the pending queues.
+        let view_pending_custom_mesh_queues =
+            pending_custom_mesh_queues.prepare_for_new_frame(view.retained_view_entity);
+
+        // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
+        for &main_entity in dirty_specializations
+            .iter_to_dequeue(view.retained_view_entity, render_visible_mesh_entities)
+        {
+            opaque_phase.remove(main_entity);
+        }
+
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &(render_entity, visible_entity) in
-            view_visible_entities.get::<CustomRenderedEntity>().iter()
-        {
+        for (render_entity, visible_entity) in dirty_specializations.iter_to_queue(
+            view.retained_view_entity,
+            render_visible_mesh_entities,
+            &view_pending_custom_mesh_queues.prev_frame,
+        ) {
             // Get the mesh instance
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(visible_entity)
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
+                // We couldn't fetch the mesh, probably because it hasn't been
+                // loaded yet. Add the entity to the list of pending custom
+                // meshes and bail.
+                view_pending_custom_mesh_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
 
@@ -354,7 +390,7 @@ fn queue_custom_mesh_pipeline(
                 Opaque3dBinKey {
                     asset_id: mesh_instance.mesh_asset_id.into(),
                 },
-                (render_entity, visible_entity),
+                (*render_entity, *visible_entity),
                 mesh_instance.current_uniform_index,
                 // This example supports batching and multi draw indirect,
                 // but if your pipeline doesn't support it you can use
@@ -363,7 +399,6 @@ fn queue_custom_mesh_pipeline(
                     mesh_instance.should_batch(),
                     &gpu_preprocessing_support,
                 ),
-                *change_tick,
             );
         }
     }

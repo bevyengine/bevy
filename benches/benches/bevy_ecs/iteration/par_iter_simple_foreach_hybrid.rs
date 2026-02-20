@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_tasks::{ComputeTaskPool, TaskPool};
+use chacha20::ChaCha8Rng;
 use rand::{prelude::SliceRandom, SeedableRng};
-use rand_chacha::ChaCha8Rng;
 
 #[derive(Component, Copy, Clone)]
 struct TableData(f32);
