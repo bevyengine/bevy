@@ -570,17 +570,38 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 }
 
 /// Implement the `SettingsGroup` trait.
-#[proc_macro_derive(SettingsGroup)]
+#[proc_macro_derive(SettingsGroup, attributes(settings_group))]
 pub fn derive_settings_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     let name = &input.ident;
-    let snake = pascal_to_snake_case(&name.to_string());
+
+    let override_name = input
+        .attrs
+        .iter()
+        .find(|attr| attr.path().is_ident("settings_group"))
+        .and_then(|attr| {
+            let mut override_val: Option<String> = None;
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("group") {
+                    let value = meta.value()?;
+                    let s: syn::LitStr = value.parse()?;
+                    override_val = Some(s.value());
+                    Ok(())
+                } else {
+                    Err(meta.error("unsupported attribute"))
+                }
+            })
+            .ok()?;
+            override_val
+        });
+
+    let group_name = override_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
 
     let expanded = quote! {
         impl SettingsGroup for #name {
             fn settings_group_name() -> &'static str {
-                #snake
+                #group_name
             }
         }
     };

@@ -31,6 +31,7 @@ fn main() {
 
 #[derive(Resource, SettingsGroup, Reflect, Default, Serialize, Deserialize)]
 #[reflect(Resource, SettingsGroup, Serialize, Deserialize, Default)]
+// #[settings_group(group = "counter_test")]
 struct Counter {
     count: i32,
 }
