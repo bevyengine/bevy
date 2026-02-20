@@ -654,9 +654,9 @@ fn mark_meshes_as_changed_if_their_materials_changed<M>(
 ) where
     M: Material,
 {
-    for mut mesh in &mut changed_meshes_query {
+    changed_meshes_query.par_iter_mut().for_each(|mut mesh| {
         mesh.set_changed();
-    }
+    });
 }
 
 /// Fills the [`RenderMaterialInstances`] resources from the meshes in the
