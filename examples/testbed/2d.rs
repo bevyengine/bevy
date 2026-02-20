@@ -395,6 +395,14 @@ mod gizmos {
             )
             .resolution(64);
 
+        gizmos.text_2d(
+            Isometry2d::from_translation(Vec2::new(-200.0, 0.0)),
+            "text_2d gizmo",
+            15.,
+            Vec2 { x: 0., y: 0. },
+            Color::WHITE,
+        );
+
         // 2d grids with all variations of outer edges on or off
         for i in 0..4 {
             let x = 200.0 * (1.0 + (i % 2) as f32);
