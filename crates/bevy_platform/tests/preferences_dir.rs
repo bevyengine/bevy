@@ -15,6 +15,11 @@ fn preferences_dir_follows_xdg() {
     unsafe { env::remove_var("XDG_CONFIG_HOME") }
     let default = preferences_dir().unwrap();
 
+    // the default path should also be returned when XDG_CONFIG_HOME is set but empty
+    // SAFETY: no multi-threaded access to the environment
+    unsafe { env::set_var("XDG_CONFIG_HOME", "") }
+    assert_eq!(preferences_dir(), Some(default.clone()));
+
     // when set, the path should be returned if it's absolute
     // SAFETY: no multi-threaded access to the environment
     unsafe { env::set_var("XDG_CONFIG_HOME", "/tmp") }
