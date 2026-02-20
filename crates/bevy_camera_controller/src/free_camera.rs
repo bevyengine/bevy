@@ -101,7 +101,7 @@ pub struct FreeCamera {
     /// amount always has the same effect on speed, regardless of how the scroll amount
     /// is reported by the hardware (i.e. as one big event vs many smaller events). This
     /// also allows the free camera to navigate very large scenes easier.
-    /// 
+    ///
     /// For every unit of scroll, the speed of the camera is multiplied by a factor of
     /// `e^(scroll_factor)`.
     ///
