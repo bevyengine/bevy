@@ -158,8 +158,6 @@ mod text {
         let mut container = commands.spawn((
             Node {
                 flex_direction: FlexDirection::Column,
-                width: percent(100),
-                height: percent(100),
                 ..default()
             },
             DespawnOnExit(super::Scene::Text),
@@ -177,8 +175,6 @@ mod text {
         container.with_children(|builder| {
             let mut grid = builder.spawn(Node {
                 display: Display::Grid,
-                width: percent(100),
-                height: percent(100),
                 grid_template_columns: vec![GridTrack::flex(1.0), GridTrack::flex(1.0)],
                 padding: UiRect::horizontal(px(5.)),
                 ..default()
