@@ -1344,7 +1344,7 @@ pub fn queue_uinodes(
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
 
-    for (summary_index, extracted_uinodes) in extracted_uinodes_all.0.iter().enumerate() {
+    for (extended_index, extracted_uinodes) in extracted_uinodes_all.0.iter().enumerate() {
         for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
             if current_camera_entity != extracted_uinode.extracted_camera_entity {
                 current_phase = render_views
@@ -1383,8 +1383,8 @@ pub fn queue_uinodes(
                 pipeline,
                 entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
                 sort_key: FloatOrd(extracted_uinode.z_order),
-                summary_index: summary_index as u8,
                 index,
+                extended_index: extended_index as u8,
                 // batch_range will be calculated in prepare_uinodes
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
@@ -1450,7 +1450,7 @@ pub fn prepare_uinodes(
                 let item = &mut ui_phase.items[item_index];
 
                 let (extracted_uinodes, extracted_uinode) = if let Some(extracted_uinodes) =
-                    extracted_uinodes_all.0.get(item.summary_index as usize)
+                    extracted_uinodes_all.0.get(item.extended_index as usize)
                     && let Some(extracted_uinode) = extracted_uinodes
                         .uinodes
                         .get(item.index)

@@ -346,7 +346,7 @@ pub fn queue_shadows(
 
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
-            summary_index: u8::MAX,
+            extended_index: u8::MAX,
             index,
             indexed: true,
         });
