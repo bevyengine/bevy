@@ -4,7 +4,8 @@
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{
-    camera_controller::free_camera::FreeCamera, gltf::Gltf,
+    camera_controller::free_camera::FreeCamera,
+    gizmos::skinned_mesh_bounds::SkinnedMeshBoundsGizmoConfigGroup, gltf::Gltf,
     input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
 };
 
@@ -36,6 +37,7 @@ const INSTRUCTIONS: &str = r#"
 Scene Controls:
     L           - animate light direction
     U           - toggle shadows
+    F           - toggle camera frusta
     C           - cycle through the camera controller and any cameras loaded from the scene
 
     compile with "--features animation" for animation controls.
@@ -47,6 +49,8 @@ Scene Controls:
     L           - animate light direction
     U           - toggle shadows
     B           - toggle bounding boxes
+    F           - toggle camera frusta
+    J           - toggle skinned mesh joint bounding boxes
     C           - cycle through the camera controller and any cameras loaded from the scene
 
     Space       - Play/Pause animation
@@ -70,7 +74,12 @@ impl Plugin for SceneViewerPlugin {
                 (
                     update_lights,
                     camera_tracker,
-                    toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
+                    (
+                        toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
+                        toggle_camera_frusta.run_if(input_just_pressed(KeyCode::KeyF)),
+                        toggle_skinned_mesh_bounds.run_if(input_just_pressed(KeyCode::KeyJ)),
+                    )
+                        .chain(),
                 ),
             );
     }
@@ -78,6 +87,17 @@ impl Plugin for SceneViewerPlugin {
 
 fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
     config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+}
+
+fn toggle_camera_frusta(mut config: ResMut<GizmoConfigStore>) {
+    config.config_mut::<FrustumGizmoConfigGroup>().1.draw_all ^= true;
+}
+
+fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
+    config
+        .config_mut::<SkinnedMeshBoundsGizmoConfigGroup>()
+        .1
+        .draw_all ^= true;
 }
 
 fn scene_load_check(
@@ -112,7 +132,7 @@ fn scene_load_check(
                                 scene_handle.scene_index
                             )
                         });
-                let scene = scenes.get_mut(gltf_scene_handle).unwrap();
+                let mut scene = scenes.get_mut(gltf_scene_handle).unwrap();
 
                 let mut query = scene
                     .world
@@ -147,7 +167,7 @@ fn update_lights(
 ) {
     for (_, mut light) in &mut query {
         if key_input.just_pressed(KeyCode::KeyU) {
-            light.shadows_enabled = !light.shadows_enabled;
+            light.shadow_maps_enabled = !light.shadow_maps_enabled;
         }
     }
 

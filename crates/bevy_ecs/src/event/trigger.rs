@@ -1,4 +1,6 @@
+use crate::event::SetEntityEventTarget;
 use crate::{
+    archetype::Archetype,
     component::ComponentId,
     entity::Entity,
     event::{EntityEvent, Event},
@@ -267,7 +269,7 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> fmt::Debug
 // - `E`'s [`Event::Trigger`] is constrained to [`PropagateEntityTrigger<E>`]
 unsafe impl<
         const AUTO_PROPAGATE: bool,
-        E: EntityEvent + for<'a> Event<Trigger<'a> = Self>,
+        E: EntityEvent + SetEntityEventTarget + for<'a> Event<Trigger<'a> = Self>,
         T: Traversal<E>,
     > Trigger<E> for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
 {
@@ -301,7 +303,7 @@ unsafe impl<
                 return;
             }
             if let Ok(entity) = world.get_entity(current_entity)
-                && let Some(item) = entity.get_components::<T>()
+                && let Ok(item) = entity.get_components::<T>()
                 && let Some(traverse_to) = T::traverse(item, event)
             {
                 current_entity = traverse_to;
@@ -309,7 +311,7 @@ unsafe impl<
                 break;
             }
 
-            *event.event_target_mut() = current_entity;
+            event.set_event_target(current_entity);
             // SAFETY:
             // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
             // - the passed in event pointer comes from `event`, which is an `Event`
@@ -340,6 +342,84 @@ pub struct EntityComponentsTrigger<'a> {
     /// if components `A` and `B` are added together, producing the [`Add`](crate::lifecycle::Add) event, this will
     /// contain the [`ComponentId`] for both `A` and `B`.
     pub components: &'a [ComponentId],
+
+    /// The [`Archetype`] of the target entity before this change, or `None` if the entity was just spawned.
+    /// For observers that run before the change, like [`Discard`](crate::lifecycle::Discard) and [`Remove`](crate::lifecycle::Remove), this will be the current archetype.
+    ///
+    /// This can be useful in [`Insert`](crate::lifecycle::Insert) and [`Add`](crate::lifecycle::Add) observers,
+    /// since the old archetype will not include any other components added at the same time.
+    ///
+    /// Note that `None` should usually be treated the same as an archetype with no components,
+    /// since spawning an entity should be equivalent to spawning an empty entity and then inserting all components.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::{
+    /// #     component::ComponentIdFor, entity::EntityHashSet, entity_disabling::Disabled,
+    /// #     prelude::*,
+    /// # };
+    /// # #[derive(Component)]
+    /// # struct A;
+    /// # #[derive(Resource)]
+    /// # struct EntitiesWithA(EntityHashSet);
+    /// #
+    /// # let mut world = World::new();
+    /// #
+    /// fn on_add_disable(
+    ///     on: On<Add, Disabled>,
+    ///     mut cache: ResMut<EntitiesWithA>,
+    ///     a_component: ComponentIdFor<A>,
+    /// ) {
+    ///     // The `A` component may have been added at the same time as `Disabled`,
+    ///     // either due to an insert or spawn.  Only try to remove this entity from
+    ///     // our cache if the `A` component was in the old archetype.
+    ///     if on.trigger().old_archetype.is_some_and(|a| a.contains(*a_component)) {
+    ///         cache.0.remove(&on.entity);
+    ///     }
+    /// }
+    /// #
+    /// # world.add_observer(on_add_disable);
+    /// ```
+    pub old_archetype: Option<&'a Archetype>,
+
+    /// The [`Archetype`] of the target entity after this change, or `None` if the entity will be despawned.
+    /// For observers that run after the change, like [`Insert`](crate::lifecycle::Insert) and [`Add`](crate::lifecycle::Add), this will be the current archetype.
+    ///
+    /// This can be useful in [`Discard`](crate::lifecycle::Discard) and [`Remove`](crate::lifecycle::Remove) observers,
+    /// since the new archetype will not include any other components removed at the same time.
+    ///
+    /// Note that `None` should usually be treated the same as an archetype with no components,
+    /// since despawning an entity should be equivalent to removing all its components and then despawning the empty entity.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::{
+    /// #     component::ComponentIdFor, entity::EntityHashSet, entity_disabling::Disabled,
+    /// #     prelude::*,
+    /// # };
+    /// # #[derive(Component)]
+    /// # struct A;
+    /// # #[derive(Resource)]
+    /// # struct EntitiesWithA(EntityHashSet);
+    /// #
+    /// # let mut world = World::new();
+    /// #
+    /// fn on_remove_disable(
+    ///     on: On<Remove, Disabled>,
+    ///     mut cache: ResMut<EntitiesWithA>,
+    ///     a_component: ComponentIdFor<A>,
+    /// ) {
+    ///     // The `A` component may have been removed at the same time as `Disabled`,
+    ///     // either due to a remove or despawn.  Only try to add this entity to our
+    ///     // cache if the `A` component is still in the new archetype.
+    ///     if on.trigger().new_archetype.is_some_and(|a| a.contains(*a_component)) {
+    ///         cache.0.insert(on.entity);
+    ///     }
+    /// }
+    /// #
+    /// # world.add_observer(on_remove_disable);
+    /// ```
+    pub new_archetype: Option<&'a Archetype>,
 }
 
 // SAFETY:

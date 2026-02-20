@@ -3,13 +3,14 @@ use crate::{
     TextureReinterpretationError,
 };
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
+use bevy_reflect::TypePath;
 use thiserror::Error;
 
 use super::{CompressedImageFormats, ImageSampler};
 use serde::{Deserialize, Serialize};
 
 /// Loader for images that can be read by the `image` crate.
-#[derive(Clone)]
+#[derive(Clone, TypePath)]
 pub struct ImageLoader {
     supported_compressed_formats: CompressedImageFormats,
 }
@@ -118,7 +119,7 @@ pub struct ImageLoaderSettings {
     /// in a shader.
     /// Ex: data that would be `R16Uint` that needs to
     /// be sampled as a float using `R16Snorm`.
-    #[serde(skip)]
+    #[serde(default)]
     pub texture_format: Option<wgpu_types::TextureFormat>,
     /// Specifies whether image data is linear
     /// or in sRGB space when this is not determined by

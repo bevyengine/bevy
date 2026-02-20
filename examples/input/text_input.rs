@@ -49,21 +49,15 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSpan::new("IME Active:  "),
             TextSpan::new("false\n"),
             TextSpan::new("IME Buffer:  "),
-            (
-                TextSpan::new("\n"),
-                TextFont {
-                    font: font.clone(),
-                    ..default()
-                },
-            ),
+            (TextSpan::new("\n"), TextFont::from(font.clone()),),
         ],
     ));
 
     commands.spawn((
         Text2d::new(""),
         TextFont {
-            font,
-            font_size: 100.0,
+            font: font.clone().into(),
+            font_size: FontSize::Px(100.0),
             ..default()
         },
     ));

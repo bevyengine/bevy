@@ -178,7 +178,7 @@ fn spawn_lights(mut commands: Commands) {
     commands.spawn((
         PointLight {
             color: Color::from(tailwind::ROSE_300),
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(-2.0, 4.0, -0.75),

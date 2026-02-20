@@ -208,6 +208,18 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
         self.edges.contains(&Self::edge_key(a, b))
     }
 
+    /// Reserve capacity for at least `additional` more nodes to be inserted
+    /// in the graph.
+    pub fn reserve_nodes(&mut self, additional: usize) {
+        self.nodes.reserve(additional);
+    }
+
+    /// Reserve capacity for at least `additional` more edges to be inserted
+    /// in the graph.
+    pub fn reserve_edges(&mut self, additional: usize) {
+        self.edges.reserve(additional);
+    }
+
     /// Return an iterator over the nodes of the graph.
     pub fn nodes(&self) -> impl DoubleEndedIterator<Item = N> + ExactSizeIterator<Item = N> + '_ {
         self.nodes.keys().copied()
@@ -287,15 +299,17 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
     ///
     /// # Errors
     ///
-    /// If the conversion fails, it returns an error of type `T::Error`.
-    pub fn try_into<T: GraphNodeId + TryFrom<N>>(self) -> Result<Graph<DIRECTED, T, S>, T::Error>
+    /// If the conversion fails, it returns an error of type `N::Error`.
+    pub fn try_convert<T>(self) -> Result<Graph<DIRECTED, T, S>, N::Error>
     where
+        N: TryInto<T>,
+        T: GraphNodeId,
         S: Default,
     {
         // Converts the node key and every adjacency list entry from `N` to `T`.
-        fn try_convert_node<N: GraphNodeId, T: GraphNodeId + TryFrom<N>>(
+        fn try_convert_node<N: GraphNodeId + TryInto<T>, T: GraphNodeId>(
             (key, adj): (N, Vec<N::Adjacent>),
-        ) -> Result<(T, Vec<T::Adjacent>), T::Error> {
+        ) -> Result<(T, Vec<T::Adjacent>), N::Error> {
             let key = key.try_into()?;
             let adj = adj
                 .into_iter()
@@ -303,13 +317,13 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
                     let (id, dir) = node.into();
                     Ok(T::Adjacent::from((id.try_into()?, dir)))
                 })
-                .collect::<Result<_, T::Error>>()?;
+                .collect::<Result<_, N::Error>>()?;
             Ok((key, adj))
         }
         // Unpacks the edge pair, converts the nodes from `N` to `T`, and repacks them.
-        fn try_convert_edge<N: GraphNodeId, T: GraphNodeId + TryFrom<N>>(
+        fn try_convert_edge<N: GraphNodeId + TryInto<T>, T: GraphNodeId>(
             edge: N::Edge,
-        ) -> Result<T::Edge, T::Error> {
+        ) -> Result<T::Edge, N::Error> {
             let (a, b) = edge.into();
             Ok(T::Edge::from((a.try_into()?, b.try_into()?)))
         }
@@ -318,12 +332,12 @@ impl<const DIRECTED: bool, N: GraphNodeId, S: BuildHasher> Graph<DIRECTED, N, S>
             .nodes
             .into_iter()
             .map(try_convert_node::<N, T>)
-            .collect::<Result<_, T::Error>>()?;
+            .collect::<Result<_, N::Error>>()?;
         let edges = self
             .edges
             .into_iter()
             .map(try_convert_edge::<N, T>)
-            .collect::<Result<_, T::Error>>()?;
+            .collect::<Result<_, N::Error>>()?;
         Ok(Graph { nodes, edges })
     }
 }
@@ -351,7 +365,7 @@ impl<N: GraphNodeId, S: BuildHasher> DiGraph<N, S> {
     ///
     /// - If the graph contains a self-loop, returns [`DiGraphToposortError::Loop`].
     /// - If the graph contains cycles, returns [`DiGraphToposortError::Cycle`].
-    pub fn toposort(&self) -> Result<Vec<N>, DiGraphToposortError<N>> {
+    pub fn toposort(&self, mut scratch: Vec<N>) -> Result<Vec<N>, DiGraphToposortError<N>> {
         // Check explicitly for self-edges.
         // `iter_sccs` won't report them as cycles because they still form components of one node.
         if let Some((node, _)) = self.all_edges().find(|(left, right)| left == right) {
@@ -359,7 +373,9 @@ impl<N: GraphNodeId, S: BuildHasher> DiGraph<N, S> {
         }
 
         // Tarjan's SCC algorithm returns elements in *reverse* topological order.
-        let mut top_sorted_nodes = Vec::with_capacity(self.node_count());
+        scratch.clear();
+        scratch.reserve_exact(self.node_count().saturating_sub(scratch.capacity()));
+        let mut top_sorted_nodes = scratch;
         let mut sccs_with_cycles = Vec::new();
 
         for scc in self.iter_sccs() {
@@ -398,7 +414,7 @@ impl<N: GraphNodeId, S: BuildHasher> DiGraph<N, S> {
 
         while let Some(mut scc) = sccs.pop() {
             // only look at nodes and edges in this strongly-connected component
-            let mut subgraph = DiGraph::<N>::default();
+            let mut subgraph = DiGraph::<N>::with_capacity(scc.len(), 0);
             for &node in &scc {
                 subgraph.add_node(node);
             }

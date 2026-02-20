@@ -35,6 +35,7 @@ mod tests {
 
     pub use crate::{
         prelude::World,
+        resource::IsResource,
         resource::Resource,
         schedule::{Schedule, SystemSet},
         system::{Res, ResMut},
@@ -744,7 +745,7 @@ mod tests {
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::CrossDependency(_, _))
+                Err(ScheduleBuildError::CrossDependency(_))
             ));
         }
 
@@ -769,7 +770,7 @@ mod tests {
             // `foo` can't be in both `A` and `C` because they can't run at the same time.
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::SetsHaveOrderButIntersect(_, _))
+                Err(ScheduleBuildError::SetsHaveOrderButIntersect(_))
             ));
         }
 
@@ -988,6 +989,16 @@ mod tests {
 
             let _ = schedule.initialize(&mut world);
 
+            // this should fail, since resources are components
+            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
+
+            schedule = Schedule::default();
+            schedule.add_systems((
+                resmut_system,
+                |_query: Query<EntityRef, Without<IsResource>>| {},
+            ));
+
+            // this should not fail, since the queries are disjoint
             assert_eq!(schedule.graph().conflicting_systems().len(), 0);
         }
 
@@ -1001,6 +1012,17 @@ mod tests {
 
             let _ = schedule.initialize(&mut world);
 
+            // this should fail, since resources are components
+            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
+
+            schedule = Schedule::default();
+            schedule.add_systems((
+                res_system,
+                nonsend_system,
+                |_query: Query<EntityMut, Without<IsResource>>| {},
+            ));
+
+            // this should not fail, since the queries are disjoint
             assert_eq!(schedule.graph().conflicting_systems().len(), 0);
         }
 
@@ -1151,7 +1173,8 @@ mod tests {
 
             let ambiguities: Vec<_> = schedule
                 .graph()
-                .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
+                .conflicting_systems()
+                .to_string(schedule.graph(), world.components())
                 .map(|item| {
                     (
                         item.0,
@@ -1209,7 +1232,8 @@ mod tests {
 
             let ambiguities: Vec<_> = schedule
                 .graph()
-                .conflicts_to_string(schedule.graph().conflicting_systems(), world.components())
+                .conflicting_systems()
+                .to_string(schedule.graph(), world.components())
                 .map(|item| {
                     (
                         item.0,

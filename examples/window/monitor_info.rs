@@ -56,13 +56,7 @@ fn update(
             .id();
 
         let camera = commands
-            .spawn((
-                Camera2d,
-                Camera {
-                    target: RenderTarget::Window(WindowRef::Entity(window)),
-                    ..default()
-                },
-            ))
+            .spawn((Camera2d, RenderTarget::Window(WindowRef::Entity(window))))
             .id();
 
         let info_text = format!(

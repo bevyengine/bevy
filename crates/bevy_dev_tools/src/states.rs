@@ -13,6 +13,15 @@ pub fn log_transitions<S: States>(mut transitions: MessageReader<StateTransition
         return;
     };
     let name = core::any::type_name::<S>();
-    let StateTransitionEvent { exited, entered } = transition;
-    info!("{} transition: {:?} => {:?}", name, exited, entered);
+    let StateTransitionEvent {
+        exited,
+        entered,
+        allow_same_state_transitions,
+    } = transition;
+    let skip_text = if exited == entered && !*allow_same_state_transitions {
+        " (disallowing same-state transitions)"
+    } else {
+        ""
+    };
+    info!("{name} transition: {exited:?} => {entered:?}{skip_text}");
 }

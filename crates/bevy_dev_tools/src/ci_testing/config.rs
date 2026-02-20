@@ -1,4 +1,5 @@
 use bevy_ecs::prelude::*;
+use bevy_math::{Quat, Vec3};
 use serde::Deserialize;
 
 /// A configuration struct for automated CI testing.
@@ -6,7 +7,7 @@ use serde::Deserialize;
 /// It gets used when the `bevy_ci_testing` feature is enabled to automatically
 /// exit a Bevy app when run through the CI. This is needed because otherwise
 /// Bevy apps would be stuck in the game loop and wouldn't allow the CI to progress.
-#[derive(Deserialize, Resource, PartialEq, Debug, Default)]
+#[derive(Deserialize, Resource, PartialEq, Debug, Default, Clone)]
 pub struct CiTestingConfig {
     /// The setup for this test.
     #[serde(default)]
@@ -17,7 +18,7 @@ pub struct CiTestingConfig {
 }
 
 /// Setup for a test.
-#[derive(Deserialize, Default, PartialEq, Debug)]
+#[derive(Deserialize, Default, PartialEq, Debug, Clone)]
 pub struct CiTestingSetup {
     /// The amount of time in seconds between frame updates.
     ///
@@ -28,11 +29,11 @@ pub struct CiTestingSetup {
 }
 
 /// An event to send at a given frame, used for CI testing.
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Debug, Clone)]
 pub struct CiTestingEventOnFrame(pub u32, pub CiTestingEvent);
 
 /// An event to send, used for CI testing.
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Debug, Clone)]
 pub enum CiTestingEvent {
     /// Takes a screenshot of the entire screen, and saves the results to
     /// `screenshot-{current_frame}.png`.
@@ -47,6 +48,17 @@ pub enum CiTestingEvent {
     ///
     /// [`AppExit::Success`]: bevy_app::AppExit::Success
     AppExit,
+    /// Starts recording the screen.
+    StartScreenRecording,
+    /// Stops recording the screen.
+    StopScreenRecording,
+    /// Smoothly moves the camera to the given position.
+    MoveCamera {
+        /// Position to move the camera to.
+        translation: Vec3,
+        /// Rotation to move the camera to.
+        rotation: Quat,
+    },
     /// Sends a [`CiTestingCustomEvent`] using the given [`String`].
     Custom(String),
 }

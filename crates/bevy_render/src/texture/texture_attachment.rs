@@ -12,6 +12,7 @@ use wgpu::{
 pub struct ColorAttachment {
     pub texture: CachedTexture,
     pub resolve_target: Option<CachedTexture>,
+    pub previous_frame_texture: Option<CachedTexture>,
     clear_color: Option<LinearRgba>,
     is_first_call: Arc<AtomicBool>,
 }
@@ -20,11 +21,13 @@ impl ColorAttachment {
     pub fn new(
         texture: CachedTexture,
         resolve_target: Option<CachedTexture>,
+        previous_frame_texture: Option<CachedTexture>,
         clear_color: Option<LinearRgba>,
     ) -> Self {
         Self {
             texture,
             resolve_target,
+            previous_frame_texture,
             clear_color,
             is_first_call: Arc::new(AtomicBool::new(true)),
         }
@@ -127,15 +130,15 @@ impl DepthAttachment {
 #[derive(Clone)]
 pub struct OutputColorAttachment {
     pub view: TextureView,
-    pub format: TextureFormat,
+    pub view_format: TextureFormat,
     is_first_call: Arc<AtomicBool>,
 }
 
 impl OutputColorAttachment {
-    pub fn new(view: TextureView, format: TextureFormat) -> Self {
+    pub fn new(view: TextureView, view_format: TextureFormat) -> Self {
         Self {
             view,
-            format,
+            view_format,
             is_first_call: Arc::new(AtomicBool::new(true)),
         }
     }
@@ -158,5 +161,12 @@ impl OutputColorAttachment {
                 store: StoreOp::Store,
             },
         }
+    }
+
+    /// Returns `true` if this attachment has been written to by a render pass.
+    // we re-use is_first_call atomic to track usage, which assumes that calls to get_attachment
+    // are always consumed by a render pass that writes to the attachment
+    pub fn needs_present(&self) -> bool {
+        !self.is_first_call.load(Ordering::SeqCst)
     }
 }

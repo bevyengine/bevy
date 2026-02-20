@@ -66,6 +66,12 @@ impl<V, H> Hash for Hashed<V, H> {
     }
 }
 
+impl<V: Hash, H: BuildHasher + Default> From<V> for Hashed<V, H> {
+    fn from(value: V) -> Self {
+        Self::new(value)
+    }
+}
+
 impl<V, H> Deref for Hashed<V, H> {
     type Target = V;
 

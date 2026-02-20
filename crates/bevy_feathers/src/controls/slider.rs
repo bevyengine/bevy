@@ -12,12 +12,12 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, Spawned, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    spawn::SpawnRelated,
     system::{Commands, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_text::FontSize;
 use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
@@ -86,6 +86,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
             flex_grow: 1.0,
+            border_radius: RoundedCorners::All.to_border_radius(6.0),
             ..Default::default()
         },
         Slider {
@@ -96,7 +97,6 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
         SliderRange::new(props.min, props.max),
         EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
         TabIndex(0),
-        RoundedCorners::All.to_border_radius(6.0),
         // Use a gradient to draw the moving bar
         BackgroundGradient(vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
@@ -122,7 +122,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             ThemeFontColor(tokens::SLIDER_TEXT),
             InheritableFont {
                 font: HandleOrPath::Path(fonts::MONO.to_owned()),
-                font_size: 12.0,
+                font_size: FontSize::Px(12.0),
             },
             children![(Text::new("10.0"), ThemedText, SliderValueText,)],
         )],

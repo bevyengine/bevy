@@ -19,10 +19,10 @@ fn gpixel_resolve(gpixel: vec4<u32>, depth: f32, pixel_id: vec2<u32>, view_size:
     let base_rough = unpack4x8unorm(gpixel.r);
     let base_color = pow(base_rough.rgb, vec3(2.2));
     let perceptual_roughness = base_rough.a;
-    let roughness = clamp(perceptual_roughness * perceptual_roughness, 0.001, 1.0);
+    let roughness = perceptual_roughness * perceptual_roughness;
     let props = unpack4x8unorm(gpixel.b);
     let reflectance = vec3(props.r);
-    let metallic = props.g;
+    let metallic = saturate(props.g); // TODO: Not sure why saturate is needed here to prevent NaNs
     let emissive = rgb9e5_to_vec3_(gpixel.g);
     let material = ResolvedMaterial(base_color, emissive, reflectance, perceptual_roughness, roughness, metallic);
 

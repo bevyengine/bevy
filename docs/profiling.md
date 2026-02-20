@@ -70,7 +70,7 @@ The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 
 #### Tracy Quickstart
 
-1. Install the [correct Tracy version](#finding-the-correct-tracy-version) (0.12.2 for Bevy 0.17)
+1. Install the [correct Tracy version](#finding-the-correct-tracy-version)
     - [Windows binaries (official)](https://github.com/wolfpld/tracy/releases)
     - [Macos and Linux binaries (third-party builds)](https://github.com/tracy-builds/tracy-builds/releases)
     - [Packages](https://repology.org/project/tracy/versions)
@@ -80,6 +80,7 @@ The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 4. Run your bevy app with `--features bevy/trace_tracy --release`
    - `--release` as theres little point to profiling unoptimized code
    - You can capture memory usage as well with `--features bevy/trace_tracy_memory`, at the cost of increased overhead.
+   - To see debug names for Bevy's own systems, add the `bevy/debug` feature with `--features bevy/trace_tracy,bevy/debug`.
 
 #### Finding the correct Tracy version
 

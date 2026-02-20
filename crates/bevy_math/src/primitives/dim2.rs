@@ -1727,13 +1727,14 @@ impl Triangle2d {
         let ca = a - c;
 
         // a^2 + b^2 < c^2 for an acute triangle
-        let mut side_lengths = [
+        let side_lengths = [
             ab.length_squared(),
             bc.length_squared(),
             ca.length_squared(),
         ];
-        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        side_lengths[0] + side_lengths[1] > side_lengths[2]
+        let sum = side_lengths[0] + side_lengths[1] + side_lengths[2];
+        let max = side_lengths[0].max(side_lengths[1]).max(side_lengths[2]);
+        sum - max > max
     }
 
     /// Checks if the triangle is obtuse, meaning one angle is greater than 90 degrees
@@ -1745,13 +1746,14 @@ impl Triangle2d {
         let ca = a - c;
 
         // a^2 + b^2 > c^2 for an obtuse triangle
-        let mut side_lengths = [
+        let side_lengths = [
             ab.length_squared(),
             bc.length_squared(),
             ca.length_squared(),
         ];
-        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        side_lengths[0] + side_lengths[1] < side_lengths[2]
+        let sum = side_lengths[0] + side_lengths[1] + side_lengths[2];
+        let max = side_lengths[0].max(side_lengths[1]).max(side_lengths[2]);
+        sum - max < max
     }
 
     /// Reverse the [`WindingOrder`] of the triangle
@@ -2280,6 +2282,18 @@ impl<P: Primitive2d + Clone + Inset> Ring<P> {
     pub fn from_primitive_and_thickness(primitive: P, thickness: f32) -> Self {
         let hollow = primitive.clone().inset(thickness);
         Ring::new(primitive, hollow)
+    }
+}
+
+impl<P: Primitive2d + Measured2d> Measured2d for Ring<P> {
+    #[inline]
+    fn area(&self) -> f32 {
+        self.outer_shape.area() - self.inner_shape.area()
+    }
+
+    #[inline]
+    fn perimeter(&self) -> f32 {
+        self.outer_shape.perimeter() + self.inner_shape.perimeter()
     }
 }
 

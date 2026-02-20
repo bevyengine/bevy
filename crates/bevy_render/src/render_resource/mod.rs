@@ -2,7 +2,6 @@ mod batched_uniform_buffer;
 mod bind_group;
 mod bind_group_entries;
 mod bind_group_layout;
-mod bind_group_layout_entries;
 mod bindless;
 mod buffer;
 mod buffer_vec;
@@ -10,7 +9,6 @@ mod gpu_array_buffer;
 mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
-pub mod resource_macros;
 mod specializer;
 mod storage_buffer;
 mod texture;
@@ -19,7 +17,6 @@ mod uniform_buffer;
 pub use bind_group::*;
 pub use bind_group_entries::*;
 pub use bind_group_layout::*;
-pub use bind_group_layout_entries::*;
 pub use bindless::*;
 pub use buffer::*;
 pub use buffer_vec::*;
@@ -49,9 +46,9 @@ pub use wgpu::{
     ComputePipelineDescriptor as RawComputePipelineDescriptor, CreateBlasDescriptor,
     CreateTlasDescriptor, DepthBiasState, DepthStencilState, DownlevelFlags, Extent3d, Face,
     Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState, FrontFace,
-    ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode, MultisampleState,
-    Operations, Origin3d, PipelineCompilationOptions, PipelineLayout, PipelineLayoutDescriptor,
-    PollType, PolygonMode, PrimitiveState, PrimitiveTopology, PushConstantRange,
+    ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode, MipmapFilterMode,
+    MultisampleState, Operations, Origin3d, PipelineCompilationOptions, PipelineLayout,
+    PipelineLayoutDescriptor, PollType, PolygonMode, PrimitiveState, PrimitiveTopology,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
     RenderPipelineDescriptor as RawRenderPipelineDescriptor, Sampler as WgpuSampler,
     SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
@@ -72,3 +69,17 @@ pub mod encase {
 pub use self::encase::{ShaderSize, ShaderType};
 
 pub use naga::ShaderStage;
+
+pub use bevy_material::{
+    bind_group_layout_entries::{
+        binding_types, BindGroupLayoutEntries, BindGroupLayoutEntryBuilder,
+        DynamicBindGroupLayoutEntries, IntoBindGroupLayoutEntryBuilder,
+        IntoBindGroupLayoutEntryBuilderArray, IntoIndexedBindGroupLayoutEntryBuilderArray,
+    },
+    descriptor::{
+        BindGroupLayoutDescriptor, CachedComputePipelineId, CachedRenderPipelineId,
+        ComputePipelineDescriptor, FragmentState, PipelineDescriptor, RenderPipelineDescriptor,
+        VertexState,
+    },
+    specialize::SpecializedMeshPipelineError,
+};

@@ -2,7 +2,7 @@ use crate::{
     io::{AssetSourceEvent, AssetWatcher},
     path::normalize_path,
 };
-use alloc::borrow::ToOwned;
+use alloc::{borrow::ToOwned, vec::Vec};
 use async_channel::Sender;
 use core::time::Duration;
 use notify_debouncer_full::{
@@ -35,7 +35,7 @@ impl FileWatcher {
         sender: Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
-        let root = normalize_path(&path).canonicalize()?;
+        let root = make_absolute_path(&path)?;
         let watcher = new_asset_event_debouncer(
             path.clone(),
             debounce_wait_time,
@@ -50,6 +50,14 @@ impl FileWatcher {
 }
 
 impl AssetWatcher for FileWatcher {}
+
+/// Converts the provided path into an absolute one.
+fn make_absolute_path(path: &Path) -> Result<PathBuf, std::io::Error> {
+    // We use `normalize` + `absolute` instead of `canonicalize` to avoid reading the filesystem to
+    // resolve the path. This also means that paths that no longer exist can still become absolute
+    // (e.g., a file that was renamed will have the "old" path no longer exist).
+    Ok(normalize_path(&std::path::absolute(path)?))
+}
 
 pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, bool) {
     let relative_path = absolute_path.strip_prefix(root).unwrap_or_else(|_| {
@@ -85,40 +93,40 @@ pub(crate) fn new_asset_event_debouncer(
                 Ok(events) => {
                     handler.begin();
                     for event in events.iter() {
+                        // Make all the paths absolute here so we don't need to do it in each
+                        // handler.
+                        let paths = event
+                            .paths
+                            .iter()
+                            .map(PathBuf::as_path)
+                            .map(|p| {
+                                make_absolute_path(p).expect("paths from the debouncer are valid")
+                            })
+                            .collect::<Vec<_>>();
+
                         match event.kind {
                             notify::EventKind::Create(CreateKind::File) => {
-                                if let Some((path, is_meta)) = handler.get_path(&event.paths[0]) {
+                                if let Some((path, is_meta)) = handler.get_path(&paths[0]) {
                                     if is_meta {
-                                        handler.handle(
-                                            &event.paths,
-                                            AssetSourceEvent::AddedMeta(path),
-                                        );
+                                        handler.handle(&paths, AssetSourceEvent::AddedMeta(path));
                                     } else {
-                                        handler.handle(
-                                            &event.paths,
-                                            AssetSourceEvent::AddedAsset(path),
-                                        );
+                                        handler.handle(&paths, AssetSourceEvent::AddedAsset(path));
                                     }
                                 }
                             }
                             notify::EventKind::Create(CreateKind::Folder) => {
-                                if let Some((path, _)) = handler.get_path(&event.paths[0]) {
-                                    handler
-                                        .handle(&event.paths, AssetSourceEvent::AddedFolder(path));
+                                if let Some((path, _)) = handler.get_path(&paths[0]) {
+                                    handler.handle(&paths, AssetSourceEvent::AddedFolder(path));
                                 }
                             }
                             notify::EventKind::Access(AccessKind::Close(AccessMode::Write)) => {
-                                if let Some((path, is_meta)) = handler.get_path(&event.paths[0]) {
+                                if let Some((path, is_meta)) = handler.get_path(&paths[0]) {
                                     if is_meta {
-                                        handler.handle(
-                                            &event.paths,
-                                            AssetSourceEvent::ModifiedMeta(path),
-                                        );
+                                        handler
+                                            .handle(&paths, AssetSourceEvent::ModifiedMeta(path));
                                     } else {
-                                        handler.handle(
-                                            &event.paths,
-                                            AssetSourceEvent::ModifiedAsset(path),
-                                        );
+                                        handler
+                                            .handle(&paths, AssetSourceEvent::ModifiedAsset(path));
                                     }
                                 }
                             }
@@ -128,41 +136,39 @@ pub(crate) fn new_asset_event_debouncer(
                             // system.
                             notify::EventKind::Remove(RemoveKind::Any)
                             | notify::EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
-                                if let Some((path, is_meta)) = handler.get_path(&event.paths[0]) {
+                                if let Some((path, is_meta)) = handler.get_path(&paths[0]) {
                                     handler.handle(
-                                        &event.paths,
+                                        &paths,
                                         AssetSourceEvent::RemovedUnknown { path, is_meta },
                                     );
                                 }
                             }
                             notify::EventKind::Create(CreateKind::Any)
                             | notify::EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
-                                if let Some((path, is_meta)) = handler.get_path(&event.paths[0]) {
-                                    let asset_event = if event.paths[0].is_dir() {
+                                if let Some((path, is_meta)) = handler.get_path(&paths[0]) {
+                                    let asset_event = if paths[0].is_dir() {
                                         AssetSourceEvent::AddedFolder(path)
                                     } else if is_meta {
                                         AssetSourceEvent::AddedMeta(path)
                                     } else {
                                         AssetSourceEvent::AddedAsset(path)
                                     };
-                                    handler.handle(&event.paths, asset_event);
+                                    handler.handle(&paths, asset_event);
                                 }
                             }
                             notify::EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
-                                let Some((old_path, old_is_meta)) =
-                                    handler.get_path(&event.paths[0])
+                                let Some((old_path, old_is_meta)) = handler.get_path(&paths[0])
                                 else {
                                     continue;
                                 };
-                                let Some((new_path, new_is_meta)) =
-                                    handler.get_path(&event.paths[1])
+                                let Some((new_path, new_is_meta)) = handler.get_path(&paths[1])
                                 else {
                                     continue;
                                 };
                                 // only the new "real" path is considered a directory
-                                if event.paths[1].is_dir() {
+                                if paths[1].is_dir() {
                                     handler.handle(
-                                        &event.paths,
+                                        &paths,
                                         AssetSourceEvent::RenamedFolder {
                                             old: old_path,
                                             new: new_path,
@@ -172,7 +178,7 @@ pub(crate) fn new_asset_event_debouncer(
                                     match (old_is_meta, new_is_meta) {
                                         (true, true) => {
                                             handler.handle(
-                                                &event.paths,
+                                                &paths,
                                                 AssetSourceEvent::RenamedMeta {
                                                     old: old_path,
                                                     new: new_path,
@@ -181,7 +187,7 @@ pub(crate) fn new_asset_event_debouncer(
                                         }
                                         (false, false) => {
                                             handler.handle(
-                                                &event.paths,
+                                                &paths,
                                                 AssetSourceEvent::RenamedAsset {
                                                     old: old_path,
                                                     new: new_path,
@@ -202,40 +208,32 @@ pub(crate) fn new_asset_event_debouncer(
                                 }
                             }
                             notify::EventKind::Modify(_) => {
-                                let Some((path, is_meta)) = handler.get_path(&event.paths[0])
-                                else {
+                                let Some((path, is_meta)) = handler.get_path(&paths[0]) else {
                                     continue;
                                 };
-                                if event.paths[0].is_dir() {
+                                if paths[0].is_dir() {
                                     // modified folder means nothing in this case
                                 } else if is_meta {
-                                    handler
-                                        .handle(&event.paths, AssetSourceEvent::ModifiedMeta(path));
+                                    handler.handle(&paths, AssetSourceEvent::ModifiedMeta(path));
                                 } else {
-                                    handler.handle(
-                                        &event.paths,
-                                        AssetSourceEvent::ModifiedAsset(path),
-                                    );
+                                    handler.handle(&paths, AssetSourceEvent::ModifiedAsset(path));
                                 };
                             }
                             notify::EventKind::Remove(RemoveKind::File) => {
-                                let Some((path, is_meta)) = handler.get_path(&event.paths[0])
-                                else {
+                                let Some((path, is_meta)) = handler.get_path(&paths[0]) else {
                                     continue;
                                 };
                                 if is_meta {
-                                    handler
-                                        .handle(&event.paths, AssetSourceEvent::RemovedMeta(path));
+                                    handler.handle(&paths, AssetSourceEvent::RemovedMeta(path));
                                 } else {
-                                    handler
-                                        .handle(&event.paths, AssetSourceEvent::RemovedAsset(path));
+                                    handler.handle(&paths, AssetSourceEvent::RemovedAsset(path));
                                 }
                             }
                             notify::EventKind::Remove(RemoveKind::Folder) => {
-                                let Some((path, _)) = handler.get_path(&event.paths[0]) else {
+                                let Some((path, _)) = handler.get_path(&paths[0]) else {
                                     continue;
                                 };
-                                handler.handle(&event.paths, AssetSourceEvent::RemovedFolder(path));
+                                handler.handle(&paths, AssetSourceEvent::RemovedFolder(path));
                             }
                             _ => {}
                         }
@@ -262,8 +260,7 @@ impl FilesystemEventHandler for FileEventHandler {
         self.last_event = None;
     }
     fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)> {
-        let absolute_path = absolute_path.canonicalize().ok()?;
-        Some(get_asset_path(&self.root, &absolute_path))
+        Some(get_asset_path(&self.root, absolute_path))
     }
 
     fn handle(&mut self, _absolute_paths: &[PathBuf], event: AssetSourceEvent) {

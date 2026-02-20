@@ -339,7 +339,7 @@ pub fn queue_ui_slices(
             UiTextureSlicePipelineKey { hdr: view.hdr },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
@@ -518,7 +518,7 @@ pub fn prepare_ui_slices(
                     ];
 
                     let transformed_rect_size =
-                        texture_slices.transform.transform_vector2(rect_size);
+                        texture_slices.transform.transform_vector2(rect_size).abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -732,18 +732,18 @@ fn compute_texture_slices(
 
             // calculate the normalized extents of the nine-patched image slices
             let slices = [
-                border_rect.left / image_size.x,
-                border_rect.top / image_size.y,
-                1. - border_rect.right / image_size.x,
-                1. - border_rect.bottom / image_size.y,
+                border_rect.min_inset.x / image_size.x,
+                border_rect.min_inset.y / image_size.y,
+                1. - border_rect.max_inset.x / image_size.x,
+                1. - border_rect.max_inset.y / image_size.y,
             ];
 
             // calculate the normalized extents of the target slices
             let border = [
-                (border_rect.left / target_size.x) * min_coeff,
-                (border_rect.top / target_size.y) * min_coeff,
-                1. - (border_rect.right / target_size.x) * min_coeff,
-                1. - (border_rect.bottom / target_size.y) * min_coeff,
+                (border_rect.min_inset.x / target_size.x) * min_coeff,
+                (border_rect.min_inset.y / target_size.y) * min_coeff,
+                1. - (border_rect.max_inset.x / target_size.x) * min_coeff,
+                1. - (border_rect.max_inset.y / target_size.y) * min_coeff,
             ];
 
             let image_side_width = image_size.x * (slices[2] - slices[0]);

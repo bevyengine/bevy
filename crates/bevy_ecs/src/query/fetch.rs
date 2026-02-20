@@ -1,10 +1,16 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
-    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
+    change_detection::{
+        ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
+        ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, MaybeLocation, Tick,
+    },
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
+    query::{
+        access_iter::{EcsAccessLevel, EcsAccessType},
+        Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery,
+    },
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -13,7 +19,7 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
+use core::{cell::UnsafeCell, iter, marker::PhantomData, panic::Location};
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -96,14 +102,16 @@ use variadics_please::all_tuples;
 ///
 /// ## Macro expansion
 ///
-/// Expanding the macro will declare one or three additional structs, depending on whether or not the struct is marked as mutable.
+/// Expanding the macro will declare one to five additional structs, depending on whether or not the struct is marked as mutable or as contiguous.
 /// For a struct named `X`, the additional structs will be:
 ///
-/// |Struct name|`mutable` only|Description|
-/// |:---:|:---:|---|
-/// |`XItem`|---|The type of the query item for `X`|
-/// |`XReadOnlyItem`|✓|The type of the query item for `XReadOnly`|
-/// |`XReadOnly`|✓|[`ReadOnly`] variant of `X`|
+/// |Struct name|`mutable` only|`contiguous` target|Description|
+/// |:---:|:---:|:---:|---|
+/// |`XItem`|---|---|The type of the query item for `X`|
+/// |`XReadOnlyItem`|✓|---|The type of the query item for `XReadOnly`|
+/// |`XReadOnly`|✓|---|[`ReadOnly`] variant of `X`|
+/// |`XContiguousItem`|---|`mutable` or `all`|The type of the contiguous query item for `X`|
+/// |`XReadOnlyContiguousItem`|✓|`immutable` or `all`|The type of the contiguous query item for `XReadOnly`|
 ///
 /// ## Adding mutable references
 ///
@@ -139,11 +147,41 @@ use variadics_please::all_tuples;
 /// }
 /// ```
 ///
+/// ## Supporting contiguous iteration
+///
+/// To create contiguous items additionally (to support contiguous iteration), the struct must be marked with the `#[query_data(contiguous(target))]` attribute,
+/// where the target may be `all`, `mutable` or `immutable` (see the table above).
+///
+/// For mutable queries it may be done like this:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// #[derive(QueryData)]
+/// /// - contiguous(all) will create contiguous items for both read and mutable versions
+/// /// - contiguous(mutable) will only create a contiguous item for the mutable version
+/// /// - contiguous(immutable) will only create a contiguous item for the read only version
+/// #[query_data(mutable, contiguous(all))]
+/// struct CustomQuery {
+///     component_a: &'static mut ComponentA,
+/// }
+/// ```
+///
+/// For immutable queries `contiguous(immutable)` attribute will be **ignored**, meanwhile `contiguous(mutable)` and `contiguous(all)`
+/// will only generate a contiguous item for the (original) read only version.
+///
+/// To understand contiguous iteration refer to
+/// [`Query::contiguous_iter`](`crate::system::Query::contiguous_iter`)
+///
 /// ## Adding methods to query items
 ///
 /// It is possible to add methods to query items in order to write reusable logic about related components.
 /// This will often make systems more readable because low level logic is moved out from them.
-/// It is done by adding `impl` blocks with methods for the `-Item` or `-ReadOnlyItem` generated structs.
+/// It is done by adding `impl` blocks with methods for the `-Item`, `-ReadOnlyItem`, `-ContiguousItem` or `ContiguousReadOnlyItem`
+/// generated structs.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -208,7 +246,7 @@ use variadics_please::all_tuples;
 /// # struct ComponentA;
 /// #
 /// #[derive(QueryData)]
-/// #[query_data(mutable, derive(Debug))]
+/// #[query_data(mutable, derive(Debug), contiguous(all))]
 /// struct CustomQuery {
 ///     component_a: &'static ComponentA,
 /// }
@@ -218,6 +256,8 @@ use variadics_please::all_tuples;
 ///
 /// assert_debug::<CustomQueryItem>();
 /// assert_debug::<CustomQueryReadOnlyItem>();
+/// assert_debug::<CustomQueryContiguousItem>();
+/// assert_debug::<CustomQueryReadOnlyContiguousItem>();
 /// ```
 ///
 /// ## Query composition
@@ -342,6 +382,46 @@ pub unsafe trait QueryData: WorldQuery {
         entity: Entity,
         table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>>;
+
+    /// Returns an iterator over the access needed by [`QueryData::fetch`]. Access conflicts are usually
+    /// checked in [`WorldQuery::update_component_access`], but in certain cases this method can be useful to implement
+    /// a way of checking for access conflicts in a non-allocating way.
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>>;
+}
+
+/// A [`QueryData`] which allows getting a direct access to contiguous chunks of components'
+/// values, which may be used to apply simd-operations.
+///
+/// Contiguous iteration may be done via:
+/// - [`Query::contiguous_iter`](crate::system::Query::contiguous_iter),
+/// - [`Query::contiguous_iter_mut`](crate::system::Query::contiguous_iter_mut),
+///
+// NOTE: Even though all component references (&T, &mut T) implement this trait, it won't be executed for
+// SparseSet components because in that case the query is not dense.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be iterated contiguously",
+    label = "invalid contiguous `Query` data",
+    note = "if `{Self}` is a custom query type, using `QueryData` derive macro, ensure that the `#[query_data(contiguous(target))]` attribute is added"
+)]
+pub trait ContiguousQueryData: ArchetypeQueryData {
+    /// Item returned by [`ContiguousQueryData::fetch_contiguous`].
+    /// Represents a contiguous chunk of memory.
+    type Contiguous<'w, 's>;
+
+    /// Fetch [`ContiguousQueryData::Contiguous`] which represents a contiguous chunk of memory (e.g., an array) in the current [`Table`].
+    /// This must always be called after [`WorldQuery::set_table`].
+    ///
+    /// # Safety
+    ///
+    /// - Must always be called _after_ [`WorldQuery::set_table`].
+    /// - `entities`'s length must match the length of the set table.
+    /// - `entities` must match the entities of the set table.
+    /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
+    unsafe fn fetch_contiguous<'w, 's>(
+        state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's>;
 }
 
 /// A [`QueryData`] that is read only.
@@ -375,9 +455,9 @@ pub trait ReleaseStateQueryData: QueryData {
 /// The trait must only be implemented for query data where its corresponding [`QueryData::IS_ARCHETYPAL`] is [`prim@true`].
 pub trait ArchetypeQueryData: QueryData {}
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for Entity {
     type Fetch<'w> = ();
     type State = ();
@@ -427,7 +507,7 @@ unsafe impl WorldQuery for Entity {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for Entity {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -450,9 +530,13 @@ unsafe impl QueryData for Entity {
     ) -> Option<Self::Item<'w, 's>> {
         Some(entity)
     }
+
+    fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::empty()
+    }
 }
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for Entity {}
 
 impl ReleaseStateQueryData for Entity {
@@ -463,9 +547,21 @@ impl ReleaseStateQueryData for Entity {
 
 impl ArchetypeQueryData for Entity {}
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+impl ContiguousQueryData for Entity {
+    type Contiguous<'w, 's> = &'w [Entity];
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        _state: &'s Self::State,
+        _fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        entities
+    }
+}
+
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for EntityLocation {
     type Fetch<'w> = &'w Entities;
     type State = ();
@@ -520,7 +616,7 @@ unsafe impl WorldQuery for EntityLocation {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for EntityLocation {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -543,9 +639,13 @@ unsafe impl QueryData for EntityLocation {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         Some(unsafe { fetch.get_spawned(entity).debug_checked_unwrap() })
     }
+
+    fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::empty()
+    }
 }
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityLocation {}
 
 impl ReleaseStateQueryData for EntityLocation {
@@ -719,9 +819,13 @@ unsafe impl QueryData for SpawnDetails {
             this_run: fetch.this_run,
         })
     }
+
+    fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::empty()
+    }
 }
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for SpawnDetails {}
 
 impl ReleaseStateQueryData for SpawnDetails {
@@ -742,10 +846,10 @@ pub struct EntityFetch<'w> {
     this_run: Tick,
 }
 
-/// SAFETY:
-/// `fetch` accesses all components in a readonly way.
-/// This is sound because `update_component_access` sets read access for all components and panic when appropriate.
-/// Filters are unchanged.
+// SAFETY:
+// `fetch` accesses all components in a readonly way.
+// This is sound because `update_component_access` sets read access for all components and panic when appropriate.
+// Filters are unchanged.
 unsafe impl<'a> WorldQuery for EntityRef<'a> {
     type Fetch<'w> = EntityFetch<'w>;
     type State = ();
@@ -808,7 +912,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a> QueryData for EntityRef<'a> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -838,9 +942,13 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
         // SAFETY: Read-only access to every component has been registered.
         Some(unsafe { EntityRef::new(cell) })
     }
+
+    fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::once(EcsAccessType::Component(EcsAccessLevel::ReadAll))
+    }
 }
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
 
 impl ReleaseStateQueryData for EntityRef<'_> {
@@ -851,7 +959,7 @@ impl ReleaseStateQueryData for EntityRef<'_> {
 
 impl ArchetypeQueryData for EntityRef<'_> {}
 
-/// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
+// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for EntityMut<'a> {
     type Fetch<'w> = EntityFetch<'w>;
     type State = ();
@@ -914,7 +1022,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     }
 }
 
-/// SAFETY: access of `EntityRef` is a subset of `EntityMut`
+// SAFETY: access of `EntityRef` is a subset of `EntityMut`
 unsafe impl<'a> QueryData for EntityMut<'a> {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
@@ -944,6 +1052,10 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { EntityMut::new(cell) })
     }
+
+    fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::once(EcsAccessType::Component(EcsAccessLevel::WriteAll))
+    }
 }
 
 impl ReleaseStateQueryData for EntityMut<'_> {
@@ -954,7 +1066,7 @@ impl ReleaseStateQueryData for EntityMut<'_> {
 
 impl ArchetypeQueryData for EntityMut<'_> {}
 
-/// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
+// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     type Fetch<'w> = EntityFetch<'w>;
     type State = Access;
@@ -1019,8 +1131,8 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl QueryData for FilteredEntityRef<'_, '_> {
+// SAFETY: `Self` is the same as `Self::ReadOnly`
+unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
@@ -1068,14 +1180,18 @@ unsafe impl QueryData for FilteredEntityRef<'_, '_> {
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { FilteredEntityRef::new(cell, access) })
     }
+
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::once(EcsAccessType::Access(state))
+    }
 }
 
-/// SAFETY: Access is read-only.
+// SAFETY: Access is read-only.
 unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_, '_> {}
 
 impl ArchetypeQueryData for FilteredEntityRef<'_, '_> {}
 
-/// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
+// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     type Fetch<'w> = EntityFetch<'w>;
     type State = Access;
@@ -1140,7 +1256,7 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     }
 }
 
-/// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
+// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
 unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
@@ -1187,13 +1303,17 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { FilteredEntityMut::new(cell, access) })
     }
+
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::once(EcsAccessType::Access(state))
+    }
 }
 
 impl ArchetypeQueryData for FilteredEntityMut<'_, '_> {}
 
-/// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
-/// and populates `Access` values so that queries that conflict with this access
-/// are rejected.
+// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
+// and populates `Access` values so that queries that conflict with this access
+// are rejected.
 unsafe impl<'a, 'b, B> WorldQuery for EntityRefExcept<'a, 'b, B>
 where
     B: Bundle,
@@ -1243,26 +1363,24 @@ where
     fn init_state(world: &mut World) -> Self::State {
         let mut access = Access::new();
         access.read_all_components();
-        B::component_ids(&mut world.components_registrator(), &mut |id| {
+        for id in B::component_ids(&mut world.components_registrator()) {
             access.remove_component_read(id);
-        });
+        }
         access
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
         let mut access = Access::new();
         access.read_all_components();
-        B::get_component_ids(components, &mut |maybe_id| {
-            // If the component isn't registered, we don't have a `ComponentId`
-            // to use to exclude its access.
-            // Rather than fail, just try to take additional access.
-            // This is sound because access checks will run on the resulting access.
-            // Since the component isn't registered, there are no entities with that
-            // component, and the extra access will usually have no effect.
-            if let Some(id) = maybe_id {
-                access.remove_component_read(id);
-            }
-        });
+        // If the component isn't registered, we don't have a `ComponentId`
+        // to use to exclude its access.
+        // Rather than fail, just try to take additional access.
+        // This is sound because access checks will run on the resulting access.
+        // Since the component isn't registered, there are no entities with that
+        // component, and the extra access will usually have no effect.
+        for id in B::get_component_ids(components).flatten() {
+            access.remove_component_read(id);
+        }
         Some(access)
     }
 
@@ -1271,7 +1389,7 @@ where
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`.
+// SAFETY: `Self` is the same as `Self::ReadOnly`.
 unsafe impl<'a, 'b, B> QueryData for EntityRefExcept<'a, 'b, B>
 where
     B: Bundle,
@@ -1299,17 +1417,21 @@ where
             .unwrap();
         Some(EntityRefExcept::new(cell, access))
     }
+
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::once(EcsAccessType::Access(state))
+    }
 }
 
-/// SAFETY: `EntityRefExcept` enforces read-only access to its contained
-/// components.
+// SAFETY: `EntityRefExcept` enforces read-only access to its contained
+// components.
 unsafe impl<B> ReadOnlyQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
 
 impl<B: Bundle> ArchetypeQueryData for EntityRefExcept<'_, '_, B> {}
 
-/// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
-/// and populates `Access` values so that queries that conflict with this access
-/// are rejected.
+// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
+// and populates `Access` values so that queries that conflict with this access
+// are rejected.
 unsafe impl<'a, 'b, B> WorldQuery for EntityMutExcept<'a, 'b, B>
 where
     B: Bundle,
@@ -1359,26 +1481,24 @@ where
     fn init_state(world: &mut World) -> Self::State {
         let mut access = Access::new();
         access.write_all_components();
-        B::component_ids(&mut world.components_registrator(), &mut |id| {
+        for id in B::component_ids(&mut world.components_registrator()) {
             access.remove_component_read(id);
-        });
+        }
         access
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
         let mut access = Access::new();
         access.write_all_components();
-        B::get_component_ids(components, &mut |maybe_id| {
-            // If the component isn't registered, we don't have a `ComponentId`
-            // to use to exclude its access.
-            // Rather than fail, just try to take additional access.
-            // This is sound because access checks will run on the resulting access.
-            // Since the component isn't registered, there are no entities with that
-            // component, and the extra access will usually have no effect.
-            if let Some(id) = maybe_id {
-                access.remove_component_read(id);
-            }
-        });
+        // If the component isn't registered, we don't have a `ComponentId`
+        // to use to exclude its access.
+        // Rather than fail, just try to take additional access.
+        // This is sound because access checks will run on the resulting access.
+        // Since the component isn't registered, there are no entities with that
+        // component, and the extra access will usually have no effect.
+        for id in B::get_component_ids(components).flatten() {
+            access.remove_component_read(id);
+        }
         Some(access)
     }
 
@@ -1387,8 +1507,8 @@ where
     }
 }
 
-/// SAFETY: All accesses that `EntityRefExcept` provides are also accesses that
-/// `EntityMutExcept` provides.
+// SAFETY: All accesses that `EntityRefExcept` provides are also accesses that
+// `EntityMutExcept` provides.
 unsafe impl<'a, 'b, B> QueryData for EntityMutExcept<'a, 'b, B>
 where
     B: Bundle,
@@ -1416,13 +1536,17 @@ where
             .unwrap();
         Some(EntityMutExcept::new(cell, access))
     }
+
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::once(EcsAccessType::Access(state))
+    }
 }
 
 impl<B: Bundle> ArchetypeQueryData for EntityMutExcept<'_, '_, B> {}
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for &Archetype {
     type Fetch<'w> = (&'w Entities, &'w Archetypes);
     type State = ();
@@ -1477,7 +1601,7 @@ unsafe impl WorldQuery for &Archetype {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for &Archetype {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -1503,9 +1627,13 @@ unsafe impl QueryData for &Archetype {
         // SAFETY: The assigned archetype for a living entity must always be valid.
         Some(unsafe { archetypes.get(location.archetype_id).debug_checked_unwrap() })
     }
+
+    fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::empty()
+    }
 }
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for &Archetype {}
 
 impl ReleaseStateQueryData for &Archetype {
@@ -1535,11 +1663,11 @@ impl<T: Component> Clone for ReadFetch<'_, T> {
 
 impl<T: Component> Copy for ReadFetch<'_, T> {}
 
-/// SAFETY:
-/// `fetch` accesses a single component in a readonly way.
-/// This is sound because `update_component_access` adds read access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+// SAFETY:
+// `fetch` accesses a single component in a readonly way.
+// This is sound because `update_component_access` adds read access for that component and panic when appropriate.
+// `update_component_access` adds a `With` filter for a component.
+// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for &T {
     type Fetch<'w> = ReadFetch<'w, T>;
     type State = ComponentId;
@@ -1632,7 +1760,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for &T {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -1657,7 +1785,7 @@ unsafe impl<T: Component> QueryData for &T {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: Caller ensures `table_row` is in range.
-                let item = unsafe { table.get(table_row.index()) };
+                let item = unsafe { table.get_unchecked(table_row.index()) };
                 item.deref()
             },
             |sparse_set| {
@@ -1672,9 +1800,41 @@ unsafe impl<T: Component> QueryData for &T {
             },
         ))
     }
+
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::once(EcsAccessType::Component(EcsAccessLevel::Read(*state)))
+    }
 }
 
-/// SAFETY: access is read only
+impl<T: Component> ContiguousQueryData for &T {
+    type Contiguous<'w, 's> = &'w [T];
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        _state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        fetch.components.extract(
+            |table| {
+                // SAFETY: The caller ensures `set_table` was previously called
+                let table = unsafe { table.debug_checked_unwrap() };
+                // SAFETY:
+                // - `table` is `entities.len()` long
+                // - `UnsafeCell<T>` has the same layout as `T`
+                unsafe { table.cast().as_slice_unchecked(entities.len()) }
+            },
+            |_| {
+                #[cfg(debug_assertions)]
+                unreachable!();
+                // SAFETY: The caller ensures query is dense
+                #[cfg(not(debug_assertions))]
+                core::hint::unreachable_unchecked();
+            },
+        )
+    }
+}
+
+// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyQueryData for &T {}
 
 impl<T: Component> ReleaseStateQueryData for &T {
@@ -1712,11 +1872,11 @@ impl<T: Component> Clone for RefFetch<'_, T> {
 
 impl<T: Component> Copy for RefFetch<'_, T> {}
 
-/// SAFETY:
-/// `fetch` accesses a single component in a readonly way.
-/// This is sound because `update_component_access` adds read access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+// SAFETY:
+// `fetch` accesses a single component in a readonly way.
+// This is sound because `update_component_access` adds read access for that component and panic when appropriate.
+// `update_component_access` adds a `With` filter for a component.
+// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     type Fetch<'w> = RefFetch<'w, T>;
     type State = ComponentId;
@@ -1818,7 +1978,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -1845,13 +2005,14 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
-                let component = unsafe { table_components.get(table_row.index()) };
+                let component = unsafe { table_components.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let added = unsafe { added_ticks.get(table_row.index()) };
+                let added = unsafe { added_ticks.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let changed = unsafe { changed_ticks.get(table_row.index()) };
+                let changed = unsafe { changed_ticks.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get(table_row.index()) });
+                let caller =
+                    callers.map(|callers| unsafe { callers.get_unchecked(table_row.index()) });
 
                 Ref {
                     value: component.deref(),
@@ -1884,9 +2045,13 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
             },
         ))
     }
+
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::once(EcsAccessType::Component(EcsAccessLevel::Read(*state)))
+    }
 }
 
-/// SAFETY: access is read only
+// SAFETY: access is read only
 unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
 impl<T: Component> ReleaseStateQueryData for Ref<'_, T> {
@@ -1896,6 +2061,50 @@ impl<T: Component> ReleaseStateQueryData for Ref<'_, T> {
 }
 
 impl<T: Component> ArchetypeQueryData for Ref<'_, T> {}
+
+impl<T: Component> ContiguousQueryData for Ref<'_, T> {
+    type Contiguous<'w, 's> = ContiguousRef<'w, T>;
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        _state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        fetch.components.extract(
+            |table| {
+                // SAFETY: set_table was previously called
+                let (table_components, added_ticks, changed_ticks, callers) =
+                    unsafe { table.debug_checked_unwrap() };
+
+                ContiguousRef {
+                    // SAFETY: `entities` has the same length as the rows in the set table.
+                    value: unsafe { table_components.cast().as_slice_unchecked(entities.len()) },
+                    // SAFETY:
+                    // - The caller ensures the permission to access ticks.
+                    // - `entities` has the same length as the rows in the set table hence the
+                    // ticks.
+                    ticks: unsafe {
+                        ContiguousComponentTicksRef::from_slice_ptrs(
+                            added_ticks,
+                            changed_ticks,
+                            callers,
+                            entities.len(),
+                            fetch.this_run,
+                            fetch.last_run,
+                        )
+                    },
+                }
+            },
+            |_| {
+                #[cfg(debug_assertions)]
+                unreachable!();
+                // SAFETY: the caller ensures that [`Self::set_table`] was called beforehand.
+                #[cfg(not(debug_assertions))]
+                core::hint::unreachable_unchecked();
+            },
+        )
+    }
+}
 
 /// The [`WorldQuery::Fetch`] type for `&mut T`.
 pub struct WriteFetch<'w, T: Component> {
@@ -1924,11 +2133,11 @@ impl<T: Component> Clone for WriteFetch<'_, T> {
 
 impl<T: Component> Copy for WriteFetch<'_, T> {}
 
-/// SAFETY:
-/// `fetch` accesses a single component mutably.
-/// This is sound because `update_component_access` adds write access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+// SAFETY:
+// `fetch` accesses a single component mutably.
+// This is sound because `update_component_access` adds write access for that component and panic when appropriate.
+// `update_component_access` adds a `With` filter for a component.
+// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
@@ -2030,7 +2239,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     }
 }
 
-/// SAFETY: access of `&T` is a subset of `&mut T`
+// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
     const IS_READ_ONLY: bool = false;
     const IS_ARCHETYPAL: bool = true;
@@ -2057,13 +2266,14 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
-                let component = unsafe { table_components.get(table_row.index()) };
+                let component = unsafe { table_components.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let added = unsafe { added_ticks.get(table_row.index()) };
+                let added = unsafe { added_ticks.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let changed = unsafe { changed_ticks.get(table_row.index()) };
+                let changed = unsafe { changed_ticks.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get(table_row.index()) });
+                let caller =
+                    callers.map(|callers| unsafe { callers.get_unchecked(table_row.index()) });
 
                 Mut {
                     value: component.deref_mut(),
@@ -2096,6 +2306,10 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
             },
         ))
     }
+
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::once(EcsAccessType::Component(EcsAccessLevel::Write(*state)))
+    }
 }
 
 impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
@@ -2106,15 +2320,59 @@ impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
 
 impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T {}
 
+impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
+    type Contiguous<'w, 's> = ContiguousMut<'w, T>;
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        _state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        fetch.components.extract(
+            |table| {
+                // SAFETY: set_table was previously called
+                let (table_components, added_ticks, changed_ticks, callers) =
+                    unsafe { table.debug_checked_unwrap() };
+
+                ContiguousMut {
+                    // SAFETY: `entities` has the same length as the rows in the set table.
+                    value: unsafe { table_components.as_mut_slice_unchecked(entities.len()) },
+                    // SAFETY:
+                    // - The caller ensures the permission to access ticks.
+                    // - `entities` has the same length as the rows in the set table hence the
+                    // ticks.
+                    ticks: unsafe {
+                        ContiguousComponentTicksMut::from_slice_ptrs(
+                            added_ticks,
+                            changed_ticks,
+                            callers,
+                            entities.len(),
+                            fetch.this_run,
+                            fetch.last_run,
+                        )
+                    },
+                }
+            },
+            |_| {
+                #[cfg(debug_assertions)]
+                unreachable!();
+                // SAFETY: the caller ensures that [`Self::set_table`] was called beforehand.
+                #[cfg(not(debug_assertions))]
+                core::hint::unreachable_unchecked();
+            },
+        )
+    }
+}
+
 /// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its read-only form, providing access to change detection methods.
 ///
 /// By contrast `&mut T` will result in a `Mut<T>` item in mutable form to record mutations, but result in a bare `&T` in read-only form.
-///
-/// SAFETY:
-/// `fetch` accesses a single component mutably.
-/// This is sound because `update_component_access` adds write access for that component and panic when appropriate.
-/// `update_component_access` adds a `With` filter for a component.
-/// This is sound because `matches_component_set` returns whether the set contains that component.
+//
+// SAFETY:
+// `fetch` accesses a single component mutably.
+// This is sound because `update_component_access` adds write access for that component and panic when appropriate.
+// `update_component_access` adds a `With` filter for a component.
+// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
@@ -2211,6 +2469,10 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
     ) -> Option<Self::Item<'w, 's>> {
         <&mut T as QueryData>::fetch(state, fetch, entity, table_row)
     }
+
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::once(EcsAccessType::Component(EcsAccessLevel::Write(*state)))
+    }
 }
 
 impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T> {
@@ -2220,6 +2482,18 @@ impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T> {
 }
 
 impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for Mut<'_, T> {}
+
+impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w, T> {
+    type Contiguous<'w, 's> = ContiguousMut<'w, T>;
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        <&mut T as ContiguousQueryData>::fetch_contiguous(state, fetch, entities)
+    }
+}
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {
@@ -2236,10 +2510,10 @@ impl<T: WorldQuery> Clone for OptionFetch<'_, T> {
     }
 }
 
-/// SAFETY:
-/// `fetch` might access any components that `T` accesses.
-/// This is sound because `update_component_access` adds the same accesses as `T`.
-/// Filters are unchanged.
+// SAFETY:
+// `fetch` might access any components that `T` accesses.
+// This is sound because `update_component_access` adds the same accesses as `T`.
+// Filters are unchanged.
 unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     type Fetch<'w> = OptionFetch<'w, T>;
     type State = T::State;
@@ -2359,9 +2633,13 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
                 .flatten(),
         )
     }
+
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        T::iter_access(state)
+    }
 }
 
-/// SAFETY: [`OptionFetch`] is read only because `T` is read only
+// SAFETY: [`OptionFetch`] is read only because `T` is read only
 unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 
 impl<T: ReleaseStateQueryData> ReleaseStateQueryData for Option<T> {
@@ -2373,6 +2651,21 @@ impl<T: ReleaseStateQueryData> ReleaseStateQueryData for Option<T> {
 // `Option` matches all entities, even if `T` does not,
 // so it's always an `ArchetypeQueryData`, even for non-archetypal `T`.
 impl<T: QueryData> ArchetypeQueryData for Option<T> {}
+
+impl<T: ContiguousQueryData> ContiguousQueryData for Option<T> {
+    type Contiguous<'w, 's> = Option<T::Contiguous<'w, 's>>;
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        fetch
+            .matches
+            // SAFETY: The invariants are upheld by the caller
+            .then(|| unsafe { T::fetch_contiguous(state, &mut fetch.fetch, entities) })
+    }
+}
 
 /// Returns a bool that describes if an entity has the component `T`.
 ///
@@ -2445,9 +2738,9 @@ impl<T> core::fmt::Debug for Has<T> {
     }
 }
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl<T: Component> WorldQuery for Has<T> {
     type Fetch<'w> = bool;
     type State = ComponentId;
@@ -2513,7 +2806,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 }
 
-/// SAFETY: `Self` is the same as `Self::ReadOnly`
+// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for Has<T> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -2535,9 +2828,13 @@ unsafe impl<T: Component> QueryData for Has<T> {
     ) -> Option<Self::Item<'w, 's>> {
         Some(*fetch)
     }
+
+    fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::empty()
+    }
 }
 
-/// SAFETY: [`Has`] is read only
+// SAFETY: [`Has`] is read only
 unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
 
 impl<T: Component> ReleaseStateQueryData for Has<T> {
@@ -2547,6 +2844,18 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
 }
 
 impl<T: Component> ArchetypeQueryData for Has<T> {}
+
+impl<T: Component> ContiguousQueryData for Has<T> {
+    type Contiguous<'w, 's> = bool;
+
+    unsafe fn fetch_contiguous<'w, 's>(
+        _state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        _entities: &'w [Entity],
+    ) -> Self::Contiguous<'w, 's> {
+        *fetch
+    }
+}
 
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
@@ -2610,10 +2919,15 @@ macro_rules! impl_tuple_query_data {
                 // SAFETY: The invariants are upheld by the caller.
                 Some(($(unsafe { $name::fetch($state, $name, entity, table_row) }?,)*))
             }
+
+            fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+                let ($($name,)*) = state;
+                iter::empty()$(.chain($name::iter_access($name)))*
+            }
         }
 
         $(#[$meta])*
-        /// SAFETY: each item in the tuple is read only
+        // SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for ($($name,)*) {}
 
         #[expect(
@@ -2633,6 +2947,38 @@ macro_rules! impl_tuple_query_data {
 
         $(#[$meta])*
         impl<$($name: ArchetypeQueryData),*> ArchetypeQueryData for ($($name,)*) {}
+
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
+        $(#[$meta])*
+        impl<$($name: ContiguousQueryData),*> ContiguousQueryData for ($($name,)*) {
+            type Contiguous<'w, 's> = ($($name::Contiguous::<'w, 's>,)*);
+
+            unsafe fn fetch_contiguous<'w, 's>(
+                state: &'s Self::State,
+                fetch: &mut Self::Fetch<'w>,
+                entities: &'w [Entity],
+            ) -> Self::Contiguous<'w, 's> {
+                let ($($state,)*) = state;
+                let ($($name,)*) = fetch;
+                // SAFETY: The invariants are upheld by the caller.
+                ($(unsafe {$name::fetch_contiguous($state, $name, entities)},)*)
+            }
+        }
     };
 }
 
@@ -2655,11 +3001,11 @@ macro_rules! impl_anytuple_fetch {
             clippy::unused_unit,
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
-        /// SAFETY:
-        /// `fetch` accesses are a subset of the subqueries' accesses
-        /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
-        /// `update_component_access` replaces the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
-        /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
+        // SAFETY:
+        // `fetch` accesses are a subset of the subqueries' accesses
+        // This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
+        // `update_component_access` replaces the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
+        // This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
             type Fetch<'w> = ($(($name::Fetch<'w>, bool),)*);
             type State = ($($name::State,)*);
@@ -2807,10 +3153,15 @@ macro_rules! impl_anytuple_fetch {
                     || !(false $(|| $name.1)*))
                 .then_some(result)
             }
+
+            fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+                let ($($name,)*) = state;
+                iter::empty()$(.chain($name::iter_access($name)))*
+            }
         }
 
         $(#[$meta])*
-        /// SAFETY: each item in the tuple is read only
+        // SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for AnyOf<($($name,)*)> {}
 
         #[expect(
@@ -2829,6 +3180,42 @@ macro_rules! impl_anytuple_fetch {
 
         $(#[$meta])*
         impl<$($name: ArchetypeQueryData),*> ArchetypeQueryData for AnyOf<($($name,)*)> {}
+
+
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
+        $(#[$meta])*
+        impl<$($name: ContiguousQueryData),*> ContiguousQueryData for AnyOf<($($name,)*)> {
+            type Contiguous<'w, 's> = ($(Option<$name::Contiguous<'w,'s>>,)*);
+
+            unsafe fn fetch_contiguous<'w, 's>(
+                state: &'s Self::State,
+                fetch: &mut Self::Fetch<'w>,
+                entities: &'w [Entity],
+            ) -> Self::Contiguous<'w, 's> {
+                let ($($name,)*) = fetch;
+                let ($($state,)*) = state;
+                // Matches the [`QueryData::fetch`] except it always returns Some
+                ($(
+                    // SAFETY: The invariants are upheld by the caller
+                    $name.1.then(|| unsafe { $name::fetch_contiguous($state, &mut $name.0, entities) }),
+                )*)
+            }
+        }
     };
 }
 
@@ -2856,9 +3243,9 @@ all_tuples!(
 /// This will rarely be useful to consumers of `bevy_ecs`.
 pub(crate) struct NopWorldQuery<D: QueryData>(PhantomData<D>);
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     type Fetch<'w> = ();
     type State = D::State;
@@ -2907,7 +3294,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     }
 }
 
-/// SAFETY: `Self::ReadOnly` is `Self`
+// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -2928,9 +3315,13 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     ) -> Option<Self::Item<'w, 's>> {
         Some(())
     }
+
+    fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::empty()
+    }
 }
 
-/// SAFETY: `NopFetch` never accesses any data
+// SAFETY: `NopFetch` never accesses any data
 unsafe impl<D: QueryData> ReadOnlyQueryData for NopWorldQuery<D> {}
 
 impl<D: QueryData> ReleaseStateQueryData for NopWorldQuery<D> {
@@ -2939,9 +3330,9 @@ impl<D: QueryData> ReleaseStateQueryData for NopWorldQuery<D> {
 
 impl<D: QueryData> ArchetypeQueryData for NopWorldQuery<D> {}
 
-/// SAFETY:
-/// `update_component_access` does nothing.
-/// This is sound because `fetch` does not access components.
+// SAFETY:
+// `update_component_access` does nothing.
+// This is sound because `fetch` does not access components.
 unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     type Fetch<'w> = ();
 
@@ -2993,7 +3384,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     }
 }
 
-/// SAFETY: `Self::ReadOnly` is `Self`
+// SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
@@ -3013,9 +3404,13 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     ) -> Option<Self::Item<'w, 's>> {
         Some(())
     }
+
+    fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        iter::empty()
+    }
 }
 
-/// SAFETY: `PhantomData` never accesses any world data.
+// SAFETY: `PhantomData` never accesses any world data.
 unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
 
 impl<T: ?Sized> ReleaseStateQueryData for PhantomData<T> {
@@ -3096,6 +3491,7 @@ impl<C: Component, T: Copy, S: Copy> Copy for StorageSwitch<C, T, S> {}
 mod tests {
     use super::*;
     use crate::change_detection::DetectChanges;
+    use crate::query::Without;
     use crate::system::{assert_is_system, Query};
     use bevy_ecs::prelude::Schedule;
     use bevy_ecs_macros::QueryData;
@@ -3144,9 +3540,9 @@ mod tests {
     fn derive_release_state() {
         struct NonReleaseQueryData;
 
-        /// SAFETY:
-        /// `update_component_access` do nothing.
-        /// This is sound because `fetch` does not access components.
+        // SAFETY:
+        // `update_component_access` do nothing.
+        // This is sound because `fetch` does not access components.
         unsafe impl WorldQuery for NonReleaseQueryData {
             type Fetch<'w> = ();
             type State = ();
@@ -3199,7 +3595,7 @@ mod tests {
             }
         }
 
-        /// SAFETY: `Self` is the same as `Self::ReadOnly`
+        // SAFETY: `Self` is the same as `Self::ReadOnly`
         unsafe impl QueryData for NonReleaseQueryData {
             type ReadOnly = Self;
             const IS_READ_ONLY: bool = true;
@@ -3221,9 +3617,13 @@ mod tests {
             ) -> Option<Self::Item<'w, 's>> {
                 Some(())
             }
+
+            fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+                iter::empty()
+            }
         }
 
-        /// SAFETY: access is read only
+        // SAFETY: access is read only
         unsafe impl ReadOnlyQueryData for NonReleaseQueryData {}
 
         impl ArchetypeQueryData for NonReleaseQueryData {}
@@ -3321,10 +3721,10 @@ mod tests {
 
         fn system(query: Query<EntityRef>) {
             for entity_ref in &query {
-                if let Some(c) = entity_ref.get_ref::<C>() {
-                    if !c.is_added() {
-                        panic!("Expected C to be added");
-                    }
+                if let Some(c) = entity_ref.get_ref::<C>()
+                    && !c.is_added()
+                {
+                    panic!("Expected C to be added");
                 }
             }
         }
@@ -3339,5 +3739,155 @@ mod tests {
 
         // we want EntityRef to use the change ticks of the system
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_contiguous_query_data() {
+        #[derive(Component, PartialEq, Eq, Debug)]
+        pub struct C(i32);
+
+        #[derive(Component, PartialEq, Eq, Debug)]
+        pub struct D(bool);
+
+        let mut world = World::new();
+        world.spawn((C(0), D(true)));
+        world.spawn((C(1), D(false)));
+        world.spawn(C(2));
+
+        let mut query = world.query::<(&C, &D)>();
+        let mut iter = query.contiguous_iter(&world).unwrap();
+        let c = iter.next().unwrap();
+        assert_eq!(c.0, [C(0), C(1)].as_slice());
+        assert_eq!(c.1, [D(true), D(false)].as_slice());
+        assert!(iter.next().is_none());
+
+        let mut query = world.query::<&C>();
+        let mut iter = query.contiguous_iter(&world).unwrap();
+        let mut present = [false; 3];
+        let mut len = 0;
+        for _ in 0..2 {
+            let c = iter.next().unwrap();
+            for c in c {
+                present[c.0 as usize] = true;
+                len += 1;
+            }
+        }
+        assert!(iter.next().is_none());
+        assert_eq!(len, 3);
+        assert_eq!(present, [true; 3]);
+
+        let mut query = world.query::<&mut C>();
+        let mut iter = query.contiguous_iter_mut(&mut world).unwrap();
+        for _ in 0..2 {
+            let c = iter.next().unwrap();
+            for c in c {
+                c.0 *= 2;
+            }
+        }
+        assert!(iter.next().is_none());
+        let mut iter = query.contiguous_iter(&world).unwrap();
+        let mut present = [false; 6];
+        let mut len = 0;
+        for _ in 0..2 {
+            let c = iter.next().unwrap();
+            for c in c {
+                present[c.0 as usize] = true;
+                len += 1;
+            }
+        }
+        assert_eq!(present, [true, false, true, false, true, false]);
+        assert_eq!(len, 3);
+
+        let mut query = world.query_filtered::<&C, Without<D>>();
+        let mut iter = query.contiguous_iter(&world).unwrap();
+        assert_eq!(iter.next().unwrap(), &[C(4)]);
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn sparse_set_contiguous_query() {
+        #[derive(Component, Debug, PartialEq, Eq)]
+        #[component(storage = "SparseSet")]
+        pub struct S(i32);
+
+        let mut world = World::new();
+        world.spawn(S(0));
+
+        let mut query = world.query::<&mut S>();
+        let iter = query.contiguous_iter_mut(&mut world);
+        assert!(iter.is_none());
+    }
+
+    #[test]
+    fn any_of_contiguous_test() {
+        #[derive(Component, Debug, Clone, Copy)]
+        pub struct C(i32);
+
+        #[derive(Component, Debug, Clone, Copy)]
+        pub struct D(i32);
+
+        let mut world = World::new();
+        world.spawn((C(0), D(1)));
+        world.spawn(C(2));
+        world.spawn(D(3));
+        world.spawn(());
+
+        let mut query = world.query::<AnyOf<(&C, &D)>>();
+        let iter = query.contiguous_iter(&world).unwrap();
+        let mut present = [false; 4];
+
+        for (c, d) in iter {
+            assert!(c.is_some() || d.is_some());
+            let c = c.unwrap_or_default();
+            let d = d.unwrap_or_default();
+            for i in 0..c.len().max(d.len()) {
+                let c = c.get(i).cloned();
+                let d = d.get(i).cloned();
+                if let Some(C(c)) = c {
+                    assert!(!present[c as usize]);
+                    present[c as usize] = true;
+                }
+                if let Some(D(d)) = d {
+                    assert!(!present[d as usize]);
+                    present[d as usize] = true;
+                }
+            }
+        }
+
+        assert_eq!(present, [true; 4]);
+    }
+
+    #[test]
+    fn option_contiguous_test() {
+        #[derive(Component, Clone, Copy)]
+        struct C(i32);
+
+        #[derive(Component, Clone, Copy)]
+        struct D(i32);
+
+        let mut world = World::new();
+        world.spawn((C(0), D(1)));
+        world.spawn(D(2));
+        world.spawn(C(3));
+
+        let mut query = world.query::<(Option<&C>, &D)>();
+        let iter = query.contiguous_iter(&world).unwrap();
+        let mut present = [false; 3];
+
+        for (c, d) in iter {
+            let c = c.unwrap_or_default();
+            for i in 0..d.len() {
+                let c = c.get(i).cloned();
+                let D(d) = d[i];
+                if let Some(C(c)) = c {
+                    assert!(!present[c as usize]);
+                    present[c as usize] = true;
+                }
+                assert!(!present[d as usize]);
+                present[d as usize] = true;
+            }
+        }
+
+        assert_eq!(present, [true; 3]);
     }
 }

@@ -1,5 +1,6 @@
 #import bevy_pbr::{
     forward_io::VertexOutput,
+    mesh_functions,
     mesh_view_bindings::view,
     pbr_types::{STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT, PbrInput, pbr_input_new},
     pbr_functions as fns,
@@ -15,7 +16,9 @@ fn fragment(
     @builtin(front_facing) is_front: bool,
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    let layer = i32(mesh.world_position.x) & 0x3;
+    // Determine which layer of the array texture to sample from based on the
+    // mesh tag which originates from the MeshTag component on the entity.
+    let layer = mesh_functions::get_tag(mesh.instance_index);
 
     // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
     // the material members

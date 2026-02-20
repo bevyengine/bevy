@@ -51,13 +51,6 @@ pub enum TrackClick {
 /// You can also control the slider remotely by triggering a [`SetSliderValue`] event on it. This
 /// can be useful in a console environment for controlling the value gamepad inputs.
 ///
-/// The presence of the `on_change` property controls whether the slider uses internal or external
-/// state management. If the `on_change` property is `None`, then the slider updates its own state
-/// automatically. Otherwise, the `on_change` property contains the id of a one-shot system which is
-/// passed the new slider value. In this case, the slider value is not modified, it is the
-/// responsibility of the callback to trigger whatever data-binding mechanism is used to update the
-/// slider's value.
-///
 /// Typically a slider will contain entities representing the "track" and "thumb" elements. The core
 /// slider makes no assumptions about the hierarchical structure of these elements, but expects that
 /// the thumb will be marked with a [`SliderThumb`] component.
@@ -264,22 +257,49 @@ pub(crate) fn slider_on_pointer_down(
             return;
         }
 
+        // Detect orientation: vertical if height > width
+        let is_vertical = node.size().y > node.size().x;
+
         // Find thumb size by searching descendants for the first entity with SliderThumb
         let thumb_size = q_children
             .iter_descendants(press.entity)
-            .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
+            .find_map(|child_id| {
+                q_thumb.get(child_id).ok().map(|thumb| {
+                    if is_vertical {
+                        thumb.size().y
+                    } else {
+                        thumb.size().x
+                    }
+                })
+            })
             .unwrap_or(0.0);
 
         // Detect track click.
         let local_pos = transform.try_inverse().unwrap().transform_point2(
             press.pointer_location.position * node_target.scale_factor() / ui_scale.0,
         );
-        let track_width = node.size().x - thumb_size;
-        // Avoid division by zero
-        let click_val = if track_width > 0. {
-            local_pos.x * range.span() / track_width + range.center()
+        let track_size = if is_vertical {
+            node.size().y - thumb_size
         } else {
-            0.
+            node.size().x - thumb_size
+        };
+
+        // Avoid division by zero
+        let click_val = if track_size > 0. {
+            if is_vertical {
+                // For vertical sliders: bottom-to-top (0 at bottom, max at top)
+                // local_pos.y ranges from -height/2 (top) to +height/2 (bottom)
+                let y_from_bottom = (node.size().y / 2.0) - local_pos.y;
+                let adjusted_y = y_from_bottom - thumb_size / 2.0;
+                adjusted_y * range.span() / track_size + range.start()
+            } else {
+                // For horizontal sliders: convert from center-origin to left-origin
+                let x_from_left = local_pos.x + node.size().x / 2.0;
+                let adjusted_x = x_from_left - thumb_size / 2.0;
+                adjusted_x * range.span() / track_size + range.start()
+            }
+        } else {
+            range.center()
         };
 
         // Compute new value from click position
@@ -330,7 +350,6 @@ pub(crate) fn slider_on_drag(
     mut event: On<Pointer<Drag>>,
     mut q_slider: Query<
         (
-            &SliderValue,
             &ComputedNode,
             &SliderRange,
             Option<&SliderPrecision>,
@@ -345,23 +364,42 @@ pub(crate) fn slider_on_drag(
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
-    if let Ok((value, node, range, precision, transform, drag, disabled)) =
-        q_slider.get_mut(event.entity)
+    if let Ok((node, range, precision, transform, drag, disabled)) = q_slider.get_mut(event.entity)
     {
         event.propagate(false);
         if drag.dragging && !disabled {
+            // Detect orientation: vertical if height > width
+            let is_vertical = node.size().y > node.size().x;
+
             let mut distance = event.distance / ui_scale.0;
             distance.y *= -1.;
             let distance = transform.transform_vector2(distance);
+
             // Find thumb size by searching descendants for the first entity with SliderThumb
             let thumb_size = q_children
                 .iter_descendants(event.entity)
-                .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
+                .find_map(|child_id| {
+                    q_thumb.get(child_id).ok().map(|thumb| {
+                        if is_vertical {
+                            thumb.size().y
+                        } else {
+                            thumb.size().x
+                        }
+                    })
+                })
                 .unwrap_or(0.0);
-            let slider_width = ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0);
+
+            let slider_size = if is_vertical {
+                ((node.size().y - thumb_size) * node.inverse_scale_factor).max(1.0)
+            } else {
+                ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0)
+            };
+
+            let drag_distance = if is_vertical { distance.y } else { distance.x };
+
             let span = range.span();
             let new_value = if span > 0. {
-                drag.offset + (distance.x * span) / slider_width
+                drag.offset + (drag_distance * span) / slider_size
             } else {
                 range.start() + span * 0.5
             };
@@ -371,12 +409,10 @@ pub(crate) fn slider_on_drag(
                     .unwrap_or(new_value),
             );
 
-            if rounded_value != value.0 {
-                commands.trigger(ValueChange {
-                    source: event.entity,
-                    value: rounded_value,
-                });
-            }
+            commands.trigger(ValueChange {
+                source: event.entity,
+                value: rounded_value,
+            });
         }
     }
 }
@@ -459,7 +495,9 @@ pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: D
     }
 }
 
-/// An [`EntityEvent`] that can be triggered on a slider to modify its value (using the `on_change` callback).
+/// An [`EntityEvent`] that can be triggered on a slider to modify its value (it will actually trigger
+/// a [`ValueChange`] event, hooking up a corresponding change to [`SliderValue`] is still the app's responsibility,
+/// see [`slider_self_update`]).
 /// This can be used to control the slider via gamepad buttons or other inputs. The value will be
 /// clamped when the event is processed.
 ///

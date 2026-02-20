@@ -616,7 +616,7 @@ pub fn queue_gradient(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (gradient.render_entity, gradient.main_entity),
@@ -777,7 +777,8 @@ pub fn prepare_gradient(
                         corner_points[3] + positions_diff[3],
                     ];
 
-                    let transformed_rect_size = gradient.transform.transform_vector2(rect_size);
+                    let transformed_rect_size =
+                        gradient.transform.transform_vector2(rect_size).abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -864,10 +865,10 @@ pub fn prepare_gradient(
                                     gradient.border_radius.bottom_left,
                                 ],
                                 border: [
-                                    gradient.border.left,
-                                    gradient.border.top,
-                                    gradient.border.right,
-                                    gradient.border.bottom,
+                                    gradient.border.min_inset.x,
+                                    gradient.border.min_inset.y,
+                                    gradient.border.max_inset.x,
+                                    gradient.border.max_inset.y,
                                 ],
                                 size: rect_size.xy().into(),
                                 g_start,

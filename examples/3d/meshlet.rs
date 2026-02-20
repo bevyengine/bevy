@@ -12,7 +12,7 @@ use bevy::{
 use std::f32::consts::PI;
 
 const ASSET_URL: &str =
-    "https://github.com/bevyengine/bevy_asset_files/raw/9bf88c42b9d06a3634eed633d90ce5fab02c31da/meshlet/bunny.meshlet_mesh";
+    "https://github.com/bevyengine/bevy_asset_files/raw/6dccaef517bde74d1969734703709aead7211dbc/meshlet/bunny.meshlet_mesh";
 
 fn main() {
     App::new()
@@ -52,7 +52,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         CascadeShadowConfigBuilder {

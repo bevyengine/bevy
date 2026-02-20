@@ -1,5 +1,8 @@
+use crate::CameraMovement;
+
 use super::config::*;
 use bevy_app::AppExit;
+use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 use bevy_render::view::screenshot::{save_to_disk, Screenshot};
 use tracing::{debug, info};
@@ -50,6 +53,28 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
                     "Took a screenshot at frame {} for {}.",
                     *current_frame, name
                 );
+            }
+            CiTestingEvent::StartScreenRecording => {
+                info!("Started recording screen at frame {}.", *current_frame);
+                #[cfg(feature = "screenrecording")]
+                world.write_message(crate::RecordScreen::Start);
+            }
+            CiTestingEvent::StopScreenRecording => {
+                info!("Stopped recording screen at frame {}.", *current_frame);
+                #[cfg(feature = "screenrecording")]
+                world.write_message(crate::RecordScreen::Stop);
+            }
+            CiTestingEvent::MoveCamera {
+                translation,
+                rotation,
+            } => {
+                info!("Moved camera at frame {}.", *current_frame);
+                if let Ok(camera) = world.query_filtered::<Entity, With<Camera>>().single(world) {
+                    world.entity_mut(camera).insert(CameraMovement {
+                        translation,
+                        rotation,
+                    });
+                }
             }
             // Custom events are forwarded to the world.
             CiTestingEvent::Custom(event_string) => {

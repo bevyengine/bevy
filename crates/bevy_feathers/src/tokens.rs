@@ -137,3 +137,8 @@ pub const SWITCH_SLIDE: ThemeToken = ThemeToken::new_static("feathers.switch.sli
 /// Switch slide (disabled)
 pub const SWITCH_SLIDE_DISABLED: ThemeToken =
     ThemeToken::new_static("feathers.switch.slide.disabled");
+
+// Color Plane
+
+/// Color plane frame background
+pub const COLOR_PLANE_BG: ThemeToken = ThemeToken::new_static("feathers.colorplane.bg");

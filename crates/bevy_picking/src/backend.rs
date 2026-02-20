@@ -129,7 +129,7 @@ pub mod ray {
     //! Types and systems for constructing rays from cameras and pointers.
 
     use crate::backend::prelude::{PointerId, PointerLocation};
-    use bevy_camera::Camera;
+    use bevy_camera::{Camera, RenderTarget};
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
     use bevy_platform::collections::{hash_map::Iter, HashMap};
@@ -196,20 +196,24 @@ pub mod ray {
         pub fn repopulate(
             mut ray_map: ResMut<Self>,
             primary_window_entity: Query<Entity, With<PrimaryWindow>>,
-            cameras: Query<(Entity, &Camera, &GlobalTransform)>,
+            cameras: Query<(Entity, &Camera, &RenderTarget, &GlobalTransform)>,
             pointers: Query<(&PointerId, &PointerLocation)>,
         ) {
             ray_map.map.clear();
 
-            for (camera_entity, camera, camera_tfm) in &cameras {
+            for (camera_entity, camera, render_target, camera_tfm) in &cameras {
                 if !camera.is_active {
                     continue;
                 }
 
                 for (&pointer_id, pointer_loc) in &pointers {
-                    if let Some(ray) =
-                        make_ray(&primary_window_entity, camera, camera_tfm, pointer_loc)
-                    {
+                    if let Some(ray) = make_ray(
+                        &primary_window_entity,
+                        camera,
+                        render_target,
+                        camera_tfm,
+                        pointer_loc,
+                    ) {
                         ray_map
                             .map
                             .insert(RayId::new(camera_entity, pointer_id), ray);
@@ -222,11 +226,12 @@ pub mod ray {
     fn make_ray(
         primary_window_entity: &Query<Entity, With<PrimaryWindow>>,
         camera: &Camera,
+        render_target: &RenderTarget,
         camera_tfm: &GlobalTransform,
         pointer_loc: &PointerLocation,
     ) -> Option<Ray3d> {
         let pointer_loc = pointer_loc.location()?;
-        if !pointer_loc.is_in_viewport(camera, primary_window_entity) {
+        if !pointer_loc.is_in_viewport(camera, render_target, primary_window_entity) {
             return None;
         }
         camera
