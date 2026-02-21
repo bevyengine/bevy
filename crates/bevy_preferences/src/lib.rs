@@ -13,8 +13,9 @@ use bevy_ecs::{
 pub use bevy_ecs_macros::SettingsGroup;
 use bevy_log::warn;
 use bevy_reflect::{
-    prelude::ReflectDefault, serde::TypedReflectDeserializer, FromReflect, FromType, Reflect,
-    ReflectDeserialize, ReflectSerialize, TypeInfo, TypePath, TypeRegistration,
+    prelude::ReflectDefault, serde::TypedReflectDeserializer, FromReflect, FromType,
+    PartialReflect, Reflect, ReflectDeserialize, ReflectMut, ReflectSerialize, TypeInfo, TypePath,
+    TypeRegistration, TypeRegistry,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -55,11 +56,14 @@ impl Plugin for PreferencesPlugin {
 
 /// Annotation for a type which overrides which preferences file the type's contents will be
 /// written to. By default, all preferences are written to a file named "settings".
-/// TODO: Change this to an option on the derive macro once I figure out how to do that.
+/// TODO: Change this to an option on the derive macro.
 #[derive(Debug, Clone, Reflect)]
 pub struct PreferencesFile(pub &'static str);
 
 /// Trait which identifies a type as corresponding to a section with a settings file.
+/// You can override the name of the section with `settings_group(group = "<name>")`.
+/// If there is a collision between names (multiple resources have the same name) then
+/// the resulting properties will be merged into a single section.
 pub trait SettingsGroup: Resource {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
@@ -120,7 +124,7 @@ impl Command for SavePreferencesSync {
 
 fn resources_to_toml(
     world: &World,
-    types: &bevy_reflect::TypeRegistry,
+    types: &TypeRegistry,
     manifest: &PreferenceFileManifest,
 ) -> toml::map::Map<String, toml::Value> {
     let mut table = toml::Table::new();
@@ -157,7 +161,20 @@ fn resources_to_toml(
         let ser_value = ser.get_serializable(reflect);
 
         let toml_value = toml::Value::try_from(&*ser_value).unwrap();
-        table.insert(group.to_string(), toml_value);
+        match (
+            toml_value.as_table(),
+            table.get_mut(group).and_then(|value| value.as_table_mut()),
+        ) {
+            (Some(from), Some(to)) => {
+                // Merge the tables
+                for (key, value) in from.iter() {
+                    to.insert(key.to_string(), value.clone());
+                }
+            }
+            _ => {
+                table.insert(group.to_string(), toml_value);
+            }
+        };
     }
     table
 }
@@ -300,7 +317,7 @@ impl LoadPreferences for App {
                 let component_id = world.components().get_id(*tid);
                 let res_entity = component_id.and_then(|cid| world.resource_entities().get(cid));
 
-                let deserializer = TypedReflectDeserializer::new(ty, &types);
+                // let deserializer = TypedReflectDeserializer::new(ty, &types);
                 if let Some(res_entity) = res_entity {
                     // Resource already exists, so apply toml properties to it.
                     let res_entity_mut = world.entity_mut(*res_entity);
@@ -311,8 +328,7 @@ impl LoadPreferences for App {
                     if let Some(ref toml) = toml
                         && let Some(value) = toml.get(group)
                     {
-                        let new_value = deserializer.deserialize(value.clone()).unwrap();
-                        reflect.apply(new_value.as_ref());
+                        load_properties(value, &mut *reflect, &types);
                     }
                 } else {
                     // The resource does not exist, so create a default.
@@ -324,8 +340,7 @@ impl LoadPreferences for App {
                     if let Some(ref toml) = toml
                         && let Some(value) = toml.get(group)
                     {
-                        let new_value = deserializer.deserialize(value.clone()).unwrap();
-                        default_value.apply(new_value.as_ref());
+                        load_properties(value, &mut *default_value, &types);
                     }
 
                     reflect_component.insert(
@@ -341,5 +356,29 @@ impl LoadPreferences for App {
         world.insert_resource::<PreferencesFileRegistry>(file_index);
 
         self
+    }
+}
+
+fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types: &TypeRegistry) {
+    let Some(tinfo) = resource.get_represented_type_info() else {
+        return;
+    };
+    if let TypeInfo::Struct(stinfo) = tinfo
+        && let Some(table) = value.as_table()
+        && let ReflectMut::Struct(st_reflect) = resource.reflect_mut()
+    {
+        // Deserialize matching field names, ignore ones that don't match.
+        for (idx, field) in stinfo.field_names().iter().enumerate() {
+            if let Some(toml_field_value) = table.get(*field)
+                && let Some(field_info) = stinfo.field_at(idx)
+                && let Some(field_type) = types.get(field_info.type_id())
+            {
+                let deserializer = TypedReflectDeserializer::new(field_type, types);
+                if let Ok(field_value) = deserializer.deserialize(toml_field_value.clone()) {
+                    // Should be safe to unwrap here since we know the field exists (above).
+                    st_reflect.field_at_mut(idx).unwrap().apply(&*field_value);
+                }
+            }
+        }
     }
 }
