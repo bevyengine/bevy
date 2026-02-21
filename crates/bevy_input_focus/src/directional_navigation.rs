@@ -944,7 +944,7 @@ mod tests {
             },
             FocusableArea {
                 entity: node_c,
-                position: Vec2::new(0.0, -50.0),
+                position: Vec2::new(0.0, 50.0),
                 size: Vec2::new(50.0, 50.0),
             },
         ];
