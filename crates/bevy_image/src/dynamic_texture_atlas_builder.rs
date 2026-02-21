@@ -37,10 +37,15 @@ impl DynamicTextureAtlasBuilder {
     /// # Arguments
     ///
     /// * `size` - total size for the atlas
-    /// * `padding` - gap added between textures in the atlas, both in x axis and y axis
+    /// * `padding` - gap added between textures in the atlas (and the atlas edge), both in x axis
+    ///   and y axis
     pub fn new(size: UVec2, padding: u32) -> Self {
+        // This doesn't need to be >= since `AtlasAllocator` requires non-zero size.
+        debug_assert!(size.x > padding && size.y > padding);
         Self {
-            atlas_allocator: AtlasAllocator::new(to_size2(size)),
+            // Leave out padding at the right and bottom, so we don't put textures on the edge of
+            // atlas.
+            atlas_allocator: AtlasAllocator::new(to_size2(size - padding)),
             padding,
         }
     }
@@ -62,20 +67,25 @@ impl DynamicTextureAtlasBuilder {
         texture: &Image,
         atlas_texture: &mut Image,
     ) -> Result<usize, DynamicTextureAtlasBuilderError> {
+        // Allocate enough space for the texture and the padding to the top and left (bottom and
+        // right padding are taken care off since the allocator size omits it on creation).
         let allocation = self.atlas_allocator.allocate(size2(
             (texture.width() + self.padding).try_into().unwrap(),
             (texture.height() + self.padding).try_into().unwrap(),
         ));
-        if let Some(allocation) = allocation {
+        if let Some(mut allocation) = allocation {
             assert!(
                 atlas_texture.asset_usage.contains(RenderAssetUsages::MAIN_WORLD),
                 "The atlas_texture image must have the RenderAssetUsages::MAIN_WORLD usage flag set"
             );
+            let rect = &mut allocation.rectangle;
+            // Remove the padding from the top and left (bottom and right padding is taken care of
+            // by the "next" allocation and the border restriction).
+            rect.min.x += self.padding as i32;
+            rect.min.y += self.padding as i32;
 
             self.place_texture(atlas_texture, allocation, texture)?;
-            let mut rect: URect = to_rect(allocation.rectangle);
-            rect.max = rect.max.saturating_sub(UVec2::splat(self.padding));
-            Ok(atlas_layout.add_texture(rect))
+            Ok(atlas_layout.add_texture(to_rect(allocation.rectangle)))
         } else {
             Err(DynamicTextureAtlasBuilderError::FailedToAllocateSpace)
         }
@@ -87,9 +97,7 @@ impl DynamicTextureAtlasBuilder {
         allocation: Allocation,
         texture: &Image,
     ) -> Result<(), DynamicTextureAtlasBuilderError> {
-        let mut rect = allocation.rectangle;
-        rect.max.x -= self.padding as i32;
-        rect.max.y -= self.padding as i32;
+        let rect = &allocation.rectangle;
         let atlas_width = atlas_texture.width() as usize;
         let rect_width = rect.width() as usize;
         let format_size = atlas_texture.texture_descriptor.format.pixel_size()?;
