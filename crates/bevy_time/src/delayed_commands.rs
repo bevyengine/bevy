@@ -20,7 +20,7 @@ pub struct DelayedCommands<'w, 's> {
     queues: HashMap<Duration, CommandQueue>,
 }
 
-impl<'w, 's, 'q> DelayedCommands<'w, 's> {
+impl<'w, 's> DelayedCommands<'w, 's> {
     /// Return a [`Commands`] whose commands will be delayed by `secs` seconds.
     pub fn secs(&mut self, secs: f32) -> Commands<'w, '_> {
         let queue = self
