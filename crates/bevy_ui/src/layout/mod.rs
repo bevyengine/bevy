@@ -21,7 +21,7 @@ use ui_surface::UiSurface;
 
 use bevy_text::ComputedTextBlock;
 
-use bevy_text::CosmicFontSystem;
+use bevy_text::FontCx;
 
 mod convert;
 pub mod debug;
@@ -92,7 +92,7 @@ pub fn ui_layout_system(
         Option<&IgnoreScroll>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
-    mut font_system: ResMut<CosmicFontSystem>,
+    mut font_system: ResMut<FontCx>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
@@ -388,8 +388,8 @@ mod tests {
         app.init_resource::<UiScale>();
         app.init_resource::<UiSurface>();
         app.init_resource::<bevy_text::TextPipeline>();
-        app.init_resource::<bevy_text::CosmicFontSystem>();
-        app.init_resource::<bevy_text::SwashCache>();
+        app.init_resource::<bevy_text::FontCx>();
+        app.init_resource::<bevy_text::ScaleCx>();
         app.init_resource::<bevy_transform::StaticTransformOptimizations>();
 
         app.add_systems(
@@ -1095,9 +1095,9 @@ mod tests {
 
         world.init_resource::<bevy_text::TextPipeline>();
 
-        world.init_resource::<bevy_text::CosmicFontSystem>();
+        world.init_resource::<bevy_text::FontCx>();
 
-        world.init_resource::<bevy_text::SwashCache>();
+        world.init_resource::<bevy_text::ScaleCx>();
 
         let ui_root = world
             .spawn(Node {
@@ -1137,7 +1137,7 @@ mod tests {
             params: In<TestSystemParam>,
             mut ui_surface: ResMut<UiSurface>,
             mut computed_text_block_query: Query<&mut bevy_text::ComputedTextBlock>,
-            mut font_system: ResMut<bevy_text::CosmicFontSystem>,
+            mut font_system: ResMut<bevy_text::FontCx>,
         ) {
             ui_surface.upsert_node(
                 &LayoutContext::TEST_CONTEXT,

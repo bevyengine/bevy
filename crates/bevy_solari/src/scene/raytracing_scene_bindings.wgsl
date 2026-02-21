@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #define_import_path bevy_solari::scene_bindings
 
 #import bevy_pbr::lighting::perceptualRoughnessToRoughness
@@ -52,6 +54,8 @@ struct Material {
 }
 
 const TEXTURE_MAP_NONE = 0xFFFFFFFFu;
+
+const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
 
 struct LightSource {
     kind: u32, // 1 bit for kind, 31 bits for extra data
@@ -145,8 +149,6 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
         m.metallic *= metallic_roughness.b;
     }
 
-    // Clamp roughness to prevent NaNs
-    m.perceptual_roughness = clamp(m.perceptual_roughness, 0.0316227766, 1.0); // Clamp roughness to 0.001
     m.roughness = m.perceptual_roughness * m.perceptual_roughness;
 
     return m;

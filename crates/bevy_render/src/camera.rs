@@ -1,15 +1,17 @@
+use core::mem;
+
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
-    render_graph::{CameraDriverNode, InternedRenderSubGraph, RenderGraph, RenderSubGraph},
     render_resource::TextureView,
-    sync_world::{RenderEntity, SyncToRenderWorld},
+    sync_component::SyncComponent,
+    sync_world::{MainEntity, MainEntityHashSet, RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Hdr, Msaa, NoIndirectDrawing,
-        RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset,
+        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
+        RenderVisibleEntities, RenderVisibleMeshEntities, RetainedViewEntity, ViewUniformOffset,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -20,7 +22,7 @@ use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, MsaaWriteback,
+    ClearColor, ClearColorConfig, Exposure, Hdr, ManualTextureViewHandle, MsaaWriteback,
     NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -35,17 +37,19 @@ use bevy_ecs::{
     query::{Has, QueryItem},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::IntoScheduleConfigs,
+    schedule::{InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
 use bevy_image::Image;
+use bevy_log::warn;
+use bevy_log::warn_once;
 use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
-use tracing::warn;
+use itertools::Either;
 use wgpu::TextureFormat;
 
 #[derive(Default)]
@@ -76,11 +80,31 @@ impl Plugin for CameraPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<SortedCameras>()
-                .add_systems(ExtractSchedule, extract_cameras)
-                .add_systems(Render, sort_cameras.in_set(RenderSystems::ManageViews));
-            let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
-            let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
-            render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);
+                .init_resource::<DirtySpecializations>()
+                .init_resource::<DirtyWireframeSpecializations>()
+                .allow_ambiguous_resource::<DirtySpecializations>()
+                .allow_ambiguous_resource::<DirtyWireframeSpecializations>()
+                .configure_sets(
+                    ExtractSchedule,
+                    (
+                        DirtySpecializationSystems::Clear
+                            .before(DirtySpecializationSystems::CheckForChanges),
+                        DirtySpecializationSystems::CheckForChanges
+                            .before(DirtySpecializationSystems::CheckForRemovals),
+                    ),
+                )
+                .add_systems(
+                    ExtractSchedule,
+                    (
+                        extract_cameras,
+                        clear_dirty_specializations.in_set(DirtySpecializationSystems::Clear),
+                        clear_dirty_wireframe_specializations
+                            .in_set(DirtySpecializationSystems::Clear),
+                        expire_specializations_for_views.in_set(RenderSystems::Cleanup),
+                        expire_wireframe_specializations_for_views.in_set(RenderSystems::Cleanup),
+                    ),
+                )
+                .add_systems(Render, sort_cameras.in_set(RenderSystems::CreateViews));
         }
     }
 }
@@ -99,51 +123,63 @@ impl ExtractResource for ClearColor {
         source.clone()
     }
 }
+
+impl SyncComponent for CameraMainTextureUsages {
+    type Out = Self;
+}
+
 impl ExtractComponent for CameraMainTextureUsages {
     type QueryData = &'static Self;
     type QueryFilter = ();
-    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(*item)
     }
 }
+
+impl SyncComponent for Camera2d {
+    type Out = Self;
+}
+
 impl ExtractComponent for Camera2d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
-    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }
+
+impl SyncComponent for Camera3d {
+    type Out = Self;
+}
+
 impl ExtractComponent for Camera3d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
-    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }
 
-/// Configures the [`RenderGraph`] name assigned to be run for a given [`Camera`] entity.
+/// Configures the render schedule to be run for a given [`Camera`] entity.
 #[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
 #[reflect(opaque)]
 #[reflect(Component, Debug, Clone)]
-pub struct CameraRenderGraph(InternedRenderSubGraph);
+pub struct CameraRenderGraph(pub InternedScheduleLabel);
 
 impl CameraRenderGraph {
-    /// Creates a new [`CameraRenderGraph`] from any string-like type.
+    /// Creates a new [`CameraRenderGraph`] from a schedule label.
     #[inline]
-    pub fn new<T: RenderSubGraph>(name: T) -> Self {
-        Self(name.intern())
+    pub fn new<T: ScheduleLabel>(schedule: T) -> Self {
+        Self(schedule.intern())
     }
 
-    /// Sets the graph name.
+    /// Sets the schedule.
     #[inline]
-    pub fn set<T: RenderSubGraph>(&mut self, name: T) {
-        self.0 = name.intern();
+    pub fn set<T: ScheduleLabel>(&mut self, schedule: T) {
+        self.0 = schedule.intern();
     }
 }
 
@@ -210,9 +246,9 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
             NormalizedRenderTarget::Window(window_ref) => windows
                 .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture_view_format),
-            NormalizedRenderTarget::Image(image_target) => images
-                .get(&image_target.handle)
-                .map(|image| image.texture_view_format.unwrap_or(image.texture_format)),
+            NormalizedRenderTarget::Image(image_target) => {
+                images.get(&image_target.handle).map(GpuImage::view_format)
+            }
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| tex.view_format)
             }
@@ -406,7 +442,7 @@ pub struct ExtractedCamera {
     pub physical_viewport_size: Option<UVec2>,
     pub physical_target_size: Option<UVec2>,
     pub viewport: Option<Viewport>,
-    pub render_graph: InternedRenderSubGraph,
+    pub schedule: InternedScheduleLabel,
     pub order: isize,
     pub output_mode: CameraOutputMode,
     pub msaa_writeback: MsaaWriteback,
@@ -441,8 +477,9 @@ pub fn extract_cameras(
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    mut existing_render_visible_entities: Query<&mut RenderVisibleEntities>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
-    mapper: Extract<Query<&RenderEntity>>,
+    mapper: Extract<Query<RenderEntity>>,
 ) {
     let primary_window = primary_window.iter().next();
     type ExtractedCameraComponents = (
@@ -505,26 +542,26 @@ pub fn extract_cameras(
                 continue;
             }
 
-            let render_visible_entities = RenderVisibleEntities {
-                entities: visible_entities
+            let mut render_visible_entities =
+                match existing_render_visible_entities.get_mut(render_entity) {
+                    Ok(ref mut existing_render_visible_entities) => {
+                        mem::take(&mut **existing_render_visible_entities)
+                    }
+                    Err(_) => RenderVisibleEntities::default(),
+                };
+
+            for (visibility_class, visible_mesh_entities) in visible_entities.entities.iter() {
+                render_visible_entities
                     .entities
-                    .iter()
-                    .map(|(type_id, entities)| {
-                        let entities = entities
-                            .iter()
-                            .map(|entity| {
-                                let render_entity = mapper
-                                    .get(*entity)
-                                    .cloned()
-                                    .map(|entity| entity.id())
-                                    .unwrap_or(Entity::PLACEHOLDER);
-                                (render_entity, (*entity).into())
-                            })
-                            .collect();
-                        (*type_id, entities)
-                    })
-                    .collect(),
-            };
+                    .entry(*visibility_class)
+                    .or_default()
+                    .update_from(&mapper, visible_mesh_entities);
+            }
+
+            // Don't delete "unused" visibility classes from
+            // `RenderVisibleEntities`. Even if a visibility class seems empty
+            // *now*, phases need to be able to find the entities that were just
+            // removed from it.
 
             let mut commands = commands.entity(render_entity);
             commands.insert((
@@ -533,7 +570,7 @@ pub fn extract_cameras(
                     viewport: camera.viewport.clone(),
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),
-                    render_graph: camera_render_graph.0,
+                    schedule: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,
                     msaa_writeback: camera.msaa_writeback,
@@ -652,7 +689,7 @@ pub fn sort_cameras(
     }
 
     if !ambiguities.is_empty() {
-        warn!(
+        warn_once!(
             "Camera order ambiguities detected for active cameras with the following priorities: {:?}. \
             To fix this, ensure there is exactly one Camera entity spawned with a given order for a given RenderTarget. \
             Ambiguities should be resolved because either (1) multiple active cameras were spawned accidentally, which will \
@@ -698,5 +735,318 @@ pub struct MipBias(pub f32);
 impl Default for MipBias {
     fn default() -> Self {
         Self(-1.0)
+    }
+}
+
+/// Stores information about all entities that have changed in such a way as to
+/// potentially require their pipelines to be re-specialized.
+///
+/// This is conservative; there's no harm, other than performance, in having an
+/// entity in this list that doesn't actually need to be re-specialized. Note
+/// that the presence of an entity in this list doesn't mean that a new shader
+/// will necessarily be compiled; the pipeline cache is checked first.
+///
+/// This handles 2D meshes, 3D meshes, and sprites. For 2D and 3D wireframes,
+/// see [`DirtyWireframeSpecializations`]. The reason for having two separate
+/// lists is that a single entity can have both a mesh and a wireframe.
+#[derive(Clone, Resource, Default)]
+pub struct DirtySpecializations {
+    /// All renderable objects that must be re-specialized this frame.
+    pub changed_renderables: MainEntityHashSet,
+
+    /// All renderable objects that need their specializations removed this
+    /// frame.
+    ///
+    /// Note that this may include entities in [`Self::changed_renderables`].
+    /// This is fine, as old specializations are removed before new ones are
+    /// added.
+    pub removed_renderables: MainEntityHashSet,
+
+    /// Views that must be respecialized this frame.
+    ///
+    /// The presence of a view in this list causes all entities that it renders
+    /// to be re-specialized.
+    pub views: HashSet<RetainedViewEntity>,
+}
+
+impl DirtySpecializations {
+    /// Returns true if the view has changed in such a way that all specialized
+    /// pipelines for entities visible from it must be regenerated.
+    pub fn must_wipe_specializations_for_view(&self, view: RetainedViewEntity) -> bool {
+        self.views.contains(&view)
+    }
+
+    /// Iterates over all entities that need their specializations cleared in
+    /// this frame.
+    pub fn iter_to_despecialize<'a>(&'a self) -> impl Iterator<Item = &'a MainEntity> {
+        // Entities that changed or were removed must be
+        // de-specialized.
+        self.changed_renderables
+            .iter()
+            .chain(self.removed_renderables.iter())
+    }
+
+    /// Iterates over all entities that need to have their pipelines
+    /// re-specialized this frame.
+    ///
+    /// `last_frame_view_pending_queues` should be the contents of the
+    /// [`ViewPendingQueues::prev_frame`] list.
+    pub fn iter_to_specialize<'a>(
+        &'a self,
+        view: RetainedViewEntity,
+        render_visible_mesh_entities: &'a RenderVisibleMeshEntities,
+        last_frame_view_pending_queues: &'a HashSet<(Entity, MainEntity)>,
+    ) -> impl Iterator<Item = &'a (Entity, MainEntity)> {
+        (if self.must_wipe_specializations_for_view(view) {
+            Either::Left(render_visible_mesh_entities.entities.iter())
+        } else {
+            Either::Right(render_visible_mesh_entities.added_entities.iter().chain(
+                self.changed_renderables.iter().filter_map(|main_entity| {
+                    render_visible_mesh_entities
+                        .entities
+                        .binary_search_by_key(main_entity, |(_, main_entity)| *main_entity)
+                        .ok()
+                        .map(|index| &render_visible_mesh_entities.entities[index])
+                }),
+            ))
+        })
+        .chain(last_frame_view_pending_queues.iter().filter(|entity_pair| {
+            render_visible_mesh_entities
+                .entities
+                .binary_search(entity_pair)
+                .is_ok()
+        }))
+    }
+
+    /// Iterates over all renderables that should be removed from the phase.
+    ///
+    /// This includes renderables that became invisible this frame, renderables
+    /// that are in [`DirtySpecializations::changed_renderables`], and
+    /// renderables that are in [`DirtySpecializations::removed_renderables`].
+    /// If this view must itself be re-specialized, this will iterate over all
+    /// visible entities in addition to those that became invisible.
+    pub fn iter_to_dequeue<'a>(
+        &'a self,
+        view: RetainedViewEntity,
+        render_visible_mesh_entities: &'a RenderVisibleMeshEntities,
+    ) -> impl Iterator<Item = &'a MainEntity> {
+        render_visible_mesh_entities
+            .removed_entities
+            .iter()
+            .map(|(_, main_entity)| main_entity)
+            .chain(if self.must_wipe_specializations_for_view(view) {
+                // All visible entities must be removed.
+                // Note that this includes potentially-invisible entities, but
+                // that's OK as they shouldn't be in the caller's bins in the
+                // first place.
+                Either::Left(
+                    render_visible_mesh_entities
+                        .entities
+                        .iter()
+                        .map(|(_, main_entity)| main_entity),
+                )
+            } else {
+                // Only entities that changed must be removed.
+                Either::Right(
+                    self.changed_renderables
+                        .iter()
+                        .chain(self.removed_renderables.iter()),
+                )
+            })
+    }
+
+    /// Iterates over all renderables that potentially need to be re-queued.
+    ///
+    /// This includes both renderables that became visible and those that are in
+    /// [`DirtySpecializations::changed_renderables`]. If this view must itself
+    /// be re-specialized, this will iterate over all visible renderables.
+    ///
+    /// `last_frame_view_pending_queues` should be the contents of the
+    /// [`ViewPendingQueues::prev_frame`] list.
+    pub fn iter_to_queue<'a>(
+        &'a self,
+        view: RetainedViewEntity,
+        render_visible_mesh_entities: &'a RenderVisibleMeshEntities,
+        last_frame_view_pending_queues: &'a HashSet<(Entity, MainEntity)>,
+    ) -> impl Iterator<Item = &'a (Entity, MainEntity)> {
+        (if self.must_wipe_specializations_for_view(view) {
+            Either::Left(render_visible_mesh_entities.entities.iter())
+        } else {
+            Either::Right(render_visible_mesh_entities.added_entities.iter().chain(
+                self.changed_renderables.iter().filter_map(|main_entity| {
+                    // Only include entities that need respecialization, are
+                    // visible, and *didn't* become visible this frame. The
+                    // third criterion exists because we already yielded
+                    // such entities just prior to this and don't want to
+                    // yield the same entity twice.
+                    // Note that binary searching works because all lists in
+                    // [`RenderVisibleMeshEntities`] are guaranteed to be
+                    // sorted.
+                    if render_visible_mesh_entities
+                        .added_entities
+                        .binary_search_by_key(main_entity, |(_, main_entity)| *main_entity)
+                        .is_err()
+                    {
+                        render_visible_mesh_entities
+                            .entities
+                            .binary_search_by_key(main_entity, |(_, main_entity)| *main_entity)
+                            .ok()
+                            .map(|index| &render_visible_mesh_entities.entities[index])
+                    } else {
+                        None
+                    }
+                }),
+            ))
+        })
+        .chain(last_frame_view_pending_queues.iter().filter(|entity_pair| {
+            render_visible_mesh_entities
+                .entities
+                .binary_search(entity_pair)
+                .is_ok()
+        }))
+    }
+}
+
+/// Stores information about all entities that have changed in such a way as to
+/// potentially require their wireframe pipelines to be re-specialized.
+///
+/// This is separate from [`DirtySpecializations`] because a single entity can
+/// have both a mesh and a wireframe on it, and the pipelines are treated
+/// separately.
+///
+/// See [`DirtySpecializations`] for more information.
+#[derive(Clone, Resource, Default, Deref, DerefMut)]
+pub struct DirtyWireframeSpecializations(pub DirtySpecializations);
+
+/// Clears out the [`DirtySpecializations`] resource in preparation for a new
+/// frame.
+pub fn clear_dirty_specializations(mut dirty_specializations: ResMut<DirtySpecializations>) {
+    dirty_specializations.changed_renderables.clear();
+    dirty_specializations.removed_renderables.clear();
+    dirty_specializations.views.clear();
+}
+
+/// Clears out the [`DirtyWireframeSpecializations`] resource in preparation for
+/// a new frame.
+pub fn clear_dirty_wireframe_specializations(
+    mut dirty_wireframe_specializations: ResMut<DirtyWireframeSpecializations>,
+) {
+    dirty_wireframe_specializations.changed_renderables.clear();
+    dirty_wireframe_specializations.removed_renderables.clear();
+    dirty_wireframe_specializations.views.clear();
+}
+
+/// A system that removes views that don't exist any longer from
+/// [`DirtySpecializations`].
+pub fn expire_specializations_for_views(
+    views: Query<&ExtractedView>,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
+) {
+    let all_live_retained_view_entities: HashSet<_> =
+        views.iter().map(|view| view.retained_view_entity).collect();
+    dirty_specializations.views.retain(|retained_view_entity| {
+        all_live_retained_view_entities.contains(retained_view_entity)
+    });
+}
+
+/// A system that removes views that don't exist any longer from
+/// [`DirtyWireframeSpecializations`].
+pub fn expire_wireframe_specializations_for_views(
+    views: Query<&ExtractedView>,
+    mut dirty_wireframe_specializations: ResMut<DirtyWireframeSpecializations>,
+) {
+    let all_live_retained_view_entities: HashSet<_> =
+        views.iter().map(|view| view.retained_view_entity).collect();
+    dirty_wireframe_specializations
+        .views
+        .retain(|retained_view_entity| {
+            all_live_retained_view_entities.contains(retained_view_entity)
+        });
+}
+
+/// A [`SystemSet`] that contains all systems that mutate the
+/// [`DirtySpecializations`] resource and other resources that wrap that type.
+///
+/// These systems must run in order.
+#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+pub enum DirtySpecializationSystems {
+    /// Systems that clear out [`DirtySpecializations`] types in preparation for
+    /// a new frame.
+    Clear,
+
+    /// Systems that add entities that need to be re-specialized to
+    /// [`DirtySpecializations`].
+    CheckForChanges,
+
+    /// Systems that determine which entities need to be removed from render
+    /// phases and write the results to [`DirtySpecializations`].
+    ///
+    /// The set of entities that need to be removed from the render phases can
+    /// only be determined after all systems in
+    /// [`DirtySpecializationSystems::CheckForChanges`] have run. That's because
+    /// these systems check `RemovedComponents` resources, and they have to be
+    /// able to distinguish between the case in which an entity was truly made
+    /// unrenderable and the case in which an entity appeared in a
+    /// `RemovedComponents` table simply because its material *type* changed.
+    CheckForRemovals,
+}
+
+/// Holds all entities that couldn't be specialized and/or queued because their
+/// materials or other dependent resources hadn't loaded yet.
+///
+/// We might not be able to specialize and/or enqueue a renderable entity if a
+/// dependent resource like a material isn't available. In that case, we add the
+/// entity to the appropriate list so that we attempt to re-specialize and
+/// re-queue it on subsequent frames.
+///
+/// This type is expected to be placed in a newtype wrapper and stored as a
+/// resource: e.g. `PendingMeshMaterialQueues`.
+#[derive(Default, Deref, DerefMut)]
+pub struct PendingQueues(pub HashMap<RetainedViewEntity, ViewPendingQueues>);
+
+/// Holds all entities that couldn't be specialized and/or queued because their
+/// materials and/or other dependent resources hadn't loaded yet for a single
+/// view.
+///
+/// See the documentation of [`PendingQueues`] for more information.
+#[derive(Default)]
+pub struct ViewPendingQueues {
+    /// The entities that couldn't be specialized and/or queued this frame.
+    ///
+    /// We add to this list during pipeline specialization and queuing.
+    pub current_frame: HashSet<(Entity, MainEntity)>,
+
+    /// The entities that we need to re-examine in this frame.
+    ///
+    /// We attempt to specialize and queue entities in this list every frame, as
+    /// long as those entities are still visible.
+    pub prev_frame: HashSet<(Entity, MainEntity)>,
+}
+
+impl PendingQueues {
+    /// Initializes the pending queues for a new frame.
+    ///
+    /// This method is called during specialization. It creates the queues for
+    /// the view if necessary and initializes them.
+    pub fn prepare_for_new_frame(
+        &mut self,
+        retained_view_entity: RetainedViewEntity,
+    ) -> &mut ViewPendingQueues {
+        let view_pending_queues = self.entry(retained_view_entity).or_default();
+        mem::swap(
+            &mut view_pending_queues.current_frame,
+            &mut view_pending_queues.prev_frame,
+        );
+        view_pending_queues.current_frame.clear();
+        view_pending_queues
+    }
+
+    /// Removes any pending queues that belong to views not in the supplied
+    /// `all_views` table.
+    ///
+    /// Specialization systems for phases should call this before returning in
+    /// order to clean up resources relating to views that no longer exist.
+    pub fn expire_stale_views(&mut self, all_views: &HashSet<RetainedViewEntity>) {
+        self.retain(|retained_view_entity, _| all_views.contains(retained_view_entity));
     }
 }

@@ -1,16 +1,15 @@
 use crate::{
     ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind, ExtractedSprites,
 };
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::AssetId;
 use bevy_camera::visibility::ViewVisibility;
 use bevy_color::LinearRgba;
 use bevy_ecs::{
     entity::Entity,
     query::Has,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, ResMut},
 };
-use bevy_image::prelude::*;
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Vec3};
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dShadow};
@@ -26,7 +25,6 @@ pub fn extract_text2d_sprite(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut extracted_slices: ResMut<ExtractedSlices>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     text2d_query: Extract<
         Query<(
             Entity,
@@ -65,9 +63,9 @@ pub fn extract_text2d_sprite(
         global_transform,
     ) in text2d_query.iter()
     {
-        let scaling = GlobalTransform::from_scale(
-            Vec2::splat(text_layout_info.scale_factor.recip()).extend(1.),
-        );
+        let inverse_scale_factor = text_layout_info.scale_factor.recip();
+        let scaling =
+            GlobalTransform::from_scale(Vec3::new(inverse_scale_factor, -inverse_scale_factor, 1.));
         if !view_visibility.get() {
             continue;
         }
@@ -85,7 +83,7 @@ pub fn extract_text2d_sprite(
                 continue;
             };
             let render_entity = commands.spawn(TemporaryRenderEntity).id();
-            let offset = Vec2::new(run.bounds.center().x, -run.bounds.center().y);
+            let offset = run.bounds.center();
             let transform = *global_transform
                 * GlobalTransform::from_translation(top_left.extend(0.))
                 * scaling
@@ -97,7 +95,7 @@ pub fn extract_text2d_sprite(
                 color: text_background_color.0.into(),
                 image_handle_id: AssetId::default(),
                 flip_x: false,
-                flip_y: false,
+                flip_y: true,
                 kind: ExtractedSpriteKind::Single {
                     anchor: Vec2::ZERO,
                     rect: None,
@@ -122,15 +120,10 @@ pub fn extract_text2d_sprite(
                 },
             ) in text_layout_info.glyphs.iter().enumerate()
             {
-                let rect = texture_atlases
-                    .get(atlas_info.texture_atlas)
-                    .unwrap()
-                    .textures[atlas_info.location.glyph_index]
-                    .as_rect();
                 extracted_slices.slices.push(ExtractedSlice {
-                    offset: Vec2::new(position.x, -position.y),
-                    rect,
-                    size: rect.size(),
+                    offset: *position,
+                    rect: atlas_info.rect,
+                    size: atlas_info.rect.size(),
                 });
 
                 if text_layout_info
@@ -146,7 +139,7 @@ pub fn extract_text2d_sprite(
                         color,
                         image_handle_id: atlas_info.texture,
                         flip_x: false,
-                        flip_y: false,
+                        flip_y: true,
                         kind: ExtractedSpriteKind::Slices {
                             indices: start..end,
                         },
@@ -167,7 +160,7 @@ pub fn extract_text2d_sprite(
 
                 if has_strikethrough {
                     let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                    let offset = run.strikethrough_position() * Vec2::new(1., -1.);
+                    let offset = run.strikethrough_position();
                     let transform =
                         shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
                     extracted_sprites.sprites.push(ExtractedSprite {
@@ -189,7 +182,7 @@ pub fn extract_text2d_sprite(
 
                 if has_underline {
                     let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                    let offset = run.underline_position() * Vec2::new(1., -1.);
+                    let offset = run.underline_position();
                     let transform =
                         shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
                     extracted_sprites.sprites.push(ExtractedSprite {
@@ -239,15 +232,10 @@ pub fn extract_text2d_sprite(
                     .unwrap_or_default();
                 current_span = *span_index;
             }
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
             extracted_slices.slices.push(ExtractedSlice {
-                offset: Vec2::new(position.x, -position.y),
-                rect,
-                size: rect.size(),
+                offset: *position,
+                rect: atlas_info.rect,
+                size: atlas_info.rect.size(),
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
@@ -261,7 +249,7 @@ pub fn extract_text2d_sprite(
                     color,
                     image_handle_id: atlas_info.texture,
                     flip_x: false,
-                    flip_y: false,
+                    flip_y: true,
                     kind: ExtractedSpriteKind::Slices {
                         indices: start..end,
                     },
@@ -290,7 +278,7 @@ pub fn extract_text2d_sprite(
                     .unwrap_or(text_color.0)
                     .to_linear();
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                let offset = run.strikethrough_position() * Vec2::new(1., -1.);
+                let offset = run.strikethrough_position();
                 let transform = *global_transform
                     * GlobalTransform::from_translation(top_left.extend(0.))
                     * scaling
@@ -318,7 +306,7 @@ pub fn extract_text2d_sprite(
                     .unwrap_or(text_color.0)
                     .to_linear();
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                let offset = run.underline_position() * Vec2::new(1., -1.);
+                let offset = run.underline_position();
                 let transform = *global_transform
                     * GlobalTransform::from_translation(top_left.extend(0.))
                     * scaling

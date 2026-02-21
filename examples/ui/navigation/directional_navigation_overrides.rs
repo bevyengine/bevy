@@ -216,7 +216,7 @@ fn setup_paged_ui(
         },
         BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8)),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
     ));
@@ -236,7 +236,7 @@ fn setup_paged_ui(
         },
         BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8)),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
     ));
@@ -625,7 +625,7 @@ fn spawn_small_text_node(
                 ..default()
             },
             TextFont {
-                font_size: 20.0,
+                font_size: FontSize::Px(20.0),
                 ..default()
             },
             TextLayout {
@@ -843,17 +843,16 @@ fn interact_with_focused_button(
         .contains(&DirectionalNavigationAction::Select)
         && let Some(focused_entity) = input_focus.0
     {
-        commands.trigger(Pointer::<Click> {
-            entity: focused_entity,
-            pointer_id: PointerId::Mouse,
-            pointer_location: Location {
+        commands.trigger(Pointer::new(
+            PointerId::Mouse,
+            Location {
                 target: NormalizedRenderTarget::None {
                     width: 0,
                     height: 0,
                 },
                 position: Vec2::ZERO,
             },
-            event: Click {
+            Click {
                 button: PointerButton::Primary,
                 hit: HitData {
                     camera: Entity::PLACEHOLDER,
@@ -863,6 +862,7 @@ fn interact_with_focused_button(
                 },
                 duration: Duration::from_secs_f32(0.1),
             },
-        });
+            focused_entity,
+        ));
     }
 }

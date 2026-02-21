@@ -45,11 +45,11 @@ taffy = { version = "0.9", default-features = false, features = [
   "taffy_tree",
 ] }
 serde = { version = "1", features = ["derive"], optional = true }
-uuid = { version = "1.1", features = ["v4"], optional = true }
+uuid = { version = "1.21.0", features = ["v4"], optional = true }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 smallvec = { version = "1", default-features = false }
-accesskit = "0.22"
+accesskit = "0.24"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
@@ -72,5 +72,9 @@ ghost_nodes = []
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

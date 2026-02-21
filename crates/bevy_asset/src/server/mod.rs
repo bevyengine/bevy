@@ -838,20 +838,49 @@ impl AssetServer {
         {
             Ok(loaded_asset) => {
                 let final_handle = if let Some(label) = path.label_cow() {
-                    match loaded_asset.labeled_assets.get(&label) {
-                        Some(labeled_asset) => Some(labeled_asset.handle.clone()),
+                    match loaded_asset.label_to_asset_index.get(&label) {
+                        Some(labeled_asset) => {
+                            let labeled_asset = &loaded_asset.labeled_assets[*labeled_asset];
+                            // If we know the requested type then check it
+                            // matches the labeled asset.
+                            if let Some(asset_id) = asset_id
+                                && asset_id.type_id != labeled_asset.handle.type_id()
+                            {
+                                let error = AssetLoadError::RequestedHandleTypeMismatch {
+                                    path: path.clone(),
+                                    requested: asset_id.type_id,
+                                    actual_asset_name: labeled_asset.asset.value.asset_type_name(),
+                                    loader_name: loader.type_path(),
+                                };
+                                self.send_asset_event(InternalAssetEvent::Failed {
+                                    index: asset_id,
+                                    error: error.clone(),
+                                    path: path.into_owned(),
+                                });
+                                return Err(error);
+                            }
+                            Some(labeled_asset.handle.clone())
+                        }
                         None => {
                             let mut all_labels: Vec<String> = loaded_asset
-                                .labeled_assets
+                                .label_to_asset_index
                                 .keys()
                                 .map(|s| (**s).to_owned())
                                 .collect();
                             all_labels.sort_unstable();
-                            return Err(AssetLoadError::MissingLabel {
+                            let error = AssetLoadError::MissingLabel {
                                 base_path,
                                 label: label.to_string(),
                                 all_labels,
-                            });
+                            };
+                            if let Some(asset_id) = asset_id {
+                                self.send_asset_event(InternalAssetEvent::Failed {
+                                    index: asset_id,
+                                    error: error.clone(),
+                                    path: path.into_owned(),
+                                });
+                            }
+                            return Err(error);
                         }
                     }
                 } else {
@@ -865,11 +894,13 @@ impl AssetServer {
                 Ok(final_handle)
             }
             Err(err) => {
-                self.send_asset_event(InternalAssetEvent::Failed {
-                    index: base_asset_id,
-                    error: err.clone(),
-                    path: path.into_owned(),
-                });
+                if let Some(asset_id) = asset_id {
+                    self.send_asset_event(InternalAssetEvent::Failed {
+                        index: asset_id,
+                        error: err.clone(),
+                        path: path.into_owned(),
+                    });
+                }
                 Err(err)
             }
         }
