@@ -322,7 +322,7 @@ impl DirectionalNavigationMap {
     /// Adds an edge blocking automatic navigation from an entity in a direction.
     /// Any existing edge from A in the provided direction will be overwritten.
     ///
-    /// The reverse block will not be added, so navigation will only be possible from other entities
+    /// The reverse block will not be added, so navigation will still be possible from other entities
     /// in the direction.
     /// If you want to add a symmetrical block, use [`block_symmetrical_edge`](Self::block_symmetrical_edge) instead.
     ///
@@ -344,9 +344,8 @@ impl DirectionalNavigationMap {
         self.add_edge(b, a, direction.opposite());
     }
 
-    // TODO: not quite sure if this is necessary
-    /// Adds a symmetrical edge between two entities in the navigation map.
-    /// The A -> B path will use the provided direction, while B -> A will use the [`CompassOctant::opposite`] variant.
+    /// Adds a symmetrical blocking edge between two entities in the navigation map.
+    /// The blocked A -> B path will use the provided direction, while B -> A will use the [`CompassOctant::opposite`] variant.
     ///
     /// Any existing connections between the two entities will be overwritten.
     pub fn block_symmetrical_edge(&mut self, a: Entity, b: Entity, direction: CompassOctant) {
@@ -956,6 +955,11 @@ mod tests {
         assert_eq!(
             nav_map.get_neighbor(node_a, CompassOctant::East),
             NavNeighbor::Blocked
+        );
+        // But automatic edges should still be populated
+        assert_eq!(
+            nav_map.get_neighbor(node_a, CompassOctant::South),
+            NavNeighbor::Set(node_c)
         );
     }
 }

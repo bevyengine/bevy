@@ -332,7 +332,7 @@ fn setup_paged_ui(
         pages_entities[1][3],
         CompassOctant::SouthEast,
     );
-    // Add one-way blocking within the triangle page (Page 1) for down nav.
+    // Add one-way blocking within the first grid page (Page 1) for down nav.
     for btn in &pages_entities[0] {
         manual_directional_nav_map.block_edge(*btn, CompassOctant::South);
         manual_directional_nav_map.block_edge(*btn, CompassOctant::North);
@@ -463,52 +463,36 @@ fn setup_buttons_for_grid_page(
     text_entities.push(left_2);
     text_entities.push(left_3);
 
-    // For the third page, add a notice about vertical navigation being inverted in the grid.
-    if page_num == 2 {
-        let footer_info = commands
-            .spawn((
-                Text::new(
-                    "Vertical Navigation has been manually overridden to be inverted! \
-                ^ moves down, and v (down) moves up.",
-                ),
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(450),
-                    top: px(600),
-                    width: px(540),
-                    padding: UiRect::all(px(12)),
-                    ..default()
-                },
-                TextFont {
-                    font_size: 20.0,
-                    ..default()
-                },
-            ))
-            .id();
-        text_entities.push(footer_info);
-    }
-    if page_num == 0 {
-        let footer_info = commands
-            .spawn((
-                Text::new(
-                    "Vertical movements disabled on each button, but you can still go to the next row by going off the right side."
-                ),
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(450),
-                    top: px(600),
-                    width: px(540),
-                    padding: UiRect::all(px(12)),
-                    ..default()
-                },
-                TextFont {
-                    font_size: 20.0,
-                    ..default()
-                },
-            ))
-            .id();
-        text_entities.push(footer_info);
-    }
+    let text = match page_num {
+        // For the first page, add a notice about vertical navigation being blocked off
+        0 => Text::new(
+            "Vertical movements disabled on each button, but you can still go to the next row by going off the right side."
+        ),
+        // For the third page, add a notice about vertical navigation being inverted in the grid.
+        2 => Text::new(
+            "Vertical Navigation has been manually overridden to be inverted! \
+            ^ moves down, and v (down) moves up.",
+        ),
+        _ => Text::default()
+    };
+    let footer_info = commands
+        .spawn((
+            text,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(450),
+                top: px(600),
+                width: px(540),
+                padding: UiRect::all(px(12)),
+                ..default()
+            },
+            TextFont {
+                font_size: 20.0,
+                ..default()
+            },
+        ))
+        .id();
+    text_entities.push(footer_info);
 }
 
 /// Creates the buttons and text for the triangle page (page 2) and places the ids into their
