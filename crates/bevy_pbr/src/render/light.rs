@@ -1388,6 +1388,13 @@ pub fn prepare_lights(
                 continue;
             };
 
+            if !light.shadow_maps_enabled {
+                if let Some(entities) = light_view_entities.remove(&entity) {
+                    despawn_entities(&mut commands, entities);
+                }
+                continue;
+            }
+
             let light_index = *global_clusterable_object_meta
                 .entity_to_index
                 .get(&light_entity)
