@@ -1026,7 +1026,7 @@ mod test {
             "Child1 should inherit visibility from parent"
         );
 
-        // Detatch a child from the invisible parent
+        // Detach a child from the invisible parent
         app.world_mut().entity_mut(child).remove::<ChildOf>(); // example of changing parent
 
         // Run the system again to propagate changes
