@@ -135,3 +135,206 @@ fn to_rect(rectangle: guillotiere::Rectangle) -> URect {
 fn to_size2(vec2: UVec2) -> guillotiere::Size {
     guillotiere::Size::new(vec2.x as i32, vec2.y as i32)
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_asset::RenderAssetUsages;
+    use bevy_math::{URect, UVec2};
+
+    use crate::{DynamicTextureAtlasBuilder, Image, TextureAtlasLayout};
+
+    fn make_filled_image(size: UVec2, pixel_rgba_bytes: [u8; 4]) -> Image {
+        Image::new_fill(
+            wgpu_types::Extent3d {
+                width: size.x,
+                height: size.y,
+                depth_or_array_layers: 1,
+            },
+            wgpu_types::TextureDimension::D2,
+            &pixel_rgba_bytes,
+            wgpu_types::TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::all(),
+        )
+    }
+
+    fn rect_contains_value(image: &Image, rect: URect, pixel_rgba_bytes: [u8; 4]) -> bool {
+        let image_data = image.data.as_ref().unwrap();
+        for y in rect.min.y..rect.max.y {
+            for x in rect.min.x..rect.max.x {
+                let byte_start = ((x + y * image.width()) * 4) as usize;
+                if image_data[byte_start..(byte_start + 4)] != pixel_rgba_bytes {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    #[test]
+    fn allocate_textures() {
+        let size = UVec2::new(30, 30);
+
+        let mut atlas_texture = make_filled_image(size, [0, 0, 0, 0]);
+        let mut layout = TextureAtlasLayout::new_empty(size);
+        let mut builder = DynamicTextureAtlasBuilder::new(size, 0);
+
+        let square = UVec2::new(10, 10);
+        let colors = [
+            [255, 0, 0, 255],
+            [0, 255, 0, 255],
+            [0, 0, 255, 255],
+            [255, 0, 255, 255],
+            [0, 255, 255, 255],
+            [0, 255, 255, 255],
+        ];
+        let texture_0 = builder
+            .add_texture(
+                &mut layout,
+                &make_filled_image(square, colors[0]),
+                &mut atlas_texture,
+            )
+            .unwrap();
+        let texture_1 = builder
+            .add_texture(
+                &mut layout,
+                &make_filled_image(square, colors[1]),
+                &mut atlas_texture,
+            )
+            .unwrap();
+        let texture_2 = builder
+            .add_texture(
+                &mut layout,
+                &make_filled_image(square, colors[2]),
+                &mut atlas_texture,
+            )
+            .unwrap();
+        let texture_3 = builder
+            .add_texture(
+                &mut layout,
+                &make_filled_image(square, colors[3]),
+                &mut atlas_texture,
+            )
+            .unwrap();
+        let texture_4 = builder
+            .add_texture(
+                &mut layout,
+                &make_filled_image(square, colors[4]),
+                &mut atlas_texture,
+            )
+            .unwrap();
+        let texture_5 = builder
+            .add_texture(
+                &mut layout,
+                &make_filled_image(square, colors[5]),
+                &mut atlas_texture,
+            )
+            .unwrap();
+
+        let expected_rects = [
+            URect::from_corners(UVec2::new(0, 0), UVec2::new(10, 10)),
+            URect::from_corners(UVec2::new(10, 0), UVec2::new(20, 10)),
+            URect::from_corners(UVec2::new(20, 0), UVec2::new(30, 10)),
+            URect::from_corners(UVec2::new(0, 10), UVec2::new(10, 20)),
+            URect::from_corners(UVec2::new(0, 20), UVec2::new(10, 30)),
+            URect::from_corners(UVec2::new(10, 10), UVec2::new(20, 20)),
+        ];
+        assert_eq!(layout.textures[texture_0], expected_rects[0]);
+        assert_eq!(layout.textures[texture_1], expected_rects[1]);
+        assert_eq!(layout.textures[texture_2], expected_rects[2]);
+        assert_eq!(layout.textures[texture_3], expected_rects[3]);
+        assert_eq!(layout.textures[texture_4], expected_rects[4]);
+        assert_eq!(layout.textures[texture_5], expected_rects[5]);
+
+        assert!(rect_contains_value(
+            &atlas_texture,
+            expected_rects[0],
+            colors[0]
+        ));
+        assert!(rect_contains_value(
+            &atlas_texture,
+            expected_rects[1],
+            colors[1]
+        ));
+        assert!(rect_contains_value(
+            &atlas_texture,
+            expected_rects[2],
+            colors[2]
+        ));
+        assert!(rect_contains_value(
+            &atlas_texture,
+            expected_rects[3],
+            colors[3]
+        ));
+        assert!(rect_contains_value(
+            &atlas_texture,
+            expected_rects[4],
+            colors[4]
+        ));
+        assert!(rect_contains_value(
+            &atlas_texture,
+            expected_rects[5],
+            colors[5]
+        ));
+    }
+
+    #[test]
+    fn allocate_textures_with_padding() {
+        let size = UVec2::new(12, 12);
+
+        let mut atlas_texture = make_filled_image(size, [0, 0, 0, 0]);
+        let mut layout = TextureAtlasLayout::new_empty(size);
+        let mut builder = DynamicTextureAtlasBuilder::new(size, 1);
+
+        let square = UVec2::new(3, 3);
+        let colors = [[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255]];
+        let texture_0 = builder
+            .add_texture(
+                &mut layout,
+                &make_filled_image(square, colors[0]),
+                &mut atlas_texture,
+            )
+            .unwrap();
+        let texture_1 = builder
+            .add_texture(
+                &mut layout,
+                &make_filled_image(square, colors[1]),
+                &mut atlas_texture,
+            )
+            .unwrap();
+        let texture_2 = builder
+            .add_texture(
+                &mut layout,
+                &make_filled_image(square, colors[2]),
+                &mut atlas_texture,
+            )
+            .unwrap();
+
+        let expected_rects = [
+            URect::from_corners(UVec2::new(1, 1), UVec2::new(4, 4)),
+            URect::from_corners(UVec2::new(5, 1), UVec2::new(8, 4)),
+            // If we didn't pad the right of the texture atlas, there would be just enough space to
+            // fit this in the first row, but since we do pad the right, this gets pushed to the
+            // next row.
+            URect::from_corners(UVec2::new(1, 5), UVec2::new(4, 8)),
+        ];
+        assert_eq!(layout.textures[texture_0], expected_rects[0]);
+        assert_eq!(layout.textures[texture_1], expected_rects[1]);
+        assert_eq!(layout.textures[texture_2], expected_rects[2]);
+
+        assert!(rect_contains_value(
+            &atlas_texture,
+            expected_rects[0],
+            colors[0]
+        ));
+        assert!(rect_contains_value(
+            &atlas_texture,
+            expected_rects[1],
+            colors[1]
+        ));
+        assert!(rect_contains_value(
+            &atlas_texture,
+            expected_rects[2],
+            colors[2]
+        ));
+    }
+}
