@@ -29,7 +29,7 @@ use bevy::{
         sync_component::{SyncComponent, SyncComponentPlugin},
         sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
-        Extract, Render, RenderApp, RenderStartup, RenderSystems,
+        Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
     },
     sprite_render::{
         extract_mesh2d, init_mesh_2d_pipeline, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline,
