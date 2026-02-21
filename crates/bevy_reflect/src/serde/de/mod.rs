@@ -37,12 +37,12 @@ mod tests {
     use bevy_platform::collections::{HashMap, HashSet};
 
     use crate::{
+        enums::DynamicEnum,
         serde::{
             ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
             TypedReflectDeserializer,
         },
-        DynamicEnum, FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistration,
-        TypeRegistry,
+        FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistration, TypeRegistry,
     };
 
     #[derive(Reflect, Debug, PartialEq)]

@@ -139,9 +139,9 @@ where
         },
         Children::spawn((
             Spawn((
-                ui_text(title, Color::BLACK),
+                ui_text(title, Color::WHITE),
                 Node {
-                    width: px(125),
+                    width: px(150),
                     ..default()
                 },
             )),
@@ -155,7 +155,7 @@ pub fn ui_text(label: &str, color: Color) -> impl Bundle + use<> {
     (
         Text::new(label),
         TextFont {
-            font_size: 18.0,
+            font_size: FontSize::Px(18.0),
             ..default()
         },
         TextColor(color),

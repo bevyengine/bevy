@@ -3,14 +3,14 @@
 use std::f32::consts::*;
 
 use bevy::{
+    camera::Hdr,
     color::palettes::basic::{MAROON, RED},
     light::NotShadowCaster,
     math::ops,
     prelude::*,
-    render::view::Hdr,
 };
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 const INSTRUCTIONS: &str = "\
 Controls
@@ -93,7 +93,7 @@ fn setup(
                 SpotLight {
                     intensity: 40_000.0, // lumens
                     color: Color::WHITE,
-                    shadows_enabled: true,
+                    shadow_maps_enabled: true,
                     inner_angle: PI / 4.0 * 0.85,
                     outer_angle: PI / 4.0,
                     ..default()

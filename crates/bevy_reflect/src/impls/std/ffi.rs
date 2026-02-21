@@ -10,6 +10,7 @@ impl_reflect_opaque!(::std::ffi::OsString(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));

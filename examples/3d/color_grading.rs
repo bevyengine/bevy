@@ -6,9 +6,10 @@ use std::{
 };
 
 use bevy::{
+    camera::Hdr,
     light::CascadeShadowConfigBuilder,
     prelude::*,
-    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
+    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
 };
 use std::fmt::Display;
 
@@ -311,7 +312,7 @@ fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
         Text::new(label),
         TextFont {
             font: font.into(),
-            font_size: 15.0,
+            font_size: FontSize::Px(15.0),
             ..default()
         },
         TextColor(color),
@@ -360,7 +361,7 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
         DirectionalLight {
             illuminance: 15000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),

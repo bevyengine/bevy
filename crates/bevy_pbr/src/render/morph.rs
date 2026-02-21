@@ -2,7 +2,7 @@ use core::{iter, mem};
 
 use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::prelude::*;
-use bevy_mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS};
+use bevy_mesh::morph::{MeshMorphWeights, MorphWeights, MAX_MORPH_WEIGHTS};
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
@@ -110,6 +110,7 @@ pub fn extract_morphs(
     morph_indices: ResMut<MorphIndices>,
     uniform: ResMut<MorphUniforms>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights)>>,
+    weights_query: Extract<Query<&MorphWeights>>,
 ) {
     // Borrow check workaround.
     let (morph_indices, uniform) = (morph_indices.into_inner(), uniform.into_inner());
@@ -121,12 +122,19 @@ pub fn extract_morphs(
     morph_indices.current.clear();
     uniform.current_buffer.clear();
 
-    for (entity, view_visibility, morph_weights) in &query {
+    for (entity, view_visibility, mesh_weights) in &query {
         if !view_visibility.get() {
             continue;
         }
+        let Ok(weights) = (match mesh_weights {
+            MeshMorphWeights::Reference(entity) => {
+                weights_query.get(*entity).map(MorphWeights::weights)
+            }
+            MeshMorphWeights::Value { weights } => Ok(weights.as_slice()),
+        }) else {
+            continue;
+        };
         let start = uniform.current_buffer.len();
-        let weights = morph_weights.weights();
         let legal_weights = weights
             .iter()
             .chain(iter::repeat(&0.0))
