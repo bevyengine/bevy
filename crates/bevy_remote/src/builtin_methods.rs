@@ -1722,11 +1722,7 @@ mod tests {
     use super::*;
     use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind};
     use bevy_ecs::{
-        component::Component,
-        event::Event,
-        observer::On,
-        resource::Resource,
-        system::ResMut,
+        component::Component, event::Event, observer::On, resource::Resource, system::ResMut,
     };
     use bevy_reflect::Reflect;
     use serde_json::Value::Null;
@@ -1821,8 +1817,8 @@ mod tests {
         let params_value = In(Some(
             serde_json::to_value(params).expect("Failed to serialize"),
         ));
-        let result_value = export_registry_types(params_value, &world)
-            .expect("Failed to export registry types");
+        let result_value =
+            export_registry_types(params_value, &world).expect("Failed to export registry types");
 
         let result: HashMap<String, JsonSchemaBevyType> =
             parse(result_value).expect("Failed to parse exported registry types");

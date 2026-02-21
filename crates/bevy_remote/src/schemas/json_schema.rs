@@ -349,7 +349,7 @@ pub enum SchemaType {
     Null,
 }
 
-/// Component-specific metadata. Related to [`ComponentInfo`](bevy_ecs::component::ComponentInfo).
+/// Component-specific metadata. Related to [`ComponentInfo`].
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ComponentMetadata {
