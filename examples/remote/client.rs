@@ -65,7 +65,7 @@ fn run_query_all_components_and_entities(url: &str) -> Result<(), anyhow::Error>
     info!("query_all req: {query_all_req:#?}");
     let query_all_res = ureq::post(url)
         .send_json(query_all_req)?
-        .body_mut()
+        .into_body()
         .read_json::<serde_json::Value>()?;
     info!("{query_all_res:#}");
     Ok(())
@@ -91,7 +91,7 @@ fn run_transform_only_query(url: &str) -> Result<(), anyhow::Error> {
     info!("transform request: {get_transform_request:#?}");
     let res = ureq::post(url)
         .send_json(get_transform_request)?
-        .body_mut()
+        .into_body()
         .read_json::<serde_json::Value>()?;
     info!("{res:#}");
     Ok(())
@@ -121,7 +121,7 @@ fn run_query_root_entities(url: &str) -> Result<(), anyhow::Error> {
     info!("transform request: {get_transform_request:#?}");
     let res = ureq::post(url)
         .send_json(get_transform_request)?
-        .body_mut()
+        .into_body()
         .read_json::<serde_json::Value>()?;
     info!("{res:#}");
     Ok(())

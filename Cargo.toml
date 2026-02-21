@@ -763,7 +763,7 @@ gltf = "1.4"
 indexmap = "2"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-ureq = { version = "3.0.8", features = ["json"] }
+ureq = { version = "3.2.0", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 getrandom = { version = "0.4", default-features = false, features = [
