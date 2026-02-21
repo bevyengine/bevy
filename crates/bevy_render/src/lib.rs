@@ -69,6 +69,9 @@ pub mod prelude {
 }
 
 // Re-exports
+pub mod extract_instances {
+    pub use bevy_extract::extract_instances::{ExtractInstance, ExtractInstancesPlugin};
+}
 pub mod sync_component {
     pub use bevy_extract::sync_component::{SyncComponent, SyncComponentPlugin};
 }

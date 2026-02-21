@@ -20,8 +20,8 @@ use bevy_ecs::{
 use bevy_image::BevyDefault;
 use bevy_render::{
     extract_component::{
-        ComponentUniforms, DynamicUniformIndex, ExtractBaseComponent,
-        ExtractComponentPlugin, UniformComponentPlugin,
+        ComponentUniforms, DynamicUniformIndex, ExtractBaseComponent, ExtractComponentPlugin,
+        UniformComponentPlugin,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},

@@ -163,7 +163,9 @@ static VERTICES: [Vertex; 3] = [
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        .add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::default())
+        .add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::new(
+            RenderApp,
+        ))
         .add_systems(Startup, setup);
 
     // We make sure to add these to the render app, not the main app.

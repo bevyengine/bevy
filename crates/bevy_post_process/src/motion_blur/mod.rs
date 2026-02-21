@@ -24,8 +24,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::{
-        ComponentUniforms, ExtractBaseComponent, ExtractComponentPlugin,
-        UniformComponentPlugin,
+        ComponentUniforms, ExtractBaseComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
     globals::GlobalsBuffer,
     render_resource::{

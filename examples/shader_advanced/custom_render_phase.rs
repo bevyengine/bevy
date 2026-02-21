@@ -57,7 +57,8 @@ use bevy::{
         renderer::{RenderContext, ViewQuery},
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
-        Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+        Extract, ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup,
+        RenderSystems,
     },
 };
 use indexmap::IndexMap;
@@ -118,7 +119,7 @@ struct MeshStencilPhasePlugin;
 impl Plugin for MeshStencilPhasePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            ExtractComponentPlugin::<DrawStencil>::default(),
+            ExtractComponentPlugin::<DrawStencil>::new(RenderApp),
             SortedRenderPhasePlugin::<Stencil3d, MeshPipeline>::new(RenderDebugFlags::default()),
         ));
         // We need to get the render app from the main app

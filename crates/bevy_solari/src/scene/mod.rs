@@ -48,7 +48,9 @@ impl Plugin for RaytracingScenePlugin {
             return;
         }
 
-        app.add_plugins(ExtractResourcePlugin::<StandardMaterialAssets>::default());
+        app.add_plugins(ExtractResourcePlugin::<StandardMaterialAssets>::new(
+            RenderApp,
+        ));
 
         let render_app = app.sub_app_mut(RenderApp);
 

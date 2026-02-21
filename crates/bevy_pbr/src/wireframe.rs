@@ -30,8 +30,7 @@ use bevy_render::{
         IndirectParametersNonIndexed,
     },
     camera::{
-        DirtySpecializationSystems, DirtyWireframeSpecializations,
-        ExtractedCamera, PendingQueues,
+        DirtySpecializationSystems, DirtyWireframeSpecializations, ExtractedCamera, PendingQueues,
     },
     extract_resource::ExtractResource,
     mesh::{
@@ -47,8 +46,8 @@ use bevy_render::{
         PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
         SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
     },
-    render_resource::*,
     render_resource::binding_types::*,
+    render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::{MainEntity, MainEntityHashMap},
     view::{

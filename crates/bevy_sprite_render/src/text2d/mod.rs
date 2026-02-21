@@ -9,8 +9,8 @@ use bevy_ecs::{
     query::Has,
     system::{Commands, Query, ResMut},
 };
-use bevy_extract::sync_world::TemporaryRenderEntity;
 use bevy_math::{Vec2, Vec3};
+use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{

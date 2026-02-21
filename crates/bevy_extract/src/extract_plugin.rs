@@ -72,9 +72,6 @@ impl Plugin for ExtractPlugin {
             extract(main_world, render_world);
         });
 
-        let (sender, receiver) = bevy_time::create_time_channels();
-        sub_app.insert_resource(sender);
-        app.insert_resource(receiver);
         app.insert_sub_app(self.app_label, sub_app);
     }
 }

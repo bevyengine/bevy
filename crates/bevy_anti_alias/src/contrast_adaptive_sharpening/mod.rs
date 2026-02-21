@@ -10,9 +10,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::{
-        ExtractBaseComponent, ExtractComponentPlugin, UniformComponentPlugin,
-    },
+    extract_component::{ExtractBaseComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,

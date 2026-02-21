@@ -27,7 +27,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::ExtractedCamera,
-        extract_resource::{ExtractResource, ExtractResourcePlugin},
+        extract_resource::{ExtractBaseResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
         render_resource::{
             AsBindGroup, Extent3d, Origin3d, TexelCopyTextureInfo, TextureAspect, TextureDimension,
@@ -103,7 +103,7 @@ fn main() {
 
     app.add_plugins(DefaultPlugins)
         .add_plugins(MaterialPlugin::<ShowDepthTextureMaterial>::default())
-        .add_plugins(ExtractResourcePlugin::<DemoDepthTexture>::default())
+        .add_plugins(ExtractResourcePlugin::<DemoDepthTexture>::new(RenderApp))
         .init_resource::<DemoDepthTexture>()
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_cube)
@@ -332,7 +332,7 @@ impl FromWorld for DemoDepthTexture {
     }
 }
 
-impl ExtractResource for DemoDepthTexture {
+impl ExtractBaseResource<RenderApp> for DemoDepthTexture {
     type Source = Self;
 
     fn extract_resource(source: &Self::Source) -> Self {
