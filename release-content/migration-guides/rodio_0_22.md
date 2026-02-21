@@ -1,9 +1,9 @@
 ---
-title: "Rodio 0.21 Update"
+title: "Rodio 0.22 Update"
 pull_requests: [20323]
 ---
 
-`rodio` was updated to `0.21` and `cpal` to `0.17`. The following sections will guide you through the necessary changes to ensure compatibility.
+`rodio` was updated to `0.22` and `cpal` to `0.17`. The following sections will guide you through the necessary changes to ensure compatibility.
 
 ## Audio Feature Flags
 
