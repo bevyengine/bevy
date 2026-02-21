@@ -41,6 +41,7 @@ pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod error_handler;
 pub mod extract_component;
+pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod gpu_readback;
@@ -73,10 +74,7 @@ pub mod sync_component {
     pub use bevy_extract::sync_component::{SyncComponent, SyncComponentPlugin};
 }
 pub mod sync_world {
-    pub use bevy_extract::sync_world::{RenderEntity, MainEntity, MainEntityHashMap, SyncToRenderWorld};
-}
-pub mod extract_resource {
-    pub use bevy_extract::extract_resource::{ExtractBaseResource, ExtractResourcePlugin};
+    pub use bevy_extract::sync_world::{RenderEntity, MainEntity, MainEntityHashMap, MainEntityHashSet, SyncToRenderWorld, TemporaryRenderEntity};
 }
 pub use bevy_extract::{Extract, ExtractSchedule, MainWorld};
 

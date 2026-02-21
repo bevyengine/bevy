@@ -85,7 +85,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
         load_shader_library!(app, "oit_draw.wgsl");
 
         app.add_plugins((
-            ExtractComponentPlugin::<OrderIndependentTransparencySettings>::default(),
+            ExtractComponentPlugin::<OrderIndependentTransparencySettings>::new(RenderApp),
             OitResolvePlugin,
         ))
         .add_systems(Update, check_msaa);

@@ -207,7 +207,7 @@ impl Plugin for PbrPlugin {
                 },
                 ScreenSpaceAmbientOcclusionPlugin,
                 FogPlugin,
-                ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
+                ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::new(RenderApp),
                 SyncComponentPlugin::<ShadowFilteringMethod, Self>::default(),
                 LightmapPlugin,
                 LightProbePlugin,

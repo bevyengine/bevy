@@ -9,7 +9,7 @@ use bevy_image::ToExtents;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
-    camera::CameraRenderGraph,
+    camera::{CameraPlugin, CameraRenderGraph},
     render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };
@@ -53,7 +53,7 @@ impl Plugin for Core2dPlugin {
                 CameraRenderGraph::new(Core2d)
             })
             .register_required_components_with::<Camera2d, Tonemapping>(|| Tonemapping::None)
-            .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
+            .add_plugins(ExtractComponentPlugin::<Camera2d, CameraPlugin>::new(RenderApp));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

@@ -21,7 +21,7 @@ use bevy::{
     },
     prelude::*,
     render::{
-        extract_component::{ExtractComponent, ExtractComponentPlugin},
+        extract_component::{ExtractComponent, ExtractBaseComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
         render_asset::RenderAssets,
         render_phase::{
@@ -89,7 +89,7 @@ impl SyncComponent for InstanceMaterialData {
     type Out = Self;
 }
 
-impl ExtractComponent for InstanceMaterialData {
+impl ExtractBaseComponent<RenderApp> for InstanceMaterialData {
     type QueryData = &'static InstanceMaterialData;
     type QueryFilter = ();
 

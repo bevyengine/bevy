@@ -6,8 +6,7 @@ use crate::{
 use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
-    prelude::*,
-    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
+    prelude::*, query::{QueryFilter, QueryItem, ReadOnlyQueryData}
 };
 use core::marker::PhantomData;
 
@@ -24,7 +23,7 @@ pub use bevy_extract_macros::ExtractBaseComponent;
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub trait ExtractBaseComponent<L, F = ()>: SyncComponent<F> {
+pub trait ExtractBaseComponent<L : AppLabel, F : 'static + Send + Sync = ()>: SyncComponent<F> {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
@@ -44,16 +43,16 @@ pub trait ExtractBaseComponent<L, F = ()>: SyncComponent<F> {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub struct ExtractComponentPlugin<C, F = ()> {
+pub struct ExtractBaseComponentPlugin<L : AppLabel, C: ExtractBaseComponent<L, F>, F : 'static + Send + Sync = ()> {
     only_extract_visible: bool,
-    marker: PhantomData<fn() -> (C, F)>,
+    marker: PhantomData<fn() -> (L, C, F)>,
 
     /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`] to set up with extraction.
-    pub app_label: InternedAppLabel,
+    app_label: InternedAppLabel,
 }
 
-impl <C: ExtractBaseComponent<F>, F> ExtractComponentPlugin<C, F> {
-    pub fn new<L: AppLabel>(app: L) -> Self {
+impl <L : AppLabel, C: ExtractBaseComponent<L, F>, F : 'static + Send + Sync> ExtractBaseComponentPlugin<L, C, F> {
+    pub fn new(app: L) -> Self {
         Self {
             only_extract_visible: false,
             marker: PhantomData,
@@ -61,7 +60,7 @@ impl <C: ExtractBaseComponent<F>, F> ExtractComponentPlugin<C, F> {
         }
     }
 
-    pub fn extract_visible<L: AppLabel>(app: L) -> Self {
+    pub fn extract_visible(app: L) -> Self {
         Self {
             only_extract_visible: true,
             marker: PhantomData,
@@ -70,22 +69,22 @@ impl <C: ExtractBaseComponent<F>, F> ExtractComponentPlugin<C, F> {
     }
 }
 
-impl<C: ExtractBaseComponent<F>, F: 'static + Send + Sync> Plugin for ExtractComponentPlugin<C, F> {
+impl<L : AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync> Plugin for ExtractBaseComponentPlugin<L, C, F> {
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncComponentPlugin::<C, F>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(self.app_label) {
             if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible_components::<C, F>);
+                render_app.add_systems(ExtractSchedule, extract_visible_components::<L, C, F>);
             } else {
-                render_app.add_systems(ExtractSchedule, extract_components::<C, F>);
+                render_app.add_systems(ExtractSchedule, extract_components::<L, C, F>);
             }
         }
     }
 }
 
 /// This system extracts all components of the corresponding [`ExtractBaseComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_components<C: ExtractBaseComponent<F>, F>(
+fn extract_components<L : AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
@@ -103,7 +102,7 @@ fn extract_components<C: ExtractBaseComponent<F>, F>(
 }
 
 /// This system extracts all components of the corresponding [`ExtractBaseComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_visible_components<C: ExtractBaseComponent<F>, F>(
+fn extract_visible_components<L : AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,

@@ -128,15 +128,14 @@ pub fn extract(main_world: &mut World, render_world: &mut World) {
 
 #[cfg(test)]
 mod test {
-    use bevy_app::{App, Startup};
+    use bevy_app::{App, AppLabel, Startup};
     use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 
     use crate::{
-        extract_component::{ExtractComponent, ExtractComponentPlugin},
+        extract_base_component::{ExtractBaseComponent, ExtractBaseComponentPlugin},
         extract_plugin::ExtractPlugin,
         sync_component::SyncComponent,
         sync_world::MainEntity,
-        AppLabel,
     };
 
     #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
@@ -148,7 +147,7 @@ mod test {
     #[derive(Component, Clone, Debug)]
     struct RenderComponentExtra;
 
-    #[derive(Component, Clone, Debug, ExtractComponent)]
+    #[derive(Component, Clone, Debug, ExtractBaseComponent)]
     struct RenderComponentSeparate;
 
     #[derive(Component, Clone, Debug)]
@@ -158,7 +157,7 @@ mod test {
         type Out = (RenderComponent, RenderComponentExtra);
     }
 
-    impl ExtractComponent for RenderComponent {
+    impl ExtractBaseComponent for RenderComponent {
         type QueryData = &'static Self;
 
         type QueryFilter = ();
@@ -177,9 +176,15 @@ mod test {
         app.add_plugins(ExtractPlugin {
             pre_extract: |_, _| {},
             app_label: ExtractApp.intern(),
+
+            // pub base_schedule: fn() -> Schedule, // Render::base_schedule()
+            // pub schedule_label: InternedScheduleLabel, // Render
+
+            // pub extract_set: InternedSystemSet, // RenderSystems::ExtractCommands
+            // pub despawn_set: InternedSystemSet, // RenderSystems::PostCleanup
         });
-        app.add_plugins(ExtractComponentPlugin::<RenderComponent>::default());
-        app.add_plugins(ExtractComponentPlugin::<RenderComponentSeparate>::default());
+        app.add_plugins(ExtractBaseComponentPlugin::<RenderComponent>::default());
+        app.add_plugins(ExtractBaseComponentPlugin::<RenderComponentSeparate>::default());
         app.add_systems(Startup, |mut commands: Commands| {
             commands.spawn((RenderComponent, RenderComponentSeparate));
         });

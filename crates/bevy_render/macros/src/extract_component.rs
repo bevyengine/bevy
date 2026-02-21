@@ -45,7 +45,7 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
             type Out = Self;
         }
 
-        impl #impl_generics #bevy_render_path::extract_component::ExtractComponent for #struct_name #type_generics #where_clause {
+        impl #impl_generics #bevy_render_path::extract_component::ExtractBaseComponent<#bevy_render_path::RenderApp> for #struct_name #type_generics #where_clause {
             type QueryData = &'static Self;
 
             type QueryFilter = #filter;

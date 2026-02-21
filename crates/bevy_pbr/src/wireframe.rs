@@ -24,31 +24,19 @@ use bevy_platform::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::{extract_cameras, ExtractedCamera},
-    extract_resource::ExtractResource,
-    mesh::{
-        allocator::{MeshAllocator, SlabId},
-        RenderMesh,
-    },
-    prelude::*,
-    render_asset::{
-        prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
-    },
-    render_phase::{
+    Extract, ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems, batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport}, camera::{ExtractedCamera, extract_cameras}, extract_resource::ExtractResource, mesh::{
+        RenderMesh, allocator::{MeshAllocator, SlabId}
+    }, prelude::*, render_asset::{
+        PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets, prepare_assets
+    }, render_phase::{
         AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
         PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
         SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
-    },
-    render_resource::*,
-    renderer::{RenderContext, RenderDevice, ViewQuery},
-    sync_world::{MainEntity, MainEntityHashMap},
-    view::{
+    }, render_resource::*, renderer::{RenderContext, RenderDevice, ViewQuery}, sync_world::{MainEntity, MainEntityHashMap}, view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
         RetainedViewEntity, ViewDepthTexture, ViewTarget,
-    },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    }
 };
 use bevy_shader::Shader;
 use core::{hash::Hash, ops::Range};

@@ -13,12 +13,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_resource::{DynamicUniformBuffer, ShaderType},
-    renderer::{RenderDevice, RenderQueue},
-    sync_component::SyncComponent,
-    view::ExtractedView,
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderSystems, extract_component::{ExtractBaseComponent, ExtractComponent, ExtractComponentPlugin}, render_resource::{DynamicUniformBuffer, ShaderType}, renderer::{RenderDevice, RenderQueue}, sync_component::SyncComponent, view::ExtractedView
 };
 use bevy_utils::default;
 
@@ -84,7 +79,7 @@ impl SyncComponent for ContactShadows {
     type Out = Self;
 }
 
-impl ExtractComponent for ContactShadows {
+impl ExtractBaseComponent<RenderApp> for ContactShadows {
     type QueryData = &'static ContactShadows;
     type QueryFilter = ();
 
@@ -100,7 +95,7 @@ pub struct ContactShadowsBuffer(pub DynamicUniformBuffer<ContactShadowsUniform>)
 impl Plugin for ContactShadowsPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<ContactShadows>()
-            .add_plugins(ExtractComponentPlugin::<ContactShadows>::default());
+            .add_plugins(ExtractComponentPlugin::<ContactShadows>::new(RenderApp));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

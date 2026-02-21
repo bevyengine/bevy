@@ -133,7 +133,7 @@ impl Plugin for FogPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "fog.wgsl");
 
-        app.add_plugins(ExtractComponentPlugin::<DistanceFog>::default());
+        app.add_plugins(ExtractComponentPlugin::<DistanceFog>::new(RenderApp));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

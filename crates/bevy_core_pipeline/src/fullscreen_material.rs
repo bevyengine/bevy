@@ -19,22 +19,11 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault;
 use bevy_render::{
-    extract_component::{
-        ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
-        UniformComponentPlugin,
-    },
-    render_resource::{
-        binding_types::{sampler, texture_2d, uniform_buffer},
-        encase::internal::WriteInto,
-        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
-        Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, TextureFormat,
-        TextureSampleType, TextureView, TextureViewId,
-    },
-    renderer::{RenderContext, RenderDevice, ViewQuery},
-    view::ViewTarget,
-    Render, RenderApp, RenderStartup, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems, extract_component::{
+        ComponentUniforms, DynamicUniformIndex, ExtractBaseComponent, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin
+    }, render_resource::{
+        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, TextureFormat, TextureSampleType, TextureView, TextureViewId, binding_types::{sampler, texture_2d, uniform_buffer}, encase::internal::WriteInto
+    }, renderer::{RenderContext, RenderDevice, ViewQuery}, view::ViewTarget
 };
 use bevy_shader::ShaderRef;
 use bevy_utils::default;
@@ -47,7 +36,7 @@ pub struct FullscreenMaterialPlugin<T: FullscreenMaterial> {
 impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            ExtractComponentPlugin::<T>::default(),
+            ExtractComponentPlugin::<T>::new(RenderApp),
             UniformComponentPlugin::<T>::default(),
         ));
 
@@ -75,7 +64,7 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
 
 /// A trait to define a material that will render to the entire screen using a fullscreen triangle.
 pub trait FullscreenMaterial:
-    Component + ExtractComponent + Clone + Copy + ShaderType + WriteInto + Default
+    Component + ExtractBaseComponent<RenderApp> + Clone + Copy + ShaderType + WriteInto + Default
 {
     /// The shader that will run on the entire screen using a fullscreen triangle.
     fn fragment_shader() -> ShaderRef;

@@ -30,12 +30,12 @@ use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
 use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::CameraRenderGraph,
+    camera::{CameraPlugin, CameraRenderGraph},
     mesh::allocator::SlabId,
     occlusion_culling::OcclusionCulling,
     render_phase::PhaseItemBatchSetKey,
     texture::CachedTexture,
-    view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
+    view::{NoIndirectDrawing, RetainedViewEntity, prepare_view_targets},
 };
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
@@ -99,7 +99,7 @@ impl Plugin for Core3dPlugin {
                 CameraRenderGraph::new(Core3d)
             })
             .register_required_components::<Camera3d, Tonemapping>()
-            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
+            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d, CameraPlugin>::new(RenderApp)))
             .add_systems(PostUpdate, check_msaa);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

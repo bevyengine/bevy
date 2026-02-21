@@ -52,8 +52,8 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_light::{EnvironmentMapLight, ParallaxCorrection};
 use bevy_math::{Affine3A, Vec3};
+use bevy_extract::extract_instances::ExtractInstance;
 use bevy_render::{
-    extract_instances::ExtractInstance,
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{self, uniform_buffer},

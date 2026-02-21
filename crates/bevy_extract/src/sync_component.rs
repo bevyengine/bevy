@@ -23,9 +23,10 @@ use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
 ///
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
-pub struct SyncComponentPlugin<C, F = ()>(PhantomData<(C, F)>);
+pub struct SyncComponentPlugin<C, F : 'static + Send + Sync = ()>(PhantomData<(C, F)>)
+where C: SyncComponent<F>;
 
-impl<C: SyncComponent<F>, F> Default for SyncComponentPlugin<C, F> {
+impl<C: SyncComponent<F>, F : 'static + Send + Sync> Default for SyncComponentPlugin<C, F> {
     fn default() -> Self {
         Self(PhantomData)
     }
@@ -42,7 +43,7 @@ impl<C: SyncComponent<F>, F> Default for SyncComponentPlugin<C, F> {
 /// marker, e.g. the type of the plugin that calls [`SyncComponentPlugin`].
 ///
 /// [`ExtractComponent`]: crate::extract_component::ExtractComponent
-pub trait SyncComponent<F = ()>: Component {
+pub trait SyncComponent<F : 'static + Send + Sync = ()>: Component {
     /// Describes what components should be removed from the render world if the
     /// implementing component is removed.
     ///

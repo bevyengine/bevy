@@ -10,15 +10,10 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    render_resource::{
+    Render, RenderApp, RenderStartup, RenderSystems, extract_component::{ExtractBaseComponent, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin}, render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
-    },
-    renderer::RenderDevice,
-    sync_component::SyncComponent,
-    view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    }, renderer::RenderDevice, sync_component::SyncComponent, view::{ExtractedView, ViewTarget}
 };
 
 mod node;
@@ -80,7 +75,7 @@ impl SyncComponent for ContrastAdaptiveSharpening {
     type Out = (DenoiseCas, CasUniform);
 }
 
-impl ExtractComponent for ContrastAdaptiveSharpening {
+impl ExtractBaseComponent<RenderApp> for ContrastAdaptiveSharpening {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 
@@ -107,7 +102,7 @@ impl Plugin for CasPlugin {
         embedded_asset!(app, "robust_contrast_adaptive_sharpening.wgsl");
 
         app.add_plugins((
-            ExtractComponentPlugin::<ContrastAdaptiveSharpening>::default(),
+            ExtractComponentPlugin::<ContrastAdaptiveSharpening>::new(RenderApp),
             UniformComponentPlugin::<CasUniform>::default(),
         ));
 

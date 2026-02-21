@@ -1,8 +1,8 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-mod extract_component;
-mod extract_resource;
+mod extract_base_component;
+mod extract_base_resource;
 
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
@@ -13,7 +13,7 @@ pub(crate) fn bevy_extract_path() -> syn::Path {
 
 #[proc_macro_derive(ExtractBaseResource)]
 pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
-    extract_resource::derive_extract_resource(input)
+    extract_base_resource::derive_extract_resource(input)
 }
 
 /// Implements `ExtractBaseComponent` trait for a component.
@@ -45,5 +45,5 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_derive(ExtractBaseComponent, attributes(extract_component_filter))]
 pub fn derive_extract_component(input: TokenStream) -> TokenStream {
-    extract_component::derive_extract_component(input)
+    extract_base_component::derive_extract_component(input)
 }

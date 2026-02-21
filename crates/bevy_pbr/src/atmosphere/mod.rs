@@ -54,11 +54,7 @@ use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::UniformComponentPlugin,
-    render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
-    sync_component::SyncComponent,
-    sync_world::RenderEntity,
-    Extract, ExtractSchedule, RenderStartup,
+    Extract, ExtractSchedule, RenderStartup, extract_component::{ExtractBaseComponent, UniformComponentPlugin}, render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines}, sync_component::SyncComponent, sync_world::RenderEntity
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -105,8 +101,8 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "environment.wgsl");
 
         app.add_plugins((
-            ExtractComponentPlugin::<GpuAtmosphereSettings>::default(),
-            ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
+            ExtractComponentPlugin::<GpuAtmosphereSettings>::new(RenderApp),
+            ExtractComponentPlugin::<AtmosphereEnvironmentMap>::new(RenderApp),
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))
@@ -366,7 +362,7 @@ impl SyncComponent for GpuAtmosphereSettings {
     type Out = Self;
 }
 
-impl ExtractComponent for GpuAtmosphereSettings {
+impl ExtractBaseComponent<RenderApp> for GpuAtmosphereSettings {
     type QueryData = Read<AtmosphereSettings>;
     type QueryFilter = (With<Camera3d>, With<Atmosphere>);
 

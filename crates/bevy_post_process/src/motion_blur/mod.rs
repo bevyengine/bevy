@@ -22,19 +22,12 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
-    extract_component::{
-        ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
-    },
-    globals::GlobalsBuffer,
-    render_resource::{
+    Render, RenderApp, RenderStartup, RenderSystems, diagnostic::RecordDiagnostics, extract_component::{
+        ComponentUniforms, ExtractBaseComponent, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin
+    }, globals::GlobalsBuffer, render_resource::{
         BindGroupEntries, Operations, PipelineCache, RenderPassColorAttachment,
         RenderPassDescriptor, ShaderType, SpecializedRenderPipelines,
-    },
-    renderer::{RenderContext, ViewQuery},
-    sync_component::SyncComponent,
-    view::{Msaa, ViewTarget},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    }, renderer::{RenderContext, ViewQuery}, sync_component::SyncComponent, view::{Msaa, ViewTarget}
 };
 
 pub mod pipeline;
@@ -119,7 +112,7 @@ impl SyncComponent for MotionBlur {
     type Out = MotionBlurUniform;
 }
 
-impl ExtractComponent for MotionBlur {
+impl ExtractBaseComponent<RenderApp> for MotionBlur {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 
@@ -151,7 +144,7 @@ impl Plugin for MotionBlurPlugin {
         embedded_asset!(app, "motion_blur.wgsl");
 
         app.add_plugins((
-            ExtractComponentPlugin::<MotionBlur>::default(),
+            ExtractComponentPlugin::<MotionBlur>::new(RenderApp),
             UniformComponentPlugin::<MotionBlurUniform>::default(),
         ));
 
