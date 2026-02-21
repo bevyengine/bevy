@@ -487,7 +487,7 @@ fn setup_buttons_for_grid_page(
                 ..default()
             },
             TextFont {
-                font_size: 20.0,
+                font_size: FontSize::Px(20.0),
                 ..default()
             },
         ))
