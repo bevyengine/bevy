@@ -1,4 +1,4 @@
-//! This example demonstrates how to save assets.
+//! This example demonstrates how to save assets that include subassets.
 
 use bevy::{
     asset::{
