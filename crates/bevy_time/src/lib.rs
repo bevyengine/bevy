@@ -14,6 +14,7 @@ extern crate alloc;
 
 /// Common run conditions
 pub mod common_conditions;
+mod delayed_commands;
 mod fixed;
 mod real;
 mod stopwatch;
@@ -21,6 +22,7 @@ mod time;
 mod timer;
 mod virt;
 
+pub use delayed_commands::*;
 pub use fixed::*;
 pub use real::*;
 pub use stopwatch::*;
@@ -33,7 +35,7 @@ pub use virt::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
+    pub use crate::{DelayedCommandsExt, Fixed, Real, Time, Timer, TimerMode, Virtual};
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
@@ -83,6 +85,7 @@ impl Plugin for TimePlugin {
                 .in_set(TimeSystems)
                 .ambiguous_with(message_update_system),
         )
+        .add_systems(PreUpdate, delayed_queues_system)
         .add_systems(
             RunFixedMainLoop,
             run_fixed_main_schedule.in_set(RunFixedMainLoopSystems::FixedMainLoop),
@@ -183,17 +186,34 @@ pub fn time_system(
     update_virtual_time(&mut time, &mut virtual_time, &real_time);
 }
 
+/// The system used to tick [`DelayedCommandQueue`] timers, which are usually
+/// spawned by [`DelayedCommands`]. When the timer finishes, the contained queue
+/// is appended to the system's own [`Commands`].
+pub fn delayed_queues_system(
+    cmds: Query<(Entity, &mut DelayedCommandQueue)>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for (e, mut cmd) in cmds {
+        if cmd.timer.tick(time.delta()).just_finished() {
+            commands.append(&mut cmd.queue);
+            commands.entity(e).despawn();
+        }
+    }
+}
+
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
+    use crate::{DelayedCommandsExt, Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
+        component::Component,
         message::{
             Message, MessageReader, MessageRegistry, MessageWriter, Messages, ShouldUpdateMessages,
         },
         resource::Resource,
-        system::{Local, Res, ResMut},
+        system::{Commands, Local, Res, ResMut},
     };
     use core::error::Error;
     use core::time::Duration;
@@ -405,6 +425,55 @@ mod tests {
                 _ => {
                     assert_eq!(n_total_messages, 0); // No more events are sent
                     assert_eq!(n_current_messages, 0);
+                }
+            }
+        }
+    }
+
+    #[derive(Component)]
+    struct DummyComponent;
+
+    #[test]
+    fn delayed_queues_should_run_with_time_plugin_enabled() {
+        fn queue_commands(mut commands: Commands) {
+            commands.delayed().secs(0.1).spawn(DummyComponent);
+            let mut delayed = commands.delayed();
+            delayed.secs(0.5).spawn(DummyComponent);
+            let mut delayed = delayed.duration(Duration::from_secs_f32(0.9));
+            delayed.spawn(DummyComponent);
+            delayed.spawn(DummyComponent);
+            delayed.spawn(DummyComponent);
+        }
+
+        let mut app = App::new();
+        app.add_plugins(TimePlugin)
+            .add_systems(Startup, queue_commands)
+            .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
+                0.2,
+            )));
+
+        for frame in 0..10 {
+            app.update();
+            let dummy_count = app
+                .world_mut()
+                .query::<&DummyComponent>()
+                .iter(app.world())
+                .count();
+
+            println!("Frame {frame}, {dummy_count} dummies spawned");
+
+            match frame {
+                0 => {
+                    assert_eq!(dummy_count, 0);
+                }
+                1 | 2 => {
+                    assert_eq!(dummy_count, 1);
+                }
+                3 | 4 => {
+                    assert_eq!(dummy_count, 2);
+                }
+                _ => {
+                    assert_eq!(dummy_count, 5);
                 }
             }
         }

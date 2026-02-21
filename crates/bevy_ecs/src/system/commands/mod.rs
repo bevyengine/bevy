@@ -300,6 +300,17 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Returns a [`Commands`] that pushes commands to the provided queue instead of the one from `self`.
+    ///
+    /// Does not affect commands previously queued on `self`, and `self` can still be used after this call.
+    pub fn rebind<'q>(&self, queue: &'q mut CommandQueue) -> Commands<'w, 'q> {
+        Commands {
+            queue: InternalQueue::CommandQueue(Deferred(queue)),
+            allocator: self.allocator,
+            entities: self.entities,
+        }
+    }
+
     /// Take all commands from `other` and append them to `self`, leaving `other` empty.
     pub fn append(&mut self, other: &mut CommandQueue) {
         match &mut self.queue {
