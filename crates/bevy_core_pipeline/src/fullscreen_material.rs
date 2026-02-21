@@ -19,11 +19,22 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault;
 use bevy_render::{
-    Render, RenderApp, RenderStartup, RenderSystems, extract_component::{
-        ComponentUniforms, DynamicUniformIndex, ExtractBaseComponent, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin
-    }, render_resource::{
-        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, TextureFormat, TextureSampleType, TextureView, TextureViewId, binding_types::{sampler, texture_2d, uniform_buffer}, encase::internal::WriteInto
-    }, renderer::{RenderContext, RenderDevice, ViewQuery}, view::ViewTarget
+    extract_component::{
+        ComponentUniforms, DynamicUniformIndex, ExtractBaseComponent,
+        ExtractComponentPlugin, UniformComponentPlugin,
+    },
+    render_resource::{
+        binding_types::{sampler, texture_2d, uniform_buffer},
+        encase::internal::WriteInto,
+        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, Operations,
+        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
+        Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, TextureFormat,
+        TextureSampleType, TextureView, TextureViewId,
+    },
+    renderer::{RenderContext, RenderDevice, ViewQuery},
+    view::ViewTarget,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::ShaderRef;
 use bevy_utils::default;

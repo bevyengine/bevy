@@ -49,10 +49,10 @@ use bevy_ecs::{
     query::{QueryData, QueryItem},
     system::lifetimeless::Read,
 };
+use bevy_extract::extract_instances::ExtractInstance;
 use bevy_image::Image;
 use bevy_light::{EnvironmentMapLight, ParallaxCorrection};
 use bevy_math::{Affine3A, Vec3};
-use bevy_extract::extract_instances::ExtractInstance;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{

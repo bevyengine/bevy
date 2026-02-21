@@ -18,10 +18,10 @@
 extern crate alloc;
 
 pub mod extract_base_component;
+pub mod extract_base_resource;
 pub mod extract_instances;
 mod extract_param;
 pub mod extract_plugin;
-pub mod extract_base_resource;
 pub mod sync_component;
 pub mod sync_world;
 
@@ -40,4 +40,3 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{ExtractPlugin, ExtractSchedule};
 }
-

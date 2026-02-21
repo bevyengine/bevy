@@ -68,8 +68,6 @@ pub fn derive_specializer_key(input: TokenStream) -> TokenStream {
     specializer::impl_specializer_key(input)
 }
 
-
-
 #[proc_macro_derive(ExtractResource)]
 pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
     extract_resource::derive_extract_resource(input)

@@ -6,18 +6,18 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
     component::Component,
-    prelude::*, query::{QueryFilter, QueryItem, ReadOnlyQueryData},
+    prelude::*,
 };
 use core::{marker::PhantomData, ops::Deref};
 
-pub use bevy_render_macros::ExtractComponent;
 use bevy_extract::extract_base_component::ExtractBaseComponentPlugin;
+pub use bevy_render_macros::ExtractComponent;
 
 pub use bevy_extract::extract_base_component::ExtractBaseComponent;
 
 // pub trait ExtractComponent<F : 'static + Send + Sync = ()> = ExtractBaseComponent<RenderApp, F>;
 
-pub type ExtractComponentPlugin<C, F  = ()> = ExtractBaseComponentPlugin<RenderApp, C, F>;
+pub type ExtractComponentPlugin<C, F = ()> = ExtractBaseComponentPlugin<RenderApp, C, F>;
 
 /// Stores the index of a uniform inside of [`ComponentUniforms`].
 #[derive(Component)]

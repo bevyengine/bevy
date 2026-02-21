@@ -6,7 +6,8 @@ use crate::{
 use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
-    prelude::*, query::{QueryFilter, QueryItem, ReadOnlyQueryData}
+    prelude::*,
+    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
 };
 use core::marker::PhantomData;
 
@@ -23,7 +24,9 @@ pub use bevy_extract_macros::ExtractBaseComponent;
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub trait ExtractBaseComponent<L : AppLabel, F : 'static + Send + Sync = ()>: SyncComponent<F> {
+pub trait ExtractBaseComponent<L: AppLabel, F: 'static + Send + Sync = ()>:
+    SyncComponent<F>
+{
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
@@ -43,7 +46,11 @@ pub trait ExtractBaseComponent<L : AppLabel, F : 'static + Send + Sync = ()>: Sy
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub struct ExtractBaseComponentPlugin<L : AppLabel, C: ExtractBaseComponent<L, F>, F : 'static + Send + Sync = ()> {
+pub struct ExtractBaseComponentPlugin<
+    L: AppLabel,
+    C: ExtractBaseComponent<L, F>,
+    F: 'static + Send + Sync = (),
+> {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (L, C, F)>,
 
@@ -51,7 +58,9 @@ pub struct ExtractBaseComponentPlugin<L : AppLabel, C: ExtractBaseComponent<L, F
     app_label: InternedAppLabel,
 }
 
-impl <L : AppLabel, C: ExtractBaseComponent<L, F>, F : 'static + Send + Sync> ExtractBaseComponentPlugin<L, C, F> {
+impl<L: AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>
+    ExtractBaseComponentPlugin<L, C, F>
+{
     pub fn new(app: L) -> Self {
         Self {
             only_extract_visible: false,
@@ -69,7 +78,9 @@ impl <L : AppLabel, C: ExtractBaseComponent<L, F>, F : 'static + Send + Sync> Ex
     }
 }
 
-impl<L : AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync> Plugin for ExtractBaseComponentPlugin<L, C, F> {
+impl<L: AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync> Plugin
+    for ExtractBaseComponentPlugin<L, C, F>
+{
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncComponentPlugin::<C, F>::default());
 
@@ -84,7 +95,7 @@ impl<L : AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync> Plug
 }
 
 /// This system extracts all components of the corresponding [`ExtractBaseComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_components<L : AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>(
+fn extract_components<L: AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
@@ -102,7 +113,11 @@ fn extract_components<L : AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + 
 }
 
 /// This system extracts all components of the corresponding [`ExtractBaseComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_visible_components<L : AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>(
+fn extract_visible_components<
+    L: AppLabel,
+    C: ExtractBaseComponent<L, F>,
+    F: 'static + Send + Sync,
+>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,

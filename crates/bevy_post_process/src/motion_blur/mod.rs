@@ -22,12 +22,20 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    Render, RenderApp, RenderStartup, RenderSystems, diagnostic::RecordDiagnostics, extract_component::{
-        ComponentUniforms, ExtractBaseComponent, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin
-    }, globals::GlobalsBuffer, render_resource::{
+    diagnostic::RecordDiagnostics,
+    extract_component::{
+        ComponentUniforms, ExtractBaseComponent, ExtractComponentPlugin,
+        UniformComponentPlugin,
+    },
+    globals::GlobalsBuffer,
+    render_resource::{
         BindGroupEntries, Operations, PipelineCache, RenderPassColorAttachment,
         RenderPassDescriptor, ShaderType, SpecializedRenderPipelines,
-    }, renderer::{RenderContext, ViewQuery}, sync_component::SyncComponent, view::{Msaa, ViewTarget}
+    },
+    renderer::{RenderContext, ViewQuery},
+    sync_component::SyncComponent,
+    view::{Msaa, ViewTarget},
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 pub mod pipeline;

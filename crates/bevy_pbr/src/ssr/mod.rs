@@ -24,9 +24,23 @@ use bevy_image::BevyDefault as _;
 use bevy_light::EnvironmentMapLight;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    Render, RenderApp, RenderStartup, RenderSystems, diagnostic::RecordDiagnostics, extract_component::{ExtractBaseComponent, ExtractComponent, ExtractComponentPlugin}, render_asset::RenderAssets, render_resource::{
-        AddressMode, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode, FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType, TextureViewDescriptor, TextureViewDimension, binding_types
-    }, renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue, ViewQuery}, sync_component::SyncComponent, texture::GpuImage, view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset}
+    diagnostic::RecordDiagnostics,
+    extract_component::{ExtractBaseComponent, ExtractComponentPlugin},
+    render_asset::RenderAssets,
+    render_resource::{
+        binding_types, AddressMode, BindGroupEntries, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+        DynamicUniformBuffer, FilterMode, FragmentState, Operations, PipelineCache,
+        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureFormat, TextureSampleType, TextureViewDescriptor,
+        TextureViewDimension,
+    },
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue, ViewQuery},
+    sync_component::SyncComponent,
+    texture::GpuImage,
+    view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::{once, prelude::default};
@@ -188,7 +202,9 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
         load_shader_library!(app, "ssr.wgsl");
         load_shader_library!(app, "raymarch.wgsl");
 
-        app.add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::new(RenderApp));
+        app.add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::new(
+            RenderApp,
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

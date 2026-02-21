@@ -173,7 +173,6 @@ pub fn update_text2d_layout(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
@@ -241,11 +240,10 @@ pub fn update_text2d_layout(
 
         let text_changed = scale_factor != text_layout_info.scale_factor
             || block.is_changed()
-            || hinting.is_changed()
             || computed.needs_rerender(viewport_size_changed, rem_size.is_changed())
             || (!reprocess_queue.is_empty() && reprocess_queue.remove(&entity));
 
-        if !(text_changed || bounds.is_changed()) {
+        if !(text_changed || bounds.is_changed() || hinting.is_changed()) {
             continue;
         }
 
@@ -269,7 +267,6 @@ pub fn update_text2d_layout(
                 &mut computed,
                 &mut font_system,
                 &mut layout_cx,
-                *hinting,
                 logical_viewport_size,
                 rem_size.0,
             ) {
@@ -302,7 +299,6 @@ pub fn update_text2d_layout(
         match text_pipeline.update_text_layout_info(
             &mut text_layout_info,
             &mut font_atlas_set,
-            &mut texture_atlases,
             &mut textures,
             &mut computed,
             &mut scale_cx,

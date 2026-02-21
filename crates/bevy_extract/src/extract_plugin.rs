@@ -1,11 +1,12 @@
-use crate::{
-    sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin},
-};
+use crate::sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
 use bevy_app::{App, InternedAppLabel, Plugin, SubApp};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
-    schedule::{InternedScheduleLabel, InternedSystemSet, IntoScheduleConfigs, Schedule, ScheduleBuildSettings, ScheduleLabel, Schedules},
+    schedule::{
+        InternedScheduleLabel, InternedSystemSet, IntoScheduleConfigs, Schedule,
+        ScheduleBuildSettings, ScheduleLabel, Schedules,
+    },
     world::{Mut, World},
 };
 use bevy_utils::default;
@@ -46,6 +47,7 @@ impl Plugin for ExtractPlugin {
 
         sub_app.add_schedule((self.base_schedule)());
         sub_app.add_schedule(extract_schedule);
+        sub_app.allow_ambiguous_resource::<MainWorld>();
         sub_app.add_systems(
             self.schedule_label,
             (
@@ -176,7 +178,6 @@ mod test {
         app.add_plugins(ExtractPlugin {
             pre_extract: |_, _| {},
             app_label: ExtractApp.intern(),
-
             // pub base_schedule: fn() -> Schedule, // Render::base_schedule()
             // pub schedule_label: InternedScheduleLabel, // Render
 

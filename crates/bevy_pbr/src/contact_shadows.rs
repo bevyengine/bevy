@@ -13,7 +13,12 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    Render, RenderApp, RenderSystems, extract_component::{ExtractBaseComponent, ExtractComponent, ExtractComponentPlugin}, render_resource::{DynamicUniformBuffer, ShaderType}, renderer::{RenderDevice, RenderQueue}, sync_component::SyncComponent, view::ExtractedView
+    extract_component::{ExtractBaseComponent, ExtractComponentPlugin},
+    render_resource::{DynamicUniformBuffer, ShaderType},
+    renderer::{RenderDevice, RenderQueue},
+    sync_component::SyncComponent,
+    view::ExtractedView,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_utils::default;
 

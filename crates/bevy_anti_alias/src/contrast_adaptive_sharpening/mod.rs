@@ -10,10 +10,17 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    Render, RenderApp, RenderStartup, RenderSystems, extract_component::{ExtractBaseComponent, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin}, render_resource::{
+    extract_component::{
+        ExtractBaseComponent, ExtractComponentPlugin, UniformComponentPlugin,
+    },
+    render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
-    }, renderer::RenderDevice, sync_component::SyncComponent, view::{ExtractedView, ViewTarget}
+    },
+    renderer::RenderDevice,
+    sync_component::SyncComponent,
+    view::{ExtractedView, ViewTarget},
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 mod node;

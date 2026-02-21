@@ -21,6 +21,7 @@ trace = [
   "bevy_pbr?/trace",
   "bevy_render?/trace",
   "bevy_winit?/trace",
+  "bevy_post_process?/trace",
 ]
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
@@ -192,6 +193,7 @@ webgl = [
   "bevy_gizmos_render?/webgl",
   "bevy_sprite_render?/webgl",
   "bevy_dev_tools?/webgl",
+  "bevy_post_process?/webgl",
   "bevy_feathers?/webgl",
 ]
 
@@ -203,6 +205,7 @@ webgpu = [
   "bevy_gizmos_render?/webgpu",
   "bevy_sprite_render?/webgpu",
   "bevy_dev_tools?/webgpu",
+  "bevy_post_process?/webgpu",
   "bevy_feathers?/webgpu",
 ]
 
@@ -334,8 +337,8 @@ pan_camera = ["bevy_camera_controller/pan_camera"]
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
 
-# Provides picking functionality
-bevy_picking = ["dep:bevy_picking", "bevy_input_focus?/bevy_picking"]
+# Provides picking functionality without any backend
+bevy_picking = ["dep:bevy_picking"]
 
 # Provides a mesh picking backend
 mesh_picking = ["bevy_picking", "bevy_picking/mesh_picking"]
@@ -344,7 +347,11 @@ mesh_picking = ["bevy_picking", "bevy_picking/mesh_picking"]
 sprite_picking = ["bevy_picking", "bevy_sprite?/bevy_picking"]
 
 # Provides a UI picking backend
-ui_picking = ["bevy_picking", "bevy_ui?/bevy_picking"]
+ui_picking = [
+  "bevy_picking",
+  "bevy_ui?/bevy_picking",
+  "bevy_input_focus?/bevy_picking",
+]
 
 # Provides a UI debug overlay
 bevy_ui_debug = ["bevy_ui_render?/bevy_ui_debug"]
@@ -552,5 +559,9 @@ bevy_android = { path = "../bevy_android", version = "0.19.0-dev", default-featu
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

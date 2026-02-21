@@ -138,8 +138,10 @@ impl Plugin for EffectStackPlugin {
             RenderAssetUsages::RENDER_WORLD,
         ));
 
-        app.add_plugins(ExtractComponentPlugin::<ChromaticAberration>::new(RenderApp))
-            .add_plugins(ExtractComponentPlugin::<Vignette>::new(RenderApp));
+        app.add_plugins(ExtractComponentPlugin::<ChromaticAberration>::new(
+            RenderApp,
+        ))
+        .add_plugins(ExtractComponentPlugin::<Vignette>::new(RenderApp));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

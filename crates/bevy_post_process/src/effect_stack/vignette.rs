@@ -9,7 +9,10 @@ use bevy_ecs::{
 use bevy_math::{Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    RenderApp, extract_component::{ExtractBaseComponent, ExtractComponent}, render_resource::ShaderType, sync_component::SyncComponent
+    extract_component::ExtractBaseComponent,
+    render_resource::ShaderType,
+    sync_component::SyncComponent,
+    RenderApp,
 };
 
 /// The default vignette intensity amount.

@@ -7,7 +7,11 @@ use bevy_ecs::{
 };
 use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{RenderApp, extract_component::{ExtractBaseComponent, ExtractComponent}, sync_component::SyncComponent};
+use bevy_render::{
+    extract_component::ExtractBaseComponent,
+    sync_component::SyncComponent,
+    RenderApp,
+};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
@@ -17,8 +21,6 @@ use bevy_render::{RenderApp, extract_component::{ExtractBaseComponent, ExtractCo
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 ///
 /// # Usage Notes
-///
-/// **Bloom is currently not compatible with WebGL2.**
 ///
 /// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive` for 3d meshes.
 ///

@@ -15,7 +15,7 @@ use crate::{Extract, ExtractSchedule};
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractBaseResourcePlugin`].
-pub trait ExtractBaseResource<L : AppLabel, F : 'static + Send + Sync = ()>: Resource {
+pub trait ExtractBaseResource<L: AppLabel, F: 'static + Send + Sync = ()>: Resource {
     type Source: Resource;
 
     /// Defines how the resource is transferred into the "render world".
@@ -30,13 +30,19 @@ pub trait ExtractBaseResource<L : AppLabel, F : 'static + Send + Sync = ()>: Res
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractBaseResourcePlugin`].
-pub struct ExtractBaseResourcePlugin<L : AppLabel, R: ExtractBaseResource<L, F>, F : 'static + Send + Sync = ()> {
+pub struct ExtractBaseResourcePlugin<
+    L: AppLabel,
+    R: ExtractBaseResource<L, F>,
+    F: 'static + Send + Sync = (),
+> {
     marker: PhantomData<(L, R, F)>,
     app_label: InternedAppLabel,
 }
 
-impl <L : AppLabel, R: ExtractBaseResource<L, F>, F : 'static + Send + Sync> ExtractBaseResourcePlugin<L, R, F> {
-    pub fn new(app_label : L) -> Self {
+impl<L: AppLabel, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync>
+    ExtractBaseResourcePlugin<L, R, F>
+{
+    pub fn new(app_label: L) -> Self {
         Self {
             marker: PhantomData,
             app_label: app_label.intern(),
@@ -44,7 +50,9 @@ impl <L : AppLabel, R: ExtractBaseResource<L, F>, F : 'static + Send + Sync> Ext
     }
 }
 
-impl<L : AppLabel, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync> Plugin for ExtractBaseResourcePlugin<L, R, F> {
+impl<L: AppLabel, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync> Plugin
+    for ExtractBaseResourcePlugin<L, R, F>
+{
     fn build(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(self.app_label) {
             render_app.add_systems(ExtractSchedule, extract_resource::<L, R, F>);
@@ -58,7 +66,7 @@ impl<L : AppLabel, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync> Plugi
 }
 
 /// This system extracts the resource of the corresponding [`Resource`] type
-pub fn extract_resource<L : AppLabel, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync>(
+pub fn extract_resource<L: AppLabel, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync>(
     mut commands: Commands,
     main_resource: Extract<Option<Res<R::Source>>>,
     target_resource: Option<ResMut<R>>,
