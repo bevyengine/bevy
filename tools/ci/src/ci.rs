@@ -22,6 +22,10 @@ pub struct CI {
     /// number of build jobs
     #[argh(option)]
     pub(crate) build_jobs: Option<usize>,
+
+    /// target to compile to
+    #[argh(option)]
+    pub(crate) target: Option<String>,
 }
 
 impl CI {
@@ -75,6 +79,7 @@ impl CI {
                 let mut cmds = vec![];
                 cmds.append(&mut commands::FormatCommand::default().prepare(sh, args));
                 cmds.append(&mut commands::ClippyCommand::default().prepare(sh, args));
+                cmds.append(&mut commands::ClippysCommand::default().prepare(sh, args));
                 cmds.append(&mut commands::TestCommand::default().prepare(sh, args));
                 cmds.append(&mut commands::TestCheckCommand::default().prepare(sh, args));
                 cmds.append(&mut commands::IntegrationTestCommand::default().prepare(sh, args));
@@ -105,9 +110,12 @@ enum Commands {
     Lints(commands::LintsCommand),
     Doc(commands::DocCommand),
     Compile(commands::CompileCommand),
+    Clippys(commands::ClippysCommand),
     // Actual subcommands
     Format(commands::FormatCommand),
     Clippy(commands::ClippyCommand),
+    ClippyAndroid(commands::ClippyAndroidCommand),
+    ClippyDlss(commands::ClippyDlssCommand),
     Test(commands::TestCommand),
     TestCheck(commands::TestCheckCommand),
     IntegrationTest(commands::IntegrationTestCommand),
@@ -119,6 +127,12 @@ enum Commands {
     CompileFail(commands::CompileFailCommand),
     BenchCheck(commands::BenchCheckCommand),
     ExampleCheck(commands::ExampleCheckCommand),
+    BevyA11y(commands::BevyA11y),
+    BevyAndroid(commands::BevyAndroid),
+    BevyAnimation(commands::BevyAnimation),
+    BevyAntiAlias(commands::BevyAntiAlias),
+    BevyApp(commands::BevyApp),
+    BevyEcs(commands::BevyEcs),
 }
 
 impl Prepare for Commands {
@@ -127,9 +141,12 @@ impl Prepare for Commands {
             Commands::Lints(subcommand) => subcommand.prepare(sh, args),
             Commands::Doc(subcommand) => subcommand.prepare(sh, args),
             Commands::Compile(subcommand) => subcommand.prepare(sh, args),
+            Commands::Clippys(subcommand) => subcommand.prepare(sh, args),
 
             Commands::Format(subcommand) => subcommand.prepare(sh, args),
             Commands::Clippy(subcommand) => subcommand.prepare(sh, args),
+            Commands::ClippyAndroid(subcommand) => subcommand.prepare(sh, args),
+            Commands::ClippyDlss(subcommand) => subcommand.prepare(sh, args),
             Commands::Test(subcommand) => subcommand.prepare(sh, args),
             Commands::TestCheck(subcommand) => subcommand.prepare(sh, args),
             Commands::IntegrationTest(subcommand) => subcommand.prepare(sh, args),
@@ -141,6 +158,12 @@ impl Prepare for Commands {
             Commands::CompileFail(subcommand) => subcommand.prepare(sh, args),
             Commands::BenchCheck(subcommand) => subcommand.prepare(sh, args),
             Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, args),
+            Commands::BevyA11y(subcommand) => subcommand.prepare(sh, args),
+            Commands::BevyAndroid(subcommand) => subcommand.prepare(sh, args),
+            Commands::BevyAnimation(subcommand) => subcommand.prepare(sh, args),
+            Commands::BevyAntiAlias(subcommand) => subcommand.prepare(sh, args),
+            Commands::BevyApp(subcommand) => subcommand.prepare(sh, args),
+            Commands::BevyEcs(subcommand) => subcommand.prepare(sh, args),
         }
     }
 }
