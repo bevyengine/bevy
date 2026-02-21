@@ -8,7 +8,6 @@ use bevy::{
     prelude::*,
     window::{ExitCondition, WindowCloseRequested},
 };
-use serde::{Deserialize, Serialize};
 
 fn main() {
     App::new()
@@ -29,16 +28,16 @@ fn main() {
         .run();
 }
 
-#[derive(Resource, SettingsGroup, Reflect, Default, Serialize, Deserialize)]
-#[reflect(Resource, SettingsGroup, Serialize, Deserialize, Default)]
+#[derive(Resource, SettingsGroup, Reflect, Default)]
+#[reflect(Resource, SettingsGroup, Default)]
 struct Counter {
     count: i32,
 }
 
 /// A different settings group which has the name group name as the previous. The two groups will be
 /// merged into a single section in the config file.
-#[derive(Resource, SettingsGroup, Reflect, Default, Serialize, Deserialize)]
-#[reflect(Resource, SettingsGroup, Serialize, Deserialize, Default)]
+#[derive(Resource, SettingsGroup, Reflect, Default)]
+#[reflect(Resource, SettingsGroup, Default)]
 #[settings_group(group = "counter")]
 struct OtherSettings {
     enabled: bool,

@@ -13,8 +13,9 @@ use bevy_ecs::{
 pub use bevy_ecs_macros::SettingsGroup;
 use bevy_log::warn;
 use bevy_reflect::{
-    prelude::ReflectDefault, serde::TypedReflectDeserializer, FromReflect, FromType,
-    PartialReflect, Reflect, ReflectDeserialize, ReflectMut, ReflectSerialize, TypeInfo, TypePath,
+    prelude::ReflectDefault,
+    serde::{TypedReflectDeserializer, TypedReflectSerializer},
+    FromReflect, FromType, PartialReflect, Reflect, ReflectMut, TypeInfo, TypePath,
     TypeRegistration, TypeRegistry,
 };
 
@@ -133,9 +134,6 @@ fn resources_to_toml(
         let Some(cmp) = ty.data::<ReflectComponent>() else {
             continue;
         };
-        let Some(ser) = ty.data::<ReflectSerialize>() else {
-            continue;
-        };
         let Some(reflect_settings_group) = ty.data::<ReflectSettingsGroup>() else {
             continue;
         };
@@ -154,13 +152,12 @@ fn resources_to_toml(
             continue;
         };
         let res_entity_ref = world.entity(*res_entity);
-
         let Some(reflect) = cmp.reflect(res_entity_ref) else {
             continue;
         };
-        let ser_value = ser.get_serializable(reflect);
 
-        let toml_value = toml::Value::try_from(&*ser_value).unwrap();
+        let serializer = TypedReflectSerializer::new(reflect.as_partial_reflect(), types);
+        let toml_value = toml::Value::try_from(serializer).unwrap();
         match (
             toml_value.as_table(),
             table.get_mut(group).and_then(|value| value.as_table_mut()),
@@ -264,11 +261,7 @@ impl LoadPreferences for App {
         // Scan through types looking for resources that have the necessary traits and
         // annotations.
         for ty in types.iter() {
-            if !(ty.contains::<ReflectSettingsGroup>()
-                && ty.contains::<ReflectSerialize>()
-                && ty.contains::<ReflectDeserialize>()
-                && ty.contains::<ReflectDefault>())
-            {
+            if !(ty.contains::<ReflectSettingsGroup>() && ty.contains::<ReflectDefault>()) {
                 continue;
             };
 
@@ -343,6 +336,7 @@ impl LoadPreferences for App {
                         load_properties(value, &mut *default_value, &types);
                     }
 
+                    // Now add the new resource to the world.
                     reflect_component.insert(
                         &mut res_entity,
                         default_value.as_partial_reflect(),
@@ -352,9 +346,10 @@ impl LoadPreferences for App {
             }
         }
 
+        // Cache the index so that we don't have to do it again when saving (and also makes
+        // saving more deterministic).
         drop(types);
         world.insert_resource::<PreferencesFileRegistry>(file_index);
-
         self
     }
 }
