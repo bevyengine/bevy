@@ -259,7 +259,7 @@ pub struct VisibilityExtractionSystemParam<'w, 's> {
 ///
 /// This type exists because iterating over [`RemovedComponents`] is destructive
 /// and can only be done once. However,
-/// [`RenderVisibleMeshEntries::update_from`] needs to do it multiple times.
+/// [`RenderVisibleMeshEntities::update_from`] needs to do it multiple times.
 /// Therefore, we must *prepare* the system parameter, which involves draining
 /// the [`RemovedComponents`] list into a vector.
 pub struct PreparedVisibilityExtractionSystemParam<'w, 's> {

@@ -144,11 +144,11 @@ impl InheritedVisibility {
 /// Bevy's various rendering subsystems (3D, 2D, etc.) want to be able to
 /// quickly winnow the set of entities to only those that the subsystem is
 /// tasked with rendering, to avoid spending time examining irrelevant entities.
-/// At the same time, Bevy wants the [`check_visibility`] system to determine
-/// all entities' visibilities at the same time, regardless of what rendering
-/// subsystem is responsible for drawing them. Additionally, your application
-/// may want to add more types of renderable objects that Bevy determines
-/// visibility for just as it does for Bevy's built-in objects.
+/// At the same time, Bevy wants the [`check_visibility_cpu_culling`] system to
+/// determine all entities' visibilities at the same time, regardless of what
+/// rendering subsystem is responsible for drawing them. Additionally, your
+/// application may want to add more types of renderable objects that Bevy
+/// determines visibility for just as it does for Bevy's built-in objects.
 ///
 /// The solution to this problem is *visibility classes*. A visibility class is
 /// a type, typically the type of a component, that represents the subsystem
@@ -321,10 +321,7 @@ impl Default for VisibleEntities {
         // complicated method signatures. So it's simpler to just do this.
         let mut entities = TypeIdMap::default();
         entities.insert(TypeId::of::<Mesh3d>(), vec![]);
-
-        VisibleEntities {
-            entities,
-        }
+        VisibleEntities { entities }
     }
 }
 
@@ -442,12 +439,14 @@ pub enum VisibilitySystems {
     /// Label for the system propagating the [`InheritedVisibility`] in a
     /// [`ChildOf`] / [`Children`] hierarchy.
     VisibilityPropagate,
-    /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
-    /// of each entity and the [`VisibleEntities`] of each view.\
+    /// Label for the [`check_visibility_cpu_culling`] and
+    /// [`check_visibility_no_cpu_culling`] systems updating [`ViewVisibility`]
+    /// of each entity and the [`VisibleEntities`] of each view.
     ///
-    /// System order ambiguities between systems in this set are ignored:
-    /// the order of systems within this set is irrelevant, as [`check_visibility`]
-    /// assumes that its operations are irreversible during the frame.
+    /// System order ambiguities between systems in this set are ignored: the
+    /// order of systems within this set is irrelevant, as
+    /// [`check_visibility_cpu_culling`] assumes that its operations are
+    /// irreversible during the frame.
     CheckVisibility,
     /// Label for the `mark_newly_hidden_entities_invisible` system, which sets
     /// [`ViewVisibility`] to [`ViewVisibility::HIDDEN`] for entities that no
@@ -826,7 +825,7 @@ pub fn check_visibility_cpu_culling(
 /// to its [`InheritedVisibility`], as the CPU has been instructed to perform no
 /// other checks. For performance, we avoid examining any entity that hasn't
 /// changed its inherited visibility.
-fn check_visibility_no_cpu_culling(
+pub fn check_visibility_no_cpu_culling(
     mut query: Query<
         (&mut ViewVisibility, &InheritedVisibility),
         (
