@@ -39,7 +39,7 @@ pub struct LensDistortion {
     /// The overall strength of the distortion effect.
     ///
     /// Positive values typically produce **barrel distortion** (bulging outwards),
-    /// while negative values produce **cup-shaped distortion** (pinching inwards).
+    /// while negative values produce **pincushion distortion** (pinching inwards).
     /// This corresponds roughly to the radial distortion coefficient `k₁`
     /// in the simplified model.
     ///

@@ -3,6 +3,7 @@
 //! Includes:
 //!
 //! - Chromatic Aberration
+//! - Lens Distortion
 //! - Vignette
 
 mod chromatic_aberration;
@@ -67,6 +68,7 @@ use bevy_core_pipeline::{
 /// Includes:
 ///
 /// - Chromatic Aberration
+/// - Lens Distortion
 /// - Vignette
 #[derive(Default)]
 pub struct EffectStackPlugin;
