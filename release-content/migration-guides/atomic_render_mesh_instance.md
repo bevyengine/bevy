@@ -1,5 +1,5 @@
 ---
-title: `RenderMeshInstance` becomes atomic
+title: RenderMeshInstance becomes atomic
 pull_requests: [22988]
 ---
 
