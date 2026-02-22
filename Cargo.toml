@@ -5163,6 +5163,18 @@ category = "Application"
 wasm = true
 
 [[example]]
+name = "prefs_window"
+path = "examples/app/prefs_window.rs"
+doc-scrape-examples = true
+required-features = ["bevy_preferences"]
+
+[package.metadata.example.prefs_window]
+name = "User Preferences"
+description = "Demonstrates saving window position in preferences"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "system_fonts"
 path = "examples/ui/text/system_fonts.rs"
 doc-scrape-examples = true
