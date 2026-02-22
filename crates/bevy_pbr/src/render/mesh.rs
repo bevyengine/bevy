@@ -1,7 +1,7 @@
 use crate::contact_shadows::ViewContactShadowsUniformOffset;
 use crate::{
     material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
-    resources::write_atmosphere_buffer,
+    resources::prepare_atmosphere_buffers,
     skin::skin_uniforms_from_world,
 };
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
@@ -201,7 +201,7 @@ impl Plugin for MeshRenderPlugin {
                         prepare_mesh_view_bind_groups
                             .in_set(RenderSystems::PrepareBindGroups)
                             .after(prepare_oit_buffers)
-                            .after(write_atmosphere_buffer),
+                            .after(prepare_atmosphere_buffers),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
                             .in_set(RenderSystems::Cleanup)
                             .after(RenderSystems::Render),

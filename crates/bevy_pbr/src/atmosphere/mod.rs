@@ -81,7 +81,7 @@ use resources::{
 };
 use tracing::warn;
 
-use crate::resources::{init_atmosphere_buffer, write_atmosphere_buffer};
+use crate::resources::prepare_atmosphere_buffers;
 
 use self::resources::{
     prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
@@ -162,12 +162,7 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
             .add_systems(
                 RenderStartup,
-                (
-                    init_atmosphere_probe_layout,
-                    init_atmosphere_probe_pipeline,
-                    init_atmosphere_buffer,
-                )
-                    .chain(),
+                (init_atmosphere_probe_layout, init_atmosphere_probe_pipeline).chain(),
             )
             .add_systems(
                 Render,
@@ -184,7 +179,7 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                    write_atmosphere_buffer.in_set(RenderSystems::PrepareResources),
+                    prepare_atmosphere_buffers.in_set(RenderSystems::PrepareResources),
                 ),
             )
             .add_systems(
