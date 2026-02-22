@@ -40,9 +40,9 @@ struct AppSettings {
     vignette_edge_compensation: f32,
     /// The intensity of the lens distortion effect.
     lens_distortion_intensity: f32,
-    /// The multiplier_x of the lens distortion effect.
+    /// Distortion strength multiplier for the horizontal direction.
     lens_distortion_multiplier_x: f32,
-    /// The multiplier_y of the lens distortion effect.
+    /// Distortion strength multiplier for the vertical direction.
     lens_distortion_multiplier_y: f32,
 }
 
