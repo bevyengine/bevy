@@ -797,7 +797,7 @@ pub(crate) fn write_atmosphere_buffer(
     atmosphere_entity: Query<(&GpuAtmosphere, &GpuAtmosphereSettings), With<Camera3d>>,
     mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
 ) {
-    let Ok((atmosphere, settings)) = atmosphere_entity.single() else {
+    let Some((atmosphere, settings)) = atmosphere_entity.iter().next() else {
         return;
     };
 
