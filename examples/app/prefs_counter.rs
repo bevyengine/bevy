@@ -23,7 +23,6 @@ fn main() {
             ..default()
         }))
         .add_plugins(PreferencesPlugin::new("org.bevy.examples.prefs_counter"))
-        // .add_plugins(AutosavePrefsPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, (show_count, change_count, on_window_close))
         .load_preferences()
@@ -41,6 +40,7 @@ struct Counter {
 #[derive(Resource, SettingsGroup, Reflect, Default)]
 #[reflect(Resource, SettingsGroup, Default)]
 #[settings_group(group = "counter")]
+#[allow(dead_code)]
 struct OtherSettings {
     enabled: bool,
 }

@@ -246,6 +246,7 @@ Example | Description
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
 [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
 [User Preferences](../examples/app/prefs_counter.rs) | Demonstrates persistence of user preferences
+[User Preferences](../examples/app/prefs_window.rs) | Demonstrates saving window position in preferences
 [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
 
 ### Assets
