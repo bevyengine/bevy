@@ -1,6 +1,11 @@
 //! Batching functionality when GPU preprocessing is in use.
 
-use core::{any::TypeId, marker::PhantomData, mem};
+use core::{
+    any::TypeId,
+    marker::PhantomData,
+    mem,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
@@ -285,6 +290,9 @@ where
     /// When adding data, we preferentially overwrite these slots first before
     /// growing the buffer itself.
     free_uniform_indices: Vec<u32>,
+
+    /// The number of elements pushed since the last [`Self::reserve`].
+    atomic_len: AtomicU32,
 }
 
 impl<BDI> InstanceInputUniformBuffer<BDI>
@@ -296,6 +304,7 @@ where
         InstanceInputUniformBuffer {
             buffer: AtomicRawBufferVec::new(BufferUsages::STORAGE),
             free_uniform_indices: vec![],
+            atomic_len: AtomicU32::new(0),
         }
     }
 
@@ -303,6 +312,7 @@ where
     pub fn clear(&mut self) {
         self.buffer.clear();
         self.free_uniform_indices.clear();
+        *self.atomic_len.get_mut() = 0;
     }
 
     /// Returns the [`RawBufferVec`] corresponding to this input uniform buffer.
@@ -357,6 +367,31 @@ where
     /// if `uniform_index` is not in bounds of [`Self::buffer`].
     pub fn set(&self, uniform_index: u32, element: BDI) {
         self.buffer.set(uniform_index, element);
+    }
+
+    /// Pre-allocates capacity for concurrent [`Self::push`] calls.
+    pub fn reserve(&mut self, capacity: u32) {
+        self.buffer.grow(capacity);
+        *self.atomic_len.get_mut() = 0;
+    }
+
+    /// Appends a value and returns its index. Thread-safe.
+    ///
+    /// [`Self::reserve`] must have been called first with sufficient capacity.
+    pub fn push(&self, value: BDI) -> u32 {
+        let index = self.atomic_len.fetch_add(1, Ordering::Relaxed);
+        debug_assert!(
+            (index as usize) < self.buffer.len() as usize,
+            "push exceeded pre-allocated capacity"
+        );
+        self.buffer.set(index, value);
+        index
+    }
+
+    /// Trims the buffer to the number of elements pushed since the last
+    /// [`Self::reserve`].
+    pub fn truncate(&mut self) {
+        self.buffer.truncate(*self.atomic_len.get_mut());
     }
 
     // Ensures that the buffers are nonempty, which the GPU requires before an
