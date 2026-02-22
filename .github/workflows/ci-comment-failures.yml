@@ -1,11 +1,7 @@
 name: CI - PR Comments
 
- # This workflow has write permissions on the repo
- # It must not checkout a PR and run untrusted code
-
-# Also requesting write permissions on PR to be able to comment
-permissions:
-  pull-requests: 'write'
+# This workflow has write permissions on the repo
+# It must not checkout a PR and run untrusted code
 
 on:
   workflow_run:
@@ -14,16 +10,17 @@ on:
       - completed
 
 jobs:
-
   missing-examples:
+    permissions:
+      pull-requests: "write"
     runs-on: ubuntu-latest
     if: >
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'failure'
     steps:
-      - name: 'Download artifact'
+      - name: "Download artifact"
         id: find-artifact
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           result-encoding: string
           script: |
@@ -63,7 +60,7 @@ jobs:
           fi
       - name: "Comment on PR"
         if: ${{ steps.find-artifact.outputs.result == 'true' && steps.check-last-comment.outputs.result == 'false' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -87,14 +84,16 @@ jobs:
             }
 
   missing-features:
+    permissions:
+      pull-requests: "write"
     runs-on: ubuntu-latest
     if: >
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'failure'
     steps:
-      - name: 'Download artifact'
+      - name: "Download artifact"
         id: find-artifact
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           result-encoding: string
           script: |
@@ -134,7 +133,7 @@ jobs:
           fi
       - name: "Comment on PR"
         if: ${{ steps.find-artifact.outputs.result == 'true' && steps.check-last-comment.outputs.result == 'false' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -158,14 +157,16 @@ jobs:
             }
 
   msrv:
+    permissions:
+      pull-requests: "write"
     runs-on: ubuntu-latest
     if: >
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'failure'
     steps:
-      - name: 'Download artifact'
+      - name: "Download artifact"
         id: find-artifact
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           result-encoding: string
           script: |
@@ -205,7 +206,7 @@ jobs:
           fi
       - name: "Comment on PR"
         if: ${{ steps.find-artifact.outputs.result == 'true' && steps.check-last-comment.outputs.result == 'false' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

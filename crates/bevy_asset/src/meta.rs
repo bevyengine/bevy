@@ -228,10 +228,6 @@ impl AssetLoader for () {
         unreachable!();
     }
 
-    fn reader_required_features(_settings: &Self::Settings) -> crate::io::ReaderRequiredFeatures {
-        unreachable!();
-    }
-
     fn extensions(&self) -> &[&str] {
         unreachable!();
     }

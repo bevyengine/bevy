@@ -21,7 +21,7 @@ fn main() {
                 config: FpsOverlayConfig {
                     text_config: TextFont {
                         // Here we define size of our overlay
-                        font_size: 42.0,
+                        font_size: FontSize::Px(42.0),
                         // If we want, we can use a custom font
                         font: default(),
                         // We could also disable font smoothing,
@@ -80,12 +80,20 @@ fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOve
             overlay.text_color = OverlayColor::GREEN;
         }
     }
-    if input.just_pressed(KeyCode::Digit2) {
-        overlay.text_config.font_size -= 2.0;
+
+    // The font size only adjustable when using `Px` units
+    if let FontSize::Px(mut px_font_size) = overlay.text_config.font_size {
+        if input.just_pressed(KeyCode::Digit2) {
+            px_font_size = (px_font_size - 2.).max(2.);
+        }
+        if input.just_pressed(KeyCode::Digit3) {
+            px_font_size += 2.;
+        }
+        if FontSize::Px(px_font_size) != overlay.text_config.font_size {
+            overlay.text_config.font_size = FontSize::Px(px_font_size);
+        }
     }
-    if input.just_pressed(KeyCode::Digit3) {
-        overlay.text_config.font_size += 2.0;
-    }
+
     if input.just_pressed(KeyCode::Digit4) {
         overlay.enabled = !overlay.enabled;
     }

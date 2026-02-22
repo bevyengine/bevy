@@ -46,7 +46,7 @@ fn setup(mut commands: Commands) {
                 CustomText,
                 Text::new("Example text"),
                 TextFont {
-                    font_size: 25.0,
+                    font_size: FontSize::Px(25.0),
                     ..default()
                 },
                 Node {

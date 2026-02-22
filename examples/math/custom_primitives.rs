@@ -243,7 +243,7 @@ fn setup(
     // Point light for 3D
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
@@ -390,6 +390,7 @@ fn switch_shapes(
     };
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn toggle_wireframes(mut wireframe_config: ResMut<WireframeConfig>) {
     wireframe_config.global = !wireframe_config.global;
 }

@@ -8,7 +8,7 @@ use derive_more::derive::From;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 #[cfg(feature = "bevy-support")]
-use bevy_ecs::{component::Component, hierarchy::validate_parent_has_component};
+use bevy_ecs::component::Component;
 
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -47,11 +47,7 @@ use {
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy-support",
-    derive(Component),
-    component(on_insert = validate_parent_has_component::<GlobalTransform>)
-)]
+#[cfg_attr(feature = "bevy-support", derive(Component))]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

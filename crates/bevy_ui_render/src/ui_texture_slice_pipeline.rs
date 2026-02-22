@@ -339,7 +339,7 @@ pub fn queue_ui_slices(
             UiTextureSlicePipelineKey { hdr: view.hdr },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
@@ -518,7 +518,7 @@ pub fn prepare_ui_slices(
                     ];
 
                     let transformed_rect_size =
-                        texture_slices.transform.transform_vector2(rect_size);
+                        texture_slices.transform.transform_vector2(rect_size).abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
