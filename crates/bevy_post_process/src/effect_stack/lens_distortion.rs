@@ -104,10 +104,7 @@ impl ExtractComponent for LensDistortion {
 
     fn extract_component(lens_distortion: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         // Skip the postprocessing phase entirely if the intensity is negligible.
-        if abs(lens_distortion.intensity) > 1e-4
-            || lens_distortion.scale != DEFAULT_LENS_DISTORTION_SCALE
-            || lens_distortion.center != DEFAULT_LENS_DISTORTION_CENTER
-        {
+        if abs(lens_distortion.intensity) > 1e-4 {
             Some(lens_distortion.clone())
         } else {
             None
