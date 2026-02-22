@@ -169,10 +169,8 @@ fn update_window_settings(
         window_changed = true;
     }
 
-    if window_changed {
-        if store_window_settings(window_settings, window) {
-            commands.queue(SavePreferencesDeferred(Duration::from_secs_f32(0.5)));
-        }
+    if window_changed && store_window_settings(window_settings, window) {
+        commands.queue(SavePreferencesDeferred(Duration::from_secs_f32(0.5)));
     }
 }
 
