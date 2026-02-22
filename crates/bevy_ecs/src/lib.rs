@@ -127,6 +127,7 @@ pub mod __macro_exports {
     // to `Vec` in `no_std` and `std` contexts.
     pub use crate::query::DebugCheckedUnwrap;
     pub use alloc::vec::Vec;
+    pub use bevy_platform::sync::OnceLock;
 }
 
 /// Event sent when a hotpatch happens.
@@ -156,7 +157,7 @@ mod tests {
         component::Component,
         entity::{Entity, EntityMapper, EntityNotSpawnedError},
         entity_disabling::DefaultQueryFilters,
-        prelude::Or,
+        prelude::*,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         resource::Resource,
         world::{error::EntityDespawnError, EntityMut, EntityRef, Mut, World},
@@ -212,6 +213,30 @@ mod tests {
     #[derive(Component, Copy, Clone, PartialEq, Eq, Hash, Debug)]
     #[component(storage = "SparseSet")]
     struct SparseStored(u32);
+
+    #[test]
+    fn commands_are_applied_for_function_system() {
+        #[derive(Resource)]
+        struct DidRun;
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(move |mut commands: Commands| {
+            commands.insert_resource(DidRun);
+        });
+
+        let mut world = World::default();
+        schedule.run(&mut world);
+        assert!(world.contains_resource::<DidRun>());
+
+        let mut world = World::default();
+        world
+            .run_system_cached(move |mut commands: Commands| {
+                commands.insert_resource(DidRun);
+            })
+            .unwrap();
+
+        assert!(world.contains_resource::<DidRun>());
+    }
 
     #[test]
     fn random_access() {

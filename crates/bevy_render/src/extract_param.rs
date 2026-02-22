@@ -4,8 +4,8 @@ use bevy_ecs::{
     prelude::*,
     query::FilteredAccessSet,
     system::{
-        ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemParamValidationError,
-        SystemState,
+        ReadOnlySystemParam, SharedStates, SystemMeta, SystemParam, SystemParamItem,
+        SystemParamValidationError, SystemState,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -72,11 +72,12 @@ where
     type State = ExtractState<P>;
     type Item<'w, 's> = Extract<'w, 's, P>;
 
-    fn init_state(world: &mut World) -> Self::State {
+    unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State {
         let mut main_world = world.resource_mut::<MainWorld>();
         ExtractState {
             state: SystemState::new(&mut main_world),
-            main_world_state: Res::<MainWorld>::init_state(world),
+            // SAFETY: caller upholds requirements
+            main_world_state: unsafe { Res::<MainWorld>::init_state(world, shared_states) },
         }
     }
 

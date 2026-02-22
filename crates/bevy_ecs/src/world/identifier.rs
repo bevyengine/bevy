@@ -2,7 +2,7 @@ use crate::{
     change_detection::Tick,
     query::FilteredAccessSet,
     storage::SparseSetIndex,
-    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
+    system::{ExclusiveSystemParam, ReadOnlySystemParam, SharedStates, SystemMeta, SystemParam},
     world::{FromWorld, World},
 };
 use bevy_platform::sync::atomic::{AtomicUsize, Ordering};
@@ -54,7 +54,7 @@ unsafe impl SystemParam for WorldId {
 
     type Item<'world, 'state> = WorldId;
 
-    fn init_state(_: &mut World) -> Self::State {}
+    unsafe fn init_state(_: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,

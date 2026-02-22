@@ -13,7 +13,7 @@ use bevy_ecs::{
     query::FilteredAccessSet,
     resource::Resource,
     system::{
-        Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
+        Deferred, ReadOnlySystemParam, Res, SharedStates, SystemBuffer, SystemMeta, SystemParam,
         SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -200,9 +200,10 @@ where
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
 
-    fn init_state(world: &mut World) -> Self::State {
+    unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State {
         GizmosFetchState {
-            state: GizmosState::<Config, Clear>::init_state(world),
+            // SAFETY: caller upholds requirements
+            state: unsafe { GizmosState::<Config, Clear>::init_state(world, shared_states) },
         }
     }
 

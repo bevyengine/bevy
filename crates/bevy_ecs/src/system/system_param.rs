@@ -25,13 +25,19 @@ use crate::{
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
-use bevy_ptr::UnsafeCellDeref;
+use bevy_platform::collections::HashMap;
+use bevy_platform::hash::NoOpHash;
+use bevy_platform::sync::{PoisonError, RwLock};
+use bevy_ptr::{Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
+use bevy_utils::TypeIdMap;
 use core::{
     any::Any,
+    any::TypeId,
     fmt::{Debug, Display},
     marker::PhantomData,
     ops::{Deref, DerefMut},
+    ptr::NonNull,
 };
 use thiserror::Error;
 
@@ -225,8 +231,15 @@ pub unsafe trait SystemParam: Sized {
     /// You could think of [`SystemParam::Item<'w, 's>`] as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
+    /// The vtables for all parts of the state that are shared
+    fn shared() -> &'static [&'static SharedStateVTable] {
+        &[]
+    }
+
     /// Creates a new instance of this param's [`State`](SystemParam::State).
-    fn init_state(world: &mut World) -> Self::State;
+    /// # SAFETY
+    /// The new state must not outlive `shared_states`.
+    unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State;
 
     /// Registers any [`World`] access used by this [`SystemParam`]
     fn init_access(
@@ -315,6 +328,300 @@ pub unsafe trait SystemParam: Sized {
     ) -> Self::Item<'world, 'state>;
 }
 
+/// Some [`SystemParam`]s may want to share (part of) their state.
+///
+/// The parts of the state that are shared must implement this trait.
+pub trait SystemParamSharedState: Send + Sync + 'static {
+    /// Creates a new instance of the state
+    fn init(world: &mut World) -> Self;
+
+    /// Registers any [`World`] access used by this [`SystemParamSharedState`]
+    fn init_access(
+        &self,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    );
+
+    /// Applies any deferred mutations stored in this state.
+    #[inline]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
+    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {}
+
+    /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
+    #[inline]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
+    fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld) {}
+}
+
+impl<T: SystemBuffer + FromWorld + Sync> SystemParamSharedState for T {
+    fn init(world: &mut World) -> Self {
+        T::from_world(world)
+    }
+
+    fn init_access(
+        &self,
+        system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+        system_meta.set_has_deferred();
+    }
+
+    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+        SystemBuffer::apply(self, system_meta, world);
+    }
+
+    fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld) {
+        SystemBuffer::queue(self, system_meta, world);
+    }
+}
+
+/// Use this as the `SystemParam::State` for parts of the state that are shared
+pub struct SharedState<S: SystemParamSharedState>(NonNull<S>);
+
+impl<S: SystemParamSharedState> SharedState<S> {
+    /// # Safety
+    /// The `shared_states` must outlive the new `Self`
+    pub unsafe fn new(shared_states: &SharedStates) -> Option<Self> {
+        Some(Self(shared_states.get::<S>()?))
+    }
+}
+
+// SAFETY: `SystemParamSharedState` is `Send`
+unsafe impl<S: SystemParamSharedState> Send for SharedState<S> {}
+// SAFETY: `SystemParamSharedState` is `Sync`
+unsafe impl<S: SystemParamSharedState> Sync for SharedState<S> {}
+
+impl<S: SystemParamSharedState> Deref for SharedState<S> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        // SAFETY: ptr always points to a valid instance
+        unsafe { self.0.as_ref() }
+    }
+}
+
+/// Type-erased container for all parts of a [`SystemParam`]'s state that are shared.
+pub struct SharedStates(HashMap<TypeId, SharedStateData>);
+
+impl SharedStates {
+    /// Create a new [`SharedStates`] using the vtables returned by [`SystemParam::shared`]
+    pub fn new(vtables: &'static [&'static SharedStateVTable], world: &mut World) -> SharedStates {
+        SharedStates(
+            vtables
+                .iter()
+                .map(|vtable| (vtable.type_id, SharedStateData::new(vtable, world)))
+                .collect(),
+        )
+    }
+
+    /// Get a pointer to the state if it is present.
+    ///
+    /// # Safety
+    /// The pointer must not be used after `self` is dropped and may not mutate the state without using
+    /// interior mutability.
+    pub unsafe fn get<S: SystemParamSharedState>(&self) -> Option<NonNull<S>> {
+        Some(self.0.get(&TypeId::of::<S>())?.ptr())
+    }
+
+    /// Registers any [`World`] access used by these [`SharedStates`]
+    pub fn init_access(
+        &self,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    ) {
+        for state in self.0.values() {
+            state.init_access(system_meta, component_access_set, world);
+        }
+    }
+
+    /// Apply the deferred mutations from the shared states
+    pub fn apply_deferred(&mut self, system_meta: &SystemMeta, world: &mut World) {
+        for state in self.0.values_mut() {
+            state.apply(system_meta, world);
+        }
+    }
+
+    /// Queue the deferred mutations from the shared states
+    pub fn queue_deferred(&mut self, system_meta: &SystemMeta, mut world: DeferredWorld) {
+        for state in self.0.values_mut() {
+            state.queue(system_meta, world.reborrow());
+        }
+    }
+}
+
+pub(crate) struct SharedStateData {
+    data: NonNull<u8>,
+    vtable: &'static SharedStateVTable,
+}
+
+// SAFETY: `SystemParamSharedState` is `Send`
+unsafe impl Send for SharedStateData {}
+// SAFETY: `SystemParamSharedState` is `Sync`
+unsafe impl Sync for SharedStateData {}
+
+impl SharedStateData {
+    fn new(vtable: &'static SharedStateVTable, world: &mut World) -> SharedStateData {
+        SharedStateData {
+            data: (vtable.init)(world),
+            vtable,
+        }
+    }
+
+    pub fn init_access(
+        &self,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    ) {
+        // SAFETY: ptr is the correct type
+        unsafe {
+            (self.vtable.init_access)(
+                Ptr::new(self.data),
+                system_meta,
+                component_access_set,
+                world,
+            );
+        }
+    }
+
+    pub fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+        // SAFETY:
+        // 1. The ptr is the correct type
+        // 2. We can make a `PtrMut` because we have borrowed `&mut self`
+        unsafe {
+            (self.vtable.apply)(PtrMut::new(self.data), system_meta, world);
+        }
+    }
+
+    pub fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld) {
+        // SAFETY:
+        // 1. The ptr is the correct type
+        // 2. We can make a `PtrMut` because we have borrowed `&mut self`
+        unsafe {
+            (self.vtable.queue)(PtrMut::new(self.data), system_meta, world);
+        }
+    }
+
+    pub fn ptr<S: SystemParamSharedState>(&self) -> NonNull<S> {
+        assert_eq!(self.vtable.type_id, TypeId::of::<S>());
+        self.data.cast()
+    }
+}
+
+impl Drop for SharedStateData {
+    fn drop(&mut self) {
+        // SAFETY: `self.data` always points to a valid instance
+        unsafe {
+            (self.vtable.drop)(self.data);
+        }
+    }
+}
+
+/// The type returned by [`SystemParam::shared`]
+pub struct SharedStateVTable {
+    init: fn(&mut World) -> NonNull<u8>,
+    init_access: unsafe fn(
+        Ptr,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    ),
+    apply: unsafe fn(PtrMut, &SystemMeta, &mut World),
+    queue: unsafe fn(PtrMut, &SystemMeta, DeferredWorld),
+    drop: unsafe fn(NonNull<u8>),
+    type_id: TypeId,
+
+    #[cfg(feature = "debug")]
+    type_name: &'static str,
+}
+
+impl SharedStateVTable {
+    /// Get the vtable of `S`
+    pub fn of<S: SystemParamSharedState>() -> &'static Self {
+        VTABLES.get_or_insert::<S>(|| {
+            Box::new(SharedStateVTable {
+                init: |world| {
+                    let state = Box::new(S::init(world));
+                    NonNull::new(Box::into_raw(state)).unwrap().cast()
+                },
+
+                init_access: |ptr, system_meta, component_access_set, world| {
+                    // SAFETY: ptr is the correct type
+                    let slf = unsafe { ptr.deref() };
+                    S::init_access(slf, system_meta, component_access_set, world);
+                },
+
+                apply: |ptr, system_meta, world| {
+                    // SAFETY: ptr is the correct type
+                    let slf = unsafe { ptr.deref_mut() };
+                    S::apply(slf, system_meta, world);
+                },
+
+                queue: |ptr, system_meta, world| {
+                    // SAFETY: ptr is the correct type
+                    let slf = unsafe { ptr.deref_mut() };
+                    S::queue(slf, system_meta, world);
+                },
+
+                // SAFETY: ptr was allocated using `Box::new`
+                drop: |ptr| unsafe {
+                    let _ = Box::from_raw(ptr.as_ptr().cast::<S>());
+                },
+
+                type_id: TypeId::of::<S>(),
+
+                #[cfg(feature = "debug")]
+                type_name: core::any::type_name::<S>(),
+            })
+        })
+    }
+}
+
+impl Debug for SharedStateVTable {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut d = f.debug_struct("SharedStateVTable");
+
+        #[cfg(feature = "debug")]
+        d.field("type_name", &self.type_name);
+        #[cfg(not(feature = "debug"))]
+        d.field("type_name", &"<enable debug feature to see the name>");
+
+        d.finish_non_exhaustive()
+    }
+}
+
+impl Ord for SharedStateVTable {
+    #[inline]
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.type_id.cmp(&other.type_id)
+    }
+}
+
+impl PartialOrd for SharedStateVTable {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq for SharedStateVTable {}
+
+impl PartialEq for SharedStateVTable {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.type_id == other.type_id
+    }
+}
+
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
 /// # Safety
@@ -336,7 +643,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     type State = QueryState<D, F>;
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
-    fn init_state(world: &mut World) -> Self::State {
+    unsafe fn init_state(world: &mut World, _shared_states: &SharedStates) -> Self::State {
         QueryState::new(world)
     }
 
@@ -400,8 +707,8 @@ unsafe impl<'a, 'b, D: QueryData + 'static, F: QueryFilter + 'static> SystemPara
     type State = QueryState<D, F>;
     type Item<'w, 's> = Single<'w, 's, D, F>;
 
-    fn init_state(world: &mut World) -> Self::State {
-        Query::init_state(world)
+    unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State {
+        Query::init_state(world, shared_states)
     }
 
     fn init_access(
@@ -471,8 +778,8 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     type State = QueryState<D, F>;
     type Item<'w, 's> = Populated<'w, 's, D, F>;
 
-    fn init_state(world: &mut World) -> Self::State {
-        Query::init_state(world)
+    unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State {
+        Query::init_state(world, shared_states)
     }
 
     fn init_access(
@@ -657,17 +964,16 @@ macro_rules! impl_param_set {
         {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ParamSet<'w, 's, ($($param,)*)>;
+            fn shared() -> &'static [&'static SharedStateVTable] {
+                TUPLE_VTABLES.get_or_insert::<Self::State>(|| {
+                    let mut shared = Vec::new();
+                    $(shared.extend($param::shared());)*
 
-            #[expect(
-                clippy::allow_attributes,
-                reason = "This is inside a macro meant for tuples; as such, `non_snake_case` won't always lint."
-            )]
-            #[allow(
-                non_snake_case,
-                reason = "Certain variable names are provided by the caller, not by us."
-            )]
-            fn init_state(world: &mut World) -> Self::State {
-                ($($param::init_state(world),)*)
+                    shared.sort_unstable();
+                    shared.dedup();
+
+                    shared
+                })
             }
 
             #[expect(
@@ -678,7 +984,19 @@ macro_rules! impl_param_set {
                 non_snake_case,
                 reason = "Certain variable names are provided by the caller, not by us."
             )]
-            fn init_access(state: &Self::State, system_meta: &mut SystemMeta, component_access_set: &mut FilteredAccessSet, world: &mut World) {
+            unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State {
+                ($($param::init_state(world, shared_states),)*)
+            }
+
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is inside a macro meant for tuples; as such, `non_snake_case` won't always lint."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "Certain variable names are provided by the caller, not by us."
+            )]
+            fn init_access(state: &Self::State,  system_meta: &mut SystemMeta, component_access_set: &mut FilteredAccessSet, world: &mut World) {
                 let ($($param,)*) = state;
                 $(
                     // Call `init_access` on a clone of the original access set to check for conflicts
@@ -742,7 +1060,12 @@ macro_rules! impl_param_set {
                     // Conflicting params in ParamSet are not accessible at the same time
                     // ParamSets are guaranteed to not conflict with other SystemParams
                     unsafe {
-                        $param::get_param(&mut self.param_states.$index, &self.system_meta, self.world, self.change_tick)
+                        $param::get_param(
+                            &mut self.param_states.$index,
+                            &self.system_meta,
+                            self.world,
+                            self.change_tick,
+                        )
                     }
                 }
             )*
@@ -751,6 +1074,80 @@ macro_rules! impl_param_set {
 }
 
 all_tuples_enumerated!(impl_param_set, 1, 8, P, p);
+
+static VTABLES: StaticPerType<Box<SharedStateVTable>> = StaticPerType::new();
+static TUPLE_VTABLES: StaticPerType<Vec<&'static SharedStateVTable>> = StaticPerType::new();
+
+/// Adapted from [`bevy_reflect::utility::GenericTypeCell`]
+struct StaticPerType<L: Leaky>(
+    RwLock<TypeIdMap<&'static L::Leaked>>,
+    PhantomData<fn() -> L>,
+);
+
+impl<L: Leaky> StaticPerType<L> {
+    const fn new() -> Self {
+        Self(RwLock::new(TypeIdMap::with_hasher(NoOpHash)), PhantomData)
+    }
+
+    fn get_or_insert<G>(&self, f: fn() -> L) -> &'static L::Leaked
+    where
+        G: Any + ?Sized,
+    {
+        self.get_or_insert_by_type_id(TypeId::of::<G>(), f)
+    }
+
+    fn get_by_type_id(&self, type_id: TypeId) -> Option<&'static L::Leaked> {
+        self.0
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&type_id)
+            .copied()
+    }
+
+    fn get_or_insert_by_type_id(&self, type_id: TypeId, f: fn() -> L) -> &'static L::Leaked {
+        match self.get_by_type_id(type_id) {
+            Some(info) => info,
+            None => self.insert_by_type_id(type_id, f()),
+        }
+    }
+
+    fn insert_by_type_id(&self, type_id: TypeId, value: L) -> &'static L::Leaked {
+        let mut write_lock = self.0.write().unwrap_or_else(PoisonError::into_inner);
+
+        write_lock
+            .entry(type_id)
+            .insert({
+                // We leak here in order to obtain a `&'static` reference.
+                // Otherwise, we won't be able to return a reference due to the `RwLock`.
+                // This should be okay, though, since we expect it to remain statically
+                // available over the course of the application.
+                value.leak()
+            })
+            .get()
+    }
+}
+
+trait Leaky {
+    type Leaked: ?Sized + 'static;
+
+    fn leak(self) -> &'static Self::Leaked;
+}
+
+impl<T: 'static> Leaky for Box<T> {
+    type Leaked = T;
+
+    fn leak(self) -> &'static Self::Leaked {
+        Box::leak(self)
+    }
+}
+
+impl<T: 'static> Leaky for Vec<T> {
+    type Leaked = [T];
+
+    fn leak(self) -> &'static Self::Leaked {
+        Vec::leak(self)
+    }
+}
 
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
@@ -761,7 +1158,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
 
-    fn init_state(world: &mut World) -> Self::State {
+    unsafe fn init_state(world: &mut World, _shared_states: &SharedStates) -> Self::State {
         world.components_registrator().register_component::<T>()
     }
 
@@ -798,6 +1195,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &mut component_id: &mut Self::State,
+
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -817,6 +1215,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
+
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
@@ -849,7 +1248,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
 
-    fn init_state(world: &mut World) -> Self::State {
+    unsafe fn init_state(world: &mut World, _shared_states: &SharedStates) -> Self::State {
         world.components_registrator().register_component::<T>()
     }
 
@@ -889,6 +1288,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &mut component_id: &mut Self::State,
+
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -942,7 +1342,7 @@ unsafe impl SystemParam for &'_ World {
     type State = ();
     type Item<'w, 's> = &'w World;
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
@@ -979,7 +1379,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type State = ();
     type Item<'world, 'state> = DeferredWorld<'world>;
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
@@ -1173,7 +1573,7 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Local<'s, T>;
 
-    fn init_state(world: &mut World) -> Self::State {
+    unsafe fn init_state(world: &mut World, _shared_states: &SharedStates) -> Self::State {
         SyncCell::new(T::from_world(world))
     }
 
@@ -1368,7 +1768,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     type Item<'w, 's> = Deferred<'s, T>;
 
     #[track_caller]
-    fn init_state(world: &mut World) -> Self::State {
+    unsafe fn init_state(world: &mut World, _shared_states: &SharedStates) -> Self::State {
         SyncCell::new(T::from_world(world))
     }
 
@@ -1409,7 +1809,7 @@ unsafe impl SystemParam for ExclusiveMarker {
     type Item<'w, 's> = Self;
 
     #[inline]
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
@@ -1443,7 +1843,7 @@ unsafe impl SystemParam for NonSendMarker {
     type Item<'w, 's> = Self;
 
     #[inline]
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
@@ -1457,6 +1857,7 @@ unsafe impl SystemParam for NonSendMarker {
     #[inline]
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
+
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
@@ -1477,7 +1878,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSend<'w, T>;
 
-    fn init_state(world: &mut World) -> Self::State {
+    unsafe fn init_state(world: &mut World, _shared_states: &SharedStates) -> Self::State {
         world.components_registrator().register_non_send::<T>()
     }
 
@@ -1548,7 +1949,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSendMut<'w, T>;
 
-    fn init_state(world: &mut World) -> Self::State {
+    unsafe fn init_state(world: &mut World, _shared_states: &SharedStates) -> Self::State {
         world.components_registrator().register_non_send::<T>()
     }
 
@@ -1624,10 +2025,11 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     type State = ();
     type Item<'w, 's> = &'w Archetypes;
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
+
         _system_meta: &mut SystemMeta,
         _component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
@@ -1653,7 +2055,7 @@ unsafe impl<'a> SystemParam for &'a Components {
     type State = ();
     type Item<'w, 's> = &'w Components;
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
@@ -1682,7 +2084,7 @@ unsafe impl<'a> SystemParam for &'a Entities {
     type State = ();
     type Item<'w, 's> = &'w Entities;
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
@@ -1695,6 +2097,7 @@ unsafe impl<'a> SystemParam for &'a Entities {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
+
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
@@ -1711,7 +2114,7 @@ unsafe impl<'a> SystemParam for &'a EntityAllocator {
     type State = ();
     type Item<'w, 's> = &'w EntityAllocator;
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
@@ -1724,6 +2127,7 @@ unsafe impl<'a> SystemParam for &'a EntityAllocator {
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
+
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
@@ -1740,7 +2144,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
     type State = ();
     type Item<'w, 's> = &'w Bundles;
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
@@ -1798,7 +2202,7 @@ unsafe impl SystemParam for SystemChangeTick {
     type State = ();
     type Item<'w, 's> = SystemChangeTick;
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
@@ -1828,8 +2232,12 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
 
     type Item<'world, 'state> = Option<T::Item<'world, 'state>>;
 
-    fn init_state(world: &mut World) -> Self::State {
-        T::init_state(world)
+    fn shared() -> &'static [&'static SharedStateVTable] {
+        T::shared()
+    }
+
+    unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State {
+        T::init_state(world, shared_states)
     }
 
     fn init_access(
@@ -1874,8 +2282,12 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
 
     type Item<'world, 'state> = Result<T::Item<'world, 'state>, SystemParamValidationError>;
 
-    fn init_state(world: &mut World) -> Self::State {
-        T::init_state(world)
+    fn shared() -> &'static [&'static SharedStateVTable] {
+        T::shared()
+    }
+
+    unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State {
+        T::init_state(world, shared_states)
     }
 
     fn init_access(
@@ -1972,8 +2384,12 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
 
     type Item<'world, 'state> = If<T::Item<'world, 'state>>;
 
-    fn init_state(world: &mut World) -> Self::State {
-        T::init_state(world)
+    fn shared() -> &'static [&'static SharedStateVTable] {
+        T::shared()
+    }
+
+    unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State {
+        T::init_state(world, shared_states)
     }
 
     fn init_access(
@@ -2028,7 +2444,11 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
 
     type Item<'world, 'state> = Vec<T::Item<'world, 'state>>;
 
-    fn init_state(_world: &mut World) -> Self::State {
+    fn shared() -> &'static [&'static SharedStateVTable] {
+        T::shared()
+    }
+
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {
         Vec::new()
     }
 
@@ -2093,7 +2513,11 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
 
     type Item<'world, 'state> = ParamSet<'world, 'state, Vec<T>>;
 
-    fn init_state(_world: &mut World) -> Self::State {
+    fn shared() -> &'static [&'static SharedStateVTable] {
+        T::shared()
+    }
+
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {
         Vec::new()
     }
 
@@ -2202,13 +2626,30 @@ macro_rules! impl_system_param_tuple {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
 
-            #[inline]
-            #[track_caller]
-            fn init_state(world: &mut World) -> Self::State {
-                ($($param::init_state(world),)*)
+            fn shared() -> &'static [&'static SharedStateVTable] {
+                TUPLE_VTABLES.get_or_insert::<Self::State>(|| {
+                    let mut shared = Vec::new();
+                    $(shared.extend($param::shared());)*
+
+                    shared.sort_unstable();
+                    shared.dedup();
+
+                    shared
+                })
             }
 
-            fn init_access(state: &Self::State, _system_meta: &mut SystemMeta, _component_access_set: &mut FilteredAccessSet, _world: &mut World) {
+            #[inline]
+            #[track_caller]
+            unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State {
+                ($($param::init_state(world, shared_states),)*)
+            }
+
+            fn init_access(
+                state: &Self::State,
+                _system_meta: &mut SystemMeta,
+                _component_access_set: &mut FilteredAccessSet,
+                _world: &mut World,
+            ) {
                 let ($($param,)*) = state;
                 $($param::init_access($param, _system_meta, _component_access_set, _world);)*
             }
@@ -2252,6 +2693,7 @@ macro_rules! impl_system_param_tuple {
             #[track_caller]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
+
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
                 change_tick: Tick,
@@ -2395,8 +2837,12 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     type State = P::State;
     type Item<'world, 'state> = StaticSystemParam<'world, 'state, P>;
 
-    fn init_state(world: &mut World) -> Self::State {
-        P::init_state(world)
+    fn shared() -> &'static [&'static SharedStateVTable] {
+        P::shared()
+    }
+
+    unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State {
+        P::init_state(world, shared_states)
     }
 
     fn init_access(
@@ -2443,7 +2889,7 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     type State = ();
     type Item<'world, 'state> = Self;
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
@@ -2535,7 +2981,7 @@ pub struct DynSystemParam<'w, 's> {
 
 impl<'w, 's> DynSystemParam<'w, 's> {
     /// # Safety
-    /// - `state` must be a `ParamState<T>` for some inner `T: SystemParam`.
+    /// - `state` must be a `ParamState<T>` for some inner `T: SystemParam` with no shared states.
     /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
     ///   in [`init_state`](SystemParam::init_state) for the inner system param.
     /// - `world` must be the same `World` that was used to initialize
@@ -2648,6 +3094,11 @@ pub struct DynSystemParamState(Box<dyn DynParamState>);
 
 impl DynSystemParamState {
     pub(crate) fn new<T: SystemParam + 'static>(state: T::State) -> Self {
+        // TODO support shared state for `DynSystemParam`
+        assert!(
+            T::shared().is_empty(),
+            "`DynSystemParam` must not have shared state"
+        );
         Self(Box::new(ParamState::<T>(state)))
     }
 }
@@ -2719,7 +3170,11 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 
     type Item<'world, 'state> = DynSystemParam<'world, 'state>;
 
-    fn init_state(_world: &mut World) -> Self::State {
+    fn shared() -> &'static [&'static SharedStateVTable] {
+        &[]
+    }
+
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {
         DynSystemParamState::new::<()>(())
     }
 
@@ -2775,7 +3230,7 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
 
     type Item<'world, 'state> = FilteredResources<'world, 'state>;
 
-    fn init_state(_world: &mut World) -> Self::State {
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {
         Access::new()
     }
 
@@ -2824,7 +3279,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 
     type Item<'world, 'state> = FilteredResourcesMut<'world, 'state>;
 
-    fn init_state(_world: &mut World) -> Self::State {
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {
         Access::new()
     }
 
@@ -2961,8 +3416,11 @@ impl Display for SystemParamValidationError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::system::assert_is_system;
+    use crate::system::{assert_is_system, SystemState};
+    use alloc::vec;
+    use bevy_platform::sync::{Arc, OnceLock};
     use core::cell::RefCell;
+    use core::sync::atomic::AtomicBool;
 
     #[test]
     #[should_panic]
@@ -3236,5 +3694,211 @@ mod tests {
         schedule.run(&mut world);
 
         fn message_system(_: MessageReader<MissingEvent>) {}
+    }
+
+    #[test]
+    fn vtables_are_not_all_the_same() {
+        assert_ne!(
+            TUPLE_VTABLES.get_or_insert::<(ParamState, ParamState)>(|| vec![
+                SharedStateVTable::of::<ParamState>()
+            ]),
+            TUPLE_VTABLES.get_or_insert::<(OtherParamState, OtherParamState)>(|| vec![
+                SharedStateVTable::of::<OtherParamState>()
+            ]),
+            "`TupleVTables` returns the same list of vtables for different tuples",
+        );
+
+        assert_ne!(
+            <(Param, Param)>::shared(),
+            <(OtherParam, OtherParam)>::shared(),
+            "`<(..)>::shared` returns the same list of vtables for different tuples",
+        );
+
+        struct Param;
+        struct ParamState;
+
+        struct OtherParam;
+        struct OtherParamState;
+
+        // SAFETY: no world access
+        unsafe impl SystemParam for Param {
+            type State = SharedState<ParamState>;
+
+            type Item<'world, 'state> = Self;
+
+            fn shared() -> &'static [&'static SharedStateVTable] {
+                static VTABLE: OnceLock<&'static [&'static SharedStateVTable]> = OnceLock::new();
+                VTABLE.get_or_init(|| Box::leak(Box::new([SharedStateVTable::of::<ParamState>()])))
+            }
+
+            unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {
+                unreachable!()
+            }
+
+            fn init_access(
+                _state: &Self::State,
+                _system_meta: &mut SystemMeta,
+                _component_access_set: &mut FilteredAccessSet,
+                _world: &mut World,
+            ) {
+            }
+
+            unsafe fn get_param<'world, 'state>(
+                _state: &'state mut Self::State,
+                _system_meta: &SystemMeta,
+                _world: UnsafeWorldCell<'world>,
+                _change_tick: Tick,
+            ) -> Self::Item<'world, 'state> {
+                Self
+            }
+        }
+
+        impl SystemParamSharedState for ParamState {
+            fn init(_world: &mut World) -> Self {
+                unreachable!()
+            }
+
+            fn init_access(
+                &self,
+                _system_meta: &mut SystemMeta,
+                _component_access_set: &mut FilteredAccessSet,
+                _world: &mut World,
+            ) {
+            }
+        }
+
+        // SAFETY: no world access
+        unsafe impl SystemParam for OtherParam {
+            type State = (SharedState<OtherParamState>,);
+
+            type Item<'world, 'state> = Self;
+
+            fn shared() -> &'static [&'static SharedStateVTable] {
+                static VTABLE: OnceLock<&'static [&'static SharedStateVTable]> = OnceLock::new();
+                VTABLE.get_or_init(|| {
+                    Box::leak(Box::new([SharedStateVTable::of::<OtherParamState>()]))
+                })
+            }
+
+            unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {
+                unreachable!()
+            }
+
+            fn init_access(
+                _state: &Self::State,
+                _system_meta: &mut SystemMeta,
+                _component_access_set: &mut FilteredAccessSet,
+                _world: &mut World,
+            ) {
+                unreachable!()
+            }
+
+            unsafe fn get_param<'world, 'state>(
+                _state: &'state mut Self::State,
+                _system_meta: &SystemMeta,
+                _world: UnsafeWorldCell<'world>,
+                _change_tick: Tick,
+            ) -> Self::Item<'world, 'state> {
+                unreachable!()
+            }
+        }
+
+        impl SystemParamSharedState for OtherParamState {
+            fn init(_world: &mut World) -> Self {
+                unreachable!()
+            }
+
+            fn init_access(
+                &self,
+                _system_meta: &mut SystemMeta,
+                _component_access_set: &mut FilteredAccessSet,
+                _world: &mut World,
+            ) {
+            }
+        }
+    }
+
+    #[test]
+    fn system_param_shared_state_is_shared() {
+        use core::sync::atomic::Ordering;
+
+        struct Param(Arc<AtomicBool>);
+
+        let mut world = World::default();
+
+        let mut state = SystemState::<(Param, Param)>::new(&mut world);
+        let (param_a, param_b) = state.get_mut(&mut world);
+        param_a.0.store(true, Ordering::SeqCst);
+        assert!(
+            param_b.0.load(Ordering::SeqCst),
+            "system state should be shared in same SystemState"
+        );
+
+        world
+            .run_system_cached(|param_a: Param, param_b: Param| {
+                param_a.0.store(true, Ordering::SeqCst);
+                assert!(
+                    param_b.0.load(Ordering::SeqCst),
+                    "system state should be shared in same system"
+                );
+            })
+            .unwrap();
+
+        struct SharedFlag {
+            flag: Arc<AtomicBool>,
+        }
+
+        impl SystemParamSharedState for SharedFlag {
+            fn init(_world: &mut World) -> Self {
+                SharedFlag {
+                    flag: Arc::new(AtomicBool::new(false)),
+                }
+            }
+
+            fn init_access(
+                &self,
+                system_meta: &mut SystemMeta,
+                _component_access_set: &mut FilteredAccessSet,
+                _world: &mut World,
+            ) {
+                system_meta.set_has_deferred();
+            }
+        }
+
+        // SAFETY: no world access
+        unsafe impl SystemParam for Param {
+            type State = SharedState<SharedFlag>;
+
+            type Item<'world, 'state> = Self;
+
+            fn shared() -> &'static [&'static SharedStateVTable] {
+                static SHARED: OnceLock<&'static [&'static SharedStateVTable]> = OnceLock::new();
+                SHARED.get_or_init(|| vec![SharedStateVTable::of::<SharedFlag>()].leak())
+            }
+
+            #[track_caller]
+            unsafe fn init_state(_world: &mut World, shared_states: &SharedStates) -> Self::State {
+                // SAFETY: requirements are upheld by caller
+                unsafe { SharedState::new(shared_states) }
+                    .expect("shared state should be initialized")
+            }
+
+            fn init_access(
+                _state: &Self::State,
+                _system_meta: &mut SystemMeta,
+                _component_access_set: &mut FilteredAccessSet,
+                _world: &mut World,
+            ) {
+            }
+
+            unsafe fn get_param<'world, 'state>(
+                state: &'state mut Self::State,
+                _system_meta: &SystemMeta,
+                _world: UnsafeWorldCell<'world>,
+                _change_tick: Tick,
+            ) -> Self::Item<'world, 'state> {
+                Param(state.flag.clone())
+            }
+        }
     }
 }

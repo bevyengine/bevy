@@ -2,7 +2,7 @@
 use crate::message::MessageParIter;
 use crate::{
     message::{Message, MessageCursor, MessageIterator, MessageIteratorWithId, Messages},
-    system::{Local, Res, SystemParam, SystemParamValidationError},
+    system::{Local, Res, SharedStates, SystemParam, SystemParamValidationError},
 };
 
 /// Reads [`Message`]s of type `T` in order and tracks which messages have already been read.
@@ -144,8 +144,12 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
     type State = <MessageReader<'w, 's, M> as SystemParam>::State;
     type Item<'world, 'state> = PopulatedMessageReader<'world, 'state, M>;
 
-    fn init_state(world: &mut crate::prelude::World) -> Self::State {
-        MessageReader::<M>::init_state(world)
+    unsafe fn init_state(
+        world: &mut crate::prelude::World,
+        shared_states: &SharedStates,
+    ) -> Self::State {
+        // SAFETY: requirements are upheld by MessageReader's implementation
+        unsafe { MessageReader::<M>::init_state(world, shared_states) }
     }
 
     fn init_access(

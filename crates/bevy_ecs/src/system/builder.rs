@@ -21,7 +21,7 @@ use crate::{
 };
 use core::{fmt::Debug, marker::PhantomData, mem};
 
-use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
+use super::{Res, ResMut, RunSystemError, SharedStates, SystemState, SystemStateFlags};
 
 /// A builder that can create a [`SystemParam`].
 ///
@@ -130,7 +130,10 @@ use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
 pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
     /// Registers any [`World`] access used by this [`SystemParam`]
     /// and creates a new instance of this param's [`State`](SystemParam::State).
-    fn build(self, world: &mut World) -> P::State;
+    ///
+    /// # Safety
+    /// The new state must not outlive `SharedStates`
+    unsafe fn build(self, world: &mut World, shared_states: &SharedStates) -> P::State;
 
     /// Create a [`SystemState`] from a [`SystemParamBuilder`].
     /// To create a system, call [`SystemState::build_system`] on the result.
@@ -209,8 +212,9 @@ pub struct ParamBuilder;
 
 // SAFETY: Calls `SystemParam::init_state`
 unsafe impl<P: SystemParam> SystemParamBuilder<P> for ParamBuilder {
-    fn build(self, world: &mut World) -> P::State {
-        P::init_state(world)
+    unsafe fn build(self, world: &mut World, shared_states: &SharedStates) -> P::State {
+        // SAFETY: requirements are upheld by caller
+        unsafe { P::init_state(world, shared_states) }
     }
 }
 
@@ -504,7 +508,8 @@ where
 unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
     SystemParamBuilder<Query<'w, 's, D, F>> for QueryState<D, F>
 {
-    fn build(self, world: &mut World) -> QueryState<D, F> {
+    // SAFETY: no access to `SharesStates`
+    unsafe fn build(self, world: &mut World, _shared_states: &SharedStates) -> QueryState<D, F> {
         self.validate_world(world.id());
         self
     }
@@ -583,7 +588,8 @@ unsafe impl<
         T: FnOnce(&mut QueryBuilder<D, F>),
     > SystemParamBuilder<Query<'w, 's, D, F>> for QueryParamBuilder<T>
 {
-    fn build(self, world: &mut World) -> QueryState<D, F> {
+    // SAFETY: no access to `SharesStates`
+    unsafe fn build(self, world: &mut World, _shared_states: &SharedStates) -> QueryState<D, F> {
         let mut builder = QueryBuilder::new(world);
         (self.0)(&mut builder);
         builder.build()
@@ -607,13 +613,15 @@ macro_rules! impl_system_param_builder_tuple {
         $(#[$meta])*
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<($($param,)*)> for ($($builder,)*) {
-            fn build(self, world: &mut World) -> <($($param,)*) as SystemParam>::State {
+            unsafe fn build(self, world: &mut World, shared_states: &SharedStates) -> <($($param,)*) as SystemParam>::State {
                 let ($($builder,)*) = self;
                 #[allow(
                     clippy::unused_unit,
+                    unused_unsafe,
                     reason = "Zero-length tuples won't generate any calls to the system parameter builders."
                 )]
-                ($($builder.build(world),)*)
+                // SAFETY: requirements are upheld by caller
+                unsafe { ($($builder.build(world, shared_states),)*) }
             }
         }
     };
@@ -630,9 +638,14 @@ all_tuples!(
 
 // SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>> for Vec<B> {
-    fn build(self, world: &mut World) -> <Vec<P> as SystemParam>::State {
+    unsafe fn build(
+        self,
+        world: &mut World,
+        shared_states: &SharedStates,
+    ) -> <Vec<P> as SystemParam>::State {
+        // SAFETY: requirements are upheld by the caller
         self.into_iter()
-            .map(|builder| builder.build(world))
+            .map(|builder| unsafe { builder.build(world, shared_states) })
             .collect()
     }
 }
@@ -727,9 +740,10 @@ macro_rules! impl_param_set_builder_tuple {
         )]
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<'w, 's, $($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<ParamSet<'w, 's, ($($param,)*)>> for ParamSetBuilder<($($builder,)*)> {
-            fn build(self, world: &mut World) -> <($($param,)*) as SystemParam>::State {
+            unsafe fn build(self, world: &mut World, shared_states: &SharedStates) -> <($($param,)*) as SystemParam>::State {
                 let ParamSetBuilder(($($builder,)*)) = self;
-                ($($builder.build(world),)*)
+                // SAFETY: requirements are upheld by caller
+                unsafe { ($($builder.build(world, shared_states),)*) }
             }
         }
     };
@@ -741,24 +755,32 @@ all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B);
 unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
     SystemParamBuilder<ParamSet<'w, 's, Vec<P>>> for ParamSetBuilder<Vec<B>>
 {
-    fn build(self, world: &mut World) -> <Vec<P> as SystemParam>::State {
+    unsafe fn build(
+        self,
+        world: &mut World,
+        shared_states: &SharedStates,
+    ) -> <Vec<P> as SystemParam>::State {
+        // SAFETY: requirements are upheld by the caller
         self.0
             .into_iter()
-            .map(|builder| builder.build(world))
+            .map(|builder| unsafe { builder.build(world, shared_states) })
             .collect()
     }
 }
 
 /// A [`SystemParamBuilder`] for a [`DynSystemParam`].
 /// See the [`DynSystemParam`] docs for examples.
-pub struct DynParamBuilder<'a>(Box<dyn FnOnce(&mut World) -> DynSystemParamState + 'a>);
+pub struct DynParamBuilder<'a>(
+    Box<dyn FnOnce(&mut World, &SharedStates) -> DynSystemParamState + 'a>,
+);
 
 impl<'a> DynParamBuilder<'a> {
     /// Creates a new [`DynParamBuilder`] by wrapping a [`SystemParamBuilder`] of any type.
     /// The built [`DynSystemParam`] can be downcast to `T`.
     pub fn new<T: SystemParam + 'static>(builder: impl SystemParamBuilder<T> + 'a) -> Self {
-        Self(Box::new(|world| {
-            DynSystemParamState::new::<T>(builder.build(world))
+        Self(Box::new(|world, shared_states| {
+            // SAFETY: requirements are upheld at call site
+            DynSystemParamState::new::<T>(unsafe { builder.build(world, shared_states) })
         }))
     }
 }
@@ -767,8 +789,12 @@ impl<'a> DynParamBuilder<'a> {
 // and the boxed builder was a valid implementation of `SystemParamBuilder` for that type.
 // The resulting `DynSystemParam` can only perform access by downcasting to that param type.
 unsafe impl<'a, 'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamBuilder<'a> {
-    fn build(self, world: &mut World) -> <DynSystemParam<'w, 's> as SystemParam>::State {
-        (self.0)(world)
+    unsafe fn build(
+        self,
+        world: &mut World,
+        shared_states: &SharedStates,
+    ) -> <DynSystemParam<'w, 's> as SystemParam>::State {
+        (self.0)(world, shared_states)
     }
 }
 
@@ -798,7 +824,11 @@ pub struct LocalBuilder<T>(pub T);
 unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
     for LocalBuilder<T>
 {
-    fn build(self, _world: &mut World) -> <Local<'s, T> as SystemParam>::State {
+    unsafe fn build(
+        self,
+        _world: &mut World,
+        _shared_states: &SharedStates,
+    ) -> <Local<'s, T> as SystemParam>::State {
         SyncCell::new(self.0)
     }
 }
@@ -830,7 +860,11 @@ impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuil
 unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
     SystemParamBuilder<FilteredResources<'w, 's>> for FilteredResourcesParamBuilder<T>
 {
-    fn build(self, world: &mut World) -> <FilteredResources<'w, 's> as SystemParam>::State {
+    unsafe fn build(
+        self,
+        world: &mut World,
+        _shared_states: &SharedStates,
+    ) -> <FilteredResources<'w, 's> as SystemParam>::State {
         let mut builder = FilteredResourcesBuilder::new(world);
         (self.0)(&mut builder);
         builder.build()
@@ -864,7 +898,11 @@ impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesM
 unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
     SystemParamBuilder<FilteredResourcesMut<'w, 's>> for FilteredResourcesMutParamBuilder<T>
 {
-    fn build(self, world: &mut World) -> <FilteredResourcesMut<'w, 's> as SystemParam>::State {
+    unsafe fn build(
+        self,
+        world: &mut World,
+        _shared_states: &SharedStates,
+    ) -> <FilteredResourcesMut<'w, 's> as SystemParam>::State {
         let mut builder = FilteredResourcesMutBuilder::new(world);
         (self.0)(&mut builder);
         builder.build()
@@ -879,8 +917,13 @@ pub struct OptionBuilder<T>(T);
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Option<P>>
     for OptionBuilder<B>
 {
-    fn build(self, world: &mut World) -> <Option<P> as SystemParam>::State {
-        self.0.build(world)
+    unsafe fn build(
+        self,
+        world: &mut World,
+        shared_states: &SharedStates,
+    ) -> <Option<P> as SystemParam>::State {
+        // SAFETY: requirements are upheld by caller
+        unsafe { self.0.build(world, shared_states) }
     }
 }
 
@@ -892,11 +935,13 @@ pub struct ResultBuilder<T>(T);
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>>
     SystemParamBuilder<Result<P, SystemParamValidationError>> for ResultBuilder<B>
 {
-    fn build(
+    unsafe fn build(
         self,
         world: &mut World,
+        shared_states: &SharedStates,
     ) -> <Result<P, SystemParamValidationError> as SystemParam>::State {
-        self.0.build(world)
+        // SAFETY: requirements are upheld by caller
+        unsafe { self.0.build(world, shared_states) }
     }
 }
 
@@ -906,8 +951,13 @@ pub struct IfBuilder<T>(T);
 
 // SAFETY: `IfBuilder<B>` builds a state that is valid for `P`, and any state valid for `P` is valid for `If<P>`
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<If<P>> for IfBuilder<B> {
-    fn build(self, world: &mut World) -> <If<P> as SystemParam>::State {
-        self.0.build(world)
+    unsafe fn build(
+        self,
+        world: &mut World,
+        shared_states: &SharedStates,
+    ) -> <If<P> as SystemParam>::State {
+        // SAFETY: requirements are upheld by caller
+        unsafe { self.0.build(world, shared_states) }
     }
 }
 

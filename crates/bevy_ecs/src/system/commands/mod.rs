@@ -12,6 +12,8 @@ pub use entity_command::EntityCommand;
 pub use parallel_scope::*;
 
 use alloc::boxed::Box;
+use bevy_platform::prelude::*;
+use bevy_platform::sync::OnceLock;
 use core::marker::PhantomData;
 
 use crate::{
@@ -30,7 +32,8 @@ use crate::{
     resource::Resource,
     schedule::ScheduleLabel,
     system::{
-        Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput, SystemParamValidationError,
+        Deferred, IntoSystem, RegisteredSystem, SharedState, SharedStateVTable, SharedStates,
+        SystemId, SystemInput, SystemParam, SystemParamValidationError,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -58,7 +61,7 @@ use crate::{
 ///
 /// Add `mut commands: Commands` as a function argument to your system to get a
 /// copy of this struct that will be applied the next time a copy of [`ApplyDeferred`] runs.
-/// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
+/// Commands are almost always used as a [`SystemParam`].
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -114,27 +117,33 @@ unsafe impl Send for Commands<'_, '_> {}
 unsafe impl Sync for Commands<'_, '_> {}
 
 const _: () = {
-    type __StructFieldsAlias<'w, 's> = (
-        Deferred<'s, CommandQueue>,
-        &'w EntityAllocator,
-        &'w Entities,
-    );
+    type __StructFieldsAlias<'w, 's> = (&'w EntityAllocator, &'w Entities);
     #[doc(hidden)]
     pub struct FetchState {
-        state: <__StructFieldsAlias<'static, 'static> as bevy_ecs::system::SystemParam>::State,
+        state: <__StructFieldsAlias<'static, 'static> as SystemParam>::State,
     }
     // SAFETY: Only reads Entities
-    unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
-        type State = FetchState;
+    unsafe impl SystemParam for Commands<'_, '_> {
+        type State = (SharedState<CommandQueue>, FetchState);
 
         type Item<'w, 's> = Commands<'w, 's>;
 
+        fn shared() -> &'static [&'static SharedStateVTable] {
+            static VTABLE: OnceLock<&'static [&'static SharedStateVTable]> = OnceLock::new();
+            VTABLE.get_or_init(|| vec![SharedStateVTable::of::<CommandQueue>()].leak())
+        }
+
         #[track_caller]
-        fn init_state(world: &mut World) -> Self::State {
-            FetchState {
-                state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
-                    world,
-                ),
+        unsafe fn init_state(world: &mut World, shared_states: &SharedStates) -> Self::State {
+            // SAFETY: requirements upheld by caller
+            unsafe {
+                (
+                    SharedState::new(shared_states)
+                        .expect("CommandQueue should be initialized in SharedStates"),
+                    FetchState {
+                        state: __StructFieldsAlias::init_state(world, shared_states),
+                    },
+                )
             }
         }
 
@@ -144,8 +153,8 @@ const _: () = {
             component_access_set: &mut bevy_ecs::query::FilteredAccessSet,
             world: &mut World,
         ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_access(
-                &state.state,
+            <__StructFieldsAlias<'_, '_> as SystemParam>::init_access(
+                &state.1.state,
                 system_meta,
                 component_access_set,
                 world,
@@ -157,8 +166,8 @@ const _: () = {
             system_meta: &bevy_ecs::system::SystemMeta,
             world: &mut World,
         ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
-                &mut state.state,
+            <__StructFieldsAlias<'_, '_> as SystemParam>::apply(
+                &mut state.1.state,
                 system_meta,
                 world,
             );
@@ -169,8 +178,8 @@ const _: () = {
             system_meta: &bevy_ecs::system::SystemMeta,
             world: bevy_ecs::world::DeferredWorld,
         ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::queue(
-                &mut state.state,
+            <__StructFieldsAlias<'_, '_> as SystemParam>::queue(
+                &mut state.1.state,
                 system_meta,
                 world,
             );
@@ -184,8 +193,8 @@ const _: () = {
         ) -> Result<(), SystemParamValidationError> {
             // SAFETY: Upheld by caller
             unsafe {
-                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::validate_param(
-                    &mut state.state,
+                <__StructFieldsAlias as SystemParam>::validate_param(
+                    &mut state.1.state,
                     system_meta,
                     world,
                 )
@@ -202,17 +211,19 @@ const _: () = {
         ) -> Self::Item<'w, 's> {
             // SAFETY: Upheld by caller
             let params = unsafe {
-                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
-                    &mut state.state,
+                <__StructFieldsAlias as SystemParam>::get_param(
+                    &mut state.1.state,
                     system_meta,
                     world,
                     change_tick,
                 )
             };
             Commands {
-                queue: InternalQueue::CommandQueue(params.0),
-                allocator: params.1,
-                entities: params.2,
+                // SAFETY: `Commands` is not `Send` or `Sync` so there is no way for more than one
+                //          of them to be using the command queue at once
+                queue: unsafe { InternalQueue::RawCommandQueue(state.0.get_raw()) },
+                allocator: params.0,
+                entities: params.1,
             }
         }
     }
@@ -303,10 +314,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// Take all commands from `other` and append them to `self`, leaving `other` empty.
     pub fn append(&mut self, other: &mut CommandQueue) {
         match &mut self.queue {
-            InternalQueue::CommandQueue(queue) => queue.bytes.append(&mut other.bytes),
+            InternalQueue::CommandQueue(queue) => {
+                queue.bytes.get_mut().append(other.bytes.get_mut());
+            }
             InternalQueue::RawCommandQueue(queue) => {
                 // SAFETY: Pointers in `RawCommandQueue` are never null
-                unsafe { queue.bytes.as_mut() }.append(&mut other.bytes);
+                unsafe { queue.bytes.as_mut() }.append(other.bytes.get_mut());
             }
         }
     }
@@ -2463,13 +2476,14 @@ mod tests {
     use crate::{
         component::Component,
         resource::Resource,
-        system::Commands,
+        system::{Commands, SystemState},
         world::{CommandQueue, FromWorld, World},
     };
     use alloc::{string::String, sync::Arc, vec, vec::Vec};
+    use bevy_utils::default;
     use core::{
         any::TypeId,
-        sync::atomic::{AtomicUsize, Ordering},
+        sync::atomic::{AtomicU8, AtomicUsize, Ordering},
     };
 
     #[expect(
@@ -2877,5 +2891,49 @@ mod tests {
             Some(expected),
             world.entities().entity_get_spawn_or_despawn_tick(id)
         );
+    }
+
+    #[test]
+    fn command_queues_are_shared_and_ordered() {
+        let mut world = World::default();
+        let mut system_state = SystemState::<(Commands, Commands)>::new(&mut world);
+
+        let counter: Arc<AtomicU8> = default();
+
+        let (mut commands_a, mut commands_b) = system_state.get(&world);
+
+        commands_a.queue({
+            let counter = counter.clone();
+            move |_: &mut World| {
+                counter.fetch_add(1, Ordering::SeqCst);
+            }
+        });
+
+        commands_b.queue({
+            let counter = counter.clone();
+            move |_: &mut World| {
+                assert_eq!(1, counter.load(Ordering::SeqCst));
+                counter.fetch_add(1, Ordering::SeqCst);
+            }
+        });
+
+        commands_a.queue({
+            let counter = counter.clone();
+            move |_: &mut World| {
+                assert_eq!(2, counter.load(Ordering::SeqCst));
+                counter.fetch_add(1, Ordering::SeqCst);
+            }
+        });
+
+        commands_b.queue({
+            let counter = counter.clone();
+            move |_: &mut World| {
+                assert_eq!(3, counter.load(Ordering::SeqCst));
+            }
+        });
+
+        system_state.apply(&mut world);
+
+        assert_eq!(3, counter.load(Ordering::SeqCst));
     }
 }

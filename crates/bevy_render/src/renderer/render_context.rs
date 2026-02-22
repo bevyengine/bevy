@@ -9,7 +9,7 @@ use bevy_ecs::component::ComponentId;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::{FilteredAccessSet, QueryData, QueryFilter, QueryState};
 use bevy_ecs::system::{
-    Deferred, SystemBuffer, SystemMeta, SystemParam, SystemParamValidationError,
+    Deferred, SharedStates, SystemBuffer, SystemMeta, SystemParam, SystemParamValidationError,
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
@@ -234,7 +234,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     type State = ViewQueryState<D, F>;
     type Item<'w, 's> = ViewQuery<'w, 's, D, F>;
 
-    fn init_state(world: &mut World) -> Self::State {
+    unsafe fn init_state(world: &mut World, _shared_states: &SharedStates) -> Self::State {
         ViewQueryState {
             resource_id: world
                 .components_registrator()

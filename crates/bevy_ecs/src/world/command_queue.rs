@@ -7,10 +7,11 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
 use core::{
+    cell::UnsafeCell,
     fmt::Debug,
     mem::{size_of, MaybeUninit},
     panic::AssertUnwindSafe,
-    ptr::{addr_of_mut, NonNull},
+    ptr::NonNull,
 };
 use log::warn;
 
@@ -37,9 +38,9 @@ pub struct CommandQueue {
     // For each command, one `CommandMeta` is stored, followed by zero or more bytes
     // to store the command itself. To interpret these bytes, a pointer must
     // be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
-    pub(crate) bytes: Vec<MaybeUninit<u8>>,
-    pub(crate) cursor: usize,
-    pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
+    pub(crate) bytes: UnsafeCell<Vec<MaybeUninit<u8>>>,
+    pub(crate) cursor: UnsafeCell<usize>,
+    pub(crate) panic_recovery: UnsafeCell<Vec<MaybeUninit<u8>>>,
     pub(crate) caller: MaybeLocation,
 }
 
@@ -64,15 +65,12 @@ pub(crate) struct RawCommandQueue {
     pub(crate) panic_recovery: NonNull<Vec<MaybeUninit<u8>>>,
 }
 
-// CommandQueue needs to implement Debug manually, rather than deriving it, because the derived impl just prints
-// [core::mem::maybe_uninit::MaybeUninit<u8>, core::mem::maybe_uninit::MaybeUninit<u8>, ..] for every byte in the vec,
-// which gets extremely verbose very quickly, while also providing no useful information.
-// It is not possible to soundly print the values of the contained bytes, as some of them may be padding or uninitialized (#4863)
-// So instead, the manual impl just prints the length of vec.
+// CommandQueue needs to implement Debug manually, rather than deriving it, because the derived impl of
+// UnsafeCell doesn't print its contents.
+// The manual impl just prints the caller.
 impl Debug for CommandQueue {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("CommandQueue")
-            .field("len_bytes", &self.bytes.len())
             .field("caller", &self.caller)
             .finish_non_exhaustive()
     }
@@ -109,23 +107,28 @@ impl CommandQueue {
 
     /// Take all commands from `other` and append them to `self`, leaving `other` empty
     pub fn append(&mut self, other: &mut CommandQueue) {
-        self.bytes.append(&mut other.bytes);
+        self.bytes.get_mut().append(other.bytes.get_mut());
     }
 
     /// Returns false if there are any commands in the queue
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.cursor >= self.bytes.len()
+        // SAFETY: aliasing rules are upheld by `RawCommandQueue`s if they exist
+        unsafe { *self.cursor.get() >= (&*self.bytes.get()).len() }
     }
 
     /// Returns a [`RawCommandQueue`] instance sharing the underlying command queue.
-    pub(crate) fn get_raw(&mut self) -> RawCommandQueue {
-        // SAFETY: self is always valid memory
+    ///
+    /// # Safety
+    /// Caller must ensure that the `RawCommandQueue` is not used mutably at the same time
+    /// as `self` or any other raw command queues created from `self`.
+    pub(crate) unsafe fn get_raw(&self) -> RawCommandQueue {
+        // SAFETY: self is always valid memory and caller upholds mutability requirement
         unsafe {
             RawCommandQueue {
-                bytes: NonNull::new_unchecked(addr_of_mut!(self.bytes)),
-                cursor: NonNull::new_unchecked(addr_of_mut!(self.cursor)),
-                panic_recovery: NonNull::new_unchecked(addr_of_mut!(self.panic_recovery)),
+                bytes: NonNull::new_unchecked(self.bytes.get()),
+                cursor: NonNull::new_unchecked(self.cursor.get()),
+                panic_recovery: NonNull::new_unchecked(self.panic_recovery.get()),
             }
         }
     }
@@ -236,7 +239,7 @@ impl RawCommandQueue {
         // SAFETY: If this is the command queue on world, world will not be dropped as we have a mutable reference
         // If this is not the command queue on world we have exclusive ownership and self will not be mutated
         let start = *self.cursor.as_ref();
-        let stop = self.bytes.as_ref().len();
+        let stop = (*self.bytes.as_ref()).len();
         let mut local_cursor = start;
         // SAFETY: we are setting the global cursor to the current length to prevent the executing commands from applying
         // the remaining commands currently in this list. This is safe.
@@ -322,7 +325,9 @@ impl RawCommandQueue {
 
 impl Drop for CommandQueue {
     fn drop(&mut self) {
-        if !self.bytes.is_empty() {
+        // SAFETY: aliasing rules are upheld by `RawCommandQueue`s if they exist
+        let is_empty = unsafe { (&*self.bytes.get()).is_empty() };
+        if !is_empty {
             if let Some(caller) = self.caller.into_option() {
                 warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply? caller:{caller:?}");
             } else {

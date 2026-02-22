@@ -8,6 +8,8 @@ use crate::{
 use bevy_utils::prelude::DebugName;
 use derive_more::derive::{Display, Into};
 
+use super::SharedStates;
+
 /// [`SystemParam`] that returns the name of the system which it is used in.
 ///
 /// This is not a reliable identifier, it is more so useful for debugging or logging.
@@ -49,7 +51,7 @@ unsafe impl SystemParam for SystemName {
     type State = ();
     type Item<'w, 's> = SystemName;
 
-    fn init_state(_world: &mut World) -> Self::State {}
+    unsafe fn init_state(_world: &mut World, _shared_states: &SharedStates) -> Self::State {}
 
     fn init_access(
         _state: &Self::State,
