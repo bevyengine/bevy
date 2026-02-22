@@ -26,7 +26,7 @@ use crate::{Extract, ExtractSchedule};
 /// main world to the render world in the [`ExtractSchedule`] step.
 ///
 /// This is essentially the same as
-/// [`ExtractComponent`](crate::extract_component::ExtractComponent), but
+/// [`ExtractBaseComponent`](crate::extract_base_component::ExtractBaseComponent), but
 /// higher-performance because it avoids the ECS overhead.
 pub trait ExtractInstance: Send + Sync + Sized + 'static {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
@@ -51,7 +51,7 @@ where
     only_extract_visible: bool,
     marker: PhantomData<fn() -> EI>,
 
-    /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`] to set up with extraction.
+    /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`](bevy_app::SubApp) to set up with extraction.
     pub app_label: InternedAppLabel,
 }
 

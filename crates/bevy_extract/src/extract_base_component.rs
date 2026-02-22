@@ -17,13 +17,13 @@ pub use bevy_extract_macros::ExtractBaseComponent;
 ///
 /// Therefore the component is transferred from the "app world" into the "render
 /// world" in the [`ExtractSchedule`] step. This functionality is enabled by
-/// adding [`ExtractComponentPlugin`] with the component type.
+/// adding [`ExtractBaseComponentPlugin`] with the component type.
 ///
 /// The Out type is defined in [`SyncComponent`].
 ///
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
-/// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
+/// marker, e.g. the type of the plugin that calls [`ExtractBaseComponentPlugin`].
 pub trait ExtractBaseComponent<L: AppLabel, F: 'static + Send + Sync = ()>:
     SyncComponent<F>
 {
@@ -45,7 +45,7 @@ pub trait ExtractBaseComponent<L: AppLabel, F: 'static + Send + Sync = ()>:
 ///
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
-/// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
+/// marker, e.g. the type of the plugin that calls [`ExtractBaseComponentPlugin`].
 pub struct ExtractBaseComponentPlugin<
     L: AppLabel,
     C: ExtractBaseComponent<L, F>,
@@ -54,7 +54,7 @@ pub struct ExtractBaseComponentPlugin<
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (L, C, F)>,
 
-    /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`] to set up with extraction.
+    /// The [`AppLabel`] of the [`SubApp`](bevy_app::SubApp) to set up with extraction.
     app_label: InternedAppLabel,
 }
 

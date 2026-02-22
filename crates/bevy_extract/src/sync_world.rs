@@ -19,7 +19,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
 /// All entities with the [`SyncToRenderWorld`] component are kept in sync. It
-/// is automatically added as a required component by [`ExtractComponentPlugin`]
+/// is automatically added as a required component by [`ExtractBaseComponentPlugin`]
 /// and [`SyncComponentPlugin`], so it doesn't need to be added manually when
 /// spawning or as a required component when either of these plugins are used.
 ///
@@ -82,12 +82,13 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// The render world probably cares about a `Position` component, but not a `Velocity` component.
 /// The extraction happens in its own step, independently from, and after synchronization.
 ///
-/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`RenderAsset`](crate::render_asset::RenderAsset)s like meshes and textures are handled
+/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`RenderAsset`]s like meshes and textures are handled
 /// differently.
 ///
-/// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin
-/// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
+/// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
+/// [`ExtractBaseComponentPlugin`]: crate::extract_base_component::ExtractBaseComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
+/// [`RenderAsset`]: https://docs.rs/bevy/latest/bevy/render/render_asset/trait.RenderAsset.html
 #[derive(Default)]
 pub struct SyncWorldPlugin;
 
@@ -112,13 +113,13 @@ impl Plugin for SyncWorldPlugin {
 }
 /// Marker component that indicates that its entity needs to be synchronized to the render world.
 ///
-/// This component is automatically added as a required component by [`ExtractComponentPlugin`] and [`SyncComponentPlugin`].
+/// This component is automatically added as a required component by [`ExtractBaseComponentPlugin`] and [`SyncComponentPlugin`].
 /// For more information see [`SyncWorldPlugin`].
 ///
 /// NOTE: This component should persist throughout the entity's entire lifecycle.
 /// If this component is removed from its entity, the entity will be despawned.
 ///
-/// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
+/// [`ExtractBaseComponentPlugin`]: crate::extract_base_component::ExtractBaseComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
