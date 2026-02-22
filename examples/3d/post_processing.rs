@@ -99,7 +99,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         // Include the `Vignette` component.
         Vignette::default(),
         // Include the `LensDistortion` component.
-        //LensDistortion::default(),
+        LensDistortion::default(),
     ));
 }
 

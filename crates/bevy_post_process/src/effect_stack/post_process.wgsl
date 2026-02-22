@@ -7,7 +7,7 @@
 
 @fragment
 fn fragment_main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    let color = chromatic_aberration(in.uv);
-    let color_distorted = lens_distortion(in.uv, color);
-    return vec4(vignette(in.uv, color_distorted), 1.0);
+    let distorted_uv = lens_distortion(in.uv);
+    let color = chromatic_aberration(distorted_uv);
+    return vec4(vignette(in.uv, color), 1.0);
 }

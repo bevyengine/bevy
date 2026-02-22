@@ -2,8 +2,6 @@
 
 #define_import_path bevy_post_process::effect_stack::lens_distortion
 
-#import bevy_post_process::effect_stack::chromatic_aberration::{source_texture, source_sampler}
-
 // See `bevy_post_process::effect_stack::LensDistortion` for more
 // information on these fields.
 struct LensDistortionSettings {
@@ -20,8 +18,11 @@ const EPSILON: f32 = 1.19209290e-07;
 // The settings supplied by the developer.
 @group(0) @binding(6) var<uniform> lens_distortion_settings: LensDistortionSettings;
 
-fn lens_distortion(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32>{
+fn lens_distortion(uv: vec2<f32>) -> vec2<f32>{
     let intensity = lens_distortion_settings.intensity;
+    if (abs(intensity) < EPSILON) {
+        return uv;
+    }
     let multiplier = lens_distortion_settings.multiplier;
     let center = lens_distortion_settings.center;
 
@@ -53,11 +54,5 @@ fn lens_distortion(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32>{
 
     let uv_safe = clamp(uv_scaled, vec2<f32>(0.0), vec2<f32>(1.0));
 
-    let sampled_color = textureSample(
-        source_texture,
-        source_sampler,
-        uv_safe
-    );
-
-    return sampled_color.rgb;
+    return uv_safe;
 }
