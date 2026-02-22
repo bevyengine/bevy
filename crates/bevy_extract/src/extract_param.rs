@@ -33,8 +33,8 @@ use core::ops::{Deref, DerefMut};
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_render::Extract;
-/// use bevy_render::sync_world::RenderEntity;
+/// use bevy_extract::Extract;
+/// use bevy_extract::sync_world::RenderEntity;
 /// # #[derive(Component)]
 /// // Do make sure to sync the cloud entities before extracting them.
 /// # struct Cloud;
