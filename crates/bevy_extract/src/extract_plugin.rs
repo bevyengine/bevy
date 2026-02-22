@@ -140,13 +140,37 @@ mod test {
     #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
     struct ExtractApp;
 
+    #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+    pub struct Render;
+
+    impl Render {
+        /// Sets up the base structure of the rendering [`Schedule`].
+        ///
+        /// The sets defined in this enum are configured to run in order.
+        pub fn base_schedule() -> Schedule {
+            use RenderSystems::*;
+
+            let mut schedule = Schedule::new(Self);
+
+            schedule.configure_sets((ExtractCommands, PostCleanup).chain());
+
+            schedule
+        }
+    }
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+    pub enum RenderSystems {
+        ExtractCommands,
+        PostCleanup,
+    }
+
     #[derive(Component, Clone, Debug)]
     struct RenderComponent;
 
     #[derive(Component, Clone, Debug)]
     struct RenderComponentExtra;
 
-    #[derive(Component, Clone, Debug, ExtractBaseComponent)]
+    #[derive(Component, Clone, Debug)]
     struct RenderComponentSeparate;
 
     #[derive(Component, Clone, Debug)]
@@ -156,7 +180,7 @@ mod test {
         type Out = (RenderComponent, RenderComponentExtra);
     }
 
-    impl ExtractBaseComponent for RenderComponent {
+    impl ExtractBaseComponent<ExtractApp> for RenderComponent {
         type QueryData = &'static Self;
 
         type QueryFilter = ();
@@ -168,6 +192,22 @@ mod test {
         }
     }
 
+    impl SyncComponent for RenderComponentSeparate {
+        type Out = RenderComponentSeparate;
+    }
+
+    impl ExtractBaseComponent<ExtractApp> for RenderComponentSeparate {
+        type QueryData = &'static Self;
+
+        type QueryFilter = ();
+
+        fn extract_component(
+            _item: bevy_ecs::query::QueryItem<'_, '_, Self::QueryData>,
+        ) -> Option<Self::Out> {
+            Some(RenderComponentSeparate)
+        }
+    }
+
     #[test]
     fn extraction_works() {
         let mut app = App::new();
@@ -175,14 +215,18 @@ mod test {
         app.add_plugins(ExtractPlugin {
             pre_extract: |_, _| {},
             app_label: ExtractApp.intern(),
-            // pub base_schedule: fn() -> Schedule, // Render::base_schedule()
-            // pub schedule_label: InternedScheduleLabel, // Render
 
-            // pub extract_set: InternedSystemSet, // RenderSystems::ExtractCommands
-            // pub despawn_set: InternedSystemSet, // RenderSystems::PostCleanup
+            base_schedule: Render::base_schedule,
+            schedule_label: Render.intern(),
+
+            extract_set: RenderSystems::ExtractCommands.intern(),
+            despawn_set: RenderSystems::PostCleanup.intern(),
         });
-        app.add_plugins(ExtractBaseComponentPlugin::<RenderComponent>::default());
-        app.add_plugins(ExtractBaseComponentPlugin::<RenderComponentSeparate>::default());
+        app.add_plugins(ExtractBaseComponentPlugin::<ExtractApp, RenderComponent>::new(ExtractApp));
+        app.add_plugins(ExtractBaseComponentPlugin::<
+            ExtractApp,
+            RenderComponentSeparate,
+        >::new(ExtractApp));
         app.add_systems(Startup, |mut commands: Commands| {
             commands.spawn((RenderComponent, RenderComponentSeparate));
         });
