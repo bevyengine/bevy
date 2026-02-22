@@ -697,13 +697,13 @@ pub fn extract_lights(
     );
     remove_components::<SpotLight, ExtractedPointLight>(
         &mut commands,
-        &**mapper,
+        mapper,
         &mut removed_spot_lights,
         &seen_spot_light_main_entities,
     );
     remove_components::<DirectionalLight, ExtractedDirectionalLight>(
         &mut commands,
-        &**mapper,
+        mapper,
         &mut removed_directional_lights,
         &seen_directional_light_main_entities,
     );
