@@ -219,38 +219,60 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             table,
         );
 
-        let entities = table.entities();
-        for row in rows {
-            // SAFETY: Caller assures `row` in range of the current archetype.
-            let entity = unsafe { entities.get_unchecked(row as usize) };
-            // SAFETY: This is from an exclusive range, so it can't be max.
-            let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
+        let table_entities = table.entities();
 
-            // SAFETY: set_table was called prior.
-            // Caller assures `row` in range of the current archetype.
-            let fetched = unsafe {
-                !F::filter_fetch(
-                    &self.query_state.filter_state,
-                    &mut self.cursor.filter,
-                    *entity,
-                    row,
+        let mut next_chunk = rows.clone();
+        while next_chunk.start < rows.end {
+            // SAFETY:
+            // - `set_table` was called prior
+            // - since `find_table_chunk` can only narrow ranges, and the caller
+            //   assures `rows` is in range of the table, `next_chunk` must be as well.
+            next_chunk = unsafe {
+                D::find_table_chunk(
+                    &self.query_state.fetch_state,
+                    &mut self.cursor.fetch,
+                    table_entities,
+                    next_chunk,
                 )
             };
-            if fetched {
-                continue;
+            // SAFETY:
+            // - `set_table` was called prior
+            // - since `find_table_chunk` can only narrow ranges, and the caller
+            //   assures `rows` is in range of the table, `next_chunk` must be as well.
+            next_chunk = unsafe {
+                F::find_table_chunk(
+                    &self.query_state.filter_state,
+                    &mut self.cursor.filter,
+                    table_entities,
+                    next_chunk,
+                )
+            };
+
+            if next_chunk.is_empty() {
+                break;
             }
 
-            // SAFETY: set_table was called prior.
-            // Caller assures `row` in range of the current archetype.
-            if let Some(item) = D::fetch(
-                &self.query_state.fetch_state,
-                &mut self.cursor.fetch,
-                *entity,
-                row,
-            ) {
+            for row in next_chunk.clone() {
+                // SAFETY: Caller assures `row` in range of the current archetype.
+                let entity = unsafe { table_entities.get_unchecked(row as usize) };
+                // SAFETY: This is from an exclusive range, so it can't be max.
+                let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
+
+                // SAFETY:
+                // - set_table was called prior.
+                // - find_table_chunk was called prior, and this row was in the returned range.
+                let item = D::fetch(
+                    &self.query_state.fetch_state,
+                    &mut self.cursor.fetch,
+                    *entity,
+                    row,
+                );
                 accum = func(accum, item);
             }
+
+            next_chunk = next_chunk.end..rows.end;
         }
+
         accum
     }
 
@@ -289,37 +311,59 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             table,
         );
 
-        let entities = archetype.entities();
-        for index in indices {
-            // SAFETY: Caller assures `index` in range of the current archetype.
-            let archetype_entity = unsafe { entities.get_unchecked(index as usize) };
+        let archetype_entities = archetype.entities();
 
-            // SAFETY: set_archetype was called prior.
-            // Caller assures `index` in range of the current archetype.
-            let fetched = unsafe {
-                !F::filter_fetch(
-                    &self.query_state.filter_state,
-                    &mut self.cursor.filter,
-                    archetype_entity.id(),
-                    archetype_entity.table_row(),
-                )
-            };
-            if fetched {
-                continue;
-            }
-
-            // SAFETY: set_archetype was called prior, `index` is an archetype index in range of the current archetype
-            // Caller assures `index` in range of the current archetype.
-            if let Some(item) = unsafe {
-                D::fetch(
+        let mut next_chunk = indices.clone();
+        while next_chunk.start < indices.end {
+            // SAFETY:
+            // - `set_archetype` was called prior
+            // - since `find_archetype_chunk` can only narrow ranges, and the caller
+            //   assures `indices` is in range of the archetype, `next_chunk` must be as well.
+            next_chunk = unsafe {
+                D::find_archetype_chunk(
                     &self.query_state.fetch_state,
                     &mut self.cursor.fetch,
-                    archetype_entity.id(),
-                    archetype_entity.table_row(),
+                    archetype_entities,
+                    next_chunk,
                 )
-            } {
+            };
+            // SAFETY:
+            // - `set_archetype` was called prior
+            // - since `find_archetype_chunk` can only narrow ranges, and the caller
+            //   assures `indices` is in range of the archetype, `next_chunk` must be as well.
+            next_chunk = unsafe {
+                F::find_archetype_chunk(
+                    &self.query_state.filter_state,
+                    &mut self.cursor.filter,
+                    archetype_entities,
+                    next_chunk,
+                )
+            };
+
+            if next_chunk.is_empty() {
+                break;
+            }
+
+            for index in next_chunk.clone() {
+                // SAFETY: by induction (see above) index must be in range of the archetype.
+                let archetype_entity = unsafe { archetype_entities.get_unchecked(index as usize) };
+
+                // SAFETY:
+                // - `set_archetype` was called prior.
+                // - `find_archetype_chunk` was called prior, and `index` is in the returned range.
+                let item = unsafe {
+                    D::fetch(
+                        &self.query_state.fetch_state,
+                        &mut self.cursor.fetch,
+                        archetype_entity.id(),
+                        archetype_entity.table_row(),
+                    )
+                };
+
                 accum = func(accum, item);
             }
+
+            next_chunk = next_chunk.end..indices.end;
         }
         accum
     }
@@ -364,37 +408,62 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             archetype,
             table,
         );
-        let entities = table.entities();
-        for row in rows {
-            // SAFETY: Caller assures `row` in range of the current archetype.
-            let entity = unsafe { *entities.get_unchecked(row as usize) };
-            // SAFETY: This is from an exclusive range, so it can't be max.
-            let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
 
-            // SAFETY: set_table was called prior.
-            // Caller assures `row` in range of the current archetype.
-            let filter_matched = unsafe {
-                F::filter_fetch(
-                    &self.query_state.filter_state,
-                    &mut self.cursor.filter,
-                    entity,
-                    row,
+        let table_entities = table.entities();
+
+        let mut next_chunk = rows.clone();
+        while next_chunk.start < rows.end {
+            // SAFETY:
+            // - `set_table` was called prior
+            // - since `find_table_chunk` can only narrow ranges, and the caller
+            //   assures `rows` is in range of the archetype, `next_chunk` must be as well.
+            next_chunk = unsafe {
+                D::find_table_chunk(
+                    &self.query_state.fetch_state,
+                    &mut self.cursor.fetch,
+                    table_entities,
+                    next_chunk,
                 )
             };
-            if !filter_matched {
-                continue;
+            // SAFETY:
+            // - `set_table` was called prior
+            // - since `find_table_chunk` can only narrow ranges, and the caller
+            //   assures `rows` is in range of the archetype, `next_chunk` must be as well.
+            next_chunk = unsafe {
+                F::find_table_chunk(
+                    &self.query_state.filter_state,
+                    &mut self.cursor.filter,
+                    table_entities,
+                    next_chunk,
+                )
+            };
+
+            if next_chunk.is_empty() {
+                break;
             }
 
-            // SAFETY: set_table was called prior.
-            // Caller assures `row` in range of the current archetype.
-            if let Some(item) = D::fetch(
-                &self.query_state.fetch_state,
-                &mut self.cursor.fetch,
-                entity,
-                row,
-            ) {
+            for row in next_chunk.clone() {
+                // SAFETY: by induction (see above) `row` must be in range of the table.
+                let entity = unsafe { *table_entities.get_unchecked(row as usize) };
+                // SAFETY: This is from an exclusive range, so it can't be max.
+                let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(row)) };
+
+                // SAFETY:
+                // - `set_archetype` was called prior.
+                // - `find_table_chunk` was called prior, and `row` is in the returned range.
+                let item = unsafe {
+                    D::fetch(
+                        &self.query_state.fetch_state,
+                        &mut self.cursor.fetch,
+                        entity,
+                        row,
+                    )
+                };
+
                 accum = func(accum, item);
             }
+
+            next_chunk = next_chunk.end..rows.end;
         }
         accum
     }
@@ -1155,16 +1224,14 @@ where
 
         // The entity list has already been filtered by the query lens, so we forego filtering here.
         // SAFETY:
-        // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
+        // - set_archetype was called prior, `location.table_row` is an archetype index in range of the current archetype
         // - fetch is only called once for each entity.
-        unsafe {
-            D::fetch(
-                &self.query_state.fetch_state,
-                &mut self.fetch,
-                entity,
-                location.table_row,
-            )
-        }
+        D::try_fetch(
+            &self.query_state.fetch_state,
+            &mut self.fetch,
+            entity,
+            location.table_row,
+        )
     }
 }
 
@@ -1334,24 +1401,25 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
 
             // SAFETY: set_archetype was called prior.
             // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if unsafe {
-                F::filter_fetch(
+            let matches_filter = unsafe {
+                F::matches(
                     &query_state.filter_state,
                     filter,
                     entity,
                     location.table_row,
                 )
-            } {
-                // SAFETY:
-                // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
-                // - fetch is only called once for each entity.
-                let item = unsafe {
-                    D::fetch(&query_state.fetch_state, fetch, entity, location.table_row)
-                };
-                if let Some(item) = item {
-                    return Some(item);
-                }
-            }
+            };
+
+            return matches_filter
+                .then(|| {
+                    // SAFETY:
+                    // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
+                    // - fetch is only called once for each entity.
+                    unsafe {
+                        D::try_fetch(&query_state.fetch_state, fetch, entity, location.table_row)
+                    }
+                })
+                .flatten();
         }
         None
     }
@@ -2130,12 +2198,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
         // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
         // - fetch is only called once for each entity.
         unsafe {
-            D::fetch(
+            Some(D::fetch(
                 &self.query_state.fetch_state,
                 &mut self.fetch,
                 entity,
                 location.table_row,
-            )
+            ))
         }
     }
 
@@ -2568,34 +2636,52 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             let index = self.current_row - 1;
             if self.is_dense {
                 // SAFETY: This must have been called previously in `next` as `current_row > 0`
-                let entity = unsafe { self.table_entities.get_unchecked(index as usize) };
-                // SAFETY:
-                //  - `set_table` must have been called previously either in `next` or before it.
-                //  - `*entity` and `index` are in the current table.
-                unsafe {
-                    D::fetch(
-                        &query_state.fetch_state,
-                        &mut self.fetch,
-                        *entity,
-                        // SAFETY: This is from an exclusive range, so it can't be max.
-                        TableRow::new(NonMaxU32::new_unchecked(index)),
-                    )
-                }
+                let entity = unsafe { *self.table_entities.get_unchecked(index as usize) };
+                // SAFETY: This is from an exclusive range, so it can't be max.
+                let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(index)) };
+
+                // SAFETY: set_table was called prior.
+                // `row` is a table row in range of the current table,
+                let matches_filter =
+                    unsafe { F::matches(&query_state.filter_state, &mut self.filter, entity, row) };
+
+                matches_filter
+                    // SAFETY:
+                    //  - `set_table` must have been called previously either in `next` or before it.
+                    //  - `*entity` and `index` are in the current table.
+                    .then(|| unsafe {
+                        D::try_fetch(&query_state.fetch_state, &mut self.fetch, entity, row)
+                    })
+                    .flatten()
             } else {
                 // SAFETY: This must have been called previously in `next` as `current_row > 0`
                 let archetype_entity =
                     unsafe { self.archetype_entities.get_unchecked(index as usize) };
-                // SAFETY:
-                //  - `set_archetype` must have been called previously either in `next` or before it.
-                //  - `archetype_entity.id()` and `archetype_entity.table_row()` are in the current archetype.
-                unsafe {
-                    D::fetch(
-                        &query_state.fetch_state,
-                        &mut self.fetch,
+
+                // SAFETY: set_archetype was called prior.
+                // `archetype_entity.table_row()` is an archetype index row in range of the current archetype,
+                let matches_filter = unsafe {
+                    F::matches(
+                        &query_state.filter_state,
+                        &mut self.filter,
                         archetype_entity.id(),
                         archetype_entity.table_row(),
                     )
-                }
+                };
+
+                matches_filter
+                    // SAFETY:
+                    //  - `set_archetype` must have been called previously either in `next` or before it.
+                    //  - `archetype_entity.id()` and `archetype_entity.table_row()` are in the current archetype.
+                    .then(|| unsafe {
+                        D::try_fetch(
+                            &query_state.fetch_state,
+                            &mut self.fetch,
+                            archetype_entity.id(),
+                            archetype_entity.table_row(),
+                        )
+                    })
+                    .flatten()
             }
         } else {
             None
@@ -2658,12 +2744,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // SAFETY: set_table was called prior.
                 // `current_row` is a table row in range of the current table, because if it was not, then the above would have been executed.
                 let entity =
-                    unsafe { self.table_entities.get_unchecked(self.current_row as usize) };
+                    unsafe { *self.table_entities.get_unchecked(self.current_row as usize) };
                 // SAFETY: The row is less than the u32 len, so it must not be max.
                 let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(self.current_row)) };
                 self.current_row += 1;
 
-                if !F::filter_fetch(&query_state.filter_state, &mut self.filter, *entity, row) {
+                // SAFETY: set_table was called prior.
+                // `row` is a table row in range of the current table,
+                let matches_filter =
+                    unsafe { F::matches(&query_state.filter_state, &mut self.filter, entity, row) };
+
+                if !matches_filter {
                     continue;
                 }
 
@@ -2673,7 +2764,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 //   because if it was not, then the above would have been executed.
                 // - fetch is only called once for each `entity`.
                 let item =
-                    unsafe { D::fetch(&query_state.fetch_state, &mut self.fetch, *entity, row) };
+                    unsafe { D::try_fetch(&query_state.fetch_state, &mut self.fetch, entity, row) };
+
                 if let Some(item) = item {
                     return Some(item);
                 }
@@ -2716,12 +2808,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 };
                 self.current_row += 1;
 
-                if !F::filter_fetch(
-                    &query_state.filter_state,
-                    &mut self.filter,
-                    archetype_entity.id(),
-                    archetype_entity.table_row(),
-                ) {
+                // SAFETY: set_archetype was called prior.
+                // `archetype_entity.table_row()` is an archetype index row in range of the current archetype,
+                let matches_filter = unsafe {
+                    F::matches(
+                        &query_state.filter_state,
+                        &mut self.filter,
+                        archetype_entity.id(),
+                        archetype_entity.table_row(),
+                    )
+                };
+
+                if !matches_filter {
                     continue;
                 }
 
@@ -2731,13 +2829,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 //   because if it was not, then the if above would have been executed.
                 // - fetch is only called once for each `archetype_entity`.
                 let item = unsafe {
-                    D::fetch(
+                    D::try_fetch(
                         &query_state.fetch_state,
                         &mut self.fetch,
                         archetype_entity.id(),
                         archetype_entity.table_row(),
                     )
                 };
+
                 if let Some(item) = item {
                     return Some(item);
                 }

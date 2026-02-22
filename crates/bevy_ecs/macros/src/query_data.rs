@@ -107,7 +107,7 @@ fn contiguous_query_data_impl(
                         #field_members:
                         <#field_types>::fetch_contiguous(
                             &_state.#field_aliases,
-                            &mut _fetch.#field_aliases,
+                            &mut _fetch.#field_aliases.fetch,
                             _entities,
                         ),
                     )*
@@ -426,7 +426,6 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
                     const IS_READ_ONLY: bool = true;
-                    const IS_ARCHETYPAL: bool = true #(&& <#read_only_field_types as #path::query::QueryData>::IS_ARCHETYPAL)*;
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
                     type Item<'__w, '__s> = #read_only_item_struct_name #user_ty_generics_with_world_and_state;
 
@@ -455,10 +454,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                         _entity: #path::entity::Entity,
                         _table_row: #path::storage::TableRow,
-                    ) -> Option<Self::Item<'__w, '__s>> {
-                        Some(Self::Item {
-                            #(#field_members: <#read_only_field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
-                        })
+                    ) -> Self::Item<'__w, '__s> {
+                        Self::Item {
+                            #(#field_members: <#read_only_field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases.fetch, _entity, _table_row),)*
+                        }
                     }
 
                     fn iter_access(
@@ -497,7 +496,6 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
                 const IS_READ_ONLY: bool = #is_read_only;
-                const IS_ARCHETYPAL: bool = true #(&& <#field_types as #path::query::QueryData>::IS_ARCHETYPAL)*;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
                 type Item<'__w, '__s> = #item_struct_name #user_ty_generics_with_world_and_state;
 
@@ -526,10 +524,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _entity: #path::entity::Entity,
                     _table_row: #path::storage::TableRow,
-                ) -> Option<Self::Item<'__w, '__s>> {
-                    Some(Self::Item {
-                        #(#field_members: <#field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
-                    })
+                ) -> Self::Item<'__w, '__s> {
+                    Self::Item {
+                        #(#field_members: <#field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases.fetch, _entity, _table_row),)*
+                    }
                 }
 
                 fn iter_access(

@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, Archetypes},
+    archetype::{Archetype, ArchetypeEntity, Archetypes},
     bundle::Bundle,
     change_detection::{
         ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
@@ -9,7 +9,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     query::{
         access_iter::{EcsAccessLevel, EcsAccessType},
-        Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery,
+        Access, ChunkFetch, DebugCheckedUnwrap, FilteredAccess, WorldQuery,
     },
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
@@ -19,7 +19,7 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, iter, marker::PhantomData, panic::Location};
+use core::{cell::UnsafeCell, iter, marker::PhantomData, ops::Range, panic::Location};
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -324,15 +324,6 @@ pub unsafe trait QueryData: WorldQuery {
     /// True if this query is read-only and may not perform mutable access.
     const IS_READ_ONLY: bool;
 
-    /// Returns true if (and only if) this query data relies strictly on archetypes to limit which
-    /// entities are accessed by the Query.
-    ///
-    /// This enables optimizations for [`QueryIter`](`crate::query::QueryIter`) that rely on knowing exactly how
-    /// many elements are being iterated (such as `Iterator::collect()`).
-    ///
-    /// If this is `true`, then [`QueryData::fetch`] must always return `Some`.
-    const IS_ARCHETYPAL: bool;
-
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
     type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
 
@@ -368,20 +359,50 @@ pub unsafe trait QueryData: WorldQuery {
     /// [`WorldQuery::set_archetype`]  with an `entity` in the current archetype.
     /// Accesses components registered in [`WorldQuery::update_component_access`].
     ///
-    /// This method returns `None` if the entity does not match the query.
-    /// If `Self` implements [`ArchetypeQueryData`], this must always return `Some`.
-    ///
     /// # Safety
     ///
     /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     ///   `table_row` must be in the range of the current table and archetype.
+    /// - Must always be called _after_ [`WorldQuery::matches`] if and only if it returns `true`,
+    ///   or after one of [`WorldQuery::find_table_chunk`] or [`WorldQuery::find_archetype_chunk`]
+    ///   and the provided table row/index is within the range returned.
     /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
     unsafe fn fetch<'w, 's>(
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>>;
+    ) -> Self::Item<'w, 's>;
+
+    /// Attempt to fetch [`Self::Item`](`QueryData::Item`) for either the given `entity` in the current [`Table`],
+    /// or for the given `entity` in the current [`Archetype`]. This must always be called after
+    /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
+    /// [`WorldQuery::set_archetype`]  with an `entity` in the current archetype.
+    /// Accesses components registered in [`WorldQuery::update_component_access`].
+    ///
+    /// Unlike [`Self::fetch`](`QueryData::fetch`), this method is fallible, so it is not a requirement
+    /// to check that the passed row is valid for this query beforehand. This method returns `None` if
+    /// the entity does not match the query. This method must return `Some()` if and only if
+    /// [`Self::matches`](`WorldQuery::matches`) would return `true` for the given row, and in that
+    /// case must return the same item that [`Self::fetch`](`QueryData::fetch`) would return.
+    ///
+    /// # Safety
+    ///
+    /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
+    ///   `table_row` must be in the range of the current table and archetype.
+    /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
+    #[inline(always)]
+    unsafe fn try_fetch<'w, 's>(
+        state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Option<Self::Item<'w, 's>> {
+        Self::matches(state, fetch, entity, table_row).then(|| {
+            // SAFETY: this is only called if the given row is valid for this query
+            unsafe { Self::fetch(state, fetch, entity, table_row) }
+        })
+    }
 
     /// Returns an iterator over the access needed by [`QueryData::fetch`]. Access conflicts are usually
     /// checked in [`WorldQuery::update_component_access`], but in certain cases this method can be useful to implement
@@ -452,7 +473,7 @@ pub trait ReleaseStateQueryData: QueryData {
 /// This is needed to implement [`ExactSizeIterator`] for
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
-/// The trait must only be implemented for query data where its corresponding [`QueryData::IS_ARCHETYPAL`] is [`prim@true`].
+/// The trait must only be implemented for query data where its corresponding [`WorldQuery::IS_ARCHETYPAL`] is [`prim@true`].
 pub trait ArchetypeQueryData: QueryData {}
 
 // SAFETY:
@@ -473,6 +494,7 @@ unsafe impl WorldQuery for Entity {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -505,12 +527,21 @@ unsafe impl WorldQuery for Entity {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for Entity {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
 
     type Item<'w, 's> = Entity;
@@ -527,8 +558,8 @@ unsafe impl QueryData for Entity {
         _fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
-        Some(entity)
+    ) -> Self::Item<'w, 's> {
+        entity
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -582,6 +613,7 @@ unsafe impl WorldQuery for EntityLocation {
     // This is set to true to avoid forcing archetypal iteration in compound queries, is likely to be slower
     // in most practical use case.
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -614,12 +646,21 @@ unsafe impl WorldQuery for EntityLocation {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for EntityLocation {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = EntityLocation;
 
@@ -635,9 +676,9 @@ unsafe impl QueryData for EntityLocation {
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Self::Item<'w, 's> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        Some(unsafe { fetch.get_spawned(entity).debug_checked_unwrap() })
+        unsafe { fetch.get_spawned(entity).debug_checked_unwrap() }
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -750,6 +791,7 @@ unsafe impl WorldQuery for SpawnDetails {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -782,6 +824,16 @@ unsafe impl WorldQuery for SpawnDetails {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY:
@@ -789,7 +841,6 @@ unsafe impl WorldQuery for SpawnDetails {
 // Is its own ReadOnlyQueryData.
 unsafe impl QueryData for SpawnDetails {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = Self;
 
@@ -805,19 +856,19 @@ unsafe impl QueryData for SpawnDetails {
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Self::Item<'w, 's> {
         // SAFETY: only living entities are queried
         let (spawned_by, spawn_tick) = unsafe {
             fetch
                 .entities
                 .entity_get_spawned_or_despawned_unchecked(entity)
         };
-        Some(Self {
+        Self {
             spawned_by,
             spawn_tick,
             last_run: fetch.last_run,
             this_run: fetch.this_run,
-        })
+        }
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -872,6 +923,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -910,12 +962,21 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a> QueryData for EntityRef<'a> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = EntityRef<'w>;
 
@@ -931,7 +992,7 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Self::Item<'w, 's> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let cell = unsafe {
             fetch
@@ -940,7 +1001,7 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
                 .debug_checked_unwrap()
         };
         // SAFETY: Read-only access to every component has been registered.
-        Some(unsafe { EntityRef::new(cell) })
+        unsafe { EntityRef::new(cell) }
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -982,6 +1043,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -1020,12 +1082,21 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: access of `EntityRef` is a subset of `EntityMut`
 unsafe impl<'a> QueryData for EntityMut<'a> {
     const IS_READ_ONLY: bool = false;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = EntityRef<'a>;
     type Item<'w, 's> = EntityMut<'w>;
 
@@ -1041,7 +1112,7 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Self::Item<'w, 's> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let cell = unsafe {
             fetch
@@ -1050,7 +1121,7 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
                 .debug_checked_unwrap()
         };
         // SAFETY: mutable access to every component has been registered.
-        Some(unsafe { EntityMut::new(cell) })
+        unsafe { EntityMut::new(cell) }
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1076,6 +1147,7 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
@@ -1129,12 +1201,21 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = FilteredEntityRef<'w, 's>;
 
@@ -1169,7 +1250,7 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Self::Item<'w, 's> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let cell = unsafe {
             fetch
@@ -1178,7 +1259,7 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
                 .debug_checked_unwrap()
         };
         // SAFETY: mutable access to every component has been registered.
-        Some(unsafe { FilteredEntityRef::new(cell, access) })
+        unsafe { FilteredEntityRef::new(cell, access) }
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1201,6 +1282,7 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
@@ -1254,12 +1336,21 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
 unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     const IS_READ_ONLY: bool = false;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = FilteredEntityRef<'a, 'b>;
     type Item<'w, 's> = FilteredEntityMut<'w, 's>;
 
@@ -1292,7 +1383,7 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Self::Item<'w, 's> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let cell = unsafe {
             fetch
@@ -1301,7 +1392,7 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
                 .debug_checked_unwrap()
         };
         // SAFETY: mutable access to every component has been registered.
-        Some(unsafe { FilteredEntityMut::new(cell, access) })
+        unsafe { FilteredEntityMut::new(cell, access) }
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1339,6 +1430,7 @@ where
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn set_archetype<'w, 's>(
         _: &mut Self::Fetch<'w>,
@@ -1387,6 +1479,16 @@ where
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`.
@@ -1395,7 +1497,6 @@ where
     B: Bundle,
 {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = EntityRefExcept<'w, 's, B>;
 
@@ -1410,12 +1511,12 @@ where
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Self::Item<'w, 's> {
         let cell = fetch
             .world
             .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
             .unwrap();
-        Some(EntityRefExcept::new(cell, access))
+        EntityRefExcept::new(cell, access)
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1457,6 +1558,7 @@ where
     }
 
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn set_archetype<'w, 's>(
         _: &mut Self::Fetch<'w>,
@@ -1505,6 +1607,16 @@ where
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: All accesses that `EntityRefExcept` provides are also accesses that
@@ -1514,7 +1626,6 @@ where
     B: Bundle,
 {
     const IS_READ_ONLY: bool = false;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = EntityRefExcept<'a, 'b, B>;
     type Item<'w, 's> = EntityMutExcept<'w, 's, B>;
 
@@ -1529,12 +1640,12 @@ where
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Self::Item<'w, 's> {
         let cell = fetch
             .world
             .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
             .unwrap();
-        Some(EntityMutExcept::new(cell, access))
+        EntityMutExcept::new(cell, access)
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1567,6 +1678,7 @@ unsafe impl WorldQuery for &Archetype {
     // This could probably be a non-dense query and just set a Option<&Archetype> fetch value in
     // set_archetypes, but forcing archetypal iteration is likely to be slower in any compound query.
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -1599,12 +1711,21 @@ unsafe impl WorldQuery for &Archetype {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl QueryData for &Archetype {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = &'w Archetype;
 
@@ -1620,12 +1741,12 @@ unsafe impl QueryData for &Archetype {
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         _table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Self::Item<'w, 's> {
         let (entities, archetypes) = *fetch;
         // SAFETY: `fetch` must be called with an entity that exists in the world
         let location = unsafe { entities.get_spawned(entity).debug_checked_unwrap() };
         // SAFETY: The assigned archetype for a living entity must always be valid.
-        Some(unsafe { archetypes.get(location.archetype_id).debug_checked_unwrap() })
+        unsafe { archetypes.get(location.archetype_id).debug_checked_unwrap() }
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1704,6 +1825,8 @@ unsafe impl<T: Component> WorldQuery for &T {
         }
     };
 
+    const IS_ARCHETYPAL: bool = true;
+
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadFetch<'w, T>,
@@ -1758,12 +1881,21 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> bool {
         set_contains_id(state)
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for &T {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = &'w T;
 
@@ -1779,8 +1911,8 @@ unsafe impl<T: Component> QueryData for &T {
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
-        Some(fetch.components.extract(
+    ) -> Self::Item<'w, 's> {
+        fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
                 let table = unsafe { table.debug_checked_unwrap() };
@@ -1798,7 +1930,7 @@ unsafe impl<T: Component> QueryData for &T {
                 };
                 item.deref()
             },
-        ))
+        )
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1914,6 +2046,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -1976,12 +2109,21 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) -> bool {
         set_contains_id(state)
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = Ref<'w, T>;
 
@@ -1997,8 +2139,8 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
-        Some(fetch.components.extract(
+    ) -> Self::Item<'w, 's> {
+        fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, callers) =
@@ -2043,7 +2185,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                     ),
                 }
             },
-        ))
+        )
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -2175,6 +2317,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w>(
@@ -2237,12 +2380,21 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) -> bool {
         set_contains_id(state)
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
     const IS_READ_ONLY: bool = false;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = &'__w T;
     type Item<'w, 's> = Mut<'w, T>;
 
@@ -2258,8 +2410,8 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
-        Some(fetch.components.extract(
+    ) -> Self::Item<'w, 's> {
+        fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, callers) =
@@ -2304,7 +2456,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     ),
                 }
             },
-        ))
+        )
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -2394,6 +2546,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 
     // Forwarded to `&mut T`
     const IS_DENSE: bool = <&mut T as WorldQuery>::IS_DENSE;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     // Forwarded to `&mut T`
@@ -2441,12 +2594,21 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     ) -> bool {
         <&mut T as WorldQuery>::matches_component_set(state, set_contains_id)
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T> {
     const IS_READ_ONLY: bool = false;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Ref<'__w, T>;
     type Item<'w, 's> = Mut<'w, T>;
 
@@ -2466,7 +2628,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
+    ) -> Self::Item<'w, 's> {
         <&mut T as QueryData>::fetch(state, fetch, entity, table_row)
     }
 
@@ -2540,6 +2702,9 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     }
 
     const IS_DENSE: bool = T::IS_DENSE;
+    // `Option` matches all entities, even if `T` does not,
+    // so it's always an `ArchetypeQueryData`, even for non-archetypal `T`.
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -2601,14 +2766,21 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: defers to soundness of `T: WorldQuery` impl
 unsafe impl<T: QueryData> QueryData for Option<T> {
     const IS_READ_ONLY: bool = T::IS_READ_ONLY;
-    // `Option` matches all entities, even if `T` does not,
-    // so it's always an `ArchetypeQueryData`, even for non-archetypal `T`.
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Option<T::ReadOnly>;
     type Item<'w, 's> = Option<T::Item<'w, 's>>;
 
@@ -2624,14 +2796,11 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
         table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
-        Some(
-            fetch
-                .matches
-                // SAFETY: The invariants are upheld by the caller.
-                .then(|| unsafe { T::fetch(state, &mut fetch.fetch, entity, table_row) })
-                .flatten(),
-        )
+    ) -> Self::Item<'w, 's> {
+        fetch
+            .matches
+            // SAFETY: The invariants are upheld by the caller.
+            .then(|| unsafe { T::fetch(state, &mut fetch.fetch, entity, table_row) })
     }
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -2765,6 +2934,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
             StorageType::SparseSet => false,
         }
     };
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline]
     unsafe fn set_archetype<'w, 's>(
@@ -2804,12 +2974,21 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         // `Has<T>` always matches
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for Has<T> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = bool;
 
@@ -2825,8 +3004,8 @@ unsafe impl<T: Component> QueryData for Has<T> {
         fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
         _table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
-        Some(*fetch)
+    ) -> Self::Item<'w, 's> {
+        *fetch
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -2864,6 +3043,13 @@ impl<T: Component> ContiguousQueryData for Has<T> {
 /// Entities are guaranteed to have at least one of the components in `T`.
 pub struct AnyOf<T>(PhantomData<T>);
 
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct AnyOfFetch<T> {
+    fetch: T,
+    matches: bool,
+}
+
 macro_rules! impl_tuple_query_data {
     ($(#[$meta:meta])* $(($name: ident, $item: ident, $state: ident)),*) => {
         #[expect(
@@ -2886,7 +3072,6 @@ macro_rules! impl_tuple_query_data {
         // SAFETY: defers to soundness `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for ($($name,)*) {
             const IS_READ_ONLY: bool = true $(&& $name::IS_READ_ONLY)*;
-            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
             type ReadOnly = ($($name::ReadOnly,)*);
             type Item<'w, 's> = ($($name::Item<'w, 's>,)*);
 
@@ -2913,11 +3098,24 @@ macro_rules! impl_tuple_query_data {
                 fetch: &mut Self::Fetch<'w>,
                 entity: Entity,
                 table_row: TableRow
+            ) -> Self::Item<'w, 's> {
+                let ($($state,)*) = state;
+                let ($($name,)*) = fetch;
+                // SAFETY: The invariants are upheld by the caller.
+                ($(unsafe { $name::fetch($state, &mut $name.fetch, entity, table_row) },)*)
+            }
+
+            #[inline(always)]
+            unsafe fn try_fetch<'w, 's>(
+                state: &'s Self::State,
+                fetch: &mut Self::Fetch<'w>,
+                entity: Entity,
+                table_row: TableRow
             ) -> Option<Self::Item<'w, 's>> {
                 let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
-                Some(($(unsafe { $name::fetch($state, $name, entity, table_row) }?,)*))
+                Some(($(unsafe { $name::try_fetch($state, &mut $name.fetch, entity, table_row) }?,)*))
             }
 
             fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -2976,7 +3174,7 @@ macro_rules! impl_tuple_query_data {
                 let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
-                ($(unsafe {$name::fetch_contiguous($state, $name, entities)},)*)
+                ($(unsafe {$name::fetch_contiguous($state, &mut $name.fetch, entities)},)*)
             }
         }
     };
@@ -3001,30 +3199,47 @@ macro_rules! impl_anytuple_fetch {
             clippy::unused_unit,
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
+        #[allow(
+            unused_mut,
+            reason = "Zero-length tuples won't mutate any of the parameters."
+        )]
         // SAFETY:
         // `fetch` accesses are a subset of the subqueries' accesses
         // This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         // `update_component_access` replaces the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         // This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
-            type Fetch<'w> = ($(($name::Fetch<'w>, bool),)*);
+            type Fetch<'w> = AnyOfFetch<($(AnyOfFetch<ChunkFetch<'w, $name>>,)*)>;
             type State = ($($name::State,)*);
 
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-                let ($($name,)*) = fetch;
-                ($(
-                    ($name::shrink_fetch($name.0), $name.1),
-                )*)
+                let ($($name,)*) = fetch.fetch;
+                AnyOfFetch {
+                    fetch:
+                        ($(AnyOfFetch {
+                            fetch: ChunkFetch::shrink_fetch($name.fetch),
+                            matches: $name.matches,
+                        },)*),
+                    matches: fetch.matches,
+                }
             }
 
             #[inline]
             unsafe fn init_fetch<'w, 's>(_world: UnsafeWorldCell<'w>, state: &'s Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                // SAFETY: The invariants are upheld by the caller.
-                ($(( unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) }, false),)*)
+                AnyOfFetch {
+                    fetch:
+                        ($(AnyOfFetch {
+                            // SAFETY: The invariants are upheld by the caller.
+                            fetch: unsafe { ChunkFetch::init_fetch(_world, $name, _last_run, _this_run) },
+                            matches: false,
+                        },)*),
+                    matches: false,
+                }
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
+            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
             #[inline]
             unsafe fn set_archetype<'w, 's>(
@@ -3033,26 +3248,30 @@ macro_rules! impl_anytuple_fetch {
                 _archetype: &'w Archetype,
                 _table: &'w Table
             ) {
-                let ($($name,)*) = _fetch;
+                let ($($name,)*) = &mut _fetch.fetch;
                 let ($($state,)*) = _state;
+                _fetch.matches = false;
                 $(
-                    $name.1 = $name::matches_component_set($state, &|id| _archetype.contains(id));
-                    if $name.1 {
+                    $name.matches = $name::matches_component_set($state, &|id| _archetype.contains(id));
+                    _fetch.matches = _fetch.matches || $name.matches;
+                    if $name.matches {
                         // SAFETY: The invariants are upheld by the caller.
-                        unsafe { $name::set_archetype(&mut $name.0, $state, _archetype, _table); }
+                        unsafe { ChunkFetch::set_archetype(&mut $name.fetch, $state, _archetype, _table); }
                     }
                 )*
             }
 
             #[inline]
             unsafe fn set_table<'w, 's>(_fetch: &mut Self::Fetch<'w>, _state: &'s Self::State, _table: &'w Table) {
-                let ($($name,)*) = _fetch;
+                let ($($name,)*) = &mut _fetch.fetch;
                 let ($($state,)*) = _state;
+                _fetch.matches = false;
                 $(
-                    $name.1 = $name::matches_component_set($state, &|id| _table.has_column(id));
-                    if $name.1 {
-                        // SAFETY: The invariants are required to be upheld by the caller.
-                        unsafe { $name::set_table(&mut $name.0, $state, _table); }
+                    $name.matches = $name::matches_component_set($state, &|id| _table.has_column(id));
+                    _fetch.matches = _fetch.matches || $name.matches;
+                    if $name.matches {
+                        // SAFETY: The invariants are upheld by the caller.
+                        unsafe { ChunkFetch::set_table(&mut $name.fetch, $state, _table); }
                     }
                 )*
             }
@@ -3094,6 +3313,81 @@ macro_rules! impl_anytuple_fetch {
                 let ($($name,)*) = _state;
                 false $(|| $name::matches_component_set($name, _set_contains_id))*
             }
+
+            #[inline]
+            unsafe fn find_table_chunk(
+                state: &Self::State,
+                fetch: &mut Self::Fetch<'_>,
+                table_entities: &[Entity],
+                rows: Range<u32>,
+            ) -> Range<u32> {
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
+                    rows
+                } else {
+                    let ($($name,)*) = &mut fetch.fetch;
+                    let ($($state,)*) = state;
+                    let mut chunk = rows.end..rows.end;
+                    $(
+                        if $name.matches {
+                            // SAFETY: invariants are upheld by the caller.
+                            unsafe { ChunkFetch::find_table_chunk_disjunctive($state, &mut $name.fetch, table_entities, rows.clone(), &mut chunk) };
+                        }
+                    )*
+                    chunk
+                }
+            }
+
+            #[inline]
+            unsafe fn find_archetype_chunk(
+                state: &Self::State,
+                fetch: &mut Self::Fetch<'_>,
+                archetype_entities: &[ArchetypeEntity],
+                mut indices: Range<u32>,
+            ) -> Range<u32> {
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
+                    indices
+                } else {
+                    let ($($name,)*) = &mut fetch.fetch;
+                    let ($($state,)*) = state;
+                    let mut chunk = indices.end..indices.end;
+                    $(
+                        if $name.matches {
+                            // SAFETY: invariants are upheld by the caller.
+                            unsafe { ChunkFetch::find_archetype_chunk_disjunctive($state, &mut $name.fetch, archetype_entities, indices.clone(), &mut chunk) };
+                        }
+                    )*
+                    chunk
+                }
+            }
+
+            #[inline]
+            unsafe fn matches(
+                state: &Self::State,
+                fetch: &mut Self::Fetch<'_>,
+                entity: Entity,
+                table_row: TableRow,
+            ) -> bool {
+                // If this is an archetypal query, it must match all entities.
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                if Self::IS_ARCHETYPAL || !fetch.matches {
+                    true
+                } else {
+                    let ($($name,)*) = &mut fetch.fetch;
+                    let ($($state,)*) = state;
+                    // SAFETY: invariants are upheld by the caller.
+                    false $(|| ($name.matches && unsafe { $name::matches(&$state, &mut $name.fetch.fetch, entity, table_row) }))*
+                }
+            }
         }
 
         #[expect(
@@ -3116,7 +3410,6 @@ macro_rules! impl_anytuple_fetch {
         // SAFETY: defers to soundness of `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for AnyOf<($($name,)*)> {
             const IS_READ_ONLY: bool = true $(&& $name::IS_READ_ONLY)*;
-            const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
             type Item<'w, 's> = ($(Option<$name::Item<'w, 's>>,)*);
 
@@ -3133,24 +3426,42 @@ macro_rules! impl_anytuple_fetch {
                 _fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
                 _table_row: TableRow
+            ) -> Self::Item<'w, 's> {
+                if !_fetch.matches {
+                    ($(Option::<$name::Item<'w, 's>>::None,)*)
+                } else {
+                    let ($($name,)*) = &mut _fetch.fetch;
+                    let ($($state,)*) = _state;
+                    ($(
+                        // SAFETY: The invariants are required to be upheld by the caller.
+                        $name.matches.then(|| unsafe { $name::try_fetch($state, &mut $name.fetch.fetch, _entity, _table_row) }).flatten(),
+                    )*)
+                }
+            }
+
+            #[inline(always)]
+            unsafe fn try_fetch<'w, 's>(
+                _state: &'s Self::State,
+                _fetch: &mut Self::Fetch<'w>,
+                _entity: Entity,
+                _table_row: TableRow
             ) -> Option<Self::Item<'w, 's>> {
-                let ($($name,)*) = _fetch;
+                let ($($name,)*) = &mut _fetch.fetch;
                 let ($($state,)*) = _state;
                 let result = ($(
                     // SAFETY: The invariants are required to be upheld by the caller.
-                    $name.1.then(|| unsafe { $name::fetch($state, &mut $name.0, _entity, _table_row) }).flatten(),
+                    $name.matches.then(|| unsafe { $name::try_fetch($state, &mut $name.fetch.fetch, _entity, _table_row) }).flatten(),
                 )*);
                 // If this is an archetypal query, then it is guaranteed to return `Some`,
                 // and we can help the compiler remove branches by checking the const `IS_ARCHETYPAL` first.
-                (Self::IS_ARCHETYPAL
+                // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                // so we treat them as matching for non-archetypal queries, as well.
+                (Self::IS_ARCHETYPAL || !_fetch.matches
                     // We want to return `Some` if the query matches this entity,
                     // which happens if at least one subquery returns `Some`.
                     // So, fetch everything as usual, but if all the subqueries return `None` then return `None` instead.
-                    || !matches!(result, ($(Option::<QueryItem<$name>>::None,)*))
-                    // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
-                    // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
-                    // so we treat them as matching for non-archetypal queries, as well.
-                    || !(false $(|| $name.1)*))
+                    || !matches!(result, ($(Option::<QueryItem<$name>>::None,)*)))
                 .then_some(result)
             }
 
@@ -3207,12 +3518,12 @@ macro_rules! impl_anytuple_fetch {
                 fetch: &mut Self::Fetch<'w>,
                 entities: &'w [Entity],
             ) -> Self::Contiguous<'w, 's> {
-                let ($($name,)*) = fetch;
+                let ($($name,)*) = &mut fetch.fetch;
                 let ($($state,)*) = state;
                 // Matches the [`QueryData::fetch`] except it always returns Some
                 ($(
                     // SAFETY: The invariants are upheld by the caller
-                    $name.1.then(|| unsafe { $name::fetch_contiguous($state, &mut $name.0, entities) }),
+                    $name.matches.then(|| unsafe { $name::fetch_contiguous($state, &mut $name.fetch.fetch, entities) }),
                 )*)
             }
         }
@@ -3263,6 +3574,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     }
 
     const IS_DENSE: bool = D::IS_DENSE;
+    const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
     unsafe fn set_archetype(
@@ -3292,12 +3604,21 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     ) -> bool {
         D::matches_component_set(state, set_contains_id)
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = ();
 
@@ -3312,8 +3633,7 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
         _fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
         _table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
-        Some(())
+    ) -> Self::Item<'w, 's> {
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -3352,6 +3672,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     // `PhantomData` does not match any components, so all components it matches
     // are stored in a Table (vacuous truth).
     const IS_DENSE: bool = true;
+    const IS_ARCHETYPAL: bool = true;
 
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
@@ -3382,12 +3703,21 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     ) -> bool {
         true
     }
+
+    #[inline]
+    unsafe fn matches(
+        _state: &Self::State,
+        _fetch: &mut Self::Fetch<'_>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> bool {
+        true
+    }
 }
 
 // SAFETY: `Self::ReadOnly` is `Self`
 unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     const IS_READ_ONLY: bool = true;
-    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
     type Item<'w, 's> = ();
 
@@ -3401,8 +3731,7 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
         _fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
         _table_row: TableRow,
-    ) -> Option<Self::Item<'w, 's>> {
-        Some(())
+    ) -> Self::Item<'w, 's> {
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -3561,6 +3890,7 @@ mod tests {
             }
 
             const IS_DENSE: bool = true;
+            const IS_ARCHETYPAL: bool = true;
 
             #[inline]
             unsafe fn set_archetype<'w, 's>(
@@ -3593,13 +3923,22 @@ mod tests {
             ) -> bool {
                 true
             }
+
+            #[inline]
+            unsafe fn matches(
+                _state: &Self::State,
+                _fetch: &mut Self::Fetch<'_>,
+                _entity: Entity,
+                _table_row: TableRow,
+            ) -> bool {
+                true
+            }
         }
 
         // SAFETY: `Self` is the same as `Self::ReadOnly`
         unsafe impl QueryData for NonReleaseQueryData {
             type ReadOnly = Self;
             const IS_READ_ONLY: bool = true;
-            const IS_ARCHETYPAL: bool = true;
 
             type Item<'w, 's> = ();
 
@@ -3614,8 +3953,7 @@ mod tests {
                 _fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
                 _table_row: TableRow,
-            ) -> Option<Self::Item<'w, 's>> {
-                Some(())
+            ) -> Self::Item<'w, 's> {
             }
 
             fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
