@@ -21,13 +21,13 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // We'll use each possible orientation, one per column
     let orientation = [
         TileOrientation::Default,
-        TileOrientation::Rotate90Ccw,
+        TileOrientation::Rotate90,
         TileOrientation::Rotate180,
-        TileOrientation::Rotate270Ccw,
+        TileOrientation::Rotate270,
         TileOrientation::MirrorH,
-        TileOrientation::MirrorHRotate90Ccw,
+        TileOrientation::MirrorHRotate90,
         TileOrientation::MirrorHRotate180,
-        TileOrientation::MirrorHRotate270Ccw,
+        TileOrientation::MirrorHRotate270,
     ];
 
     // Show different color/alpha on each row
