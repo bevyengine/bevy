@@ -1418,7 +1418,7 @@ impl RenderMeshInstanceGpuPrepared {
         entity: MainEntity,
         render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
-        previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
+        previous_input_buffer: &InstanceInputUniformBuffer<MeshInputUniform>,
     ) -> Option<u32> {
         // Did the last frame contain this entity as well?
         let current_uniform_index;
@@ -1436,7 +1436,7 @@ impl RenderMeshInstanceGpuPrepared {
                 // shader will need it to compute motion vectors.
                 let previous_mesh_input_uniform =
                     current_input_buffer.get_unchecked(current_uniform_index);
-                let previous_input_index = previous_input_buffer.add(previous_mesh_input_uniform);
+                let previous_input_index = previous_input_buffer.push(previous_mesh_input_uniform);
                 self.mesh_input_uniform.previous_input_index = previous_input_index;
 
                 // Write in the new mesh input uniform.
@@ -1991,6 +1991,9 @@ pub fn collect_meshes_for_gpu_building(
         mesh_culling_data_buffer.grow(current_input_buffer.len() as u32);
     }
 
+    // Pre-allocate the previous input buffer for concurrent pushes.
+    previous_input_buffer.reserve(current_input_buffer.len() as u32);
+
     // Channels used by parallel workers to send data to the single consumer.
     let (prepared_tx, prepared_rx) = mpsc::channel();
     let (reextract_tx, reextract_rx) = mpsc::channel();
@@ -2006,6 +2009,7 @@ pub fn collect_meshes_for_gpu_building(
         let frame_count = *frame_count;
         let render_mesh_instances = &*render_mesh_instances;
         let current_input_buffer = &*current_input_buffer;
+        let previous_input_buffer = &*previous_input_buffer;
         let mesh_culling_data_buffer = &*mesh_culling_data_buffer;
 
         // Spawn workers on the taskpool to prepare and update meshes in parallel.
@@ -2074,7 +2078,7 @@ pub fn collect_meshes_for_gpu_building(
                                         skin_uniforms,
                                         frame_count,
                                     ) {
-                                        Some(prepared) => {
+                                        Some(mut prepared) => {
                                             if let Some(render_mesh_instance) =
                                                 render_mesh_instances.get(&entity)
                                                 && prepared.render_layers
@@ -2095,6 +2099,15 @@ pub fn collect_meshes_for_gpu_building(
                                                 let current_uniform_index = render_mesh_instance
                                                     .gpu_specific
                                                     .current_uniform_index();
+
+                                                let previous_mesh_input_uniform =
+                                                    current_input_buffer
+                                                        .get_unchecked(current_uniform_index);
+                                                let previous_input_index = previous_input_buffer
+                                                    .push(previous_mesh_input_uniform);
+                                                prepared.mesh_input_uniform.previous_input_index =
+                                                    previous_input_index;
+
                                                 current_input_buffer.set(
                                                     current_uniform_index,
                                                     prepared.mesh_input_uniform,
@@ -2158,6 +2171,7 @@ pub fn collect_meshes_for_gpu_building(
         let entity = batch;
         meshes_to_reextract_next_frame.insert(entity);
     }
+    previous_input_buffer.truncate();
     // Buffers can't be empty. Make sure there's something in the previous input buffer.
     previous_input_buffer.ensure_nonempty();
 }

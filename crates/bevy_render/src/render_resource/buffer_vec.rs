@@ -407,7 +407,7 @@ where
         self.buffer.as_ref()
     }
 
-    /// Grows to the buffer by adding default values so that it's at least the
+    /// Grows the buffer by adding default values so that it's at least the
     /// given size.
     ///
     /// If the buffer is already large enough, this method does nothing.
@@ -415,6 +415,13 @@ where
         if self.len() < new_len {
             self.values.resize_with(new_len as usize, T::Blob::default);
         }
+    }
+
+    /// Truncates the buffer to the given length.
+    ///
+    /// If the buffer is already shorter, this method does nothing.
+    pub fn truncate(&mut self, len: u32) {
+        self.values.truncate(len as usize);
     }
 }
 
