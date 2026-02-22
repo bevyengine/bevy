@@ -1961,6 +1961,18 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "asset_saving"
+path = "examples/asset/asset_saving.rs"
+doc-scrape-examples = true
+required-features = ["ui_picking", "sprite_picking", "png"]
+
+[package.metadata.example.asset_saving]
+name = "Asset Saving"
+description = "Demonstrates how to save an asset"
+category = "Assets"
+wasm = true
+
+[[example]]
 name = "asset_saving_with_subassets"
 path = "examples/asset/asset_saving_with_subassets.rs"
 doc-scrape-examples = true
