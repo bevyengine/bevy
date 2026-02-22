@@ -11,12 +11,12 @@ use bevy_ecs::{
     world::World,
 };
 pub use bevy_ecs_macros::SettingsGroup;
-use bevy_log::warn;
+use bevy_log::{info, warn};
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{TypedReflectDeserializer, TypedReflectSerializer},
-    FromReflect, FromType, PartialReflect, Reflect, ReflectMut, TypeInfo, TypePath,
-    TypeRegistration, TypeRegistry,
+    FromReflect, FromType, PartialReflect, ReflectMut, TypeInfo, TypePath, TypeRegistration,
+    TypeRegistry,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -55,12 +55,6 @@ impl Plugin for PreferencesPlugin {
     fn build(&self, _app: &mut App) {}
 }
 
-/// Annotation for a type which overrides which preferences file the type's contents will be
-/// written to. By default, all preferences are written to a file named "settings".
-/// TODO: Change this to an option on the derive macro.
-#[derive(Debug, Clone, Reflect)]
-pub struct PreferencesFile(pub &'static str);
-
 /// Trait which identifies a type as corresponding to a section with a settings file.
 /// You can override the name of the section with `settings_group(group = "<name>")`.
 /// If there is a collision between names (multiple resources have the same name) then
@@ -68,6 +62,10 @@ pub struct PreferencesFile(pub &'static str);
 pub trait SettingsGroup: Resource {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
+
+    /// The name of the configuration file that contains this settings group.
+    /// TODO: Eventually convert this into an enum which represents various configuration sources.
+    fn settings_source() -> Option<&'static str>;
 }
 
 /// Reflected data from a [`SettingsGroup`].
@@ -75,12 +73,15 @@ pub trait SettingsGroup: Resource {
 pub struct ReflectSettingsGroup {
     /// The name of the logical section within the settings file.
     settings_group_name: &'static str,
+    /// The name of the settings file, defaults to "settings".
+    settings_source: Option<&'static str>,
 }
 
 impl<T: SettingsGroup + FromReflect + TypePath> FromType<T> for ReflectSettingsGroup {
     fn from_type() -> Self {
         ReflectSettingsGroup {
             settings_group_name: T::settings_group_name(),
+            settings_source: T::settings_source(),
         }
     }
 
@@ -144,10 +145,6 @@ fn resources_to_toml(
             continue;
         };
 
-        // let Some(resource_tick) = world.get_resource_change_ticks_by_id(component_id) else {
-        //     continue;
-        // };
-
         let Some(res_entity) = world.resource_entities().get(component_id) else {
             continue;
         };
@@ -192,7 +189,7 @@ impl Command for SavePreferences {
     }
 }
 
-fn save_preferences(world: &mut World, use_async: bool, _force: bool) {
+fn save_preferences(world: &mut World, use_async: bool, force: bool) {
     let this_run = world.change_tick();
     let Some(registry) = world.get_resource::<PreferencesFileRegistry>() else {
         warn!("Preferences registry not found - did you forget to call load_preferences()?");
@@ -205,14 +202,15 @@ fn save_preferences(world: &mut World, use_async: bool, _force: bool) {
     let types = app_types.read();
 
     for (filename, manifest) in registry.files.iter() {
-        // TODO: See if changed unless _force is true
-        // only save if file.last_save is >= the change time of all resources.
-        let table = resources_to_toml(world, &types, manifest);
-        let store = PreferencesStore::new(&registry.app_name);
-        if use_async {
-            store.save_async(filename, table);
-        } else {
-            store.save(filename, table);
+        if force || has_preferences_changed(world, manifest) {
+            let table = resources_to_toml(world, &types, manifest);
+            let store = PreferencesStore::new(&registry.app_name);
+            info!("Saving settings {filename}");
+            if use_async {
+                store.save_async(filename, table);
+            } else {
+                store.save(filename, table);
+            }
         }
     }
 
@@ -221,6 +219,19 @@ fn save_preferences(world: &mut World, use_async: bool, _force: bool) {
     for (_, manifest) in registry.files.iter_mut() {
         manifest.last_save = this_run;
     }
+}
+
+fn has_preferences_changed(world: &World, manifest: &PreferenceFileManifest) -> bool {
+    let this_run = world.read_change_tick();
+    manifest.resource_types.iter().any(|r| {
+        let Some(component_id) = world.components().get_id(*r) else {
+            return false;
+        };
+        if let Some(resource_change) = world.get_resource_change_ticks_by_id(component_id) {
+            return resource_change.is_changed(manifest.last_save, this_run);
+        }
+        false
+    })
 }
 
 /// Extension trait that implements loading of preferences into the application.
@@ -261,29 +272,25 @@ impl LoadPreferences for App {
         // Scan through types looking for resources that have the necessary traits and
         // annotations.
         for ty in types.iter() {
-            if !(ty.contains::<ReflectSettingsGroup>() && ty.contains::<ReflectDefault>()) {
+            if !ty.contains::<ReflectDefault>() {
                 continue;
             };
 
-            let type_info = ty.type_info();
-            if let TypeInfo::Struct(stinfo) = type_info {
-                // If no filename is specified, use "settings"
-                let filename = stinfo
-                    .custom_attributes()
-                    .get::<PreferencesFile>()
-                    .map_or("settings", |f| f.0);
+            let Some(reflect_group) = ty.data::<ReflectSettingsGroup>() else {
+                continue;
+            };
 
-                let pending_file =
-                    file_index
-                        .files
-                        .entry(filename)
-                        .or_insert(PreferenceFileManifest {
-                            last_save,
-                            resource_types: Vec::new(),
-                        });
-                pending_file.last_save = last_save;
-                pending_file.resource_types.push(ty.type_id());
-            }
+            // If no filename is specified, use "settings"
+            let filename = reflect_group.settings_source.unwrap_or("settings");
+            let pending_file = file_index
+                .files
+                .entry(filename)
+                .or_insert(PreferenceFileManifest {
+                    last_save,
+                    resource_types: Vec::new(),
+                });
+            pending_file.last_save = last_save;
+            pending_file.resource_types.push(ty.type_id());
         }
 
         // Now load each of the toml files we discovered, and apply their properties to

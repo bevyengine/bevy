@@ -2,8 +2,8 @@
 use bevy::{
     // user_prefs::{StartAutosaveTimer},
     preferences::{
-        LoadPreferences as _, PreferencesPlugin, ReflectSettingsGroup, SavePreferencesSync,
-        SettingsGroup,
+        LoadPreferences as _, PreferencesPlugin, ReflectSettingsGroup, SavePreferences,
+        SavePreferencesSync, SettingsGroup,
     },
     prelude::*,
     window::{ExitCondition, WindowCloseRequested, WindowMode, WindowResized, WindowResolution},
@@ -142,16 +142,16 @@ fn change_count(
     }
 
     if changed {
-        commands.queue(SavePreferencesSync::IfChanged);
+        commands.queue(SavePreferences::IfChanged);
     }
 }
 
 /// System which keeps the window settings up to date when the user resizes or moves the window.
-pub fn update_window_settings(
+fn update_window_settings(
     mut move_events: MessageReader<WindowMoved>,
     mut resize_events: MessageReader<WindowResized>,
     windows: Query<&mut Window>,
-    mut window_settings: ResMut<WindowSettings>,
+    window_settings: ResMut<WindowSettings>,
     mut commands: Commands,
 ) {
     let Ok(window) = windows.single() else {
@@ -170,7 +170,7 @@ pub fn update_window_settings(
     if window_changed {
         store_window_settings(window_settings, window);
         // TODO: Replace with timer
-        commands.queue(SavePreferencesSync::IfChanged);
+        commands.queue(SavePreferences::IfChanged);
     }
 }
 
