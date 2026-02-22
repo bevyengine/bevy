@@ -34,6 +34,8 @@ pub struct Core3d;
 /// These stages include and run in the following order:
 /// - `Prepass`: Initial rendering operations, such as depth pre-pass.
 /// - `MainPass`: The primary rendering operations, including drawing opaque and transparent objects.
+/// - `EarlyPostProcess`: Early post processing effects.
+/// - `AntiAlias`: Anti aliasing effects.
 /// - `PostProcess`: Final rendering operations, such as post-processing effects.
 ///
 /// Additional systems can be added to these sets to customize the rendering pipeline, or additional
@@ -42,6 +44,8 @@ pub struct Core3d;
 pub enum Core3dSystems {
     Prepass,
     MainPass,
+    EarlyPostProcess,
+    AntiAlias,
     PostProcess,
 }
 
@@ -57,7 +61,8 @@ impl Core3d {
             ..Default::default()
         });
 
-        schedule.configure_sets((Prepass, MainPass, PostProcess).chain());
+        schedule
+            .configure_sets((Prepass, MainPass, EarlyPostProcess, AntiAlias, PostProcess).chain());
 
         schedule
     }
