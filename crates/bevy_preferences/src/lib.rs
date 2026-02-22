@@ -1,17 +1,18 @@
 //! Framework for saving and loading user preferences in Bevy applications.
 use core::any::TypeId;
+use core::time::Duration;
 use std::collections::HashMap;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     change_detection::Tick,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     resource::Resource,
-    system::Command,
+    system::{Command, Commands, Res, ResMut},
     world::World,
 };
 pub use bevy_ecs_macros::SettingsGroup;
-use bevy_log::{info, warn};
+use bevy_log::warn;
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{TypedReflectDeserializer, TypedReflectSerializer},
@@ -25,6 +26,7 @@ mod store_fs;
 #[cfg(target_arch = "wasm32")]
 mod store_wasm;
 
+use bevy_time::{Time, Timer, TimerMode};
 use serde::de::DeserializeSeed;
 #[cfg(not(target_arch = "wasm32"))]
 use store_fs::PreferencesStore;
@@ -52,7 +54,9 @@ impl PreferencesPlugin {
 }
 
 impl Plugin for PreferencesPlugin {
-    fn build(&self, _app: &mut App) {}
+    fn build(&self, app: &mut App) {
+        app.add_systems(PostUpdate, handle_delayed_save);
+    }
 }
 
 /// Trait which identifies a type as corresponding to a section with a settings file.
@@ -103,8 +107,14 @@ struct PreferenceFileManifest {
 /// are associated with which resource types.
 #[derive(Resource)]
 struct PreferencesFileRegistry {
+    /// App name (from plugin)
     app_name: String,
+
+    /// List of known preferences files, determined by scanning reflection registry.
     files: HashMap<&'static str, PreferenceFileManifest>,
+
+    /// Timer used for batched saving.
+    save_timer: Timer,
 }
 
 /// A Command which saves preferences to disk. This blocks the command queue until saving
@@ -122,6 +132,90 @@ impl Command for SavePreferencesSync {
     fn apply(self, world: &mut World) {
         save_preferences(world, false, self == SavePreferencesSync::Always);
     }
+}
+
+/// A Command which saves preferences to disk. Actual FS operations happen in another thread.
+#[derive(Default, PartialEq)]
+pub enum SavePreferences {
+    /// Save preferences only if they have changed (based on [`PreferencesChanged` resource]).
+    #[default]
+    IfChanged,
+    /// Save preferences unconditionally.
+    Always,
+}
+
+impl Command for SavePreferences {
+    fn apply(self, world: &mut World) {
+        save_preferences(world, true, self == SavePreferences::Always);
+    }
+}
+
+/// A Command which saves changed preferences after a delay. Issuing this command multiple times
+/// resets the delay timer each time. This is meant to be used for settings which change at
+/// a high frequency, such as dragging a slider which controls the game's audio volume. The default
+/// delay is 1.0 seconds.
+pub struct SavePreferencesDeferred(pub Duration);
+
+impl Default for SavePreferencesDeferred {
+    fn default() -> Self {
+        Self(Duration::from_secs(1))
+    }
+}
+
+impl Command for SavePreferencesDeferred {
+    fn apply(self, world: &mut World) {
+        let Some(mut registry) = world.get_resource_mut::<PreferencesFileRegistry>() else {
+            return;
+        };
+
+        registry.save_timer.set_duration(self.0);
+        registry.save_timer.reset();
+        registry.save_timer.unpause();
+    }
+}
+
+fn save_preferences(world: &mut World, use_async: bool, force: bool) {
+    let this_run = world.change_tick();
+    let Some(registry) = world.get_resource::<PreferencesFileRegistry>() else {
+        warn!("Preferences registry not found - did you forget to call load_preferences()?");
+        return;
+    };
+    let Some(app_types) = world.get_resource::<AppTypeRegistry>() else {
+        return;
+    };
+    let app_types = app_types.clone();
+    let types = app_types.read();
+
+    for (filename, manifest) in registry.files.iter() {
+        if force || has_preferences_changed(world, manifest) {
+            let table = resources_to_toml(world, &types, manifest);
+            let store = PreferencesStore::new(&registry.app_name);
+            if use_async {
+                store.save_async(filename, table);
+            } else {
+                store.save(filename, table);
+            }
+        }
+    }
+
+    // Update timestamps
+    let mut registry = world.get_resource_mut::<PreferencesFileRegistry>().unwrap();
+    for (_, manifest) in registry.files.iter_mut() {
+        manifest.last_save = this_run;
+    }
+}
+
+fn has_preferences_changed(world: &World, manifest: &PreferenceFileManifest) -> bool {
+    let this_run = world.read_change_tick();
+    manifest.resource_types.iter().any(|r| {
+        let Some(component_id) = world.components().get_id(*r) else {
+            return false;
+        };
+        if let Some(resource_change) = world.get_resource_change_ticks_by_id(component_id) {
+            return resource_change.is_changed(manifest.last_save, this_run);
+        }
+        false
+    })
 }
 
 fn resources_to_toml(
@@ -173,67 +267,6 @@ fn resources_to_toml(
     table
 }
 
-/// A Command which saves preferences to disk. Actual FS operations happen in another thread.
-#[derive(Default, PartialEq)]
-pub enum SavePreferences {
-    /// Save preferences only if they have changed (based on [`PreferencesChanged` resource]).
-    #[default]
-    IfChanged,
-    /// Save preferences unconditionally.
-    Always,
-}
-
-impl Command for SavePreferences {
-    fn apply(self, world: &mut World) {
-        save_preferences(world, true, self == SavePreferences::Always);
-    }
-}
-
-fn save_preferences(world: &mut World, use_async: bool, force: bool) {
-    let this_run = world.change_tick();
-    let Some(registry) = world.get_resource::<PreferencesFileRegistry>() else {
-        warn!("Preferences registry not found - did you forget to call load_preferences()?");
-        return;
-    };
-    let Some(app_types) = world.get_resource::<AppTypeRegistry>() else {
-        return;
-    };
-    let app_types = app_types.clone();
-    let types = app_types.read();
-
-    for (filename, manifest) in registry.files.iter() {
-        if force || has_preferences_changed(world, manifest) {
-            let table = resources_to_toml(world, &types, manifest);
-            let store = PreferencesStore::new(&registry.app_name);
-            info!("Saving settings {filename}");
-            if use_async {
-                store.save_async(filename, table);
-            } else {
-                store.save(filename, table);
-            }
-        }
-    }
-
-    // Update timestamps
-    let mut registry = world.get_resource_mut::<PreferencesFileRegistry>().unwrap();
-    for (_, manifest) in registry.files.iter_mut() {
-        manifest.last_save = this_run;
-    }
-}
-
-fn has_preferences_changed(world: &World, manifest: &PreferenceFileManifest) -> bool {
-    let this_run = world.read_change_tick();
-    manifest.resource_types.iter().any(|r| {
-        let Some(component_id) = world.components().get_id(*r) else {
-            return false;
-        };
-        if let Some(resource_change) = world.get_resource_change_ticks_by_id(component_id) {
-            return resource_change.is_changed(manifest.last_save, this_run);
-        }
-        false
-    })
-}
-
 /// Extension trait that implements loading of preferences into the application.
 ///
 /// This needs to be called before `app.build()` so that preference values will be available
@@ -267,7 +300,9 @@ impl LoadPreferences for App {
         let mut file_index = PreferencesFileRegistry {
             app_name: plugin.app_name.clone(),
             files: HashMap::new(),
+            save_timer: Timer::new(Duration::from_secs(1), TimerMode::Once),
         };
+        file_index.save_timer.pause(); // Ensure timer is initially paused
 
         // Scan through types looking for resources that have the necessary traits and
         // annotations.
@@ -382,5 +417,16 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
                 }
             }
         }
+    }
+}
+
+fn handle_delayed_save(
+    mut preferences: ResMut<PreferencesFileRegistry>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    preferences.save_timer.tick(time.delta());
+    if preferences.save_timer.just_finished() {
+        commands.queue(SavePreferences::IfChanged);
     }
 }

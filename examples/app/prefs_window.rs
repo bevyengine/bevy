@@ -1,8 +1,10 @@
 //! Demonstrates persistence of user preferences for saving window position.
+use std::time::Duration;
+
 use bevy::{
     // user_prefs::{StartAutosaveTimer},
     preferences::{
-        LoadPreferences as _, PreferencesPlugin, ReflectSettingsGroup, SavePreferences,
+        LoadPreferences as _, PreferencesPlugin, ReflectSettingsGroup, SavePreferencesDeferred,
         SavePreferencesSync, SettingsGroup,
     },
     prelude::*,
@@ -142,7 +144,7 @@ fn change_count(
     }
 
     if changed {
-        commands.queue(SavePreferences::IfChanged);
+        commands.queue(SavePreferencesDeferred::default());
     }
 }
 
@@ -168,13 +170,13 @@ fn update_window_settings(
     }
 
     if window_changed {
-        store_window_settings(window_settings, window);
-        // TODO: Replace with timer
-        commands.queue(SavePreferences::IfChanged);
+        if store_window_settings(window_settings, window) {
+            commands.queue(SavePreferencesDeferred(Duration::from_secs_f32(0.5)));
+        }
     }
 }
 
-fn store_window_settings(mut window_settings: ResMut<WindowSettings>, window: &Window) {
+fn store_window_settings(mut window_settings: ResMut<WindowSettings>, window: &Window) -> bool {
     window_settings.set_if_neq(WindowSettings {
         position: match window.position {
             WindowPosition::At(pos) => Some(pos),
@@ -185,9 +187,7 @@ fn store_window_settings(mut window_settings: ResMut<WindowSettings>, window: &W
             window.resolution.height() as u32,
         )),
         fullscreen: window.mode != WindowMode::Windowed,
-    });
-
-    // commands.queue(StartAutosaveTimer);
+    })
 }
 
 fn on_window_close(mut close: MessageReader<WindowCloseRequested>, mut commands: Commands) {

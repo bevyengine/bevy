@@ -1,9 +1,11 @@
 //! Demonstrates persistence of user preferences.
+use std::time::Duration;
+
 use bevy::{
     // user_prefs::{Preferences, StartAutosaveTimer},
     preferences::{
-        LoadPreferences as _, PreferencesPlugin, ReflectSettingsGroup, SavePreferencesSync,
-        SettingsGroup,
+        LoadPreferences as _, PreferencesPlugin, ReflectSettingsGroup, SavePreferencesDeferred,
+        SavePreferencesSync, SettingsGroup,
     },
     prelude::*,
     window::{ExitCondition, WindowCloseRequested},
@@ -105,7 +107,7 @@ fn change_count(
     }
 
     if changed {
-        commands.queue(SavePreferencesSync::IfChanged);
+        commands.queue(SavePreferencesDeferred(Duration::from_secs_f32(0.1)));
     }
 }
 
