@@ -24,10 +24,10 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         TileOrientation::Rotate90Ccw,
         TileOrientation::Rotate180,
         TileOrientation::Rotate270Ccw,
-        TileOrientation::MirrorX,
-        TileOrientation::MirrorXRotate90Ccw,
-        TileOrientation::MirrorXRotate180,
-        TileOrientation::MirrorXRotate270Ccw,
+        TileOrientation::MirrorH,
+        TileOrientation::MirrorHRotate90Ccw,
+        TileOrientation::MirrorHRotate180,
+        TileOrientation::MirrorHRotate270Ccw,
     ];
 
     // Show different color/alpha on each row

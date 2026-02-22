@@ -3,16 +3,32 @@ use core::fmt::Display;
 use bevy_math::IVec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-/// The set of possible tile orientations based on any combination of mirroring in
-/// x and/or y axes, and/or rotation by 90 degree increments counter-clockwise.
-/// The ordering starts from the default orientation (no rotation or mirroring),
-/// then we have 90 degree counter-clockwise rotations, then we start from a mirror in the x
-/// and perform 90 degree counter-clockwise rotations of that.
+/// The set of possible tile orientations.
+/// These represent all possible results of mirroring the tile horizontally
+/// and/or vertically, and/or rotation by 90 degree increments.
+///
+/// Rotation is measured counter-clockwise as elsewhere in Bevy.
+///
 /// The representation is a u8 value where the bits (from most significant to least
-/// significant), represent mirroring in the x axis, then the y axis, then the diagonal
-/// axis running from the top-left of the tile to the bottom-right (which corresponds to
-/// swapping the x and y axes).
-/// This allows easy conversion to the format used for tile indices in Tiled maps,
+/// significant), represent:
+///
+/// - Bit 2: Mirroring the tile horizontally (left and right sides are swapped)
+/// - Bit 1: Mirroring the tile vertically (top and bottom are swapped)
+/// - Bit 0: Mirroring the tile diagonally (top-right and bottom-left corners are swapped)
+///
+/// The order in which the mirroring is performed matters - the tile is first mirrored
+/// horizontally (if specified), then vertically, then finally diagonally.
+///
+/// Note that because different coordinate systems are used for UV mapping and Bevy
+/// world coordinates, the code in each case is different (e.g. in UV maps, the y
+/// component increases towards the bottom of the tile, in Bevy it increases towards the top).
+///
+/// The ordering of the enum starts from the default orientation (no rotation or mirroring),
+/// then we have successive 90 degree counter-clockwise rotations. Then we have a tile
+/// mirrored horizontally, and then the results of successive 90 degree counter-clockwise
+/// rotations of the mirrored tile.
+///
+/// The enum values can be easily converted to the format used for tile indices in Tiled maps,
 /// where bits 31, 30 and 29 correspond to bits 2, 1 and 0 of this enum's values.
 /// So for a given enum value, we can just use `value << 29` to produce the bits required
 /// in a Tiled index.
@@ -25,49 +41,49 @@ pub enum TileOrientation {
     Rotate90Ccw = 0b011,
     Rotate180 = 0b110,
     Rotate270Ccw = 0b101,
-    MirrorX = 0b100,
-    MirrorXRotate90Ccw = 0b001,
-    MirrorXRotate180 = 0b010,
-    MirrorXRotate270Ccw = 0b111,
+    MirrorH = 0b100,
+    MirrorHRotate90Ccw = 0b001,
+    MirrorHRotate180 = 0b010,
+    MirrorHRotate270Ccw = 0b111,
 }
 
 impl TileOrientation {
-    /// This bit is set in the enum value if the tile is mirrored in the x axis
-    const MIRROR_X_BIT: u8 = 0b100;
+    /// This bit is set in the enum value if the tile is mirrored horizontally
+    const MIRROR_H_BIT: u8 = 0b100;
 
-    /// This bit is set in the enum value if the tile is mirrored in the y axis
-    const MIRROR_Y_BIT: u8 = 0b010;
+    /// This bit is set in the enum value if the tile is mirrored vertically
+    const MIRROR_V_BIT: u8 = 0b010;
 
-    /// This bit is set in the enum value if the tile has the x and y axes swapped
-    const SWAP_XY_BIT: u8 = 0b001;
+    /// This bit is set in the enum value if the tile is mirrored diagonally
+    const MIRROR_D_BIT: u8 = 0b001;
 
-    /// Create a [`TileOrientation`] based on whether each component mirror/swap is applied
-    pub fn from_bools(mirror_x: bool, mirror_y: bool, swap_xy: bool) -> TileOrientation {
-        match (mirror_x, mirror_y, swap_xy) {
+    /// Create a [`TileOrientation`] based on whether each mirror is applied
+    pub fn from_bools(mirror_h: bool, mirror_v: bool, mirror_d: bool) -> TileOrientation {
+        match (mirror_h, mirror_v, mirror_d) {
             (false, false, false) => TileOrientation::Default,
             (false, true, true) => TileOrientation::Rotate90Ccw,
             (true, true, false) => TileOrientation::Rotate180,
             (true, false, true) => TileOrientation::Rotate270Ccw,
-            (true, false, false) => TileOrientation::MirrorX,
-            (false, false, true) => TileOrientation::MirrorXRotate90Ccw,
-            (false, true, false) => TileOrientation::MirrorXRotate180,
-            (true, true, true) => TileOrientation::MirrorXRotate270Ccw,
+            (true, false, false) => TileOrientation::MirrorH,
+            (false, false, true) => TileOrientation::MirrorHRotate90Ccw,
+            (false, true, false) => TileOrientation::MirrorHRotate180,
+            (true, true, true) => TileOrientation::MirrorHRotate270Ccw,
         }
     }
 
-    /// True if the tile is mirrored in the x axis
-    pub fn mirror_x(&self) -> bool {
-        (*self as u8) & Self::MIRROR_X_BIT != 0
+    /// True if the tile is mirrored horizontally
+    pub fn mirror_h(&self) -> bool {
+        (*self as u8) & Self::MIRROR_H_BIT != 0
     }
 
-    /// True if the tile is mirrored in the y axis
-    pub fn mirror_y(&self) -> bool {
-        (*self as u8) & Self::MIRROR_Y_BIT != 0
+    /// True if the tile is mirrored vertically
+    pub fn mirror_v(&self) -> bool {
+        (*self as u8) & Self::MIRROR_V_BIT != 0
     }
 
-    /// True if the tile has the x and y axes swapped
-    pub fn swap_xy(&self) -> bool {
-        (*self as u8) & Self::SWAP_XY_BIT != 0
+    /// True if the tile is mirrored diagonally
+    pub fn mirror_d(&self) -> bool {
+        (*self as u8) & Self::MIRROR_D_BIT != 0
     }
 
     /// This method treats each [`TileOrientation`] as the transform from
@@ -80,10 +96,10 @@ impl TileOrientation {
             Self::Rotate90Ccw => Self::Rotate270Ccw,
             Self::Rotate180 => Self::Rotate180,
             Self::Rotate270Ccw => Self::Rotate90Ccw,
-            Self::MirrorX => Self::MirrorX,
-            Self::MirrorXRotate90Ccw => Self::MirrorXRotate90Ccw,
-            Self::MirrorXRotate180 => Self::MirrorXRotate180,
-            Self::MirrorXRotate270Ccw => Self::MirrorXRotate270Ccw,
+            Self::MirrorH => Self::MirrorH,
+            Self::MirrorHRotate90Ccw => Self::MirrorHRotate90Ccw,
+            Self::MirrorHRotate180 => Self::MirrorHRotate180,
+            Self::MirrorHRotate270Ccw => Self::MirrorHRotate270Ccw,
         }
     }
 
@@ -93,15 +109,23 @@ impl TileOrientation {
     pub fn apply_to_ivec2(&self, pos: &IVec2) -> IVec2 {
         let mut x = pos.x;
         let mut y = pos.y;
-        if self.swap_xy() {
+
+        // Convert to y-down coords (as per UV, Tiled)
+        y = -y;
+
+        if self.mirror_d() {
             (x, y) = (y, x);
         }
-        if self.mirror_x() {
+        if self.mirror_h() {
             x = -x;
         }
-        if self.mirror_y() {
+        if self.mirror_v() {
             y = -y;
         }
+
+        // And back to y-up coords for Bevy
+        y = -y;
+
         IVec2::new(x, y)
     }
 
@@ -110,22 +134,22 @@ impl TileOrientation {
     /// Produce a [`TileOrientation`] that will give the same effect as
     /// applying this transform, then applying `then`.
     pub fn and_then(&self, then: TileOrientation) -> TileOrientation {
-        let mut mirror_x = self.mirror_x();
-        let mut mirror_y = self.mirror_y();
-        let mut swap_xy = self.swap_xy();
+        let mut mirror_h = self.mirror_h();
+        let mut mirror_v = self.mirror_v();
+        let mut mirror_d = self.mirror_d();
 
-        if then.swap_xy() {
-            swap_xy = !swap_xy;
-            (mirror_x, mirror_y) = (mirror_y, mirror_x);
+        if then.mirror_d() {
+            mirror_d = !mirror_d;
+            (mirror_h, mirror_v) = (mirror_v, mirror_h);
         }
-        if then.mirror_x() {
-            mirror_x = !mirror_x;
+        if then.mirror_h() {
+            mirror_h = !mirror_h;
         }
-        if then.mirror_y() {
-            mirror_y = !mirror_y;
+        if then.mirror_v() {
+            mirror_v = !mirror_v;
         }
 
-        Self::from_bools(mirror_x, mirror_y, swap_xy)
+        Self::from_bools(mirror_h, mirror_v, mirror_d)
     }
 }
 
@@ -136,10 +160,10 @@ impl Display for TileOrientation {
             Self::Rotate90Ccw => write!(f, "Rotate90"),
             Self::Rotate180 => write!(f, "Rotate180"),
             Self::Rotate270Ccw => write!(f, "Rotate270"),
-            Self::MirrorX => write!(f, "MirrorX"),
-            Self::MirrorXRotate90Ccw => write!(f, "MirrorXRotate90"),
-            Self::MirrorXRotate180 => write!(f, "MirrorXRotate180"),
-            Self::MirrorXRotate270Ccw => write!(f, "MirrorXRotate270"),
+            Self::MirrorH => write!(f, "MirrorX"),
+            Self::MirrorHRotate90Ccw => write!(f, "MirrorXRotate90"),
+            Self::MirrorHRotate180 => write!(f, "MirrorXRotate180"),
+            Self::MirrorHRotate270Ccw => write!(f, "MirrorXRotate270"),
         }
     }
 }
@@ -155,25 +179,25 @@ mod tests {
         (TileOrientation::Rotate90Ccw, false, true, true),
         (TileOrientation::Rotate180, true, true, false),
         (TileOrientation::Rotate270Ccw, true, false, true),
-        (TileOrientation::MirrorX, true, false, false),
-        (TileOrientation::MirrorXRotate90Ccw, false, false, true),
-        (TileOrientation::MirrorXRotate180, false, true, false),
-        (TileOrientation::MirrorXRotate270Ccw, true, true, true),
+        (TileOrientation::MirrorH, true, false, false),
+        (TileOrientation::MirrorHRotate90Ccw, false, false, true),
+        (TileOrientation::MirrorHRotate180, false, true, false),
+        (TileOrientation::MirrorHRotate270Ccw, true, true, true),
     ];
 
     #[test]
     fn mirror_and_swap_bits_should_extract_correctly() {
-        for (orientation, mirror_x, mirror_y, swap_xy) in CASES.iter() {
-            assert_eq!(orientation.mirror_x(), *mirror_x);
-            assert_eq!(orientation.mirror_y(), *mirror_y);
-            assert_eq!(orientation.swap_xy(), *swap_xy);
+        for (orientation, mirror_h, mirror_v, mirror_d) in CASES.iter() {
+            assert_eq!(orientation.mirror_h(), *mirror_h);
+            assert_eq!(orientation.mirror_v(), *mirror_v);
+            assert_eq!(orientation.mirror_d(), *mirror_d);
         }
     }
 
     #[test]
     fn from_bools_should_give_correct_orientation() {
-        for (orientation, mirror_x, mirror_y, swap_xy) in CASES.iter() {
-            let from_bools = TileOrientation::from_bools(*mirror_x, *mirror_y, *swap_xy);
+        for (orientation, mirror_h, mirror_v, mirror_d) in CASES.iter() {
+            let from_bools = TileOrientation::from_bools(*mirror_h, *mirror_v, *mirror_d);
 
             // Check against cases, but this is a bit duplicative of the code itself
             assert_eq!(*orientation, from_bools);
@@ -181,32 +205,44 @@ mod tests {
             // Now check we get the right bits in the u8, as a better test
             let from_bools_u8 = from_bools as u8;
             assert_eq!(
-                from_bools_u8 & TileOrientation::MIRROR_X_BIT != 0,
-                *mirror_x
+                from_bools_u8 & TileOrientation::MIRROR_H_BIT != 0,
+                *mirror_h
             );
             assert_eq!(
-                from_bools_u8 & TileOrientation::MIRROR_Y_BIT != 0,
-                *mirror_y
+                from_bools_u8 & TileOrientation::MIRROR_V_BIT != 0,
+                *mirror_v
             );
-            assert_eq!(from_bools_u8 & TileOrientation::SWAP_XY_BIT != 0, *swap_xy);
+            assert_eq!(
+                from_bools_u8 & TileOrientation::MIRROR_D_BIT != 0,
+                *mirror_d
+            );
+        }
+    }
+
+    #[test]
+    fn applying_transform_and_then_inverse_transform_should_yield_default() {
+        for (orientation, ..) in CASES.iter() {
+            let inverse = orientation.inverse();
+            let transform_then_inverse = orientation.and_then(inverse);
+            assert_eq!(transform_then_inverse, TileOrientation::Default);
         }
     }
 
     // The "from" point for position test cases, using a point without any
-    // symmetry for mirroring in x or y, or 90 degree rotations about the origin.
+    // symmetry for mirroring horizontally or vertically, or 90 degree rotations about the origin.
     const FROM_POS: IVec2 = ivec2(1, 2);
 
     // Each case shows where FROM_POS maps to, under the given transform
     // Worked out by hand with paper :)
     const POS_CASES: [(TileOrientation, IVec2); 8] = [
         (TileOrientation::Default, ivec2(1, 2)),
-        (TileOrientation::Rotate90Ccw, ivec2(2, -1)),
+        (TileOrientation::Rotate90Ccw, ivec2(-2, 1)),
         (TileOrientation::Rotate180, ivec2(-1, -2)),
-        (TileOrientation::Rotate270Ccw, ivec2(-2, 1)),
-        (TileOrientation::MirrorX, ivec2(-1, 2)),
-        (TileOrientation::MirrorXRotate90Ccw, ivec2(2, 1)),
-        (TileOrientation::MirrorXRotate180, ivec2(1, -2)),
-        (TileOrientation::MirrorXRotate270Ccw, ivec2(-2, -1)),
+        (TileOrientation::Rotate270Ccw, ivec2(2, -1)),
+        (TileOrientation::MirrorH, ivec2(-1, 2)),
+        (TileOrientation::MirrorHRotate90Ccw, ivec2(-2, -1)),
+        (TileOrientation::MirrorHRotate180, ivec2(1, -2)),
+        (TileOrientation::MirrorHRotate270Ccw, ivec2(2, 1)),
     ];
 
     #[test]
