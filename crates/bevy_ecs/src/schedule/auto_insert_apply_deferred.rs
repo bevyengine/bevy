@@ -1,6 +1,7 @@
 use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{collections::HashMap, hash::FixedHasher};
+use indexmap::IndexSet;
 
 use crate::{
     schedule::{graph::Dag, SystemKey, SystemSetKey},
@@ -222,7 +223,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
     fn collapse_set(
         &mut self,
         set: SystemSetKey,
-        systems: &HashSet<SystemKey>,
+        systems: &IndexSet<SystemKey, FixedHasher>,
         dependency_flattening: &DiGraph<NodeId>,
     ) -> impl Iterator<Item = (NodeId, NodeId)> {
         if systems.is_empty() {

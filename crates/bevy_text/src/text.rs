@@ -3,24 +3,16 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
-use cosmic_text::{Buffer, Metrics};
+use parley::{FontFeature, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use smol_str::SmolStr;
 use tracing::warn;
-
-/// Wrapper for [`cosmic_text::Buffer`]
-#[derive(Deref, DerefMut, Debug, Clone)]
-pub struct CosmicBuffer(pub Buffer);
-
-impl Default for CosmicBuffer {
-    fn default() -> Self {
-        Self(Buffer::new_empty(Metrics::new(20.0, 20.0)))
-    }
-}
 
 /// A sub-entity of a [`ComputedTextBlock`].
 ///
@@ -32,6 +24,8 @@ pub struct TextEntity {
     pub entity: Entity,
     /// Records the hierarchy depth of the entity within a `TextLayout`.
     pub depth: usize,
+    /// Antialiasing method to use when rendering the text.
+    pub font_smoothing: FontSmoothing,
 }
 
 /// Computed information for a text block.
@@ -39,17 +33,12 @@ pub struct TextEntity {
 /// See [`TextLayout`].
 ///
 /// Automatically updated by 2d and UI text systems.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Clone, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct ComputedTextBlock {
-    /// Buffer for managing text layout and creating [`TextLayoutInfo`].
-    ///
-    /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
-    /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
+    /// Text layout, used to generate [`TextLayoutInfo`].
     #[reflect(ignore, clone)]
-    pub(crate) buffer: CosmicBuffer,
+    pub(crate) layout: Layout<(u32, FontSmoothing)>,
     /// Entities for all text spans in the block, including the root-level text.
     ///
     /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
@@ -65,6 +54,28 @@ pub struct ComputedTextBlock {
     // solution would probably require splitting TextLayout and TextFont into structural/non-structural
     // components for more granular change detection. A cost/benefit analysis is needed.
     pub(crate) needs_rerender: bool,
+    // Flag set by `TextPipeline::update_buffer` if any text section in the block has a viewport font size value.
+    //
+    // Used by dependents to determine if they should update a text block on changes to
+    // the viewport size.
+    pub(crate) uses_viewport_sizes: bool,
+    // Flag set by `TextPipeline::update_buffer` if any text section in the block has a rem font size value.
+    //
+    // Used by dependents to determine if they should update a text block on changes to
+    // the rem size.
+    pub(crate) uses_rem_sizes: bool,
+}
+
+impl Debug for ComputedTextBlock {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ComputedTextBlock")
+            .field("layout", &"Layout(..)")
+            .field("entities", &self.entities)
+            .field("needs_rerender", &self.needs_rerender)
+            .field("uses_viewport_sizes", &self.uses_viewport_sizes)
+            .field("uses_rem_sizes", &self.uses_rem_sizes)
+            .finish()
+    }
 }
 
 impl ComputedTextBlock {
@@ -80,27 +91,30 @@ impl ComputedTextBlock {
     ///
     /// Updated automatically by [`detect_text_needs_rerender`] and cleared
     /// by [`TextPipeline`](crate::TextPipeline) methods.
-    pub fn needs_rerender(&self) -> bool {
+    pub fn needs_rerender(
+        &self,
+        is_viewport_size_changed: bool,
+        is_rem_size_changed: bool,
+    ) -> bool {
         self.needs_rerender
+            || (is_viewport_size_changed && self.uses_viewport_sizes)
+            || (is_rem_size_changed && self.uses_rem_sizes)
     }
-    /// Accesses the underlying buffer which can be used for `cosmic-text` APIs such as accessing layout information
-    /// or calculating a cursor position.
-    ///
-    /// Mutable access is not offered because changes would be overwritten during the automated layout calculation.
-    /// If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
-    pub fn buffer(&self) -> &CosmicBuffer {
-        &self.buffer
+
+    /// Accesses the shaped layout buffer.
+    pub fn buffer(&self) -> &Layout<(u32, FontSmoothing)> {
+        &self.layout
     }
 }
 
 impl Default for ComputedTextBlock {
     fn default() -> Self {
         Self {
-            buffer: CosmicBuffer::default(),
+            layout: Layout::new(),
             entities: SmallVec::default(),
             needs_rerender: true,
+            uses_rem_sizes: false,
+            uses_viewport_sizes: false,
         }
     }
 }
@@ -232,16 +246,126 @@ pub enum Justify {
     /// align with their margins.
     /// Bounds start from the render position and advance equally left & right.
     Justified,
+    /// `TextAlignment::Left` for LTR text and `TextAlignment::Right` for RTL text.
+    Start,
+    /// `TextAlignment::Left` for RTL text and `TextAlignment::Right` for LTR text.
+    End,
 }
 
-impl From<Justify> for cosmic_text::Align {
+impl From<Justify> for parley::Alignment {
     fn from(justify: Justify) -> Self {
         match justify {
-            Justify::Left => cosmic_text::Align::Left,
-            Justify::Center => cosmic_text::Align::Center,
-            Justify::Right => cosmic_text::Align::Right,
-            Justify::Justified => cosmic_text::Align::Justified,
+            Justify::Start => parley::Alignment::Start,
+            Justify::End => parley::Alignment::End,
+            Justify::Left => parley::Alignment::Left,
+            Justify::Center => parley::Alignment::Center,
+            Justify::Right => parley::Alignment::Right,
+            Justify::Justified => parley::Alignment::Justify,
         }
+    }
+}
+
+#[derive(Clone, Debug, Reflect, PartialEq)]
+/// Determines how the font face for a text sections is selected.
+///
+/// A [`FontSource`] can be a handle to a font asset, a font family name,
+/// or a generic font category that is resolved using Parley's font database.
+///
+/// Font family fallback (selection of a font when the requested font is not found)
+/// is automatically handled by [`parley::fontique`].
+/// Be sure to enable the `parley/system` feature for automatic discovery of system fonts.
+///
+/// Generally speaking, these fallbacks are OS-specific,
+/// and do not require manual configuration.
+///
+/// You can check which font family is used for a given [`FontSource`]
+/// by calling [`FontCx::get_family`](crate::FontCx::get_family).
+pub enum FontSource {
+    /// Use a specific font face referenced by a [`Font`] asset handle.
+    ///
+    /// If the default font handle is used, then
+    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
+    ///   `FiraMono-subset.ttf` compiled into the library is used.
+    /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
+    ///   handle.
+    Handle(Handle<Font>),
+    /// Resolve the font by family name using the font database.
+    Family(SmolStr),
+    /// Fonts with serifs — small decorative strokes at the ends of letterforms.
+    ///
+    /// Serif fonts are typically used for long passages of text and represent
+    /// a more traditional or formal typographic style.
+    Serif,
+    /// Fonts without serifs.
+    ///
+    /// Sans-serif fonts generally have low stroke contrast and plain stroke
+    /// endings, making them common for UI text and on-screen reading.
+    SansSerif,
+    /// Fonts that use a cursive or handwritten style.
+    ///
+    /// Glyphs often resemble connected or flowing pen or brush strokes rather
+    /// than printed letterforms.
+    Cursive,
+    /// Decorative or expressive fonts.
+    ///
+    /// Fantasy fonts are primarily intended for display purposes and may
+    /// prioritize visual style over readability.
+    Fantasy,
+    /// Fonts in which all glyphs have the same fixed advance width.
+    ///
+    /// Monospace fonts are commonly used for code, tabular data, and text
+    /// where vertical alignment is important.
+    Monospace,
+    /// The default user interface system font.
+    SystemUi,
+    /// Alternative serif font for user interfaces.
+    UiSerif,
+    /// Alternative sans-erif font for user interfaces.
+    UiSansSerif,
+    /// Alternative monospace font for user interfaces.
+    UiMonospace,
+    /// Fonts that have rounded features.
+    UiRounded,
+    /// Fonts that are specifically designed to render emoji.
+    Emoji,
+    /// This is for the particular stylistic concerns of representing
+    /// mathematics: superscript and subscript, brackets that cross several
+    /// lines, nesting expressions, and double struck glyphs with distinct
+    /// meanings.
+    Math,
+    /// A particular style of Chinese characters that are between serif-style
+    /// Song and cursive-style Kai forms. This style is often used for
+    /// government documents.
+    FangSong,
+}
+
+impl Default for FontSource {
+    fn default() -> Self {
+        Self::Handle(Handle::default())
+    }
+}
+
+impl From<Handle<Font>> for FontSource {
+    fn from(handle: Handle<Font>) -> Self {
+        Self::Handle(handle)
+    }
+}
+
+impl From<&Handle<Font>> for FontSource {
+    fn from(handle: &Handle<Font>) -> Self {
+        Self::Handle(handle.clone())
+    }
+}
+
+impl From<SmolStr> for FontSource {
+    fn from(family: SmolStr) -> Self {
+        FontSource::Family(family)
+    }
+}
+
+impl From<&str> for FontSource {
+    fn from(family: &str) -> Self {
+        FontSource::Family(family.into())
     }
 }
 
@@ -250,28 +374,30 @@ impl From<Justify> for cosmic_text::Align {
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
-    /// The specific font face to use, as a `Handle` to a [`Font`] asset.
+    /// Specifies the font face used for this text section.
     ///
-    /// If the `font` is not specified, then
-    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
-    ///   `FiraMono-subset.ttf` compiled into the library is used.
-    /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
-    ///   handle.
-    pub font: Handle<Font>,
+    /// A `FontSource` can be a handle to a font asset, a font family name,
+    /// or a generic font category that is resolved using Cosmic Text's font database.
+    pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
-    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
-    /// transform or camera projection.
+    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity's
+    /// transform or camera projection. Then, the scaled font size is rounded to the nearest pixel
+    /// to produce the final font size used during glyph layout.
     ///
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
-    pub font_size: f32,
+    pub font_size: FontSize,
     /// How thick or bold the strokes of a font appear.
     ///
     /// Font weights can be any value between 1 and 1000, inclusive.
     ///
     /// Only supports variable weight fonts.
     pub weight: FontWeight,
+    /// How condensed or expanded the glyphs appear horizontally.
+    pub width: FontWidth,
+    /// The slant style of a font face: normal, italic, or oblique.
+    pub style: FontStyle,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
     /// OpenType features for .otf fonts that support them.
@@ -280,19 +406,30 @@ pub struct TextFont {
 
 impl TextFont {
     /// Returns a new [`TextFont`] with the specified font size.
-    pub fn from_font_size(font_size: f32) -> Self {
+    pub fn from_font_size(font_size: impl Into<FontSize>) -> Self {
         Self::default().with_font_size(font_size)
+    }
+
+    /// Returns a new [`TextFont`] with the specified font weight
+    pub fn from_font_weight(weight: impl Into<FontWeight>) -> Self {
+        Self::default().with_font_weight(weight)
     }
 
     /// Returns this [`TextFont`] with the specified font face handle.
     pub fn with_font(mut self, font: Handle<Font>) -> Self {
-        self.font = font;
+        self.font = FontSource::Handle(font);
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified font family.
+    pub fn with_family(mut self, family: impl Into<SmolStr>) -> Self {
+        self.font = FontSource::Family(family.into());
         self
     }
 
     /// Returns this [`TextFont`] with the specified font size.
-    pub const fn with_font_size(mut self, font_size: f32) -> Self {
-        self.font_size = font_size;
+    pub fn with_font_size(mut self, font_size: impl Into<FontSize>) -> Self {
+        self.font_size = font_size.into();
         self
     }
 
@@ -301,11 +438,20 @@ impl TextFont {
         self.font_smoothing = font_smoothing;
         self
     }
+
+    /// Returns this [`TextFont`] with the specified [`FontWeight`].
+    pub fn with_font_weight(mut self, weight: impl Into<FontWeight>) -> Self {
+        self.weight = weight.into();
+        self
+    }
 }
 
-impl From<Handle<Font>> for TextFont {
-    fn from(font: Handle<Font>) -> Self {
-        Self { font, ..default() }
+impl<T: Into<FontSource>> From<T> for TextFont {
+    fn from(source: T) -> Self {
+        Self {
+            font: source.into(),
+            ..default()
+        }
     }
 }
 
@@ -313,11 +459,117 @@ impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            font_size: 20.0,
+            font_size: FontSize::from(20.),
+            style: FontStyle::Normal,
             weight: FontWeight::NORMAL,
+            width: FontWidth::NORMAL,
             font_features: FontFeatures::default(),
             font_smoothing: Default::default(),
         }
+    }
+}
+
+/// The vertical height of rasterized glyphs in the font atlas in pixels.
+///
+/// This is multiplied by the scale factor, but not the text entity
+/// transform or camera projection.
+///
+/// The viewport variants are not supported by `Text2d`.
+///
+/// A new font atlas is generated for every combination of font handle and scaled font size
+/// which can have a strong performance impact.
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+pub enum FontSize {
+    /// Font Size in logical pixels.
+    Px(f32),
+    /// Font size as a percentage of the viewport width.
+    Vw(f32),
+    /// Font size as a percentage of the viewport height.
+    Vh(f32),
+    /// Font size as a percentage of the smaller of the viewport width and height.
+    VMin(f32),
+    /// Font size as a percentage of the larger of the viewport width and height.
+    VMax(f32),
+    /// Font Size relative to the value of the `RemSize` resource.
+    Rem(f32),
+}
+
+impl FontSize {
+    /// Evaluate the font size to a value in logical pixels
+    pub fn eval(
+        self,
+        // Viewport size in logical pixels
+        logical_viewport_size: Vec2,
+        // Base Rem size in logical pixels
+        rem_size: f32,
+    ) -> f32 {
+        match self {
+            FontSize::Px(s) => s,
+            FontSize::Vw(s) => logical_viewport_size.x * s / 100.,
+            FontSize::Vh(s) => logical_viewport_size.y * s / 100.,
+            FontSize::VMin(s) => logical_viewport_size.min_element() * s / 100.,
+            FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
+            FontSize::Rem(s) => rem_size * s,
+        }
+    }
+}
+
+impl PartialEq for FontSize {
+    fn eq(&self, other: &Self) -> bool {
+        match (*self, *other) {
+            (Self::Px(l), Self::Px(r))
+            | (Self::Vw(l), Self::Vw(r))
+            | (Self::Vh(l), Self::Vh(r))
+            | (Self::VMin(l), Self::VMin(r))
+            | (Self::VMax(l), Self::VMax(r))
+            | (Self::Rem(l), Self::Rem(r)) => l == r,
+            _ => false,
+        }
+    }
+}
+
+impl core::ops::Mul<f32> for FontSize {
+    type Output = FontSize;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        match self {
+            FontSize::Px(v) => FontSize::Px(v * rhs),
+            FontSize::Vw(v) => FontSize::Vw(v * rhs),
+            FontSize::Vh(v) => FontSize::Vh(v * rhs),
+            FontSize::VMin(v) => FontSize::VMin(v * rhs),
+            FontSize::VMax(v) => FontSize::VMax(v * rhs),
+            FontSize::Rem(v) => FontSize::Rem(v * rhs),
+        }
+    }
+}
+
+impl core::ops::Mul<FontSize> for f32 {
+    type Output = FontSize;
+
+    fn mul(self, rhs: FontSize) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl Default for FontSize {
+    fn default() -> Self {
+        Self::Px(20.)
+    }
+}
+
+impl From<f32> for FontSize {
+    fn from(value: f32) -> Self {
+        Self::Px(value)
+    }
+}
+
+/// Base value used to resolve `Rem` units for font sizes.
+#[derive(Resource, Copy, Clone, Debug, PartialEq, Deref, DerefMut)]
+pub struct RemSize(pub f32);
+
+impl Default for RemSize {
+    fn default() -> Self {
+        Self(20.)
     }
 }
 
@@ -326,6 +578,14 @@ impl Default for TextFont {
 /// Valid font weights range from 1 to 1000, inclusive.
 /// Weights above 1000 are clamped to 1000.
 /// A weight of 0 is treated as [`FontWeight::DEFAULT`].
+///
+/// Legacy names from when most fonts weren't variable fonts
+/// are included as const values, but are misleading if
+/// used in documentation and examples, as valid weights
+/// for variable fonts are all of the numbers from 1-1000, and
+/// not all fonts which are not variable fonts have those weights
+/// supplied. If you use a custom font that supplies only specific
+/// weights, that will be documented where you purchased the font.
 ///
 /// `<https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-weight>`
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
@@ -383,9 +643,88 @@ impl Default for FontWeight {
     }
 }
 
-impl From<FontWeight> for cosmic_text::Weight {
+impl From<FontWeight> for parley::style::FontWeight {
     fn from(value: FontWeight) -> Self {
-        cosmic_text::Weight(value.clamp().0)
+        parley::style::FontWeight::new(value.clamp().0 as f32)
+    }
+}
+
+/// `<https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass>`
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug, Hash, Reflect)]
+pub struct FontWidth(u16);
+
+impl FontWidth {
+    /// 50% of normal width.
+    pub const ULTRA_CONDENSED: Self = Self(1);
+
+    /// 62.5% of normal width.
+    pub const EXTRA_CONDENSED: Self = Self(2);
+
+    /// 75% of normal width.
+    pub const CONDENSED: Self = Self(3);
+
+    /// 87.5% of normal width.
+    pub const SEMI_CONDENSED: Self = Self(4);
+
+    /// 100% of normal width. This is the default.
+    pub const NORMAL: Self = Self(5);
+
+    /// 112.5% of normal width.
+    pub const SEMI_EXPANDED: Self = Self(6);
+
+    /// 125% of normal width.
+    pub const EXPANDED: Self = Self(7);
+
+    /// 150% of normal width.
+    pub const EXTRA_EXPANDED: Self = Self(8);
+
+    /// 200% of normal width.
+    pub const ULTRA_EXPANDED: Self = Self(9);
+}
+
+impl Default for FontWidth {
+    fn default() -> Self {
+        Self::NORMAL
+    }
+}
+
+impl From<FontWidth> for parley::FontWidth {
+    fn from(value: FontWidth) -> Self {
+        match value.0 {
+            1 => parley::FontWidth::ULTRA_CONDENSED,
+            2 => parley::FontWidth::EXTRA_CONDENSED,
+            3 => parley::FontWidth::CONDENSED,
+            4 => parley::FontWidth::SEMI_CONDENSED,
+            6 => parley::FontWidth::SEMI_EXPANDED,
+            7 => parley::FontWidth::EXPANDED,
+            8 => parley::FontWidth::EXTRA_EXPANDED,
+            9 => parley::FontWidth::ULTRA_EXPANDED,
+            _ => parley::FontWidth::NORMAL,
+        }
+    }
+}
+
+/// The slant style of a font face: normal, italic, or oblique.
+#[derive(Clone, Copy, Default, PartialEq, Debug, Reflect)]
+pub enum FontStyle {
+    /// A face that is neither italic nor obliqued.
+    #[default]
+    Normal,
+    /// A form that is generally cursive in nature.
+    Italic,
+    /// A typically sloped version of the regular face.
+    ///
+    /// The contained f32 is the slant angle of the text, in degrees.
+    Oblique(Option<f32>),
+}
+
+impl From<FontStyle> for parley::FontStyle {
+    fn from(value: FontStyle) -> Self {
+        match value {
+            FontStyle::Normal => parley::FontStyle::Normal,
+            FontStyle::Italic => parley::FontStyle::Italic,
+            FontStyle::Oblique(value) => parley::FontStyle::Oblique(value),
+        }
     }
 }
 
@@ -428,7 +767,7 @@ impl FontFeatureTag {
     pub const ORDINALS: FontFeatureTag = FontFeatureTag::new(b"ordn");
 
     /// Uses a slashed version of zero (0) to differentiate from O.
-    pub const SLASHED_ZERO: FontFeatureTag = FontFeatureTag::new(b"ordn");
+    pub const SLASHED_ZERO: FontFeatureTag = FontFeatureTag::new(b"zero");
 
     /// Replaces figures with superscript figures, e.g. for indicating footnotes.
     pub const SUPERSCRIPT: FontFeatureTag = FontFeatureTag::new(b"sups");
@@ -450,7 +789,7 @@ impl FontFeatureTag {
     /// same width.
     pub const TABULAR_FIGURES: FontFeatureTag = FontFeatureTag::new(b"tnum");
 
-    /// Varies the stroke thickness. Values must be in the range of 0 to 1000.
+    /// Varies the stroke thickness. Valid values are in the range of 1 to 1000, inclusive.
     pub const WEIGHT: FontFeatureTag = FontFeatureTag::new(b"wght");
 
     /// Varies the width of text from narrower to wider. Must be a value greater than 0. A value of
@@ -559,18 +898,18 @@ where
     }
 }
 
-impl From<&FontFeatures> for cosmic_text::FontFeatures {
+impl From<&FontFeatures> for parley::style::FontSettings<'static, FontFeature> {
     fn from(font_features: &FontFeatures) -> Self {
-        cosmic_text::FontFeatures {
-            features: font_features
+        parley::style::FontSettings::List(
+            font_features
                 .features
                 .iter()
-                .map(|(tag, value)| cosmic_text::Feature {
-                    tag: cosmic_text::FeatureTag::new(&tag.0),
-                    value: *value,
+                .map(|(tag, value)| FontFeature {
+                    tag: u32::from_be_bytes(tag.0),
+                    value: *value as u16,
                 })
                 .collect(),
-        }
+        )
     }
 }
 
@@ -587,10 +926,10 @@ pub enum LineHeight {
 }
 
 impl LineHeight {
-    pub(crate) fn eval(self, font_size: f32) -> f32 {
+    pub(crate) fn eval(self, _font_size: f32) -> parley::LineHeight {
         match self {
-            LineHeight::Px(px) => px,
-            LineHeight::RelativeToFont(scale) => scale * font_size,
+            LineHeight::Px(px) => parley::LineHeight::Absolute(px),
+            LineHeight::RelativeToFont(scale) => parley::LineHeight::FontSizeRelative(scale),
         }
     }
 }
@@ -735,6 +1074,26 @@ pub enum FontSmoothing {
     AntiAliased,
     // TODO: Add subpixel antialias support
     // SubpixelAntiAliased,
+}
+
+#[derive(Component, Debug, Copy, Clone, Default, Reflect, PartialEq, Hash, Eq)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+/// Font hinting strategy, which controls the rasterization for fonts.
+///
+/// Font hinting specializes the vector outlines to make them more clearer / more legible at a specific font size.
+/// It is particularly noticeable with small text and low resolutions.
+pub enum FontHinting {
+    #[default]
+    /// Glyphs are rasterized without hinting.
+    Disabled,
+    /// Glyphs are rasterized with hinting.
+    Enabled,
+}
+
+impl FontHinting {
+    pub(crate) fn should_hint(self) -> bool {
+        matches!(self, FontHinting::Enabled)
+    }
 }
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.

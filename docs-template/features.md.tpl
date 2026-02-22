@@ -16,7 +16,7 @@ This can cut down compile times and shrink your final binary size.
 For example, you can compile only the "2D" Bevy features (without the 3D features) like this:
 
 ```toml
-bevy = { version = "0.17", default-features = false, features = ["2d"] }
+bevy = { version = "0.18", default-features = false, features = ["2d"] }
 ```
 
 |Profile|Description|

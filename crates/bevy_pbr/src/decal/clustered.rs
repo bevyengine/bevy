@@ -43,7 +43,7 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
-    sync_component::SyncComponentPlugin,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -68,8 +68,8 @@ pub struct ClusteredDecalPlugin;
 pub struct RenderClusteredDecals {
     /// Maps an index in the shader binding array to the associated decal image.
     ///
-    /// [`Self::texture_to_binding_index`] holds the inverse mapping.
-    binding_index_to_textures: Vec<AssetId<Image>>,
+    /// The `texture_to_binding_index` field holds the inverse mapping.
+    pub binding_index_to_textures: Vec<AssetId<Image>>,
     /// Maps a decal image to the shader binding array.
     ///
     /// [`Self::binding_index_to_textures`] holds the inverse mapping.
@@ -147,7 +147,7 @@ impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "clustered.wgsl");
 
-        app.add_plugins(SyncComponentPlugin::<ClusteredDecal>::default());
+        app.add_plugins(SyncComponentPlugin::<ClusteredDecal, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -160,7 +160,7 @@ impl Plugin for ClusteredDecalPlugin {
             .add_systems(
                 Render,
                 prepare_decals
-                    .in_set(RenderSystems::ManageViews)
+                    .in_set(RenderSystems::PrepareViews)
                     .after(prepare_lights),
             )
             .add_systems(
@@ -168,6 +168,10 @@ impl Plugin for ClusteredDecalPlugin {
                 upload_decals.in_set(RenderSystems::PrepareResources),
             );
     }
+}
+
+impl SyncComponent<ClusteredDecalPlugin> for ClusteredDecal {
+    type Out = Self;
 }
 
 // This is needed because of the orphan rule not allowing implementing

@@ -1,4 +1,4 @@
-use crate::io::{AssetReader, AssetReaderError, PathStream, Reader, ReaderRequiredFeatures};
+use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use alloc::{boxed::Box, sync::Arc};
 use async_channel::{Receiver, Sender};
 use bevy_platform::{collections::HashMap, sync::RwLock};
@@ -55,11 +55,7 @@ impl<R: AssetReader> GatedReader<R> {
 }
 
 impl<R: AssetReader> AssetReader for GatedReader<R> {
-    async fn read<'a>(
-        &'a self,
-        path: &'a Path,
-        required_features: ReaderRequiredFeatures,
-    ) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let receiver = {
             let mut gates = self.gates.write().unwrap_or_else(PoisonError::into_inner);
             let gates = gates
@@ -68,7 +64,7 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
             gates.1.clone()
         };
         receiver.recv().await.unwrap();
-        let result = self.reader.read(path, required_features).await?;
+        let result = self.reader.read(path).await?;
         Ok(result)
     }
 

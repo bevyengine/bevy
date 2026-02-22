@@ -178,12 +178,12 @@ fn sample_shadow_map_jimenez_fourteen(
     light_local: vec2<f32>,
     depth: f32,
     array_index: i32,
+    frag_coord_xy: vec2<f32>,
     texel_size: f32,
     blur_size: f32,
     temporal: bool,
 ) -> f32 {
-    let shadow_map_size = vec2<f32>(textureDimensions(view_bindings::directional_shadow_textures));
-    let rotation_matrix = random_rotation_matrix(light_local * shadow_map_size, temporal);
+    let rotation_matrix = random_rotation_matrix(frag_coord_xy, temporal);
     let uv_offset_scale = calculate_uv_offset_scale_jimenez_fourteen(texel_size, blur_size);
 
     // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare (slides 120-135)
@@ -253,12 +253,18 @@ fn search_for_blockers_in_shadow_map(
     return sum.x / sum.y;
 }
 
-fn sample_shadow_map(light_local: vec2<f32>, depth: f32, array_index: i32, texel_size: f32) -> f32 {
+fn sample_shadow_map(
+    light_local: vec2<f32>,
+    depth: f32,
+    array_index: i32,
+    frag_coord_xy: vec2<f32>,
+    texel_size: f32,
+) -> f32 {
 #ifdef SHADOW_FILTER_METHOD_GAUSSIAN
     return sample_shadow_map_castano_thirteen(light_local, depth, array_index);
 #else ifdef SHADOW_FILTER_METHOD_TEMPORAL
     return sample_shadow_map_jimenez_fourteen(
-        light_local, depth, array_index, texel_size, 1.0, true);
+        light_local, depth, array_index, frag_coord_xy, texel_size, 1.0, true);
 #else ifdef SHADOW_FILTER_METHOD_HARDWARE_2X2
     return sample_shadow_map_hardware(light_local, depth, array_index);
 #else
@@ -285,6 +291,7 @@ fn sample_shadow_map_pcss(
     light_local: vec2<f32>,
     depth: f32,
     array_index: i32,
+    frag_coord_xy: vec2<f32>,
     texel_size: f32,
     light_size: f32,
 ) -> f32 {
@@ -302,10 +309,10 @@ fn sample_shadow_map_pcss(
     // provide better blurs.
 #ifdef SHADOW_FILTER_METHOD_TEMPORAL
     return sample_shadow_map_jimenez_fourteen(
-        light_local, depth, array_index, texel_size, blur_size, true);
+        light_local, depth, array_index, frag_coord_xy, texel_size, blur_size, true);
 #else   // SHADOW_FILTER_METHOD_TEMPORAL
     return sample_shadow_map_jimenez_fourteen(
-        light_local, depth, array_index, texel_size, blur_size, false);
+        light_local, depth, array_index, frag_coord_xy, texel_size, blur_size, false);
 #endif  // SHADOW_FILTER_METHOD_TEMPORAL
 }
 
@@ -458,16 +465,13 @@ fn sample_shadow_cubemap_gaussian(
 fn sample_shadow_cubemap_jittered(
     light_local: vec3<f32>,
     depth: f32,
+    frag_coord_xy: vec2<f32>,
     scale: f32,
     distance_to_light: f32,
     light_id: u32,
     temporal: bool,
 ) -> f32 {
-    // Create an orthonormal basis so we can apply a 2D sampling pattern to a
-    // cubemap.
-    let basis = orthonormalize(normalize(light_local)) * scale * distance_to_light;
-
-    let rotation_matrix = random_rotation_matrix(vec2(1.0), temporal);
+    let rotation_matrix = random_rotation_matrix(frag_coord_xy, temporal);
 
     let sample_offset0 = rotation_matrix * utils::SPIRAL_OFFSET_0_ *
         POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
@@ -485,6 +489,10 @@ fn sample_shadow_cubemap_jittered(
         POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
     let sample_offset7 = rotation_matrix * utils::SPIRAL_OFFSET_7_ *
         POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
+
+    // Create an orthonormal basis so we can apply a 2D sampling pattern to a
+    // cubemap.
+    let basis = orthonormalize(normalize(light_local)) * scale * distance_to_light;
 
     var sum: f32 = 0.0;
     sum += sample_shadow_cubemap_at_offset(
@@ -511,13 +519,14 @@ fn sample_shadow_cubemap(
     distance_to_light: f32,
     depth: f32,
     light_id: u32,
+    frag_coord_xy: vec2<f32>,
 ) -> f32 {
 #ifdef SHADOW_FILTER_METHOD_GAUSSIAN
     return sample_shadow_cubemap_gaussian(
         light_local, depth, POINT_SHADOW_SCALE, distance_to_light, light_id);
 #else ifdef SHADOW_FILTER_METHOD_TEMPORAL
     return sample_shadow_cubemap_jittered(
-        light_local, depth, POINT_SHADOW_SCALE, distance_to_light, light_id, true);
+        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE, distance_to_light, light_id, true);
 #else ifdef SHADOW_FILTER_METHOD_HARDWARE_2X2
     return sample_shadow_cubemap_hardware(light_local, depth, light_id);
 #else
@@ -582,6 +591,7 @@ fn sample_shadow_cubemap_pcss(
     depth: f32,
     light_id: u32,
     light_size: f32,
+    frag_coord_xy: vec2<f32>,
 ) -> f32 {
     let z_blocker = search_for_blockers_in_shadow_cubemap(
         light_local, depth, light_size, distance_to_light, light_id);
@@ -591,9 +601,9 @@ fn sample_shadow_cubemap_pcss(
 
 #ifdef SHADOW_FILTER_METHOD_TEMPORAL
     return sample_shadow_cubemap_jittered(
-        light_local, depth, POINT_SHADOW_SCALE * blur_size, distance_to_light, light_id, true);
+        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE * blur_size, distance_to_light, light_id, true);
 #else
     return sample_shadow_cubemap_jittered(
-        light_local, depth, POINT_SHADOW_SCALE * blur_size, distance_to_light, light_id, false);
+        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE * blur_size, distance_to_light, light_id, false);
 #endif
 }

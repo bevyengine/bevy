@@ -183,7 +183,7 @@ pub(crate) use impl_custom_attribute_methods;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{type_info::Typed, TypeInfo, VariantInfo};
+    use crate::{enums::VariantInfo, type_info::Typed, TypeInfo};
     use alloc::{format, string::String};
     use core::ops::RangeInclusive;
 

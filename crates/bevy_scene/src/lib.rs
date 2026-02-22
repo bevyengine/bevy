@@ -59,7 +59,12 @@ impl Plugin for ScenePlugin {
             .init_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
-            .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
+            .add_systems(
+                SpawnScene,
+                (scene_spawner, scene_spawner_system)
+                    .chain()
+                    .in_set(SceneSpawnerSystems::Spawn),
+            );
 
         // Register component hooks for DynamicSceneRoot
         app.world_mut()
@@ -156,6 +161,8 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins((AssetPlugin::default(), ScenePlugin))
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
             .register_type::<Circle>()
             .register_type::<Rectangle>()
             .register_type::<Triangle>()
@@ -282,6 +289,8 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins((AssetPlugin::default(), ScenePlugin))
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
             .register_type::<Circle>()
             .register_type::<Rectangle>()
             .register_type::<Triangle>()

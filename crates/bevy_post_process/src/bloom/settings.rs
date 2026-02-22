@@ -1,5 +1,5 @@
 use super::downsampling_pipeline::BloomUniforms;
-use bevy_camera::Camera;
+use bevy_camera::{Camera, Hdr};
 use bevy_ecs::{
     prelude::Component,
     query::{QueryItem, With},
@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, view::Hdr};
+use bevy_render::{extract_component::ExtractComponent, sync_component::SyncComponent};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
@@ -17,8 +17,6 @@ use bevy_render::{extract_component::ExtractComponent, view::Hdr};
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 ///
 /// # Usage Notes
-///
-/// **Bloom is currently not compatible with WebGL2.**
 ///
 /// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive` for 3d meshes.
 ///
@@ -222,11 +220,13 @@ pub enum BloomCompositeMode {
     Additive,
 }
 
+impl SyncComponent for Bloom {
+    type Out = (Self, BloomUniforms);
+}
+
 impl ExtractComponent for Bloom {
     type QueryData = (&'static Self, &'static Camera);
-
     type QueryFilter = With<Hdr>;
-    type Out = (Self, BloomUniforms);
 
     fn extract_component((bloom, camera): QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         match (
