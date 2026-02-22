@@ -634,7 +634,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
             );
         }
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),

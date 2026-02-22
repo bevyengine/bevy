@@ -7,6 +7,7 @@
 //! implementation using bevy's low level rendering api.
 //! It's generally recommended to try the built-in instancing before going with this approach.
 
+use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::pbr::{SetMeshViewBindingArrayBindGroup, ViewKeyCache};
 use bevy::{
     camera::visibility::NoFrustumCulling,
@@ -149,7 +150,6 @@ fn queue_custom(
             continue;
         };
 
-        let rangefinder = view.rangefinder3d();
         for (entity, main_entity) in &material_meshes {
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*main_entity)
             else {
@@ -164,10 +164,14 @@ fn queue_custom(
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();
             transparent_phase.add(Transparent3d {
+                sorting_info: TransparentSortingInfo3d::Sorted {
+                    mesh_center: mesh_instance.center,
+                    depth_bias: 0.0,
+                },
                 entity: (entity, *main_entity),
                 pipeline,
                 draw_function: draw_custom,
-                distance: rangefinder.distance(&mesh_instance.center),
+                distance: 0.0,
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
