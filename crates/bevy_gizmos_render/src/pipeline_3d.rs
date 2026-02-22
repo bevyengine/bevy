@@ -1,12 +1,12 @@
 use crate::{
     init_line_gizmo_uniform_bind_group_layout, line_gizmo_vertex_buffer_layouts,
     line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo, DrawLineJointGizmo, GizmoRenderSystems,
-    GpuLineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
+    GpuLineGizmo, LineGizmoEntities, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_camera::visibility::RenderLayers;
-use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
+use bevy_core_pipeline::core_3d::{Transparent3d, TransparentSortingInfo3d, CORE_3D_DEPTH_FORMAT};
 use bevy_gizmos::config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig};
 
 use bevy_ecs::{
@@ -287,11 +287,12 @@ fn queue_line_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
     mut pipeline: ResMut<LineGizmoPipeline>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(&ExtractedView, Option<&RenderLayers>)>,
     view_key_cache: Res<ViewKeyCache>,
+    line_gizmo_entities: Res<LineGizmoEntities>,
 ) -> Result<(), BevyError> {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
     let draw_function_strip = draw_functions
@@ -311,7 +312,7 @@ fn queue_line_gizmos_3d(
             continue;
         };
 
-        for (entity, main_entity, config) in &line_gizmos {
+        for (entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
@@ -330,8 +331,9 @@ fn queue_line_gizmos_3d(
                         line_style: config.line_style,
                     },
                 )?;
-                transparent_phase.add(Transparent3d {
-                    entity: (entity, *main_entity),
+                transparent_phase.add_transient(Transparent3d {
+                    sorting_info: TransparentSortingInfo3d::AlwaysOnTop,
+                    entity: (entity, line_gizmo_entities.line_gizmo_renderer),
                     draw_function,
                     pipeline,
                     distance: 0.,
@@ -351,8 +353,9 @@ fn queue_line_gizmos_3d(
                         line_style: config.line_style,
                     },
                 )?;
-                transparent_phase.add(Transparent3d {
-                    entity: (entity, *main_entity),
+                transparent_phase.add_transient(Transparent3d {
+                    sorting_info: TransparentSortingInfo3d::AlwaysOnTop,
+                    entity: (entity, line_gizmo_entities.line_strip_gizmo_renderer),
                     draw_function: draw_function_strip,
                     pipeline,
                     distance: 0.,
@@ -377,6 +380,7 @@ fn queue_line_joint_gizmos_3d(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(&ExtractedView, Option<&RenderLayers>)>,
     view_key_cache: Res<ViewKeyCache>,
+    line_gizmo_entities: Res<LineGizmoEntities>,
 ) {
     let draw_function = draw_functions
         .read()
@@ -395,7 +399,7 @@ fn queue_line_joint_gizmos_3d(
             continue;
         };
 
-        for (entity, main_entity, config) in &line_gizmos {
+        for (entity, _, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
@@ -418,8 +422,9 @@ fn queue_line_joint_gizmos_3d(
                 },
             );
 
-            transparent_phase.add(Transparent3d {
-                entity: (entity, *main_entity),
+            transparent_phase.add_transient(Transparent3d {
+                sorting_info: TransparentSortingInfo3d::AlwaysOnTop,
+                entity: (entity, line_gizmo_entities.line_joint_gizmo_renderer),
                 draw_function,
                 pipeline,
                 distance: 0.,

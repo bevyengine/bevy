@@ -21,7 +21,7 @@ env:
   CARGO_PROFILE_TEST_DEBUG: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: "nightly-2026-02-11"
+  NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
   build-and-install-on-iOS:

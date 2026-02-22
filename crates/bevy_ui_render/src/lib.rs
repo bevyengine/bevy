@@ -768,7 +768,7 @@ pub fn extract_ui_camera_view(
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
             }
-            transparent_render_phases.insert_or_clear(retained_view_entity);
+            transparent_render_phases.prepare_for_new_frame(retained_view_entity);
 
             live_entities.insert(retained_view_entity);
         }
@@ -1351,7 +1351,7 @@ pub fn queue_uinodes(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),

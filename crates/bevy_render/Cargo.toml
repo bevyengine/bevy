@@ -107,7 +107,7 @@ downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 encase = "0.12"
-glam = { version = "0.31.0", default-features = false, features = [
+glam = { version = "0.32.0", default-features = false, features = [
   "std",
   "encase",
 ] }
@@ -122,14 +122,11 @@ offset-allocator = "0.2"
 variadics_please = "1.1"
 tracy-client = { version = "0.18.3", optional = true }
 indexmap = { version = "2" }
-fixedbitset = { version = "0.5" }
 bitflags = "2"
+itertools = "0.14"
 
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
 send_wrapper = { version = "0.6.0" }
-
-[dev-dependencies]
-proptest = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3.83"
@@ -158,5 +155,9 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-featu
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

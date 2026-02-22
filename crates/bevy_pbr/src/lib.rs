@@ -28,6 +28,7 @@ mod atmosphere;
 mod cluster;
 mod components;
 pub mod contact_shadows;
+#[cfg(feature = "bevy_gltf")]
 mod gltf;
 use bevy_render::sync_component::SyncComponent;
 pub use contact_shadows::{
@@ -229,6 +230,7 @@ impl Plugin for PbrPlugin {
                 GpuClusteringPlugin,
             ));
 
+        #[cfg(feature = "bevy_gltf")]
         if self.gltf_enable_standard_materials {
             gltf::add_gltf(app);
         }

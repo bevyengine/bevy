@@ -30,14 +30,12 @@ mod rangefinder;
 
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::change_detection::Tick;
 use bevy_ecs::entity::EntityHash;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_utils::default;
 pub use draw::*;
 pub use draw_state::*;
 use encase::{internal::WriteInto, ShaderSize};
-use fixedbitset::{Block, FixedBitSet};
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
@@ -49,7 +47,7 @@ use crate::batching::gpu_preprocessing::{
 };
 use crate::renderer::RenderDevice;
 use crate::sync_world::{MainEntity, MainEntityHashMap};
-use crate::view::RetainedViewEntity;
+use crate::view::{ExtractedView, RetainedViewEntity};
 use crate::RenderDebugFlags;
 use bevy_material::descriptor::CachedRenderPipelineId;
 
@@ -72,7 +70,13 @@ pub use bevy_material::labels::DrawFunctionId;
 pub use bevy_material_macros::DrawFunctionLabel;
 pub use bevy_material_macros::ShaderLabel;
 use bevy_render::renderer::RenderAdapterInfo;
-use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
+use core::{
+    fmt::Debug,
+    hash::Hash,
+    iter,
+    marker::PhantomData,
+    ops::{Range, RangeBounds},
+};
 use smallvec::SmallVec;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
@@ -152,26 +156,11 @@ where
 
     /// The batch and bin key for each entity.
     ///
-    /// We retain these so that, when the entity changes,
-    /// [`Self::sweep_old_entities`] can quickly find the bin it was located in
-    /// and remove it.
-    cached_entity_bin_keys: IndexMap<MainEntity, CachedBinnedEntity<BPI>, EntityHash>,
+    /// We retain these so that, when the entity changes, the methods that
+    /// remove items from bins can quickly find the bin each entity was located
+    /// in in order to remove it.
+    cached_entity_bin_keys: MainEntityHashMap<CachedBinnedEntity<BPI>>,
 
-    /// The set of indices in [`Self::cached_entity_bin_keys`] that are
-    /// confirmed to be up to date.
-    ///
-    /// Note that each bit in this bit set refers to an *index* in the
-    /// [`IndexMap`] (i.e. a bucket in the hash table). They aren't entity IDs.
-    valid_cached_entity_bin_keys: FixedBitSet,
-
-    /// The set of entities that changed bins this frame.
-    ///
-    /// An entity will only be present in this list if it was in one bin on the
-    /// previous frame and is in a new bin on this frame. Each list entry
-    /// specifies the bin the entity used to be in. We use this in order to
-    /// remove the entity from the old bin during
-    /// [`BinnedRenderPhase::sweep_old_entities`].
-    entities_that_changed_bins: Vec<EntityThatChangedBins<BPI>>,
     /// The gpu preprocessing mode configured for the view this phase is associated
     /// with.
     gpu_preprocessing_mode: GpuPreprocessingMode,
@@ -186,18 +175,6 @@ pub struct RenderBin {
     entities: IndexMap<MainEntity, InputUniformIndex, EntityHash>,
 }
 
-/// Information that we track about an entity that was in one bin on the
-/// previous frame and is in a different bin this frame.
-struct EntityThatChangedBins<BPI>
-where
-    BPI: BinnedPhaseItem,
-{
-    /// The entity.
-    main_entity: MainEntity,
-    /// The key that identifies the bin that this entity used to be in.
-    old_cached_binned_entity: CachedBinnedEntity<BPI>,
-}
-
 /// Information that we keep about an entity currently within a bin.
 pub struct CachedBinnedEntity<BPI>
 where
@@ -205,10 +182,6 @@ where
 {
     /// Information that we use to identify a cached entity in a bin.
     pub cached_bin_key: Option<CachedBinKey<BPI>>,
-    /// The last modified tick of the entity.
-    ///
-    /// We use this to detect when the entity needs to be invalidated.
-    pub change_tick: Tick,
 }
 
 /// Information that we use to identify a cached entity in a bin.
@@ -232,7 +205,6 @@ where
     fn clone(&self) -> Self {
         CachedBinnedEntity {
             cached_bin_key: self.cached_bin_key.clone(),
-            change_tick: self.change_tick,
         }
     }
 }
@@ -477,7 +449,6 @@ where
         (entity, main_entity): (Entity, MainEntity),
         input_uniform_index: InputUniformIndex,
         mut phase_type: BinnedRenderPhaseType,
-        change_tick: Tick,
     ) {
         // If the user has overridden indirect drawing for this view, we need to
         // force the phase type to be batchable instead.
@@ -567,7 +538,6 @@ where
                 bin_key,
                 phase_type,
             }),
-            change_tick,
         );
     }
 
@@ -576,30 +546,10 @@ where
         &mut self,
         main_entity: MainEntity,
         cached_bin_key: Option<CachedBinKey<BPI>>,
-        change_tick: Tick,
     ) {
-        let new_cached_binned_entity = CachedBinnedEntity {
-            cached_bin_key,
-            change_tick,
-        };
-
-        let (index, old_cached_binned_entity) = self
-            .cached_entity_bin_keys
-            .insert_full(main_entity, new_cached_binned_entity.clone());
-
-        // If the entity changed bins, record its old bin so that we can remove
-        // the entity from it.
-        if let Some(old_cached_binned_entity) = old_cached_binned_entity
-            && old_cached_binned_entity.cached_bin_key != new_cached_binned_entity.cached_bin_key
-        {
-            self.entities_that_changed_bins.push(EntityThatChangedBins {
-                main_entity,
-                old_cached_binned_entity,
-            });
-        }
-
-        // Mark the entity as valid.
-        self.valid_cached_entity_bin_keys.grow_and_insert(index);
+        let new_cached_binned_entity = CachedBinnedEntity { cached_bin_key };
+        self.cached_entity_bin_keys
+            .insert(main_entity, new_cached_binned_entity);
     }
 
     /// Encodes the GPU commands needed to render all entities in this phase.
@@ -856,80 +806,23 @@ where
     pub fn prepare_for_new_frame(&mut self) {
         self.batch_sets.clear();
 
-        self.valid_cached_entity_bin_keys.clear();
-        self.valid_cached_entity_bin_keys
-            .grow(self.cached_entity_bin_keys.len());
-        self.valid_cached_entity_bin_keys
-            .set_range(self.cached_entity_bin_keys.len().., true);
-
-        self.entities_that_changed_bins.clear();
-
         for unbatchable_bin in self.unbatchable_meshes.values_mut() {
             unbatchable_bin.buffer_indices.clear();
         }
     }
 
-    /// Checks to see whether the entity is in a bin and returns true if it's
-    /// both in a bin and up to date.
+    /// Removes a single entity from its bin.
     ///
-    /// If this function returns true, we also add the entry to the
-    /// `valid_cached_entity_bin_keys` list.
-    pub fn validate_cached_entity(
-        &mut self,
-        visible_entity: MainEntity,
-        current_change_tick: Tick,
-    ) -> bool {
-        if let indexmap::map::Entry::Occupied(entry) =
-            self.cached_entity_bin_keys.entry(visible_entity)
-            && entry.get().change_tick == current_change_tick
-        {
-            self.valid_cached_entity_bin_keys.insert(entry.index());
-            return true;
-        }
+    /// If doing so makes the bin empty, this method removes the bin as well.
+    pub fn remove(&mut self, main_entity: MainEntity) {
+        let Some(cached_binned_entity) = self.cached_entity_bin_keys.remove(&main_entity) else {
+            return;
+        };
 
-        false
-    }
-
-    /// Removes all entities not marked as clean from the bins.
-    ///
-    /// During `queue_material_meshes`, we process all visible entities and mark
-    /// each as clean as we come to it. Then, in [`sweep_old_entities`], we call
-    /// this method, which removes entities that aren't marked as clean from the
-    /// bins.
-    pub fn sweep_old_entities(&mut self) {
-        // Search for entities not marked as valid. We have to do this in
-        // reverse order because `swap_remove_index` will potentially invalidate
-        // all indices after the one we remove.
-        for index in ReverseFixedBitSetZeroesIterator::new(&self.valid_cached_entity_bin_keys) {
-            let Some((entity, cached_binned_entity)) =
-                self.cached_entity_bin_keys.swap_remove_index(index)
-            else {
-                continue;
-            };
-
-            if let Some(ref cached_bin_key) = cached_binned_entity.cached_bin_key {
-                remove_entity_from_bin(
-                    entity,
-                    cached_bin_key,
-                    &mut self.multidrawable_meshes,
-                    &mut self.batchable_meshes,
-                    &mut self.unbatchable_meshes,
-                    &mut self.non_mesh_items,
-                );
-            }
-        }
-
-        // If an entity changed bins, we need to remove it from its old bin.
-        for entity_that_changed_bins in self.entities_that_changed_bins.drain(..) {
-            let Some(ref old_cached_bin_key) = entity_that_changed_bins
-                .old_cached_binned_entity
-                .cached_bin_key
-            else {
-                continue;
-            };
+        if let Some(ref cached_bin_key) = cached_binned_entity.cached_bin_key {
             remove_entity_from_bin(
-                entity_that_changed_bins.main_entity,
-                old_cached_bin_key,
+                main_entity,
+                cached_bin_key,
                 &mut self.multidrawable_meshes,
                 &mut self.batchable_meshes,
                 &mut self.unbatchable_meshes,
@@ -1044,9 +937,7 @@ where
                 }
                 GpuPreprocessingMode::None => BinnedRenderPhaseBatchSets::DynamicUniforms(vec![]),
             },
-            cached_entity_bin_keys: IndexMap::default(),
-            valid_cached_entity_bin_keys: FixedBitSet::new(),
-            entities_that_changed_bins: vec![],
+            cached_entity_bin_keys: MainEntityHashMap::default(),
             gpu_preprocessing_mode: gpu_preprocessing,
         }
     }
@@ -1155,7 +1046,6 @@ where
                             ),
                     )
                         .in_set(RenderSystems::PrepareResourcesBatchPhases),
-                    sweep_old_entities::<BPI>.in_set(RenderSystems::QueueSweep),
                     gpu_preprocessing::collect_buffers_for_phase::<BPI, GFBD>
                         .run_if(
                             resource_exists::<
@@ -1191,9 +1081,18 @@ impl<SPI> ViewSortedRenderPhases<SPI>
 where
     SPI: SortedPhaseItem,
 {
-    pub fn insert_or_clear(&mut self, retained_view_entity: RetainedViewEntity) {
+    /// Ensures that a set of phases are present for the given
+    /// [`RetainedViewEntity`].
+    pub fn prepare_for_new_frame(&mut self, retained_view_entity: RetainedViewEntity) {
         match self.entry(retained_view_entity) {
-            Entry::Occupied(mut entry) => entry.get_mut().clear(),
+            Entry::Occupied(mut entry) => {
+                let render_phase = entry.get_mut();
+                for (render_entity, main_entity) in render_phase.transient_items.drain(..) {
+                    render_phase
+                        .items
+                        .swap_remove(&(render_entity, main_entity));
+                }
+            }
             Entry::Vacant(entry) => {
                 entry.insert(default());
             }
@@ -1388,7 +1287,10 @@ where
     I: SortedPhaseItem,
 {
     /// The items within this [`SortedRenderPhase`].
-    pub items: Vec<I>,
+    pub items: IndexMap<(Entity, MainEntity), I, EntityHash>,
+    /// Items within this render phase that will be automatically removed after
+    /// this frame.
+    pub transient_items: Vec<(Entity, MainEntity)>,
 }
 
 impl<I> Default for SortedRenderPhase<I>
@@ -1396,7 +1298,10 @@ where
     I: SortedPhaseItem,
 {
     fn default() -> Self {
-        Self { items: Vec::new() }
+        Self {
+            items: IndexMap::default(),
+            transient_items: vec![],
+        }
     }
 }
 
@@ -1407,13 +1312,38 @@ where
     /// Adds a [`PhaseItem`] to this render phase.
     #[inline]
     pub fn add(&mut self, item: I) {
-        self.items.push(item);
+        self.items.insert((item.entity(), item.main_entity()), item);
+    }
+
+    /// Adds a [`PhaseItem`] which will be automatically removed after this
+    /// frame to this phase.
+    #[inline]
+    pub fn add_transient(&mut self, item: I) {
+        let key = (item.entity(), item.main_entity());
+        self.items.insert(key, item);
+        self.transient_items.push(key);
+    }
+
+    /// Removes the [`PhaseItem`] corresponding to the given main-world entity
+    /// from this render phase.
+    #[inline]
+    pub fn remove(&mut self, render_entity: Entity, main_entity: MainEntity) {
+        self.items.swap_remove(&(render_entity, main_entity));
     }
 
     /// Removes all [`PhaseItem`]s from this render phase.
     #[inline]
     pub fn clear(&mut self) {
         self.items.clear();
+    }
+
+    /// Populates whatever internal fields are necessary in order to perform the
+    /// sort.
+    ///
+    /// For example, for transparent 3D phases, this calculates the distance
+    /// from each object to the view.
+    pub fn recalculate_sort_keys(&mut self, view: &ExtractedView) {
+        I::recalculate_sort_keys(&mut self.items, view);
     }
 
     /// Sorts all of its [`PhaseItem`]s.
@@ -1424,7 +1354,7 @@ where
     /// An [`Iterator`] through the associated [`Entity`] for each [`PhaseItem`] in order.
     #[inline]
     pub fn iter_entities(&'_ self) -> impl Iterator<Item = Entity> + '_ {
-        self.items.iter().map(PhaseItem::entity)
+        self.items.values().map(PhaseItem::entity)
     }
 
     /// Renders all of its [`PhaseItem`]s using their corresponding draw functions.
@@ -1443,11 +1373,11 @@ where
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
-        range: impl SliceIndex<[I], Output = [I]>,
+        range: impl RangeBounds<usize>,
     ) -> Result<(), DrawError> {
         let items = self
             .items
-            .get(range)
+            .get_range(range)
             .expect("`Range` provided to `render_range()` is out of bounds");
 
         let draw_functions = world.resource::<DrawFunctions<I>>();
@@ -1675,9 +1605,21 @@ pub trait SortedPhaseItem: PhaseItem {
     ///
     /// It's advised to always profile for performance changes when changing this implementation.
     #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(Self::sort_key);
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>) {
+        items.sort_unstable_by_key(|_, value| Self::sort_key(value));
     }
+
+    /// Populates whatever internal fields are necessary in order to perform the
+    /// sort.
+    ///
+    /// The renderer calls this method right before calling [`Self::sort`]. For
+    /// 3D transparent phases that need to be depth sorted, it populates the
+    /// `distance` field with the actual distance from the view. For other
+    /// phases, this method is generally a no-op.
+    fn recalculate_sort_keys(
+        items: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        view: &ExtractedView,
+    );
 
     /// Whether this phase item targets indexed meshes (those with both vertex
     /// and index buffers as opposed to just vertex buffers).
@@ -1730,24 +1672,18 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
 
 /// This system sorts the [`PhaseItem`]s of all [`SortedRenderPhase`]s of this
 /// type.
-pub fn sort_phase_system<I>(mut render_phases: ResMut<ViewSortedRenderPhases<I>>)
-where
+pub fn sort_phase_system<I>(
+    views: Query<&ExtractedView>,
+    mut render_phases: ResMut<ViewSortedRenderPhases<I>>,
+) where
     I: SortedPhaseItem,
 {
-    for phase in render_phases.values_mut() {
+    for view in &views {
+        let Some(phase) = render_phases.get_mut(&view.retained_view_entity) else {
+            continue;
+        };
+        phase.recalculate_sort_keys(view);
         phase.sort();
-    }
-}
-
-/// Removes entities that became invisible or changed phases from the bins.
-///
-/// This must run after queuing.
-pub fn sweep_old_entities<BPI>(mut render_phases: ResMut<ViewBinnedRenderPhases<BPI>>)
-where
-    BPI: BinnedPhaseItem,
-{
-    for phase in render_phases.0.values_mut() {
-        phase.sweep_old_entities();
     }
 }
 
@@ -1792,99 +1728,5 @@ impl RenderBin {
     #[inline]
     pub fn entities(&self) -> &IndexMap<MainEntity, InputUniformIndex, EntityHash> {
         &self.entities
-    }
-}
-
-/// An iterator that efficiently finds the indices of all zero bits in a
-/// [`FixedBitSet`] and returns them in reverse order.
-///
-/// [`FixedBitSet`] doesn't natively offer this functionality, so we have to
-/// implement it ourselves.
-#[derive(Debug)]
-struct ReverseFixedBitSetZeroesIterator<'a> {
-    /// The bit set.
-    bitset: &'a FixedBitSet,
-    /// The next bit index we're going to scan when [`Iterator::next`] is
-    /// called.
-    bit_index: isize,
-}
-
-impl<'a> ReverseFixedBitSetZeroesIterator<'a> {
-    fn new(bitset: &'a FixedBitSet) -> ReverseFixedBitSetZeroesIterator<'a> {
-        ReverseFixedBitSetZeroesIterator {
-            bitset,
-            bit_index: (bitset.len() as isize) - 1,
-        }
-    }
-}
-
-impl<'a> Iterator for ReverseFixedBitSetZeroesIterator<'a> {
-    type Item = usize;
-
-    fn next(&mut self) -> Option<usize> {
-        while self.bit_index >= 0 {
-            // Unpack the bit index into block and bit.
-            let block_index = self.bit_index / (Block::BITS as isize);
-            let bit_pos = self.bit_index % (Block::BITS as isize);
-
-            // Grab the block. Mask off all bits above the one we're scanning
-            // from by setting them all to 1.
-            let mut block = self.bitset.as_slice()[block_index as usize];
-            if bit_pos + 1 < (Block::BITS as isize) {
-                block |= (!0) << (bit_pos + 1);
-            }
-
-            // Search for the next unset bit. Note that the `leading_ones`
-            // function counts from the MSB to the LSB, so we need to flip it to
-            // get the bit number.
-            let pos = (Block::BITS as isize) - (block.leading_ones() as isize) - 1;
-
-            // If we found an unset bit, return it.
-            if pos != -1 {
-                let result = block_index * (Block::BITS as isize) + pos;
-                self.bit_index = result - 1;
-                return Some(result as usize);
-            }
-
-            // Otherwise, go to the previous block.
-            self.bit_index = block_index * (Block::BITS as isize) - 1;
-        }
-
-        None
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::ReverseFixedBitSetZeroesIterator;
-    use fixedbitset::FixedBitSet;
-    use proptest::{collection::vec, prop_assert_eq, proptest};
-
-    proptest! {
-        #[test]
-        fn reverse_fixed_bit_set_zeroes_iterator(
-            bits in vec(0usize..1024usize, 0usize..1024usize),
-            size in 0usize..1024usize,
-        ) {
-            // Build a random bit set.
-            let mut bitset = FixedBitSet::new();
-            bitset.grow(size);
-            for bit in bits {
-                if bit < size {
-                    bitset.set(bit, true);
-                }
-            }
-
-            // Iterate over the bit set backwards in a naive way, and check that
-            // that iteration sequence corresponds to the optimized one.
-            let mut iter = ReverseFixedBitSetZeroesIterator::new(&bitset);
-            for bit_index in (0..size).rev() {
-                if !bitset.contains(bit_index) {
-                    prop_assert_eq!(iter.next(), Some(bit_index));
-                }
-            }
-
-            prop_assert_eq!(iter.next(), None);
-        }
     }
 }
