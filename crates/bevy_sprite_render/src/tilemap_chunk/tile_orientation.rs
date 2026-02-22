@@ -4,10 +4,10 @@ use bevy_math::IVec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// The set of possible tile orientations based on any combination of mirroring in
-/// x and/or y axes, and/or rotation by 90 degree increments.
+/// x and/or y axes, and/or rotation by 90 degree increments counter-clockwise.
 /// The ordering starts from the default orientation (no rotation or mirroring),
-/// then we have 90 degree clockwise rotations, then we start from a mirror in the x
-/// and perform 90 degree rotations of that.
+/// then we have 90 degree counter-clockwise rotations, then we start from a mirror in the x
+/// and perform 90 degree counter-clockwise rotations of that.
 /// The representation is a u8 value where the bits (from most significant to least
 /// significant), represent mirroring in the x axis, then the y axis, then the diagonal
 /// axis running from the top-left of the tile to the bottom-right (which corresponds to
@@ -22,13 +22,13 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 pub enum TileOrientation {
     #[default]
     Default = 0b000,
-    Rotate90 = 0b101,
+    Rotate90Ccw = 0b011,
     Rotate180 = 0b110,
-    Rotate270 = 0b011,
+    Rotate270Ccw = 0b101,
     MirrorX = 0b100,
-    MirrorXRotate90 = 0b111,
+    MirrorXRotate90Ccw = 0b001,
     MirrorXRotate180 = 0b010,
-    MirrorXRotate270 = 0b001,
+    MirrorXRotate270Ccw = 0b111,
 }
 
 impl TileOrientation {
@@ -45,13 +45,13 @@ impl TileOrientation {
     pub fn from_bools(mirror_x: bool, mirror_y: bool, swap_xy: bool) -> TileOrientation {
         match (mirror_x, mirror_y, swap_xy) {
             (false, false, false) => TileOrientation::Default,
-            (true, false, true) => TileOrientation::Rotate90,
+            (false, true, true) => TileOrientation::Rotate90Ccw,
             (true, true, false) => TileOrientation::Rotate180,
-            (false, true, true) => TileOrientation::Rotate270,
+            (true, false, true) => TileOrientation::Rotate270Ccw,
             (true, false, false) => TileOrientation::MirrorX,
-            (true, true, true) => TileOrientation::MirrorXRotate90,
+            (false, false, true) => TileOrientation::MirrorXRotate90Ccw,
             (false, true, false) => TileOrientation::MirrorXRotate180,
-            (false, false, true) => TileOrientation::MirrorXRotate270,
+            (true, true, true) => TileOrientation::MirrorXRotate270Ccw,
         }
     }
 
@@ -77,13 +77,13 @@ impl TileOrientation {
     pub fn inverse(&self) -> TileOrientation {
         match self {
             Self::Default => Self::Default,
-            Self::Rotate90 => Self::Rotate270,
+            Self::Rotate90Ccw => Self::Rotate270Ccw,
             Self::Rotate180 => Self::Rotate180,
-            Self::Rotate270 => Self::Rotate90,
+            Self::Rotate270Ccw => Self::Rotate90Ccw,
             Self::MirrorX => Self::MirrorX,
-            Self::MirrorXRotate90 => Self::MirrorXRotate90,
+            Self::MirrorXRotate90Ccw => Self::MirrorXRotate90Ccw,
             Self::MirrorXRotate180 => Self::MirrorXRotate180,
-            Self::MirrorXRotate270 => Self::MirrorXRotate270,
+            Self::MirrorXRotate270Ccw => Self::MirrorXRotate270Ccw,
         }
     }
 
@@ -133,13 +133,13 @@ impl Display for TileOrientation {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Default => write!(f, "Default"),
-            Self::Rotate90 => write!(f, "Rotate90"),
+            Self::Rotate90Ccw => write!(f, "Rotate90"),
             Self::Rotate180 => write!(f, "Rotate180"),
-            Self::Rotate270 => write!(f, "Rotate270"),
+            Self::Rotate270Ccw => write!(f, "Rotate270"),
             Self::MirrorX => write!(f, "MirrorX"),
-            Self::MirrorXRotate90 => write!(f, "MirrorXRotate90"),
+            Self::MirrorXRotate90Ccw => write!(f, "MirrorXRotate90"),
             Self::MirrorXRotate180 => write!(f, "MirrorXRotate180"),
-            Self::MirrorXRotate270 => write!(f, "MirrorXRotate270"),
+            Self::MirrorXRotate270Ccw => write!(f, "MirrorXRotate270"),
         }
     }
 }
@@ -152,13 +152,13 @@ mod tests {
 
     const CASES: [(TileOrientation, bool, bool, bool); 8] = [
         (TileOrientation::Default, false, false, false),
-        (TileOrientation::Rotate90, true, false, true),
+        (TileOrientation::Rotate90Ccw, false, true, true),
         (TileOrientation::Rotate180, true, true, false),
-        (TileOrientation::Rotate270, false, true, true),
+        (TileOrientation::Rotate270Ccw, true, false, true),
         (TileOrientation::MirrorX, true, false, false),
-        (TileOrientation::MirrorXRotate90, true, true, true),
+        (TileOrientation::MirrorXRotate90Ccw, false, false, true),
         (TileOrientation::MirrorXRotate180, false, true, false),
-        (TileOrientation::MirrorXRotate270, false, false, true),
+        (TileOrientation::MirrorXRotate270Ccw, true, true, true),
     ];
 
     #[test]
@@ -200,13 +200,13 @@ mod tests {
     // Worked out by hand with paper :)
     const POS_CASES: [(TileOrientation, IVec2); 8] = [
         (TileOrientation::Default, ivec2(1, 2)),
-        (TileOrientation::Rotate90, ivec2(-2, 1)),
+        (TileOrientation::Rotate90Ccw, ivec2(2, -1)),
         (TileOrientation::Rotate180, ivec2(-1, -2)),
-        (TileOrientation::Rotate270, ivec2(2, -1)),
+        (TileOrientation::Rotate270Ccw, ivec2(-2, 1)),
         (TileOrientation::MirrorX, ivec2(-1, 2)),
-        (TileOrientation::MirrorXRotate90, ivec2(-2, -1)),
+        (TileOrientation::MirrorXRotate90Ccw, ivec2(2, 1)),
         (TileOrientation::MirrorXRotate180, ivec2(1, -2)),
-        (TileOrientation::MirrorXRotate270, ivec2(2, 1)),
+        (TileOrientation::MirrorXRotate270Ccw, ivec2(-2, -1)),
     ];
 
     #[test]
