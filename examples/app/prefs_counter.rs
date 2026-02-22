@@ -40,7 +40,10 @@ struct Counter {
 #[derive(Resource, SettingsGroup, Reflect, Default)]
 #[reflect(Resource, SettingsGroup, Default)]
 #[settings_group(group = "counter")]
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "Example showing additional settings in the same group"
+)]
 struct OtherSettings {
     enabled: bool,
 }
