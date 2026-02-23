@@ -357,7 +357,8 @@ impl Plugin for GpuMeshPreprocessPlugin {
                             MeshUniform,
                             MeshInputUniform
                         >>)
-                        .in_set(RenderSystems::PrepareBindGroups),
+                        .in_set(RenderSystems::PrepareBindGroups)
+                        .after(prepare_preprocess_pipelines),
                     write_mesh_culling_data_buffer.in_set(RenderSystems::PrepareResourcesFlush),
                 ),
             )

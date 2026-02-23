@@ -18,7 +18,7 @@ pub(crate) fn add_gltf(app: &mut App) {
             .0
             .write()
             .await
-            .push(Box::new(GltfExtensionHandlerPbr))
+            .push(Box::new(GltfExtensionHandlerPbr));
     });
 
     #[cfg(not(target_family = "wasm"))]
@@ -29,7 +29,8 @@ pub(crate) fn add_gltf(app: &mut App) {
         .push(Box::new(GltfExtensionHandlerPbr));
 }
 
-fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMaterial {
+/// Converts a [`GltfMaterial`] to a [`StandardMaterial`]
+pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMaterial {
     StandardMaterial {
         base_color: material.base_color,
         base_color_channel: material.base_color_channel.clone(),
@@ -103,7 +104,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerPbr {
     fn on_root(&mut self, load_context: &mut LoadContext<'_>, _gltf: &gltf::Gltf) {
         // create the `StandardMaterial` for the glTF `DefaultMaterial` so
         // it can be accessed when meshes don't have materials.
-        let std_label = format!("{}#std", GltfAssetLabel::DefaultMaterial);
+        let std_label = format!("{}/std", GltfAssetLabel::DefaultMaterial);
 
         load_context.add_labeled_asset(
             std_label,
@@ -119,7 +120,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerPbr {
         material_asset: &GltfMaterial,
         material_label: &str,
     ) {
-        let std_label = format!("{}#std", material_label);
+        let std_label = format!("{}/std", material_label);
 
         load_context.add_labeled_asset(
             std_label,
@@ -136,7 +137,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerPbr {
         entity: &mut EntityWorldMut,
         material_label: &str,
     ) {
-        let std_label = format!("{}#std", material_label);
+        let std_label = format!("{}/std", material_label);
         let handle = load_context.get_label_handle::<StandardMaterial>(std_label);
 
         entity.insert(MeshMaterial3d(handle));

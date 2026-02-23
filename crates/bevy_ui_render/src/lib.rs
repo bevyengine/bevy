@@ -768,7 +768,7 @@ pub fn extract_ui_camera_view(
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
             }
-            transparent_render_phases.insert_or_clear(retained_view_entity);
+            transparent_render_phases.prepare_for_new_frame(retained_view_entity);
 
             live_entities.insert(retained_view_entity);
         }
@@ -843,7 +843,6 @@ pub fn extract_viewport_nodes(
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -912,15 +911,10 @@ pub fn extract_text_sections(
                 current_span_index = *span_index;
             }
 
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color,
                 translation: *position,
-                rect,
+                rect: atlas_info.rect,
             });
 
             if text_layout_info
@@ -949,7 +943,6 @@ pub fn extract_text_sections(
 pub fn extract_text_shadows(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -1006,15 +999,10 @@ pub fn extract_text_shadows(
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color: shadow.color.into(),
                 translation: *position,
-                rect,
+                rect: atlas_info.rect,
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
@@ -1363,7 +1351,7 @@ pub fn queue_uinodes(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),

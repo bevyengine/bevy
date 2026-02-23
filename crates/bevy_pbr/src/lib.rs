@@ -28,6 +28,7 @@ mod atmosphere;
 mod cluster;
 mod components;
 pub mod contact_shadows;
+#[cfg(feature = "bevy_gltf")]
 mod gltf;
 use bevy_render::sync_component::SyncComponent;
 pub use contact_shadows::{
@@ -139,8 +140,8 @@ pub struct PbrPlugin {
     pub use_gpu_instance_buffer_builder: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
-    /// Renders GLTFs with PBR.
-    pub gltf_render_enabled: bool,
+    /// Builds and inserts `StandardMaterial` when loading glTF files
+    pub gltf_enable_standard_materials: bool,
 }
 
 impl Default for PbrPlugin {
@@ -150,7 +151,7 @@ impl Default for PbrPlugin {
             add_default_deferred_lighting_plugin: true,
             use_gpu_instance_buffer_builder: true,
             debug_flags: RenderDebugFlags::default(),
-            gltf_render_enabled: true,
+            gltf_enable_standard_materials: true,
         }
     }
 }
@@ -224,7 +225,8 @@ impl Plugin for PbrPlugin {
             ))
             .add_plugins((ScatteringMediumPlugin, AtmospherePlugin));
 
-        if self.gltf_render_enabled {
+        #[cfg(feature = "bevy_gltf")]
+        if self.gltf_enable_standard_materials {
             gltf::add_gltf(app);
         }
 

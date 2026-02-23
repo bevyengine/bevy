@@ -406,7 +406,7 @@ impl AssetInfos {
     ) {
         // Process all the labeled assets first so that they don't get skipped due to the "parent"
         // not having its handle alive.
-        for (_, asset) in loaded_asset.labeled_assets {
+        for asset in loaded_asset.labeled_assets {
             let UntypedHandle::Strong(handle) = &asset.handle else {
                 unreachable!("Labeled assets are always strong handles");
             };
