@@ -1,5 +1,4 @@
 use core::mem::{self, size_of};
-use std::sync::OnceLock;
 
 use bevy_asset::{prelude::AssetChanged, Assets};
 use bevy_camera::visibility::ViewVisibility;
