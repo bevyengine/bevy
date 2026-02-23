@@ -518,7 +518,7 @@ pub fn prepare_ui_slices(
                     ];
 
                     let transformed_rect_size =
-                        texture_slices.transform.transform_vector2(rect_size);
+                        texture_slices.transform.transform_vector2(rect_size).abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π

@@ -1,6 +1,6 @@
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
-use bevy_ecs::reflect::{ReflectMapEntities, ReflectResource};
+use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent},
@@ -8,7 +8,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::{PartialReflect, TypePath};
 
-use crate::reflect_utils::clone_reflect_value;
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
 
@@ -151,30 +150,34 @@ impl DynamicScene {
                     type_path: type_info.type_path().to_string(),
                 }
             })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+            registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
                     type_path: type_info.type_path().to_string(),
                 }
             })?;
+            // reflect_resource existing, implies that reflect_component also exists
+            let reflect_component = registration
+                .data::<ReflectComponent>()
+                .expect("ReflectComponent is depended on ReflectResource");
 
-            // If this component references entities in the scene, update
-            // them to the entities in the world.
-            let mut cloned_resource;
-            let partial_reflect_resource = if let Some(map_entities) =
-                registration.data::<ReflectMapEntities>()
-            {
-                cloned_resource = clone_reflect_value(resource.as_partial_reflect(), registration);
-                SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
-                    map_entities.map_entities(cloned_resource.as_partial_reflect_mut(), mapper);
-                });
-                cloned_resource.as_partial_reflect()
+            let resource_id = reflect_component.register_component(world);
+
+            // check if the resource already exists, if not spawn it, otherwise override the value
+            let entity = if let Some(entity) = world.resource_entities().get(resource_id) {
+                *entity
             } else {
-                resource.as_partial_reflect()
+                world.spawn_empty().id()
             };
 
-            // If the world already contains an instance of the given resource
-            // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, partial_reflect_resource, &type_registry);
+            SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
+                reflect_component.apply_or_insert_mapped(
+                    &mut world.entity_mut(entity),
+                    resource.as_partial_reflect(),
+                    &type_registry,
+                    mapper,
+                    RelationshipHookMode::Skip,
+                );
+            });
         }
 
         Ok(())

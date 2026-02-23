@@ -1,12 +1,14 @@
 name: Welcome new contributors
 
-# This workflow has write permissions on the repo
-# It must not checkout a PR and run untrusted code
+# This workflow has write permissions on the repo.
+# It must not checkout a PR and run untrusted code!
 
 on:
   pull_request_target:
     types:
       - opened
+    branches:
+      - "main"
 
 jobs:
   welcome:
@@ -14,7 +16,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - uses: actions/github-script@v8
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             // Get a list of all issues created by the PR opener

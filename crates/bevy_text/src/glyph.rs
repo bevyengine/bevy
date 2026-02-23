@@ -2,7 +2,7 @@
 
 use bevy_asset::AssetId;
 use bevy_image::prelude::*;
-use bevy_math::{IVec2, Vec2};
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::Reflect;
 
 /// A glyph of a font, typically representing a single character, positioned in screen space.
@@ -15,8 +15,6 @@ use bevy_reflect::Reflect;
 pub struct PositionedGlyph {
     /// The position of the glyph in the text block's bounding box.
     pub position: Vec2,
-    /// The width and height of the glyph in logical pixels.
-    pub size: Vec2,
     /// Information about the glyph's atlas.
     pub atlas_info: GlyphAtlasInfo,
     /// The index of the glyph in the [`ComputedTextBlock`](crate::ComputedTextBlock)'s tracked spans.
@@ -42,13 +40,10 @@ pub struct GlyphAtlasInfo {
     ///
     /// An asset ID of the handle held by the [`FontAtlas`](crate::FontAtlas).
     pub texture: AssetId<Image>,
-    /// An asset ID to the [`TextureAtlasLayout`] map for the texture atlas this glyph was placed
-    /// in.
-    ///
-    /// An asset ID of the handle held by the [`FontAtlas`](crate::FontAtlas).
-    pub texture_atlas: AssetId<TextureAtlasLayout>,
-    /// Location and offset of a glyph within the texture atlas.
-    pub location: GlyphAtlasLocation,
+    /// Bounds of the glyph in the atlas texture
+    pub rect: Rect,
+    /// The required offset (relative positioning) when placed
+    pub offset: Vec2,
 }
 
 /// The location of a glyph in an atlas,
@@ -61,5 +56,5 @@ pub struct GlyphAtlasLocation {
     /// The index of the glyph in the atlas
     pub glyph_index: usize,
     /// The required offset (relative positioning) when placed
-    pub offset: IVec2,
+    pub offset: Vec2,
 }

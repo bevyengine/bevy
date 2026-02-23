@@ -4,6 +4,7 @@ impl_reflect_opaque!(::petgraph::graph::NodeIndex(
     Clone,
     Default,
     PartialEq,
+    PartialOrd,
     Hash,
     Serialize,
     Deserialize

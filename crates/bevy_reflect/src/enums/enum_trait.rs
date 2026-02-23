@@ -1,8 +1,9 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
+    enums::{DynamicEnum, VariantInfo, VariantType},
     type_info::impl_type_methods,
-    DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
+    Generics, PartialReflect, Type, TypePath,
 };
 use alloc::{boxed::Box, format, string::String};
 use bevy_platform::collections::HashMap;
@@ -325,7 +326,7 @@ impl<'a> VariantField<'a> {
 // Tests that need access to internal fields have to go here rather than in mod.rs
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use crate::{enums::*, Reflect};
 
     #[derive(Reflect, Debug, PartialEq)]
     enum MyEnum {

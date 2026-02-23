@@ -14,8 +14,8 @@ use crate::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
     },
-    resource::Resource,
-    storage::ResourceData,
+    resource::{Resource, IS_RESOURCE},
+    storage::NonSendData,
     system::{Query, Single, SystemMeta},
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
@@ -762,7 +762,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        world.components_registrator().register_resource::<T>()
+        world.components_registrator().register_component::<T>()
     }
 
     fn init_access(
@@ -779,7 +779,20 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             system_meta.name,
         );
 
-        component_access_set.add_unfiltered_resource_read(component_id);
+        let mut filter = FilteredAccess::default();
+        filter.add_component_read(component_id);
+        filter.add_resource_read(component_id);
+        filter.and_with(IS_RESOURCE);
+
+        assert!(component_access_set
+            .get_conflicts_single(&filter)
+            .is_empty(),
+            "error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+            DebugName::type_name::<T>(),
+            system_meta.name
+        );
+
+        component_access_set.add(filter);
     }
 
     #[inline]
@@ -788,11 +801,10 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
-        if unsafe { world.storages() }
-            .resources
-            .get(component_id)
-            .is_some_and(ResourceData::is_present)
+        // SAFETY: Read-only access to the resource
+        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
+            && let Ok(entity_ref) = world.get_entity(*entity)
+            && entity_ref.contains_id(component_id)
         {
             Ok(())
         } else {
@@ -838,7 +850,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        world.components_registrator().register_resource::<T>()
+        world.components_registrator().register_component::<T>()
     }
 
     fn init_access(
@@ -857,7 +869,21 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
         }
-        component_access_set.add_unfiltered_resource_write(component_id);
+
+        let mut filter = FilteredAccess::default();
+        filter.add_component_write(component_id);
+        filter.add_resource_write(component_id);
+        filter.and_with(IS_RESOURCE);
+
+        assert!(component_access_set
+            .get_conflicts_single(&filter)
+            .is_empty(),
+            "error[B0002]: ResMut<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+            DebugName::type_name::<T>(),
+            system_meta.name
+        );
+
+        component_access_set.add(filter);
     }
 
     #[inline]
@@ -866,11 +892,10 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
-        if unsafe { world.storages() }
-            .resources
-            .get(component_id)
-            .is_some_and(ResourceData::is_present)
+        // SAFETY: Read-only access to the resource.
+        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
+            && let Ok(entity_ref) = world.get_entity(*entity)
+            && entity_ref.contains_id(component_id)
         {
             Ok(())
         } else {
@@ -909,7 +934,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     }
 }
 
-/// SAFETY: only reads world
+// SAFETY: only reads world
 unsafe impl<'w> ReadOnlySystemParam for &'w World {}
 
 // SAFETY: `read_all` access is set and conflicts result in a panic
@@ -949,7 +974,7 @@ unsafe impl SystemParam for &'_ World {
     }
 }
 
-/// SAFETY: `DeferredWorld` can read all components and resources but cannot be used to gain any other mutable references.
+// SAFETY: `DeferredWorld` can read all components and resources but cannot be used to gain any other mutable references.
 unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type State = ();
     type Item<'world, 'state> = DeferredWorld<'world>;
@@ -1179,9 +1204,14 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 /// so you should try to minimize the time spent in [`SystemBuffer::apply`].
 pub trait SystemBuffer: FromWorld + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
-    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
+    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+        self.queue(system_meta, world.into());
+    }
     /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
-    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
+    ///
+    /// To queue structural changes to [`DeferredWorld`], a command queue of the [`DeferredWorld`]
+    /// should be used via [`commands`](crate::world::DeferredWorld::commands).
+    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld);
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
@@ -1202,6 +1232,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::world::DeferredWorld;
 /// // Tracks whether or not there is a threat the player should be aware of.
 /// #[derive(Resource, Default)]
 /// pub struct Alarm(bool);
@@ -1237,7 +1268,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// impl SystemBuffer for AlarmFlag {
 ///     // When `AlarmFlag` is used in a system, this function will get
 ///     // called the next time buffers are applied via ApplyDeferred.
-///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+///     fn queue(&mut self, system_meta: &SystemMeta, mut world: DeferredWorld) {
 ///         if self.0 {
 ///             world.resource_mut::<Alarm>().0 = true;
 ///             self.0 = false;
@@ -1336,6 +1367,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Deferred<'s, T>;
 
+    #[track_caller]
     fn init_state(world: &mut World) -> Self::State {
         SyncCell::new(T::from_world(world))
     }
@@ -1473,11 +1505,11 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
+        // SAFETY: Read-only access to non-send metadata.
         if unsafe { world.storages() }
-            .non_send_resources
+            .non_sends
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(NonSendData::is_present)
         {
             Ok(())
         } else {
@@ -1547,11 +1579,11 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
+        // SAFETY: Read-only access to non-send metadata.
         if unsafe { world.storages() }
-            .non_send_resources
+            .non_sends
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(NonSendData::is_present)
         {
             Ok(())
         } else {
@@ -1696,7 +1728,7 @@ unsafe impl<'a> SystemParam for &'a EntityAllocator {
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        world.entities_allocator()
+        world.entity_allocator()
     }
 }
 
@@ -2171,6 +2203,7 @@ macro_rules! impl_system_param_tuple {
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
 
             #[inline]
+            #[track_caller]
             fn init_state(world: &mut World) -> Self::State {
                 ($($param::init_state(world),)*)
             }
@@ -2216,6 +2249,7 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
+            #[track_caller]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
                 system_meta: &SystemMeta,
@@ -2940,7 +2974,7 @@ mod tests {
             res1.0 += 1;
         }
         let mut world = World::new();
-        world.insert_non_send_resource(A(42));
+        world.insert_non_send(A(42));
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems(my_system);
         schedule.run(&mut world);
@@ -3145,7 +3179,7 @@ mod tests {
         }
 
         let mut world = World::new();
-        world.insert_non_send_resource(core::ptr::null_mut::<u8>());
+        world.insert_non_send(core::ptr::null_mut::<u8>());
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);
@@ -3160,7 +3194,7 @@ mod tests {
         }
 
         let mut world = World::new();
-        world.insert_non_send_resource(core::ptr::null_mut::<u8>());
+        world.insert_non_send(core::ptr::null_mut::<u8>());
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);

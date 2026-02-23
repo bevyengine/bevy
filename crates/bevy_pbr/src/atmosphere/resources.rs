@@ -1,6 +1,7 @@
 use crate::{
-    fbm_noise::FbmNoiseTexture, perlin_worley_noise::PerlinWorleyNoiseTexture, CloudLayer,
-    ExtractedAtmosphere, GpuLights, GpuScatteringMedium, LightMeta, ScatteringMedium,
+    fbm_noise::FbmNoiseTexture,
+    perlin_worley_noise::PerlinWorleyNoiseTexture,
+    CloudLayer, ExtractedAtmosphere, GpuLights, GpuScatteringMedium, LightMeta,
     ScatteringMediumSampler,
 };
 use bevy_asset::{load_embedded_asset, AssetId, Handle};
@@ -17,6 +18,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_image::ToExtents;
+use bevy_light::atmosphere::ScatteringMedium;
 use bevy_math::{Affine3A, Mat4, Vec3, Vec3A};
 use bevy_render::{
     extract_component::ComponentUniforms,
@@ -386,7 +388,7 @@ impl FromWorld for AtmosphereSampler {
         let sampler = render_device.create_sampler(&SamplerDescriptor {
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Nearest,
+            mipmap_filter: MipmapFilterMode::Nearest,
             ..Default::default()
         });
 
@@ -407,7 +409,7 @@ impl FromWorld for CloudNoiseSampler {
             address_mode_w: AddressMode::Repeat,
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Nearest,
+            mipmap_filter: MipmapFilterMode::Nearest,
             ..Default::default()
         });
 

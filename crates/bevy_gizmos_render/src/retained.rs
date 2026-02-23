@@ -3,7 +3,7 @@
 use crate::LineGizmoUniform;
 use bevy_camera::visibility::RenderLayers;
 use bevy_gizmos::retained::Gizmo;
-use bevy_math::Affine3;
+use bevy_math::{Affine3, Affine3Ext};
 use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_utils::once;
 use tracing::warn;
@@ -57,14 +57,14 @@ pub(crate) fn extract_linegizmos(
 
         values.push((
             LineGizmoUniform {
-                world_from_local: Affine3::from(&transform.affine()).to_transpose(),
+                world_from_local: Affine3::from(transform.affine()).to_transpose(),
                 line_width: gizmo.line_config.width,
                 depth_bias: gizmo.depth_bias,
                 joints_resolution,
                 gap_scale,
                 line_scale,
-                #[cfg(feature = "webgl")]
-                _padding: Default::default(),
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding: Default::default(),
             },
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite_render"))]
             bevy_gizmos::config::GizmoMeshConfig {

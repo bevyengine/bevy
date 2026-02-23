@@ -2,7 +2,7 @@
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_camera::{primitives::Aabb, visibility::ViewVisibility};
-use bevy_color::{Color, Oklcha};
+use bevy_color::Color;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -15,6 +15,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 
 use crate::{
+    color_from_entity,
     config::{GizmoConfigGroup, GizmoConfigStore},
     gizmos::Gizmos,
     AppGizmoBuilder,
@@ -111,8 +112,4 @@ fn draw_all_aabbs(
 
 fn is_visible(view_visibility: Option<&ViewVisibility>) -> bool {
     view_visibility.is_some_and(|v| v.get())
-}
-
-fn color_from_entity(entity: Entity) -> Color {
-    Oklcha::sequential_dispersed(entity.index_u32()).into()
 }

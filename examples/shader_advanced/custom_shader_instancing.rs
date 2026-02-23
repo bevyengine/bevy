@@ -7,7 +7,7 @@
 //! implementation using bevy's low level rendering api.
 //! It's generally recommended to try the built-in instancing before going with this approach.
 
-use bevy::pbr::SetMeshViewBindingArrayBindGroup;
+use bevy::pbr::{SetMeshViewBindingArrayBindGroup, ViewKeyCache};
 use bevy::{
     camera::visibility::NoFrustumCulling,
     core_pipeline::core_3d::Transparent3d,
@@ -30,6 +30,7 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
+        sync_component::SyncComponent,
         sync_world::MainEntity,
         view::{ExtractedView, NoIndirectDrawing},
         Render, RenderApp, RenderStartup, RenderSystems,
@@ -84,10 +85,13 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 #[derive(Component, Deref)]
 struct InstanceMaterialData(Vec<InstanceData>);
 
+impl SyncComponent for InstanceMaterialData {
+    type Out = Self;
+}
+
 impl ExtractComponent for InstanceMaterialData {
     type QueryData = &'static InstanceMaterialData;
     type QueryFilter = ();
-    type Out = Self;
 
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self> {
         Some(InstanceMaterialData(item.0.clone()))
@@ -130,19 +134,21 @@ fn queue_custom(
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<(Entity, &MainEntity), With<InstanceMaterialData>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(&ExtractedView, &Msaa)>,
+    views: Query<&ExtractedView>,
+    view_key_cache: Res<ViewKeyCache>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
-    for (view, msaa) in &views {
+    for view in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
 
-        let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
+        let Some(&view_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
 
-        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
         for (entity, main_entity) in &material_meshes {
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*main_entity)

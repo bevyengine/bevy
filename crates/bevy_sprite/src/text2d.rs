@@ -8,6 +8,8 @@ use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::query::With;
+use bevy_ecs::system::Single;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
@@ -20,11 +22,12 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, LineHeight, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline,
-    TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak, LineHeight,
+    RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
+use bevy_window::{PrimaryWindow, Window};
 use core::any::TypeId;
 
 /// The top-level 2D text component.
@@ -45,7 +48,7 @@ use core::any::TypeId;
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, FontSize, Justify, TextLayout, TextFont, TextColor, TextSpan};
 /// # use bevy_sprite::Text2d;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
@@ -59,7 +62,7 @@ use core::any::TypeId;
 ///     Text2d::new("hello world!"),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
-///         font_size: 60.0,
+///         font_size: FontSize::Px(60.0),
 ///         ..Default::default()
 ///     },
 ///     TextColor(BLUE.into()),
@@ -77,6 +80,8 @@ use core::any::TypeId;
 ///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
 /// });
 /// ```
+///
+/// Viewport-based `FontSize` variants for `Text2d` are resolved based on the primary window’s logical size.
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
@@ -88,7 +93,9 @@ use core::any::TypeId;
     Anchor,
     Visibility,
     VisibilityClass,
-    Transform
+    Transform,
+    // Disable hinting as `Text2d` text is not always pixel-aligned
+    FontHinting::Disabled
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
@@ -159,13 +166,13 @@ impl Default for Text2dShadow {
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
+    mut last_logical_viewport_size: Local<Vec2>,
     mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
     // Text2d entities from the previous frame which need to be reprocessed, usually because the font hadn't loaded yet.
     mut reprocess_queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
@@ -175,12 +182,23 @@ pub fn update_text2d_layout(
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
+        Ref<FontHinting>,
     )>,
-    text_font_query: Query<&TextFont>,
     mut text_reader: Text2dReader,
-    mut font_system: ResMut<CosmicFontSystem>,
-    mut swash_cache: ResMut<SwashCache>,
+    mut font_system: ResMut<FontCx>,
+    mut layout_cx: ResMut<LayoutCx>,
+    mut scale_cx: ResMut<ScaleCx>,
+    rem_size: Res<RemSize>,
+    primary_window: Option<Single<&Window, With<PrimaryWindow>>>,
 ) {
+    let logical_viewport_size = primary_window
+        .map(|window| window.resolution.size())
+        .unwrap_or(Vec2::splat(1000.));
+
+    let viewport_size_changed = *last_logical_viewport_size == logical_viewport_size;
+
+    *last_logical_viewport_size = logical_viewport_size;
+
     target_scale_factors.clear();
     target_scale_factors.extend(
         camera_query
@@ -198,7 +216,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, mut text_layout_info, mut computed) in
+    for (entity, maybe_entity_mask, block, bounds, mut text_layout_info, mut computed, hinting) in
         &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
@@ -222,10 +240,10 @@ pub fn update_text2d_layout(
 
         let text_changed = scale_factor != text_layout_info.scale_factor
             || block.is_changed()
-            || computed.needs_rerender()
+            || computed.needs_rerender(viewport_size_changed, rem_size.is_changed())
             || (!reprocess_queue.is_empty() && reprocess_queue.remove(&entity));
 
-        if !(text_changed || bounds.is_changed()) {
+        if !(text_changed || bounds.is_changed() || hinting.is_changed()) {
             continue;
         }
 
@@ -245,19 +263,29 @@ pub fn update_text2d_layout(
                 block.linebreak,
                 block.justify,
                 text_bounds,
-                scale_factor as f64,
+                scale_factor,
                 &mut computed,
                 &mut font_system,
+                &mut layout_cx,
+                logical_viewport_size,
+                rem_size.0,
             ) {
-                Err(TextError::NoSuchFont) => {
+                Err(
+                    TextError::NoSuchFont
+                    | TextError::NoSuchFontFamily(_)
+                    | TextError::DegenerateScaleFactor,
+                ) => {
                     // There was an error processing the text layout.
                     // Add this entity to the queue and reprocess it in the following frame
                     reprocess_queue.insert(entity);
                     continue;
                 }
+                Err(e @ TextError::FailedToGetGlyphImage(_)) => {
+                    bevy_log::warn_once!("{e}.");
+                    text_layout_info.clear();
+                }
                 Err(
                     e @ (TextError::FailedToAddGlyph(_)
-                    | TextError::FailedToGetGlyphImage(_)
                     | TextError::MissingAtlasLayout
                     | TextError::MissingAtlasTexture
                     | TextError::InconsistentAtlasState),
@@ -270,18 +298,15 @@ pub fn update_text2d_layout(
 
         match text_pipeline.update_text_layout_info(
             &mut text_layout_info,
-            text_font_query,
-            scale_factor as f64,
             &mut font_atlas_set,
-            &mut texture_atlases,
             &mut textures,
             &mut computed,
-            &mut font_system,
-            &mut swash_cache,
+            &mut scale_cx,
             text_bounds,
             block.justify,
+            *hinting,
         ) {
-            Err(TextError::NoSuchFont) => {
+            Err(TextError::NoSuchFont | TextError::NoSuchFontFamily(_)) => {
                 // There was an error processing the text layout.
                 // Add this entity to the queue and reprocess it in the following frame.
                 reprocess_queue.insert(entity);
@@ -292,7 +317,8 @@ pub fn update_text2d_layout(
                 | TextError::FailedToGetGlyphImage(_)
                 | TextError::MissingAtlasLayout
                 | TextError::MissingAtlasTexture
-                | TextError::InconsistentAtlasState),
+                | TextError::InconsistentAtlasState
+                | TextError::DegenerateScaleFactor),
             ) => {
                 panic!("Fatal error when processing text: {e}.");
             }
@@ -363,9 +389,11 @@ mod tests {
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<FontAtlasSet>()
             .init_resource::<TextPipeline>()
-            .init_resource::<CosmicFontSystem>()
-            .init_resource::<SwashCache>()
+            .init_resource::<FontCx>()
+            .init_resource::<LayoutCx>()
+            .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<RemSize>()
             .add_systems(
                 Update,
                 (
@@ -398,8 +426,23 @@ mod tests {
             app,
             Handle::default(),
             "../../bevy_text/src/FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
+            |bytes: &[u8], _path: String| {
+                Font::try_from_bytes(bytes.to_vec(), "bevy default font")
+            }
         );
+
+        let world = app.world_mut();
+
+        let mut fonts = world.resource_mut::<Assets<Font>>();
+
+        let mut font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
+        font.family_name = "Fira Mono".into();
+        let data = font.into_inner().data.clone();
+
+        world
+            .resource_mut::<FontCx>()
+            .collection
+            .register_fonts(data, None);
 
         let entity = app.world_mut().spawn(Text2d::new(FIRST_TEXT)).id();
 

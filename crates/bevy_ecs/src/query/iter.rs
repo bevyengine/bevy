@@ -4,7 +4,10 @@ use crate::{
     bundle::Bundle,
     change_detection::Tick,
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
-    query::{ArchetypeFilter, ArchetypeQueryData, DebugCheckedUnwrap, QueryState, StorageId},
+    query::{
+        ArchetypeFilter, ArchetypeQueryData, ContiguousQueryData, DebugCheckedUnwrap, QueryState,
+        StorageId,
+    },
     storage::{Table, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -990,6 +993,91 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Clone for QueryIter<'w, 's, D
     fn clone(&self) -> Self {
         self.remaining()
     }
+}
+
+/// Iterator for contiguous chunks of memory
+pub struct QueryContiguousIter<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> {
+    tables: &'w Tables,
+    storage_id_iter: core::slice::Iter<'s, StorageId>,
+    query_state: &'s QueryState<D, F>,
+    fetch: D::Fetch<'w>,
+    // NOTE: no need for F::Fetch because it always returns true
+}
+
+impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> QueryContiguousIter<'w, 's, D, F> {
+    /// # Safety
+    /// - `world` must have permission to access any of the components registered in `query_state`.
+    /// - `world` must be the same one used to initialize `query_state`.
+    pub(crate) unsafe fn new(
+        world: UnsafeWorldCell<'w>,
+        query_state: &'s QueryState<D, F>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Option<Self> {
+        query_state.is_dense.then(|| Self {
+            // SAFETY: We only access table data that has been registered in `query_state`
+            tables: unsafe { &world.storages().tables },
+            storage_id_iter: query_state.matched_storage_ids.iter(),
+            // SAFETY: The invariants are upheld by the caller.
+            fetch: unsafe { D::init_fetch(world, &query_state.fetch_state, last_run, this_run) },
+            query_state,
+        })
+    }
+}
+
+impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> Iterator
+    for QueryContiguousIter<'w, 's, D, F>
+{
+    type Item = D::Contiguous<'w, 's>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            // SAFETY: Query is dense
+            let table_id = unsafe { self.storage_id_iter.next()?.table_id };
+            // SAFETY: `table_id` was returned by `self.storage_id_iter` which always returns a
+            // valid id
+            let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
+            if table.is_empty() {
+                continue;
+            }
+            // SAFETY:
+            // - `table` is from the same world as `self.query_state` (`self.storage_id_iter` is
+            // from the same world as `self.query_state`, see [`Self::new`])
+            // - `self.fetch` was initialized with `self.query_state` (in [`Self::new`])
+            unsafe {
+                D::set_table(&mut self.fetch, &self.query_state.fetch_state, table);
+            }
+
+            // no filtering because `F` implements `ArchetypeFilter` which ensures that `QueryFilter::fetch`
+            // always returns true
+
+            // SAFETY:
+            // - [`D::set_table`] is executed prior.
+            // - `table.entities()` return a valid entity array
+            // - the caller of [`Self::new`] ensures that the world has permission to access any of
+            // the components registered in `self.query_state`
+            let item = unsafe {
+                D::fetch_contiguous(
+                    &self.query_state.fetch_state,
+                    &mut self.fetch,
+                    table.entities(),
+                )
+            };
+
+            return Some(item);
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, self.storage_id_iter.size_hint().1)
+    }
+}
+
+// [`QueryIterationCursor::next_contiguous`] always returns None when exhausted
+impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> FusedIterator
+    for QueryContiguousIter<'w, 's, D, F>
+{
 }
 
 /// An [`Iterator`] over sorted query results of a [`Query`](crate::system::Query).
@@ -2533,7 +2621,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
     // QueryIter, QueryIterationCursor, QuerySortedIter, QueryManyIter, QuerySortedManyIter, QueryCombinationIter,
     // QueryState::par_fold_init_unchecked_manual, QueryState::par_many_fold_init_unchecked_manual,
-    // QueryState::par_many_unique_fold_init_unchecked_manual
+    // QueryState::par_many_unique_fold_init_unchecked_manual, QueryContiguousIter::next
     /// # Safety
     /// `tables` and `archetypes` must belong to the same world that the [`QueryIterationCursor`]
     /// was initialized for.
@@ -2546,6 +2634,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         query_state: &'s QueryState<D, F>,
     ) -> Option<D::Item<'w, 's>> {
         if self.is_dense {
+            // NOTE: if you are changing this branch you would probably have to change
+            // QueryContiguousIter::next as well
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {

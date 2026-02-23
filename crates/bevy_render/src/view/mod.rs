@@ -11,8 +11,8 @@ pub use window::*;
 
 use crate::{
     camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
-    experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
+    occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -103,7 +103,6 @@ impl Plugin for ViewPlugin {
         app
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
-                ExtractComponentPlugin::<Hdr>::default(),
                 ExtractComponentPlugin::<Msaa>::default(),
                 ExtractComponentPlugin::<OcclusionCulling>::default(),
                 RenderVisibilityRangePlugin,
@@ -115,14 +114,17 @@ impl Plugin for ViewPlugin {
                 (
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
+                        .before(create_surfaces),
+                    cleanup_view_targets_for_resize
+                        .in_set(RenderSystems::PrepareViews)
                         .before(create_surfaces),
                     prepare_view_attachments
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .before(prepare_view_targets)
                         .after(prepare_windows),
                     prepare_view_targets
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::PrepareViews)
                         .after(prepare_windows)
                         .after(crate::render_asset::prepare_assets::<GpuImage>)
                         .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
@@ -187,16 +189,6 @@ impl Msaa {
         }
     }
 }
-
-/// If this component is added to a camera, the camera will use an intermediate "high dynamic range" render texture.
-/// This allows rendering with a wider range of lighting values. However, this does *not* affect
-/// whether the camera will render with hdr display output (which bevy does not support currently)
-/// and only affects the intermediate render texture.
-#[derive(
-    Component, Default, Copy, Clone, ExtractComponent, Reflect, PartialEq, Eq, Hash, Debug,
-)]
-#[reflect(Component, Default, PartialEq, Hash, Debug)]
-pub struct Hdr;
 
 /// An identifier for a view that is stable across frames.
 ///
@@ -1038,6 +1030,21 @@ pub fn prepare_view_attachments(
 /// Clears the view target [`OutputColorAttachment`]s.
 pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAttachments>) {
     view_target_attachments.clear();
+}
+
+pub fn cleanup_view_targets_for_resize(
+    mut commands: Commands,
+    windows: Res<ExtractedWindows>,
+    cameras: Query<(Entity, &ExtractedCamera), With<ViewTarget>>,
+) {
+    for (entity, camera) in &cameras {
+        if let Some(NormalizedRenderTarget::Window(window_ref)) = &camera.target
+            && let Some(window) = windows.get(&window_ref.entity())
+            && (window.size_changed || window.present_mode_changed)
+        {
+            commands.entity(entity).remove::<ViewTarget>();
+        }
+    }
 }
 
 pub fn prepare_view_targets(

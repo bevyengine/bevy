@@ -164,7 +164,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 #[expect(unsafe_code, reason = "Uses `UnsafeWorldCell::get_resource_mut()`.")]
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(asset_id.typed_debug_checked());
-                asset.map(|asset| asset as &mut dyn Reflect)
+                asset.map(|asset| asset.into_inner() as &mut dyn Reflect)
             },
             add: |world, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();

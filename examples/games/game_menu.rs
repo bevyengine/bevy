@@ -3,6 +3,7 @@
 //! settings for 5 seconds before going back to the menu.
 
 use bevy::prelude::*;
+
 const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
@@ -15,15 +16,18 @@ enum GameState {
 }
 
 // One of the two settings that can be set through the menu. It will be a resource in the app
-#[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
+#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy)]
 enum DisplayQuality {
     Low,
     Medium,
     High,
 }
 
+#[derive(Component)]
+struct Setting<T>(T);
+
 // One of the two settings that can be set through the menu. It will be a resource in the app
-#[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
+#[derive(Resource, Debug, PartialEq, Eq, Clone, Copy)]
 struct Volume(u32);
 
 fn main() {
@@ -159,7 +163,7 @@ mod game {
                     (
                         Text::new("Will be back to the menu shortly..."),
                         TextFont {
-                            font_size: 67.0,
+                            font_size: FontSize::Px(67.0),
                             ..default()
                         },
                         TextColor(TEXT_COLOR),
@@ -178,7 +182,7 @@ mod game {
                             (
                                 TextSpan(format!("quality: {:?}", *display_quality)),
                                 TextFont {
-                                    font_size: 50.0,
+                                    font_size: FontSize::Px(50.0),
                                     ..default()
                                 },
                                 TextColor(BLUE.into()),
@@ -186,7 +190,7 @@ mod game {
                             (
                                 TextSpan::new(" - "),
                                 TextFont {
-                                    font_size: 50.0,
+                                    font_size: FontSize::Px(50.0),
                                     ..default()
                                 },
                                 TextColor(TEXT_COLOR),
@@ -194,7 +198,7 @@ mod game {
                             (
                                 TextSpan(format!("volume: {:?}", *volume)),
                                 TextFont {
-                                    font_size: 50.0,
+                                    font_size: FontSize::Px(50.0),
                                     ..default()
                                 },
                                 TextColor(LIME.into()),
@@ -228,7 +232,7 @@ mod menu {
         prelude::*,
     };
 
-    use super::{DisplayQuality, GameState, Volume, TEXT_COLOR};
+    use super::{DisplayQuality, GameState, Setting, Volume, TEXT_COLOR};
 
     // This plugin manages the menu, with 5 different screens:
     // - a main menu with "New Game", "Settings", "Quit"
@@ -335,18 +339,21 @@ mod menu {
     // This system updates the settings when a new value for a setting is selected, and marks
     // the button as the one currently selected
     fn setting_button<T: Resource + Component + PartialEq + Copy>(
-        interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
+        interaction_query: Query<
+            (&Interaction, &Setting<T>, Entity),
+            (Changed<Interaction>, With<Button>),
+        >,
         selected_query: Single<(Entity, &mut BackgroundColor), With<SelectedOption>>,
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
         let (previous_button, mut previous_button_color) = selected_query.into_inner();
         for (interaction, button_setting, entity) in &interaction_query {
-            if *interaction == Interaction::Pressed && *setting != *button_setting {
+            if *interaction == Interaction::Pressed && *setting != button_setting.0 {
                 *previous_button_color = NORMAL_BUTTON.into();
                 commands.entity(previous_button).remove::<SelectedOption>();
                 commands.entity(entity).insert(SelectedOption);
-                *setting = *button_setting;
+                *setting = button_setting.0;
             }
         }
     }
@@ -374,7 +381,7 @@ mod menu {
             ..default()
         };
         let button_text_font = TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         };
 
@@ -404,7 +411,7 @@ mod menu {
                     (
                         Text::new("Bevy Game Menu UI"),
                         TextFont {
-                            font_size: 67.0,
+                            font_size: FontSize::Px(67.0),
                             ..default()
                         },
                         TextColor(TEXT_COLOR),
@@ -472,7 +479,7 @@ mod menu {
 
         let button_text_style = (
             TextFont {
-                font_size: 33.0,
+                font_size: FontSize::Px(33.0),
                 ..default()
             },
             TextColor(TEXT_COLOR),
@@ -530,7 +537,7 @@ mod menu {
         fn button_text_style() -> impl Bundle {
             (
                 TextFont {
-                    font_size: 33.0,
+                    font_size: FontSize::Px(33.0),
                     ..default()
                 },
                 TextColor(TEXT_COLOR),
@@ -581,7 +588,7 @@ mod menu {
                                             ..button_node()
                                         },
                                         BackgroundColor(NORMAL_BUTTON),
-                                        quality_setting,
+                                        Setting(quality_setting),
                                         children![(
                                             Text::new(format!("{quality_setting:?}")),
                                             button_text_style(),
@@ -618,7 +625,7 @@ mod menu {
         };
         let button_text_style = (
             TextFont {
-                font_size: 33.0,
+                font_size: FontSize::Px(33.0),
                 ..default()
             },
             TextColor(TEXT_COLOR),
@@ -662,7 +669,7 @@ mod menu {
                                             ..button_node_clone.clone()
                                         },
                                         BackgroundColor(NORMAL_BUTTON),
-                                        Volume(volume_setting),
+                                        Setting(Volume(volume_setting)),
                                     ));
                                     if volume == Volume(volume_setting) {
                                         entity.insert(SelectedOption);

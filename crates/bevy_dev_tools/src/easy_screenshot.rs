@@ -154,6 +154,21 @@ pub enum RecordScreen {
 }
 
 #[cfg(feature = "screenrecording")]
+/// The [`Update`] systems that the [`EasyScreenRecordPlugin`] runs
+/// to start and stop recording on user command and
+/// to send frames to the thread that manages video file creation.
+/// These systems manipulate [`virtual`](bevy_time::Virtual)
+/// [`time`](bevy_time::Time) in order to capture frames for video.
+///
+/// If any application [`Update`] systems have behavior that depend
+/// on virtual time and must be recorded, ensure that these systems run
+/// [`after(EasyScreenRecordSystems)`](bevy_ecs::schedule::IntoScheduleConfigs::after).
+/// The application may run slower on screen during recording,
+/// but the video playback will be at normal speed.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct EasyScreenRecordSystems;
+
+#[cfg(feature = "screenrecording")]
 impl Plugin for EasyScreenRecordPlugin {
     #[cfg_attr(
         target_os = "windows",
@@ -199,7 +214,6 @@ impl Plugin for EasyScreenRecordPlugin {
                             setup = Some(Setup::preset(preset, tune, false, true).high());
                         }
                         RecordCommand::Stop => {
-                            info!("stopping recording");
                             if let Some(encoder) = encoder.take() {
                                 let mut flush = encoder.flush();
                                 let mut file = file.take().unwrap();
@@ -208,6 +222,7 @@ impl Plugin for EasyScreenRecordPlugin {
                                     file.write_all(data.entirety()).unwrap();
                                 }
                             }
+                            info!("finished processing video");
                         }
                         RecordCommand::Frame(image) => {
                             if let Some(setup) = setup.take() {
@@ -291,6 +306,7 @@ impl Plugin for EasyScreenRecordPlugin {
                                 tx.send(RecordCommand::Stop).unwrap();
                                 *recording = false;
                                 virtual_time.unpause();
+                                info!("stopped recording. still processing video");
                             }
                             _ => {}
                         }
@@ -310,7 +326,8 @@ impl Plugin for EasyScreenRecordPlugin {
                     }
                     },
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(EasyScreenRecordSystems),
             );
         }
     }

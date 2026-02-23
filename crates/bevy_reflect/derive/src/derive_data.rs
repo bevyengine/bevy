@@ -648,15 +648,15 @@ impl<'a> ReflectStruct<'a> {
     pub fn to_info_tokens(&self, is_tuple: bool) -> proc_macro2::TokenStream {
         let bevy_reflect_path = self.meta().bevy_reflect_path();
 
-        let (info_variant, info_struct) = if is_tuple {
+        let (info_variant, info_struct): (_, Path) = if is_tuple {
             (
                 Ident::new("TupleStruct", Span::call_site()),
-                Ident::new("TupleStructInfo", Span::call_site()),
+                parse_str("tuple_struct::TupleStructInfo").expect("should be a valid path"),
             )
         } else {
             (
                 Ident::new("Struct", Span::call_site()),
-                Ident::new("StructInfo", Span::call_site()),
+                parse_str("structs::StructInfo").expect("should be a valid path"),
             )
         };
 
@@ -888,7 +888,7 @@ impl<'a> ReflectEnum<'a> {
             .map(|variant| variant.to_info_tokens(bevy_reflect_path));
 
         let mut info = quote! {
-            #bevy_reflect_path::EnumInfo::new::<Self>(&[
+            #bevy_reflect_path::enums::EnumInfo::new::<Self>(&[
                 #(#variants),*
             ])
         };
@@ -1015,7 +1015,7 @@ impl<'a> EnumVariant<'a> {
         };
 
         let mut info = quote! {
-            #bevy_reflect_path::#info_struct::new(#args)
+            #bevy_reflect_path::enums::#info_struct::new(#args)
         };
 
         let custom_attributes = &self.attrs.custom_attributes;
@@ -1037,7 +1037,7 @@ impl<'a> EnumVariant<'a> {
         }
 
         quote! {
-            #bevy_reflect_path::VariantInfo::#info_variant(#info)
+            #bevy_reflect_path::enums::VariantInfo::#info_variant(#info)
         }
     }
 }

@@ -432,6 +432,18 @@ pub struct Window {
     ///
     /// [`WindowAttributesExtMacOS::with_titlebar_buttons_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_buttons_hidden
     pub titlebar_show_buttons: bool,
+    /// Hides the dock and menu bar when a borderless fullscreen window is active.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_borderless_game`].
+    ///
+    /// Defaults to `true` as this is the expected behavior for games.
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_borderless_game`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_borderless_game
+    pub borderless_game: bool,
     /// Sets whether the Window prefers the home indicator hidden.
     ///
     /// Corresponds to [`WindowAttributesExtIOS::with_prefers_home_indicator_hidden`].
@@ -504,6 +516,7 @@ impl Default for Window {
             titlebar_transparent: false,
             titlebar_show_title: true,
             titlebar_show_buttons: true,
+            borderless_game: true,
             prefers_home_indicator_hidden: false,
             prefers_status_bar_hidden: false,
             preferred_screen_edges_deferring_system_gestures: Default::default(),

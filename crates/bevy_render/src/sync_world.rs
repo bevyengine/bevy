@@ -9,7 +9,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     system::{Local, Query, ResMut, SystemState},
-    world::{Mut, World},
+    world::{EntityWorldMut, Mut, World},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -202,7 +202,7 @@ pub(crate) enum EntityRecord {
     Removed(RenderEntity),
     /// When a component is removed from an entity, notify the render world so that the corresponding component can be
     /// removed. This contains the main world entity.
-    ComponentRemoved(Entity),
+    ComponentRemoved(Entity, fn(EntityWorldMut<'_>)),
 }
 
 // Entity Record in MainWorld pending to Sync
@@ -235,17 +235,12 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                         ec.despawn();
                     };
                 }
-                EntityRecord::ComponentRemoved(main_entity) => {
-                    let Some(mut render_entity) = world.get_mut::<RenderEntity>(main_entity) else {
+                EntityRecord::ComponentRemoved(main_entity, removal_function) => {
+                    let Some(render_entity) = world.get::<RenderEntity>(main_entity) else {
                         continue;
                     };
                     if let Ok(render_world_entity) = render_world.get_entity_mut(render_entity.id()) {
-                        // In order to handle components that extract to derived components, we clear the entity
-                        // and let the extraction system re-add the components.
-                        render_world_entity.despawn();
-
-                        let id = render_world.spawn(MainEntity(main_entity)).id();
-                        render_entity.0 = id;
+                        removal_function(render_world_entity);
                     }
                 },
             }
@@ -289,8 +284,8 @@ mod render_entities_world_query_impls {
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
-    /// SAFETY: defers completely to `&RenderEntity` implementation,
-    /// and then only modifies the output safely.
+    // SAFETY: defers completely to `&RenderEntity` implementation,
+    // and then only modifies the output safely.
     unsafe impl WorldQuery for RenderEntity {
         type Fetch<'w> = <&'static RenderEntity as WorldQuery>::Fetch<'w>;
         type State = <&'static RenderEntity as WorldQuery>::State;
@@ -404,8 +399,8 @@ mod render_entities_world_query_impls {
         }
     }
 
-    /// SAFETY: defers completely to `&RenderEntity` implementation,
-    /// and then only modifies the output safely.
+    // SAFETY: defers completely to `&RenderEntity` implementation,
+    // and then only modifies the output safely.
     unsafe impl WorldQuery for MainEntity {
         type Fetch<'w> = <&'static MainEntity as WorldQuery>::Fetch<'w>;
         type State = <&'static MainEntity as WorldQuery>::State;

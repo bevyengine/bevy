@@ -2,6 +2,7 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
+    skinning::{SkinnedMeshBounds, SkinnedMeshBoundsError},
     triangle_area_normal, triangle_normal, FourIterators, Indices, MeshAttributeData,
     MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout,
     MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
@@ -16,10 +17,11 @@ use bevy_asset::{Asset, RenderAssetUsages};
 #[cfg(feature = "morph")]
 use bevy_image::Image;
 use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
-#[cfg(feature = "serialize")]
-use bevy_platform::collections::HashMap;
-use bevy_reflect::Reflect;
+use bevy_platform::collections::{hash_map, HashMap};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bytemuck::cast_slice;
+use core::hash::{Hash, Hasher};
+use core::ptr;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -257,6 +259,7 @@ pub struct Mesh {
     /// Precomputed min and max extents of the mesh position data. Used mainly for constructing `Aabb`s for frustum culling.
     /// This data will be set if/when a mesh is extracted to the GPU
     pub final_aabb: Option<Aabb3d>,
+    skinned_mesh_bounds: Option<SkinnedMeshBounds>,
 }
 
 impl Mesh {
@@ -349,6 +352,7 @@ impl Mesh {
             asset_usage,
             enable_raytracing: true,
             final_aabb: None,
+            skinned_mesh_bounds: None,
         }
     }
 
@@ -1063,6 +1067,121 @@ impl Mesh {
     /// Returns an error if the mesh data has been extracted to `RenderWorld`.
     pub fn try_with_duplicated_vertices(mut self) -> Result<Self, MeshAccessError> {
         self.try_duplicate_vertices()?;
+        Ok(self)
+    }
+
+    /// Remove duplicate vertices and create the index pointing to the unique vertices.
+    ///
+    /// Returns an error if the mesh data has been extracted to `RenderWorld`.
+    /// Returns an error if the mesh already has [`Indices`] set, even if there
+    /// are duplicate vertices. If deduplication is needed with indices already set,
+    /// consider calling [`Mesh::duplicate_vertices`] and then this function.
+    pub fn merge_duplicate_vertices(&mut self) -> Result<(), MeshMergeDuplicateVerticesError> {
+        match self.try_indices() {
+            Ok(_) => return Err(MeshMergeDuplicateVerticesError::IndicesAlreadySet),
+            Err(err) => match err {
+                MeshAccessError::ExtractedToRenderWorld => return Err(err.into()),
+                MeshAccessError::NotFound => (),
+            },
+        }
+
+        #[derive(Copy, Clone)]
+        struct VertexRef<'a> {
+            mesh_attributes: &'a BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
+            i: usize,
+        }
+        impl<'a> VertexRef<'a> {
+            fn push_to(&self, target: &mut BTreeMap<MeshVertexAttributeId, MeshAttributeData>) {
+                for (key, this_attribute_data) in self.mesh_attributes.iter() {
+                    let target_attribute_data = target.get_mut(key).unwrap(); // ok to unwrap, all keys added to new_attributes below
+                    target_attribute_data
+                        .values
+                        .push_from(&this_attribute_data.values, self.i);
+                }
+            }
+        }
+        impl<'a> PartialEq for VertexRef<'a> {
+            fn eq(&self, other: &Self) -> bool {
+                assert!(ptr::eq(self.mesh_attributes, other.mesh_attributes));
+                for values in self.mesh_attributes.values() {
+                    if values.values.get_bytes_at(self.i) != values.values.get_bytes_at(other.i) {
+                        return false;
+                    }
+                }
+                true
+            }
+        }
+        impl<'a> Eq for VertexRef<'a> {}
+        impl<'a> Hash for VertexRef<'a> {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                for values in self.mesh_attributes.values() {
+                    values.values.get_bytes_at(self.i).hash(state);
+                }
+            }
+        }
+
+        let old_attributes = self.attributes.as_ref()?;
+
+        let mut new_attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData> = self
+            .attributes
+            .as_ref()?
+            .iter()
+            .map(|(k, v)| {
+                (
+                    *k,
+                    MeshAttributeData {
+                        attribute: v.attribute,
+                        values: VertexAttributeValues::new(VertexFormat::from(&v.values)),
+                    },
+                )
+            })
+            .collect();
+
+        let mut vertex_to_new_index: HashMap<VertexRef, u32> = HashMap::new();
+        let mut indices = Vec::with_capacity(self.count_vertices());
+        for i in 0..self.count_vertices() {
+            let len: u32 = vertex_to_new_index
+                .len()
+                .try_into()
+                .expect("The number of vertices exceeds u32::MAX");
+            let vertex_ref = VertexRef {
+                mesh_attributes: old_attributes,
+                i,
+            };
+            let j = match vertex_to_new_index.entry(vertex_ref) {
+                hash_map::Entry::Occupied(e) => *e.get(),
+                hash_map::Entry::Vacant(e) => {
+                    e.insert(len);
+                    vertex_ref.push_to(&mut new_attributes);
+                    len
+                }
+            };
+            indices.push(j);
+        }
+        drop(vertex_to_new_index);
+
+        for v in new_attributes.values_mut() {
+            v.values.shrink_to_fit();
+        }
+
+        self.attributes = MeshExtractableData::Data(new_attributes);
+        self.indices = MeshExtractableData::Data(Indices::U32(indices));
+
+        Ok(())
+    }
+
+    /// Consumes the mesh and returns a mesh with merged vertices.
+    ///
+    /// (Alternatively, you can use [`Mesh::merge_duplicate_vertices`] to mutate an existing mesh in-place)
+    ///
+    /// Returns an error if the mesh data has been extracted to `RenderWorld`.
+    /// Returns an error if the mesh already has [`Indices`] set, even if there
+    /// are duplicate vertices. If deduplication is needed with indices already set,
+    /// consider calling [`Mesh::duplicate_vertices`] and then this function.
+    pub fn with_merge_duplicate_vertices(
+        mut self,
+    ) -> Result<Self, MeshMergeDuplicateVerticesError> {
+        self.merge_duplicate_vertices()?;
         Ok(self)
     }
 
@@ -2178,6 +2297,37 @@ impl Mesh {
             ..self.clone()
         })
     }
+
+    /// Get this mesh's [`SkinnedMeshBounds`].
+    pub fn skinned_mesh_bounds(&self) -> Option<&SkinnedMeshBounds> {
+        self.skinned_mesh_bounds.as_ref()
+    }
+
+    /// Set this mesh's [`SkinnedMeshBounds`].
+    pub fn set_skinned_mesh_bounds(&mut self, skinned_mesh_bounds: Option<SkinnedMeshBounds>) {
+        self.skinned_mesh_bounds = skinned_mesh_bounds;
+    }
+
+    /// Consumes the mesh and returns a mesh with the given [`SkinnedMeshBounds`].
+    pub fn with_skinned_mesh_bounds(
+        mut self,
+        skinned_mesh_bounds: Option<SkinnedMeshBounds>,
+    ) -> Self {
+        self.set_skinned_mesh_bounds(skinned_mesh_bounds);
+        self
+    }
+
+    /// Generate [`SkinnedMeshBounds`] for this mesh.
+    pub fn generate_skinned_mesh_bounds(&mut self) -> Result<(), SkinnedMeshBoundsError> {
+        self.skinned_mesh_bounds = Some(SkinnedMeshBounds::from_mesh(self)?);
+        Ok(())
+    }
+
+    /// Consumes the mesh and returns a mesh with generated [`SkinnedMeshBounds`].
+    pub fn with_generated_skinned_mesh_bounds(mut self) -> Result<Self, SkinnedMeshBoundsError> {
+        self.generate_skinned_mesh_bounds()?;
+        Ok(self)
+    }
 }
 
 #[cfg(feature = "morph")]
@@ -2341,6 +2491,19 @@ impl Mesh {
     }
 }
 
+/// An enum to define which UV attribute to use for a texture.
+///
+/// It only supports two UV attributes, [`Mesh::ATTRIBUTE_UV_0`] and
+/// [`Mesh::ATTRIBUTE_UV_1`].
+/// The default is [`UvChannel::Uv0`].
+#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
+#[reflect(Default, Debug, Clone, PartialEq)]
+pub enum UvChannel {
+    #[default]
+    Uv0,
+    Uv1,
+}
+
 /// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
 pub(crate) fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
     // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
@@ -2492,6 +2655,15 @@ impl MeshDeserializer {
             ..Mesh::new(serialized_mesh.primitive_topology, RenderAssetUsages::default())
         }
     }
+}
+
+/// Error that can occur when calling [`Mesh::merge_duplicate_vertices`]
+#[derive(Error, Debug, Clone)]
+pub enum MeshMergeDuplicateVerticesError {
+    #[error("Index attribute already set.")]
+    IndicesAlreadySet,
+    #[error("Mesh access error: {0}")]
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 /// Error that can occur when calling [`Mesh::merge`].
@@ -2922,5 +3094,65 @@ mod tests {
             serde_json::from_str(&serialized_string).unwrap();
         let deserialized_mesh = serialized_mesh_from_string.into_mesh();
         assert_eq!(mesh, deserialized_mesh);
+    }
+
+    #[test]
+    fn merge_duplicate_vertices() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        // Quad made of two triangles.
+        let positions = vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            // This will be deduplicated.
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            // Position is equal to the first one but UV is different so it won't be deduplicated.
+            [0.0, 0.0, 0.0],
+        ];
+        let uvs = vec![
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
+            // This will be deduplicated.
+            [1.0, 1.0],
+            [0.0, 1.0],
+            // Use different UV here so it won't be deduplicated.
+            [0.0, 0.5],
+        ];
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            VertexAttributeValues::Float32x3(positions.clone()),
+        );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_UV_0,
+            VertexAttributeValues::Float32x2(uvs.clone()),
+        );
+
+        let res = mesh.merge_duplicate_vertices();
+        assert!(res.is_ok());
+        assert_eq!(6, mesh.indices().unwrap().len());
+        // Note we have 5 unique vertices, not 6.
+        assert_eq!(5, mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().len());
+        assert_eq!(5, mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap().len());
+
+        // Duplicate back.
+        mesh.duplicate_vertices();
+        assert!(mesh.indices().is_none());
+        let VertexAttributeValues::Float32x3(new_positions) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap()
+        else {
+            panic!("Unexpected attribute type")
+        };
+        let VertexAttributeValues::Float32x2(new_uvs) =
+            mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap()
+        else {
+            panic!("Unexpected attribute type")
+        };
+        assert_eq!(&positions, new_positions);
+        assert_eq!(&uvs, new_uvs);
     }
 }

@@ -107,7 +107,7 @@ fn draw(
     }
 
     // Get the image from Bevy's asset storage.
-    let image = images.get_mut(&my_handle.0).expect("Image not found");
+    let mut image = images.get_mut(&my_handle.0).expect("Image not found");
 
     // Compute the position of the pixel to draw.
 

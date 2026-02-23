@@ -1,4 +1,5 @@
 use crate::{
+    render::{PreprocessBindGroups, PreprocessPipelines},
     DrawMesh, MeshPipeline, MeshPipelineKey, RenderLightmaps, RenderMeshInstanceFlags,
     RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup,
     ViewKeyCache, ViewSpecializationTicks,
@@ -10,42 +11,43 @@ use bevy_asset::{
 };
 use bevy_camera::{visibility::ViewVisibility, Camera, Camera3d};
 use bevy_color::{Color, ColorToComponents};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::Tick,
     prelude::*,
-    query::QueryItem,
+    query::ROQueryItem,
     system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
 };
-use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
+use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    batching::gpu_preprocessing::{
+        GpuPreprocessingMode, GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
+        IndirectParametersNonIndexed,
+    },
     camera::{extract_cameras, ExtractedCamera},
-    diagnostic::RecordDiagnostics,
     extract_resource::ExtractResource,
     mesh::{
         allocator::{MeshAllocator, SlabId},
-        RenderMesh,
+        RenderMesh, RenderMeshBufferInfo,
     },
     prelude::*,
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
-    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_phase::{
         AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
         PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
         SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
     },
-    render_resource::*,
-    renderer::{RenderContext, RenderDevice},
+    render_resource::{binding_types::*, *},
+    renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::{MainEntity, MainEntityHashMap},
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
@@ -54,7 +56,8 @@ use bevy_render::{
     Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
-use core::{hash::Hash, ops::Range};
+use bytemuck::{Pod, Zeroable};
+use core::{any::TypeId, hash::Hash, mem::size_of, ops::Range};
 use tracing::{error, warn};
 
 /// A [`Plugin`] that draws wireframes.
@@ -91,12 +94,16 @@ impl Plugin for WireframePlugin {
         .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
         .init_resource::<WireframeConfig>()
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
+        .register_type::<WireframeLineWidth>()
+        .register_type::<WireframeTopology>()
         .add_systems(Startup, setup_global_wireframe_material)
         .add_systems(
             Update,
             (
-                global_color_changed.run_if(resource_changed::<WireframeConfig>),
+                wireframe_config_changed.run_if(resource_changed::<WireframeConfig>),
                 wireframe_color_changed,
+                wireframe_line_width_changed,
+                wireframe_topology_changed,
                 // Run `apply_global_wireframe_material` after `apply_wireframe_material` so that the global
                 // wireframe setting is applied to a mesh on the same frame its wireframe marker component is removed.
                 (apply_wireframe_material, apply_global_wireframe_material).chain(),
@@ -115,7 +122,7 @@ impl Plugin for WireframePlugin {
             return;
         };
 
-        let required_features = WgpuFeatures::POLYGON_MODE_LINE | WgpuFeatures::PUSH_CONSTANTS;
+        let required_features = WgpuFeatures::POLYGON_MODE_LINE | WgpuFeatures::IMMEDIATES;
         let render_device = render_app.world().resource::<RenderDevice>();
         if !render_device.features().contains(required_features) {
             warn!(
@@ -125,23 +132,28 @@ impl Plugin for WireframePlugin {
             return;
         }
 
+        // we need storage for vertex pulling in the wide wireframe path
+        render_app
+            .world_mut()
+            .resource_mut::<MeshAllocator>()
+            .extra_buffer_usages |= BufferUsages::STORAGE;
+
         render_app
             .init_resource::<WireframeEntitySpecializationTicks>()
             .init_resource::<SpecializedWireframePipelineCache>()
             .init_resource::<DrawFunctions<Wireframe3d>>()
-            .add_render_command::<Wireframe3d, DrawWireframe3d>()
+            .add_render_command::<Wireframe3d, DrawWireframe3dThin>()
+            .add_render_command::<Wireframe3d, DrawWireframe3dWide>()
             .init_resource::<RenderWireframeInstances>()
+            .init_resource::<WireframeWideBindGroups>()
             .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
-            .add_render_graph_node::<ViewNodeRunner<Wireframe3dNode>>(Core3d, Node3d::Wireframe)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EndMainPass,
-                    Node3d::Wireframe,
-                    Node3d::PostProcessing,
-                ),
-            )
             .add_systems(RenderStartup, init_wireframe_3d_pipeline)
+            .add_systems(
+                Core3d,
+                wireframe_3d
+                    .after(Core3dSystems::MainPass)
+                    .before(Core3dSystems::PostProcess),
+            )
             .add_systems(
                 ExtractSchedule,
                 (
@@ -155,6 +167,10 @@ impl Plugin for WireframePlugin {
                 (
                     specialize_wireframes
                         .in_set(RenderSystems::PrepareMeshes)
+                        .after(prepare_assets::<RenderWireframeMaterial>)
+                        .after(prepare_assets::<RenderMesh>),
+                    prepare_wireframe_wide_bind_groups
+                        .in_set(RenderSystems::PrepareBindGroups)
                         .after(prepare_assets::<RenderWireframeMaterial>)
                         .after(prepare_assets::<RenderMesh>),
                     queue_wireframes
@@ -268,6 +284,11 @@ pub struct Wireframe3dBatchSetKey {
     ///
     /// For non-mesh items, you can safely fill this with `None`.
     pub index_slab: Option<SlabId>,
+
+    /// For the wide wireframe path, the mesh asset ID ensures all draws in one
+    /// batch set share the same vertex-pull params uniform. `None` for the thin
+    /// path, which doesn't need per-mesh bind groups.
+    pub mesh_asset_id: Option<UntypedAssetId>,
 }
 
 impl PhaseItemBatchSetKey for Wireframe3dBatchSetKey {
@@ -285,9 +306,9 @@ pub struct Wireframe3dBinKey {
     pub asset_id: UntypedAssetId,
 }
 
-pub struct SetWireframe3dPushConstants;
+pub struct SetWireframe3dThinImmediates;
 
-impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
+impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dThinImmediates {
     type Param = (
         SRes<RenderWireframeInstances>,
         SRes<RenderAssets<RenderWireframeMaterial>>,
@@ -310,112 +331,494 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
             return RenderCommandResult::Failure("No wireframe material found for entity");
         };
 
-        pass.set_push_constants(
-            ShaderStages::FRAGMENT,
-            0,
-            bytemuck::bytes_of(&wireframe_material.color),
-        );
+        pass.set_immediates(0, bytemuck::bytes_of(&wireframe_material.color));
         RenderCommandResult::Success
     }
 }
 
-pub type DrawWireframe3d = (
+pub struct SetWireframe3dWideImmediates;
+
+#[derive(Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
+struct WireframeWideImmediates {
+    color: [f32; 4],
+    line_width: f32,
+    smoothing: f32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _padding: [f32; 2],
+}
+
+impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dWideImmediates {
+    type Param = (
+        SRes<RenderWireframeInstances>,
+        SRes<RenderAssets<RenderWireframeMaterial>>,
+    );
+    type ViewQuery = ();
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        item: &P,
+        _view: (),
+        _item_query: Option<()>,
+        (wireframe_instances, wireframe_assets): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let Some(wireframe_material) = wireframe_instances.get(&item.main_entity()) else {
+            return RenderCommandResult::Failure("No wireframe material found for entity");
+        };
+        let Some(wireframe_material) = wireframe_assets.get(*wireframe_material) else {
+            return RenderCommandResult::Failure("No wireframe material found for entity");
+        };
+
+        let push = WireframeWideImmediates {
+            color: wireframe_material.color,
+            line_width: wireframe_material.line_width,
+            smoothing: if wireframe_material.line_width <= 1.0 {
+                0.5
+            } else {
+                1.0
+            },
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+            _padding: [0.0; 2],
+        };
+        pass.set_immediates(0, bytemuck::bytes_of(&push));
+        RenderCommandResult::Success
+    }
+}
+
+#[derive(Clone, Copy, ShaderType, Pod, Zeroable)]
+#[repr(C)]
+pub struct WireframeVertexPullParams {
+    pub index_offset: u32,
+    pub vertex_stride_u32s: u32,
+    pub position_offset_u32s: u32,
+}
+
+#[derive(Resource, Default)]
+pub struct WireframeWideBindGroups {
+    pub params: DynamicUniformBuffer<WireframeVertexPullParams>,
+    pub bind_groups: HashMap<AssetId<Mesh>, (BindGroup, u32)>,
+}
+
+pub fn prepare_wireframe_wide_bind_groups(
+    render_mesh_instances: Res<RenderMeshInstances>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
+    render_wireframe_instances: Res<RenderWireframeInstances>,
+    render_wireframe_assets: Res<RenderAssets<RenderWireframeMaterial>>,
+    mesh_allocator: Res<MeshAllocator>,
+    pipeline: Res<Wireframe3dPipeline>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut wide_bind_groups: ResMut<WireframeWideBindGroups>,
+) {
+    wide_bind_groups.bind_groups.clear();
+
+    struct MeshInfo {
+        mesh_id: AssetId<Mesh>,
+        params: WireframeVertexPullParams,
+        vertex_buffer: Buffer,
+        index_buffer: Buffer,
+    }
+
+    let mut infos: Vec<MeshInfo> = Vec::new();
+    let mut seen: HashSet<AssetId<Mesh>, FixedHasher> = HashSet::default();
+
+    for (entity, wireframe_asset_id) in render_wireframe_instances.iter() {
+        let Some(material) = render_wireframe_assets.get(*wireframe_asset_id) else {
+            continue;
+        };
+        if material.line_width <= 1.0 && material.topology != WireframeTopology::Quads {
+            continue;
+        }
+
+        let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*entity) else {
+            continue;
+        };
+        let mesh_id = mesh_instance.mesh_asset_id;
+        if !seen.insert(mesh_id) {
+            continue;
+        }
+
+        let Some(mesh) = render_meshes.get(mesh_id) else {
+            continue;
+        };
+        let Some(vertex_slice) = mesh_allocator.mesh_vertex_slice(&mesh_id) else {
+            continue;
+        };
+        let Some(index_slice) = mesh_allocator.mesh_index_slice(&mesh_id) else {
+            continue;
+        };
+
+        let vertex_stride_bytes = mesh.layout.0.layout().array_stride as u32;
+        let position_offset_bytes = mesh
+            .layout
+            .0
+            .layout()
+            .attributes
+            .first()
+            .map(|a| a.offset as u32)
+            .unwrap_or(0);
+
+        infos.push(MeshInfo {
+            mesh_id,
+            params: WireframeVertexPullParams {
+                index_offset: index_slice.range.start,
+                vertex_stride_u32s: vertex_stride_bytes / 4,
+                position_offset_u32s: position_offset_bytes / 4,
+            },
+            vertex_buffer: vertex_slice.buffer.clone(),
+            index_buffer: index_slice.buffer.clone(),
+        });
+    }
+
+    if infos.is_empty() {
+        return;
+    }
+
+    let Some(mut writer) =
+        wide_bind_groups
+            .params
+            .get_writer(infos.len(), &render_device, &render_queue)
+    else {
+        return;
+    };
+
+    let offsets: Vec<u32> = infos
+        .iter()
+        .map(|info| writer.write(&info.params))
+        .collect();
+    drop(writer);
+
+    let WireframeWideBindGroups {
+        ref params,
+        ref mut bind_groups,
+    } = *wide_bind_groups;
+    let Some(params_binding) = params.binding() else {
+        return;
+    };
+
+    for (i, info) in infos.iter().enumerate() {
+        let bind_group = render_device.create_bind_group(
+            "wireframe_wide_bind_group",
+            &pipeline.wide_bind_group_layout,
+            &BindGroupEntries::sequential((
+                info.vertex_buffer.as_entire_buffer_binding(),
+                info.index_buffer.as_entire_buffer_binding(),
+                params_binding.clone(),
+            )),
+        );
+        bind_groups.insert(info.mesh_id, (bind_group, offsets[i]));
+    }
+}
+
+pub struct SetWireframe3dWideBindGroup;
+
+impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dWideBindGroup {
+    type Param = (SRes<RenderMeshInstances>, SRes<WireframeWideBindGroups>);
+    type ViewQuery = ();
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        item: &P,
+        _view: (),
+        _item_query: Option<()>,
+        (render_mesh_instances, wide_bind_groups): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(item.main_entity())
+        else {
+            return RenderCommandResult::Skip;
+        };
+        let Some((bind_group, dynamic_offset)) = wide_bind_groups
+            .into_inner()
+            .bind_groups
+            .get(&mesh_instance.mesh_asset_id)
+        else {
+            return RenderCommandResult::Skip;
+        };
+
+        pass.set_bind_group(3, bind_group, &[*dynamic_offset]);
+        RenderCommandResult::Success
+    }
+}
+
+pub struct DrawWireframeMeshPulled;
+
+impl<P: PhaseItem> RenderCommand<P> for DrawWireframeMeshPulled {
+    type Param = (
+        SRes<RenderMeshInstances>,
+        SRes<RenderAssets<RenderMesh>>,
+        SRes<MeshAllocator>,
+        SRes<IndirectParametersBuffers>,
+        SRes<PipelineCache>,
+        Option<SRes<PreprocessPipelines>>,
+        SRes<GpuPreprocessingSupport>,
+    );
+    type ViewQuery = Has<PreprocessBindGroups>;
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        item: &P,
+        has_preprocess_bind_group: ROQueryItem<Self::ViewQuery>,
+        _item_query: Option<()>,
+        (
+            render_mesh_instances,
+            render_meshes,
+            mesh_allocator,
+            indirect_parameters_buffers,
+            pipeline_cache,
+            preprocess_pipelines,
+            preprocessing_support,
+        ): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        if let Some(preprocess_pipelines) = preprocess_pipelines
+            && (!has_preprocess_bind_group
+                || !preprocess_pipelines
+                    .pipelines_are_loaded(&pipeline_cache, &preprocessing_support))
+        {
+            return RenderCommandResult::Skip;
+        }
+
+        let render_mesh_instances = render_mesh_instances.into_inner();
+        let render_meshes = render_meshes.into_inner();
+        let mesh_allocator = mesh_allocator.into_inner();
+        let indirect_parameters_buffers = indirect_parameters_buffers.into_inner();
+
+        let Some(mesh_asset_id) = render_mesh_instances.mesh_asset_id(item.main_entity()) else {
+            return RenderCommandResult::Skip;
+        };
+        let Some(gpu_mesh) = render_meshes.get(mesh_asset_id) else {
+            return RenderCommandResult::Skip;
+        };
+
+        let index_count = match &gpu_mesh.buffer_info {
+            RenderMeshBufferInfo::Indexed { count, .. } => *count,
+            RenderMeshBufferInfo::NonIndexed => gpu_mesh.vertex_count,
+        };
+
+        match item.extra_index() {
+            PhaseItemExtraIndex::None | PhaseItemExtraIndex::DynamicOffset(_) => {
+                // direct draw: use vertex range starting at first_vertex_index so
+                // the shader can recover draw_id via mesh[instance_index].first_vertex_index.
+                let Some(vertex_slice) = mesh_allocator.mesh_vertex_slice(&mesh_asset_id) else {
+                    return RenderCommandResult::Skip;
+                };
+                let first_vertex = vertex_slice.range.start;
+                pass.draw(
+                    first_vertex..(first_vertex + index_count),
+                    item.batch_range().clone(),
+                );
+            }
+            PhaseItemExtraIndex::IndirectParametersIndex {
+                range: indirect_parameters_range,
+                batch_set_index,
+            } => {
+                // no indexes - the preprocessor sets base_vertex = first_vertex_index.
+                let Some(phase_indirect) = indirect_parameters_buffers.get(&TypeId::of::<P>())
+                else {
+                    warn!("Wireframe wide: indirect parameters buffer missing for phase");
+                    return RenderCommandResult::Skip;
+                };
+                let (Some(indirect_buffer), Some(batch_sets_buffer)) = (
+                    phase_indirect.non_indexed.data_buffer(),
+                    phase_indirect.non_indexed.batch_sets_buffer(),
+                ) else {
+                    warn!("Wireframe wide: non-indexed indirect parameters buffer not ready");
+                    return RenderCommandResult::Skip;
+                };
+
+                let indirect_parameters_offset = indirect_parameters_range.start as u64
+                    * size_of::<IndirectParametersNonIndexed>() as u64;
+                let indirect_parameters_count =
+                    indirect_parameters_range.end - indirect_parameters_range.start;
+
+                match batch_set_index {
+                    Some(batch_set_index) => {
+                        let count_offset =
+                            u32::from(batch_set_index) * (size_of::<IndirectBatchSet>() as u32);
+                        pass.multi_draw_indirect_count(
+                            indirect_buffer,
+                            indirect_parameters_offset,
+                            batch_sets_buffer,
+                            count_offset as u64,
+                            indirect_parameters_count,
+                        );
+                    }
+                    None => {
+                        pass.multi_draw_indirect(
+                            indirect_buffer,
+                            indirect_parameters_offset,
+                            indirect_parameters_count,
+                        );
+                    }
+                }
+            }
+        }
+        RenderCommandResult::Success
+    }
+}
+
+/// Draw wireframes with `PolygonMode::Line`, i.e. the fast path.
+pub type DrawWireframe3dThin = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMeshViewBindingArrayBindGroup<1>,
     SetMeshBindGroup<2>,
-    SetWireframe3dPushConstants,
+    SetWireframe3dThinImmediates,
     DrawMesh,
+);
+
+/// Draw wireframes using vertex pulling for wide lines or quad topology.
+pub type DrawWireframe3dWide = (
+    SetItemPipeline,
+    SetMeshViewBindGroup<0>,
+    SetMeshViewBindingArrayBindGroup<1>,
+    SetMeshBindGroup<2>,
+    SetWireframe3dWideBindGroup,
+    SetWireframe3dWideImmediates,
+    DrawWireframeMeshPulled,
 );
 
 #[derive(Resource, Clone)]
 pub struct Wireframe3dPipeline {
     mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
+    pub wide_bind_group_layout: BindGroupLayout,
+    pub wide_bind_group_layout_descriptor: BindGroupLayoutDescriptor,
 }
 
 pub fn init_wireframe_3d_pipeline(
     mut commands: Commands,
     mesh_pipeline: Res<MeshPipeline>,
     asset_server: Res<AssetServer>,
+    render_device: Res<RenderDevice>,
 ) {
+    let wide_bgl_entries = BindGroupLayoutEntries::sequential(
+        ShaderStages::VERTEX,
+        (
+            storage_buffer_read_only::<u32>(false), // vertex data
+            storage_buffer_read_only::<u32>(false), // index data
+            uniform_buffer::<WireframeVertexPullParams>(true),
+        ),
+    );
+
+    let wide_bind_group_layout = render_device
+        .create_bind_group_layout("wireframe_wide_bind_group_layout", &wide_bgl_entries);
+
+    let wide_bind_group_layout_descriptor =
+        BindGroupLayoutDescriptor::new("wireframe_wide_bind_group_layout", &wide_bgl_entries);
+
     commands.insert_resource(Wireframe3dPipeline {
         mesh_pipeline: mesh_pipeline.clone(),
         shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wgsl"),
+        wide_bind_group_layout,
+        wide_bind_group_layout_descriptor,
     });
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WireframePipelineKey {
+    pub mesh_key: MeshPipelineKey,
+    pub wide: bool,
+    pub quads: bool,
+    pub line_mode: bool,
+}
+
 impl SpecializedMeshPipeline for Wireframe3dPipeline {
-    type Key = MeshPipelineKey;
+    type Key = WireframePipelineKey;
 
     fn specialize(
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
-        descriptor.label = Some("wireframe_3d_pipeline".into());
-        descriptor.push_constant_ranges.push(PushConstantRange {
-            stages: ShaderStages::FRAGMENT,
-            range: 0..16,
-        });
-        let fragment = descriptor.fragment.as_mut().unwrap();
-        fragment.shader = self.shader.clone();
-        descriptor.primitive.polygon_mode = PolygonMode::Line;
+        let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+
+        if key.wide {
+            descriptor.label = Some("wireframe_3d_wide_pipeline".into());
+
+            descriptor.vertex.shader = self.shader.clone();
+            descriptor.vertex.shader_defs.push("WIREFRAME_WIDE".into());
+            if key.quads {
+                descriptor.vertex.shader_defs.push("WIREFRAME_QUADS".into());
+            }
+            descriptor.vertex.entry_point = Some("vertex".into());
+            descriptor.vertex.buffers = vec![]; // vertex pulling from storage
+
+            let fragment = descriptor.fragment.as_mut().unwrap();
+            fragment.shader = self.shader.clone();
+            fragment.shader_defs.push("WIREFRAME_WIDE".into());
+            fragment.entry_point = Some("fragment".into());
+
+            for state in fragment.targets.iter_mut().flatten() {
+                state.blend = Some(BlendState::ALPHA_BLENDING);
+            }
+
+            descriptor.primitive.polygon_mode = if key.line_mode {
+                PolygonMode::Line
+            } else {
+                PolygonMode::Fill
+            };
+            descriptor.immediate_size = 32; // color(16) + line_width(4) + smoothing(4) + pad(8)
+
+            descriptor
+                .layout
+                .push(self.wide_bind_group_layout_descriptor.clone());
+        } else {
+            descriptor.label = Some("wireframe_3d_pipeline".into());
+            descriptor.immediate_size = 16;
+            let fragment = descriptor.fragment.as_mut().unwrap();
+            fragment.shader = self.shader.clone();
+            descriptor.primitive.polygon_mode = PolygonMode::Line;
+        }
+
         Ok(descriptor)
     }
 }
 
-#[derive(Default)]
-struct Wireframe3dNode;
-impl ViewNode for Wireframe3dNode {
-    type ViewQuery = (
-        &'static ExtractedCamera,
-        &'static ExtractedView,
-        &'static ViewTarget,
-        &'static ViewDepthTexture,
-    );
+pub fn wireframe_3d(
+    world: &World,
+    view: ViewQuery<(
+        &ExtractedCamera,
+        &ExtractedView,
+        &ViewTarget,
+        &ViewDepthTexture,
+    )>,
+    wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
+    mut ctx: RenderContext,
+) {
+    let view_entity = view.entity();
 
-    fn run<'w>(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let Some(wireframe_phase) = world.get_resource::<ViewBinnedRenderPhases<Wireframe3d>>()
-        else {
-            return Ok(());
-        };
+    let (camera, extracted_view, target, depth) = view.into_inner();
 
-        let Some(wireframe_phase) = wireframe_phase.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
+    let Some(wireframe_phase) = wireframe_phases.get(&extracted_view.retained_view_entity) else {
+        return;
+    };
 
-        let diagnostics = render_context.diagnostic_recorder();
+    if wireframe_phase.is_empty() {
+        return;
+    }
 
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("wireframe_3d"),
-            color_attachments: &[Some(target.get_color_attachment())],
-            depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-        let pass_span = diagnostics.pass_span(&mut render_pass, "wireframe_3d");
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("wireframe_3d"),
+        color_attachments: &[Some(target.get_color_attachment())],
+        depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    });
 
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
-        }
+    if let Some(viewport) = camera.viewport.as_ref() {
+        render_pass.set_camera_viewport(viewport);
+    }
 
-        if let Err(err) = wireframe_phase.render(&mut render_pass, world, graph.view_entity()) {
-            error!("Error encountered while rendering the stencil phase {err:?}");
-            return Err(NodeRunError::DrawError(err));
-        }
-
-        pass_span.end(&mut render_pass);
-
-        Ok(())
+    if let Err(err) = wireframe_phase.render(&mut render_pass, world, view_entity) {
+        error!("Error encountered while rendering the wireframe phase {err:?}");
     }
 }
 
@@ -431,9 +834,19 @@ pub struct WireframeColor {
     pub color: Color,
 }
 
-#[derive(Component, Debug, Clone, Default)]
-pub struct ExtractedWireframeColor {
-    pub color: [f32; 4],
+/// Sets the line width (in screen-space pixels) of the wireframe.
+///
+/// Overrides [`WireframeConfig::default_line_width`].
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct WireframeLineWidth {
+    pub width: f32,
+}
+
+impl Default for WireframeLineWidth {
+    fn default() -> Self {
+        Self { width: 1.0 }
+    }
 }
 
 /// Disables wireframe rendering for any entity it is attached to.
@@ -444,7 +857,18 @@ pub struct ExtractedWireframeColor {
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct NoWireframe;
 
-#[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
+/// Controls whether wireframe edges follow triangle or quad topology.
+#[derive(Component, Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub enum WireframeTopology {
+    #[default]
+    Triangles,
+    /// Does a best-effort attempt to detect quads from a triangle mesh. No guarantee of accuracy is made,
+    /// that is, there may be both false positives and false negatives in the rendered output.
+    Quads,
+}
+
+#[derive(Resource, Debug, Clone, ExtractResource, Reflect)]
 #[reflect(Resource, Debug, Default)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes.
@@ -454,16 +878,45 @@ pub struct WireframeConfig {
     /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe`],
     /// but no [`WireframeColor`].
     pub default_color: Color,
+    /// Default line width in screen-space pixels.
+    pub default_line_width: f32,
+    /// Default edge topology.
+    pub default_topology: WireframeTopology,
 }
 
-#[derive(Asset, Reflect, Clone, Debug, Default)]
+impl Default for WireframeConfig {
+    fn default() -> Self {
+        Self {
+            global: false,
+            default_color: Color::default(),
+            default_line_width: 1.0,
+            default_topology: WireframeTopology::default(),
+        }
+    }
+}
+
+#[derive(Asset, Reflect, Clone, Debug)]
 #[reflect(Clone, Default)]
 pub struct WireframeMaterial {
     pub color: Color,
+    pub line_width: f32,
+    pub topology: WireframeTopology,
+}
+
+impl Default for WireframeMaterial {
+    fn default() -> Self {
+        Self {
+            color: Color::default(),
+            line_width: 1.0,
+            topology: WireframeTopology::default(),
+        }
+    }
 }
 
 pub struct RenderWireframeMaterial {
     pub color: [f32; 4],
+    pub line_width: f32,
+    pub topology: WireframeTopology,
 }
 
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
@@ -490,6 +943,8 @@ impl RenderAsset for RenderWireframeMaterial {
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         Ok(RenderWireframeMaterial {
             color: source_asset.color.to_linear().to_f32_array(),
+            line_width: source_asset.line_width,
+            topology: source_asset.topology,
         })
     }
 }
@@ -508,16 +963,12 @@ pub struct WireframeEntitySpecializationTicks {
     pub entities: MainEntityHashMap<Tick>,
 }
 
-/// Stores the [`SpecializedWireframeViewPipelineCache`] for each view.
-#[derive(Resource, Deref, DerefMut, Default)]
+#[derive(Resource, Default)]
 pub struct SpecializedWireframePipelineCache {
-    // view entity -> view pipeline cache
-    #[deref]
-    map: HashMap<RetainedViewEntity, SpecializedWireframeViewPipelineCache>,
+    views: HashMap<RetainedViewEntity, SpecializedWireframeViewPipelineCache>,
+    wide: HashMap<(MeshPipelineKey, MeshVertexBufferLayoutRef, bool, bool), CachedRenderPipelineId>,
 }
 
-/// Stores the cached render pipeline ID for each entity in a single view, as
-/// well as the last time it was changed.
 #[derive(Deref, DerefMut, Default)]
 pub struct SpecializedWireframeViewPipelineCache {
     // material entity -> (tick, pipeline_id)
@@ -568,36 +1019,115 @@ fn setup_global_wireframe_material(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     config: Res<WireframeConfig>,
 ) {
-    // Create the handle used for the global material
     commands.insert_resource(GlobalWireframeMaterial {
         handle: materials.add(WireframeMaterial {
             color: config.default_color,
+            line_width: config.default_line_width,
+            topology: config.default_topology,
         }),
     });
 }
 
-/// Updates the wireframe material of all entities without a [`WireframeColor`] or without a [`Wireframe`] component
-fn global_color_changed(
+fn wireframe_config_changed(
     config: Res<WireframeConfig>,
     mut materials: ResMut<Assets<WireframeMaterial>>,
     global_material: Res<GlobalWireframeMaterial>,
+    mut per_entity_wireframes: Query<
+        (
+            &mut Mesh3dWireframe,
+            Option<&WireframeColor>,
+            Option<&WireframeLineWidth>,
+            Option<&WireframeTopology>,
+        ),
+        With<Wireframe>,
+    >,
 ) {
-    if let Some(global_material) = materials.get_mut(&global_material.handle) {
-        global_material.color = config.default_color;
+    if let Some(mut mat) = materials.get_mut(&global_material.handle) {
+        mat.color = config.default_color;
+        mat.line_width = config.default_line_width;
+        mat.topology = config.default_topology;
+    }
+
+    for (mut handle, maybe_color, maybe_width, maybe_topology) in &mut per_entity_wireframes {
+        if handle.0 == global_material.handle {
+            continue;
+        }
+        handle.0 = materials.add(WireframeMaterial {
+            color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
+            line_width: maybe_width
+                .map(|w| w.width)
+                .unwrap_or(config.default_line_width),
+            topology: maybe_topology.copied().unwrap_or(config.default_topology),
+        });
     }
 }
 
-/// Updates the wireframe material when the color in [`WireframeColor`] changes
 fn wireframe_color_changed(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     mut colors_changed: Query<
-        (&mut Mesh3dWireframe, &WireframeColor),
+        (
+            &mut Mesh3dWireframe,
+            &WireframeColor,
+            Option<&WireframeLineWidth>,
+            Option<&WireframeTopology>,
+        ),
         (With<Wireframe>, Changed<WireframeColor>),
     >,
+    config: Res<WireframeConfig>,
 ) {
-    for (mut handle, wireframe_color) in &mut colors_changed {
+    for (mut handle, wireframe_color, maybe_width, maybe_topology) in &mut colors_changed {
         handle.0 = materials.add(WireframeMaterial {
             color: wireframe_color.color,
+            line_width: maybe_width
+                .map(|w| w.width)
+                .unwrap_or(config.default_line_width),
+            topology: maybe_topology.copied().unwrap_or(config.default_topology),
+        });
+    }
+}
+
+fn wireframe_line_width_changed(
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut widths_changed: Query<
+        (
+            &mut Mesh3dWireframe,
+            &WireframeLineWidth,
+            Option<&WireframeColor>,
+            Option<&WireframeTopology>,
+        ),
+        (With<Wireframe>, Changed<WireframeLineWidth>),
+    >,
+    config: Res<WireframeConfig>,
+) {
+    for (mut handle, wireframe_width, maybe_color, maybe_topology) in &mut widths_changed {
+        handle.0 = materials.add(WireframeMaterial {
+            color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
+            line_width: wireframe_width.width,
+            topology: maybe_topology.copied().unwrap_or(config.default_topology),
+        });
+    }
+}
+
+fn wireframe_topology_changed(
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut topology_changed: Query<
+        (
+            &mut Mesh3dWireframe,
+            &WireframeTopology,
+            Option<&WireframeColor>,
+            Option<&WireframeLineWidth>,
+        ),
+        (With<Wireframe>, Changed<WireframeTopology>),
+    >,
+    config: Res<WireframeConfig>,
+) {
+    for (mut handle, topology, maybe_color, maybe_width) in &mut topology_changed {
+        handle.0 = materials.add(WireframeMaterial {
+            color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
+            line_width: maybe_width
+                .map(|w| w.width)
+                .unwrap_or(config.default_line_width),
+            topology: *topology,
         });
     }
 }
@@ -608,12 +1138,18 @@ fn apply_wireframe_material(
     mut commands: Commands,
     mut materials: ResMut<Assets<WireframeMaterial>>,
     wireframes: Query<
-        (Entity, Option<&WireframeColor>),
+        (
+            Entity,
+            Option<&WireframeColor>,
+            Option<&WireframeLineWidth>,
+            Option<&WireframeTopology>,
+        ),
         (With<Wireframe>, Without<Mesh3dWireframe>),
     >,
     no_wireframes: Query<Entity, (With<NoWireframe>, With<Mesh3dWireframe>)>,
     mut removed_wireframes: RemovedComponents<Wireframe>,
     global_material: Res<GlobalWireframeMaterial>,
+    config: Res<WireframeConfig>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
         if let Ok(mut commands) = commands.get_entity(e) {
@@ -622,8 +1158,15 @@ fn apply_wireframe_material(
     }
 
     let mut material_to_spawn = vec![];
-    for (e, maybe_color) in &wireframes {
-        let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
+    for (e, maybe_color, maybe_width, maybe_topology) in &wireframes {
+        let material = get_wireframe_material(
+            maybe_color,
+            maybe_width,
+            maybe_topology,
+            &mut materials,
+            &global_material,
+            &config,
+        );
         material_to_spawn.push((e, Mesh3dWireframe(material)));
     }
     commands.try_insert_batch(material_to_spawn);
@@ -636,7 +1179,12 @@ fn apply_global_wireframe_material(
     mut commands: Commands,
     config: Res<WireframeConfig>,
     meshes_without_material: Query<
-        (Entity, Option<&WireframeColor>),
+        (
+            Entity,
+            Option<&WireframeColor>,
+            Option<&WireframeLineWidth>,
+            Option<&WireframeTopology>,
+        ),
         (WireframeFilter, Without<Mesh3dWireframe>),
     >,
     meshes_with_global_material: Query<Entity, (WireframeFilter, With<Mesh3dWireframe>)>,
@@ -645,8 +1193,15 @@ fn apply_global_wireframe_material(
 ) {
     if config.global {
         let mut material_to_spawn = vec![];
-        for (e, maybe_color) in &meshes_without_material {
-            let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
+        for (e, maybe_color, maybe_width, maybe_topology) in &meshes_without_material {
+            let material = get_wireframe_material(
+                maybe_color,
+                maybe_width,
+                maybe_topology,
+                &mut materials,
+                &global_material,
+                &config,
+            );
             // We only add the material handle but not the Wireframe component
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
             material_to_spawn.push((e, Mesh3dWireframe(material)));
@@ -662,12 +1217,19 @@ fn apply_global_wireframe_material(
 /// Gets a handle to a wireframe material with a fallback on the default material
 fn get_wireframe_material(
     maybe_color: Option<&WireframeColor>,
+    maybe_width: Option<&WireframeLineWidth>,
+    maybe_topology: Option<&WireframeTopology>,
     wireframe_materials: &mut Assets<WireframeMaterial>,
     global_material: &GlobalWireframeMaterial,
+    config: &WireframeConfig,
 ) -> Handle<WireframeMaterial> {
-    if let Some(wireframe_color) = maybe_color {
+    if maybe_color.is_some() || maybe_width.is_some() || maybe_topology.is_some() {
         wireframe_materials.add(WireframeMaterial {
-            color: wireframe_color.color,
+            color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
+            line_width: maybe_width
+                .map(|w| w.width)
+                .unwrap_or(config.default_line_width),
+            topology: maybe_topology.copied().unwrap_or(config.default_topology),
         })
     } else {
         // If there's no color specified we can use the global material since it's already set to use the default_color
@@ -716,10 +1278,11 @@ pub fn extract_wireframe_entities_needing_specialization(
 
     for entity in removed_meshes_query.read() {
         for view in &views {
-            if let Some(specialized_wireframe_pipeline_cache) =
-                specialized_wireframe_pipeline_cache.get_mut(&view.retained_view_entity)
+            if let Some(view_cache) = specialized_wireframe_pipeline_cache
+                .views
+                .get_mut(&view.retained_view_entity)
             {
-                specialized_wireframe_pipeline_cache.remove(&MainEntity::from(entity));
+                view_cache.remove(&MainEntity::from(entity));
             }
         }
     }
@@ -733,6 +1296,8 @@ pub fn check_wireframe_entities_needing_specialization(
             AssetChanged<Mesh3d>,
             Changed<Mesh3dWireframe>,
             AssetChanged<Mesh3dWireframe>,
+            Changed<WireframeLineWidth>,
+            Changed<WireframeTopology>,
         )>,
     >,
     mut entities_needing_specialization: ResMut<WireframeEntitiesNeedingSpecialization>,
@@ -747,6 +1312,7 @@ pub fn specialize_wireframes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
+    render_wireframe_assets: Res<RenderAssets<RenderWireframeMaterial>>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
@@ -760,9 +1326,12 @@ pub fn specialize_wireframes(
     render_lightmaps: Res<RenderLightmaps>,
     ticks: SystemChangeTick,
 ) {
-    // Record the retained IDs of all views so that we can expire old
-    // pipeline IDs.
     let mut all_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
+
+    let SpecializedWireframePipelineCache {
+        views: ref mut views_pipeline_cache,
+        wide: ref mut wide_pipeline_cache,
+    } = *specialized_material_pipeline_cache;
 
     for (view, visible_entities) in &views {
         all_views.insert(view.retained_view_entity);
@@ -778,7 +1347,7 @@ pub fn specialize_wireframes(
         let view_tick = view_specialization_ticks
             .get(&view.retained_view_entity)
             .unwrap();
-        let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
+        let view_specialized_material_pipeline_cache = views_pipeline_cache
             .entry(view.retained_view_entity)
             .or_default();
 
@@ -840,24 +1409,60 @@ pub fn specialize_wireframes(
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
 
-            let pipeline_id =
-                pipelines.specialize(&pipeline_cache, &pipeline, mesh_key, &mesh.layout);
-            let pipeline_id = match pipeline_id {
-                Ok(id) => id,
-                Err(err) => {
-                    error!("{}", err);
-                    continue;
+            let mat = render_wireframe_instances
+                .get(visible_entity)
+                .and_then(|asset_id| render_wireframe_assets.get(*asset_id));
+            let quads = mat
+                .map(|m| m.topology == WireframeTopology::Quads)
+                .unwrap_or(false);
+            let thick = mat.map(|m| m.line_width > 1.0).unwrap_or(false);
+            let wide = thick || quads;
+            let line_mode = wide && !thick;
+
+            let pipeline_id = if wide {
+                let cache_key = (mesh_key, mesh.layout.clone(), quads, line_mode);
+                *wide_pipeline_cache.entry(cache_key).or_insert_with(|| {
+                    let wireframe_key = WireframePipelineKey {
+                        mesh_key,
+                        wide: true,
+                        quads,
+                        line_mode,
+                    };
+                    match pipeline.specialize(wireframe_key, &mesh.layout) {
+                        Ok(descriptor) => pipeline_cache.queue_render_pipeline(descriptor),
+                        Err(err) => {
+                            error!("{}", err);
+                            CachedRenderPipelineId::INVALID
+                        }
+                    }
+                })
+            } else {
+                let wireframe_key = WireframePipelineKey {
+                    mesh_key,
+                    wide: false,
+                    quads: false,
+                    line_mode: false,
+                };
+                match pipelines.specialize(&pipeline_cache, &pipeline, wireframe_key, &mesh.layout)
+                {
+                    Ok(id) => id,
+                    Err(err) => {
+                        error!("{}", err);
+                        continue;
+                    }
                 }
             };
+
+            if pipeline_id == CachedRenderPipelineId::INVALID {
+                continue;
+            }
 
             view_specialized_material_pipeline_cache
                 .insert(*visible_entity, (ticks.this_run(), pipeline_id));
         }
     }
 
-    // Delete specialized pipelines belonging to views that have expired.
-    specialized_material_pipeline_cache
-        .retain(|retained_view_entity, _| all_views.contains(retained_view_entity));
+    views_pipeline_cache.retain(|retained_view_entity, _| all_views.contains(retained_view_entity));
 }
 
 fn queue_wireframes(
@@ -867,6 +1472,7 @@ fn queue_wireframes(
     mesh_allocator: Res<MeshAllocator>,
     specialized_wireframe_pipeline_cache: Res<SpecializedWireframePipelineCache>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
+    render_wireframe_assets: Res<RenderAssets<RenderWireframeMaterial>>,
     mut wireframe_3d_phases: ResMut<ViewBinnedRenderPhases<Wireframe3d>>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
 ) {
@@ -874,10 +1480,13 @@ fn queue_wireframes(
         let Some(wireframe_phase) = wireframe_3d_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
-        let draw_wireframe = custom_draw_functions.read().id::<DrawWireframe3d>();
+        let draw_functions = custom_draw_functions.read();
+        let draw_thin = draw_functions.id::<DrawWireframe3dThin>();
+        let draw_wide = draw_functions.id::<DrawWireframe3dWide>();
 
-        let Some(view_specialized_material_pipeline_cache) =
-            specialized_wireframe_pipeline_cache.get(&view.retained_view_entity)
+        let Some(view_specialized_material_pipeline_cache) = specialized_wireframe_pipeline_cache
+            .views
+            .get(&view.retained_view_entity)
         else {
             continue;
         };
@@ -901,6 +1510,13 @@ fn queue_wireframes(
             else {
                 continue;
             };
+
+            let is_wide = render_wireframe_assets
+                .get(*wireframe_instance)
+                .map(|mat| mat.line_width > 1.0 || mat.topology == WireframeTopology::Quads)
+                .unwrap_or(false);
+            let draw_function = if is_wide { draw_wide } else { draw_thin };
+
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
             let bin_key = Wireframe3dBinKey {
                 asset_id: mesh_instance.mesh_asset_id.untyped(),
@@ -908,9 +1524,17 @@ fn queue_wireframes(
             let batch_set_key = Wireframe3dBatchSetKey {
                 pipeline: pipeline_id,
                 asset_id: wireframe_instance.untyped(),
-                draw_function: draw_wireframe,
+                draw_function,
                 vertex_slab: vertex_slab.unwrap_or_default(),
-                index_slab,
+                // wide wireframes use non-indexed draws (vertex pulling from storage),
+                // so set index_slab to None to make the preprocessor emit
+                // IndirectParametersNonIndexed instead of IndirectParametersIndexed.
+                index_slab: if is_wide { None } else { index_slab },
+                mesh_asset_id: if is_wide {
+                    Some(mesh_instance.mesh_asset_id.untyped())
+                } else {
+                    None
+                },
             };
             wireframe_phase.add(
                 batch_set_key,

@@ -6,6 +6,7 @@ impl_reflect_opaque!(::core::net::SocketAddr(
     Debug,
     Hash,
     PartialEq,
+    PartialOrd,
     Serialize,
     Deserialize
 ));

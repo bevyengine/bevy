@@ -5,6 +5,10 @@ permissions:
 
 on:
   workflow_call:
+    secrets:
+      PIXELEAGLE_TOKEN:
+        description: "An auth token for pixel-eagle.com"
+        required: true
     inputs:
       artifact:
         required: true
@@ -40,7 +44,7 @@ jobs:
 
       - name: Download artifact
         if: ${{ fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           pattern: ${{ inputs.artifact }}
 
@@ -49,9 +53,11 @@ jobs:
         env:
           project: B04F67C0-C054-4A6F-92EC-F599FEC2FD1D
           branch: ${{ inputs.branch }}
+          os: ${{ inputs.os }}
+          commit: ${{ inputs.commit }}
         run: |
           # Create a new run with its associated metadata
-          metadata='{"os":"${{ inputs.os }}", "commit": "${{ inputs.commit }}", "branch": "'$branch'"}'
+          metadata='{"os":"'$os'", "commit": "'$commit'", "branch": "'$branch'"}'
           run=`curl https://pixel-eagle.com/$project/runs --json "$metadata" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.id'`
 
           SAVEIFS=$IFS
@@ -95,14 +101,14 @@ jobs:
           missing=`cat pixeleagle.json | jq '.missing | length'`
           if [ ! $missing -eq 0 ]; then
             echo "There are $missing missing screenshots"
-            echo "::warning title=$missing missing screenshots on ${{ inputs.os }}::https://pixel-eagle.com/project/$project/run/$run/compare/$compared_with"
+            echo "::warning title=$missing missing screenshots on $os::https://pixel-eagle.com/project/$project/run/$run/compare/$compared_with"
             status=1
           fi
 
           diff=`cat pixeleagle.json | jq '.diff | length'`
           if [ ! $diff -eq 0 ]; then
             echo "There are $diff screenshots with a difference"
-            echo "::warning title=$diff different screenshots on ${{ inputs.os }}::https://pixel-eagle.com/project/$project/run/$run/compare/$compared_with"
+            echo "::warning title=$diff different screenshots on $os::https://pixel-eagle.com/project/$project/run/$run/compare/$compared_with"
             status=1
           fi
 

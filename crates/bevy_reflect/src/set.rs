@@ -1,3 +1,6 @@
+//! A trait used to power [set-like] operations via reflection.
+//!
+//! [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 use alloc::{boxed::Box, format, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
@@ -29,7 +32,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Set};
+/// use bevy_reflect::{PartialReflect, set::Set};
 /// use std::collections::HashSet;
 ///
 ///
@@ -90,8 +93,8 @@ pub trait Set: PartialReflect {
 
     /// Removes a value from the set.
     ///
-    /// If the set did not have this value present, `true` is returned.
-    /// If the set did have this value present, `false` is returned.
+    /// If the set did have this value present, `true` is returned.
+    /// If the set did not have this value present, `false` is returned.
     fn remove(&mut self, value: &dyn PartialReflect) -> bool;
 
     /// Checks if the given value is contained in the set
@@ -488,7 +491,7 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), Ap
 
 #[cfg(test)]
 mod tests {
-    use crate::{PartialReflect, Set};
+    use crate::{set::Set, PartialReflect};
 
     use super::DynamicSet;
     use alloc::string::{String, ToString};

@@ -54,11 +54,11 @@ fn setup(
                 intensity: 0.0,
                 range: spawn_plane_depth,
                 color: Color::WHITE,
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             }),
             (DirectionalLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             })
         ],

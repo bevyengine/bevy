@@ -40,7 +40,7 @@ fn on_a_enter(mut commands: Commands) {
         DespawnOnExit(GameState::A),
         Text::new("Game is in state 'A'"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -60,7 +60,7 @@ fn on_a_exit(mut commands: Commands) {
         DespawnOnEnter(GameState::A),
         Text::new("Game state 'A' will be back in 1 second"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -83,7 +83,7 @@ fn on_b_enter(mut commands: Commands) {
         DespawnOnExit(GameState::B),
         Text::new("Game is in state 'B'"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -103,7 +103,7 @@ fn on_b_exit(mut commands: Commands) {
         DespawnOnEnter(GameState::B),
         Text::new("Game state 'B' will be back in 1 second"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),

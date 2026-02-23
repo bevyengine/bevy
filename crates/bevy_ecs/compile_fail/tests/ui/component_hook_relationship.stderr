@@ -4,16 +4,16 @@ error: Custom on_insert hooks are not supported as relationships already define 
 7 |     #[component(on_insert = foo_hook)]
   |     ^
 
-error: Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook
+error: Custom on_discard hooks are not supported as RelationshipTarget already defines an on_discard hook
   --> tests/ui/component_hook_relationship.rs:22:5
    |
-22 |     #[component(on_replace = foo_hook)]
+22 |     #[component(on_discard = foo_hook)]
    |     ^
 
-error: Custom on_replace hooks are not supported as Relationships already define an on_replace hook
+error: Custom on_discard hooks are not supported as Relationships already define an on_discard hook
   --> tests/ui/component_hook_relationship.rs:37:5
    |
-37 |     #[component(on_replace = foo_hook)]
+37 |     #[component(on_discard = foo_hook)]
    |     ^
 
 error: Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the 'linked_spawn' attribute

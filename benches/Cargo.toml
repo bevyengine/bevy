@@ -30,7 +30,7 @@ bevy_platform = { path = "../crates/bevy_platform", default-features = false, fe
 ] }
 
 # Other crates
-glam = { version = "0.30.7", default-features = false, features = [
+glam = { version = "0.31.0", default-features = false, features = [
   "std",
   "rand",
 ] }

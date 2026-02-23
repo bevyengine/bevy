@@ -2,10 +2,12 @@
 use crate::message::MessageParIter;
 use crate::{
     message::{Message, MessageCursor, MessageIterator, MessageIteratorWithId, Messages},
-    system::{Local, Res, SystemParam},
+    system::{Local, Res, SystemParam, SystemParamValidationError},
 };
 
 /// Reads [`Message`]s of type `T` in order and tracks which messages have already been read.
+///
+/// Use [`PopulatedMessageReader<T>`] to skip the system if there are no messages.
 ///
 /// # Concurrency
 ///
@@ -14,22 +16,22 @@ use crate::{
 ///
 /// [`MessageWriter<T>`]: super::MessageWriter
 #[derive(SystemParam, Debug)]
-pub struct MessageReader<'w, 's, E: Message> {
-    pub(super) reader: Local<'s, MessageCursor<E>>,
+pub struct MessageReader<'w, 's, M: Message> {
+    pub(super) reader: Local<'s, MessageCursor<M>>,
     #[system_param(validation_message = "Message not initialized")]
-    messages: Res<'w, Messages<E>>,
+    messages: Res<'w, Messages<M>>,
 }
 
-impl<'w, 's, E: Message> MessageReader<'w, 's, E> {
+impl<'w, 's, M: Message> MessageReader<'w, 's, M> {
     /// Iterates over the messages this [`MessageReader`] has not seen yet. This updates the
     /// [`MessageReader`]'s message counter, which means subsequent message reads will not include messages
     /// that happened before now.
-    pub fn read(&mut self) -> MessageIterator<'_, E> {
+    pub fn read(&mut self) -> MessageIterator<'_, M> {
         self.reader.read(&self.messages)
     }
 
     /// Like [`read`](Self::read), except also returning the [`MessageId`](super::MessageId) of the messages.
-    pub fn read_with_id(&mut self) -> MessageIteratorWithId<'_, E> {
+    pub fn read_with_id(&mut self) -> MessageIteratorWithId<'_, M> {
         self.reader.read_with_id(&self.messages)
     }
 
@@ -69,7 +71,7 @@ impl<'w, 's, E: Message> MessageReader<'w, 's, E> {
     /// assert_eq!(counter.into_inner(), 4950);
     /// ```
     #[cfg(feature = "multi_threaded")]
-    pub fn par_read(&mut self) -> MessageParIter<'_, E> {
+    pub fn par_read(&mut self) -> MessageParIter<'_, M> {
         self.reader.par_read(&self.messages)
     }
 
@@ -111,5 +113,126 @@ impl<'w, 's, E: Message> MessageReader<'w, 's, E> {
     /// For usage, see [`MessageReader::is_empty()`].
     pub fn clear(&mut self) {
         self.reader.clear(&self.messages);
+    }
+}
+
+/// Reads [`Message`]s of type `T` in order and tracks which messages have already been read.
+/// Skips the system if there no messages.
+///
+/// Use [`MessageReader<T>`] to run the system even if there are no messages.
+///
+/// Use the [`on_message`](crate::prelude::on_message) run condition to skip the system based on messages that it doesn't read.
+#[derive(Debug)]
+pub struct PopulatedMessageReader<'w, 's, M: Message>(MessageReader<'w, 's, M>);
+
+impl<'w, 's, M: Message> core::ops::Deref for PopulatedMessageReader<'w, 's, M> {
+    type Target = MessageReader<'w, 's, M>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'w, 's, M: Message> core::ops::DerefMut for PopulatedMessageReader<'w, 's, M> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+// SAFETY: relies on MessageReader to uphold soundness requirements
+unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M> {
+    type State = <MessageReader<'w, 's, M> as SystemParam>::State;
+    type Item<'world, 'state> = PopulatedMessageReader<'world, 'state, M>;
+
+    fn init_state(world: &mut crate::prelude::World) -> Self::State {
+        MessageReader::<M>::init_state(world)
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut crate::system::SystemMeta,
+        component_access_set: &mut crate::query::FilteredAccessSet,
+        world: &mut crate::prelude::World,
+    ) {
+        MessageReader::<M>::init_access(state, system_meta, component_access_set, world);
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &crate::system::SystemMeta,
+        world: crate::world::unsafe_world_cell::UnsafeWorldCell<'world>,
+        change_tick: crate::change_detection::Tick,
+    ) -> Self::Item<'world, 'state> {
+        // SAFETY: requirements are upheld by MessageReader's implementation
+        unsafe {
+            PopulatedMessageReader(MessageReader::get_param(
+                state,
+                system_meta,
+                world,
+                change_tick,
+            ))
+        }
+    }
+
+    unsafe fn validate_param(
+        state: &mut Self::State,
+        system_meta: &crate::system::SystemMeta,
+        world: crate::world::unsafe_world_cell::UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        // SAFETY: requirements are upheld by MessageReader's implementation
+        unsafe { MessageReader::<M>::validate_param(state, system_meta, world) }?;
+
+        // SAFETY: requirements are upheld by MessageReader's implementation
+        let reader =
+            unsafe { MessageReader::get_param(state, system_meta, world, world.change_tick()) };
+        if reader.is_empty() {
+            Err(SystemParamValidationError::skipped::<Self>(
+                "message queue is empty",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use core::sync::atomic::{AtomicBool, Ordering};
+
+    use super::*;
+    use crate::message::MessageRegistry;
+    use crate::prelude::*;
+    use bevy_platform::sync::Arc;
+
+    #[test]
+    fn test_populated_message_reader() {
+        let system_ran = Arc::new(AtomicBool::new(false));
+
+        let mut world = World::new();
+        MessageRegistry::register_message::<TheMessage>(&mut world);
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems({
+            let system_ran = system_ran.clone();
+            move |mut _reader: PopulatedMessageReader<TheMessage>| {
+                system_ran.store(true, Ordering::SeqCst);
+            }
+        });
+
+        schedule.run(&mut world);
+        assert!(
+            !system_ran.load(Ordering::SeqCst),
+            "system with PopulatedMessageReader should have been skipped"
+        );
+
+        world.write_message(TheMessage);
+        schedule.run(&mut world);
+        assert!(
+            system_ran.load(Ordering::SeqCst),
+            "system with PopulatedMessageReader should NOT have been skipped"
+        );
+
+        #[derive(Message)]
+        struct TheMessage;
     }
 }

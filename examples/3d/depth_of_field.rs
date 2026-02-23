@@ -189,7 +189,7 @@ fn tweak_scene(
 ) {
     // Turn on shadows.
     for mut light in lights.iter_mut() {
-        light.shadows_enabled = true;
+        light.shadow_maps_enabled = true;
     }
 
     // Add a nice lightmap to the circuit board.

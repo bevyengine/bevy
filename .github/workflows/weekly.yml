@@ -42,8 +42,12 @@ jobs:
     if: github.repository == 'bevyengine/bevy'
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@beta
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
+        with:
+          toolchain: beta
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
@@ -58,9 +62,12 @@ jobs:
     if: github.repository == 'bevyengine/bevy'
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@beta
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
+        with:
+          toolchain: beta
           components: rustfmt, clippy
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
@@ -68,6 +75,7 @@ jobs:
           wayland: true
           xkb: true
           x264: true
+          fontconfig: true
       - name: Run lints
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
@@ -79,8 +87,12 @@ jobs:
     timeout-minutes: 30
     needs: test
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@beta
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
+        with:
+          toolchain: beta
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check compile test

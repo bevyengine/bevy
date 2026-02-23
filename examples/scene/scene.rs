@@ -25,6 +25,7 @@
 //!
 
 use bevy::{asset::LoadState, prelude::*, tasks::IoTaskPool};
+
 use core::time::Duration;
 use std::{fs::File, io::Write};
 
@@ -214,7 +215,7 @@ fn infotext_system(mut commands: Commands) {
     commands.spawn((
         Text::new("Nothing to see in this window! Check the console output!"),
         TextFont {
-            font_size: 42.0,
+            font_size: FontSize::Px(42.0),
             ..default()
         },
         Node {

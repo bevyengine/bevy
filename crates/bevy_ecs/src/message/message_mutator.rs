@@ -42,22 +42,22 @@ use crate::{
 /// [`MessageReader`]: super::MessageReader
 /// [`MessageWriter`]: super::MessageWriter
 #[derive(SystemParam, Debug)]
-pub struct MessageMutator<'w, 's, E: Message> {
-    pub(super) reader: Local<'s, MessageCursor<E>>,
+pub struct MessageMutator<'w, 's, M: Message> {
+    pub(super) reader: Local<'s, MessageCursor<M>>,
     #[system_param(validation_message = "Message not initialized")]
-    messages: ResMut<'w, Messages<E>>,
+    messages: ResMut<'w, Messages<M>>,
 }
 
-impl<'w, 's, E: Message> MessageMutator<'w, 's, E> {
+impl<'w, 's, M: Message> MessageMutator<'w, 's, M> {
     /// Iterates over the messages this [`MessageMutator`] has not seen yet. This updates the
     /// [`MessageMutator`]'s message counter, which means subsequent message reads will not include messages
     /// that happened before now.
-    pub fn read(&mut self) -> MessageMutIterator<'_, E> {
+    pub fn read(&mut self) -> MessageMutIterator<'_, M> {
         self.reader.read_mut(&mut self.messages)
     }
 
     /// Like [`read`](Self::read), except also returning the [`MessageId`](super::MessageId) of the messages.
-    pub fn read_with_id(&mut self) -> MessageMutIteratorWithId<'_, E> {
+    pub fn read_with_id(&mut self) -> MessageMutIteratorWithId<'_, M> {
         self.reader.read_mut_with_id(&mut self.messages)
     }
 
@@ -97,7 +97,7 @@ impl<'w, 's, E: Message> MessageMutator<'w, 's, E> {
     /// assert_eq!(counter.into_inner(), 4950);
     /// ```
     #[cfg(feature = "multi_threaded")]
-    pub fn par_read(&mut self) -> MessageMutParIter<'_, E> {
+    pub fn par_read(&mut self) -> MessageMutParIter<'_, M> {
         self.reader.par_read_mut(&mut self.messages)
     }
 

@@ -20,7 +20,7 @@ env:
   CARGO_PROFILE_TEST_DEBUG: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: nightly
+  NIGHTLY_TOOLCHAIN: "nightly-2026-02-11"
 
 jobs:
   env:
@@ -29,8 +29,12 @@ jobs:
       NIGHTLY_TOOLCHAIN: ${{ steps.env.outputs.NIGHTLY_TOOLCHAIN }}
       MSRV: ${{ steps.msrv.outputs.MSRV }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
+        with:
+          toolchain: stable
       - name: get MSRV
         id: msrv
         run: |
@@ -94,14 +98,15 @@ jobs:
         shell: bash
 
       - name: Checkout Bevy main branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: "bevyengine/bevy"
           ref: "main"
+          persist-credentials: false
 
       - name: Setup Rust
         id: rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: ${{ matrix.toolchain }}
           target: ${{ matrix.target }}
@@ -116,9 +121,10 @@ jobs:
           wayland: true
           xkb: true
           x264: true
+          fontconfig: true
 
       # Fetch the cache using the complete key - to avoid rebuilding the cache if nothing changed
-      - uses: actions/cache/restore@v5
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         id: cache
         with:
           path: |
@@ -141,7 +147,7 @@ jobs:
 
       - name: Save cache
         if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: |
             ~/.cargo/bin/

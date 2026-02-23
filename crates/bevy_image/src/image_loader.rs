@@ -119,7 +119,7 @@ pub struct ImageLoaderSettings {
     /// in a shader.
     /// Ex: data that would be `R16Uint` that needs to
     /// be sampled as a float using `R16Snorm`.
-    #[serde(skip)]
+    #[serde(default)]
     pub texture_format: Option<wgpu_types::TextureFormat>,
     /// Specifies whether image data is linear
     /// or in sRGB space when this is not determined by

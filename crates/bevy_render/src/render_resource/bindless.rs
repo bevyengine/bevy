@@ -11,10 +11,9 @@ use wgpu::{
     BindGroupLayoutEntry, SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension,
 };
 
-use crate::render_resource::binding_types::storage_buffer_read_only_sized;
-
-use super::binding_types::{
-    sampler, texture_1d, texture_2d, texture_2d_array, texture_3d, texture_cube, texture_cube_array,
+use bevy_material::bind_group_layout_entries::binding_types::{
+    sampler, storage_buffer_read_only_sized, texture_1d, texture_2d, texture_2d_array, texture_3d,
+    texture_cube, texture_cube_array,
 };
 
 /// The default value for the number of resources that can be stored in a slab

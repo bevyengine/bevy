@@ -58,6 +58,8 @@ pub use bevy_input_focus as input_focus;
 pub use bevy_light as light;
 #[cfg(feature = "bevy_log")]
 pub use bevy_log as log;
+#[cfg(feature = "bevy_material")]
+pub use bevy_material as material;
 pub use bevy_math as math;
 #[cfg(feature = "bevy_mesh")]
 pub use bevy_mesh as mesh;

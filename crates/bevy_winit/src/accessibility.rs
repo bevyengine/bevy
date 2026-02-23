@@ -8,7 +8,7 @@ use winit::event_loop::ActiveEventLoop;
 
 use accesskit::{
     ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeId, Role, Tree,
-    TreeUpdate,
+    TreeId, TreeUpdate,
 };
 use accesskit_winit::Adapter;
 use bevy_a11y::{
@@ -87,6 +87,7 @@ impl AccessKitState {
         TreeUpdate {
             nodes: vec![(accesskit_window_id, root)],
             tree: Some(tree),
+            tree_id: TreeId::ROOT,
             focus: accesskit_window_id,
         }
     }
@@ -266,6 +267,7 @@ fn update_adapter(
     TreeUpdate {
         nodes: to_update,
         tree: None,
+        tree_id: TreeId::ROOT,
         focus: NodeId(focus.0.unwrap_or(primary_window_id).to_bits()),
     }
 }

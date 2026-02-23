@@ -24,7 +24,7 @@ use bevy::{
         view::NoIndirectDrawing,
     },
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 use rand::{seq::IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -124,10 +124,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
-    .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::Continuous,
-    })
+    .insert_resource(WinitSettings::continuous())
     .add_systems(Startup, setup)
     .add_systems(Update, print_mesh_count);
 
@@ -293,7 +290,7 @@ fn setup(
 
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: args.shadows,
+            shadow_maps_enabled: args.shadows,
             ..default()
         },
         Transform::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),

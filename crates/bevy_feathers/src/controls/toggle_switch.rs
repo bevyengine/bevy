@@ -11,7 +11,6 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    spawn::SpawnRelated,
     system::{Commands, Query},
     world::Mut,
 };

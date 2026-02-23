@@ -1,11 +1,15 @@
+//! Traits and types used to power [tuple-struct-like] operations via reflection.
+//!
+//! [tuple-struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
 use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
+    tuple::{DynamicTuple, Tuple},
     type_info::impl_type_methods,
-    ApplyError, DynamicTuple, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
+    ApplyError, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::Arc;
@@ -25,7 +29,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, TupleStruct};
+/// use bevy_reflect::{PartialReflect, Reflect, tuple_struct::TupleStruct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(u32);
@@ -178,7 +182,7 @@ impl<'a> ExactSizeIterator for TupleStructFieldIter<'a> {}
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{GetTupleStructField, Reflect};
+/// use bevy_reflect::{tuple_struct::GetTupleStructField, Reflect};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(String);
@@ -356,6 +360,10 @@ impl PartialReflect for DynamicTupleStruct {
         tuple_struct_partial_eq(self, value)
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        tuple_struct_partial_cmp(self, value)
+    }
+
     fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicTupleStruct(")?;
         tuple_struct_debug(self, f)?;
@@ -420,11 +428,8 @@ impl<'a> IntoIterator for &'a DynamicTupleStruct {
 /// - [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for pairwise fields of `a` and `b`.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
-#[inline]
-pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
-    a: &S,
-    b: &dyn PartialReflect,
-) -> Option<bool> {
+#[inline(never)]
+pub fn tuple_struct_partial_eq(a: &dyn TupleStruct, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
         return Some(false);
     };
@@ -445,6 +450,36 @@ pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
     }
 
     Some(true)
+}
+/// Lexicographically compares two [`TupleStruct`] values and returns their ordering.
+///
+/// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
+/// or an element comparison returns `None`).
+#[inline(never)]
+pub fn tuple_struct_partial_cmp(
+    a: &dyn TupleStruct,
+    b: &dyn PartialReflect,
+) -> Option<::core::cmp::Ordering> {
+    let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
+        return None;
+    };
+
+    if a.field_len() != tuple_struct.field_len() {
+        return None;
+    }
+
+    for (i, value) in tuple_struct.iter_fields().enumerate() {
+        if let Some(field_value) = a.field(i) {
+            match field_value.reflect_partial_cmp(value) {
+                None => return None,
+                Some(core::cmp::Ordering::Equal) => continue,
+                Some(ord) => return Some(ord),
+            }
+        }
+        return None;
+    }
+
+    Some(core::cmp::Ordering::Equal)
 }
 
 /// The default debug formatter for [`TupleStruct`] types.
@@ -483,7 +518,8 @@ pub fn tuple_struct_debug(
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use super::TupleStruct;
+    use crate::Reflect;
     #[derive(Reflect)]
     struct Ts(u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);
     #[test]

@@ -839,7 +839,27 @@ impl AssetServer {
             Ok(loaded_asset) => {
                 let final_handle = if let Some(label) = path.label_cow() {
                     match loaded_asset.labeled_assets.get(&label) {
-                        Some(labeled_asset) => Some(labeled_asset.handle.clone()),
+                        Some(labeled_asset) => {
+                            // If we know the requested type then check it
+                            // matches the labeled asset.
+                            if let Some(asset_id) = asset_id
+                                && asset_id.type_id != labeled_asset.handle.type_id()
+                            {
+                                let error = AssetLoadError::RequestedHandleTypeMismatch {
+                                    path: path.clone(),
+                                    requested: asset_id.type_id,
+                                    actual_asset_name: labeled_asset.asset.value.asset_type_name(),
+                                    loader_name: loader.type_path(),
+                                };
+                                self.send_asset_event(InternalAssetEvent::Failed {
+                                    index: asset_id,
+                                    error: error.clone(),
+                                    path: path.into_owned(),
+                                });
+                                return Err(error);
+                            }
+                            Some(labeled_asset.handle.clone())
+                        }
                         None => {
                             let mut all_labels: Vec<String> = loaded_asset
                                 .labeled_assets
@@ -847,11 +867,19 @@ impl AssetServer {
                                 .map(|s| (**s).to_owned())
                                 .collect();
                             all_labels.sort_unstable();
-                            return Err(AssetLoadError::MissingLabel {
+                            let error = AssetLoadError::MissingLabel {
                                 base_path,
                                 label: label.to_string(),
                                 all_labels,
-                            });
+                            };
+                            if let Some(asset_id) = asset_id {
+                                self.send_asset_event(InternalAssetEvent::Failed {
+                                    index: asset_id,
+                                    error: error.clone(),
+                                    path: path.into_owned(),
+                                });
+                            }
+                            return Err(error);
                         }
                     }
                 } else {
@@ -865,11 +893,13 @@ impl AssetServer {
                 Ok(final_handle)
             }
             Err(err) => {
-                self.send_asset_event(InternalAssetEvent::Failed {
-                    index: base_asset_id,
-                    error: err.clone(),
-                    path: path.into_owned(),
-                });
+                if let Some(asset_id) = asset_id {
+                    self.send_asset_event(InternalAssetEvent::Failed {
+                        index: asset_id,
+                        error: err.clone(),
+                        path: path.into_owned(),
+                    });
+                }
                 Err(err)
             }
         }
@@ -887,6 +917,8 @@ impl AssetServer {
             .spawn(async move {
                 let mut reloaded = false;
 
+                // First, try to reload the asset for any handles to that path. This will try both
+                // root assets and subassets.
                 let requests = server
                     .read_infos()
                     .get_path_handles(&path)
@@ -902,6 +934,14 @@ impl AssetServer {
                     }
                 }
 
+                // If the above section failed, and there are still living subassets (aka we should
+                // reload), then just try doing an untyped load. This helps catch cases where the
+                // root asset has been dropped, but all its subassets are still being used (in which
+                // case the above section would have tried to find the loader with the root asset's
+                // type and loaded it). Hopefully the untyped load will find the right loader and
+                // reload all the subassets (though this is not guaranteed).
+                // TODO: Make sure we use the same loader as the original load (e.g., by storing a
+                // map from asset index to loader).
                 if !reloaded && server.read_infos().should_reload(&path) {
                     server.write_infos().stats.started_load_tasks += 1;
                     match server.load_internal(None, path.clone(), true, None).await {
@@ -1522,11 +1562,7 @@ impl AssetServer {
             let meta = loader.default_meta();
             (meta, loader)
         };
-        let required_features =
-            loader.reader_required_features(meta.loader_settings().expect("meta specifies load"));
-        let reader = asset_reader
-            .read(asset_path.path(), required_features)
-            .await?;
+        let reader = asset_reader.read(asset_path.path()).await?;
         Ok((meta, loader, reader))
     }
 
@@ -1543,9 +1579,19 @@ impl AssetServer {
         let asset_path = asset_path.clone_owned();
         let load_context =
             LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
-        AssertUnwindSafe(loader.load(reader, settings, load_context))
-            .catch_unwind()
-            .await
+        let load = AssertUnwindSafe(loader.load(reader, settings, load_context)).catch_unwind();
+        #[cfg(feature = "trace")]
+        let load = {
+            use tracing::Instrument;
+
+            let span = tracing::info_span!(
+                "asset loading",
+                loader = loader.type_path(),
+                asset = asset_path.to_string()
+            );
+            load.instrument(span)
+        };
+        load.await
             .map_err(|_| AssetLoadError::AssetLoaderPanic {
                 path: asset_path.clone_owned(),
                 loader_name: loader.type_path(),
@@ -1713,7 +1759,6 @@ impl AssetServer {
         let reader = source.reader();
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
-            Err(AssetReaderError::UnsupportedFeature(feature)) => panic!("reading the meta file never requests a feature, but the following feature is unsupported: {feature}"),
             Err(AssetReaderError::NotFound(_)) => {
                 // The meta file couldn't be found so just fall through.
             }

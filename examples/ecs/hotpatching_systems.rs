@@ -70,7 +70,7 @@ fn setup(mut commands: Commands) {
             children![(
                 Text::default(),
                 TextFont {
-                    font_size: 100.0,
+                    font_size: FontSize::Px(100.0),
                     ..default()
                 },
             )],

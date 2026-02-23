@@ -10,7 +10,7 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
-use bevy::{color::palettes::css::ORANGE, prelude::*, render::view::Hdr};
+use bevy::{camera::Hdr, color::palettes::css::ORANGE, prelude::*};
 use rand::random;
 
 fn main() {
@@ -161,7 +161,7 @@ fn setup(
 
     // We need the full version of this font so we can use box drawing characters.
     let text_style = TextFont {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
         ..default()
     };
 
@@ -278,7 +278,7 @@ fn example_control_system(
     let randomize_colors = input.just_pressed(KeyCode::KeyC);
 
     for (material_handle, controls) in &controllable {
-        let material = materials.get_mut(material_handle).unwrap();
+        let mut material = materials.get_mut(material_handle).unwrap();
 
         if controls.color && randomize_colors {
             material.base_color = Srgba {

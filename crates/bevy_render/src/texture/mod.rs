@@ -19,7 +19,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
-use tracing::warn;
+use bevy_log::warn;
 
 #[derive(Default)]
 pub struct TexturePlugin;
@@ -32,10 +32,13 @@ impl Plugin for TexturePlugin {
         ))
         .init_resource::<ManualTextureViews>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<TextureCache>().add_systems(
-                Render,
-                update_texture_cache_system.in_set(RenderSystems::Cleanup),
-            );
+            render_app
+                .init_resource::<TextureCache>()
+                .allow_ambiguous_resource::<TextureCache>()
+                .add_systems(
+                    Render,
+                    update_texture_cache_system.in_set(RenderSystems::Cleanup),
+                );
         }
     }
 

@@ -8,7 +8,7 @@ use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
 
 /// Add this component to a [`DirectionalLight`](crate::DirectionalLight) with a shadow map
-/// (`shadows_enabled: true`) to make volumetric fog interact with it.
+/// (`shadow_maps_enabled: true`) to make volumetric fog interact with it.
 ///
 /// This allows the light to generate light shafts/god rays.
 #[derive(Clone, Copy, Component, Default, Debug, Reflect)]
@@ -70,6 +70,8 @@ impl Default for VolumetricFog {
     }
 }
 
+/// A unit cube of fog at the origin. Can be positioned and scaled with a [`Transform`].
+/// Only visible by cameras with a [`VolumetricFog`] component when lit by a directional light with [`VolumetricLight`].
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Transform, Visibility)]

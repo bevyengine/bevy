@@ -50,7 +50,7 @@ fn animate_materials(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for material_handle in material_handles.iter() {
-        if let Some(material) = materials.get_mut(material_handle)
+        if let Some(mut material) = materials.get_mut(material_handle)
             && let Color::Hsla(ref mut hsla) = material.base_color
         {
             *hsla = hsla.rotate_hue(time.delta_secs() * 100.0);

@@ -4,7 +4,7 @@ use std::fmt::Display;
 
 use bevy::{
     color::palettes::{self, css::WHITE},
-    core_pipeline::Skybox,
+    light::Skybox,
     math::vec3,
     prelude::*,
     time::Stopwatch,

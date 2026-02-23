@@ -49,7 +49,7 @@ fn setup(
     // Lights...
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(2., 6., 0.),

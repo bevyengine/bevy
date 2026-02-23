@@ -42,7 +42,7 @@ use crate::{
 };
 
 pub mod accessibility;
-mod converters;
+pub mod converters;
 mod cursor;
 mod state;
 mod system;

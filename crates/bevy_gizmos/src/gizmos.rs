@@ -16,7 +16,7 @@ use bevy_ecs::{
         Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
         SystemParamValidationError,
     },
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -224,15 +224,38 @@ where
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        GizmosState::<Config, Clear>::queue(&mut state.state, system_meta, world);
+    }
+
     #[inline]
     unsafe fn validate_param(
         state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegated to existing `SystemParam` implementations.
+        // SAFETY: Delegated to existing `SystemParam` implementation.
         unsafe {
-            GizmosState::<Config, Clear>::validate_param(&mut state.state, system_meta, world)
+            GizmosState::<Config, Clear>::validate_param(&mut state.state, system_meta, world)?;
+        }
+
+        // SAFETY: Delegated to existing `SystemParam` implementation.
+        let (_, f1) = unsafe {
+            GizmosState::<Config, Clear>::get_param(
+                &mut state.state,
+                system_meta,
+                world,
+                world.change_tick(),
+            )
+        };
+        // This if-block is to accommodate an Option<Gizmos> SystemParam.
+        // The user may decide not to initialize a gizmo group, so its config will not exist.
+        if f1.get_config::<Config>().is_none() {
+            Err(SystemParamValidationError::invalid::<Self>(
+                format!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", 
+                Config::type_path())))
+        } else {
+            Ok(())
         }
     }
 
@@ -347,12 +370,20 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        let mut storage = world.resource_mut::<GizmoStorage<Config, Clear>>();
-        storage.list_positions.append(&mut self.list_positions);
-        storage.list_colors.append(&mut self.list_colors);
-        storage.strip_positions.append(&mut self.strip_positions);
-        storage.strip_colors.append(&mut self.strip_colors);
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        if let Some(mut storage) = world.get_resource_mut::<GizmoStorage<Config, Clear>>() {
+            storage.list_positions.append(&mut self.list_positions);
+            storage.list_colors.append(&mut self.list_colors);
+            storage.strip_positions.append(&mut self.strip_positions);
+            storage.strip_colors.append(&mut self.strip_colors);
+        } else {
+            // Prevent the buffer from growing indefinitely if GizmoStorage
+            // for the config group has not been initialized
+            self.list_positions.clear();
+            self.list_colors.clear();
+            self.strip_positions.clear();
+            self.strip_colors.clear();
+        }
     }
 }
 
@@ -507,6 +538,41 @@ where
         self.strip_colors.push(LinearRgba::NAN);
     }
 
+    /// Draw a line in 3D made of straight segments between the points, with the first and last connected.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.lineloop([Vec3::ZERO, Vec3::X, Vec3::Y], GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn lineloop(&mut self, positions: impl IntoIterator<Item = Vec3>, color: impl Into<Color>) {
+        if !self.enabled {
+            return;
+        }
+
+        // Loop back to the start; second is needed to ensure that
+        // the joint on the first corner is drawn.
+        let mut positions = positions.into_iter();
+        let first = positions.next();
+        let second = positions.next();
+
+        self.linestrip(
+            first
+                .into_iter()
+                .chain(second)
+                .chain(positions)
+                .chain(first)
+                .chain(second),
+            color,
+        );
+    }
+
     /// Draw a line in 3D made of straight segments between the points, with a color gradient.
     ///
     /// # Example
@@ -576,7 +642,7 @@ where
         }
         let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2.extend(0.));
-        self.linestrip([tl, tr, br, bl, tl], color);
+        self.lineloop([tl, tr, br, bl], color);
     }
 
     /// Draw a wireframe cube in 3D.
@@ -759,23 +825,7 @@ where
         if !self.enabled {
             return;
         }
-
-        // Loop back to the start; second is needed to ensure that
-        // the joint on the first corner is drawn.
-        let mut positions = positions.into_iter();
-        let first = positions.next();
-        let second = positions.next();
-
-        self.linestrip(
-            first
-                .into_iter()
-                .chain(second)
-                .chain(positions)
-                .chain(first)
-                .chain(second)
-                .map(|vec2| vec2.extend(0.)),
-            color,
-        );
+        self.lineloop(positions.into_iter().map(|vec2| vec2.extend(0.)), color);
     }
 
     /// Draw a line in 2D made of straight segments between the points, with a color gradient.

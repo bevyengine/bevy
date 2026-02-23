@@ -3,16 +3,14 @@ use bevy_camera::MsaaWriteback;
 use bevy_color::LinearRgba;
 use bevy_core_pipeline::{
     blit::{BlitPipeline, BlitPipelineKey},
-    core_2d::graph::{Core2d, Node2d},
-    core_3d::graph::{Core3d, Node3d},
+    schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems},
 };
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
-    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::*,
-    renderer::RenderContext,
+    renderer::{RenderContext, ViewQuery},
     view::{Msaa, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
@@ -31,98 +29,69 @@ impl Plugin for MsaaWritebackPlugin {
             Render,
             prepare_msaa_writeback_pipelines.in_set(RenderSystems::Prepare),
         );
-        {
-            render_app
-                .add_render_graph_node::<ViewNodeRunner<MsaaWritebackNode>>(
-                    Core2d,
-                    Node2d::MsaaWriteback,
-                )
-                .add_render_graph_edge(Core2d, Node2d::MsaaWriteback, Node2d::StartMainPass);
-        }
-        {
-            render_app
-                .add_render_graph_node::<ViewNodeRunner<MsaaWritebackNode>>(
-                    Core3d,
-                    Node3d::MsaaWriteback,
-                )
-                .add_render_graph_edge(Core3d, Node3d::MsaaWriteback, Node3d::StartMainPass);
-        }
+        render_app.add_systems(Core3d, msaa_writeback.before(Core3dSystems::MainPass));
+        render_app.add_systems(Core2d, msaa_writeback.before(Core2dSystems::MainPass));
     }
 }
 
-#[derive(Default)]
-pub struct MsaaWritebackNode;
+pub(crate) fn msaa_writeback(
+    view: ViewQuery<(&ViewTarget, &MsaaWritebackBlitPipeline, &Msaa)>,
+    blit_pipeline: Res<BlitPipeline>,
+    pipeline_cache: Res<PipelineCache>,
+    mut ctx: RenderContext,
+) {
+    let (target, blit_pipeline_id, msaa) = view.into_inner();
 
-impl ViewNode for MsaaWritebackNode {
-    type ViewQuery = (
-        &'static ViewTarget,
-        &'static MsaaWritebackBlitPipeline,
-        &'static Msaa,
-    );
+    if *msaa == Msaa::Off {
+        return;
+    }
 
-    fn run<'w>(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (target, blit_pipeline_id, msaa): QueryItem<'w, '_, Self::ViewQuery>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        if *msaa == Msaa::Off {
-            return Ok(());
-        }
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(blit_pipeline_id.0) else {
+        return;
+    };
 
-        let blit_pipeline = world.resource::<BlitPipeline>();
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(blit_pipeline_id.0) else {
-            return Ok(());
-        };
+    // The current "main texture" needs to be bound as an input resource, and we need the "other"
+    // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
+    // as a post process write!
+    let post_process = target.post_process_write();
 
-        let diagnostics = render_context.diagnostic_recorder();
+    let pass_descriptor = RenderPassDescriptor {
+        label: Some("msaa_writeback"),
+        // The target's "resolve target" is the "destination" in post_process.
+        // We will indirectly write the results to the "destination" using
+        // the MSAA resolve step.
+        color_attachments: &[Some(RenderPassColorAttachment {
+            // If MSAA is enabled, then the sampled texture will always exist
+            view: target.sampled_main_texture_view().unwrap(),
+            depth_slice: None,
+            resolve_target: Some(post_process.destination),
+            ops: Operations {
+                load: LoadOp::Clear(LinearRgba::BLACK.into()),
+                store: StoreOp::Store,
+            },
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    };
 
-        // The current "main texture" needs to be bound as an input resource, and we need the "other"
-        // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
-        // as a post process write!
-        let post_process = target.post_process_write();
+    let bind_group =
+        blit_pipeline.create_bind_group(ctx.render_device(), post_process.source, &pipeline_cache);
 
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("msaa_writeback"),
-            // The target's "resolve target" is the "destination" in post_process.
-            // We will indirectly write the results to the "destination" using
-            // the MSAA resolve step.
-            color_attachments: &[Some(RenderPassColorAttachment {
-                // If MSAA is enabled, then the sampled texture will always exist
-                view: target.sampled_main_texture_view().unwrap(),
-                depth_slice: None,
-                resolve_target: Some(post_process.destination),
-                ops: Operations {
-                    load: LoadOp::Clear(LinearRgba::BLACK.into()),
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        };
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "msaa_writeback");
 
-        let bind_group = blit_pipeline.create_bind_group(
-            render_context.render_device(),
-            post_process.source,
-            pipeline_cache,
-        );
-
-        let mut render_pass = render_context
-            .command_encoder()
-            .begin_render_pass(&pass_descriptor);
-        let pass_span = diagnostics.pass_span(&mut render_pass, "msaa_writeback");
+    {
+        let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
         render_pass.draw(0..3, 0..1);
-
-        pass_span.end(&mut render_pass);
-
-        Ok(())
     }
+
+    time_span.end(ctx.command_encoder());
 }
 
 #[derive(Component)]

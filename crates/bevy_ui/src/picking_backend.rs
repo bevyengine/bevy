@@ -21,8 +21,6 @@
 //!   `(-0.5, -0.5, 0.)` at the top left and `(0.5, 0.5, 0.)` in the bottom right. Coordinates are
 //!   relative to the entire node, not just the visible region. This backend does not provide a `normal`.
 
-#![deny(missing_docs)]
-
 use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
 use bevy_camera::{visibility::InheritedVisibility, Camera, RenderTarget};
@@ -212,6 +210,11 @@ pub fn ui_picking(
                         *cursor_position,
                         text_layout_info,
                         text_block,
+                    ) && clip_check_recursive(
+                        *cursor_position,
+                        node_entity,
+                        &clipping_query,
+                        &child_of_query,
                     ) {
                         if settings.require_markers && !pickable_query.contains(text_entity) {
                             continue;

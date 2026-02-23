@@ -75,10 +75,38 @@ use log::warn;
 /// #[relationship_target(relationship = ChildOf, linked_spawn)]
 /// pub struct Children(Vec<Entity>);
 /// ```
+///
+/// By default, relationships cannot point to their own entity. If you want to allow self-referential
+/// relationships, you can use the `allow_self_referential` attribute:
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// #[derive(Component)]
+/// #[relationship(relationship_target = PeopleILike, allow_self_referential)]
+/// pub struct LikedBy(pub Entity);
+///
+/// #[derive(Component)]
+/// #[relationship_target(relationship = LikedBy)]
+/// pub struct PeopleILike(Vec<Entity>);
+/// ```
 pub trait Relationship: Component + Sized {
     /// The [`Component`] added to the "target" entities of this [`Relationship`], which contains the list of all "source"
     /// entities that relate to the "target".
     type RelationshipTarget: RelationshipTarget<Relationship = Self>;
+
+    /// If `true`, a relationship is allowed to point to its own entity.
+    ///
+    /// Set this to `true` when self-relationships are semantically valid for your use case,
+    /// such as `Likes(self)`, `EmployedBy(self)`, or a `ColliderOf` relationship where
+    /// a collider can be attached to its own entity.
+    ///
+    /// # Warning
+    ///
+    /// When `ALLOW_SELF` is `true`, be careful when using recursive traversal methods
+    /// like `iter_ancestors` or `root_ancestor`, as they will loop infinitely if an entity
+    /// points to itself.
+    const ALLOW_SELF_REFERENTIAL: bool = false;
 
     /// Gets the [`Entity`] ID of the related entity.
     fn get(&self) -> Entity;
@@ -93,7 +121,7 @@ pub trait Relationship: Component + Sized {
     /// # Warning
     ///
     /// This should generally not be called by user code, as modifying the related entity could invalidate the
-    /// relationship. If this method is used, then the hooks [`on_replace`](Relationship::on_replace) have to
+    /// relationship. If this method is used, then the hooks [`on_discard`](Relationship::on_discard) have to
     /// run before and [`on_insert`](Relationship::on_insert) after it.
     /// This happens automatically when this method is called with [`EntityWorldMut::modify_component`].
     ///
@@ -120,9 +148,9 @@ pub trait Relationship: Component + Sized {
             }
         }
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
-        if target_entity == entity {
+        if !Self::ALLOW_SELF_REFERENTIAL && target_entity == entity {
             warn!(
-                "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
+                "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.\nIf this is intended behavior self-referential relations can be enabled with the allow_self_referential attribute: #[relationship(allow_self_referential)]",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                 DebugName::type_name::<Self>(),
                 DebugName::type_name::<Self>()
@@ -168,9 +196,9 @@ pub trait Relationship: Component + Sized {
         }
     }
 
-    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
+    /// The `on_discard` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(
+    fn on_discard(
         mut world: DeferredWorld,
         HookContext {
             entity,
@@ -256,9 +284,9 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// The collection should not contain duplicates.
     fn from_collection_risky(collection: Self::Collection) -> Self;
 
-    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
+    /// The `on_discard` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(
+    fn on_discard(
         mut world: DeferredWorld,
         HookContext {
             entity,
@@ -352,14 +380,14 @@ pub fn clone_relationship_target<T: RelationshipTarget>(
     }
 }
 
-/// Configures the conditions under which the Relationship insert/replace hooks will be run.
+/// Configures the conditions under which the Relationship insert/discard hooks will be run.
 #[derive(Copy, Clone, Debug)]
 pub enum RelationshipHookMode {
-    /// Relationship insert/replace hooks will always run
+    /// Relationship insert/discard hooks will always run
     Run,
-    /// Relationship insert/replace hooks will run if [`RelationshipTarget::LINKED_SPAWN`] is false
+    /// Relationship insert/discard hooks will run if [`RelationshipTarget::LINKED_SPAWN`] is false
     RunIfNotLinked,
-    /// Relationship insert/replace hooks will always be skipped
+    /// Relationship insert/discard hooks will always be skipped
     Skip,
 }
 
@@ -550,7 +578,7 @@ mod tests {
     use core::marker::PhantomData;
 
     use crate::prelude::{ChildOf, Children};
-    use crate::relationship::RelationshipAccessor;
+    use crate::relationship::{Relationship, RelationshipAccessor};
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
@@ -573,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn self_relationship_fails() {
+    fn self_relationship_fails_by_default() {
         #[derive(Component)]
         #[relationship(relationship_target = RelTarget)]
         struct Rel(Entity);
@@ -585,6 +613,47 @@ mod tests {
         let mut world = World::new();
         let a = world.spawn_empty().id();
         world.entity_mut(a).insert(Rel(a));
+        assert!(!world.entity(a).contains::<Rel>());
+        assert!(!world.entity(a).contains::<RelTarget>());
+    }
+
+    #[test]
+    fn self_relationship_succeeds_with_allow_self_referential() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget, allow_self_referential)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        world.entity_mut(a).insert(Rel(a));
+        assert!(world.entity(a).contains::<Rel>());
+        assert!(world.entity(a).contains::<RelTarget>());
+        assert_eq!(world.entity(a).get::<Rel>().unwrap().get(), a);
+        assert_eq!(&*world.entity(a).get::<RelTarget>().unwrap().0, &[a]);
+    }
+
+    #[test]
+    fn self_relationship_removal_with_allow_self_referential() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget, allow_self_referential)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        world.entity_mut(a).insert(Rel(a));
+        assert!(world.entity(a).contains::<Rel>());
+        assert!(world.entity(a).contains::<RelTarget>());
+
+        // Remove the relationship and verify cleanup
+        world.entity_mut(a).remove::<Rel>();
         assert!(!world.entity(a).contains::<Rel>());
         assert!(!world.entity(a).contains::<RelTarget>());
     }

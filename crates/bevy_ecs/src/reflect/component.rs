@@ -69,6 +69,7 @@ use crate::{
         FilteredEntityRef, World,
     },
 };
+use alloc::boxed::Box;
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 use bevy_utils::prelude::DebugName;
 
@@ -115,6 +116,8 @@ pub struct ReflectComponentFns {
     ),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityWorldMut),
+    /// Function pointer implementing [`ReflectComponent::take()`].
+    pub take: fn(&mut EntityWorldMut) -> Option<Box<dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::contains()`].
     pub contains: fn(FilteredEntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
@@ -186,6 +189,11 @@ impl ReflectComponent {
     /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
     pub fn remove(&self, entity: &mut EntityWorldMut) {
         (self.0.remove)(entity);
+    }
+
+    /// Removes this [`Component`] from the entity and returns its previous value.
+    pub fn take(&self, entity: &mut EntityWorldMut) -> Option<Box<dyn Reflect>> {
+        (self.0.take)(entity)
     }
 
     /// Returns whether entity contains this [`Component`]
@@ -348,6 +356,11 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             remove: |entity| {
                 entity.remove::<C>();
+            },
+            take: |entity| {
+                entity
+                    .take::<C>()
+                    .map(|component| Box::new(component).into_reflect())
             },
             contains: |entity| entity.contains::<C>(),
             copy: |source_world, destination_world, source_entity, destination_entity, registry| {

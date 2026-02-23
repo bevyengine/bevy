@@ -2,9 +2,12 @@
 
 use bevy::{
     asset::LoadContext,
-    gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers},
-    gltf::GltfPlugin,
+    gltf::{
+        extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+        GltfPlugin,
+    },
     mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
+    pbr::PbrPlugin,
     prelude::*,
     reflect::TypePath,
     render::render_resource::*,
@@ -31,14 +34,19 @@ fn main() {
             ..default()
         })
         .add_plugins((
-            DefaultPlugins.set(
-                GltfPlugin::default()
-                    // Map a custom glTF attribute name to a `MeshVertexAttribute`.
-                    // The glTF file used here has an attribute name with *two*
-                    // underscores: __BARYCENTRIC
-                    // One is stripped to do the comparison here.
-                    .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
-            ),
+            DefaultPlugins
+                .set(
+                    GltfPlugin::default()
+                        // Map a custom glTF attribute name to a `MeshVertexAttribute`.
+                        // The glTF file used here has an attribute name with *two*
+                        // underscores: __BARYCENTRIC
+                        // One is stripped to do the comparison here.
+                        .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
+                )
+                .set(PbrPlugin {
+                    gltf_enable_standard_materials: false,
+                    ..Default::default()
+                }),
             GltfToMesh2dPlugin,
         ))
         .add_systems(Startup, setup)
@@ -60,6 +68,16 @@ struct GltfToMesh2dPlugin;
 
 impl Plugin for GltfToMesh2dPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(target_family = "wasm")]
+        bevy::tasks::block_on(async {
+            app.world_mut()
+                .resource_mut::<GltfExtensionHandlers>()
+                .0
+                .write()
+                .await
+                .push(Box::new(GltfExtensionHandlerToMesh2d))
+        });
+        #[cfg(not(target_family = "wasm"))]
         app.world_mut()
             .resource_mut::<GltfExtensionHandlers>()
             .0
@@ -85,15 +103,14 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
         _mesh: &gltf::Mesh,
         _material: &gltf::Material,
         entity: &mut EntityWorldMut,
+        _material_label: &str,
     ) {
-        if let Some(mesh3d) = entity.get::<Mesh3d>()
-            && let Some(_) = entity.get::<MeshMaterial3d<StandardMaterial>>()
-        {
+        if let Some(mesh3d) = entity.get::<Mesh3d>() {
             let material_handle =
                 load_context.add_labeled_asset("AColorMaterial".to_string(), CustomMaterial {});
             let mesh_handle = mesh3d.0.clone();
             entity
-                .remove::<(Mesh3d, MeshMaterial3d<StandardMaterial>)>()
+                .remove::<Mesh3d>()
                 .insert((Mesh2d(mesh_handle), MeshMaterial2d(material_handle.clone())));
         }
     }

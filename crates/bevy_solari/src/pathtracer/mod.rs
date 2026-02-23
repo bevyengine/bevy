@@ -5,17 +5,15 @@ mod prepare;
 use crate::SolariPlugins;
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_camera::Hdr;
+use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    render_graph::{RenderGraphExt, ViewNodeRunner},
-    renderer::RenderDevice,
-    view::Hdr,
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use extract::extract_pathtracer;
-use node::PathtracerNode;
+use node::{init_pathtracer_pipelines, pathtracer};
 use prepare::prepare_pathtracer_accumulation_texture;
 use tracing::warn;
 
@@ -44,16 +42,13 @@ impl Plugin for PathtracingPlugin {
         }
 
         render_app
+            .add_systems(RenderStartup, init_pathtracer_pipelines)
             .add_systems(ExtractSchedule, extract_pathtracer)
             .add_systems(
                 Render,
                 prepare_pathtracer_accumulation_texture.in_set(RenderSystems::PrepareResources),
             )
-            .add_render_graph_node::<ViewNodeRunner<PathtracerNode>>(
-                Core3d,
-                node::graph::PathtracerNode,
-            )
-            .add_render_graph_edges(Core3d, (Node3d::EndMainPass, node::graph::PathtracerNode));
+            .add_systems(Core3d, pathtracer.after(Core3dSystems::MainPass));
     }
 }
 

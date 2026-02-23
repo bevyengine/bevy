@@ -435,9 +435,13 @@ pub(crate) fn changed_windows(
                 };
 
                 winit_window.set_min_inner_size(Some(min_inner_size));
-                if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
-                    winit_window.set_max_inner_size(Some(max_inner_size));
-                }
+                winit_window.set_max_inner_size(
+                    if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
+                        Some(max_inner_size)
+                    } else {
+                        None
+                    },
+                );
             }
 
             if window.position != cache.position

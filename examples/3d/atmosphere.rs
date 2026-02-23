@@ -4,7 +4,7 @@ use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use std::f32::consts::PI;
 
 use bevy::{
-    anti_alias::fxaa::Fxaa,
+    anti_alias::taa::TemporalAntiAliasing,
     camera::Exposure,
     color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
@@ -14,12 +14,12 @@ use bevy::{
     },
     input::keyboard::KeyCode,
     light::{
-        light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, FogVolume,
-        VolumetricFog, VolumetricLight,
+        atmosphere::ScatteringMedium, light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight,
+        CascadeShadowConfigBuilder, FogVolume, VolumetricFog, VolumetricLight,
     },
     pbr::{
         AtmosphereMode, AtmosphereSettings, CloudLayer, DefaultOpaqueRendererMethod,
-        EarthlikeAtmosphere, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
@@ -140,17 +140,15 @@ fn atmosphere_controls(
     }
 }
 
-fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
-
-    let mut earth = earth_atmosphere.get();
-    // experiment: decrease the top radius to bring the end of the ray termination closer
-    // earth.top_radius = earth.bottom_radius + 10000.0;
-
+fn setup_camera_fog(
+    mut commands: Commands,
+    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.4, 0.04, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        // get the default `Atmosphere` component
-        earth,
+        // Earthlike atmosphere
+        Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings {
             rendering_method: AtmosphereMode::Raymarched,
@@ -197,7 +195,7 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
             ..default()
         },
         Msaa::Off,
-        Fxaa::default(),
+        TemporalAntiAliasing::default(),
         ScreenSpaceReflections::default(),
     ));
 }
@@ -256,7 +254,7 @@ fn setup_terrain_scene(
     // Sun
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             // lux::RAW_SUNLIGHT is recommended for use with this feature, since
             // other values approximate sunlight *post-scattering* in various
             // conditions. RAW_SUNLIGHT in comparison is the illuminance of the

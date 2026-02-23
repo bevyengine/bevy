@@ -51,13 +51,6 @@ pub enum TrackClick {
 /// You can also control the slider remotely by triggering a [`SetSliderValue`] event on it. This
 /// can be useful in a console environment for controlling the value gamepad inputs.
 ///
-/// The presence of the `on_change` property controls whether the slider uses internal or external
-/// state management. If the `on_change` property is `None`, then the slider updates its own state
-/// automatically. Otherwise, the `on_change` property contains the id of a one-shot system which is
-/// passed the new slider value. In this case, the slider value is not modified, it is the
-/// responsibility of the callback to trigger whatever data-binding mechanism is used to update the
-/// slider's value.
-///
 /// Typically a slider will contain entities representing the "track" and "thumb" elements. The core
 /// slider makes no assumptions about the hierarchical structure of these elements, but expects that
 /// the thumb will be marked with a [`SliderThumb`] component.
@@ -502,7 +495,9 @@ pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: D
     }
 }
 
-/// An [`EntityEvent`] that can be triggered on a slider to modify its value (using the `on_change` callback).
+/// An [`EntityEvent`] that can be triggered on a slider to modify its value (it will actually trigger
+/// a [`ValueChange`] event, hooking up a corresponding change to [`SliderValue`] is still the app's responsibility,
+/// see [`slider_self_update`]).
 /// This can be used to control the slider via gamepad buttons or other inputs. The value will be
 /// clamped when the event is processed.
 ///

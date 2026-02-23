@@ -7,12 +7,13 @@ use bevy::{
         lifetimeless::{SRes, SResMut},
         SystemChangeTick, SystemParamItem,
     },
+    material::{key::ErasedMeshPipelineKey, MaterialProperties},
     pbr::{
-        late_sweep_material_instances, DrawMaterial, EntitiesNeedingSpecialization,
-        EntitySpecializationTickPair, EntitySpecializationTicks, MainPassOpaqueDrawFunction,
-        MaterialBindGroupAllocator, MaterialBindGroupAllocators,
+        base_specialize, late_sweep_material_instances, DrawMaterial,
+        EntitiesNeedingSpecialization, EntitySpecializationTickPair, EntitySpecializationTicks,
+        MainPassOpaqueDrawFunction, MaterialBindGroupAllocator, MaterialBindGroupAllocators,
         MaterialExtractEntitiesNeedingSpecializationSystems, MaterialExtractionSystems,
-        MaterialFragmentShader, MaterialProperties, PreparedMaterial, RenderMaterialBindings,
+        MaterialFragmentShader, MeshPipelineKey, PreparedMaterial, RenderMaterialBindings,
         RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
     },
     platform::collections::hash_map::Entry,
@@ -198,6 +199,8 @@ impl ErasedRenderAsset for ImageMaterial {
 
         let mut properties = MaterialProperties {
             material_layout: Some(material_layout),
+            mesh_pipeline_key_bits: ErasedMeshPipelineKey::new(MeshPipelineKey::empty()),
+            base_specialize: Some(base_specialize),
             ..Default::default()
         };
         properties.add_draw_function(MainPassOpaqueDrawFunction, draw_function_id);
@@ -228,7 +231,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

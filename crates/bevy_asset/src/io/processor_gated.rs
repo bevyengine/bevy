@@ -1,6 +1,7 @@
 use crate::{
     io::{
-        AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader, ReaderRequiredFeatures,
+        AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader, ReaderNotSeekableError,
+        SeekableReader,
     },
     processor::{ProcessStatus, ProcessingState},
     AssetPath,
@@ -9,10 +10,10 @@ use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use async_lock::RwLockReadGuardArc;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
-use std::{io::SeekFrom, path::Path};
+use std::path::Path;
 use tracing::trace;
 
-use super::{AsyncSeek, ErasedAssetReader};
+use super::ErasedAssetReader;
 
 /// An [`AssetReader`] that will prevent asset (and asset metadata) read futures from returning for a
 /// given path until that path has been processed by [`AssetProcessor`].
@@ -40,11 +41,7 @@ impl ProcessorGatedReader {
 }
 
 impl AssetReader for ProcessorGatedReader {
-    async fn read<'a>(
-        &'a self,
-        path: &'a Path,
-        required_features: ReaderRequiredFeatures,
-    ) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading {asset_path}");
         let process_result = self
@@ -62,7 +59,7 @@ impl AssetReader for ProcessorGatedReader {
             .processing_state
             .get_transaction_lock(&asset_path)
             .await?;
-        let asset_reader = self.reader.read(path, required_features).await?;
+        let asset_reader = self.reader.read(path).await?;
         let reader = TransactionLockedReader::new(asset_reader, lock);
         Ok(reader)
     }
@@ -141,21 +138,15 @@ impl AsyncRead for TransactionLockedReader<'_> {
     }
 }
 
-impl AsyncSeek for TransactionLockedReader<'_> {
-    fn poll_seek(
-        mut self: Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-        pos: SeekFrom,
-    ) -> Poll<std::io::Result<u64>> {
-        Pin::new(&mut self.reader).poll_seek(cx, pos)
-    }
-}
-
 impl Reader for TransactionLockedReader<'_> {
     fn read_to_end<'a>(
         &'a mut self,
         buf: &'a mut Vec<u8>,
     ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
         self.reader.read_to_end(buf)
+    }
+
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        self.reader.seekable()
     }
 }

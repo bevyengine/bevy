@@ -10,10 +10,9 @@ use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUs
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{QueryState, With, Without},
+    query::{With, Without},
     resource::Resource,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_light::{AtmosphereEnvironmentMapLight, GeneratedEnvironmentMapLight};
@@ -21,9 +20,8 @@ use bevy_math::{Quat, UVec2};
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, ExtractComponent},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{binding_types::*, *},
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::{CachedTexture, GpuImage},
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
 };
@@ -388,122 +386,87 @@ pub fn prepare_atmosphere_probe_components(
             });
     }
 }
-
-pub(super) struct EnvironmentNode {
-    main_view_query: QueryState<(
-        Read<DynamicUniformIndex<GpuAtmosphere>>,
-        Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
-        Read<AtmosphereTransformsOffset>,
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
-        Option<Read<DynamicUniformIndex<CloudLayer>>>,
+pub fn atmosphere_environment(
+    view: ViewQuery<(
+        &DynamicUniformIndex<GpuAtmosphere>,
+        &DynamicUniformIndex<GpuAtmosphereSettings>,
+        &AtmosphereTransformsOffset,
+        &ViewUniformOffset,
+        &ViewLightsUniformOffset,
+        Option<&DynamicUniformIndex<CloudLayer>>,
     )>,
-    probe_query: QueryState<(
-        Read<AtmosphereProbeBindGroups>,
-        Read<AtmosphereEnvironmentMap>,
-    )>,
-}
+    probe_query: Query<(&AtmosphereProbeBindGroups, &AtmosphereEnvironmentMap)>,
+    pipeline_cache: Res<PipelineCache>,
+    pipelines: Res<AtmosphereProbePipeline>,
+    mut ctx: RenderContext,
+) {
+    let Some(environment_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.environment)
+    else {
+        return;
+    };
 
-impl FromWorld for EnvironmentNode {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            main_view_query: QueryState::new(world),
-            probe_query: QueryState::new(world),
-        }
-    }
-}
+    let (
+        atmosphere_uniforms_offset,
+        settings_uniforms_offset,
+        atmosphere_transforms_offset,
+        view_uniforms_offset,
+        lights_uniforms_offset,
+        cloud_layer_offset,
+    ) = view.into_inner();
 
-impl Node for EnvironmentNode {
-    fn update(&mut self, world: &mut World) {
-        self.main_view_query.update_archetypes(world);
-        self.probe_query.update_archetypes(world);
-    }
+    for (bind_groups, env_map_light) in probe_query.iter() {
+        let use_clouds =
+            cloud_layer_offset.is_some() && bind_groups.environment_clouds.is_some();
 
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<AtmosphereProbePipeline>();
-        let view_entity = graph.view_entity();
-
-        let Some(environment_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.environment)
-        else {
-            return Ok(());
+        let pipeline = if use_clouds {
+            pipeline_cache.get_compute_pipeline(pipelines.environment_clouds)
+        } else {
+            Some(environment_pipeline)
         };
 
-        let (Ok((
-            atmosphere_uniforms_offset,
-            settings_uniforms_offset,
-            atmosphere_transforms_offset,
-            view_uniforms_offset,
-            lights_uniforms_offset,
-            cloud_layer_offset,
-        )),) = (self.main_view_query.get_manual(world, view_entity),)
-        else {
-            return Ok(());
+        let Some(pipeline) = pipeline else {
+            continue;
         };
 
-        for (bind_groups, env_map_light) in self.probe_query.iter_manual(world) {
-            let use_clouds = cloud_layer_offset.is_some() && bind_groups.environment_clouds.is_some();
+        let command_encoder = ctx.command_encoder();
+        let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("environment_pass"),
+            timestamp_writes: None,
+        });
 
-            let pipeline = if use_clouds {
-                pipeline_cache.get_compute_pipeline(pipelines.environment_clouds)
-            } else {
-                Some(environment_pipeline)
-            };
+        pass.set_pipeline(pipeline);
 
-            let Some(environment_pipeline) = pipeline else {
-                continue;
-            };
-
-            let mut pass =
-                render_context
-                    .command_encoder()
-                    .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("environment_pass"),
-                        timestamp_writes: None,
-                    });
-
-            pass.set_pipeline(environment_pipeline);
-
-            if use_clouds {
-                let cloud_layer_offset = cloud_layer_offset.unwrap();
-                pass.set_bind_group(
-                    0,
-                    bind_groups.environment_clouds.as_ref().unwrap(),
-                    &[
-                        atmosphere_uniforms_offset.index(),
-                        settings_uniforms_offset.index(),
-                        atmosphere_transforms_offset.index(),
-                        view_uniforms_offset.offset,
-                        lights_uniforms_offset.offset,
-                        cloud_layer_offset.index(),
-                    ],
-                );
-            } else {
-                pass.set_bind_group(
-                    0,
-                    &bind_groups.environment,
-                    &[
-                        atmosphere_uniforms_offset.index(),
-                        settings_uniforms_offset.index(),
-                        atmosphere_transforms_offset.index(),
-                        view_uniforms_offset.offset,
-                        lights_uniforms_offset.offset,
-                    ],
-                );
-            }
-
-            pass.dispatch_workgroups(
-                env_map_light.size.x / 8,
-                env_map_light.size.y / 8,
-                6, // 6 cubemap faces
+        if use_clouds {
+            pass.set_bind_group(
+                0,
+                bind_groups.environment_clouds.as_ref().unwrap(),
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                    atmosphere_transforms_offset.index(),
+                    view_uniforms_offset.offset,
+                    lights_uniforms_offset.offset,
+                    cloud_layer_offset.as_ref().unwrap().index(),
+                ],
+            );
+        } else {
+            pass.set_bind_group(
+                0,
+                &bind_groups.environment,
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                    atmosphere_transforms_offset.index(),
+                    view_uniforms_offset.offset,
+                    lights_uniforms_offset.offset,
+                ],
             );
         }
 
-        Ok(())
+        pass.dispatch_workgroups(
+            env_map_light.size.x / 8,
+            env_map_light.size.y / 8,
+            6, // 6 cubemap faces
+        );
     }
 }

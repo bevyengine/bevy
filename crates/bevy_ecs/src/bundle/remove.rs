@@ -9,7 +9,7 @@ use crate::{
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     event::EntityComponentsTrigger,
-    lifecycle::{Remove, Replace, REMOVE, REPLACE},
+    lifecycle::{Discard, Remove, DISCARD, REMOVE},
     observer::Observers,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table},
@@ -147,19 +147,21 @@ impl<'w> BundleRemover<'w> {
                     .iter_explicit_components()
                     .filter(|component_id| self.old_archetype.as_ref().contains(*component_id))
             };
-            if self.old_archetype.as_ref().has_replace_observer() {
+            if self.old_archetype.as_ref().has_discard_observer() {
                 let components = bundle_components_in_archetype().collect::<Vec<_>>();
-                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+                // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                 deferred_world.trigger_raw(
-                    REPLACE,
-                    &mut Replace { entity },
+                    DISCARD,
+                    &mut Discard { entity },
                     &mut EntityComponentsTrigger {
                         components: &components,
+                        old_archetype: Some(self.old_archetype.as_ref()),
+                        new_archetype: Some(self.new_archetype.as_ref()),
                     },
                     caller,
                 );
             }
-            deferred_world.trigger_on_replace(
+            deferred_world.trigger_on_discard(
                 self.old_archetype.as_ref(),
                 entity,
                 bundle_components_in_archetype(),
@@ -174,6 +176,8 @@ impl<'w> BundleRemover<'w> {
                     &mut Remove { entity },
                     &mut EntityComponentsTrigger {
                         components: &components,
+                        old_archetype: Some(self.old_archetype.as_ref()),
+                        new_archetype: Some(self.new_archetype.as_ref()),
                     },
                     caller,
                 );

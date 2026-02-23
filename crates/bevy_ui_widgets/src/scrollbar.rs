@@ -308,10 +308,20 @@ fn update_scrollbar_thumb(
                             scroll_area.0.x,
                         );
 
-                        thumb.top = Val::Px(0.);
-                        thumb.bottom = Val::Px(0.);
-                        thumb.left = Val::Px(thumb_pos);
-                        thumb.width = Val::Px(thumb_size);
+                        let top = Val::Px(0.);
+                        let bottom = Val::Px(0.);
+                        let left = Val::Px(thumb_pos);
+                        let width = Val::Px(thumb_size);
+                        if top != thumb.top
+                            || bottom != thumb.bottom
+                            || left != thumb.left
+                            || width != thumb.width
+                        {
+                            thumb.top = top;
+                            thumb.bottom = bottom;
+                            thumb.left = left;
+                            thumb.width = width;
+                        }
                     }
                     ControlOrientation::Vertical => {
                         let (thumb_size, thumb_pos) = size_and_pos(
@@ -322,10 +332,20 @@ fn update_scrollbar_thumb(
                             scroll_area.0.y,
                         );
 
-                        thumb.left = Val::Px(0.);
-                        thumb.right = Val::Px(0.);
-                        thumb.top = Val::Px(thumb_pos);
-                        thumb.height = Val::Px(thumb_size);
+                        let left = Val::Px(0.);
+                        let right = Val::Px(0.);
+                        let top = Val::Px(thumb_pos);
+                        let height = Val::Px(thumb_size);
+                        if thumb.left != left
+                            || thumb.right != right
+                            || thumb.top != top
+                            || thumb.height != height
+                        {
+                            thumb.left = left;
+                            thumb.right = right;
+                            thumb.top = top;
+                            thumb.height = height;
+                        }
                     }
                 };
             }

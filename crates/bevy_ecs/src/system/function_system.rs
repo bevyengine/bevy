@@ -64,6 +64,11 @@ impl SystemMeta {
         &self.name
     }
 
+    /// Returns the system's state flags
+    pub fn flags(&self) -> SystemStateFlags {
+        self.flags
+    }
+
     /// Sets the name of this system.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
@@ -77,6 +82,18 @@ impl SystemMeta {
             self.commands_span = info_span!(parent: None, "system_commands", name = name);
         }
         self.name = new_name.into();
+    }
+
+    /// Gets the last time this system was run.
+    #[inline]
+    pub fn get_last_run(&self) -> Tick {
+        self.last_run
+    }
+
+    /// Sets the last time this system was run.
+    #[inline]
+    pub fn set_last_run(&mut self, last_run: Tick) {
+        self.last_run = last_run;
     }
 
     /// Returns true if the system is [`Send`].
@@ -286,6 +303,7 @@ all_tuples!(
 
 impl<Param: SystemParam> SystemState<Param> {
     /// Creates a new [`SystemState`] with default state.
+    #[track_caller]
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
@@ -362,6 +380,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
+    #[track_caller]
     pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
         self.validate_world(world.id());
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
@@ -421,6 +440,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.
     #[inline]
+    #[track_caller]
     pub unsafe fn get_unchecked<'w, 's>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
@@ -435,6 +455,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
     /// created with.
     #[inline]
+    #[track_caller]
     unsafe fn fetch<'w, 's>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
@@ -750,7 +771,7 @@ where
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        let set = crate::schedule::SystemTypeSet::<Self>::new();
+        let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![set.intern()]
     }
 
@@ -763,7 +784,7 @@ where
     }
 }
 
-/// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
+// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
 unsafe impl<Marker, In, Out, F> ReadOnlySystem for FunctionSystem<Marker, In, Out, F>
 where
     Marker: 'static,

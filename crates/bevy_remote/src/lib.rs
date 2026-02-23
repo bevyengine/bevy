@@ -160,7 +160,7 @@
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",
-//!     "method": "bevy/query",
+//!     "method": "world.query",
 //!     "id": 0,
 //!     "params": {
 //!         "data": {
@@ -182,7 +182,7 @@
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",
-//!     "method": "bevy/query",
+//!     "method": "world.query",
 //!     "id": 0,
 //!     "params": {
 //!         "data": {
@@ -208,8 +208,6 @@
 //!            "Clear": 0.0
 //!          },
 //!          "depth_texture_usages": 16,
-//!          "screen_space_specular_transmission_quality": "Medium",
-//!          "screen_space_specular_transmission_steps": 1
 //!        },
 //!        "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
 //!        "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",

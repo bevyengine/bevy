@@ -1,14 +1,13 @@
 use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
-    sync_component::SyncComponentPlugin,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
-    bundle::NoBundleEffect,
     component::Component,
     prelude::*,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
@@ -33,31 +32,20 @@ impl<C: Component> DynamicUniformIndex<C> {
 
 /// Describes how a component gets extracted for rendering.
 ///
-/// Therefore the component is transferred from the "app world" into the "render world"
-/// in the [`ExtractSchedule`] step.
-pub trait ExtractComponent: Component {
+/// Therefore the component is transferred from the "app world" into the "render
+/// world" in the [`ExtractSchedule`] step. This functionality is enabled by
+/// adding [`ExtractComponentPlugin`] with the component type.
+///
+/// The Out type is defined in [`SyncComponent`].
+///
+/// The marker type `F` is only used as a way to bypass the orphan rules. To
+/// implement the trait for a foreign type you can use a local type as the
+/// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
+pub trait ExtractComponent<F = ()>: SyncComponent<F> {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
     type QueryFilter: QueryFilter;
-
-    /// The output from extraction.
-    ///
-    /// Returning `None` based on the queried item will remove the component from the entity in
-    /// the render world. This can be used, for example, to conditionally extract camera settings
-    /// in order to disable a rendering feature on the basis of those settings, without removing
-    /// the component from the entity in the main world.
-    ///
-    /// The output may be different from the queried component.
-    /// This can be useful for example if only a subset of the fields are useful
-    /// in the render world.
-    ///
-    /// `Out` has a [`Bundle`] trait bound instead of a [`Component`] trait bound in order to allow use cases
-    /// such as tuples of components as output.
-    type Out: Bundle<Effect: NoBundleEffect>;
-
-    // TODO: https://github.com/rust-lang/rust/issues/29661
-    // type Out: Component = Self;
 
     /// Defines how the component is transferred into the "render world".
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out>;
@@ -157,9 +145,16 @@ fn prepare_uniform_components<C>(
     commands.try_insert_batch(entities);
 }
 
-/// This plugin extracts the components into the render world for synced entities.
+/// This plugin extracts the components into the render world for synced
+/// entities. To do so, it sets up the [`ExtractSchedule`] step for the
+/// specified [`ExtractComponent`].
 ///
-/// To do so, it sets up the [`ExtractSchedule`] step for the specified [`ExtractComponent`].
+/// It also registers [`SyncComponentPlugin`] to ensure the extracted components
+/// are deleted if the main world components are removed.
+///
+/// The marker type `F` is only used as a way to bypass the orphan rules. To
+/// implement the trait for a foreign type you can use a local type as the
+/// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
 pub struct ExtractComponentPlugin<C, F = ()> {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (C, F)>,
@@ -183,22 +178,22 @@ impl<C, F> ExtractComponentPlugin<C, F> {
     }
 }
 
-impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
+impl<C: ExtractComponent<F>, F: 'static + Send + Sync> Plugin for ExtractComponentPlugin<C, F> {
     fn build(&self, app: &mut App) {
-        app.add_plugins(SyncComponentPlugin::<C>::default());
+        app.add_plugins(SyncComponentPlugin::<C, F>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
+                render_app.add_systems(ExtractSchedule, extract_visible_components::<C, F>);
             } else {
-                render_app.add_systems(ExtractSchedule, extract_components::<C>);
+                render_app.add_systems(ExtractSchedule, extract_components::<C, F>);
             }
         }
     }
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_components<C: ExtractComponent>(
+fn extract_components<C: ExtractComponent<F>, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
@@ -216,7 +211,7 @@ fn extract_components<C: ExtractComponent>(
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_visible_components<C: ExtractComponent>(
+fn extract_visible_components<C: ExtractComponent<F>, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,

@@ -13,14 +13,12 @@
 use std::ops::Range;
 
 use bevy::camera::Viewport;
-use bevy::pbr::SetMeshViewEmptyBindGroup;
+use bevy::math::Affine3Ext;
+use bevy::pbr::{SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
-    core_pipeline::core_3d::graph::{Core3d, Node3d},
-    ecs::{
-        query::QueryItem,
-        system::{lifetimeless::SRes, SystemParamItem},
-    },
+    core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
     math::FloatOrd,
     mesh::MeshVertexBufferLayoutRef,
     pbr::{
@@ -41,9 +39,6 @@ use bevy::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
-        render_graph::{
-            NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
-        },
         render_phase::{
             sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
             DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline, SortedPhaseItem,
@@ -55,7 +50,7 @@ use bevy::{
             SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
             TextureFormat, VertexState,
         },
-        renderer::RenderContext,
+        renderer::{RenderContext, ViewQuery},
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
@@ -97,7 +92,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -140,12 +135,13 @@ impl Plugin for MeshStencilPhasePlugin {
                     batch_and_prepare_sorted_render_phase::<Stencil3d, StencilPipeline>
                         .in_set(RenderSystems::PrepareResources),
                 ),
+            )
+            .add_systems(
+                Core3d,
+                custom_draw_system
+                    .after(main_opaque_pass_3d)
+                    .in_set(Core3dSystems::MainPass),
             );
-
-        render_app
-            .add_render_graph_node::<ViewNodeRunner<CustomDrawNode>>(Core3d, CustomDrawPassLabel)
-            // Tell the node to run after the main pass
-            .add_render_graph_edges(Core3d, (Node3d::MainOpaquePass, CustomDrawPassLabel));
     }
 }
 
@@ -501,19 +497,19 @@ fn queue_custom_meshes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     mut custom_render_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
-    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    view_key_cache: Res<ViewKeyCache>,
     has_marker: Query<(), With<DrawStencil>>,
 ) {
-    for (view, visible_entities, msaa) in &mut views {
+    for (view, visible_entities) in &mut views {
         let Some(custom_phase) = custom_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
         let draw_custom = custom_draw_functions.read().id::<DrawMesh3dStencil>();
 
-        // Create the key based on the view.
-        // In this case we only care about MSAA and HDR
-        let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+        let Some(&view_key) = view_key_cache.get(&view.retained_view_entity) else {
+            continue;
+        };
 
         let rangefinder = view.rangefinder3d();
         // Since our phase can work on any 3d mesh we can reuse the default mesh 3d filter
@@ -567,65 +563,44 @@ fn queue_custom_meshes(
     }
 }
 
-// Render label used to order our render graph node that will render our phase
-#[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
-struct CustomDrawPassLabel;
+fn custom_draw_system(
+    world: &World,
+    view: ViewQuery<(
+        &ExtractedCamera,
+        &ExtractedView,
+        &ViewTarget,
+        Option<&MainPassResolutionOverride>,
+    )>,
+    stencil_phases: Res<ViewSortedRenderPhases<Stencil3d>>,
+    mut ctx: RenderContext,
+) {
+    let view_entity = view.entity();
+    let (camera, extracted_view, target, resolution_override) = view.into_inner();
 
-#[derive(Default)]
-struct CustomDrawNode;
-impl ViewNode for CustomDrawNode {
-    type ViewQuery = (
-        &'static ExtractedCamera,
-        &'static ExtractedView,
-        &'static ViewTarget,
-        Option<&'static MainPassResolutionOverride>,
-    );
+    let Some(stencil_phase) = stencil_phases.get(&extracted_view.retained_view_entity) else {
+        return;
+    };
 
-    fn run<'w>(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (camera, view, target, resolution_override): QueryItem<'w, '_, Self::ViewQuery>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        // First, we need to get our phases resource
-        let Some(stencil_phases) = world.get_resource::<ViewSortedRenderPhases<Stencil3d>>() else {
-            return Ok(());
-        };
+    let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("stencil pass"),
+        // For the purpose of the example, we will write directly to the view target. A real
+        // stencil pass would write to a custom texture and that texture would be used in later
+        // passes to render custom effects using it.
+        color_attachments: &[Some(target.get_color_attachment())],
+        // We don't bind any depth buffer for this pass
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    });
 
-        // Get the view entity from the graph
-        let view_entity = graph.view_entity();
+    if let Some(viewport) =
+        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+    {
+        render_pass.set_camera_viewport(&viewport);
+    }
 
-        // Get the phase for the current view running our node
-        let Some(stencil_phase) = stencil_phases.get(&view.retained_view_entity) else {
-            return Ok(());
-        };
-
-        // Render pass setup
-        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("stencil pass"),
-            // For the purpose of the example, we will write directly to the view target. A real
-            // stencil pass would write to a custom texture and that texture would be used in later
-            // passes to render custom effects using it.
-            color_attachments: &[Some(target.get_color_attachment())],
-            // We don't bind any depth buffer for this pass
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
-            render_pass.set_camera_viewport(&viewport);
-        }
-
-        // Render the phase
-        // This will execute each draw functions of each phase items queued in this phase
-        if let Err(err) = stencil_phase.render(&mut render_pass, world, view_entity) {
-            error!("Error encountered while rendering the stencil phase {err:?}");
-        }
-
-        Ok(())
+    if let Err(err) = stencil_phase.render(&mut render_pass, world, view_entity) {
+        error!("Error encountered while rendering the stencil phase {err:?}");
     }
 }

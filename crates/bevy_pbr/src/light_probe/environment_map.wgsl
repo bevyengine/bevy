@@ -1,11 +1,17 @@
 #define_import_path bevy_pbr::environment_map
 
-#import bevy_pbr::light_probe::query_light_probe
+#import bevy_pbr::light_probe::{light_probe_iterator_new, light_probe_iterator_next}
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
 #import bevy_pbr::mesh_view_bindings::environment_map_uniform
+#import bevy_pbr::mesh_view_types::{
+    LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE, LIGHT_PROBE_FLAG_PARALLAX_CORRECT
+}
 #import bevy_pbr::lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT}
 #import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
+
+// The maximum representable value in a 32-bit floating point number.
+const FLOAT_MAX: f32 = 3.40282347e+38;
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -15,6 +21,67 @@ struct EnvironmentMapLight {
 struct EnvironmentMapRadiances {
     irradiance: vec3<f32>,
     radiance: vec3<f32>,
+}
+
+// Computes the direction at which to sample the reflection probe.
+//
+// * `light_from_world` is the matrix that transforms world space into light
+//   probe space (a 1×1×1 cube centered on the origin).
+//
+// * `parallax_correction_bounds` is the half-extents of the simulated
+//   reflection boundaries used for parallax correction, in light probe space.
+//   It's ignored if the `parallax_correct` parameter is false.
+//
+// * `parallax_correct` is true if parallax correction is to be applied and
+//   false otherwise.
+fn compute_cubemap_sample_dir(
+    world_ray_origin: vec3<f32>,
+    world_ray_direction: vec3<f32>,
+    light_from_world: mat4x4<f32>,
+    parallax_correction_bounds: vec3<f32>,
+    parallax_correct: bool
+) -> vec3<f32> {
+    var sample_dir: vec3<f32>;
+
+    // If we're supposed to parallax correct, then intersect with the light cube.
+    if (parallax_correct) {
+        // Compute the direction of the ray bouncing off the surface, in light
+        // probe space.
+        // Recall that light probe space is a 1×1×1 cube centered at the origin.
+        let ray_origin = (light_from_world * vec4(world_ray_origin, 1.0)).xyz;
+        let ray_direction = (light_from_world * vec4(world_ray_direction, 0.0)).xyz;
+
+        // Solve for the intersection of that ray with each side of the cube.
+        // Since our light probe is a 1×1×1 cube centered at the origin in light
+        // probe space, the faces of the cube are at X = ±0.5, Y = ±0.5, and Z =
+        // ±0.5.
+        var t0 = (-parallax_correction_bounds - ray_origin) / ray_direction;
+        var t1 = (parallax_correction_bounds - ray_origin) / ray_direction;
+
+        // We're shooting the rays forward, so we need to rule out negative time
+        // values. So, if t is negative, make it a large value so that we won't
+        // choose it below.
+        // We would use infinity here but WGSL forbids it:
+        // https://github.com/gfx-rs/wgpu/issues/5515
+        t0 = select(vec3(FLOAT_MAX), t0, t0 >= vec3(0.0));
+        t1 = select(vec3(FLOAT_MAX), t1, t1 >= vec3(0.0));
+
+        // Choose the minimum valid time value to find the intersection of the
+        // first cube face.
+        let t_min = min(t0, t1);
+        let t = min(min(t_min.x, t_min.y), t_min.z);
+
+        // Compute the sample direction. (It doesn't have to be normalized.)
+        sample_dir = ray_origin + ray_direction * t;
+    } else {
+        // We treat the reflection as infinitely far away in the non-parallax
+        // case, so the ray origin is irrelevant.
+        sample_dir = (light_from_world * vec4(world_ray_direction, 0.0)).xyz;
+    }
+
+    // Cubemaps are left-handed, so we negate the Z coordinate.
+    sample_dir.z = -sample_dir.z;
+    return sample_dir;
 }
 
 // Define two versions of this function, one for the case in which there are
@@ -37,64 +104,99 @@ fn compute_radiances(
 
     var radiances: EnvironmentMapRadiances;
 
-    // Search for a reflection probe that contains the fragment.
-    var query_result = query_light_probe(
+    // Find all reflection probes that contain the fragment. We're going to
+    // accumulate all the radiance and irradiance from them in a weighted sum.
+    var iterator = light_probe_iterator_new(
         world_position,
         /*is_irradiance_volume=*/ false,
         clusterable_object_index_ranges,
     );
 
-    // If we didn't find a reflection probe, use the view environment map if applicable.
-    if (query_result.texture_index < 0) {
-        query_result.texture_index = light_probes.view_cubemap_index;
-        query_result.intensity = light_probes.intensity_for_view;
-        query_result.affects_lightmapped_mesh_diffuse =
-            light_probes.view_environment_map_affects_lightmapped_mesh_diffuse != 0u;
-    }
+    var total_weight = 0.0;
+    radiances.irradiance = vec3(0.0);
+    radiances.radiance = vec3(0.0);
 
-    // If there's no cubemap, bail out.
-    if (query_result.texture_index < 0) {
-        radiances.irradiance = vec3(0.0);
-        radiances.radiance = vec3(0.0);
-        return radiances;
-    }
+    while (true) {
+        var query_result = light_probe_iterator_next(&iterator);
 
-    // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
-    let radiance_level = perceptual_roughness * f32(textureNumLevels(
-        bindings::specular_environment_maps[query_result.texture_index]) - 1u);
+        // If we reached the end of the light probe list, and we didn't find
+        // enough reflection probes to reach a weight of 1.0, use the view
+        // environment map if applicable. This allows for e.g. nice transitions
+        // between the interior of a building and the outdoor environment map.
+        if (query_result.texture_index < 0 && total_weight < 0.9999) {
+            query_result.texture_index = light_probes.view_cubemap_index;
+            query_result.intensity = light_probes.intensity_for_view;
+            query_result.light_from_world = mat4x4(
+                vec4(1.0, 0.0, 0.0, 0.0),
+                vec4(0.0, 1.0, 0.0, 0.0),
+                vec4(0.0, 0.0, 1.0, 0.0),
+                vec4(0.0, 0.0, 0.0, 1.0)
+            );
+            query_result.parallax_correction_bounds = vec3(0.0);
+            if light_probes.view_environment_map_affects_lightmapped_mesh_diffuse != 0u {
+                query_result.flags = LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
+            } else {
+                query_result.flags = 0u;
+            }
+            query_result.weight = 1.0 - total_weight;
+        }
 
-    // If we're lightmapped, and we shouldn't accumulate diffuse light from the
-    // environment map, note that.
-    var enable_diffuse = !found_diffuse_indirect;
+        // If we reached the end, we're done.
+        if (query_result.texture_index < 0) {
+            break;
+        }
+
+        // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
+        let radiance_level = perceptual_roughness * f32(textureNumLevels(
+            bindings::specular_environment_maps[query_result.texture_index]) - 1u);
+
+        // If we're lightmapped, and we shouldn't accumulate diffuse light from the
+        // environment map, note that.
+        var enable_diffuse = !found_diffuse_indirect;
 #ifdef LIGHTMAP
-    enable_diffuse = enable_diffuse && query_result.affects_lightmapped_mesh_diffuse;
+        enable_diffuse = enable_diffuse &&
+            (query_result.flags & LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE) != 0u;
 #endif  // LIGHTMAP
 
-    if (enable_diffuse) {
-        var irradiance_sample_dir = N;
-        // Rotating the world space ray direction by the environment light map transform matrix, it is
-        // equivalent to rotating the diffuse environment cubemap itself.
-        irradiance_sample_dir = (environment_map_uniform.transform * vec4(irradiance_sample_dir, 1.0)).xyz;
-        // Cube maps are left-handed so we negate the z coordinate.
-        irradiance_sample_dir.z = -irradiance_sample_dir.z;
-        radiances.irradiance = textureSampleLevel(
-            bindings::diffuse_environment_maps[query_result.texture_index],
-            bindings::environment_map_sampler,
-            irradiance_sample_dir,
-            0.0).rgb * query_result.intensity;
+        let parallax_correct = (query_result.flags & LIGHT_PROBE_FLAG_PARALLAX_CORRECT) != 0u;
+
+        if (enable_diffuse) {
+            let irradiance_sample_dir = compute_cubemap_sample_dir(
+                world_position,
+                N,
+                query_result.light_from_world,
+                query_result.parallax_correction_bounds,
+                parallax_correct
+            );
+            radiances.irradiance = textureSampleLevel(
+                bindings::diffuse_environment_maps[query_result.texture_index],
+                bindings::environment_map_sampler,
+                irradiance_sample_dir,
+                0.0).rgb * query_result.intensity * query_result.weight;
+        }
+
+        var radiance_sample_dir = radiance_sample_direction(N, R, roughness);
+        radiance_sample_dir = compute_cubemap_sample_dir(
+            world_position,
+            radiance_sample_dir,
+            query_result.light_from_world,
+            query_result.parallax_correction_bounds,
+            parallax_correct
+        );
+        radiances.radiance +=
+            textureSampleLevel(
+                bindings::specular_environment_maps[query_result.texture_index],
+                bindings::environment_map_sampler,
+                radiance_sample_dir,
+                radiance_level).rgb * query_result.intensity * query_result.weight;
+
+        total_weight += query_result.weight;
     }
 
-    var radiance_sample_dir = radiance_sample_direction(N, R, roughness);
-    // Rotating the world space ray direction by the environment light map transform matrix, it is
-    // equivalent to rotating the specular environment cubemap itself.
-    radiance_sample_dir = (environment_map_uniform.transform * vec4(radiance_sample_dir, 1.0)).xyz;
-    // Cube maps are left-handed so we negate the z coordinate.
-    radiance_sample_dir.z = -radiance_sample_dir.z;
-    radiances.radiance = textureSampleLevel(
-        bindings::specular_environment_maps[query_result.texture_index],
-        bindings::environment_map_sampler,
-        radiance_sample_dir,
-        radiance_level).rgb * query_result.intensity;
+    if (total_weight != 0.0) {
+        radiances.irradiance /= total_weight;
+        radiances.radiance /= total_weight;
+    }
 
     return radiances;
 }
@@ -115,6 +217,7 @@ fn compute_radiances(
 
     var radiances: EnvironmentMapRadiances;
 
+    // If we have no light probe, bail.
     if (light_probes.view_cubemap_index < 0) {
         radiances.irradiance = vec3(0.0);
         radiances.radiance = vec3(0.0);
@@ -238,12 +341,10 @@ fn environment_map_light(
     let specular_occlusion = saturate(dot(F0, vec3(50.0 * 0.33)));
 
     // Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
-    // Useful reference: https://bruop.github.io/ibl
-    let Fr = max(vec3(1.0 - roughness), F0) - F0;
-    let kS = F0 + Fr * pow(1.0 - NdotV, 5.0);
-    let Ess = F_ab.x + F_ab.y;
-    let FssEss = kS * Ess * specular_occlusion;
-    let Ems = 1.0 - Ess;
+    // We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
+    // Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
+    let FssEss = (F0 * F_ab.x + F_ab.y) * specular_occlusion;
+    let Ems = 1.0 - (F_ab.x + F_ab.y);
     let Favg = F0 + (1.0 - F0) / 21.0;
     let Fms = FssEss * Favg / (1.0 - Ems * Favg);
     let FmsEms = Fms * Ems;

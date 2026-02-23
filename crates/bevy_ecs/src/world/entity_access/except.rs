@@ -43,6 +43,16 @@ where
         }
     }
 
+    /// Consumes `self` and returns a [`FilteredEntityRef`], which provides
+    /// read-only access to all of the entity's components, except for the ones
+    /// in `B`.
+    #[inline]
+    pub fn into_filtered(self) -> FilteredEntityRef<'w, 's> {
+        // SAFETY:
+        // - The FilteredEntityRef has the same component access as the given EntityRefExcept.
+        unsafe { FilteredEntityRef::new(self.entity, self.access) }
+    }
+
     /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
@@ -191,11 +201,15 @@ where
     }
 }
 
-impl<'w, 's, B: Bundle> From<&'w EntityRefExcept<'_, 's, B>> for FilteredEntityRef<'w, 's> {
-    fn from(value: &'w EntityRefExcept<'_, 's, B>) -> Self {
-        // SAFETY:
-        // - The FilteredEntityRef has the same component access as the given EntityRefExcept.
-        unsafe { FilteredEntityRef::new(value.entity, value.access) }
+impl<'w, 's, B: Bundle> From<EntityRefExcept<'w, 's, B>> for FilteredEntityRef<'w, 's> {
+    fn from(entity: EntityRefExcept<'w, 's, B>) -> Self {
+        entity.into_filtered()
+    }
+}
+
+impl<'w, 's, B: Bundle> From<&EntityRefExcept<'w, 's, B>> for FilteredEntityRef<'w, 's> {
+    fn from(entity: &EntityRefExcept<'w, 's, B>) -> Self {
+        entity.into_filtered()
     }
 }
 
@@ -286,20 +300,47 @@ where
     ///
     /// This is useful if you have `&mut EntityMutExcept`, but you need
     /// `EntityMutExcept`.
+    #[inline]
     pub fn reborrow(&mut self) -> EntityMutExcept<'_, 's, B> {
-        // SAFETY: We have exclusive access to the entire entity and the
-        // applicable components.
+        // SAFETY:
+        // - We have exclusive access to the entire entity and the applicable components.
+        // - `&mut self` ensures there are no other accesses to the applicable components.
         unsafe { Self::new(self.entity, self.access) }
     }
 
+    /// Consumes `self` and returns read-only access to all of the entity's
+    /// components, except for the ones in `B`.
+    #[inline]
+    pub fn into_readonly(self) -> EntityRefExcept<'w, 's, B> {
+        // SAFETY:
+        // - We have exclusive access to the entire entity and the applicable components.
+        // - Consuming `self` ensures there are no other accesses to the applicable components.
+        unsafe { EntityRefExcept::new(self.entity, self.access) }
+    }
+
     /// Gets read-only access to all of the entity's components, except for the
-    /// ones in `CL`.
+    /// ones in `B`.
     #[inline]
     pub fn as_readonly(&self) -> EntityRefExcept<'_, 's, B> {
-        EntityRefExcept::from(self)
+        // SAFETY:
+        // - We have exclusive access to the entire entity and the applicable components.
+        // - `&self` ensures there are no mutable accesses to the applicable components.
+        unsafe { EntityRefExcept::new(self.entity, self.access) }
+    }
+
+    /// Consumes `self` and returns a [`FilteredEntityMut`], which provides
+    /// mutable access to all of the entity's components, except for the ones in
+    /// `B`.
+    #[inline]
+    pub fn into_filtered(self) -> FilteredEntityMut<'w, 's> {
+        // SAFETY:
+        // - The FilteredEntityMut has the same component access as the given EntityMutExcept.
+        // - Consuming `self` ensures there are no other accesses to the applicable components.
+        unsafe { FilteredEntityMut::new(self.entity, self.access) }
     }
 
     /// Get access to the underlying [`UnsafeEntityCell`]
+    #[inline]
     pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
         self.entity
     }
@@ -429,22 +470,38 @@ where
     }
 }
 
-impl<'w, 's, B: Bundle> From<&'w mut EntityMutExcept<'_, 's, B>> for FilteredEntityMut<'w, 's> {
-    fn from(value: &'w mut EntityMutExcept<'_, 's, B>) -> Self {
-        // SAFETY:
-        // - The FilteredEntityMut has the same component access as the given EntityMutExcept.
-        unsafe { FilteredEntityMut::new(value.entity, value.access) }
+impl<'w, 's, B: Bundle> From<EntityMutExcept<'w, 's, B>> for FilteredEntityMut<'w, 's> {
+    #[inline]
+    fn from(entity: EntityMutExcept<'w, 's, B>) -> Self {
+        entity.into_filtered()
     }
 }
 
-impl<'w, 's, B> From<&'w EntityMutExcept<'_, 's, B>> for EntityRefExcept<'w, 's, B>
-where
-    B: Bundle,
-{
+impl<'w, 's, B: Bundle> From<&'w mut EntityMutExcept<'_, 's, B>> for FilteredEntityMut<'w, 's> {
+    #[inline]
+    fn from(entity: &'w mut EntityMutExcept<'_, 's, B>) -> Self {
+        entity.reborrow().into_filtered()
+    }
+}
+
+impl<'w, 's, B: Bundle> From<&'w mut EntityMutExcept<'_, 's, B>> for EntityMutExcept<'w, 's, B> {
+    #[inline]
+    fn from(entity: &'w mut EntityMutExcept<'_, 's, B>) -> Self {
+        entity.reborrow()
+    }
+}
+
+impl<'w, 's, B: Bundle> From<EntityMutExcept<'w, 's, B>> for EntityRefExcept<'w, 's, B> {
+    #[inline]
+    fn from(entity: EntityMutExcept<'w, 's, B>) -> Self {
+        entity.into_readonly()
+    }
+}
+
+impl<'w, 's, B: Bundle> From<&'w EntityMutExcept<'_, 's, B>> for EntityRefExcept<'w, 's, B> {
+    #[inline]
     fn from(entity: &'w EntityMutExcept<'_, 's, B>) -> Self {
-        // SAFETY: All accesses that `EntityRefExcept` provides are also
-        // accesses that `EntityMutExcept` provides.
-        unsafe { EntityRefExcept::new(entity.entity, entity.access) }
+        entity.as_readonly()
     }
 }
 

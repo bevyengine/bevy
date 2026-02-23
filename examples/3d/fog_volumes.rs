@@ -6,10 +6,10 @@
 //! light.
 
 use bevy::{
+    camera::Hdr,
     light::{FogVolume, VolumetricFog, VolumetricLight},
     math::vec3,
     prelude::*,
-    render::view::Hdr,
 };
 
 /// Entry point.
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Transform::from_xyz(1.0, 1.0, -0.3).looking_at(vec3(0.0, 0.5, 0.0), Vec3::Y),
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             illuminance: 32000.0,
             ..default()
         },

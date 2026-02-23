@@ -12,7 +12,7 @@ use crate::{
     component::{Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
-    lifecycle::{Add, Insert, Replace, ADD, INSERT, REPLACE},
+    lifecycle::{Add, Discard, Insert, ADD, DISCARD, INSERT},
     observer::Observers,
     query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
@@ -167,18 +167,27 @@ impl<'w> BundleInserter<'w> {
 
             if insert_mode == InsertMode::Replace {
                 let archetype = archetype.as_ref();
-                if archetype.has_replace_observer() {
-                    // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+                let new_archetype = match archetype_move_type {
+                    ArchetypeMoveType::SameArchetype => archetype,
+                    ArchetypeMoveType::NewArchetypeSameTable { new_archetype }
+                    | ArchetypeMoveType::NewArchetypeNewTable { new_archetype, .. } => {
+                        new_archetype.as_ref()
+                    }
+                };
+                if archetype.has_discard_observer() {
+                    // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                     deferred_world.trigger_raw(
-                        REPLACE,
-                        &mut Replace { entity },
+                        DISCARD,
+                        &mut Discard { entity },
                         &mut EntityComponentsTrigger {
                             components: archetype_after_insert.existing(),
+                            old_archetype: Some(archetype),
+                            new_archetype: Some(new_archetype),
                         },
                         caller,
                     );
                 }
-                deferred_world.trigger_on_replace(
+                deferred_world.trigger_on_discard(
                     archetype,
                     entity,
                     archetype_after_insert.existing().iter().copied(),
@@ -190,7 +199,7 @@ impl<'w> BundleInserter<'w> {
 
         let table = table.as_mut();
 
-        // SAFETY: Archetype gets borrowed when running the on_replace observers above,
+        // SAFETY: Archetype gets borrowed when running the on_discard observers above,
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
         let archetype = archetype.as_mut();
 
@@ -386,6 +395,7 @@ impl<'w> BundleInserter<'w> {
             caller,
             relationship_hook_mode,
             archetype_after_insert,
+            self.archetype.as_ref(),
             new_archetype,
             deferred_world,
         );
@@ -403,6 +413,7 @@ impl<'w> BundleInserter<'w> {
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
         archetype_after_insert: &ArchetypeAfterBundleInsert,
+        old_archetype: &Archetype,
         new_archetype: &Archetype,
         mut deferred_world: crate::world::DeferredWorld<'_>,
     ) {
@@ -422,6 +433,8 @@ impl<'w> BundleInserter<'w> {
                     &mut Add { entity },
                     &mut EntityComponentsTrigger {
                         components: archetype_after_insert.added(),
+                        old_archetype: Some(old_archetype),
+                        new_archetype: Some(new_archetype),
                     },
                     caller,
                 );
@@ -443,6 +456,8 @@ impl<'w> BundleInserter<'w> {
                             &mut Insert { entity },
                             &mut EntityComponentsTrigger {
                                 components: archetype_after_insert.inserted(),
+                                old_archetype: Some(old_archetype),
+                                new_archetype: Some(new_archetype),
                             },
                             caller,
                         );
@@ -465,6 +480,8 @@ impl<'w> BundleInserter<'w> {
                             &mut Insert { entity },
                             &mut EntityComponentsTrigger {
                                 components: archetype_after_insert.added(),
+                                old_archetype: Some(old_archetype),
+                                new_archetype: Some(new_archetype),
                             },
                             caller,
                         );

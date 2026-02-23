@@ -2,7 +2,7 @@ use crate::{
     error::ReflectCloneError,
     generics::{Generics, TypeParamInfo},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
-    map::{map_apply, map_partial_eq, map_try_apply, Map, MapInfo},
+    map::{map_apply, map_partial_cmp, map_partial_eq, map_try_apply, Map, MapInfo},
     prelude::*,
     reflect::{impl_full_reflect, ApplyError},
     type_info::{MaybeTyped, TypeInfo, Typed},
@@ -153,6 +153,10 @@ where
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         map_partial_eq(self, value)
+    }
+
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+        map_partial_cmp(self, value)
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {

@@ -110,8 +110,8 @@ impl InstanceManager {
             flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }
         let transforms = MeshTransforms {
-            world_from_local: (&transform).into(),
-            previous_world_from_local: (&previous_transform).into(),
+            world_from_local: transform.into(),
+            previous_world_from_local: previous_transform.into(),
             flags: flags.bits(),
         };
 

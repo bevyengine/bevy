@@ -1,11 +1,14 @@
 use crate::{
-    utility::GenericTypeInfoCell, FromReflect, FromType, Generics, GetTypeRegistration,
-    PartialReflect, Reflect, ReflectCloneError, ReflectFromPtr, ReflectMut, ReflectOwned,
-    ReflectRef, Set, SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
+    set::{Set, SetInfo},
+    utility::GenericTypeInfoCell,
+    FromReflect, FromType, Generics, GetTypeRegistration, PartialReflect, Reflect,
+    ReflectCloneError, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypeParamInfo, TypePath, TypeRegistration,
 };
 use bevy_platform::prelude::{Box, Vec};
 use bevy_reflect::{
-    DynamicMap, Map, MapInfo, MaybeTyped, ReflectFromReflect, ReflectKind, TypeRegistry, Typed,
+    map::{DynamicMap, Map, MapInfo},
+    MaybeTyped, ReflectFromReflect, ReflectKind, TypeRegistry, Typed,
 };
 use bevy_reflect_derive::impl_type_path;
 use core::{any::Any, hash::BuildHasher, hash::Hash};
@@ -140,11 +143,11 @@ where
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::map_apply(self, value);
+        crate::map::map_apply(self, value);
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), crate::ApplyError> {
-        crate::map_try_apply(self, value)
+        crate::map::map_try_apply(self, value)
     }
 
     fn reflect_kind(&self) -> ReflectKind {
@@ -175,7 +178,7 @@ where
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        crate::map_partial_eq(self, value)
+        crate::map::map_partial_eq(self, value)
     }
 }
 
@@ -376,11 +379,11 @@ where
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::set_apply(self, value);
+        crate::set::set_apply(self, value);
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), crate::ApplyError> {
-        crate::set_try_apply(self, value)
+        crate::set::set_try_apply(self, value)
     }
 
     fn reflect_kind(&self) -> ReflectKind {
@@ -408,7 +411,7 @@ where
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        crate::set_partial_eq(self, value)
+        crate::set::set_partial_eq(self, value)
     }
 }
 

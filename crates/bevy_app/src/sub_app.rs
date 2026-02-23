@@ -13,7 +13,7 @@ use bevy_platform::collections::{HashMap, HashSet};
 use core::fmt::Debug;
 
 #[cfg(feature = "trace")]
-use tracing::info_span;
+use tracing::{info_span, warn};
 
 type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 
@@ -261,7 +261,16 @@ impl SubApp {
     /// See [`App::add_schedule`].
     pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(schedule);
+        let _old_schedule = schedules.insert(schedule);
+
+        #[cfg(feature = "trace")]
+        if let Some(schedule) = _old_schedule {
+            warn!(
+                "Schedule {:?} was re-inserted, all previous configuration has been removed",
+                schedule.label()
+            );
+        }
+
         self
     }
 

@@ -48,7 +48,7 @@ fn main() {
             Update,
             update_commands.run_if(
                 resource_exists_and_changed::<LogDiagnosticsStatus>
-                    .or(resource_exists_and_changed::<LogDiagnosticsFilters>),
+                    .or_eager(resource_exists_and_changed::<LogDiagnosticsFilters>),
             ),
         )
         .run();
@@ -75,7 +75,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

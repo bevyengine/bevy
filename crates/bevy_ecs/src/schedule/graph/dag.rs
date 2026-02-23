@@ -10,6 +10,7 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use fixedbitset::FixedBitSet;
+use indexmap::IndexSet;
 use thiserror::Error;
 
 use crate::{
@@ -502,7 +503,7 @@ impl<N: GraphNodeId, S: BuildHasher> Debug for DagAnalysis<N, S> {
 }
 
 /// A mapping of keys to groups of values in a [`Dag`].
-pub struct DagGroups<K, V, S = FixedHasher>(HashMap<K, HashSet<V, S>, S>);
+pub struct DagGroups<K, V, S = FixedHasher>(HashMap<K, IndexSet<V, S>, S>);
 
 impl<K: Eq + Hash, V: Clone + Eq + Hash, S: BuildHasher + Default> DagGroups<K, V, S> {
     /// Groups nodes in this DAG by a key type `K`, collecting value nodes `V`
@@ -527,7 +528,7 @@ impl<K: Eq + Hash, V: Clone + Eq + Hash, S: BuildHasher + Default> DagGroups<K, 
     where
         N: GraphNodeId + TryInto<K, Error = V>,
     {
-        let mut groups: HashMap<K, HashSet<V, S>, S> =
+        let mut groups: HashMap<K, IndexSet<V, S>, S> =
             HashMap::with_capacity_and_hasher(capacity, Default::default());
 
         // Iterate in reverse topological order (bottom-up) so we hit children before parents.
@@ -536,7 +537,7 @@ impl<K: Eq + Hash, V: Clone + Eq + Hash, S: BuildHasher + Default> DagGroups<K, 
                 continue;
             };
 
-            let mut children = HashSet::default();
+            let mut children = IndexSet::default();
 
             for node in graph.neighbors_directed(id, Outgoing) {
                 match node.try_into() {
@@ -571,7 +572,7 @@ impl<K: GraphNodeId, V: GraphNodeId, S: BuildHasher> DagGroups<K, V, S> {
     pub fn flatten<N>(
         &self,
         dag: Dag<N>,
-        mut collapse_group: impl FnMut(K, &HashSet<V, S>, &Dag<N>, &mut Vec<(N, N)>),
+        mut collapse_group: impl FnMut(K, &IndexSet<V, S>, &Dag<N>, &mut Vec<(N, N)>),
     ) -> Dag<V>
     where
         N: GraphNodeId + TryInto<V, Error = K> + From<K> + From<V>,
@@ -680,7 +681,7 @@ impl<K: GraphNodeId, V: GraphNodeId, S: BuildHasher> DagGroups<K, V, S> {
 }
 
 impl<K, V, S> Deref for DagGroups<K, V, S> {
-    type Target = HashMap<K, HashSet<V, S>, S>;
+    type Target = HashMap<K, IndexSet<V, S>, S>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

@@ -8,9 +8,12 @@
 //! This crate provides additional utilities for the [Bevy game engine](https://bevy.org),
 //! focused on improving developer experience.
 
+extern crate alloc;
+
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
 
+pub mod diagnostics_overlay;
 mod easy_screenshot;
 pub mod fps_overlay;
 pub mod frame_time_graph;
@@ -20,3 +23,5 @@ pub mod picking_debug;
 pub mod states;
 
 pub use easy_screenshot::*;
+
+pub mod render_debug;

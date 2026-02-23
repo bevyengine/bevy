@@ -1,6 +1,7 @@
 use crate::{
+    list::{DynamicList, ListInfo},
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
-    DynamicList, ListInfo, TypeRegistry,
+    TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{SeqAccess, Visitor};
@@ -9,7 +10,7 @@ use super::ReflectDeserializerProcessor;
 
 /// A [`Visitor`] for deserializing [`List`] values.
 ///
-/// [`List`]: crate::List
+/// [`List`]: crate::list::List
 pub(super) struct ListVisitor<'a, P> {
     pub list_info: &'static ListInfo,
     pub registry: &'a TypeRegistry,

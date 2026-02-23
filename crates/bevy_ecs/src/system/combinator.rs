@@ -43,7 +43,7 @@ use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
 ///         a: impl FnOnce(A::In, &mut T) -> Result<A::Out, RunSystemError>,
 ///         b: impl FnOnce(B::In, &mut T) -> Result<B::Out, RunSystemError>,
 ///     ) -> Result<Self::Out, RunSystemError> {
-///         Ok(a((), data)? ^ b((), data)?)
+///         Ok(a((), data).unwrap_or(false) ^ b((), data).unwrap_or(false))
 ///     }
 /// }
 ///
@@ -277,7 +277,7 @@ where
     }
 }
 
-/// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
+// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
 unsafe impl<Func, A, B> ReadOnlySystem for CombinatorSystem<Func, A, B>
 where
     Func: Combine<A, B> + 'static,
@@ -479,7 +479,7 @@ where
     }
 }
 
-/// SAFETY: Both systems are read-only, so any system created by piping them will only read from the world.
+// SAFETY: Both systems are read-only, so any system created by piping them will only read from the world.
 unsafe impl<A, B> ReadOnlySystem for PipeSystem<A, B>
 where
     A: ReadOnlySystem,
@@ -495,7 +495,7 @@ mod tests {
     use bevy_utils::prelude::DebugName;
 
     use crate::{
-        schedule::OrMarker,
+        schedule::OrElseMarker,
         system::{assert_system_does_not_conflict, CombinatorSystem},
     };
 
@@ -513,7 +513,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(DefaultErrorHandler::default());
 
-        let system = CombinatorSystem::<OrMarker, _, _>::new(
+        let system = CombinatorSystem::<OrElseMarker, _, _>::new(
             IntoSystem::into_system(a),
             IntoSystem::into_system(b),
             DebugName::borrowed("a OR b"),

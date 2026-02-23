@@ -3,7 +3,7 @@ use futures_lite::Stream;
 
 use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeek,
-    PathStream, Reader, ReaderRequiredFeatures, Writer,
+    PathStream, Reader, ReaderNotSeekableError, SeekableReader, Writer,
 };
 
 use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
@@ -47,6 +47,10 @@ impl Reader for FileReader {
     ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { crate::io::STACK_FUTURE_SIZE }>
     {
         stackfuture::StackFuture::from(async { self.0.read_to_end(buf) })
+    }
+
+    fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError> {
+        Ok(self)
     }
 }
 
@@ -95,11 +99,7 @@ impl Stream for DirReader {
 }
 
 impl AssetReader for FileAssetReader {
-    async fn read<'a>(
-        &'a self,
-        path: &'a Path,
-        _required_features: ReaderRequiredFeatures,
-    ) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let full_path = self.root_path.join(path);
         match File::open(&full_path) {
             Ok(file) => Ok(FileReader(file)),

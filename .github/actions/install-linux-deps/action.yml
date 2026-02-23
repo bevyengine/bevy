@@ -37,6 +37,10 @@ inputs:
     description: Install x264 (libx264-dev)
     required: false
     default: "false"
+  fontconfig:
+    description: Install fontconfig (libfontconfig1-dev)
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -52,3 +56,4 @@ runs:
         ${{ fromJSON(inputs.wayland) && 'libwayland-dev' || '' }}
         ${{ fromJSON(inputs.xkb) && 'libxkbcommon-dev' || '' }}
         ${{ fromJSON(inputs.x264) && 'libx264-164 libx264-dev' || '' }}
+        ${{ fromJSON(inputs.fontconfig) && 'libfontconfig1-dev' || '' }}

@@ -7,12 +7,14 @@ use bytemuck::Pod;
 use gpu_preprocessing::UntypedPhaseIndirectParametersBuffers;
 use nonmax::NonMaxU32;
 
+use bevy_material::{descriptor::CachedRenderPipelineId, labels::DrawFunctionId};
+
 use crate::{
     render_phase::{
-        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItemExtraIndex,
-        SortedPhaseItem, SortedRenderPhase, ViewBinnedRenderPhases,
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, PhaseItemExtraIndex, SortedPhaseItem,
+        SortedRenderPhase, ViewBinnedRenderPhases,
     },
-    render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
+    render_resource::GpuArrayBufferable,
     sync_world::MainEntity,
 };
 

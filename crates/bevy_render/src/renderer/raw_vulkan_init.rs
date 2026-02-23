@@ -82,6 +82,7 @@ pub(crate) fn create_raw_vulkan_instance(
                 flags: instance_descriptor.flags,
                 memory_budget_thresholds: instance_descriptor.memory_budget_thresholds,
                 backend_options: instance_descriptor.backend_options.clone(),
+                telemetry: None,
             },
             Some(Box::new(|mut args| {
                 for callback in &settings.create_instance_callbacks {

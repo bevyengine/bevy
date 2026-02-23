@@ -270,7 +270,7 @@ fn setup_sticks(
 
     let mut spawn_stick = |x_pos, y_pos, x_axis, y_axis, button| {
         let style = TextFont {
-            font_size: 13.,
+            font_size: FontSize::Px(13.),
             ..default()
         };
         commands.spawn((
@@ -346,7 +346,7 @@ fn setup_triggers(
                 Transform::from_xyz(0., 0., 1.),
                 Text(format!("{:.3}", 0.)),
                 TextFont {
-                    font_size: 13.,
+                    font_size: FontSize::Px(13.),
                     ..default()
                 },
                 TextWithButtonValue(button_type),

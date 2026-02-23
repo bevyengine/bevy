@@ -6,6 +6,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_log::{debug, info, warn};
 use bevy_platform::collections::HashSet;
 use bevy_utils::default;
 use bevy_window::{
@@ -15,7 +16,6 @@ use core::{
     num::NonZero,
     ops::{Deref, DerefMut},
 };
-use tracing::{debug, info, warn};
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
@@ -41,7 +41,7 @@ impl Plugin for WindowRenderPlugin {
                         .run_if(need_surface_configuration)
                         .before(prepare_windows),
                 )
-                .add_systems(Render, prepare_windows.in_set(RenderSystems::ManageViews));
+                .add_systems(Render, prepare_windows.in_set(RenderSystems::PrepareViews));
         }
     }
 }
@@ -64,6 +64,11 @@ pub struct ExtractedWindow {
     pub size_changed: bool,
     pub present_mode_changed: bool,
     pub alpha_mode: CompositeAlphaMode,
+    /// Whether this window needs an initial buffer commit.
+    ///
+    /// On Wayland, windows must present at least once before they are shown.
+    /// See <https://wayland.app/protocols/xdg-shell#xdg_surface>
+    pub needs_initial_present: bool,
 }
 
 impl ExtractedWindow {
@@ -145,6 +150,7 @@ fn extract_windows(
             swap_chain_texture_view_format: None,
             present_mode_changed: false,
             alpha_mode: window.composite_alpha_mode,
+            needs_initial_present: true,
         });
 
         if extracted_window.swap_chain_texture.is_none() {
@@ -258,15 +264,20 @@ pub fn prepare_windows(
         // and https://github.com/gfx-rs/wgpu/issues/1218
         #[cfg(target_os = "linux")]
         let may_erroneously_timeout = || {
-            render_instance
-                .enumerate_adapters(wgpu::Backends::VULKAN)
-                .iter()
-                .any(|adapter| {
-                    let name = adapter.get_info().name;
-                    name.starts_with("Radeon")
-                        || name.starts_with("AMD")
-                        || name.starts_with("Intel")
-                })
+            bevy_tasks::IoTaskPool::get().scope(|scope| {
+                scope.spawn(async {
+                    render_instance
+                        .enumerate_adapters(wgpu::Backends::VULKAN)
+                        .await
+                        .iter()
+                        .any(|adapter| {
+                            let name = adapter.get_info().name;
+                            name.starts_with("Radeon")
+                                || name.starts_with("AMD")
+                                || name.starts_with("Intel")
+                        })
+                });
+            })[0]
         };
 
         let surface = &surface_data.surface;
@@ -289,7 +300,7 @@ pub fn prepare_windows(
             }
             #[cfg(target_os = "linux")]
             Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
-                tracing::trace!(
+                bevy_log::trace!(
                     "Couldn't get swap chain texture. This is probably a quirk \
                         of your Linux GPU driver, so it can be safely ignored."
                 );
@@ -413,6 +424,11 @@ pub fn create_surfaces(
             // normally this is dropped on present but we double check here to be safe as failure to
             // drop it will cause validation errors in wgpu
             drop(window.swap_chain_texture.take());
+            #[cfg_attr(
+                target_arch = "wasm32",
+                expect(clippy::drop_non_drop, reason = "texture views are not drop on wasm")
+            )]
+            drop(window.swap_chain_texture_view.take());
 
             data.configuration.width = window.physical_width;
             data.configuration.height = window.physical_height;

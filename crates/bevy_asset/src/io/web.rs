@@ -1,6 +1,4 @@
-use crate::io::{
-    AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader, ReaderRequiredFeatures,
-};
+use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
 use crate::{AssetApp, AssetPlugin};
 use alloc::boxed::Box;
 use bevy_app::{App, Plugin};
@@ -135,6 +133,9 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         )
     })?;
 
+    #[cfg(target_os = "windows")]
+    let str_path = &str_path.replace(std::path::MAIN_SEPARATOR, "/");
+
     #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
     if let Some(data) = web_asset_cache::try_load_from_cache(str_path).await? {
         return Ok(Box::new(VecReader::new(data)));
@@ -193,7 +194,6 @@ impl AssetReader for WebAssetReader {
     fn read<'a>(
         &'a self,
         path: &'a Path,
-        _required_features: ReaderRequiredFeatures,
     ) -> impl ConditionalSendFuture<Output = Result<Box<dyn Reader>, AssetReaderError>> {
         get(self.make_uri(path))
     }

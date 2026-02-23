@@ -8,6 +8,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
 };
+use bevy_light::Skybox;
 use bevy_render::{
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
@@ -27,7 +28,7 @@ use crate::{
         prepass_target_descriptors, MotionVectorPrepass, NormalPrepass, PreviousViewData,
         PreviousViewUniforms,
     },
-    FullscreenShader, Skybox,
+    FullscreenShader,
 };
 
 /// This pipeline writes motion vectors to the prepass for all [`Skybox`]es.
