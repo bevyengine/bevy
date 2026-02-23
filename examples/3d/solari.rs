@@ -576,6 +576,7 @@ struct PerformanceText;
 fn update_performance_text(
     mut text: Single<&mut Text, With<PerformanceText>>,
     diagnostics: Res<DiagnosticsStore>,
+    time: Res<Time<Real>>,
 ) {
     text.0.clear();
 
@@ -609,7 +610,16 @@ fn update_performance_text(
         "render/solari_lighting/specular_indirect_lighting/elapsed_gpu",
     );
     (add_diagnostic)("DLSS-RR", "render/dlss_ray_reconstruction/elapsed_gpu");
-    text.push_str(&format!("{:17}  {total:.2} ms\n", "Total"));
+
+    if total < 0.01 {
+        let frame_time = diagnostics
+            .get(&DiagnosticPath::new("frame_time"))
+            .and_then(Diagnostic::smoothed)
+            .unwrap_or_else(|| time.delta_secs_f64() * 1000.0);
+        text.push_str(&format!("{:17}  {frame_time:.2} ms\n", "Frame time"));
+    } else {
+        text.push_str(&format!("{:17}  {total:.2} ms\n", "Total"));
+    }
 
     if let Some(world_cache_active_cells_count) = diagnostics
         .get(&DiagnosticPath::new(

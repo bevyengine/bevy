@@ -1,5 +1,8 @@
 use super::{
-    prepare::{SolariLightingResources, LIGHT_TILE_BLOCKS, WORLD_CACHE_SIZE},
+    prepare::{
+        SolariLightingResources, LIGHT_TILE_BLOCKS, WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET,
+        WORLD_CACHE_SIZE,
+    },
     SolariLighting,
 };
 use crate::scene::RaytracingSceneBindings;
@@ -198,16 +201,7 @@ pub fn solari_lighting(
             previous_depth_buffer,
             view_uniforms_binding,
             previous_view_uniforms_binding,
-            s.world_cache_checksums.as_entire_binding(),
-            s.world_cache_life.as_entire_binding(),
-            s.world_cache_radiance.as_entire_binding(),
-            s.world_cache_geometry_data.as_entire_binding(),
-            s.world_cache_luminance_deltas.as_entire_binding(),
-            s.world_cache_active_cells_new_radiance.as_entire_binding(),
-            s.world_cache_a.as_entire_binding(),
-            s.world_cache_b.as_entire_binding(),
-            s.world_cache_active_cell_indices.as_entire_binding(),
-            s.world_cache_active_cells_count.as_entire_binding(),
+            s.world_cache.as_entire_binding(),
         )),
     );
     let bind_group_world_cache_active_cells_dispatch = render_device.create_bind_group(
@@ -385,7 +379,9 @@ pub fn solari_lighting(
 
     diagnostics.record_u32(
         ctx.command_encoder(),
-        &s.world_cache_active_cells_count.slice(..),
+        &s.world_cache.slice(
+            WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET..WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + 4,
+        ),
         "solari_lighting/world_cache_active_cells_count",
     );
 }
@@ -419,15 +415,6 @@ pub fn init_solari_lighting_pipelines(
                 texture_depth_2d(),
                 uniform_buffer::<ViewUniform>(true),
                 uniform_buffer::<PreviousViewData>(true),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
-                storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
             ),
         ),

@@ -317,17 +317,13 @@ impl FrameData {
         self.closed_spans.clear();
     }
 
-    fn write_timestamp(
-        &mut self,
-        encoder: &mut impl WriteTimestamp,
-        is_inside_pass: bool,
-    ) -> Option<u32> {
+    fn write_timestamp(&mut self, encoder: &mut impl WriteTimestamp) -> Option<u32> {
         // `encoder.write_timestamp` is unsupported on WebGPU.
         if !self.supports_timestamps_inside_encoders {
             return None;
         }
 
-        if is_inside_pass && !self.supports_timestamps_inside_passes {
+        if encoder.is_inside_pass() && !self.supports_timestamps_inside_passes {
             return None;
         }
 
@@ -437,7 +433,7 @@ impl FrameData {
 
     fn begin_time_span(&mut self, encoder: &mut impl WriteTimestamp, name: Cow<'static, str>) {
         let begin_instant = Instant::now();
-        let begin_timestamp_index = self.write_timestamp(encoder, false);
+        let begin_timestamp_index = self.write_timestamp(encoder);
 
         let span = self.open_span(None, name);
         span.begin_instant = Some(begin_instant);
@@ -445,7 +441,7 @@ impl FrameData {
     }
 
     fn end_time_span(&mut self, encoder: &mut impl WriteTimestamp) {
-        let end_timestamp_index = self.write_timestamp(encoder, false);
+        let end_timestamp_index = self.write_timestamp(encoder);
 
         let span = self.close_span();
         span.end_timestamp_index = end_timestamp_index;
@@ -455,7 +451,7 @@ impl FrameData {
     fn begin_pass<P: Pass>(&mut self, pass: &mut P, name: Cow<'static, str>) {
         let begin_instant = Instant::now();
 
-        let begin_timestamp_index = self.write_timestamp(pass, true);
+        let begin_timestamp_index = self.write_timestamp(pass);
         let pipeline_statistics_index = self.write_pipeline_statistics(pass);
 
         let span = self.open_span(Some(P::KIND), name);
@@ -465,7 +461,7 @@ impl FrameData {
     }
 
     fn end_pass(&mut self, pass: &mut impl Pass) {
-        let end_timestamp_index = self.write_timestamp(pass, true);
+        let end_timestamp_index = self.write_timestamp(pass);
 
         let span = self.close_span();
         span.end_timestamp_index = end_timestamp_index;
@@ -740,6 +736,10 @@ pub fn sync_diagnostics(mutex: Res<RenderDiagnosticsMutex>, mut store: ResMut<Di
 
 pub trait WriteTimestamp {
     fn write_timestamp(&mut self, query_set: &QuerySet, index: u32);
+
+    fn is_inside_pass(&self) -> bool {
+        false
+    }
 }
 
 impl WriteTimestamp for CommandEncoder {
@@ -759,11 +759,19 @@ impl WriteTimestamp for RenderPass<'_> {
     fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
         RenderPass::write_timestamp(self, query_set, index);
     }
+
+    fn is_inside_pass(&self) -> bool {
+        true
+    }
 }
 
 impl WriteTimestamp for ComputePass<'_> {
     fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
         ComputePass::write_timestamp(self, query_set, index);
+    }
+
+    fn is_inside_pass(&self) -> bool {
+        true
     }
 }
 

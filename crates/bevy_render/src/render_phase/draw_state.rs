@@ -648,6 +648,10 @@ impl WriteTimestamp for TrackedRenderPass<'_> {
     fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
         self.pass.write_timestamp(query_set, index);
     }
+
+    fn is_inside_pass(&self) -> bool {
+        true
+    }
 }
 
 impl WritePipelineStatistics for TrackedRenderPass<'_> {
