@@ -332,7 +332,7 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     /// turning it into a system that takes no input.
     ///
     /// `Self` can have any [`SystemInput`] type whose inner representation is
-    /// an owned `T`, such as [`In`](crate::system::In).
+    /// an owned `T`, such as [`In`].
     ///
     /// Because [`In<T>`](crate::system::In) transfers ownership of `T` into
     /// the system, `T` must be [`Clone`] so the system can run more than once.
