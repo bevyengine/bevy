@@ -17,7 +17,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// - Bit 0: Mirroring the tile diagonally (top-right and bottom-left corners are swapped)
 ///
 /// The order in which the mirroring is performed matters - the tile is first mirrored
-/// horizontally (if specified), then vertically, then finally diagonally.
+/// horizontally (if specified), then vertically, then finally diagonally, in the UV
+/// coordinate system.
 ///
 /// Note that different coordinate systems are used for UV mapping and Bevy world
 /// coordinates (e.g. in UV maps, the y component increases towards the bottom of
