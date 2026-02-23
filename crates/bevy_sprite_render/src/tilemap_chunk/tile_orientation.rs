@@ -19,9 +19,10 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// The order in which the mirroring is performed matters - the tile is first mirrored
 /// horizontally (if specified), then vertically, then finally diagonally.
 ///
-/// Note that because different coordinate systems are used for UV mapping and Bevy
-/// world coordinates, the code in each case is different (e.g. in UV maps, the y
-/// component increases towards the bottom of the tile, in Bevy it increases towards the top).
+/// Note that different coordinate systems are used for UV mapping and Bevy world
+/// coordinates (e.g. in UV maps, the y component increases towards the bottom of
+/// the tile, in Bevy it increases towards the top). This means that the ordering
+/// in which the mirroring is applied differs in different coordinate systems.
 ///
 /// The ordering of the enum starts from the default orientation (no rotation or mirroring),
 /// then we have successive 90 degree counter-clockwise rotations. Then we have a tile
