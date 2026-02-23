@@ -30,7 +30,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// mirrored horizontally, and then the results of successive 90 degree counter-clockwise
 /// rotations of the mirrored tile.
 ///
-/// The enum values can be easily converted to the format used for tile indices in Tiled maps,
+/// The enum values can be easily converted to the format used for tile indices in [Tiled](https://www.mapeditor.org/) maps,
 /// where bits 31, 30 and 29 correspond to bits 2, 1 and 0 of this enum's values.
 /// So for a given enum value, we can just use `value << 29` to produce the bits required
 /// in a Tiled index.
