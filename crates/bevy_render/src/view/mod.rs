@@ -102,8 +102,8 @@ impl Plugin for ViewPlugin {
         app
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
-                ExtractComponentPlugin::<Msaa>::new(RenderApp),
-                ExtractComponentPlugin::<OcclusionCulling>::new(RenderApp),
+                ExtractComponentPlugin::<Msaa>::default(),
+                ExtractComponentPlugin::<OcclusionCulling>::default(),
                 RenderVisibilityRangePlugin,
             ));
 

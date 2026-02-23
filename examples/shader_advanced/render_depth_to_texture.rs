@@ -103,7 +103,7 @@ fn main() {
 
     app.add_plugins(DefaultPlugins)
         .add_plugins(MaterialPlugin::<ShowDepthTextureMaterial>::default())
-        .add_plugins(ExtractResourcePlugin::<DemoDepthTexture>::new(RenderApp))
+        .add_plugins(ExtractResourcePlugin::<DemoDepthTexture>::default())
         .init_resource::<DemoDepthTexture>()
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_cube)

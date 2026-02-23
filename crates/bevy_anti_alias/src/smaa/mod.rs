@@ -323,7 +323,7 @@ impl Plugin for SmaaPlugin {
             }
         };
 
-        app.add_plugins(ExtractComponentPlugin::<Smaa>::new(RenderApp));
+        app.add_plugins(ExtractComponentPlugin::<Smaa>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

@@ -24,7 +24,7 @@ pub use bevy_extract_macros::ExtractBaseComponent;
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractBaseComponentPlugin`].
-pub trait ExtractBaseComponent<L: AppLabel, F: 'static + Send + Sync = ()>:
+pub trait ExtractBaseComponent<L: AppLabel + Default, F: 'static + Send + Sync = ()>:
     SyncComponent<F>
 {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
@@ -47,7 +47,7 @@ pub trait ExtractBaseComponent<L: AppLabel, F: 'static + Send + Sync = ()>:
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractBaseComponentPlugin`].
 pub struct ExtractBaseComponentPlugin<
-    L: AppLabel,
+    L: AppLabel + Default,
     C: ExtractBaseComponent<L, F>,
     F: 'static + Send + Sync = (),
 > {
@@ -58,14 +58,14 @@ pub struct ExtractBaseComponentPlugin<
     app_label: InternedAppLabel,
 }
 
-impl<L: AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>
+impl<L: AppLabel + Default, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>
     ExtractBaseComponentPlugin<L, C, F>
 {
-    pub fn new(app: L) -> Self {
+    pub fn default() -> Self {
         Self {
             only_extract_visible: false,
             marker: PhantomData,
-            app_label: app.intern(),
+            app_label: L::default().intern(),
         }
     }
 
@@ -78,7 +78,7 @@ impl<L: AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>
     }
 }
 
-impl<L: AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync> Plugin
+impl<L: AppLabel + Default, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync> Plugin
     for ExtractBaseComponentPlugin<L, C, F>
 {
     fn build(&self, app: &mut App) {
@@ -95,7 +95,11 @@ impl<L: AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync> Plugi
 }
 
 /// This system extracts all components of the corresponding [`ExtractBaseComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_components<L: AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>(
+fn extract_components<
+    L: AppLabel + Default,
+    C: ExtractBaseComponent<L, F>,
+    F: 'static + Send + Sync,
+>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
@@ -114,7 +118,7 @@ fn extract_components<L: AppLabel, C: ExtractBaseComponent<L, F>, F: 'static + S
 
 /// This system extracts all components of the corresponding [`ExtractBaseComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
 fn extract_visible_components<
-    L: AppLabel,
+    L: AppLabel + Default,
     C: ExtractBaseComponent<L, F>,
     F: 'static + Send + Sync,
 >(

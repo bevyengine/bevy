@@ -65,8 +65,8 @@ impl Plugin for CameraPlugin {
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
             .add_plugins((
-                ExtractResourcePlugin::<ClearColor, Self>::new(RenderApp),
-                ExtractComponentPlugin::<CameraMainTextureUsages, Self>::new(RenderApp),
+                ExtractResourcePlugin::<ClearColor, Self>::default(),
+                ExtractComponentPlugin::<CameraMainTextureUsages, Self>::default(),
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
             .add_systems(

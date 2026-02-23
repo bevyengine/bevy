@@ -48,7 +48,7 @@ impl Default for GpuReadbackPlugin {
 
 impl Plugin for GpuReadbackPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<Readback>::new(RenderApp));
+        app.add_plugins(ExtractComponentPlugin::<Readback>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

@@ -30,8 +30,8 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             GpuReadbackPlugin,
-            ExtractResourcePlugin::<ReadbackBuffer>::new(RenderApp),
-            ExtractResourcePlugin::<ReadbackImage>::new(RenderApp),
+            ExtractResourcePlugin::<ReadbackBuffer>::default(),
+            ExtractResourcePlugin::<ReadbackImage>::default(),
         ))
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, setup)

@@ -151,7 +151,7 @@ impl Plugin for MotionBlurPlugin {
         embedded_asset!(app, "motion_blur.wgsl");
 
         app.add_plugins((
-            ExtractComponentPlugin::<MotionBlur>::new(RenderApp),
+            ExtractComponentPlugin::<MotionBlur>::default(),
             UniformComponentPlugin::<MotionBlurUniform>::default(),
         ));
 

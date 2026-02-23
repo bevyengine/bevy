@@ -55,9 +55,7 @@ impl Plugin for Core2dPlugin {
                 CameraRenderGraph::new(Core2d)
             })
             .register_required_components_with::<Camera2d, Tonemapping>(|| Tonemapping::None)
-            .add_plugins(ExtractComponentPlugin::<Camera2d, CameraPlugin>::new(
-                RenderApp,
-            ));
+            .add_plugins(ExtractComponentPlugin::<Camera2d, CameraPlugin>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

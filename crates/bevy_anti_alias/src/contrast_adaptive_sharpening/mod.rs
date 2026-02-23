@@ -107,7 +107,7 @@ impl Plugin for CasPlugin {
         embedded_asset!(app, "robust_contrast_adaptive_sharpening.wgsl");
 
         app.add_plugins((
-            ExtractComponentPlugin::<ContrastAdaptiveSharpening>::new(RenderApp),
+            ExtractComponentPlugin::<ContrastAdaptiveSharpening>::default(),
             UniformComponentPlugin::<CasUniform>::default(),
         ));
 

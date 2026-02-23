@@ -106,8 +106,8 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "environment.wgsl");
 
         app.add_plugins((
-            ExtractComponentPlugin::<GpuAtmosphereSettings>::new(RenderApp),
-            ExtractComponentPlugin::<AtmosphereEnvironmentMap>::new(RenderApp),
+            ExtractComponentPlugin::<GpuAtmosphereSettings>::default(),
+            ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))

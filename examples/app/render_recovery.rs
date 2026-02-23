@@ -21,7 +21,7 @@ fn main() {
     let mut app = App::new();
     app.add_plugins((
         DefaultPlugins,
-        ExtractResourcePlugin::<RenderError>::new(RenderApp),
+        ExtractResourcePlugin::<RenderError>::default(),
     ))
     .add_systems(Startup, setup)
     .add_systems(Update, (update_camera, input))

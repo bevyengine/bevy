@@ -61,8 +61,8 @@ impl Plugin for RenderDebugOverlayPlugin {
             .init_resource::<GlobalRenderDebugOverlay>()
             .add_message::<RenderDebugOverlayEvent>()
             .add_plugins((
-                ExtractResourcePlugin::<GlobalRenderDebugOverlay>::new(RenderApp),
-                ExtractComponentPlugin::<RenderDebugOverlay>::new(RenderApp),
+                ExtractResourcePlugin::<GlobalRenderDebugOverlay>::default(),
+                ExtractComponentPlugin::<RenderDebugOverlay>::default(),
             ))
             .add_systems(bevy_app::Update, (handle_input, update_overlay).chain());
     }

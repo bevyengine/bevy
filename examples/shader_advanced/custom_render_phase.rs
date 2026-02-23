@@ -119,7 +119,7 @@ struct MeshStencilPhasePlugin;
 impl Plugin for MeshStencilPhasePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            ExtractComponentPlugin::<DrawStencil>::new(RenderApp),
+            ExtractComponentPlugin::<DrawStencil>::default(),
             SortedRenderPhasePlugin::<Stencil3d, MeshPipeline>::new(RenderDebugFlags::default()),
         ));
         // We need to get the render app from the main app

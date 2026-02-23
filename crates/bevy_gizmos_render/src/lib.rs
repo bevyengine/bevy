@@ -92,7 +92,7 @@ impl Plugin for GizmoRenderPlugin {
 
         app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default())
-            .add_plugins(ExtractResourcePlugin::<LineGizmoEntities>::new(RenderApp))
+            .add_plugins(ExtractResourcePlugin::<LineGizmoEntities>::default())
             .init_resource::<LineGizmoEntities>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

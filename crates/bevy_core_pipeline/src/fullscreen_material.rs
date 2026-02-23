@@ -47,7 +47,7 @@ pub struct FullscreenMaterialPlugin<T: FullscreenMaterial> {
 impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            ExtractComponentPlugin::<T>::new(RenderApp),
+            ExtractComponentPlugin::<T>::default(),
             UniformComponentPlugin::<T>::default(),
         ));
 

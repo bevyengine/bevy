@@ -102,7 +102,7 @@ impl Plugin for Core3dPlugin {
             .register_required_components::<Camera3d, Tonemapping>()
             .add_plugins((
                 SkyboxPlugin,
-                ExtractComponentPlugin::<Camera3d, CameraPlugin>::new(RenderApp),
+                ExtractComponentPlugin::<Camera3d, CameraPlugin>::default(),
             ))
             .add_systems(PostUpdate, check_msaa);
 

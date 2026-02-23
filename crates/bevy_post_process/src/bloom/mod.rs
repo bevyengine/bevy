@@ -48,7 +48,7 @@ impl Plugin for BloomPlugin {
         embedded_asset!(app, "bloom.wgsl");
 
         app.add_plugins((
-            ExtractComponentPlugin::<Bloom>::new(RenderApp),
+            ExtractComponentPlugin::<Bloom>::default(),
             UniformComponentPlugin::<BloomUniforms>::default(),
         ));
 

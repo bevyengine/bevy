@@ -100,7 +100,7 @@ pub struct ContactShadowsBuffer(pub DynamicUniformBuffer<ContactShadowsUniform>)
 impl Plugin for ContactShadowsPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<ContactShadows>()
-            .add_plugins(ExtractComponentPlugin::<ContactShadows>::new(RenderApp));
+            .add_plugins(ExtractComponentPlugin::<ContactShadows>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

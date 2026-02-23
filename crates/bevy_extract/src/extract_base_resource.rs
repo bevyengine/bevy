@@ -15,7 +15,9 @@ use crate::{Extract, ExtractSchedule};
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractBaseResourcePlugin`].
-pub trait ExtractBaseResource<L: AppLabel, F: 'static + Send + Sync = ()>: Resource {
+pub trait ExtractBaseResource<L: AppLabel + Default, F: 'static + Send + Sync = ()>:
+    Resource
+{
     type Source: Resource;
 
     /// Defines how the resource is transferred into the "render world".
@@ -31,7 +33,7 @@ pub trait ExtractBaseResource<L: AppLabel, F: 'static + Send + Sync = ()>: Resou
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractBaseResourcePlugin`].
 pub struct ExtractBaseResourcePlugin<
-    L: AppLabel,
+    L: AppLabel + Default,
     R: ExtractBaseResource<L, F>,
     F: 'static + Send + Sync = (),
 > {
@@ -39,18 +41,18 @@ pub struct ExtractBaseResourcePlugin<
     app_label: InternedAppLabel,
 }
 
-impl<L: AppLabel, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync>
+impl<L: AppLabel + Default, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync>
     ExtractBaseResourcePlugin<L, R, F>
 {
-    pub fn new(app_label: L) -> Self {
+    pub fn default() -> Self {
         Self {
             marker: PhantomData,
-            app_label: app_label.intern(),
+            app_label: L::default().intern(),
         }
     }
 }
 
-impl<L: AppLabel, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync> Plugin
+impl<L: AppLabel + Default, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync> Plugin
     for ExtractBaseResourcePlugin<L, R, F>
 {
     fn build(&self, app: &mut App) {
@@ -66,7 +68,11 @@ impl<L: AppLabel, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync> Plugin
 }
 
 /// This system extracts the resource of the corresponding [`Resource`] type
-pub fn extract_resource<L: AppLabel, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync>(
+pub fn extract_resource<
+    L: AppLabel + Default,
+    R: ExtractBaseResource<L, F>,
+    F: 'static + Send + Sync,
+>(
     mut commands: Commands,
     main_resource: Extract<Option<Res<R::Source>>>,
     target_resource: Option<ResMut<R>>,

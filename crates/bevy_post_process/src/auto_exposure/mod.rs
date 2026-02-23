@@ -56,7 +56,7 @@ impl Plugin for AutoExposurePlugin {
             .insert(&Handle::default(), AutoExposureCompensationCurve::default())
             .unwrap();
 
-        app.add_plugins(ExtractComponentPlugin::<AutoExposure>::new(RenderApp));
+        app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

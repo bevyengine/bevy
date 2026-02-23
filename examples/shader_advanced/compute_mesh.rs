@@ -38,7 +38,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             ComputeShaderMeshGeneratorPlugin,
-            ExtractComponentPlugin::<GenerateMesh>::new(RenderApp),
+            ExtractComponentPlugin::<GenerateMesh>::default(),
         ))
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, setup)

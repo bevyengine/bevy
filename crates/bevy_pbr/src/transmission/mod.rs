@@ -31,10 +31,8 @@ impl Plugin for ScreenSpaceTransmissionPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "transmission.wgsl");
 
-        app.add_plugins(ExtractComponentPlugin::<ScreenSpaceTransmission>::new(
-            RenderApp,
-        ))
-        .register_required_components::<Camera3d, ScreenSpaceTransmission>();
+        app.add_plugins(ExtractComponentPlugin::<ScreenSpaceTransmission>::default())
+            .register_required_components::<Camera3d, ScreenSpaceTransmission>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

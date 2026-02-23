@@ -274,7 +274,7 @@ impl Render {
 pub(crate) struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
 /// A label for the rendering sub-app.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
 
 impl Plugin for RenderPlugin {

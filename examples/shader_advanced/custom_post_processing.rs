@@ -47,7 +47,7 @@ impl Plugin for PostProcessPlugin {
             // This plugin will take care of extracting it automatically.
             // It's important to derive [`ExtractComponent`] on [`PostProcessSettings`]
             // for this plugin to work correctly.
-            ExtractComponentPlugin::<PostProcessSettings>::new(RenderApp),
+            ExtractComponentPlugin::<PostProcessSettings>::default(),
             // The settings will also be the data used in the shader.
             // This plugin will prepare the component for the GPU by creating a uniform buffer
             // and writing the data to that buffer every frame.
