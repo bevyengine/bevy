@@ -356,7 +356,7 @@ fn cloud_layer_segment(ray_origin: vec3<f32>, ray_dir: vec3<f32>) -> vec3<f32> {
 /// Cloud *medium density* used for extinction / scattering integration.
 /// This is the normalized coverage term scaled by `cloud_layer.cloud_density`.
 fn get_cloud_medium_density(r: f32, world_pos: vec3<f32>) -> f32 {
-    return get_cloud_coverage(r, world_pos) * 1.0;// cloud_layer.cloud_density;
+    return get_cloud_coverage(r, world_pos) * cloud_layer.cloud_density;
 }
 
 /// Raymarch through clouds towards the sun to compute volumetric shadow
