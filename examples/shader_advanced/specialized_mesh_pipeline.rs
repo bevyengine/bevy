@@ -103,9 +103,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 struct CustomRenderedMeshPipelinePlugin;
 impl Plugin for CustomRenderedMeshPipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::new(
-            RenderApp,
-        ));
+        app.add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::default());
 
         // We make sure to add these to the render app, not the main app.
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
