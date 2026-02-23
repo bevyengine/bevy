@@ -4,6 +4,7 @@ use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_mesh::morph::{MeshMorphWeights, MorphWeights, MAX_MORPH_WEIGHTS};
+use bevy_platform::collections::hash_map::Entry;
 use bevy_render::mesh::allocator::MeshAllocator;
 use bevy_render::mesh::RenderMesh;
 use bevy_render::render_asset::RenderAssets;
@@ -16,6 +17,7 @@ use bevy_render::{
     Extract,
 };
 use bytemuck::{NoUninit, Pod, Zeroable};
+use indexmap::IndexSet;
 
 use crate::{skin, RenderMeshInstances};
 
@@ -25,7 +27,7 @@ pub struct MorphIndex {
 }
 
 /// The index of the [`GpuMorphDescriptor`] in the `morph_descriptors` buffer.
-#[derive(Clone, Copy, Debug, Deref, DerefMut)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Deref, DerefMut)]
 pub struct MorphDescriptorIndex(pub u32);
 
 /// Maps each mesh affected by morph targets to the applicable offset within the
@@ -55,6 +57,8 @@ pub enum MorphIndices {
         /// Maps each entity with a morphed mesh to the [`GpuMorphDescriptor`]
         /// in the `morph_descriptors` buffer.
         gpu_descriptor_indices: MainEntityHashMap<MorphDescriptorIndex>,
+        /// Indices in the `morph_descriptors` buffer available for use.
+        gpu_descriptor_free_list: IndexSet<MorphDescriptorIndex>,
     },
 }
 
@@ -85,6 +89,7 @@ impl FromWorld for MorphIndices {
             MorphIndices::Storage {
                 morph_weights_info: MainEntityHashMap::default(),
                 gpu_descriptor_indices: MainEntityHashMap::default(),
+                gpu_descriptor_free_list: IndexSet::default(),
             }
         }
     }
@@ -358,15 +363,13 @@ pub fn prepare_morph_descriptors(
         &mut MorphIndices::Storage {
             morph_weights_info: ref morph_target_info,
             ref mut gpu_descriptor_indices,
+            ref mut gpu_descriptor_free_list,
         },
         &mut Some(ref mut descriptors_buffer),
     ) = (&mut *morph_indices, &mut morph_uniforms.descriptors_buffer)
     else {
         return;
     };
-
-    descriptors_buffer.clear();
-    gpu_descriptor_indices.clear();
 
     for (&morph_target_main_entity, morph_target_info) in morph_target_info {
         let Some(mesh_id) = render_mesh_instances.mesh_asset_id(morph_target_main_entity) else {
@@ -379,18 +382,54 @@ pub fn prepare_morph_descriptors(
             continue;
         };
 
-        // Prepare our morph descriptor, and write it to the buffer.
-        let descriptor_index = MorphDescriptorIndex(descriptors_buffer.push(GpuMorphDescriptor {
+        // Create our morph descriptor.
+        let morph_descriptor = GpuMorphDescriptor {
             current_weights_offset: morph_target_info.current_weight_offset,
             prev_weights_offset: morph_target_info.prev_weight_offset.unwrap_or(!0),
             targets_offset: morph_targets_slice.range.start,
             vertex_count: mesh.vertex_count,
             weight_count: morph_target_info.weight_count,
-        }) as u32);
+        };
+
+        // Place it in the descriptors buffer. Note that if the morph target
+        // descriptor for an entity was in the buffer last frame, then it must
+        // be at the same index this frame. That's because the
+        // `MeshInputUniform` stores the index of the morph target descriptor,
+        // and `MeshInputUniform`s aren't updated unless the mesh instance
+        // changes.
+        let descriptor_index;
+        match gpu_descriptor_indices.entry(morph_target_main_entity) {
+            Entry::Occupied(occupied_entry) => {
+                descriptor_index = *occupied_entry.get();
+                descriptors_buffer.set(descriptor_index.0, morph_descriptor);
+            }
+            Entry::Vacant(vacant_entry) => {
+                match gpu_descriptor_free_list.pop() {
+                    Some(free_descriptor_index) => {
+                        descriptor_index = free_descriptor_index;
+                        descriptors_buffer.set(descriptor_index.0, morph_descriptor);
+                    }
+                    None => {
+                        descriptor_index =
+                            MorphDescriptorIndex(descriptors_buffer.push(morph_descriptor) as u32);
+                    }
+                }
+                vacant_entry.insert(descriptor_index);
+            }
+        };
 
         // Note where we wrote it.
         gpu_descriptor_indices.insert(morph_target_main_entity, descriptor_index);
     }
+
+    // Expire descriptor indices corresponding to entities no longer present.
+    gpu_descriptor_indices.retain(|morph_target_main_entity, descriptor_index| {
+        let live = morph_target_info.contains_key(morph_target_main_entity);
+        if !live {
+            gpu_descriptor_free_list.insert(*descriptor_index);
+        }
+        live
+    });
 }
 
 // NOTE: Because morph targets require per-morph target texture bindings, they cannot
