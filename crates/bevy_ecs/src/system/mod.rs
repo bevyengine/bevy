@@ -345,14 +345,14 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// fn use_entity(In(entity): In<Entity>, mut commands: Commands) {
-    ///     commands.entity(entity).insert(Name::new("Tagged"));
+    /// fn use_value(In(val): In<u32>) {
+    ///     assert_eq!(val, 42);
     /// }
     ///
-    /// let target = Entity::from_index(42); // Entity is Copy
-    /// # let mut schedule = Schedule::default();
-    /// schedule.add_systems(use_entity.with_cloned_input(target));
-    /// # bevy_ecs::system::assert_is_system(use_entity.with_cloned_input(target));
+    /// let mut world = World::new();
+    /// let mut system = IntoSystem::into_system(use_value).with_cloned_input(42u32);
+    /// system.initialize(&mut world);
+    /// system.run((), &mut world);
     /// ```
     fn with_cloned_input<T>(self, value: T) -> WithClonedInputWrapper<Self::System, T>
     where
