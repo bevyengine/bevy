@@ -1252,7 +1252,7 @@ mod tests {
         let conflicts = x_access.get_conflicts(&y_access);
         let b_id = world
             .components()
-            .get_resource_id(TypeId::of::<ResB>())
+            .get_id(TypeId::of::<ResB>())
             .unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id].into());
@@ -1928,7 +1928,7 @@ mod tests {
                     res.0 += 2;
                 },
             )
-                .distributive_run_if(resource_exists::<A>.or(resource_exists::<B>)),
+                .distributive_run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
         );
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);
