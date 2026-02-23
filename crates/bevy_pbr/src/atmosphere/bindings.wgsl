@@ -29,3 +29,8 @@
 // - G: mean extinction (1/m)
 // - B: max optical depth (unitless)
 @group(0) @binding(17) var cloud_shadow_map: texture_2d<f32>;
+
+#ifdef CLOUDS_ENABLED
+// Spatio-temporal blue noise for per-frame stratification
+@group(0) @binding(19) var stbn_texture: texture_2d_array<f32>;
+#endif

@@ -17,6 +17,7 @@
     get_cloud_absorption_coeff,
 }
 
+@group(0) @binding(19) var stbn_texture: texture_2d_array<f32>;
 @group(0) @binding(13) var out_cloud_shadow_map: texture_storage_2d<rgba16float, write>;
 
 const EPSILON_M: f32 = 1.0;
@@ -181,7 +182,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // Jittered + stratified: one sample per stratum, with *per-step* jitter.
         // Per-step jitter reduces “streaky” structure compared to using a single phase shift
         // across all steps in a texel.
-        let j = hash_2d_to_01(gid.xy, 0x1000u + i);
+        var j: f32;
+        let stbn_dims = textureDimensions(stbn_texture);
+        if (all(stbn_dims > vec2(1u))) {
+            let stbn_layers = textureNumLayers(stbn_texture);
+            let stbn_layer = i32(view.frame_count % u32(stbn_layers));
+            let stbn_noise = textureLoad(stbn_texture, vec2<i32>(gid.xy) % vec2<i32>(stbn_dims), stbn_layer, 0);
+            j = fract(stbn_noise.r + f32(i) * 0.618033988749895);
+        } else {
+            j = hash_2d_to_01(gid.xy, 0x1000u + i);
+        }
         let t = t_start + (f32(i) + j) * dt;
         let p = ray_origin + trace_dir * t;
         let r = length(p);

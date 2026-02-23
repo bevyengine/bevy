@@ -22,7 +22,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    texture::{CachedTexture, GpuImage},
+    texture::{CachedTexture, FallbackImage, GpuImage},
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 use bevy_utils::default;
@@ -125,10 +125,23 @@ pub fn init_atmosphere_probe_layout(mut commands: Commands) {
                 (12, sampler(SamplerBindingType::Filtering)),
                 // cloud bindings (match `clouds.wgsl` / `bindings.wgsl`)
                 (14, uniform_buffer::<CloudLayer>(true)),
-                (15, texture_2d(TextureSampleType::Float { filterable: true })),
+                (
+                    15,
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                ),
                 (16, sampler(SamplerBindingType::Filtering)),
-                (17, texture_2d(TextureSampleType::Float { filterable: true })), // cloud shadow map
-                (18, texture_3d(TextureSampleType::Float { filterable: true })), // perlin-worley
+                (
+                    17,
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                ), // cloud shadow map
+                (
+                    18,
+                    texture_3d(TextureSampleType::Float { filterable: true }),
+                ), // perlin-worley
+                (
+                    19,
+                    texture_2d_array(TextureSampleType::Float { filterable: true }),
+                ), // STBN
                 // output 2D array texture
                 (
                     13,
@@ -163,6 +176,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
         fbm_noise_texture,
         perlin_worley_noise_texture,
         cloud_noise_sampler,
+        (bluenoise, render_images, fallback_image),
         gpu_media,
         views,
         pipeline_cache,
@@ -177,6 +191,11 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
         Res<FbmNoiseTexture>,
         Res<PerlinWorleyNoiseTexture>,
         Res<crate::resources::CloudNoiseSampler>,
+        (
+            Res<crate::Bluenoise>,
+            Res<RenderAssets<GpuImage>>,
+            Res<FallbackImage>,
+        ),
         Res<RenderAssets<GpuScatteringMedium>>,
         Query<&ExtractedAtmosphere, With<ExtractedAtmosphere>>,
         Res<PipelineCache>,
@@ -184,6 +203,15 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     mut commands: Commands,
 ) {
     let atmosphere = views.iter().next();
+
+    // STBN texture for environment_clouds (raymarch_atmosphere uses it when CLOUDS_ENABLED)
+    let stbn_view: std::borrow::Cow<'_, TextureView> = match render_images.get(&bluenoise.texture) {
+        Some(gpu) => std::borrow::Cow::Owned(gpu.texture.create_view(&TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            ..Default::default()
+        })),
+        None => std::borrow::Cow::Borrowed(&fallback_image.d2_array.texture_view),
+    };
 
     for (entity, textures) in &probes {
         let Some(atmosphere) = atmosphere else {
@@ -249,18 +277,17 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
                     (16, &**cloud_noise_sampler),
                     (17, &textures.cloud_shadow_map.default_view),
                     (18, &perlin_worley_noise_texture.texture.default_view),
+                    (19, stbn_view.as_ref()),
                     // output
                     (13, &textures.environment),
                 )),
             ))
         })();
 
-        commands
-            .entity(entity)
-            .insert(AtmosphereProbeBindGroups {
-                environment,
-                environment_clouds,
-            });
+        commands.entity(entity).insert(AtmosphereProbeBindGroups {
+            environment,
+            environment_clouds,
+        });
     }
 }
 
@@ -415,8 +442,7 @@ pub fn atmosphere_environment(
     ) = view.into_inner();
 
     for (bind_groups, env_map_light) in probe_query.iter() {
-        let use_clouds =
-            cloud_layer_offset.is_some() && bind_groups.environment_clouds.is_some();
+        let use_clouds = cloud_layer_offset.is_some() && bind_groups.environment_clouds.is_some();
 
         let pipeline = if use_clouds {
             pipeline_cache.get_compute_pipeline(pipelines.environment_clouds)

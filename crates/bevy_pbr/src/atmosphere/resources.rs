@@ -1,6 +1,5 @@
 use crate::{
-    fbm_noise::FbmNoiseTexture,
-    perlin_worley_noise::PerlinWorleyNoiseTexture,
+    fbm_noise::FbmNoiseTexture, perlin_worley_noise::PerlinWorleyNoiseTexture, Bluenoise,
     CloudLayer, ExtractedAtmosphere, GpuLights, GpuScatteringMedium, LightMeta,
     ScatteringMediumSampler,
 };
@@ -23,9 +22,9 @@ use bevy_math::{Affine3A, Mat4, Vec3, Vec3A};
 use bevy_render::{
     extract_component::ComponentUniforms,
     render_asset::RenderAssets,
-    render_resource::{binding_types::*, *},
+    render_resource::{binding_types::*, TextureViewDescriptor, TextureViewDimension, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{CachedTexture, TextureCache},
+    texture::{CachedTexture, FallbackImage, GpuImage, TextureCache},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
 };
 use bevy_shader::Shader;
@@ -184,7 +183,15 @@ impl AtmosphereBindGroupLayouts {
                     ),
                     (16, sampler(SamplerBindingType::Filtering)),
                     // 3D Perlin–Worley noise texture used by cloud density shaping
-                    (18, texture_3d(TextureSampleType::Float { filterable: true })),
+                    (
+                        18,
+                        texture_3d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    // STBN for temporal stratification (different layer per frame)
+                    (
+                        19,
+                        texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    ),
                     (
                         13,
                         texture_storage_2d(
@@ -269,7 +276,15 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
                     // 3D Perlin–Worley noise texture for volumetric shaping
-                    (18, texture_3d(TextureSampleType::Float { filterable: true })),
+                    (
+                        18,
+                        texture_3d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    // STBN for temporal stratification (different layer per frame)
+                    (
+                        19,
+                        texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    ),
                 ),
             ),
         );
@@ -309,7 +324,15 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                         texture_2d(TextureSampleType::Float { filterable: true }),
                     ),
                     // 3D Perlin–Worley noise texture for volumetric shaping
-                    (18, texture_3d(TextureSampleType::Float { filterable: true })),
+                    (
+                        18,
+                        texture_3d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    // STBN for temporal stratification (different layer per frame)
+                    (
+                        19,
+                        texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    ),
                 ),
             ),
         );
@@ -330,8 +353,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (6, texture_2d(TextureSampleType::default())),
                     (7, sampler(SamplerBindingType::Filtering)),
                     // atmosphere luts and sampler
-                    (8, texture_2d(TextureSampleType::default())),  // transmittance
-                    (9, texture_2d(TextureSampleType::default())),  // multiscattering
+                    (8, texture_2d(TextureSampleType::default())), // transmittance
+                    (9, texture_2d(TextureSampleType::default())), // multiscattering
                     (10, texture_2d(TextureSampleType::default())), // sky view
                     (11, texture_3d(TextureSampleType::default())), // aerial view
                     (12, sampler(SamplerBindingType::Filtering)),
@@ -356,8 +379,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (6, texture_2d(TextureSampleType::default())),
                     (7, sampler(SamplerBindingType::Filtering)),
                     // atmosphere luts and sampler
-                    (8, texture_2d(TextureSampleType::default())),  // transmittance
-                    (9, texture_2d(TextureSampleType::default())),  // multiscattering
+                    (8, texture_2d(TextureSampleType::default())), // transmittance
+                    (9, texture_2d(TextureSampleType::default())), // multiscattering
                     (10, texture_2d(TextureSampleType::default())), // sky view
                     (11, texture_3d(TextureSampleType::default())), // aerial view
                     (12, sampler(SamplerBindingType::Filtering)),
@@ -472,12 +495,13 @@ impl FromWorld for AtmosphereLutPipelines {
             ..default()
         });
 
-        let cloud_shadow_filter = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("cloud_shadow_filter_pipeline".into()),
-            layout: vec![layouts.cloud_shadow_filter.clone()],
-            shader: load_embedded_asset!(world, "cloud_shadow_filter.wgsl"),
-            ..default()
-        });
+        let cloud_shadow_filter =
+            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some("cloud_shadow_filter_pipeline".into()),
+                layout: vec![layouts.cloud_shadow_filter.clone()],
+                shader: load_embedded_asset!(world, "cloud_shadow_filter.wgsl"),
+                ..default()
+            });
 
         Self {
             transmittance_lut,
@@ -837,6 +861,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &AtmosphereTextures,
             &ViewDepthTexture,
             &Msaa,
+            Option<&CloudLayer>,
         ),
         (With<Camera3d>, With<ExtractedAtmosphere>),
     >,
@@ -844,6 +869,11 @@ pub(super) fn prepare_atmosphere_bind_groups(
     layouts: Res<AtmosphereBindGroupLayouts>,
     render_sky_layouts: Res<RenderSkyBindGroupLayouts>,
     (atmosphere_sampler, cloud_noise_sampler): (Res<AtmosphereSampler>, Res<CloudNoiseSampler>),
+    (bluenoise, render_images, fallback_image): (
+        Res<Bluenoise>,
+        Res<RenderAssets<GpuImage>>,
+        Res<FallbackImage>,
+    ),
     view_uniforms: Res<ViewUniforms>,
     lights_uniforms: Res<LightMeta>,
     atmosphere_transforms: Res<AtmosphereTransforms>,
@@ -890,7 +920,16 @@ pub(super) fn prepare_atmosphere_bind_groups(
     // We build no-cloud bind groups in that case.
     let cloud_layer_binding = cloud_layer_uniforms.binding();
 
-    for (entity, atmosphere, textures, view_depth_texture, msaa) in &views {
+    // STBN texture for temporal stratification; use fallback when not yet loaded.
+    let stbn_view: std::borrow::Cow<'_, TextureView> = match render_images.get(&bluenoise.texture) {
+        Some(gpu) => std::borrow::Cow::Owned(gpu.texture.create_view(&TextureViewDescriptor {
+            dimension: Some(TextureViewDimension::D2Array),
+            ..Default::default()
+        })),
+        None => std::borrow::Cow::Borrowed(&fallback_image.d2_array.texture_view),
+    };
+
+    for (entity, atmosphere, textures, view_depth_texture, msaa, cloud_layer) in &views {
         let gpu_medium = gpu_media
             .get(atmosphere.medium)
             .ok_or(ScatteringMediumMissingError(atmosphere.medium))?;
@@ -987,6 +1026,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                     (15, &fbm_noise_texture.texture.default_view),
                     (16, &**cloud_noise_sampler),
                     (18, &perlin_worley_noise_texture.texture.default_view),
+                    (19, stbn_view.as_ref()),
                     (13, &textures.cloud_shadow_map.default_view),
                 )),
             )
@@ -1049,7 +1089,12 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
-        let render_sky_clouds = cloud_layer_binding.as_ref().map(|cloud_layer_binding| {
+        // Only create clouds bind group for views that have CloudLayer; otherwise use no_clouds
+        // to avoid passing clouds layout to no_clouds pipeline when disabling clouds.
+        let render_sky_clouds = cloud_layer_binding
+            .as_ref()
+            .filter(|_| cloud_layer.is_some())
+            .map(|cloud_layer_binding| {
             render_device.create_bind_group(
                 "render_sky_bind_group_clouds",
                 &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
@@ -1081,6 +1126,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                     (16, &**cloud_noise_sampler),
                     (17, &textures.cloud_shadow_map.default_view),
                     (18, &perlin_worley_noise_texture.texture.default_view),
+                    (19, stbn_view.as_ref()),
                 )),
             )
         });

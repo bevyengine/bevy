@@ -254,5 +254,3 @@ pub fn generate_perlin_worley_noise_once(
     render_queue.submit([command_buffer]);
     generated.0 = true;
 }
-
-

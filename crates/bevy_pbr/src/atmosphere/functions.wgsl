@@ -18,6 +18,7 @@
 }
 
 #ifdef CLOUDS_ENABLED
+#import bevy_pbr::atmosphere::bindings::stbn_texture
 #import bevy_pbr::atmosphere::clouds::{
     get_cloud_coverage,
     get_cloud_medium_density,
@@ -701,14 +702,25 @@ fn raymarch_atmosphere(
     const GRAD_IMPORTANCE_M: f32 = 1500.0;
     const CLOUD_MAX_SUBSTEPS: u32 = 2u;
 
+    // STBN: use different layer per frame for temporal stratification
+    let stbn_dims = textureDimensions(stbn_texture);
+    let stbn_use = all(stbn_dims > vec2(1u));
+    let stbn_layer = select(0, i32(view.frame_count % u32(textureNumLayers(stbn_texture))), stbn_use);
+    let stbn_px = vec2<i32>(floor(pixel_coords)) % vec2<i32>(stbn_dims);
+
     var stop: bool = false;
     for (var s: u32 = 0u; s < sample_budget; s += 1u) {
         if (stop) { break; }
 
         let u0 = f32(s) / f32(sample_budget);
         let u1 = f32(s + 1u) / f32(sample_budget);
-        // Per-sample jitter within the stratum (static in time).
-        let j = interleaved_gradient_noise(pixel_coords, 500u + s); // [0,1]
+        var j: f32;
+        if (stbn_use) {
+            let stbn_noise = textureLoad(stbn_texture, stbn_px, stbn_layer, 0);
+            j = fract(stbn_noise.r + f32(s) * 0.618033988749895);
+        } else {
+            j = interleaved_gradient_noise(pixel_coords, 500u + s);
+        }
         let u = mix(u0, u1, j);
 
         let t0 = cloud_shadow_inv_cdf(u0, t_start, cloud_start, cloud_end, t_end, w_pre, w_cloud, w_post, w_sum);
@@ -732,8 +744,14 @@ fn raymarch_atmosphere(
         let sub_dt = dt / f32(sub_steps);
         for (var k: u32 = 0u; k < sub_steps; k += 1u) {
             if (stop) { break; }
-            // Jitter within each sub-step (static in time).
-            let j2 = interleaved_gradient_noise(pixel_coords, 2000u + s * 8u + k); // [0,1]
+            // Jitter within each sub-step using STBN for temporal stratification.
+            var j2: f32;
+            if (stbn_use) {
+                let stbn_noise2 = textureLoad(stbn_texture, stbn_px, stbn_layer, 0);
+                j2 = fract(stbn_noise2.g + f32(s * 8u + k) * 0.618033988749895);
+            } else {
+                j2 = interleaved_gradient_noise(pixel_coords, 2000u + s * 8u + k);
+            }
             let sub_t = t0 + (f32(k) + clamp(j2, 0.05, 0.95)) * sub_dt;
             let p = pos + ray_dir * sub_t;
             let r_p = length(p);

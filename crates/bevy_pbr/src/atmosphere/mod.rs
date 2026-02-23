@@ -35,8 +35,8 @@
 
 mod environment;
 pub mod fbm_noise;
-pub mod perlin_worley_noise;
 mod node;
+pub mod perlin_worley_noise;
 pub mod resources;
 
 use bevy_app::{App, Plugin, Update};
@@ -446,7 +446,8 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
             cloud_shadow_map_extent: s.cloud_shadow_map_extent,
             cloud_shadow_map_samples: s.cloud_shadow_map_samples,
             cloud_shadow_map_strength: s.cloud_shadow_map_strength,
-            cloud_shadow_map_spatial_filter_iterations: s.cloud_shadow_map_spatial_filter_iterations,
+            cloud_shadow_map_spatial_filter_iterations: s
+                .cloud_shadow_map_spatial_filter_iterations,
         }
     }
 }
@@ -536,7 +537,7 @@ impl Default for CloudLayer {
             cloud_layer_end: 6_363_000.0,   // 5km above Earth's surface
             cloud_density: 1.0,
             cloud_absorption: 0.00005, // Physically correct: ~0.00005 m^-1 per unit density
-            cloud_scattering: 0.0008, // Physically correct: ~0.0008 m^-1 per unit density
+            cloud_scattering: 0.0008,  // Physically correct: ~0.0008 m^-1 per unit density
             noise_scale: 64_000.0,
             noise_offset: Vec3::ZERO,
             detail_noise_scale: 16_000.0,
