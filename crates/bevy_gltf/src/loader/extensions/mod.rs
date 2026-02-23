@@ -59,7 +59,6 @@ pub struct GltfExtensionHandlers(pub Arc<RwLock<Vec<Box<dyn GltfExtensionHandler
 /// The hooks are always called once, even if there is no extension data
 /// This is useful for scenarios where additional extension data isn't
 /// required, but processing should still happen.
-#[async_trait::async_trait]
 pub trait GltfExtensionHandler: Send + Sync {
     /// Required for dyn cloning
     fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler>;
@@ -140,7 +139,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
-    async fn on_gltf_primitive(
+    fn on_gltf_primitive(
         &mut self,
         load_context: &mut LoadContext<'_>,
         gltf_document: &gltf::Gltf,

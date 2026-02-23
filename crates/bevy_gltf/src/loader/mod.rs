@@ -729,16 +729,14 @@ impl GltfLoader {
                 let mut out_doc: Option<gltf::Document> = None;
                 let mut out_data: Option<Vec<Vec<u8>>> = None;
                 for extension in extensions.iter_mut() {
-                    extension
-                        .on_gltf_primitive(
-                            load_context,
-                            &gltf,
-                            &primitive,
-                            &buffer_data,
-                            &mut out_doc,
-                            &mut out_data,
-                        )
-                        .await;
+                    extension.on_gltf_primitive(
+                        load_context,
+                        &gltf,
+                        &primitive,
+                        &buffer_data,
+                        &mut out_doc,
+                        &mut out_data,
+                    );
                 }
                 let primitive = if let Some(doc) = &out_doc
                     && let Some(mesh) = doc.meshes().next()
