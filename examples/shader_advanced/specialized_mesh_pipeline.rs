@@ -22,7 +22,10 @@ use bevy::{
         batching::gpu_preprocessing::GpuPreprocessingSupport,
         camera::{DirtySpecializations, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{allocator::MeshAllocator, RenderMesh},
+        mesh::{
+            allocator::{MeshAllocator, MeshSlabs},
+            RenderMesh,
+        },
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, SetItemPipeline,
@@ -351,9 +354,14 @@ fn queue_custom_mesh_pipeline(
                 continue;
             };
 
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-            let morph_target_slab =
-                mesh_allocator.mesh_morph_target_slab(&mesh_instance.mesh_asset_id);
+            let Some(MeshSlabs {
+                vertex_slab_id: vertex_slab,
+                index_slab_id: index_slab,
+                morph_target_slab_id: morph_target_slab,
+            }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id)
+            else {
+                continue;
+            };
 
             // Specialize the key for the current mesh entity
             // For this example we only specialize based on the mesh topology
@@ -383,7 +391,7 @@ fn queue_custom_mesh_pipeline(
                     draw_function,
                     pipeline: pipeline_id,
                     material_bind_group_index: None,
-                    vertex_slab: vertex_slab.unwrap_or_default(),
+                    vertex_slab,
                     index_slab,
                     lightmap_slab: None,
                     morph_target_slab,

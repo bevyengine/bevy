@@ -41,6 +41,7 @@ use bevy_render::camera::{DirtySpecializationSystems, DirtySpecializations, Pend
 use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
+use bevy_render::mesh::allocator::MeshSlabs;
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
 use bevy_render::renderer::RenderQueue;
 use bevy_render::RenderStartup;
@@ -1208,9 +1209,14 @@ pub fn queue_material_meshes(
             };
 
             // Fetch the slabs that this mesh resides in.
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-            let morph_target_slab =
-                mesh_allocator.mesh_morph_target_slab(&mesh_instance.mesh_asset_id);
+            let Some(MeshSlabs {
+                vertex_slab_id: vertex_slab,
+                index_slab_id: index_slab,
+                morph_target_slab_id: morph_target_slab,
+            }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id)
+            else {
+                continue;
+            };
 
             match material.properties.render_phase_type {
                 RenderPhaseType::Transmissive => {
@@ -1254,7 +1260,7 @@ pub fn queue_material_meshes(
                         pipeline: pipeline_id,
                         draw_function,
                         material_bind_group_index: Some(material.binding.group.0),
-                        vertex_slab: vertex_slab.unwrap_or_default(),
+                        vertex_slab,
                         index_slab,
                         morph_target_slab,
                         lightmap_slab: mesh_instance.shared.lightmap_slab_index.map(|index| *index),
@@ -1285,7 +1291,7 @@ pub fn queue_material_meshes(
                         draw_function,
                         pipeline: pipeline_id,
                         material_bind_group_index: Some(material.binding.group.0),
-                        vertex_slab: vertex_slab.unwrap_or_default(),
+                        vertex_slab,
                         index_slab,
                         morph_target_slab,
                     };

@@ -34,7 +34,7 @@ use bevy_render::{
     },
     extract_resource::ExtractResource,
     mesh::{
-        allocator::{MeshAllocator, SlabId},
+        allocator::{MeshAllocator, MeshSlabs, SlabId},
         RenderMesh, RenderMeshBufferInfo,
     },
     prelude::*,
@@ -1600,9 +1600,14 @@ fn queue_wireframes(
                 .unwrap_or(false);
             let draw_function = if is_wide { draw_wide } else { draw_thin };
 
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-            let morph_target_slab =
-                mesh_allocator.mesh_morph_target_slab(&mesh_instance.mesh_asset_id);
+            let Some(MeshSlabs {
+                vertex_slab_id: vertex_slab,
+                index_slab_id: index_slab,
+                morph_target_slab_id: morph_target_slab,
+            }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id)
+            else {
+                continue;
+            };
             let bin_key = Wireframe3dBinKey {
                 asset_id: mesh_instance.mesh_asset_id.untyped(),
             };
@@ -1610,7 +1615,7 @@ fn queue_wireframes(
                 pipeline: pipeline_id,
                 asset_id: wireframe_instance.untyped(),
                 draw_function,
-                vertex_slab: vertex_slab.unwrap_or_default(),
+                vertex_slab,
                 morph_target_slab,
                 // wide wireframes use non-indexed draws (vertex pulling from storage),
                 // so set index_slab to None to make the preprocessor emit

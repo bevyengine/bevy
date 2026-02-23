@@ -31,7 +31,10 @@ use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{DirtySpecializations, PendingQueues},
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{allocator::MeshAllocator, RenderMesh},
+    mesh::{
+        allocator::{MeshAllocator, MeshSlabs},
+        RenderMesh,
+    },
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -1290,9 +1293,14 @@ pub fn queue_prepass_material_meshes(
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-            let morph_target_slab =
-                mesh_allocator.mesh_morph_target_slab(&mesh_instance.mesh_asset_id);
+            let Some(MeshSlabs {
+                vertex_slab_id: vertex_slab,
+                index_slab_id: index_slab,
+                morph_target_slab_id: morph_target_slab,
+            }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id)
+            else {
+                continue;
+            };
 
             let deferred = match material.properties.render_method {
                 OpaqueRendererMethod::Forward => false,
@@ -1308,7 +1316,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab: vertex_slab.unwrap_or_default(),
+                                vertex_slab,
                                 index_slab,
                                 morph_target_slab,
                             },
@@ -1337,7 +1345,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index,
-                                vertex_slab: vertex_slab.unwrap_or_default(),
+                                vertex_slab,
                                 index_slab,
                                 morph_target_slab,
                             },
@@ -1360,7 +1368,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab: vertex_slab.unwrap_or_default(),
+                                vertex_slab,
                                 index_slab,
                                 morph_target_slab,
                             },
@@ -1380,7 +1388,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab: vertex_slab.unwrap_or_default(),
+                                vertex_slab,
                                 index_slab,
                                 morph_target_slab,
                             },

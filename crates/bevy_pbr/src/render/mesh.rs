@@ -3611,7 +3611,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             MorphIndices::Storage { .. } => {
                 current_morph_index = None;
                 prev_morph_index = None;
-                morph_bind_group_key = match mesh_allocator.mesh_morph_target_slab(&mesh_asset_id) {
+                morph_bind_group_key = match mesh_allocator
+                    .mesh_slabs(&mesh_asset_id)
+                    .and_then(|mesh_slabs| mesh_slabs.morph_target_slab_id)
+                {
                     Some(morph_target_slab_id) => {
                         MeshMorphBindGroupKey::Storage(morph_target_slab_id)
                     }

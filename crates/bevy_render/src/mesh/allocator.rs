@@ -191,6 +191,17 @@ enum Slab {
     LargeObject(LargeObjectSlab),
 }
 
+/// IDs of the slabs associated with a single mesh.
+pub struct MeshSlabs {
+    /// The slab storing the mesh's vertex data.
+    pub vertex_slab_id: SlabId,
+    /// The slab storing the mesh's index data, if the mesh is indexed.
+    pub index_slab_id: Option<SlabId>,
+    /// The slab storing the mesh's morph target displacements, if the mesh has
+    /// morph targets.
+    pub morph_target_slab_id: Option<SlabId>,
+}
+
 impl Slab {
     /// Returns the GPU buffer corresponding to this slab, if it's been
     /// uploaded.
@@ -460,18 +471,12 @@ impl MeshAllocator {
     /// If the mesh wasn't allocated, or has no index data in the case of the
     /// index buffer, the corresponding element in the returned tuple will be
     /// None.
-    pub fn mesh_slabs(&self, mesh_id: &AssetId<Mesh>) -> (Option<SlabId>, Option<SlabId>) {
-        (
-            self.mesh_id_to_vertex_slab.get(mesh_id).cloned(),
-            self.mesh_id_to_index_slab.get(mesh_id).cloned(),
-        )
-    }
-
-    /// Returns the ID of the morph target buffer for the mesh with the given ID.
-    ///
-    /// If the mesh wasn't allocated or has no morph targets, returns None.
-    pub fn mesh_morph_target_slab(&self, mesh_id: &AssetId<Mesh>) -> Option<SlabId> {
-        self.mesh_id_to_morph_target_slab.get(mesh_id).cloned()
+    pub fn mesh_slabs(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshSlabs> {
+        Some(MeshSlabs {
+            vertex_slab_id: self.mesh_id_to_vertex_slab.get(mesh_id).cloned()?,
+            index_slab_id: self.mesh_id_to_index_slab.get(mesh_id).cloned(),
+            morph_target_slab_id: self.mesh_id_to_morph_target_slab.get(mesh_id).cloned(),
+        })
     }
 
     /// Get the number of allocated slabs

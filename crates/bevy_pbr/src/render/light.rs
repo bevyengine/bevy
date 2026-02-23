@@ -39,6 +39,7 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_render::camera::{DirtySpecializations, PendingQueues};
 use bevy_render::erased_render_asset::ErasedRenderAssets;
+use bevy_render::mesh::allocator::MeshSlabs;
 use bevy_render::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
@@ -2309,16 +2310,20 @@ pub fn queue_shadows(
                     Some(material.binding.group.0)
                 };
 
-                let (vertex_slab, index_slab) =
-                    mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-                let morph_target_slab =
-                    mesh_allocator.mesh_morph_target_slab(&mesh_instance.mesh_asset_id);
+                let Some(MeshSlabs {
+                    vertex_slab_id: vertex_slab,
+                    index_slab_id: index_slab,
+                    morph_target_slab_id: morph_target_slab,
+                }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id)
+                else {
+                    continue;
+                };
 
                 let batch_set_key = ShadowBatchSetKey {
                     pipeline: pipeline_id,
                     draw_function,
                     material_bind_group_index,
-                    vertex_slab: vertex_slab.unwrap_or_default(),
+                    vertex_slab,
                     index_slab,
                     morph_target_slab,
                 };
