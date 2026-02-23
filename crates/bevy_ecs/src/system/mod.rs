@@ -310,18 +310,15 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     /// need to observe the same value without being able to change it.
     ///
     /// # Example
-    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// #
-    /// fn log_entity(InRef(entity): InRef<Entity>) {
-    ///     println!("{entity:?}");
+    /// fn my_system(input: InRef<u32>) {
+    ///     assert_eq!(*input, 42);
     /// }
-    ///
-    /// let target = Entity::from_index(7);
-    /// # let mut schedule = Schedule::default();
-    /// schedule.add_systems(log_entity.with_input_ref(target));
-    /// # bevy_ecs::system::assert_is_system(log_entity.with_input_ref(target));
+    /// let mut world = World::new();
+    /// let mut system = IntoSystem::into_system(my_system).with_input_ref(42u32);
+    /// system.initialize(&mut world);
+    /// system.run((), &mut world);
     /// ```
     fn with_input_ref<T>(self, value: T) -> WithRefInputWrapper<Self::System, T>
     where
