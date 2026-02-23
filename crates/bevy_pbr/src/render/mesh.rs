@@ -191,9 +191,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<RenderMaterialInstances>()
                 .configure_sets(
                     ExtractSchedule,
-                    MeshExtractionSystems
-                        .after(view::extract_visibility_ranges)
-                        .after(late_sweep_material_instances),
+                    MeshExtractionSystems.after(view::extract_visibility_ranges),
                 )
                 .add_systems(
                     ExtractSchedule,
