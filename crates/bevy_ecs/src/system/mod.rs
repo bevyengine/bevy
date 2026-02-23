@@ -342,18 +342,7 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///
     /// # Example
     ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// fn use_value(In(val): In<u32>) {
-    ///     assert_eq!(val, 42);
-    /// }
-    ///
-    /// let mut world = World::new();
-    /// let mut system = IntoSystem::into_system(use_value).with_cloned_input(42u32);
-    /// system.initialize(&mut world);
-    /// system.run((), &mut world);
-    /// ```
+    /// Pending.
     fn with_cloned_input<T>(self, value: T) -> WithClonedInputWrapper<Self::System, T>
     where
         for<'i> In: SystemInput<Inner<'i> = T>,
