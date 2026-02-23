@@ -448,7 +448,7 @@ pub enum DirectionalNavigationError {
         direction: CompassOctant,
     },
     /// Navigation explicitly blocked in the requested direction.
-    #[error("Naviation explicitly blocked from {current_focus} in the {direction:?} direction.")]
+    #[error("Navigation explicitly blocked from {current_focus} in the {direction:?} direction.")]
     BlockedNavigation {
         /// The entity that was the focus when the error occurred.
         current_focus: Entity,
