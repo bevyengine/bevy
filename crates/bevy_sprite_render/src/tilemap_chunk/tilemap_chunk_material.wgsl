@@ -12,9 +12,9 @@ struct TileData {
     tileset_index: u32,
     color: vec4<f32>,
     visible: bool,
-    mirror_x: bool,
-    mirror_y: bool,
-    swap_xy: bool,
+    mirror_h: bool,
+    mirror_v: bool,
+    mirror_d: bool,
 }
 
 fn get_tile_data(coord: vec2<u32>) -> TileData {
@@ -29,12 +29,12 @@ fn get_tile_data(coord: vec2<u32>) -> TileData {
 
     let color = vec4<f32>(color_r, color_g, color_b, color_a);
 
-    let mirror_x = (data.a & 0x8u) != 0u;
-    let mirror_y = (data.a & 0x4u) != 0u;
-    let swap_xy = (data.a & 0x2u) != 0u;
+    let mirror_h = (data.a & 0x8u) != 0u;
+    let mirror_v = (data.a & 0x4u) != 0u;
+    let mirror_d = (data.a & 0x2u) != 0u;
     let visible = (data.a & 0x1u) != 0u;
 
-    return TileData(tileset_index, color, visible, mirror_x, mirror_y, swap_xy);
+    return TileData(tileset_index, color, visible, mirror_h, mirror_v, mirror_d);
 }
 
 @fragment
@@ -52,15 +52,15 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
-    if (tile.mirror_x) {
+    if (tile.mirror_h) {
         local_uv.x = 1 - local_uv.x;
     }
 
-    if (tile.mirror_y) {
+    if (tile.mirror_v) {
         local_uv.y = 1 - local_uv.y;
     }
 
-    if (tile.swap_xy) {
+    if (tile.mirror_d) {
         local_uv = local_uv.yx;
     }
 
