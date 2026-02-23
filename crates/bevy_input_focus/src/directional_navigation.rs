@@ -385,7 +385,7 @@ impl DirectionalNavigationMap {
     /// Looks up the neighbors of a given entity.
     ///
     /// If the entity is not in the map, [`None`] will be returned.
-    /// Note that the set of neighbors may be the default value!
+    /// Note that the set of neighbors may be empty!
     pub fn get_neighbors(&self, entity: Entity) -> Option<&NavNeighbors> {
         self.neighbors.get(&entity)
     }
