@@ -191,8 +191,7 @@ impl SkinUniformInfo {
 /// Returns true if skinning must use uniforms (and dynamic offsets) because
 /// storage buffers aren't supported on the current platform.
 pub fn skins_use_uniform_buffers(limits: &WgpuLimits) -> bool {
-    static SKINS_USE_UNIFORM_BUFFERS: OnceLock<bool> = OnceLock::new();
-    *SKINS_USE_UNIFORM_BUFFERS.get_or_init(|| limits.max_storage_buffers_per_shader_stage == 0)
+    bevy_render::storage_buffers_are_unsupported(limits)
 }
 
 /// Uploads the buffers containing the joints to the GPU.
