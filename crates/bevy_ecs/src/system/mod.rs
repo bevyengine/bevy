@@ -318,7 +318,7 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///     println!("{entity:?}");
     /// }
     ///
-    /// let target = Entity::from_raw(7);
+    /// let target = Entity::from_index(7);
     /// # let mut schedule = Schedule::default();
     /// schedule.add_systems(log_entity.with_input_ref(target));
     /// # bevy_ecs::system::assert_is_system(log_entity.with_input_ref(target));
@@ -352,7 +352,7 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///     commands.entity(entity).insert(Name::new("Tagged"));
     /// }
     ///
-    /// let target = Entity::from_raw(42); // Entity is Copy
+    /// let target = Entity::from_index(42); // Entity is Copy
     /// # let mut schedule = Schedule::default();
     /// schedule.add_systems(use_entity.with_cloned_input(target));
     /// # bevy_ecs::system::assert_is_system(use_entity.with_cloned_input(target));
