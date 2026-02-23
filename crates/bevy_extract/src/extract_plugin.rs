@@ -137,7 +137,7 @@ mod test {
         sync_world::MainEntity,
     };
 
-    #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+    #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
     struct ExtractApp;
 
     #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
@@ -222,11 +222,11 @@ mod test {
             extract_set: RenderSystems::ExtractCommands.intern(),
             despawn_set: RenderSystems::PostCleanup.intern(),
         });
-        app.add_plugins(ExtractBaseComponentPlugin::<ExtractApp, RenderComponent>::new(ExtractApp));
+        app.add_plugins(ExtractBaseComponentPlugin::<ExtractApp, RenderComponent>::default());
         app.add_plugins(ExtractBaseComponentPlugin::<
             ExtractApp,
             RenderComponentSeparate,
-        >::new(ExtractApp));
+        >::default());
         app.add_systems(Startup, |mut commands: Commands| {
             commands.spawn((RenderComponent, RenderComponentSeparate));
         });

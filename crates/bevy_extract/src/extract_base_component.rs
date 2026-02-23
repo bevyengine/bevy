@@ -58,17 +58,21 @@ pub struct ExtractBaseComponentPlugin<
     app_label: InternedAppLabel,
 }
 
-impl<L: AppLabel + Default, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>
-    ExtractBaseComponentPlugin<L, C, F>
+impl<L: AppLabel + Default, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync> Default
+    for ExtractBaseComponentPlugin<L, C, F>
 {
-    pub fn default() -> Self {
+    fn default() -> Self {
         Self {
             only_extract_visible: false,
             marker: PhantomData,
             app_label: L::default().intern(),
         }
     }
+}
 
+impl<L: AppLabel + Default, C: ExtractBaseComponent<L, F>, F: 'static + Send + Sync>
+    ExtractBaseComponentPlugin<L, C, F>
+{
     pub fn extract_visible(app: L) -> Self {
         Self {
             only_extract_visible: true,

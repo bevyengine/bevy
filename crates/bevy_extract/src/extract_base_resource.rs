@@ -41,10 +41,10 @@ pub struct ExtractBaseResourcePlugin<
     app_label: InternedAppLabel,
 }
 
-impl<L: AppLabel + Default, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync>
-    ExtractBaseResourcePlugin<L, R, F>
+impl<L: AppLabel + Default, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync> Default
+    for ExtractBaseResourcePlugin<L, R, F>
 {
-    pub fn default() -> Self {
+    fn default() -> Self {
         Self {
             marker: PhantomData,
             app_label: L::default().intern(),
