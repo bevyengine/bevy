@@ -466,7 +466,7 @@ fn setup_buttons_for_grid_page(
     let text = match page_num {
         // For the first page, add a notice about vertical navigation being blocked off
         0 => Text::new(
-            "Vertical movements disabled on each button, but you can still go to the next row by going off the right side."
+            "Vertical movements disabled on each button, but you can still navigate between rows by going off the left or right sides."
         ),
         // For the third page, add a notice about vertical navigation being inverted in the grid.
         2 => Text::new(
