@@ -177,7 +177,7 @@ impl RenderAsset for RenderMesh {
             key_bits
         };
 
-        // Place the morph displacements in a slab if necessary.
+        // Place the morph displacements in an image if necessary.
         #[cfg(feature = "morph")]
         if let Some(morph_targets) = mesh.morph_targets() {
             _render_morph_targets_allocator.allocate(
@@ -201,7 +201,7 @@ impl RenderAsset for RenderMesh {
         _mesh_id: AssetId<Self::SourceAsset>,
         (_, _, _, _render_morph_targets_allocator): &mut SystemParamItem<Self::Param>,
     ) {
-        // Free the morph targets from the slab if necessary.
+        // Free the morph target images if necessary.
         #[cfg(feature = "morph")]
         _render_morph_targets_allocator.free(_mesh_id);
     }
