@@ -105,8 +105,8 @@ const CLOUD_USE_NOISE_SHAPE: bool = true;
 // Increase density and sharpen cloud borders by tightening the coverage threshold band
 // and applying a contrast curve.
 const CUMULUS_EDGE_THRESHOLD: f32 = 0.75; // higher => fewer, more isolated clouds
-const CUMULUS_EDGE_WIDTH: f32 = 0.1;     // smaller => sharper border
-const CUMULUS_EDGE_SHARPNESS: f32 = 16.0;  // >1 => steeper transition to "fully inside cloud"
+const CUMULUS_EDGE_WIDTH: f32 = 0.01;     // smaller => sharper border
+const CUMULUS_EDGE_SHARPNESS: f32 = 1.0;  // >1 => steeper transition to "fully inside cloud"
 
 fn debug_sphere_center() -> vec3<f32> {
     // Place the sphere at scene "origin" in XZ, and centered vertically in the cloud layer.
@@ -168,7 +168,7 @@ fn sample_cumulus_shape(r: f32, world_pos: vec3<f32>) -> f32 {
     let height_in_layer = r - cloud_layer.cloud_layer_start;
     let h = clamp(height_in_layer / max(1.0, layer_thickness), 0.0, 1.0);
 
-    // --- NUBIS-like Vertical Profile Method ---
+    // NUBIS-like Vertical Profile Method
     // We start with 2D NDF-style fields:
     // - coverage: controls where clouds form
     // - bottom_type/top_type: controls the vertical profile shape
@@ -176,7 +176,7 @@ fn sample_cumulus_shape(r: f32, world_pos: vec3<f32>) -> f32 {
     // Then:
     // dimensional_profile = vertical_profile * coverage
     let macro_noise = sample_cloud_noise_rgba_at_scale(world_pos, cloud_layer.noise_scale);
-    let cov = macro_noise.r;
+    var cov = macro_noise.r;
     let bottom_type = macro_noise.g;
     let top_type = macro_noise.b;
 
@@ -184,15 +184,13 @@ fn sample_cumulus_shape(r: f32, world_pos: vec3<f32>) -> f32 {
     let bottom_profile = cloud_bottom_profile(h, bottom_type);
     let top_profile = cloud_top_profile(h, top_type);
     let vertical_profile = clamp(bottom_profile * top_profile, 0.0, 1.0);
+    cov -= pow(h, 6.0 * top_type);
 
-    // Base dimensional profile (before erosion).
-    // IMPORTANT: if coverage is purely 2D and thresholded hard, edges become vertical "walls".
-    // We fix that by modulating the coverage threshold with height-varying erosion noise.
-    var d = vertical_profile;
-
-    // Keep the existing 2D detail channel for edge modulation / small-scale erosion.
+    // // Keep the existing 2D detail channel for edge modulation / small-scale erosion.
     let micro = sample_cloud_noise_rgba_at_scale(world_pos, cloud_layer.detail_noise_scale);
     let detail_n = micro.a;
+    let edge_mod = (detail_n - 0.5) * smoothstep(0.0, 1.0, h);
+    cov += edge_mod * 1.0;
 
     // 3D Perlin–Worley shaping: gives true volumetric breakup and avoids the "vertical walls"
     // you get from purely 2D coverage fields.
@@ -203,20 +201,16 @@ fn sample_cumulus_shape(r: f32, world_pos: vec3<f32>) -> f32 {
     var shape3 = remap(pw.x, wfbm - 1.0, 1.0, 0.0, 1.0);
     shape3 = remap(shape3, 0.85, 1.0, 0.0, 1.0);
     shape3 = clamp(shape3, 0.0, 1.0);
+    cov += shape3 * 0.2;
 
-    // Coverage mask with height-varying threshold modulation (kills vertical walls).
+    // fake cov value for testing (xy sine wave)
+    // let cov_fake = sin(world_pos.x * 0.0003) * sin(world_pos.z * 0.0003);
+    
+    // Coverage mask with height-varying threshold modulation
     let edge0 = CUMULUS_EDGE_THRESHOLD - CUMULUS_EDGE_WIDTH;
     let edge1 = CUMULUS_EDGE_THRESHOLD + CUMULUS_EDGE_WIDTH;
-    // Shift coverage by a small amount that varies with height/warped noise.
-    // Higher values => more ragged/sculpted cloud boundaries.
-    let edge_mod = (detail_n - 0.5) * 1.0 * smoothstep(0.0, 1.0, h);
-    // fake cov value for testing (xy sine wave)
-    let cov_fake = sin(world_pos.x * 0.0003) * sin(world_pos.z * 0.0003);
-    let edge_raw = smoothstep(edge0, edge1, cov + edge_mod + shape3 * .2);
-    let edge = pow(edge_raw, CUMULUS_EDGE_SHARPNESS);
-    d *= edge;
-
-    return d;
+    let edge = pow(smoothstep(edge0, edge1, cov), CUMULUS_EDGE_SHARPNESS);
+    return edge;
 }
 
 /// Cloud shape / coverage term in [0, 1].
@@ -362,7 +356,7 @@ fn cloud_layer_segment(ray_origin: vec3<f32>, ray_dir: vec3<f32>) -> vec3<f32> {
 /// Cloud *medium density* used for extinction / scattering integration.
 /// This is the normalized coverage term scaled by `cloud_layer.cloud_density`.
 fn get_cloud_medium_density(r: f32, world_pos: vec3<f32>) -> f32 {
-    return get_cloud_coverage(r, world_pos) * cloud_layer.cloud_density;
+    return get_cloud_coverage(r, world_pos) * 1.0;// cloud_layer.cloud_density;
 }
 
 /// Raymarch through clouds towards the sun to compute volumetric shadow

@@ -55,7 +55,7 @@ impl Default for PerlinWorleyTextureSize {
     fn default() -> Self {
         Self {
             // Reference uses 128 slices; this is ~16MB at RGBA16F.
-            size: UVec3::new(32, 32, 32),
+            size: UVec3::new(16, 16, 16),
         }
     }
 }

@@ -388,11 +388,11 @@ impl Default for AtmosphereSettings {
             rendering_method: AtmosphereMode::LookupTexture,
 
             // Cloud shadow map defaults (only used by Raymarched mode).
-            cloud_shadow_map_size: UVec2::new(512, 512),
+            cloud_shadow_map_size: UVec2::new(1024, 1024),
             cloud_shadow_map_extent: 64_000.0,
             cloud_shadow_map_samples: 48,
             cloud_shadow_map_strength: 1.0,
-            cloud_shadow_map_spatial_filter_iterations: 0,
+            cloud_shadow_map_spatial_filter_iterations: 2,
         }
     }
 }

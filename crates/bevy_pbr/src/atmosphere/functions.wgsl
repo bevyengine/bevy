@@ -254,6 +254,17 @@ fn build_light_basis(light_dir: vec3<f32>) -> LightBasis {
     return LightBasis(x, y);
 }
 
+/// Helper for cloud shadow PCF: evaluates transmittance from shadow map data.
+fn cloud_shadow_eval_transmittance(data: vec3<f32>, d_sample: f32) -> f32 {
+    let front_depth = data.r * 1000.0;
+    let mean_ext = data.g;
+    let max_optical_depth = data.b;
+    let delta = max(0.0, d_sample - front_depth);
+    var tau = mean_ext * delta;
+    tau = min(tau, max_optical_depth);
+    return exp(-tau);
+}
+
 fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, size: vec2<u32>) -> vec3<f32> {
     // Keep producer/consumer aligned by snapping the anchor to the shadow-map texel grid.
     let res = vec2<f32>(size);
@@ -320,21 +331,23 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>) 
 
     let uv = vec2(x, y) / (2.0 * extent) + vec2(0.5);
 
-    // Performance note:
-    // This function is called inside the atmosphere raymarch loop. A multi-tap PCF here
-    // explodes cost (samples * taps * pixels). Instead, rely on:
-    // - the separate cloud shadow *spatial filter* pass, and
-    // - hardware bilinear filtering.
-    let data = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv, 0.0).rgb;
-    // Shadow map stores front depth in kilometers to fit fp16 range.
-    let front_depth = data.r * 1000.0;
-    let mean_ext = data.g;
-    let max_optical_depth = data.b;
+    // 4-tap PCF (2x2 half-texel) to reduce aliasing and soften shadow edges.
+    // Samples are offset by ±0.25 texels so the 2x2 footprint covers the sampling area.
+    let size = vec2<f32>(settings.cloud_shadow_map_size);
+    let texel = vec2(1.0 / max(size.x, 1.0), 1.0 / max(size.y, 1.0));
+    let o = 0.25 * texel;
 
-    let delta = max(0.0, d_sample - front_depth);
-    var tau = mean_ext * delta;
-    tau = min(tau, max_optical_depth);
-    return exp(-tau);
+    let d00 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(-o.x, -o.y), 0.0).rgb;
+    let d10 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(o.x, -o.y), 0.0).rgb;
+    let d01 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(-o.x, o.y), 0.0).rgb;
+    let d11 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(o.x, o.y), 0.0).rgb;
+
+    let t00 = cloud_shadow_eval_transmittance(d00, d_sample);
+    let t10 = cloud_shadow_eval_transmittance(d10, d_sample);
+    let t01 = cloud_shadow_eval_transmittance(d01, d_sample);
+    let t11 = cloud_shadow_eval_transmittance(d11, d_sample);
+
+    return (t00 + t10 + t01 + t11) * 0.25;
 }
 #endif
 
