@@ -39,6 +39,7 @@ bevy_text = { path = "../bevy_text", version = "0.19.0-dev" }
 bytemuck = { version = "1.5", features = ["derive"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+indexmap = { version = "2" }
 
 [features]
 default = ["bevy_ui_debug"]
@@ -49,5 +50,9 @@ bevy_ui_debug = []
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

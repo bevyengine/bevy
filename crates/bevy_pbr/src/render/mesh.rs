@@ -87,9 +87,7 @@ use crate::{
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
-use bevy_ecs::change_detection::Tick;
-use bevy_ecs::system::SystemChangeTick;
-use bevy_render::camera::TemporalJitter;
+use bevy_render::camera::{DirtySpecializations, TemporalJitter};
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
@@ -223,7 +221,6 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<MorphIndices>()
                 .init_resource::<MorphUniforms>()
                 .init_resource::<ViewKeyCache>()
-                .init_resource::<ViewSpecializationTicks>()
                 .init_resource::<GpuPreprocessingSupport>()
                 .add_systems(RenderStartup, skin_uniforms_from_world)
                 .add_systems(
@@ -321,12 +318,9 @@ impl Plugin for MeshRenderPlugin {
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct ViewKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
 
-#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct ViewSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
-
 pub fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,
-    mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
     mut views: Query<(
         &ExtractedView,
         &Msaa,
@@ -352,7 +346,6 @@ pub fn check_views_need_specialization(
         Has<ExtractedAtmosphere>,
         Has<ScreenSpaceReflectionsUniform>,
     )>,
-    ticks: SystemChangeTick,
 ) {
     for (
         view,
@@ -462,7 +455,9 @@ pub fn check_views_need_specialization(
             .is_some_and(|current_key| *current_key == view_key)
         {
             view_key_cache.insert(view.retained_view_entity, view_key);
-            view_specialization_ticks.insert(view.retained_view_entity, ticks.this_run());
+            dirty_specializations
+                .views
+                .insert(view.retained_view_entity);
         }
     }
 }
