@@ -366,6 +366,7 @@ pub fn prepare_morph_descriptors(
     };
 
     descriptors_buffer.clear();
+    gpu_descriptor_indices.clear();
 
     for (&morph_target_main_entity, morph_target_info) in morph_target_info {
         let Some(mesh_id) = render_mesh_instances.mesh_asset_id(morph_target_main_entity) else {
