@@ -1,4 +1,12 @@
-//! Framework for saving and loading user preferences in Bevy applications.
+//! Framework for saving and loading user settings files (e.g. user preferences) in Bevy
+//! applications.
+//!
+//! For purposes of this crate, the term "preferences" and "settings" are defined as:
+//! * **Preferences** are configuration files that store persistent choices made by the end user
+//!   while the app is running. Examples are audio volume, window position, or "show the tutorial".
+//!   A key distinction is that these configuration files are consumed and produced by the same app.
+//! * **Settings** is a more general term, which also includes configuration files produced by a
+//!   different application, such as a text editor or external settings app.
 use core::any::TypeId;
 use core::time::Duration;
 use std::collections::HashMap;
