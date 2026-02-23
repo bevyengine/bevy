@@ -66,6 +66,28 @@ impl FromStr for ArgCamera {
     }
 }
 
+/// Controls how quickly the meshes spawn.
+#[derive(PartialEq)]
+enum ArgSpawnRate {
+    /// All meshes will spawn in one frame.
+    Instant,
+
+    /// One mesh will spawn per frame.
+    Slow,
+}
+
+impl FromStr for ArgSpawnRate {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "instant" => Ok(Self::Instant),
+            "slow" => Ok(Self::Slow),
+            _ => Err("must be 'instant' or 'slow'".into()),
+        }
+    }
+}
+
 /// `many_morph_targets` stress test
 #[derive(FromArgs, Resource)]
 struct Args {
@@ -80,6 +102,10 @@ struct Args {
     /// options: 'near', 'far' - default = 'near'
     #[argh(option, default = "ArgCamera::Near")]
     camera: ArgCamera,
+
+    /// options: 'instant', 'slow' - default = 'instant'
+    #[argh(option, default = "ArgSpawnRate::Instant")]
+    spawn_rate: ArgSpawnRate,
 }
 
 fn main() {
@@ -109,7 +135,12 @@ fn main() {
             ..Default::default()
         })
         .insert_resource(args)
+        .insert_resource(State {
+            spawned_count: 0,
+            rng: ChaCha8Rng::seed_from_u64(856673),
+        })
         .add_systems(Startup, setup)
+        .add_systems(Update, update)
         .run();
 }
 
@@ -129,57 +160,15 @@ impl AnimationToPlay {
     }
 }
 
-fn setup(
-    args: Res<Args>,
-    asset_server: Res<AssetServer>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
-    mut commands: Commands,
-) {
-    const ASSET_PATH: &str = "models/animated/MorphStressTest.gltf";
-
-    let scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(ASSET_PATH)));
-
-    let mut rng = ChaCha8Rng::seed_from_u64(856673);
-
-    let animations = (0..3)
-        .map(|gltf_index| {
-            let (graph, index) = AnimationGraph::from_clip(
-                asset_server.load(GltfAssetLabel::Animation(gltf_index).from_asset(ASSET_PATH)),
-            );
-            AnimationToPlay {
-                graph_handle: graphs.add(graph),
-                index,
-                speed: 1.0,
-            }
-        })
-        .collect::<Vec<_>>();
-
-    // Arrange the meshes in a grid.
-
-    let count = args.count;
+fn dims(count: usize) -> (usize, usize) {
     let x_dim = ((count as f32).sqrt().ceil() as usize).max(1);
     let y_dim = count.div_ceil(x_dim);
 
-    for mesh_index in 0..count {
-        let animation = animations[mesh_index.rem_euclid(animations.len())].clone();
+    (x_dim, y_dim)
+}
 
-        let x = 2.5 + (5.0 * ((mesh_index.rem_euclid(x_dim) as f32) - ((x_dim as f32) * 0.5)));
-        let y = -2.2 - (3.0 * ((mesh_index.div_euclid(x_dim) as f32) - ((y_dim as f32) * 0.5)));
-
-        // Randomly vary the animation speed so that the number of morph targets
-        // active on each frame is more likely to be stable.
-
-        let animation_speed = rng.random_range(0.5..=1.5);
-
-        commands
-            .spawn((
-                animation.with_speed(animation_speed),
-                scene.clone(),
-                Transform::from_xyz(x, y, 0.0),
-            ))
-            .observe(play_animation)
-            .observe(set_weights);
-    }
+fn setup(args: Res<Args>, mut commands: Commands) {
+    let (x_dim, _) = dims(args.count);
 
     commands.spawn((
         DirectionalLight::default(),
@@ -196,6 +185,73 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, camera_distance).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+}
+
+#[derive(Resource)]
+struct State {
+    spawned_count: usize,
+    rng: ChaCha8Rng,
+}
+
+fn update(
+    args: Res<Args>,
+    asset_server: Res<AssetServer>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut commands: Commands,
+    mut state: ResMut<State>,
+) {
+    let target_count = match args.spawn_rate {
+        ArgSpawnRate::Instant => args.count,
+        ArgSpawnRate::Slow => args.count.min(state.spawned_count + 1),
+    };
+
+    if state.spawned_count == target_count {
+        return;
+    }
+
+    const ASSET_PATH: &str = "models/animated/MorphStressTest.gltf";
+
+    let scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(ASSET_PATH)));
+
+    let animations = (0..3)
+        .map(|gltf_index| {
+            let (graph, index) = AnimationGraph::from_clip(
+                asset_server.load(GltfAssetLabel::Animation(gltf_index).from_asset(ASSET_PATH)),
+            );
+            AnimationToPlay {
+                graph_handle: graphs.add(graph),
+                index,
+                speed: 1.0,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    // Arrange the meshes in a grid.
+
+    let (x_dim, y_dim) = dims(args.count);
+
+    for mesh_index in state.spawned_count..target_count {
+        let animation = animations[mesh_index.rem_euclid(animations.len())].clone();
+
+        let x = 2.5 + (5.0 * ((mesh_index.rem_euclid(x_dim) as f32) - ((x_dim as f32) * 0.5)));
+        let y = -2.2 - (3.0 * ((mesh_index.div_euclid(x_dim) as f32) - ((y_dim as f32) * 0.5)));
+
+        // Randomly vary the animation speed so that the number of morph targets
+        // active on each frame is more likely to be stable.
+
+        let animation_speed = state.rng.random_range(0.5..=1.5);
+
+        commands
+            .spawn((
+                animation.with_speed(animation_speed),
+                scene.clone(),
+                Transform::from_xyz(x, y, 0.0),
+            ))
+            .observe(play_animation)
+            .observe(set_weights);
+    }
+
+    state.spawned_count = target_count;
 }
 
 fn play_animation(
