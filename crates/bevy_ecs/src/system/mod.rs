@@ -299,6 +299,72 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
         WithInputFromWrapper::new(self)
     }
 
+    /// Passes a shared reference to `value` as input to the system each run,
+    /// turning it into a system that takes no input.
+    ///
+    /// `Self` can have any [`SystemInput`] type that takes a shared reference
+    /// to `T`, such as [`InRef`].
+    ///
+    /// Unlike [`with_input`](Self::with_input), the system cannot mutate the
+    /// stored value. This makes it suitable when multiple parallel systems
+    /// need to observe the same value without being able to change it.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// fn log_entity(InRef(entity): InRef<Entity>) {
+    ///     println!("{entity:?}");
+    /// }
+    ///
+    /// let target = Entity::from_raw(7);
+    /// # let mut schedule = Schedule::default();
+    /// schedule.add_systems(log_entity.with_input_ref(target));
+    /// # bevy_ecs::system::assert_is_system(log_entity.with_input_ref(target));
+    /// ```
+    fn with_input_ref<T>(self, value: T) -> WithRefInputWrapper<Self::System, T>
+    where
+        for<'i> In: SystemInput<Inner<'i> = &'i T>,
+        T: Send + Sync + 'static,
+    {
+        WithRefInputWrapper::new(self, value)
+    }
+
+    /// Passes a cloned copy of `value` as input to the system each run,
+    /// turning it into a system that takes no input.
+    ///
+    /// `Self` can have any [`SystemInput`] type whose inner representation is
+    /// an owned `T`, such as [`In`](crate::system::In).
+    ///
+    /// Because [`In<T>`](crate::system::In) transfers ownership of `T` into
+    /// the system, `T` must be [`Clone`] so the system can run more than once.
+    /// The clone is performed inside the wrapper on every run; the original
+    /// stored value is never consumed. For [`Copy`] types the clone is a free
+    /// bit-copy.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// fn use_entity(In(entity): In<Entity>, mut commands: Commands) {
+    ///     commands.entity(entity).insert(Name::new("Tagged"));
+    /// }
+    ///
+    /// let target = Entity::from_raw(42); // Entity is Copy
+    /// # let mut schedule = Schedule::default();
+    /// schedule.add_systems(use_entity.with_cloned_input(target));
+    /// # bevy_ecs::system::assert_is_system(use_entity.with_cloned_input(target));
+    /// ```
+    fn with_cloned_input<T>(self, value: T) -> WithClonedInputWrapper<Self::System, T>
+    where
+        for<'i> In: SystemInput<Inner<'i> = T>,
+        T: Clone + Send + Sync + 'static,
+    {
+        WithClonedInputWrapper::new(self, value)
+    }
+
     /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
     #[inline]
     fn system_type_id(&self) -> TypeId {
@@ -396,7 +462,7 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use alloc::{vec, vec::Vec};
+    use alloc::{string::String, vec, vec::Vec};
     use bevy_utils::default;
     use core::any::TypeId;
     use std::println;
@@ -418,8 +484,8 @@ mod tests {
             SystemCondition,
         },
         system::{
-            Commands, ExclusiveMarker, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet,
-            Query, Res, ResMut, Single, StaticSystemParam, System, SystemState,
+            Commands, ExclusiveMarker, In, InMut, InRef, IntoSystem, Local, NonSend, NonSendMut,
+            ParamSet, Query, Res, ResMut, Single, StaticSystemParam, System, SystemState,
         },
         world::{DeferredWorld, EntityMut, FromWorld, World},
     };
@@ -1006,7 +1072,7 @@ mod tests {
         // existence.
         struct NotSend1(alloc::rc::Rc<i32>);
         struct NotSend2(alloc::rc::Rc<i32>);
-        world.insert_non_send(NotSend1(alloc::rc::Rc::new(0)));
+        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(0)));
 
         fn sys(
             op: Option<NonSend<NotSend1>>,
@@ -1034,8 +1100,8 @@ mod tests {
         struct NotSend1(alloc::rc::Rc<i32>);
         struct NotSend2(alloc::rc::Rc<i32>);
 
-        world.insert_non_send(NotSend1(alloc::rc::Rc::new(1)));
-        world.insert_non_send(NotSend2(alloc::rc::Rc::new(2)));
+        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(1)));
+        world.insert_non_send_resource(NotSend2(alloc::rc::Rc::new(2)));
 
         fn sys(
             _op: NonSend<NotSend1>,
@@ -1198,7 +1264,10 @@ mod tests {
         let y_access = y.initialize(&mut world);
 
         let conflicts = x_access.get_conflicts(&y_access);
-        let b_id = world.components().get_id(TypeId::of::<ResB>()).unwrap();
+        let b_id = world
+            .components()
+            .get_resource_id(TypeId::of::<ResB>())
+            .unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id].into());
     }
@@ -1873,7 +1942,7 @@ mod tests {
                     res.0 += 2;
                 },
             )
-                .distributive_run_if(resource_exists::<A>.or_eager(resource_exists::<B>)),
+                .distributive_run_if(resource_exists::<A>.or(resource_exists::<B>)),
         );
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);
@@ -1881,7 +1950,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "debug"), ignore)]
     #[should_panic(
         expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_system::sys`: error"
     )]
@@ -1896,7 +1964,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "debug"), ignore)]
     #[should_panic(
         expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_exclusive_system::sys`: error"
     )]
@@ -1910,25 +1977,8 @@ mod tests {
         run_system(&mut world, sys);
     }
 
-    // Regression test for
-    // https://github.com/bevyengine/bevy/issues/18778
-    //
-    // Dear rustc team, please reach out if you encounter this
-    // in a crater run and we can work something out!
-    //
-    // These todo! macro calls should never be removed;
-    // they're intended to demonstrate real-world usage
-    // in a way that's clearer than simply calling `panic!`
-    //
-    // Because type inference behaves differently for functions and closures,
-    // we need to test both, in addition to explicitly annotating the return type
-    // to ensure that there are no upstream regressions there.
     #[test]
     fn nondiverging_never_trait_impls() {
-        // This test is a compilation test:
-        // no meaningful logic is ever actually evaluated.
-        // It is simply intended to check that the correct traits are implemented
-        // when todo! or similar nondiverging panics are used.
         let mut world = World::new();
         let mut schedule = Schedule::default();
 
@@ -1996,5 +2046,60 @@ mod tests {
         assert!(system.value().is_some());
         system.run((), &mut world).unwrap();
         assert_eq!(system.value().unwrap().0, 6);
+    }
+
+    #[test]
+    fn with_input_ref_passes_shared_reference() {
+        fn sys(InRef(v): InRef<usize>) -> usize {
+            *v
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(sys.with_input_ref(42_usize));
+        system.initialize(&mut world);
+        assert_eq!(system.run((), &mut world).unwrap(), 42);
+        assert_eq!(system.run((), &mut world).unwrap(), 42);
+    }
+
+    #[test]
+    fn with_input_ref_value_mut_affects_subsequent_runs() {
+        fn sys(InRef(v): InRef<usize>) -> usize {
+            *v
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(sys.with_input_ref(10_usize));
+        system.initialize(&mut world);
+        assert_eq!(system.run((), &mut world).unwrap(), 10);
+        *system.value_mut() = 99;
+        assert_eq!(system.run((), &mut world).unwrap(), 99);
+    }
+
+    #[test]
+    fn with_cloned_input_clones_on_every_run() {
+        fn sys(In(s): In<String>) -> usize {
+            s.len()
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(sys.with_cloned_input(String::from("hello")));
+        system.initialize(&mut world);
+        assert_eq!(system.run((), &mut world).unwrap(), 5);
+        assert_eq!(system.run((), &mut world).unwrap(), 5);
+        assert_eq!(system.run((), &mut world).unwrap(), 5);
+    }
+
+    #[test]
+    fn with_cloned_input_value_mut_affects_subsequent_runs() {
+        fn sys(In(s): In<String>) -> usize {
+            s.len()
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(sys.with_cloned_input(String::from("hi")));
+        system.initialize(&mut world);
+        assert_eq!(system.run((), &mut world).unwrap(), 2);
+        *system.value_mut() = String::from("longer string");
+        assert_eq!(system.run((), &mut world).unwrap(), 13);
     }
 }

@@ -117,25 +117,7 @@ where
 // WithRefInputWrapper  (new — InRef-style: Inner<'i> = &'i T)
 // ---------------------------------------------------------------------------
 
-/// Wraps a system whose input is an [`InRef<T>`](crate::system::InRef), storing
-/// an owned `T` and lending a shared reference to it on each run.
-///
-/// Constructed via [`IntoSystem::with_input_ref`].
-///
-/// This lets multiple systems share the same conceptual read-only value without
-/// needing to pipe a value through a chain.
-///
-/// # Example
-///
-/// ```rust
-/// # use bevy_ecs::prelude::*;
-/// fn print_entity(InRef(entity): InRef<Entity>) {
-///     println!("entity: {entity:?}");
-/// }
-///
-/// let entity = Entity::from_raw(42);
-/// schedule.add_systems(print_entity.with_input_ref(entity));
-/// ```
+/// See [`IntoSystem::with_input_ref`] for details.
 pub struct WithRefInputWrapper<S, T>
 where
     for<'i> S: System<In: SystemInput<Inner<'i> = &'i T>>,
@@ -152,8 +134,8 @@ where
 {
     /// Wraps the given system with the given input value.
     ///
-    /// The value is stored inside the wrapper and a shared reference to it is
-    /// passed to the system on every run.
+    /// The stored value is never consumed; a shared reference to it is passed
+    /// to the system on every run.
     pub fn new<M>(system: impl IntoSystem<S::In, S::Out, M, System = S>, value: T) -> Self {
         Self {
             system: IntoSystem::into_system(system),
@@ -196,10 +178,8 @@ where
         _input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
-        // SAFETY: Upheld by caller.
-        // We pass a shared reference; the system cannot mutate the stored value,
-        // so this is safe even when multiple read-only systems run in parallel
-        // (the scheduler already ensures no aliasing with write access).
+        // SAFETY: Upheld by caller. We pass a shared reference, so the system
+        // cannot mutate the stored value through this path.
         unsafe { self.system.run_unsafe(&self.value, world) }
     }
 
@@ -246,26 +226,7 @@ where
 // WithClonedInputWrapper  (new — In-style: Inner<'i> = T, requires T: Clone)
 // ---------------------------------------------------------------------------
 
-/// Wraps a system whose input is an [`In<T>`](crate::system::In), storing an
-/// owned `T` and cloning it on each run to produce the by-value input.
-///
-/// Constructed via [`IntoSystem::with_cloned_input`].
-///
-/// Because `In<T>` transfers *ownership* of the value into the system, the
-/// stored `T` must be [`Clone`] so the system can run more than once.  If the
-/// system only runs once (e.g. `Startup`) you can call `.clone()` at the
-/// call site and pass the clone to avoid the bound:
-///
-/// ```rust
-/// # use bevy_ecs::prelude::*;
-/// fn spawn_creature(In(entity): In<Entity>, mut commands: Commands) {
-///     commands.entity(entity).insert(Name::new("Creature"));
-/// }
-///
-/// let entity = Entity::from_raw(42);
-/// // Entity is Copy, so Clone is trivially satisfied.
-/// schedule.add_systems(spawn_creature.with_cloned_input(entity));
-/// ```
+/// See [`IntoSystem::with_cloned_input`] for details.
 pub struct WithClonedInputWrapper<S, T>
 where
     for<'i> S: System<In: SystemInput<Inner<'i> = T>>,
@@ -283,7 +244,7 @@ where
     /// Wraps the given system with the given input value.
     ///
     /// On every run, the stored value is cloned and the clone is passed by
-    /// value to the system.
+    /// value to the system. The original is never consumed.
     pub fn new<M>(system: impl IntoSystem<S::In, S::Out, M, System = S>, value: T) -> Self {
         Self {
             system: IntoSystem::into_system(system),
@@ -327,8 +288,7 @@ where
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
         // Clone the stored value to produce the by-value input for this run.
-        // The clone happens here (inside the wrapper), keeping the stored
-        // original intact for future runs.
+        // The original is kept intact so the system can run again next frame.
         let input = self.value.clone();
         // SAFETY: Upheld by caller.
         unsafe { self.system.run_unsafe(input, world) }
