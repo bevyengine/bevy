@@ -1,6 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -17,6 +16,7 @@ mod sprite_mesh;
 #[cfg(feature = "bevy_text")]
 mod text2d;
 mod texture_slice;
+mod tilemap;
 
 /// The sprite prelude.
 ///
@@ -53,6 +53,7 @@ pub use sprite_mesh::*;
 #[cfg(feature = "bevy_text")]
 pub use text2d::*;
 pub use texture_slice::*;
+pub use tilemap::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::prelude::AssetChanged;
@@ -97,6 +98,8 @@ impl Plugin for SpritePlugin {
                 .in_set(bevy_text::Text2dUpdateSystems)
                 .after(bevy_app::AnimationSystems),
         );
+
+        app.add_plugins(TilemapPlugin);
 
         #[cfg(feature = "bevy_picking")]
         app.add_plugins(SpritePickingPlugin);
