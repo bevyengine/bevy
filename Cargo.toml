@@ -2602,6 +2602,18 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "delayed_commands"
+path = "examples/ecs/delayed_commands.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
+
+[package.metadata.example.delayed_commands]
+name = "Delayed Commands"
+description = "Demonstrates how to schedule ECS commands with a delay"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "states"
 path = "examples/state/states.rs"
 # Causes an ICE on docs.rs
