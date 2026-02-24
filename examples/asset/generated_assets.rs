@@ -41,12 +41,12 @@ fn setup(
     ));
 
     commands.spawn((
-        // `add_async` creates a task that runs your async function. Once it completes, the asset is
-        // added to the `Assets`. This is "deferred" meaning that the asset may take a frame to be
-        // added after the task completes.
-        Mesh3d(asset_server.add_async(generate_mesh(UVec2::new(100, 100), 1234))),
-        // Another way to generate an asset is to add it directly to the `Assets`.
+        // The simplest way to generate an asset is to add it directly to the `Assets`.
         MeshMaterial3d(materials.add(StandardMaterial::default())),
+        // Alternatively, `add_async` creates a task that runs your async function. Once it
+        // completes, the asset is added to the `Assets`. This is "deferred" meaning that the asset
+        // may take a frame to be added after the task completes.
+        Mesh3d(asset_server.add_async(generate_mesh(UVec2::new(100, 100), 1234))),
     ));
 
     // The last way to generate assets is to reserve a handle, and then use `Assets::insert` to
