@@ -101,7 +101,7 @@ impl Plugin for FxaaPlugin {
             )
             .add_systems(
                 Core3d,
-                fxaa.after(tonemapping).in_set(Core3dSystems::PostProcess),
+                fxaa.in_set(Core3dSystems::AntiAlias),
             )
             .add_systems(
                 Core2d,

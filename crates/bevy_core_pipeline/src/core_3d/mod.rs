@@ -151,7 +151,7 @@ impl Plugin for Core3dPlugin {
                     (main_opaque_pass_3d, main_transparent_pass_3d)
                         .chain()
                         .in_set(Core3dSystems::MainPass),
-                    tonemapping.in_set(Core3dSystems::PostProcess),
+                    tonemapping.in_set(Core3dSystems::EarlyPostProcess),
                     upscaling.after(Core3dSystems::PostProcess),
                 ),
             );

@@ -345,7 +345,7 @@ impl Plugin for SmaaPlugin {
             )
             .add_systems(
                 Core3d,
-                smaa.after(tonemapping).in_set(Core3dSystems::PostProcess),
+                smaa.in_set(Core3dSystems::AntiAlias),
             )
             .add_systems(
                 Core2d,
