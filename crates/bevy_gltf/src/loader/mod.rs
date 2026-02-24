@@ -2750,7 +2750,7 @@ mod test {
         app
     }
 
-    const TRIANGLE_GLTF_DATA: & str = r#"
+    const TRIANGLE_GLTF_DATA: &str = r#"
 {
   "asset": {
     "version": "2.0"
