@@ -172,9 +172,6 @@ mod tests {
             in_1_sec.spawn(DummyComponent);
             in_1_sec.spawn(DummyComponent);
             in_1_sec.spawn(DummyComponent);
-
-            let mut delayed = delayed_cmds.secs(1.5);
-            delayed.spawn(DummyComponent);
         }
 
         let mut app = App::new();
