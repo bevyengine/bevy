@@ -235,16 +235,13 @@ mod test {
     fn extraction_works() {
         let mut app = App::new();
 
-        app.add_plugins(ExtractPlugin {
-            pre_extract: |_, _| {},
-            app_label: ExtractApp.intern(),
-
-            base_schedule: Render::base_schedule,
-            schedule_label: Render.intern(),
-
-            extract_set: RenderSystems::ExtractCommands.intern(),
-            despawn_set: RenderSystems::PostCleanup.intern(),
-        });
+        app.add_plugins(ExtractPlugin::<ExtractApp>::new(
+            |_, _| {},
+            Render::base_schedule,
+            Render.intern(),
+            RenderSystems::ExtractCommands.intern(),
+            RenderSystems::PostCleanup.intern(),
+        ));
         app.add_plugins(ExtractBaseComponentPlugin::<ExtractApp, RenderComponent>::default());
         app.add_plugins(ExtractBaseComponentPlugin::<
             ExtractApp,

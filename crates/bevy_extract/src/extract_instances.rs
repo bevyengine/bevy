@@ -6,7 +6,7 @@
 
 use core::marker::PhantomData;
 
-use bevy_app::{App, InternedAppLabel, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -43,14 +43,13 @@ pub trait ExtractInstance: Send + Sync + Sized + 'static {
 ///
 /// Therefore it sets up the [`ExtractSchedule`] step for the specified
 /// [`ExtractedInstances`].
-// #[derive(Default)]
-pub struct ExtractInstancesPlugin<EI>
-// TODO: add L
+pub struct ExtractInstancesPlugin<L, EI>
 where
+    L: AppLabel + Default,
     EI: ExtractInstance,
 {
     only_extract_visible: bool,
-    marker: PhantomData<fn() -> EI>,
+    marker: PhantomData<fn() -> (L, EI)>,
 
     /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`](bevy_app::SubApp) to set up with extraction.
     pub app_label: InternedAppLabel,
@@ -71,20 +70,27 @@ where
     }
 }
 
-impl<EI> ExtractInstancesPlugin<EI>
+impl<L, EI> Default for ExtractInstancesPlugin<L, EI>
 where
+    L: AppLabel + Default,
     EI: ExtractInstance,
 {
     /// Creates a new [`ExtractInstancesPlugin`] that unconditionally extracts to
     /// the render world, whether the entity is visible or not.
-    pub fn new(app_label: InternedAppLabel) -> Self {
+    fn default() -> Self {
         Self {
             only_extract_visible: false,
             marker: PhantomData,
-            app_label,
+            app_label: L::default().intern(),
         }
     }
+}
 
+impl<L, EI> ExtractInstancesPlugin<L, EI>
+where
+    L: AppLabel + Default,
+    EI: ExtractInstance,
+{
     /// Creates a new [`ExtractInstancesPlugin`] that extracts to the render world
     /// if and only if the entity it's attached to is visible.
     pub fn extract_visible(app_label: InternedAppLabel) -> Self {
@@ -96,8 +102,9 @@ where
     }
 }
 
-impl<EI> Plugin for ExtractInstancesPlugin<EI>
+impl<L, EI> Plugin for ExtractInstancesPlugin<L, EI>
 where
+    L: AppLabel + Default,
     EI: ExtractInstance,
 {
     fn build(&self, app: &mut App) {
