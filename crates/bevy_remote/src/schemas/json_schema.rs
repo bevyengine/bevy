@@ -396,10 +396,6 @@ mod tests {
         let (_, schema) = export_type(&foo_registration, &SchemaTypesMetadata::default());
 
         assert!(
-            !schema.reflect_types.contains(&"Component".to_owned()),
-            "Should not be a component"
-        );
-        assert!(
             schema.reflect_types.contains(&"Resource".to_owned()),
             "Should be a resource"
         );
@@ -597,6 +593,7 @@ mod tests {
           "modulePath": "bevy_remote::schemas::json_schema::tests",
           "crateName": "bevy_remote",
           "reflectTypes": [
+            "Component",
             "Resource",
             "Default",
           ],

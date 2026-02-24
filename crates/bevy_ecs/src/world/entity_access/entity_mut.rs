@@ -3,7 +3,10 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, Tick},
     component::{Component, ComponentId, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
-    query::{has_conflicts, Access, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{
+        has_conflicts, Access, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData,
+        SingleEntityQueryData,
+    },
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
         EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, Ref,
@@ -55,23 +58,45 @@ impl<'w> EntityMut<'w> {
 
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&mut EntityMut`, but you need `EntityMut`.
+    #[inline]
     pub fn reborrow(&mut self) -> EntityMut<'_> {
-        // SAFETY: We have exclusive access to the entire entity and its components.
+        // SAFETY:
+        // - We have exclusive access to the entire entity and its components.
+        // - `&mut self` ensures there are no other accesses.
         unsafe { Self::new(self.cell) }
     }
 
     /// Consumes `self` and returns read-only access to all of the entity's
     /// components, with the world `'w` lifetime.
+    #[inline]
     pub fn into_readonly(self) -> EntityRef<'w> {
-        EntityRef::from(self)
+        // SAFETY:
+        // - We have exclusive access to the entire entity and its components.
+        // - Consuming `self` ensures there are no other accesses.
+        unsafe { EntityRef::new(self.cell) }
     }
 
     /// Gets read-only access to all of the entity's components.
+    #[inline]
     pub fn as_readonly(&self) -> EntityRef<'_> {
-        EntityRef::from(self)
+        // SAFETY:
+        // - We have exclusive access to the entire entity and its components.
+        // - `&self` ensures there are no mutable accesses.
+        unsafe { EntityRef::new(self.cell) }
     }
 
-    /// Get access to the underlying [`UnsafeEntityCell`]
+    /// Consumes `self` and returns a [`FilteredEntityMut`] which has mutable
+    /// access to all of the entity's components, with the world `'w` lifetime.
+    #[inline]
+    pub fn into_filtered(self) -> FilteredEntityMut<'w, 'static> {
+        // SAFETY:
+        // - We have exclusive access to the entire entity and its components.
+        // - Consuming `self` ensures there are no other accesses.
+        unsafe { FilteredEntityMut::new(self.cell, const { &Access::new_write_all() }) }
+    }
+
+    /// Get access to the underlying [`UnsafeEntityCell`].
+    #[inline]
     pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
         self.cell
     }
@@ -144,13 +169,15 @@ impl<'w> EntityMut<'w> {
     /// # Panics
     ///
     /// If the entity does not have the components required by the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_, 'static> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
+        &self,
+    ) -> Q::Item<'_, 'static> {
         self.as_readonly().components::<Q>()
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
     /// or `None` if the entity does not have the components required by the query `Q`.
-    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
         &self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         self.as_readonly().get_components::<Q>()
@@ -188,7 +215,7 @@ impl<'w> EntityMut<'w> {
     /// # See also
     ///
     /// - [`Self::get_components_mut`] for the safe version that performs aliasing checks
-    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
+    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &mut self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         // SAFETY: Caller ensures the `QueryData` does not provide aliasing mutable references to the same component
@@ -218,7 +245,7 @@ impl<'w> EntityMut<'w> {
     ///
     /// Note that this does a O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
     /// consideration you should use [`Self::get_components_mut_unchecked`] instead.
-    pub fn get_components_mut<Q: ReleaseStateQueryData>(
+    pub fn get_components_mut<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &mut self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         self.reborrow().into_components_mut::<Q>()
@@ -256,7 +283,9 @@ impl<'w> EntityMut<'w> {
     /// # See also
     ///
     /// - [`Self::into_components_mut`] for the safe version that performs aliasing checks
-    pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
+    pub unsafe fn into_components_mut_unchecked<
+        Q: ReleaseStateQueryData + SingleEntityQueryData,
+    >(
         self,
     ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         // SAFETY:
@@ -305,7 +334,7 @@ impl<'w> EntityMut<'w> {
     /// // This panics, as the `&mut X`s would alias:
     /// entity.into_components_mut::<(&mut X, &mut X)>();
     /// ```
-    pub fn into_components_mut<Q: ReleaseStateQueryData>(
+    pub fn into_components_mut<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         self,
     ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         has_conflicts::<Q>(self.cell.world().components())?;
@@ -756,57 +785,51 @@ impl<'w> EntityMut<'w> {
 }
 
 impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
+    #[inline]
     fn from(entity: EntityMut<'w>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all of the entity's components.
-        unsafe { EntityRef::new(entity.cell) }
+        entity.into_readonly()
     }
 }
 
 impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
+    #[inline]
     fn from(entity: &'a EntityMut<'_>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all of the entity's components.
-        // - `&entity` ensures there are no mutable accesses.
-        unsafe { EntityRef::new(entity.cell) }
+        entity.as_readonly()
     }
 }
 
 impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
+    #[inline]
     fn from(entity: &'w mut EntityMut<'_>) -> Self {
         entity.reborrow()
     }
 }
 
 impl<'a> From<EntityMut<'a>> for FilteredEntityRef<'a, 'static> {
+    #[inline]
     fn from(entity: EntityMut<'a>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
+        entity.into_readonly().into_filtered()
     }
 }
 
 impl<'a> From<&'a EntityMut<'_>> for FilteredEntityRef<'a, 'static> {
+    #[inline]
     fn from(entity: &'a EntityMut<'_>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
+        entity.as_readonly().into_filtered()
     }
 }
 
 impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a, 'static> {
+    #[inline]
     fn from(entity: EntityMut<'a>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
-        unsafe { FilteredEntityMut::new(entity.cell, const { &Access::new_write_all() }) }
+        entity.into_filtered()
     }
 }
 
 impl<'a> From<&'a mut EntityMut<'_>> for FilteredEntityMut<'a, 'static> {
+    #[inline]
     fn from(entity: &'a mut EntityMut<'_>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
-        unsafe { FilteredEntityMut::new(entity.cell, const { &Access::new_write_all() }) }
+        entity.reborrow().into_filtered()
     }
 }
 

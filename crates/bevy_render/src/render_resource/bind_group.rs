@@ -112,7 +112,7 @@ impl Deref for BindGroup {
 /// # use bevy_image::Image;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
-/// # use bevy_render::storage::ShaderStorageBuffer;
+/// # use bevy_render::storage::ShaderBuffer;
 ///
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
@@ -122,7 +122,7 @@ impl Deref for BindGroup {
 ///     #[sampler(2)]
 ///     color_texture: Handle<Image>,
 ///     #[storage(3, read_only)]
-///     storage_buffer: Handle<ShaderStorageBuffer>,
+///     storage_buffer: Handle<ShaderBuffer>,
 ///     #[storage(4, read_only, buffer)]
 ///     raw_buffer: Buffer,
 ///     #[storage_texture(5)]

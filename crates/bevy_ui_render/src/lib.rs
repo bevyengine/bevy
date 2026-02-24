@@ -20,7 +20,7 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
+use bevy_camera::{Camera, Camera2d, Camera3d, Hdr, RenderTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
@@ -28,35 +28,35 @@ use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
-    Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
+    Node, OuterColor, Outline, ResolvedBorderRadius, UiGlobalTransform,
 };
 
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
-use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
+use bevy_core_pipeline::upscaling::upscaling;
 use bevy_ecs::prelude::*;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
 use bevy_render::{
     render_asset::RenderAssets,
-    render_graph::{Node as RenderGraphNode, NodeRunError, RenderGraph, RenderGraphContext},
     render_phase::{
         sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderDevice, RenderQueue},
     sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
-    view::{ExtractedView, Hdr, RetainedViewEntity, ViewUniforms},
+    view::{ExtractedView, RetainedViewEntity, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_ui_debug")]
-pub use debug_overlay::UiDebugOptions;
+pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
 use color_space::ColorSpacePlugin;
 use gradient::GradientPlugin;
@@ -71,27 +71,16 @@ use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
 
-use graph::{NodeUi, SubGraphUi};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
-pub mod graph {
-    use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
-    pub struct SubGraphUi;
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub enum NodeUi {
-        UiPass,
-    }
-}
+use crate::shader_flags::INVERT;
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::debug_overlay::UiDebugOptions;
+    pub use crate::debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
     pub use crate::{
         ui_material::*, ui_material_pipeline::UiMaterialPlugin, BoxShadowSamples, UiAntiAlias,
@@ -205,7 +194,7 @@ impl Plugin for UiRenderPlugin {
         load_shader_library!(app, "ui.wgsl");
 
         #[cfg(feature = "bevy_ui_debug")]
-        app.init_resource::<UiDebugOptions>();
+        app.init_resource::<GlobalUiDebugOptions>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -219,6 +208,7 @@ impl Plugin for UiRenderPlugin {
             .allow_ambiguous_resource::<ExtractedUiNodes>()
             .init_resource::<DrawFunctions<TransparentUi>>()
             .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
+            .allow_ambiguous_resource::<ViewSortedRenderPhases<TransparentUi>>()
             .add_render_command::<TransparentUi, DrawUi>()
             .configure_sets(
                 ExtractSchedule,
@@ -259,43 +249,21 @@ impl Plugin for UiRenderPlugin {
                     sort_phase_system::<TransparentUi>.in_set(RenderSystems::PhaseSort),
                     prepare_uinodes.in_set(RenderSystems::PrepareBindGroups),
                 ),
+            )
+            .add_systems(
+                Core2d,
+                ui_pass.after(Core2dSystems::PostProcess).before(upscaling),
+            )
+            .add_systems(
+                Core3d,
+                ui_pass.after(Core3dSystems::PostProcess).before(upscaling),
             );
-
-        // Render graph
-        render_app
-            .world_mut()
-            .resource_scope(|world, mut graph: Mut<RenderGraph>| {
-                if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
-                    let ui_graph_2d = new_ui_graph(world);
-                    graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
-                    graph_2d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
-                    graph_2d.add_node_edge(Node2d::EndMainPass, NodeUi::UiPass);
-                    graph_2d.add_node_edge(Node2d::EndMainPassPostProcessing, NodeUi::UiPass);
-                    graph_2d.add_node_edge(NodeUi::UiPass, Node2d::Upscaling);
-                }
-
-                if let Some(graph_3d) = graph.get_sub_graph_mut(Core3d) {
-                    let ui_graph_3d = new_ui_graph(world);
-                    graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
-                    graph_3d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
-                    graph_3d.add_node_edge(Node3d::EndMainPass, NodeUi::UiPass);
-                    graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
-                    graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
-                }
-            });
 
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(ColorSpacePlugin);
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
     }
-}
-
-fn new_ui_graph(world: &mut World) -> RenderGraph {
-    let ui_pass_node = UiPassNode::new(world);
-    let mut ui_graph = RenderGraph::default();
-    ui_graph.add_node(NodeUi::UiPass, ui_pass_node);
-    ui_graph
 }
 
 #[derive(SystemParam)]
@@ -362,6 +330,7 @@ pub struct ExtractedUiNode {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NodeType {
     Rect,
+    Inverted,
     Border(u32), // shader flags
 }
 
@@ -406,31 +375,6 @@ impl ExtractedUiNodes {
     }
 }
 
-/// A [`RenderGraphNode`] that executes the UI rendering subgraph on the UI
-/// view.
-struct RunUiSubgraphOnUiViewNode;
-
-impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
-    fn run<'w>(
-        &self,
-        graph: &mut RenderGraphContext,
-        _: &mut RenderContext<'w>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        // Fetch the UI view.
-        let Some(mut render_views) = world.try_query::<&UiCameraView>() else {
-            return Ok(());
-        };
-        let Ok(ui_camera_view) = render_views.get(world, graph.view_entity()) else {
-            return Ok(());
-        };
-
-        // Run the subgraph on the UI view.
-        graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.0), None)?;
-        Ok(())
-    }
-}
-
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -443,18 +387,28 @@ pub fn extract_uinode_background_colors(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &BackgroundColor,
+            Option<&OuterColor>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, inherited_visibility, clip, camera, background_color) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        background_color,
+        maybe_outer_color,
+    ) in &uinode_query
     {
         // Skip invisible backgrounds
         if !inherited_visibility.get()
-            || background_color.0.is_fully_transparent()
+            || (background_color.is_fully_transparent()
+                && maybe_outer_color.is_none_or(|outer| outer.is_fully_transparent()))
             || uinode.is_empty()
         {
             continue;
@@ -464,28 +418,57 @@ pub fn extract_uinode_background_colors(
             continue;
         };
 
-        extracted_uinodes.uinodes.push(ExtractedUiNode {
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
-            clip: clip.map(|clip| clip.clip),
-            image: AssetId::default(),
-            extracted_camera_entity,
-            transform: transform.into(),
-            item: ExtractedUiItem::Node {
-                color: background_color.0.into(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.size,
+        if !background_color.is_fully_transparent() {
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                transform: transform.into(),
+                item: ExtractedUiItem::Node {
+                    color: background_color.0.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.size,
+                    },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border: uinode.border(),
+                    border_radius: uinode.border_radius(),
+                    node_type: NodeType::Rect,
                 },
-                atlas_scaling: None,
-                flip_x: false,
-                flip_y: false,
-                border: uinode.border(),
-                border_radius: uinode.border_radius(),
-                node_type: NodeType::Rect,
-            },
-            main_entity: entity.into(),
-        });
+                main_entity: entity.into(),
+            });
+        }
+
+        if let Some(outer_color) = maybe_outer_color
+            && !outer_color.0.is_fully_transparent()
+        {
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                transform: transform.into(),
+                item: ExtractedUiItem::Node {
+                    color: outer_color.0.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.size,
+                    },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border: BorderRect::ZERO,
+                    border_radius: uinode.border_radius(),
+                    node_type: NodeType::Inverted,
+                },
+                main_entity: entity.into(),
+            });
+        }
     }
 }
 
@@ -827,7 +810,7 @@ pub fn extract_ui_camera_view(
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
             }
-            transparent_render_phases.insert_or_clear(retained_view_entity);
+            transparent_render_phases.prepare_for_new_frame(retained_view_entity);
 
             live_entities.insert(retained_view_entity);
         }
@@ -902,7 +885,6 @@ pub fn extract_viewport_nodes(
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -971,15 +953,10 @@ pub fn extract_text_sections(
                 current_span_index = *span_index;
             }
 
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color,
                 translation: *position,
-                rect,
+                rect: atlas_info.rect,
             });
 
             if text_layout_info
@@ -1008,7 +985,6 @@ pub fn extract_text_sections(
 pub fn extract_text_shadows(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -1065,15 +1041,10 @@ pub fn extract_text_shadows(
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color: shadow.color.into(),
                 translation: *position,
-                rect,
+                rect: atlas_info.rect,
             });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
@@ -1375,6 +1346,7 @@ pub mod shader_flags {
     pub const BORDER_RIGHT: u32 = 1024;
     pub const BORDER_BOTTOM: u32 = 2048;
     pub const BORDER_ALL: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
+    pub const INVERT: u32 = 4096;
 }
 
 pub fn queue_uinodes(
@@ -1422,7 +1394,7 @@ pub fn queue_uinodes(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
@@ -1486,7 +1458,7 @@ pub fn prepare_uinodes(
 
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
-            let mut batch_image_handle = AssetId::invalid();
+            let mut batch_image_handle = None;
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
@@ -1495,21 +1467,21 @@ pub fn prepare_uinodes(
                     .get(item.index)
                     .filter(|n| item.entity() == n.render_entity)
                 else {
-                    batch_image_handle = AssetId::invalid();
+                    batch_image_handle = None;
                     continue;
                 };
 
                 let mut existing_batch = batches.last_mut();
 
-                if batch_image_handle == AssetId::invalid()
+                if batch_image_handle.is_none()
                     || existing_batch.is_none()
-                    || (batch_image_handle != AssetId::default()
+                    || (batch_image_handle != Some(AssetId::default())
                         && extracted_uinode.image != AssetId::default()
-                        && batch_image_handle != extracted_uinode.image)
+                        && batch_image_handle != Some(extracted_uinode.image))
                 {
                     if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
                         batch_item_index = item_index;
-                        batch_image_handle = extracted_uinode.image;
+                        batch_image_handle = Some(extracted_uinode.image);
 
                         let new_batch = UiBatch {
                             range: vertices_index..vertices_index,
@@ -1520,7 +1492,7 @@ pub fn prepare_uinodes(
 
                         image_bind_groups
                             .values
-                            .entry(batch_image_handle)
+                            .entry(extracted_uinode.image)
                             .or_insert_with(|| {
                                 render_device.create_bind_group(
                                     "ui_material_bind_group",
@@ -1537,18 +1509,18 @@ pub fn prepare_uinodes(
                     } else {
                         continue;
                     }
-                } else if batch_image_handle == AssetId::default()
+                } else if batch_image_handle == Some(AssetId::default())
                     && extracted_uinode.image != AssetId::default()
                 {
                     if let Some(ref mut existing_batch) = existing_batch
                         && let Some(gpu_image) = gpu_images.get(extracted_uinode.image)
                     {
-                        batch_image_handle = extracted_uinode.image;
+                        batch_image_handle = Some(extracted_uinode.image);
                         existing_batch.1.image = extracted_uinode.image;
 
                         image_bind_groups
                             .values
-                            .entry(batch_image_handle)
+                            .entry(extracted_uinode.image)
                             .or_insert_with(|| {
                                 render_device.create_bind_group(
                                     "ui_material_bind_group",
@@ -1631,7 +1603,7 @@ pub fn prepare_uinodes(
                             points[3] + positions_diff[3],
                         ];
 
-                        let transformed_rect_size = transform.transform_vector2(rect_size);
+                        let transformed_rect_size = transform.transform_vector2(rect_size).abs();
 
                         // Don't try to cull nodes that have a rotation
                         // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -1694,8 +1666,14 @@ pub fn prepare_uinodes(
                         };
 
                         let color = color.to_f32_array();
-                        if let NodeType::Border(border_flags) = *node_type {
-                            flags |= border_flags;
+                        match *node_type {
+                            NodeType::Border(border_flags) => {
+                                flags |= border_flags;
+                            }
+                            NodeType::Inverted => {
+                                flags |= INVERT;
+                            }
+                            _ => {}
                         }
 
                         for i in 0..4 {
@@ -1774,12 +1752,13 @@ pub fn prepare_uinodes(
                             ];
 
                             // cull nodes that are completely clipped
-                            let transformed_rect_size =
-                                extracted_uinode.transform.transform_vector2(rect_size);
-                            if positions_diff[0].x - positions_diff[1].x
-                                >= transformed_rect_size.x.abs()
+                            let transformed_rect_size = extracted_uinode
+                                .transform
+                                .transform_vector2(rect_size)
+                                .abs();
+                            if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                                 || positions_diff[1].y - positions_diff[2].y
-                                    >= transformed_rect_size.y.abs()
+                                    >= transformed_rect_size.y
                             {
                                 continue;
                             }

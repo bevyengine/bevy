@@ -631,7 +631,7 @@ fn point_light(
     let N = (*input).layers[LAYER_BASE].N;
     let V = (*input).V;
 
-    let light = &view_bindings::clusterable_objects.data[light_id];
+    let light = &view_bindings::clustered_lights.data[light_id];
     let light_to_frag = (*light).position_radius.xyz - P;
     let L = normalize(light_to_frag);
     let distance_square = dot(light_to_frag, light_to_frag);
@@ -780,7 +780,7 @@ fn spot_light(
     // reuse the point light calculations
     let point_light = point_light(light_id, input, enable_diffuse, false);
 
-    let light = &view_bindings::clusterable_objects.data[light_id];
+    let light = &view_bindings::clustered_lights.data[light_id];
 
     // reconstruct spot dir from x/z and y-direction flag
     var spot_dir = vec3<f32>((*light).light_custom_data.x, 0.0, (*light).light_custom_data.y);

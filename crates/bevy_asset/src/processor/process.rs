@@ -16,6 +16,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+use bevy_ecs::error::BevyError;
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::marker::PhantomData;
@@ -160,7 +161,7 @@ pub enum ProcessError {
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
     #[from(ignore)]
-    AssetSaveError(Box<dyn core::error::Error + Send + Sync + 'static>),
+    AssetSaveError(BevyError),
     #[error("Encountered an error while transforming the asset: {0}")]
     #[from(ignore)]
     AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),
@@ -224,8 +225,18 @@ pub trait ErasedProcessor: Send + Sync {
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
     /// Returns the type-path of the original [`Process`].
     fn type_path(&self) -> &'static str;
+    /// Returns the short type path of this processor.
+    fn short_type_path(&self) -> &'static str;
     /// Returns the default type-erased [`AssetMeta`] for the underlying [`Process`] impl.
-    fn default_meta(&self) -> Box<dyn AssetMetaDyn>;
+    fn default_meta(&self, processor_path_kind: MetaTypePathKind) -> Box<dyn AssetMetaDyn>;
+}
+
+/// Specifies which kind of path to use to specify a type.
+pub enum MetaTypePathKind {
+    /// Use the short type path.
+    Short,
+    /// Use the fully-qualified type path.
+    Long,
 }
 
 impl<P: Process> ErasedProcessor for P {
@@ -256,9 +267,17 @@ impl<P: Process> ErasedProcessor for P {
         P::type_path()
     }
 
-    fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
+    fn short_type_path(&self) -> &'static str {
+        P::short_type_path()
+    }
+
+    fn default_meta(&self, processor_path_kind: MetaTypePathKind) -> Box<dyn AssetMetaDyn> {
+        let type_path = match processor_path_kind {
+            MetaTypePathKind::Short => P::short_type_path(),
+            MetaTypePathKind::Long => P::type_path(),
+        };
         Box::new(AssetMeta::<(), P>::new(AssetAction::Process {
-            processor: P::type_path().to_string(),
+            processor: type_path.to_string(),
             settings: P::Settings::default(),
         }))
     }

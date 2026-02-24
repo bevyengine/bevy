@@ -390,6 +390,7 @@ fn switch_shapes(
     };
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn toggle_wireframes(mut wireframe_config: ResMut<WireframeConfig>) {
     wireframe_config.global = !wireframe_config.global;
 }

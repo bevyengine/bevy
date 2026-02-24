@@ -14,7 +14,7 @@
 //! | Default Key Binding | Action                 |
 //! |:--------------------|:-----------------------|
 //! | Mouse               | Look around            |
-//! | Left click          | Capture mouse (hold)   |
+//! | Right click         | Capture mouse (hold)   |
 //! | M                   | Capture mouse (toggle) |
 //! | WASD                | Horizontal movement    |
 //! | QE                  | Vertical movement      |
@@ -176,8 +176,8 @@ fn update_text(
         free_camera.sensitivity,
         free_camera.friction,
         free_camera.scroll_factor,
-        free_camera.walk_speed,
-        free_camera.run_speed,
+        free_camera.walk_speed * free_camera_state.speed_multiplier,
+        free_camera.run_speed * free_camera_state.speed_multiplier,
         free_camera_state.velocity.length(),
     );
 }

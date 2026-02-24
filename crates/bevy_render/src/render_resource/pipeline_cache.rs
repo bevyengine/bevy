@@ -15,6 +15,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
 };
+use bevy_log::error;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_shader::{
     CachedPipelineId, Shader, ShaderCache, ShaderCacheError, ShaderCacheSource, ShaderDefVal,
@@ -24,7 +25,6 @@ use bevy_tasks::Task;
 use bevy_utils::default;
 use core::{future::Future, mem};
 use std::sync::{Mutex, PoisonError};
-use tracing::error;
 use wgpu::{PipelineCompilationOptions, VertexBufferLayout as RawVertexBufferLayout};
 
 /// A pipeline defining the data layout and shader logic for a specific GPU task.
@@ -79,7 +79,8 @@ impl CachedPipelineState {
     }
 }
 
-type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
+type ImmediateSize = u32;
+type LayoutCacheKey = (Vec<BindGroupLayoutId>, ImmediateSize);
 #[derive(Default)]
 struct LayoutCache {
     layouts: HashMap<LayoutCacheKey, Arc<WgpuWrapper<PipelineLayout>>>,
@@ -90,12 +91,12 @@ impl LayoutCache {
         &mut self,
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
-        push_constant_ranges: Vec<PushConstantRange>,
+        immediate_size: u32,
     ) -> Arc<WgpuWrapper<PipelineLayout>> {
         let bind_group_ids = bind_group_layouts.iter().map(BindGroupLayout::id).collect();
         self.layouts
-            .entry((bind_group_ids, push_constant_ranges))
-            .or_insert_with_key(|(_, push_constant_ranges)| {
+            .entry((bind_group_ids, immediate_size))
+            .or_insert_with_key(|(_, immediate_size)| {
                 let bind_group_layouts = bind_group_layouts
                     .iter()
                     .map(BindGroupLayout::value)
@@ -103,7 +104,7 @@ impl LayoutCache {
                 Arc::new(WgpuWrapper::new(render_device.create_pipeline_layout(
                     &PipelineLayoutDescriptor {
                         bind_group_layouts: &bind_group_layouts,
-                        push_constant_ranges,
+                        immediate_size: *immediate_size,
                         ..default()
                     },
                 )))
@@ -133,7 +134,7 @@ fn load_module(
         source: shader_source,
     };
 
-    render_device
+    let scope = render_device
         .wgpu_device()
         .push_error_scope(wgpu::ErrorFilter::Validation);
 
@@ -149,7 +150,7 @@ fn load_module(
         },
     });
 
-    let error = render_device.wgpu_device().pop_error_scope();
+    let error = scope.pop();
 
     // `now_or_never` will return Some if the future is ready and None otherwise.
     // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
@@ -209,7 +210,7 @@ pub struct PipelineCache {
     global_shader_defs: Vec<ShaderDefVal>,
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, wasm, or without the `multi_threaded` feature.
-    synchronous_pipeline_compilation: bool,
+    pub(crate) synchronous_pipeline_compilation: bool,
 }
 
 impl PipelineCache {
@@ -248,6 +249,7 @@ impl PipelineCache {
 
         Self {
             shader_cache: Arc::new(Mutex::new(ShaderCache::new(
+                device.clone(),
                 device.features(),
                 render_adapter.get_downlevel_capabilities().flags,
                 load_module,
@@ -439,7 +441,8 @@ impl PipelineCache {
             .get(&self.device, bind_group_layout_descriptor.clone())
     }
 
-    fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
+    /// Inserts a [`Shader`] into this cache with the provided [`AssetId`].
+    pub fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
         let pipelines_to_queue = shader_cache.set_shader(id, shader);
         for cached_pipeline in pipelines_to_queue {
@@ -448,7 +451,8 @@ impl PipelineCache {
         }
     }
 
-    fn remove_shader(&mut self, shader: AssetId<Shader>) {
+    /// Removes a [`Shader`] from this cache if it exists.
+    pub fn remove_shader(&mut self, shader: AssetId<Shader>) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
         let pipelines_to_queue = shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
@@ -480,7 +484,6 @@ impl PipelineCache {
                 let mut layout_cache = layout_cache.lock().unwrap();
 
                 let vertex_module = match shader_cache.get(
-                    &device,
                     id,
                     descriptor.vertex.shader.id(),
                     &descriptor.vertex.shader_defs,
@@ -491,12 +494,7 @@ impl PipelineCache {
 
                 let fragment_module = match &descriptor.fragment {
                     Some(fragment) => {
-                        match shader_cache.get(
-                            &device,
-                            id,
-                            fragment.shader.id(),
-                            &fragment.shader_defs,
-                        ) {
+                        match shader_cache.get(id, fragment.shader.id(), &fragment.shader_defs) {
                             Ok(module) => Some(module),
                             Err(err) => return Err(err),
                         }
@@ -504,16 +502,11 @@ impl PipelineCache {
                     None => None,
                 };
 
-                let layout =
-                    if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-                        None
-                    } else {
-                        Some(layout_cache.get(
-                            &device,
-                            &bind_group_layout,
-                            descriptor.push_constant_ranges.to_vec(),
-                        ))
-                    };
+                let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
+                    None
+                } else {
+                    Some(layout_cache.get(&device, &bind_group_layout, descriptor.immediate_size))
+                };
 
                 drop((shader_cache, layout_cache));
 
@@ -543,7 +536,7 @@ impl PipelineCache {
                 };
 
                 let descriptor = RawRenderPipelineDescriptor {
-                    multiview: None,
+                    multiview_mask: None,
                     depth_stencil: descriptor.depth_stencil.clone(),
                     label: descriptor.label.as_deref(),
                     layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
@@ -598,26 +591,17 @@ impl PipelineCache {
                 let mut shader_cache = shader_cache.lock().unwrap();
                 let mut layout_cache = layout_cache.lock().unwrap();
 
-                let compute_module = match shader_cache.get(
-                    &device,
-                    id,
-                    descriptor.shader.id(),
-                    &descriptor.shader_defs,
-                ) {
-                    Ok(module) => module,
-                    Err(err) => return Err(err),
-                };
-
-                let layout =
-                    if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-                        None
-                    } else {
-                        Some(layout_cache.get(
-                            &device,
-                            &bind_group_layout,
-                            descriptor.push_constant_ranges.to_vec(),
-                        ))
+                let compute_module =
+                    match shader_cache.get(id, descriptor.shader.id(), &descriptor.shader_defs) {
+                        Ok(module) => module,
+                        Err(err) => return Err(err),
                     };
+
+                let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
+                    None
+                } else {
+                    Some(layout_cache.get(&device, &bind_group_layout, descriptor.immediate_size))
+                };
 
                 drop((shader_cache, layout_cache));
 

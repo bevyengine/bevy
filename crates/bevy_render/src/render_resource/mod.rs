@@ -1,3 +1,4 @@
+mod atomic_pod;
 mod batched_uniform_buffer;
 mod bind_group;
 mod bind_group_entries;
@@ -14,6 +15,7 @@ mod storage_buffer;
 mod texture;
 mod uniform_buffer;
 
+pub use atomic_pod::*;
 pub use bind_group::*;
 pub use bind_group_entries::*;
 pub use bind_group_layout::*;
@@ -46,9 +48,9 @@ pub use wgpu::{
     ComputePipelineDescriptor as RawComputePipelineDescriptor, CreateBlasDescriptor,
     CreateTlasDescriptor, DepthBiasState, DepthStencilState, DownlevelFlags, Extent3d, Face,
     Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState, FrontFace,
-    ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode, MultisampleState,
-    Operations, Origin3d, PipelineCompilationOptions, PipelineLayout, PipelineLayoutDescriptor,
-    PollType, PolygonMode, PrimitiveState, PrimitiveTopology, PushConstantRange,
+    ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode, MipmapFilterMode,
+    MultisampleState, Operations, Origin3d, PipelineCompilationOptions, PipelineLayout,
+    PipelineLayoutDescriptor, PollType, PolygonMode, PrimitiveState, PrimitiveTopology,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
     RenderPipelineDescriptor as RawRenderPipelineDescriptor, Sampler as WgpuSampler,
     SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
