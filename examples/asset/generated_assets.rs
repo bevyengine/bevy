@@ -1,4 +1,4 @@
-//! Demonstrates how to use assets generated at runtime.
+//! Shows how to generate and store assets at runtime.
 
 use std::{thread::sleep, time::Duration};
 
