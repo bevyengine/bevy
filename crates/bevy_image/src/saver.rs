@@ -35,17 +35,10 @@ impl AssetSaver for ImageSaver {
     ) -> Result<ImageLoaderSettings, Self::Error> {
         let format = match settings.format {
             SaveImageFormatSetting::Format(format) => format,
-            SaveImageFormatSetting::FromExtension => match asset_path.get_full_extension() {
+            SaveImageFormatSetting::FromExtension => match asset_path.get_extension() {
                 None => return Err(SaveImageError::MissingExtension),
-                Some(mut extension) => {
-                    // Only include the last "segment" of the extension. Strip off anything before
-                    // the last dot.
-                    if let Some(index) = extension.rfind(".") {
-                        extension = &extension[(index + 1)..];
-                    }
-                    ImageFormat::from_extension(extension)
-                        .ok_or_else(|| SaveImageError::UnknownExtension(extension.to_owned()))?
-                }
+                Some(extension) => ImageFormat::from_extension(extension)
+                    .ok_or_else(|| SaveImageError::UnknownExtension(extension.to_owned()))?,
             },
         };
 

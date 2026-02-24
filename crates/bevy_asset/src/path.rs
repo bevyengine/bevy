@@ -517,6 +517,19 @@ impl<'a> AssetPath<'a> {
         Some(extension)
     }
 
+    /// Returns the extension, excluding multiple `.` values.
+    ///
+    /// Ex: Returns `"ron"` for `"my_asset.config.ron"`
+    ///
+    /// Also strips out anything follow a `?` to handle query parameters in URIs.
+    pub fn get_extension(&self) -> Option<&str> {
+        let full_extension = self.get_full_extension()?;
+        Some(match full_extension.rfind(".") {
+            None => full_extension,
+            Some(index) => &full_extension[(index + 1)..],
+        })
+    }
+
     pub(crate) fn iter_secondary_extensions(full_extension: &str) -> impl Iterator<Item = &str> {
         full_extension.char_indices().filter_map(|(i, c)| {
             if c == '.' {
@@ -1251,7 +1264,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_extension() {
+    fn test_get_full_extension() {
         let result = AssetPath::from("http://a.tar.gz#Foo");
         assert_eq!(result.get_full_extension(), Some("tar.gz"));
 
@@ -1263,5 +1276,20 @@ mod tests {
 
         let result = AssetPath::from("asset.Custom");
         assert_eq!(result.get_full_extension(), Some("Custom"));
+    }
+
+    #[test]
+    fn test_get_extension() {
+        let result = AssetPath::from("http://a.tar.gz#Foo");
+        assert_eq!(result.get_extension(), Some("gz"));
+
+        let result = AssetPath::from("http://a#Foo");
+        assert_eq!(result.get_extension(), None);
+
+        let result = AssetPath::from("http://a.tar.bz2?foo=bar#Baz");
+        assert_eq!(result.get_extension(), Some("bz2"));
+
+        let result = AssetPath::from("asset.Custom");
+        assert_eq!(result.get_extension(), Some("Custom"));
     }
 }
