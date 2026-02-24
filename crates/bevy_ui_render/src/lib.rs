@@ -28,7 +28,7 @@ use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
-    Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
+    Node, OuterColor, Outline, ResolvedBorderRadius, UiGlobalTransform,
 };
 
 use bevy_app::prelude::*;
@@ -75,6 +75,8 @@ pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
+
+use crate::shader_flags::INVERT;
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
@@ -328,6 +330,7 @@ pub struct ExtractedUiNode {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NodeType {
     Rect,
+    Inverted,
     Border(u32), // shader flags
 }
 
@@ -384,18 +387,28 @@ pub fn extract_uinode_background_colors(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &BackgroundColor,
+            Option<&OuterColor>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, inherited_visibility, clip, camera, background_color) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        background_color,
+        maybe_outer_color,
+    ) in &uinode_query
     {
         // Skip invisible backgrounds
         if !inherited_visibility.get()
-            || background_color.0.is_fully_transparent()
+            || (background_color.is_fully_transparent()
+                && maybe_outer_color.is_none_or(|outer| outer.is_fully_transparent()))
             || uinode.is_empty()
         {
             continue;
@@ -405,28 +418,57 @@ pub fn extract_uinode_background_colors(
             continue;
         };
 
-        extracted_uinodes.uinodes.push(ExtractedUiNode {
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
-            clip: clip.map(|clip| clip.clip),
-            image: AssetId::default(),
-            extracted_camera_entity,
-            transform: transform.into(),
-            item: ExtractedUiItem::Node {
-                color: background_color.0.into(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.size,
+        if !background_color.is_fully_transparent() {
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                transform: transform.into(),
+                item: ExtractedUiItem::Node {
+                    color: background_color.0.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.size,
+                    },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border: uinode.border(),
+                    border_radius: uinode.border_radius(),
+                    node_type: NodeType::Rect,
                 },
-                atlas_scaling: None,
-                flip_x: false,
-                flip_y: false,
-                border: uinode.border(),
-                border_radius: uinode.border_radius(),
-                node_type: NodeType::Rect,
-            },
-            main_entity: entity.into(),
-        });
+                main_entity: entity.into(),
+            });
+        }
+
+        if let Some(outer_color) = maybe_outer_color
+            && !outer_color.0.is_fully_transparent()
+        {
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                transform: transform.into(),
+                item: ExtractedUiItem::Node {
+                    color: outer_color.0.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.size,
+                    },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border: BorderRect::ZERO,
+                    border_radius: uinode.border_radius(),
+                    node_type: NodeType::Inverted,
+                },
+                main_entity: entity.into(),
+            });
+        }
     }
 }
 
@@ -1304,6 +1346,7 @@ pub mod shader_flags {
     pub const BORDER_RIGHT: u32 = 1024;
     pub const BORDER_BOTTOM: u32 = 2048;
     pub const BORDER_ALL: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
+    pub const INVERT: u32 = 4096;
 }
 
 pub fn queue_uinodes(
@@ -1623,8 +1666,14 @@ pub fn prepare_uinodes(
                         };
 
                         let color = color.to_f32_array();
-                        if let NodeType::Border(border_flags) = *node_type {
-                            flags |= border_flags;
+                        match *node_type {
+                            NodeType::Border(border_flags) => {
+                                flags |= border_flags;
+                            }
+                            NodeType::Inverted => {
+                                flags |= INVERT;
+                            }
+                            _ => {}
                         }
 
                         for i in 0..4 {
