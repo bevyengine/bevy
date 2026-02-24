@@ -1174,7 +1174,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// consider using [`Self::update_archetypes`] followed by multiple [`Self::iter_manual`] calls.
     #[inline]
     pub fn iter<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, D::ReadOnly, F> {
-        self.query(world).into_iter()
+        self.query(world).iter_inner()
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
@@ -1182,11 +1182,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This iterator is always guaranteed to return results from each matching entity once and only once.
     /// Iteration order is not guaranteed.
     #[inline]
-    pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, D, F>
-    where
-        D: IterQueryData,
-    {
-        self.query_mut(world).into_iter()
+    pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, D, F> {
+        self.query_mut(world).iter_inner()
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`] without updating the query's archetypes.
@@ -1386,12 +1383,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub unsafe fn iter_unchecked<'w, 's>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> QueryIter<'w, 's, D, F>
-    where
-        D: IterQueryData,
-    {
+    ) -> QueryIter<'w, 's, D, F> {
         // SAFETY: Upheld by caller
-        unsafe { self.query_unchecked(world) }.into_iter()
+        unsafe { self.query_unchecked(world) }.iter_inner()
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the

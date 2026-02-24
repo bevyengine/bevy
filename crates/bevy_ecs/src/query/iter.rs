@@ -128,6 +128,38 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             cursor: self.cursor.reborrow(),
         }
     }
+
+    /// Get next result from the query.
+    ///
+    /// This can be used to iterate over queries that do not implement [`IterQueryData`].
+    /// Most queries do implement that trait, and can use the ordinary [`Iterator::next`]
+    /// method or a `for` loop.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct C;
+    /// fn system(mut query: Query<&mut C>) {
+    ///     let mut iter = query.iter_mut();
+    ///     while let Some(mut c) = iter.fetch_next() {
+    ///         //
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn fetch_next(&mut self) -> Option<D::Item<'_, 's>> {
+        // SAFETY:
+        // - `tables` and `archetypes` belong to the same world that the cursor was initialized for.
+        // - `query_state` is the state that was passed to `QueryIterationCursor::init`.
+        // - `self` is mutably borrowed, so there are no other items alive for any entity.
+        unsafe {
+            self.cursor
+                .next(self.tables, self.archetypes, self.query_state)
+                .map(D::shrink)
+        }
+    }
 }
 
 impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {

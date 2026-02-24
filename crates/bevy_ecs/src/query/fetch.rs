@@ -434,6 +434,9 @@ pub trait ContiguousQueryData: ArchetypeQueryData + IterQueryData {
 /// This is how methods like [`Iterator::collect`] work.
 /// It is therefore unsound to offer an [`Iterator`] for a [`QueryData`] for which only one instance may be alive concurrently.
 ///
+/// To iterate over a [`QueryData`] that does not implement [`IterQueryData`],
+/// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method.
+///
 /// For `QueryData` that implement this trait, [`QueryData::fetch`] may be called for one entity while an item is still alive for a different entity.
 ///
 /// All [`SingleEntityQueryData`] types are [`IterQueryData`].
