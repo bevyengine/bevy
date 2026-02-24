@@ -2604,8 +2604,7 @@ wasm = false
 [[example]]
 name = "delayed_commands"
 path = "examples/ecs/delayed_commands.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.delayed_commands]
 name = "Delayed Commands"
