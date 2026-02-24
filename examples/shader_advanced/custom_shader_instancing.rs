@@ -22,7 +22,7 @@ use bevy::{
     },
     prelude::*,
     render::{
-        extract_component::{ExtractBaseComponent, ExtractComponentPlugin},
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
         render_asset::RenderAssets,
         render_phase::{

@@ -27,7 +27,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::ExtractedCamera,
-        extract_resource::{ExtractBaseResource, ExtractResourcePlugin},
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
         render_resource::{
             AsBindGroup, Extent3d, Origin3d, TexelCopyTextureInfo, TextureAspect, TextureDimension,
