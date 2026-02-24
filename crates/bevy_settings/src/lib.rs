@@ -44,18 +44,21 @@ use store_wasm::PreferencesStore;
 
 /// Plugin to orchestrate loading and saving of preferences.
 ///
+/// Adding this plugin causes an immediate load of preferences (from either the filesystem or
+/// browser local storage, depending on platform).
+///
 /// When using this plugin, care must be taken to ensure that plugins execute in the proper order.
 /// Loading preferences causes registered settings to be inserted into the world as bevy resources.
 /// You cannot access these values before they are loaded, but you may want to use the loaded values
 /// when configuring other plugins. For this reason, it's generally a good idea to initialize and
 /// load preferences before other plugins. The preferences plugin does not depend on any other
-/// plugins (it uses either direct filesystem access or web browser APIs depending on platform).
+/// plugins.
 ///
 /// In many cases, you may want to introduce additional "glue" plugins that copy preference
-/// properties after they are loaded. For example, the [`bevy_window::WindowPlugin`] knows nothing
-/// about preferences, but if you want the window size and position to persist between runs you
-/// can add an additional plugin which copies the window settings from the resource to the actual
-/// window entity.
+/// properties after they are loaded. For example, the [`bevy_window::WindowPlugin`] plugin knows
+/// nothing about preferences, but if you want the window size and position to persist between runs
+/// you can add an additional plugin which copies the window settings from the resource to the
+/// actual window entity.
 ///
 /// Saving of preferences is not automatic; the recommended practice is to issue a
 /// [`SavePreferencesDeferred`] command after modifying a settings resource. This will wait for
@@ -64,6 +67,10 @@ use store_wasm::PreferencesStore;
 /// Note that on some platforms, depending on how the user exits (such as invoking Command-Q on
 /// ``MacOS``) there may be no opportunity to intercept the app exit event, so the most reliable
 /// approach is to use both techniques: deferred save and save-on-exit.
+///
+/// Saving is crash-resistant: if the app crashes in the middle of a save, the preferences file
+/// will not be corrupted (it writes to a temporary file first, then uses atomic operations to
+/// replace the previous file).
 pub struct PreferencesPlugin {
     /// The name of the application. This is used to uniquely identify the preferences directory
     /// so as not to confuse it with other applications' preferences. To ensure global uniqueness,
@@ -84,6 +91,32 @@ impl PreferencesPlugin {
 
 impl Plugin for PreferencesPlugin {
     fn build(&self, app: &mut App) {
+        // Find the plugin so we can get the app name.
+        let app_name = self.app_name.clone();
+        let world = app.world();
+        let last_save = world.read_change_tick();
+
+        // Get the type registry and clone the Arc so we don't have to worry about borrowing.
+        let Some(app_types) = world.get_resource::<AppTypeRegistry>() else {
+            return;
+        };
+        let app_types = app_types.clone();
+        let types = app_types.read();
+
+        let world = app.world_mut();
+        let file_index = build_preferences_registry(&app_name, &types, last_save);
+
+        // Now load each of the toml files we discovered, and apply their properties to
+        // the resources in the world.
+        for (filename, manifest) in file_index.files.iter() {
+            load_settings_file(world, &app_name, filename, manifest, &types);
+        }
+
+        // Cache the index so that we don't have to do it again when saving (and also makes
+        // saving more deterministic).
+        drop(types);
+        world.insert_resource::<PreferencesFileRegistry>(file_index);
+
         app.add_systems(PostUpdate, handle_delayed_save);
     }
 }
@@ -206,7 +239,7 @@ impl Command for SavePreferencesDeferred {
 fn save_preferences(world: &mut World, use_async: bool, force: bool) {
     let this_run = world.change_tick();
     let Some(registry) = world.get_resource::<PreferencesFileRegistry>() else {
-        warn!("Preferences registry not found - did you forget to call load_preferences()?");
+        warn!("Preferences registry not found - did you forget to install the PreferencesPlugin?");
         return;
     };
     let Some(app_types) = world.get_resource::<AppTypeRegistry>() else {
@@ -294,51 +327,6 @@ fn resources_to_toml(
         };
     }
     table
-}
-
-/// Extension trait that implements loading of preferences into the application.
-///
-/// This needs to be called before `app.build()` so that preference values will be available
-/// when the app is starting up.
-pub trait LoadPreferences {
-    /// Reads the preferences file and inserts or updates resources that are marked as preferences.
-    fn load_preferences(&mut self) -> &mut Self;
-}
-
-impl LoadPreferences for App {
-    fn load_preferences(&mut self) -> &mut Self {
-        // Find the plugin so we can get the app name.
-        let plugins = self.get_added_plugins::<PreferencesPlugin>();
-        let Some(plugin) = plugins.first() else {
-            warn!("Preference cannot be loaded; plugin not found.");
-            return self;
-        };
-        let app_name = plugin.app_name.clone();
-        let world = self.world();
-        let last_save = world.read_change_tick();
-
-        // Get the type registry and clone the Arc so we don't have to worry about borrowing.
-        let Some(app_types) = world.get_resource::<AppTypeRegistry>() else {
-            return self;
-        };
-        let app_types = app_types.clone();
-        let types = app_types.read();
-
-        let world = self.world_mut();
-        let file_index = build_preferences_registry(&app_name, &types, last_save);
-
-        // Now load each of the toml files we discovered, and apply their properties to
-        // the resources in the world.
-        for (filename, manifest) in file_index.files.iter() {
-            load_settings_file(world, &app_name, filename, manifest, &types);
-        }
-
-        // Cache the index so that we don't have to do it again when saving (and also makes
-        // saving more deterministic).
-        drop(types);
-        world.insert_resource::<PreferencesFileRegistry>(file_index);
-        self
-    }
 }
 
 /// Builds the preferences file registry by scanning the type registry for settings resources.

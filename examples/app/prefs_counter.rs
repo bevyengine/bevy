@@ -2,10 +2,9 @@
 use std::time::Duration;
 
 use bevy::{
-    // user_prefs::{Preferences, StartAutosaveTimer},
     preferences::{
-        LoadPreferences as _, PreferencesPlugin, ReflectSettingsGroup, SavePreferencesDeferred,
-        SavePreferencesSync, SettingsGroup,
+        PreferencesPlugin, ReflectSettingsGroup, SavePreferencesDeferred, SavePreferencesSync,
+        SettingsGroup,
     },
     prelude::*,
     window::{ExitCondition, WindowCloseRequested},
@@ -25,7 +24,6 @@ fn main() {
         .add_plugins(PreferencesPlugin::new("org.bevy.examples.prefs_counter"))
         .add_systems(Startup, setup)
         .add_systems(Update, (show_count, change_count, on_window_close))
-        .load_preferences()
         .run();
 }
 
@@ -40,7 +38,7 @@ struct Counter {
 #[derive(Resource, SettingsGroup, Reflect, Default)]
 #[reflect(Resource, SettingsGroup, Default)]
 #[settings_group(group = "counter")]
-#[expect(
+#[allow(
     dead_code,
     reason = "Example showing additional settings in the same group"
 )]

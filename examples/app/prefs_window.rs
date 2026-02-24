@@ -2,10 +2,9 @@
 use std::time::Duration;
 
 use bevy::{
-    // user_prefs::{StartAutosaveTimer},
     preferences::{
-        LoadPreferences as _, PreferencesPlugin, ReflectSettingsGroup, SavePreferencesDeferred,
-        SavePreferencesSync, SettingsGroup,
+        PreferencesPlugin, ReflectSettingsGroup, SavePreferencesDeferred, SavePreferencesSync,
+        SettingsGroup,
     },
     prelude::*,
     window::{ExitCondition, WindowCloseRequested, WindowMode, WindowResized, WindowResolution},
@@ -34,7 +33,6 @@ fn main() {
                 update_window_settings,
             ),
         )
-        .load_preferences()
         .add_plugins(init_window_pos)
         .run();
 }
