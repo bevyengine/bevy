@@ -102,11 +102,7 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
         #[cfg(feature = "hotpatching")]
         if world
             .get_resource_ref::<crate::HotPatchChanges>()
-            .map(|r| {
-                r.last_changed()
-                    .is_newer_than((*system).get_last_run(), world.change_tick())
-            })
-            .unwrap_or(true)
+            .is_none_or(|r| r.is_changed_after((*system).get_last_run()))
         {
             (*system).refresh_hotpatch();
         };
