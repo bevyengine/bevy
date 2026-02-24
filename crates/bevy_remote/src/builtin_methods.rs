@@ -1720,9 +1720,13 @@ mod tests {
     }
 
     use super::*;
-    use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind};
+    use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind};
     use bevy_ecs::{
-        component::Component, event::Event, observer::On, resource::Resource, system::ResMut,
+        component::Component,
+        event::Event,
+        observer::On,
+        resource::Resource,
+        system::ResMut,
     };
     use bevy_reflect::Reflect;
     use serde_json::Value::Null;
@@ -1795,6 +1799,7 @@ mod tests {
         struct Following(Entity);
 
         #[derive(Component, Debug, Reflect)]
+        #[component(storage = "SparseSet")]
         #[reflect(Component, Debug)]
         #[relationship_target(relationship = Following)]
         struct FollowedBy(Vec<Entity>);
@@ -1830,6 +1835,8 @@ mod tests {
             .clone();
         let expected_following = Some(ComponentMetadata {
             mutable: false,
+            storage_type: StorageKind::Table,
+            is_send_and_sync: true,
             required_component_types: vec!["bevy_ecs::name::Name".to_owned()],
             relationship_kind: Some(RelationshipKind::Relationship),
         });
@@ -1840,6 +1847,8 @@ mod tests {
             .clone();
         let expected_followed_by = Some(ComponentMetadata {
             mutable: true,
+            storage_type: StorageKind::SparseSet,
+            is_send_and_sync: true,
             required_component_types: Vec::new(),
             relationship_kind: Some(RelationshipKind::RelationshipTarget),
         });

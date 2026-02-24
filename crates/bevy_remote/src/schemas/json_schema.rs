@@ -1,7 +1,7 @@
 //! Module with JSON Schema type for Bevy Registry Types.
 //!  It tries to follow this standard: <https://json-schema.org/specification>
 use alloc::borrow::Cow;
-use bevy_ecs::component::Components;
+use bevy_ecs::component::{Components, StorageType};
 use bevy_ecs::{component::ComponentInfo, relationship::RelationshipAccessor};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
@@ -78,22 +78,21 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata, &Components)> for JsonSchema
             .and_then(|component_id| components.get_info(component_id));
         typed_schema.component_info = component_info.map(|info| {
             let mutable = info.mutable();
+            let storage_type = info.storage_type().into();
+            let is_send_and_sync = info.is_send_and_sync();
             let required_component_types = info
                 .required_components()
                 .iter_ids()
                 .flat_map(|component_id| components.get_info(component_id))
                 .map(|info: &ComponentInfo| info.name().to_string())
                 .collect::<Vec<_>>();
-            let relationship_kind =
-                info.relationship_accessor()
-                    .map(|relationship| match relationship {
-                        RelationshipAccessor::Relationship { .. } => RelationshipKind::Relationship,
-                        RelationshipAccessor::RelationshipTarget { .. } => {
-                            RelationshipKind::RelationshipTarget
-                        }
-                    });
+            let relationship_kind = info
+                .relationship_accessor()
+                .map(|&relationship| relationship.into());
             ComponentMetadata {
                 mutable,
+                storage_type,
+                is_send_and_sync,
                 required_component_types,
                 relationship_kind,
             }
@@ -355,12 +354,35 @@ pub enum SchemaType {
 pub struct ComponentMetadata {
     /// Whether component is mutable or not.
     pub mutable: bool,
+    /// The storage used for this component.
+    pub storage_type: StorageKind,
+    /// Whether component is `Send + Sync`.
+    pub is_send_and_sync: bool,
     /// Type path of [required components](`bevy_ecs::component::RequiredComponent`).
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub required_component_types: Vec<String>,
     /// Kind of relationship, if the component has one of the [relationship traits](`bevy_ecs::relationship::Relationship`).
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub relationship_kind: Option<RelationshipKind>,
+}
+
+/// The storage used for a specific component type.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub enum StorageKind {
+    /// Provides fast and cache-friendly iteration, but slower addition and removal of components.
+    #[default]
+    Table,
+    /// Provides fast addition and removal of components, but slower iteration.
+    SparseSet,
+}
+
+impl From<StorageType> for StorageKind {
+    fn from(value: StorageType) -> Self {
+        match value {
+            StorageType::Table => StorageKind::Table,
+            StorageType::SparseSet => StorageKind::SparseSet,
+        }
+    }
 }
 
 /// Kind of relationship.
@@ -370,6 +392,15 @@ pub enum RelationshipKind {
     Relationship,
     /// The parent kind of relationship.
     RelationshipTarget,
+}
+
+impl From<RelationshipAccessor> for RelationshipKind {
+    fn from(value: RelationshipAccessor) -> Self {
+        match value {
+            RelationshipAccessor::Relationship { .. } => RelationshipKind::Relationship,
+            RelationshipAccessor::RelationshipTarget { .. } => RelationshipKind::RelationshipTarget,
+        }
+    }
 }
 
 /// Helper trait for generating json schema reference
