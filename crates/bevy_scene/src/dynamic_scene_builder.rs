@@ -3,6 +3,7 @@ use core::any::TypeId;
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
+use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
     component::{Component, ComponentId},
     entity_disabling::DefaultQueryFilters,
@@ -283,7 +284,11 @@ impl<'w> DynamicSceneBuilder<'w> {
             };
 
             let original_entity = self.original_world.entity(entity);
-            for component_id in original_entity.archetype().components() {
+            if original_entity.contains_id(IS_RESOURCE) {
+                continue;
+            }
+
+            for &component_id in original_entity.archetype().components().iter() {
                 let mut extract_and_push = || {
                     let type_id = self
                         .original_world
@@ -350,19 +355,19 @@ impl<'w> DynamicSceneBuilder<'w> {
         let original_world_dqf_id = self
             .original_world
             .components()
-            .get_valid_resource_id(TypeId::of::<DefaultQueryFilters>());
+            .get_valid_id(TypeId::of::<DefaultQueryFilters>());
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
-        for (component_id, _) in self.original_world.storages().resources.iter() {
-            if Some(component_id) == original_world_dqf_id {
+        for (component_id, entity) in self.original_world.resource_entities().iter() {
+            if Some(*component_id) == original_world_dqf_id {
                 continue;
             }
             let mut extract_and_push = || {
                 let type_id = self
                     .original_world
                     .components()
-                    .get_info(component_id)?
+                    .get_info(*component_id)?
                     .type_id()?;
 
                 let is_denied = self.resource_filter.is_denied_by_id(type_id);
@@ -374,15 +379,15 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                 let type_registration = type_registry.get(type_id)?;
 
-                let resource = type_registration
-                    .data::<ReflectResource>()?
-                    .reflect(self.original_world)
-                    .ok()?;
+                type_registration.data::<ReflectResource>()?;
+                let component = type_registration
+                    .data::<ReflectComponent>()?
+                    .reflect(self.original_world.entity(*entity))?;
 
-                let resource =
-                    clone_reflect_value(resource.as_partial_reflect(), type_registration);
+                let component =
+                    clone_reflect_value(component.as_partial_reflect(), type_registration);
 
-                self.extracted_resources.insert(component_id, resource);
+                self.extracted_resources.insert(*component_id, component);
                 Some(())
             };
             extract_and_push();
@@ -703,19 +708,24 @@ mod tests {
 
     #[test]
     fn should_use_from_reflect() {
-        #[derive(Resource, Component, Reflect)]
-        #[reflect(Resource, Component)]
+        #[derive(Component, Reflect)]
+        #[reflect(Component)]
         struct SomeType(i32);
+
+        #[derive(Resource, Reflect)]
+        #[reflect(Resource)]
+        struct SomeResource(i32);
 
         let mut world = World::default();
         let atr = AppTypeRegistry::default();
         {
             let mut register = atr.write();
             register.register::<SomeType>();
+            register.register::<SomeResource>();
         }
         world.insert_resource(atr);
 
-        world.insert_resource(SomeType(123));
+        world.insert_resource(SomeResource(123));
         let entity = world.spawn(SomeType(123)).id();
 
         let scene = DynamicSceneBuilder::from_world(&world)
@@ -733,6 +743,6 @@ mod tests {
         assert!(resource
             .try_as_reflect()
             .expect("resource should be concrete due to `FromReflect`")
-            .is::<SomeType>());
+            .is::<SomeResource>());
     }
 }

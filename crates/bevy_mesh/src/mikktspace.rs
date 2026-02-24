@@ -1,5 +1,6 @@
+use crate::MeshAccessError;
+
 use super::{Indices, Mesh, VertexAttributeValues};
-use bevy_math::Vec3;
 use thiserror::Error;
 use wgpu_types::{PrimitiveTopology, VertexFormat};
 
@@ -71,6 +72,8 @@ pub enum GenerateTangentsError {
     InvalidVertexAttributeFormat(&'static str, VertexFormat),
     #[error("mesh not suitable for tangent generation")]
     MikktspaceError(#[from] bevy_mikktspace::GenerateTangentSpaceError),
+    #[error("Mesh access error: {0}")]
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 pub(crate) fn generate_tangents_for_mesh(
@@ -81,7 +84,7 @@ pub(crate) fn generate_tangents_for_mesh(
         other => return Err(GenerateTangentsError::UnsupportedTopology(other)),
     };
 
-    let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION).ok_or(
+    let positions = mesh.try_attribute_option(Mesh::ATTRIBUTE_POSITION)?.ok_or(
         GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_POSITION.name),
     )?;
     let VertexAttributeValues::Float32x3(positions) = positions else {
@@ -90,7 +93,7 @@ pub(crate) fn generate_tangents_for_mesh(
             VertexFormat::Float32x3,
         ));
     };
-    let normals = mesh.attribute(Mesh::ATTRIBUTE_NORMAL).ok_or(
+    let normals = mesh.try_attribute_option(Mesh::ATTRIBUTE_NORMAL)?.ok_or(
         GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_NORMAL.name),
     )?;
     let VertexAttributeValues::Float32x3(normals) = normals else {
@@ -99,7 +102,7 @@ pub(crate) fn generate_tangents_for_mesh(
             VertexFormat::Float32x3,
         ));
     };
-    let uvs = mesh.attribute(Mesh::ATTRIBUTE_UV_0).ok_or(
+    let uvs = mesh.try_attribute_option(Mesh::ATTRIBUTE_UV_0)?.ok_or(
         GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_UV_0.name),
     )?;
     let VertexAttributeValues::Float32x2(uvs) = uvs else {
@@ -112,7 +115,7 @@ pub(crate) fn generate_tangents_for_mesh(
     let len = positions.len();
     let tangents = vec![[0., 0., 0., 0.]; len];
     let mut mikktspace_mesh = MikktspaceGeometryHelper {
-        indices: mesh.indices(),
+        indices: mesh.try_indices_option()?,
         positions,
         normals,
         uvs,
@@ -126,19 +129,4 @@ pub(crate) fn generate_tangents_for_mesh(
     }
 
     Ok(mikktspace_mesh.tangents)
-}
-
-/// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
-pub(crate) fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
-    // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
-    // This is necessary because components of `scale_recip` may be infinities, which do not multiply to zero
-    let n = Vec3::select(normal.cmpeq(Vec3::ZERO), Vec3::ZERO, normal * scale_recip);
-
-    // If n is finite, no component of `scale_recip` was infinite or the normal was perpendicular to the scale
-    // else the scale had at least one zero-component and the normal needs to point along the direction of that component
-    if n.is_finite() {
-        n.normalize_or_zero()
-    } else {
-        Vec3::select(n.abs().cmpeq(Vec3::INFINITY), n.signum(), Vec3::ZERO).normalize()
-    }
 }

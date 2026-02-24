@@ -1,6 +1,12 @@
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+
 //! Contains APIs for retrieving component data from the world.
 
 mod access;
+mod access_iter;
 mod builder;
 mod error;
 mod fetch;
@@ -11,6 +17,7 @@ mod state;
 mod world_query;
 
 pub use access::*;
+pub use access_iter::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
 pub use builder::*;
 pub use error::*;
@@ -25,7 +32,8 @@ pub use world_query::*;
 /// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
 /// equivalent to `Option::unwrap_unchecked` or `Result::unwrap_unchecked`
 /// in release mode.
-pub(crate) trait DebugCheckedUnwrap {
+#[doc(hidden)]
+pub trait DebugCheckedUnwrap {
     type Item;
     /// # Panics
     /// Panics if the value is `None` or `Err`, only in debug mode.
@@ -106,11 +114,12 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 mod tests {
     use crate::{
         archetype::Archetype,
-        component::{Component, ComponentId, Components, Tick},
+        change_detection::Tick,
+        component::{Component, ComponentId, Components},
         prelude::{AnyOf, Changed, Entity, Or, QueryState, Resource, With, Without},
         query::{
-            ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,
-            ReadOnlyQueryData, WorldQuery,
+            ArchetypeFilter, ArchetypeQueryData, FilteredAccess, Has, IterQueryData,
+            QueryCombinationIter, QueryData, QueryFilter, ReadOnlyQueryData, WorldQuery,
         },
         schedule::{IntoScheduleConfigs, Schedule},
         storage::{Table, TableRow},
@@ -118,7 +127,6 @@ mod tests {
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
     use alloc::{vec, vec::Vec};
-    use bevy_ecs_macros::QueryFilter;
     use core::{any::type_name, fmt::Debug, hash::Hash};
     use std::{collections::HashSet, println};
 
@@ -163,7 +171,7 @@ mod tests {
         }
         fn assert_combination<D, F, const K: usize>(world: &mut World, expected_size: usize)
         where
-            D: ReadOnlyQueryData,
+            D: ReadOnlyQueryData + ArchetypeQueryData,
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
@@ -177,7 +185,7 @@ mod tests {
         }
         fn assert_all_sizes_equal<D, F>(world: &mut World, expected_size: usize)
         where
-            D: ReadOnlyQueryData,
+            D: ReadOnlyQueryData + ArchetypeQueryData,
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
@@ -816,8 +824,8 @@ mod tests {
     /// `QueryData` that performs read access on R to test that resource access is tracked
     struct ReadsRData;
 
-    /// SAFETY:
-    /// `update_component_access` adds resource read access for `R`.
+    // SAFETY:
+    // `update_component_access` adds resource read access for `R`.
     unsafe impl WorldQuery for ReadsRData {
         type Fetch<'w> = ();
         type State = ComponentId;
@@ -860,11 +868,11 @@ mod tests {
         }
 
         fn init_state(world: &mut World) -> Self::State {
-            world.components_registrator().register_resource::<R>()
+            world.components_registrator().register_component::<R>()
         }
 
         fn get_state(components: &Components) -> Option<Self::State> {
-            components.resource_id::<R>()
+            components.component_id::<R>()
         }
 
         fn matches_component_set(
@@ -875,9 +883,10 @@ mod tests {
         }
     }
 
-    /// SAFETY: `Self` is the same as `Self::ReadOnly`
+    // SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl QueryData for ReadsRData {
         const IS_READ_ONLY: bool = true;
+        const IS_ARCHETYPAL: bool = true;
         type ReadOnly = Self;
         type Item<'w, 's> = ();
 
@@ -892,12 +901,26 @@ mod tests {
             _fetch: &mut Self::Fetch<'w>,
             _entity: Entity,
             _table_row: TableRow,
-        ) -> Self::Item<'w, 's> {
+        ) -> Option<Self::Item<'w, 's>> {
+            Some(())
+        }
+
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = super::access_iter::EcsAccessType<'_>> {
+            core::iter::once(super::access_iter::EcsAccessType::Resource(
+                super::access_iter::ResourceAccessLevel::Read(*state),
+            ))
         }
     }
 
-    /// SAFETY: access is read only
+    // SAFETY: access is read only
     unsafe impl ReadOnlyQueryData for ReadsRData {}
+
+    /// SAFETY: access is read only
+    unsafe impl IterQueryData for ReadsRData {}
+
+    impl ArchetypeQueryData for ReadsRData {}
 
     #[test]
     fn read_res_read_res_no_conflict() {

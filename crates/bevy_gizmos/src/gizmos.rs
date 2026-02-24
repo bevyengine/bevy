@@ -9,16 +9,16 @@ use core::{
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
-    component::Tick,
+    change_detection::Tick,
     query::FilteredAccessSet,
     resource::Resource,
     system::{
         Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
         SystemParamValidationError,
     },
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
-use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
+use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
@@ -224,15 +224,38 @@ where
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        GizmosState::<Config, Clear>::queue(&mut state.state, system_meta, world);
+    }
+
     #[inline]
     unsafe fn validate_param(
         state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegated to existing `SystemParam` implementations.
+        // SAFETY: Delegated to existing `SystemParam` implementation.
         unsafe {
-            GizmosState::<Config, Clear>::validate_param(&mut state.state, system_meta, world)
+            GizmosState::<Config, Clear>::validate_param(&mut state.state, system_meta, world)?;
+        }
+
+        // SAFETY: Delegated to existing `SystemParam` implementation.
+        let (_, f1) = unsafe {
+            GizmosState::<Config, Clear>::get_param(
+                &mut state.state,
+                system_meta,
+                world,
+                world.change_tick(),
+            )
+        };
+        // This if-block is to accommodate an Option<Gizmos> SystemParam.
+        // The user may decide not to initialize a gizmo group, so its config will not exist.
+        if f1.get_config::<Config>().is_none() {
+            Err(SystemParamValidationError::invalid::<Self>(
+                format!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", 
+                Config::type_path())))
+        } else {
+            Ok(())
         }
     }
 
@@ -290,10 +313,14 @@ where
     Clear: 'static + Send + Sync,
 {
     pub(crate) enabled: bool,
-    pub(crate) list_positions: Vec<Vec3>,
-    pub(crate) list_colors: Vec<LinearRgba>,
-    pub(crate) strip_positions: Vec<Vec3>,
-    pub(crate) strip_colors: Vec<LinearRgba>,
+    /// The positions of line segment endpoints.
+    pub list_positions: Vec<Vec3>,
+    /// The colors of line segment endpoints.
+    pub list_colors: Vec<LinearRgba>,
+    /// The positions of line strip vertices.
+    pub strip_positions: Vec<Vec3>,
+    /// The colors of line strip vertices.
+    pub strip_colors: Vec<LinearRgba>,
     #[reflect(ignore, clone)]
     pub(crate) marker: PhantomData<(Config, Clear)>,
 }
@@ -304,6 +331,17 @@ where
     Clear: 'static + Send + Sync,
 {
     fn default() -> Self {
+        GizmoBuffer::new()
+    }
+}
+
+impl<Config, Clear> GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Constructs an empty `GizmoBuffer`.
+    pub const fn new() -> Self {
         GizmoBuffer {
             enabled: true,
             list_positions: Vec::new(),
@@ -332,12 +370,20 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        let mut storage = world.resource_mut::<GizmoStorage<Config, Clear>>();
-        storage.list_positions.append(&mut self.list_positions);
-        storage.list_colors.append(&mut self.list_colors);
-        storage.strip_positions.append(&mut self.strip_positions);
-        storage.strip_colors.append(&mut self.strip_colors);
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        if let Some(mut storage) = world.get_resource_mut::<GizmoStorage<Config, Clear>>() {
+            storage.list_positions.append(&mut self.list_positions);
+            storage.list_colors.append(&mut self.list_colors);
+            storage.strip_positions.append(&mut self.strip_positions);
+            storage.strip_colors.append(&mut self.strip_colors);
+        } else {
+            // Prevent the buffer from growing indefinitely if GizmoStorage
+            // for the config group has not been initialized
+            self.list_positions.clear();
+            self.list_colors.clear();
+            self.strip_positions.clear();
+            self.strip_colors.clear();
+        }
     }
 }
 
@@ -372,8 +418,6 @@ where
     }
     /// Draw a line in 3D from `start` to `end`.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -394,8 +438,6 @@ where
     }
 
     /// Draw a line in 3D with a color gradient from `start` to `end`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -424,8 +466,6 @@ where
 
     /// Draw a line in 3D from `start` to `start + vector`.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -445,8 +485,6 @@ where
     }
 
     /// Draw a line in 3D with a color gradient from `start` to `start + vector`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -474,8 +512,6 @@ where
 
     /// Draw a line in 3D made of straight segments between the points.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -502,9 +538,42 @@ where
         self.strip_colors.push(LinearRgba::NAN);
     }
 
-    /// Draw a line in 3D made of straight segments between the points, with a color gradient.
+    /// Draw a line in 3D made of straight segments between the points, with the first and last connected.
     ///
-    /// This should be called for each frame the lines need to be rendered.
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.lineloop([Vec3::ZERO, Vec3::X, Vec3::Y], GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn lineloop(&mut self, positions: impl IntoIterator<Item = Vec3>, color: impl Into<Color>) {
+        if !self.enabled {
+            return;
+        }
+
+        // Loop back to the start; second is needed to ensure that
+        // the joint on the first corner is drawn.
+        let mut positions = positions.into_iter();
+        let first = positions.next();
+        let second = positions.next();
+
+        self.linestrip(
+            first
+                .into_iter()
+                .chain(second)
+                .chain(positions)
+                .chain(first)
+                .chain(second),
+            color,
+        );
+    }
+
+    /// Draw a line in 3D made of straight segments between the points, with a color gradient.
     ///
     /// # Example
     /// ```
@@ -556,8 +625,6 @@ where
     /// - the center is at `Vec3::ZERO`
     /// - the sizes are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
-    /// This should be called for each frame the rectangle needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -575,12 +642,10 @@ where
         }
         let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2.extend(0.));
-        self.linestrip([tl, tr, br, bl, tl], color);
+        self.lineloop([tl, tr, br, bl], color);
     }
 
     /// Draw a wireframe cube in 3D.
-    ///
-    /// This should be called for each frame the cube needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -588,12 +653,12 @@ where
     /// # use bevy_transform::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cuboid(Transform::IDENTITY, GREEN);
+    ///     gizmos.cube(Transform::IDENTITY, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn cuboid(&mut self, transform: impl TransformPoint, color: impl Into<Color>) {
+    pub fn cube(&mut self, transform: impl TransformPoint, color: impl Into<Color>) {
         let polymorphic_color: Color = color.into();
         if !self.enabled {
             return;
@@ -618,9 +683,58 @@ where
         self.add_list_color(polymorphic_color, 6);
     }
 
-    /// Draw a line in 2D from `start` to `end`.
+    /// Draw a wireframe aabb in 3D.
     ///
-    /// This should be called for each frame the line needs to be rendered.
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_transform::prelude::*;
+    /// # use bevy_math::{bounding::Aabb3d, Vec3};
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.aabb_3d(Aabb3d::new(Vec3::ZERO, Vec3::ONE), Transform::IDENTITY, GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn aabb_3d(
+        &mut self,
+        aabb: impl Into<Aabb3d>,
+        transform: impl TransformPoint,
+        color: impl Into<Color>,
+    ) {
+        let polymorphic_color: Color = color.into();
+        if !self.enabled {
+            return;
+        }
+        let aabb = aabb.into();
+        let [tlf, trf, brf, blf, tlb, trb, brb, blb] = [
+            Vec3::new(aabb.min.x, aabb.max.y, aabb.max.z),
+            Vec3::new(aabb.max.x, aabb.max.y, aabb.max.z),
+            Vec3::new(aabb.max.x, aabb.min.y, aabb.max.z),
+            Vec3::new(aabb.min.x, aabb.min.y, aabb.max.z),
+            Vec3::new(aabb.min.x, aabb.max.y, aabb.min.z),
+            Vec3::new(aabb.max.x, aabb.max.y, aabb.min.z),
+            Vec3::new(aabb.max.x, aabb.min.y, aabb.min.z),
+            Vec3::new(aabb.min.x, aabb.min.y, aabb.min.z),
+        ]
+        .map(|v| transform.transform_point(v));
+
+        let strip_positions = [
+            tlf, trf, brf, blf, tlf, // Front
+            tlb, trb, brb, blb, tlb, // Back
+        ];
+        self.linestrip(strip_positions, polymorphic_color);
+
+        let list_positions = [
+            trf, trb, brf, brb, blf, blb, // Front to back
+        ];
+        self.extend_list_positions(list_positions);
+
+        self.add_list_color(polymorphic_color, 6);
+    }
+
+    /// Draw a line in 2D from `start` to `end`.
     ///
     /// # Example
     /// ```
@@ -641,8 +755,6 @@ where
     }
 
     /// Draw a line in 2D with a color gradient from `start` to `end`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -670,8 +782,6 @@ where
 
     /// Draw a line in 2D made of straight segments between the points.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -694,9 +804,31 @@ where
         self.linestrip(positions.into_iter().map(|vec2| vec2.extend(0.)), color);
     }
 
-    /// Draw a line in 2D made of straight segments between the points, with a color gradient.
+    /// Draw a line in 2D made of straight segments between the points, with the first and last connected.
     ///
-    /// This should be called for each frame the line needs to be rendered.
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.lineloop_2d([Vec2::ZERO, Vec2::X, Vec2::Y], GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn lineloop_2d(
+        &mut self,
+        positions: impl IntoIterator<Item = Vec2>,
+        color: impl Into<Color>,
+    ) {
+        if !self.enabled {
+            return;
+        }
+        self.lineloop(positions.into_iter().map(|vec2| vec2.extend(0.)), color);
+    }
+
+    /// Draw a line in 2D made of straight segments between the points, with a color gradient.
     ///
     /// # Example
     /// ```
@@ -729,8 +861,6 @@ where
 
     /// Draw a line in 2D from `start` to `start + vector`.
     ///
-    /// This should be called for each frame the line needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -750,8 +880,6 @@ where
     }
 
     /// Draw a line in 2D with a color gradient from `start` to `start + vector`.
-    ///
-    /// This should be called for each frame the line needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -784,8 +912,6 @@ where
     /// - the center is at `Vec2::ZERO`
     /// - the sizes are aligned with the `Vec2::X` and `Vec2::Y` axes.
     ///
-    /// This should be called for each frame the rectangle needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -808,7 +934,7 @@ where
         }
         let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
-        self.linestrip_2d([tl, tr, br, bl, tl], color);
+        self.lineloop_2d([tl, tr, br, bl], color);
     }
 
     #[inline]

@@ -2,6 +2,7 @@
 
 use bevy::{
     asset::UnapprovedPathMode,
+    camera::Hdr,
     core_pipeline::tonemapping::Tonemapping,
     light::CascadeShadowConfigBuilder,
     platform::collections::HashMap,
@@ -9,7 +10,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         render_resource::AsBindGroup,
-        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
+        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
     },
     shader::ShaderRef,
 };
@@ -89,8 +90,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -119,7 +120,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         DirectionalLight {
             illuminance: 15_000.,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
@@ -177,14 +178,14 @@ fn setup_image_viewer_scene(
     commands.spawn((
         Text::new("Drag and drop an HDR or EXR file"),
         TextFont {
-            font_size: 36.0,
+            font_size: FontSize::Px(36.0),
             ..default()
         },
         TextColor(Color::BLACK),
         TextLayout::new_with_justify(Justify::Center),
         Node {
             align_self: AlignSelf::Center,
-            margin: UiRect::all(Val::Auto),
+            margin: UiRect::all(auto()),
             ..default()
         },
         SceneNumber(3),
@@ -198,11 +199,11 @@ fn drag_drop_image(
     image_mat: Query<&MeshMaterial3d<StandardMaterial>, With<HDRViewer>>,
     text: Query<Entity, (With<Text>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut drop_events: EventReader<FileDragAndDrop>,
+    mut drag_and_drop_reader: MessageReader<FileDragAndDrop>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
 ) {
-    let Some(new_image) = drop_events.read().find_map(|e| match e {
+    let Some(new_image) = drag_and_drop_reader.read().find_map(|e| match e {
         FileDragAndDrop::DroppedFile { path_buf, .. } => {
             Some(asset_server.load(path_buf.to_string_lossy().to_string()))
         }
@@ -212,7 +213,7 @@ fn drag_drop_image(
     };
 
     for mat_h in &image_mat {
-        if let Some(mat) = materials.get_mut(mat_h) {
+        if let Some(mut mat) = materials.get_mut(mat_h) {
             mat.base_color_texture = Some(new_image.clone());
 
             // Despawn the image viewer instructions
@@ -228,9 +229,9 @@ fn resize_image(
     materials: Res<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     images: Res<Assets<Image>>,
-    mut image_events: EventReader<AssetEvent<Image>>,
+    mut image_event_reader: MessageReader<AssetEvent<Image>>,
 ) {
-    for event in image_events.read() {
+    for event in image_event_reader.read() {
         let (AssetEvent::Added { id } | AssetEvent::Modified { id }) = event else {
             continue;
         };
@@ -502,23 +503,23 @@ fn update_ui(
     if selected_parameter.value == 0 {
         text.push_str("> ");
     }
-    text.push_str(&format!("Exposure: {}\n", color_grading.global.exposure));
+    text.push_str(&format!("Exposure: {:.2}\n", color_grading.global.exposure));
     if selected_parameter.value == 1 {
         text.push_str("> ");
     }
-    text.push_str(&format!("Gamma: {}\n", color_grading.shadows.gamma));
+    text.push_str(&format!("Gamma: {:.2}\n", color_grading.shadows.gamma));
     if selected_parameter.value == 2 {
         text.push_str("> ");
     }
     text.push_str(&format!(
-        "PreSaturation: {}\n",
+        "PreSaturation: {:.2}\n",
         color_grading.shadows.saturation
     ));
     if selected_parameter.value == 3 {
         text.push_str("> ");
     }
     text.push_str(&format!(
-        "PostSaturation: {}\n",
+        "PostSaturation: {:.2}\n",
         color_grading.global.post_saturation
     ));
     text.push_str("(Space) Reset all to default\n");

@@ -34,6 +34,11 @@ pub type Entry<'a, T, S = FixedHasher> = hb::Entry<'a, T, S>;
 ///
 /// A new-type is used instead of a type alias due to critical methods like [`new`](hb::HashSet::new)
 /// being incompatible with Bevy's choice of default hasher.
+///
+/// Unlike [`hashbrown::HashSet`], [`HashSet`] defaults to [`FixedHasher`]
+/// instead of [`RandomState`](crate::hash::RandomState).
+/// This provides determinism by default with an acceptable compromise to denial
+/// of service resistance in the context of a game engine.
 #[repr(transparent)]
 pub struct HashSet<T, S = FixedHasher>(hb::HashSet<T, S>);
 

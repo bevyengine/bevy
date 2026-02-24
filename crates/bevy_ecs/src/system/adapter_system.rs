@@ -175,7 +175,7 @@ where
         self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, check: crate::component::CheckChangeTicks) {
+    fn check_change_tick(&mut self, check: crate::change_detection::CheckChangeTicks) {
         self.system.check_change_tick(check);
     }
 
@@ -183,11 +183,11 @@ where
         self.system.default_system_sets()
     }
 
-    fn get_last_run(&self) -> crate::component::Tick {
+    fn get_last_run(&self) -> crate::change_detection::Tick {
         self.system.get_last_run()
     }
 
-    fn set_last_run(&mut self, last_run: crate::component::Tick) {
+    fn set_last_run(&mut self, last_run: crate::change_detection::Tick) {
         self.system.set_last_run(last_run);
     }
 }

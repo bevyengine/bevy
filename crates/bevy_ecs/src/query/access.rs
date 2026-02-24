@@ -1,5 +1,5 @@
 use crate::component::ComponentId;
-use crate::world::World;
+use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use alloc::{format, string::String, vec, vec::Vec};
 use core::{fmt, fmt::Debug};
 use derive_more::From;
@@ -43,7 +43,7 @@ impl<'a> Debug for FormattedBitSet<'a> {
 ///
 /// Used internally to ensure soundness during system initialization and execution.
 /// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
-#[derive(Eq, PartialEq, Default)]
+#[derive(Eq, PartialEq, Default, Hash)]
 pub struct Access {
     /// All accessed components, or forbidden components if
     /// `Self::component_read_and_writes_inverted` is set.
@@ -161,8 +161,8 @@ impl Access {
         access
     }
 
-    /// Creates an [`Access`] with read access to all components.
-    /// This is equivalent to calling `read_all()` on `Access::new()`,
+    /// Creates an [`Access`] with read and write access to all components.
+    /// This is equivalent to calling `write_all()` on `Access::new()`,
     /// but is available in a `const` context.
     pub(crate) const fn new_write_all() -> Self {
         let mut access = Self::new();
@@ -991,7 +991,7 @@ impl AccessConflicts {
         }
     }
 
-    pub(crate) fn format_conflict_list(&self, world: &World) -> String {
+    pub(crate) fn format_conflict_list(&self, world: UnsafeWorldCell) -> String {
         match self {
             AccessConflicts::All => String::new(),
             AccessConflicts::Individual(indices) => indices
@@ -1000,7 +1000,7 @@ impl AccessConflicts {
                     format!(
                         "{}",
                         world
-                            .components
+                            .components()
                             .get_name(ComponentId::new(index))
                             .unwrap()
                             .shortname()
@@ -1320,6 +1320,12 @@ impl FilteredAccessSet {
     #[inline]
     pub fn combined_access(&self) -> &Access {
         &self.combined_access
+    }
+
+    /// Returns a reference to the filtered accesses of the set.
+    #[inline]
+    pub fn filtered_accesses(&self) -> &[FilteredAccess] {
+        &self.filtered_accesses
     }
 
     /// Returns `true` if this and `other` can be active at the same time.

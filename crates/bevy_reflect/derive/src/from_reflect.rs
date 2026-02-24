@@ -3,14 +3,14 @@ use crate::{
     derive_data::ReflectEnum,
     enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder},
     field_attributes::DefaultBehavior,
-    ident::ident_or_index,
     where_clause_options::WhereClauseOptions,
     ReflectMeta, ReflectStruct,
 };
+use bevy_macro_utils::as_member;
 use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
-use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
+use syn::{parse_str, Field, Ident, Lit, LitInt, LitStr, Member, Path};
 
 /// Implements `FromReflect` for the given struct
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
@@ -27,14 +27,29 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_from_reflect_clause = WhereClauseOptions::new(meta).extend_where_clause(where_clause);
+
+    let downcast = match meta.remote_ty() {
+        Some(remote) => {
+            let remote_ty = remote.type_path();
+            quote! {
+                <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(
+                    #FQClone::clone(
+                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#remote_ty>(reflect)?
+                    )
+                )
+            }
+        }
+        None => quote! {
+            #FQClone::clone(
+                <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect)?
+            )
+        },
+    };
+
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                #FQOption::Some(
-                    #FQClone::clone(
-                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect)?
-                    )
-                )
+                #FQOption::Some(#downcast)
             }
         }
     }
@@ -78,7 +93,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) =
                     #bevy_reflect_path::PartialReflect::reflect_ref(#ref_value)
                 {
-                    match #bevy_reflect_path::Enum::variant_name(#ref_value) {
+                    match #bevy_reflect_path::enums::Enum::variant_name(#ref_value) {
                         #match_branches
                         name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
                     }
@@ -111,19 +126,30 @@ fn impl_struct_internal(
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
 
     let ref_struct = Ident::new("__ref_struct", Span::call_site());
-    let ref_struct_type = if is_tuple {
-        Ident::new("TupleStruct", Span::call_site())
+    let (ref_struct_type, ref_struct_path) = if is_tuple {
+        (
+            Ident::new("TupleStruct", Span::call_site()),
+            parse_str("tuple_struct::TupleStruct").expect("should be a valid path"),
+        )
     } else {
-        Ident::new("Struct", Span::call_site())
+        (
+            Ident::new("Struct", Span::call_site()),
+            parse_str("structs::Struct").expect("should be a valid path"),
+        )
     };
 
     let MemberValuePair(active_members, active_values) =
-        get_active_fields(reflect_struct, &ref_struct, &ref_struct_type, is_tuple);
+        get_active_fields(reflect_struct, &ref_struct, &ref_struct_path, is_tuple);
 
     let is_defaultable = reflect_struct.meta().attrs().contains(REFLECT_DEFAULT);
 
     // The constructed "Self" ident
     let __this = Ident::new("__this", Span::call_site());
+
+    // Workaround for rustfmt issue: https://github.com/rust-lang/rustfmt/issues/6779
+    // `quote!(Self(#__this))` causes rustfmt to panic in Rust 1.93.0+
+    // TODO: not needed after Rust 1.94
+    let self_ty = quote!(Self);
 
     // The reflected type: either `Self` or a remote type
     let (reflect_ty, constructor, retval) = if let Some(remote_ty) = remote_ty {
@@ -136,10 +162,10 @@ fn impl_struct_internal(
         (
             quote!(#remote_ty),
             quote!(#constructor),
-            quote!(Self(#__this)),
+            quote!(#self_ty(#__this)),
         )
     } else {
-        (quote!(Self), quote!(Self), quote!(#__this))
+        (quote!(#self_ty), quote!(#self_ty), quote!(#__this))
     };
 
     let constructor = if is_defaultable {
@@ -195,13 +221,13 @@ fn impl_struct_internal(
 /// Get the collection of ignored field definitions
 ///
 /// Each value of the `MemberValuePair` is a token stream that generates a
-/// a default value for the ignored field.
+/// default value for the ignored field.
 fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
     MemberValuePair::new(
         reflect_struct
             .ignored_fields()
             .map(|field| {
-                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
 
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {#path()},
@@ -221,7 +247,7 @@ fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
 fn get_active_fields(
     reflect_struct: &ReflectStruct,
     dyn_struct_name: &Ident,
-    struct_type: &Ident,
+    struct_type: &Path,
     is_tuple: bool,
 ) -> MemberValuePair {
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
@@ -230,7 +256,7 @@ fn get_active_fields(
         reflect_struct
             .active_fields()
             .map(|field| {
-                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
                 let accessor = get_field_accessor(
                     field.data,
                     field.reflection_index.expect("field should be active"),

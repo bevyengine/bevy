@@ -60,14 +60,42 @@ pub struct HoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
 #[derive(Debug, Deref, DerefMut, Default, Resource)]
 pub struct PreviousHoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
 
+/// Gets the hovered entities for a `pointer_id` from a provided `HoverMap` inner map
+pub(crate) fn get_hovered_entities(
+    hover_map: &HashMap<PointerId, HashMap<Entity, HitData>>,
+    pointer_id: &PointerId,
+) -> HashSet<Entity> {
+    hover_map
+        .get(pointer_id)
+        .map_or(HashSet::default(), |entity_hit| {
+            entity_hit
+                .iter()
+                .map(|(&entity, _)| entity)
+                .collect::<HashSet<Entity>>()
+        })
+}
+
+/// Returns whether there is hit data for the given `pointer_id` and `entity`
+/// from a provided `HoverMap` inner map. This means that the entity is
+/// "directly hovered" by the `pointer_id` for the given `hover_map`
+pub(crate) fn is_directly_hovered(
+    hover_map: &HashMap<PointerId, HashMap<Entity, HitData>>,
+    pointer_id: &PointerId,
+    entity: &Entity,
+) -> bool {
+    hover_map
+        .get(pointer_id)
+        .is_some_and(|hit_data_map| hit_data_map.contains_key(entity))
+}
+
 /// Coalesces all data from inputs and backends to generate a map of the currently hovered entities.
 /// This is the final focusing step to determine which entity the pointer is hovering over.
 pub fn generate_hovermap(
     // Inputs
     pickable: Query<&Pickable>,
     pointers: Query<&PointerId>,
-    mut under_pointer: EventReader<backend::PointerHits>,
-    mut pointer_input: EventReader<PointerInput>,
+    mut pointer_hits_reader: MessageReader<backend::PointerHits>,
+    mut pointer_input_reader: MessageReader<PointerInput>,
     // Local
     mut over_map: Local<OverMap>,
     // Output
@@ -80,7 +108,11 @@ pub fn generate_hovermap(
         &mut over_map,
         &pointers,
     );
-    build_over_map(&mut under_pointer, &mut over_map, &mut pointer_input);
+    build_over_map(
+        &mut pointer_hits_reader,
+        &mut over_map,
+        &mut pointer_input_reader,
+    );
     build_hover_map(&pointers, pickable, &over_map, &mut hover_map);
 }
 
@@ -111,11 +143,11 @@ fn reset_maps(
 
 /// Build an ordered map of entities that are under each pointer
 fn build_over_map(
-    backend_events: &mut EventReader<backend::PointerHits>,
+    pointer_hit_reader: &mut MessageReader<backend::PointerHits>,
     pointer_over_map: &mut Local<OverMap>,
-    pointer_input: &mut EventReader<PointerInput>,
+    pointer_input_reader: &mut MessageReader<PointerInput>,
 ) {
-    let cancelled_pointers: HashSet<PointerId> = pointer_input
+    let cancelled_pointers: HashSet<PointerId> = pointer_input_reader
         .read()
         .filter_map(|p| {
             if let PointerAction::Cancel = p.action {
@@ -126,7 +158,7 @@ fn build_over_map(
         })
         .collect();
 
-    for entities_under_pointer in backend_events
+    for entities_under_pointer in pointer_hit_reader
         .read()
         .filter(|e| !cancelled_pointers.contains(&e.pointer))
     {

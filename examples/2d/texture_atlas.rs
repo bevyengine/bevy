@@ -37,7 +37,7 @@ fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn check_textures(
     mut next_state: ResMut<NextState<AppState>>,
     rpg_sprite_folder: Res<RpgSpriteFolder>,
-    mut events: EventReader<AssetEvent<LoadedFolder>>,
+    mut events: MessageReader<AssetEvent<LoadedFolder>>,
 ) {
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
     for event in events.read() {
@@ -121,8 +121,8 @@ fn setup(
 
     // Padding label text style
     let text_style: TextFont = TextFont {
-        font: font.clone(),
-        font_size: 42.0,
+        font: font.clone().into(),
+        font_size: FontSize::Px(42.0),
         ..default()
     };
 
@@ -184,8 +184,8 @@ fn setup(
 
     // Label text style
     let sampling_label_style = TextFont {
-        font,
-        font_size: 25.0,
+        font: font.into(),
+        font_size: FontSize::Px(25.0),
         ..default()
     };
 
@@ -241,7 +241,7 @@ fn create_texture_atlas(
     let texture = textures.add(texture);
 
     // Update the sampling settings of the texture atlas
-    let image = textures.get_mut(&texture).unwrap();
+    let mut image = textures.get_mut(&texture).unwrap();
     image.sampler = sampling.unwrap_or_default();
 
     (texture_atlas_layout, texture_atlas_sources, texture)

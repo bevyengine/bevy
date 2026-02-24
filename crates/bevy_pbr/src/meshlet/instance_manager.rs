@@ -8,7 +8,7 @@ use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_camera::visibility::RenderLayers;
 use bevy_ecs::{
     entity::{Entities, Entity, EntityHashMap},
-    event::EventReader,
+    message::MessageReader,
     query::Has,
     resource::Resource,
     system::{Local, Query, Res, ResMut, SystemState},
@@ -110,8 +110,8 @@ impl InstanceManager {
             flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }
         let transforms = MeshTransforms {
-            world_from_local: (&transform).into(),
-            previous_world_from_local: (&previous_transform).into(),
+            world_from_local: transform.into(),
+            previous_world_from_local: previous_transform.into(),
             flags: flags.bits(),
         };
 
@@ -207,7 +207,7 @@ pub fn extract_meshlet_mesh_entities(
                 )>,
                 Res<AssetServer>,
                 ResMut<Assets<MeshletMesh>>,
-                EventReader<AssetEvent<MeshletMesh>>,
+                MessageReader<AssetEvent<MeshletMesh>>,
             )>,
         >,
     >,

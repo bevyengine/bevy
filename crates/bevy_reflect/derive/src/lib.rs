@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! This crate contains macros used by Bevy's `Reflect` API.
 //!
@@ -16,11 +16,10 @@
 
 extern crate proc_macro;
 
-mod attribute_parser;
 mod container_attributes;
 mod custom_attributes;
 mod derive_data;
-#[cfg(feature = "documentation")]
+#[cfg(feature = "reflect_documentation")]
 mod documentation;
 mod enum_utility;
 mod field_attributes;
@@ -32,7 +31,6 @@ mod meta;
 mod reflect_opaque;
 mod registration;
 mod remote;
-mod result_sifter;
 mod serialization;
 mod string_expr;
 mod struct_utility;
@@ -163,7 +161,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///   A custom implementation may be provided using `#[reflect(Clone(my_clone_func))]` where
 ///   `my_clone_func` is the path to a function matching the signature:
 ///   `(&Self) -> Self`.
-/// * `#[reflect(Debug)]` will force the implementation of `Reflect::reflect_debug` to rely on
+/// * `#[reflect(Debug)]` will force the implementation of `Reflect::debug` to rely on
 ///   the type's [`Debug`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Debug(my_debug_func))]` where
 ///   `my_debug_func` is the path to a function matching the signature:
@@ -173,6 +171,11 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///   A custom implementation may be provided using `#[reflect(PartialEq(my_partial_eq_func))]` where
 ///   `my_partial_eq_func` is the path to a function matching the signature:
 ///   `(&Self, value: &dyn #bevy_reflect_path::Reflect) -> bool`.
+/// * `#[reflect(PartialOrd)]` will force the implementation of `PartialReflect::reflect_partial_cmp`
+///   to rely on the type's [`PartialOrd`] implementation.
+///   A custom implementation may be provided using `#[reflect(PartialOrd(my_partial_cmp_fn))]` where
+///   `my_partial_cmp_fn` is the path to a function matching the signature:
+///   `(&Self, value: &dyn #bevy_reflect_path::PartialReflect) -> Option<::core::cmp::Ordering>`.
 /// * `#[reflect(Hash)]` will force the implementation of `Reflect::reflect_hash` to rely on
 ///   the type's [`Hash`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Hash(my_hash_func))]` where
@@ -682,7 +685,7 @@ pub fn impl_reflect_opaque(input: TokenStream) -> TokenStream {
 
     let meta = ReflectMeta::new(type_path, def.traits.unwrap_or_default());
 
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
 
     let reflect_impls = impls::impl_opaque(&meta);

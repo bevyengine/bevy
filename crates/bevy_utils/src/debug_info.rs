@@ -8,13 +8,13 @@ use core::ops::Deref;
 use disqualified::ShortName;
 
 #[cfg(not(feature = "debug"))]
-const FEATURE_DISABLED: &str = "Enable the debug feature to see the name";
+const FEATURE_DISABLED: &str = "<Enable the debug feature to see the name>";
 
 /// Wrapper to help debugging ECS issues. This is used to display the names of systems, components, ...
 ///
 /// * If the `debug` feature is enabled, the actual name will be used
 /// * If it is disabled, a string mentioning the disabled feature will be used
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct DebugName {
     #[cfg(feature = "debug")]
     name: Cow<'static, str>,
@@ -23,12 +23,15 @@ pub struct DebugName {
 cfg::alloc! {
     impl fmt::Display for DebugName {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-            #[cfg(feature = "debug")]
-            f.write_str(self.name.as_ref())?;
-            #[cfg(not(feature = "debug"))]
-            f.write_str(FEATURE_DISABLED)?;
+            // Deref to `str`, which will use `FEATURE_DISABLED` if necessary
+            write!(f, "{}", &**self)
+        }
+    }
 
-            Ok(())
+    impl fmt::Debug for DebugName {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            // Deref to `str`, which will use `FEATURE_DISABLED` if necessary
+            write!(f, "{:?}", &**self)
         }
     }
 }
@@ -130,6 +133,26 @@ cfg::alloc! {
     impl From<String> for DebugName {
         fn from(value: String) -> Self {
             Self::owned(value)
+        }
+    }
+
+    impl From<DebugName> for Cow<'static, str> {
+        #[cfg_attr(
+            not(feature = "debug"),
+            expect(
+                unused_variables,
+                reason = "The value will be ignored if the `debug` feature is not enabled"
+            )
+        )]
+        fn from(value: DebugName) -> Self {
+            #[cfg(feature = "debug")]
+            {
+                value.name
+            }
+            #[cfg(not(feature = "debug"))]
+            {
+                Cow::Borrowed(FEATURE_DISABLED)
+            }
         }
     }
 }

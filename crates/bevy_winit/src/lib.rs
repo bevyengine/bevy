@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -15,11 +15,9 @@
 extern crate alloc;
 
 use bevy_derive::Deref;
-use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
 use core::cell::RefCell;
-use core::marker::PhantomData;
 use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
@@ -35,16 +33,16 @@ pub use winit::{
     window::{CustomCursor as WinitCustomCursor, CustomCursorSource},
 };
 pub use winit_config::*;
+pub use winit_monitors::*;
 pub use winit_windows::*;
 
 use crate::{
     accessibility::{AccessKitPlugin, WinitActionRequestHandlers},
     state::winit_runner,
-    winit_monitors::WinitMonitors,
 };
 
 pub mod accessibility;
-mod converters;
+pub mod converters;
 mod cursor;
 mod state;
 mod system;
@@ -65,13 +63,13 @@ thread_local! {
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 ///
-/// The `T` event type can be used to pass custom events to the `winit`'s loop, and handled as events
+/// The `M` message type can be used to pass custom messages to the `winit`'s loop, and handled as messages
 /// in systems.
 ///
 /// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
 /// `WakeUp` is the default event that bevy uses.
 #[derive(Default)]
-pub struct WinitPlugin<T: BufferedEvent = WakeUp> {
+pub struct WinitPlugin {
     /// Allows the window (and the event loop) to be created on any thread
     /// instead of only the main thread.
     ///
@@ -82,16 +80,15 @@ pub struct WinitPlugin<T: BufferedEvent = WakeUp> {
     /// Only works on Linux (X11/Wayland) and Windows.
     /// This field is ignored on other platforms.
     pub run_on_any_thread: bool,
-    marker: PhantomData<T>,
 }
 
-impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
+impl Plugin for WinitPlugin {
     fn name(&self) -> &str {
         "bevy_winit::WinitPlugin"
     }
 
     fn build(&self, app: &mut App) {
-        let mut event_loop_builder = EventLoop::<T>::with_user_event();
+        let mut event_loop_builder = EventLoop::<WinitUserEvent>::with_user_event();
 
         // linux check is needed because x11 might be enabled on other platforms.
         #[cfg(all(target_os = "linux", feature = "x11"))]
@@ -133,7 +130,8 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
-            .add_event::<RawWinitWindowEvent>()
+            .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()))
+            .add_message::<RawWinitWindowEvent>()
             .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(
                 Last,
@@ -150,14 +148,40 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
 
         app.add_plugins(AccessKitPlugin);
         app.add_plugins(cursor::WinitCursorPlugin);
+
+        app.add_observer(
+            |_window: On<Add, Window>, event_loop_proxy: Res<EventLoopProxyWrapper>| -> Result {
+                event_loop_proxy.send_event(WinitUserEvent::WindowAdded)?;
+
+                Ok(())
+            },
+        );
     }
 }
 
-/// The default event that can be used to wake the window loop
-/// Wakes up the loop if in wait state
-#[derive(Debug, Default, Clone, Copy, BufferedEvent, Reflect)]
-#[reflect(Debug, Default, Clone)]
-pub struct WakeUp;
+/// Events that can be sent to perform actions inside the winit event loop.
+///
+/// Sent via the [`EventLoopProxyWrapper`] resource.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_winit::{EventLoopProxyWrapper, WinitUserEvent};
+/// fn wakeup_system(event_loop_proxy: Res<EventLoopProxyWrapper>) -> Result {
+///     event_loop_proxy.send_event(WinitUserEvent::WakeUp)?;
+///
+///     Ok(())
+/// }
+/// ```
+#[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Debug, Clone)]
+pub enum WinitUserEvent {
+    /// Dummy event that just wakes up the winit event loop
+    WakeUp,
+    /// Tell winit that a window needs to be created
+    WindowAdded,
+}
 
 /// The original window event as produced by Winit. This is meant as an escape
 /// hatch for power users that wish to add custom Winit integrations.
@@ -166,7 +190,7 @@ pub struct WakeUp;
 ///
 /// When you receive this event it has already been handled by Bevy's main loop.
 /// Sending these events will NOT cause them to be processed by Bevy.
-#[derive(Debug, Clone, BufferedEvent)]
+#[derive(Debug, Clone, Message)]
 pub struct RawWinitWindowEvent {
     /// The window for which the event was fired.
     pub window_id: WindowId,
@@ -179,9 +203,9 @@ pub struct RawWinitWindowEvent {
 ///
 /// The `EventLoopProxy` can be used to request a redraw from outside bevy.
 ///
-/// Use `Res<EventLoopProxy>` to receive this resource.
+/// Use `Res<EventLoopProxyWrapper>` to retrieve this resource.
 #[derive(Resource, Deref)]
-pub struct EventLoopProxyWrapper<T: 'static>(EventLoopProxy<T>);
+pub struct EventLoopProxyWrapper(EventLoopProxy<WinitUserEvent>);
 
 /// A wrapper around [`winit::event_loop::OwnedDisplayHandle`]
 ///
@@ -203,7 +227,7 @@ impl AppSendEvent for Vec<WindowEvent> {
 }
 
 /// The parameters of the [`create_windows`] system.
-pub type CreateWindowParams<'w, 's, F = ()> = (
+pub type CreateWindowParams<'w, 's> = (
     Commands<'w, 's>,
     Query<
         'w,
@@ -214,9 +238,9 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
             &'static CursorOptions,
             Option<&'static RawHandleWrapperHolder>,
         ),
-        F,
+        Added<Window>,
     >,
-    EventWriter<'w, WindowCreated>,
+    MessageWriter<'w, WindowCreated>,
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
     Res<'w, WinitMonitors>,

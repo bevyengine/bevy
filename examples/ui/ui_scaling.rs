@@ -1,6 +1,7 @@
 //! This example illustrates the [`UiScale`] resource from `bevy_ui`.
 
 use bevy::{color::palettes::css::*, prelude::*};
+
 use core::time::Duration;
 
 const SCALE_TIME: u64 = 400;
@@ -25,18 +26,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     let text_font = TextFont {
-        font_size: 13.,
+        font_size: FontSize::Px(13.),
         ..default()
     };
 
     commands
         .spawn((
             Node {
-                width: Val::Percent(50.0),
-                height: Val::Percent(50.0),
+                width: percent(50),
+                height: percent(50),
                 position_type: PositionType::Absolute,
-                left: Val::Percent(25.),
-                top: Val::Percent(25.),
+                left: percent(25),
+                top: percent(25),
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
                 ..default()
@@ -47,8 +48,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(40.0),
-                        height: Val::Px(40.0),
+                        width: px(40),
+                        height: px(40),
                         ..default()
                     },
                     BackgroundColor(RED.into()),
@@ -58,8 +59,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
             parent.spawn((
                 Node {
-                    width: Val::Percent(15.0),
-                    height: Val::Percent(15.0),
+                    width: percent(15),
+                    height: percent(15),
                     ..default()
                 },
                 BackgroundColor(BLUE.into()),
@@ -67,8 +68,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent.spawn((
                 ImageNode::new(asset_server.load("branding/icon.png")),
                 Node {
-                    width: Val::Px(30.0),
-                    height: Val::Px(30.0),
+                    width: px(30),
+                    height: px(30),
                     ..default()
                 },
             ));

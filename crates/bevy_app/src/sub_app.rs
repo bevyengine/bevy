@@ -1,16 +1,20 @@
 use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
-    event::EventRegistry,
+    message::MessageRegistry,
+    observer::IntoObserver,
     prelude::*,
-    schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{
+        InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy,
+        ScheduleError, ScheduleLabel,
+    },
     system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use core::fmt::Debug;
 
 #[cfg(feature = "trace")]
-use tracing::info_span;
+use tracing::{info_span, warn};
 
 type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 
@@ -219,6 +223,18 @@ impl SubApp {
         self
     }
 
+    /// See [`App::remove_systems_in_set`]
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
+    ) -> Result<usize, ScheduleError> {
+        self.world.schedule_scope(schedule, |world, schedule| {
+            schedule.remove_systems_in_set(set, world, policy)
+        })
+    }
+
     /// See [`App::register_system`].
     pub fn register_system<I, O, M>(
         &mut self,
@@ -246,7 +262,16 @@ impl SubApp {
     /// See [`App::add_schedule`].
     pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(schedule);
+        let _old_schedule = schedules.insert(schedule);
+
+        #[cfg(feature = "trace")]
+        if let Some(schedule) = _old_schedule {
+            warn!(
+                "Schedule {:?} was re-inserted, all previous configuration has been removed",
+                schedule.label()
+            );
+        }
+
         self
     }
 
@@ -335,13 +360,19 @@ impl SubApp {
         self
     }
 
-    /// See [`App::add_event`].
-    pub fn add_event<T>(&mut self) -> &mut Self
+    /// See [`App::add_observer`].
+    pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> &mut Self {
+        self.world_mut().add_observer(observer);
+        self
+    }
+
+    /// See [`App::add_message`].
+    pub fn add_message<T>(&mut self) -> &mut Self
     where
-        T: BufferedEvent,
+        T: Message,
     {
-        if !self.world.contains_resource::<Events<T>>() {
-            EventRegistry::register_event::<T>(self.world_mut());
+        if !self.world.contains_resource::<Messages<T>>() {
+            MessageRegistry::register_message::<T>(self.world_mut());
         }
 
         self
@@ -405,6 +436,9 @@ impl SubApp {
         let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
         for i in 0..self.plugin_registry.len() {
             core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
             self.run_as_app(|app| {
                 hokeypokey.finish(app);
             });
@@ -419,6 +453,9 @@ impl SubApp {
         let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
         for i in 0..self.plugin_registry.len() {
             core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_cleanup_span =
+                info_span!("plugin cleanup", plugin = hokeypokey.name()).entered();
             self.run_as_app(|app| {
                 hokeypokey.cleanup(app);
             });

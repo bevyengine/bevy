@@ -275,7 +275,7 @@ impl From<Xyza> for Laba {
         } else {
             (Laba::CIE_KAPPA * yr + 16.0) / 116.0
         };
-        let fz = if yr > Laba::CIE_EPSILON {
+        let fz = if zr > Laba::CIE_EPSILON {
             ops::cbrt(zr)
         } else {
             (Laba::CIE_KAPPA * zr + 16.0) / 116.0

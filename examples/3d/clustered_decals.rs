@@ -131,7 +131,7 @@ fn main() {
             ExtendedMaterial<StandardMaterial, CustomDecalExtension>,
         >::default())
         .init_resource::<AppStatus>()
-        .add_event::<WidgetClickEvent<Selection>>()
+        .add_message::<WidgetClickEvent<Selection>>()
         .add_systems(Startup, setup)
         .add_systems(Update, draw_gizmos)
         .add_systems(Update, rotate_cube)
@@ -163,7 +163,7 @@ fn setup(
     // Error out if clustered decals aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
         error!("Clustered decals aren't usable on this platform.");
-        commands.write_event(AppExit::error());
+        commands.write_message(AppExit::error());
     }
 
     spawn_cube(&mut commands, &mut meshes, &mut materials);
@@ -216,13 +216,14 @@ fn spawn_camera(commands: &mut Commands) {
 
 /// Spawns the actual clustered decals.
 fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
-    let image = asset_server.load("branding/icon.png");
+    let base_color_texture = asset_server.load("branding/icon.png");
 
     commands.spawn((
         ClusteredDecal {
-            image: image.clone(),
+            base_color_texture: Some(base_color_texture.clone()),
             // Tint with red.
             tag: 1,
+            ..ClusteredDecal::default()
         },
         calculate_initial_decal_transform(vec3(1.0, 3.0, 5.0), Vec3::ZERO, Vec2::splat(1.1)),
         Selection::DecalA,
@@ -230,9 +231,10 @@ fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
 
     commands.spawn((
         ClusteredDecal {
-            image: image.clone(),
+            base_color_texture: Some(base_color_texture.clone()),
             // Tint with blue.
             tag: 2,
+            ..ClusteredDecal::default()
         },
         calculate_initial_decal_transform(vec3(-2.0, -1.0, 4.0), Vec3::ZERO, Vec2::splat(2.0)),
         Selection::DecalB,
@@ -243,59 +245,52 @@ fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_buttons(commands: &mut Commands) {
     // Spawn the radio buttons that allow the user to select an object to
     // control.
-    commands
-        .spawn(widgets::main_ui_node())
-        .with_children(|parent| {
-            widgets::spawn_option_buttons(
-                parent,
-                "Drag to Move",
-                &[
-                    (Selection::Camera, "Camera"),
-                    (Selection::DecalA, "Decal A"),
-                    (Selection::DecalB, "Decal B"),
-                ],
-            );
-        });
+    commands.spawn((
+        widgets::main_ui_node(),
+        children![widgets::option_buttons(
+            "Drag to Move",
+            &[
+                (Selection::Camera, "Camera"),
+                (Selection::DecalA, "Decal A"),
+                (Selection::DecalB, "Decal B"),
+            ],
+        )],
+    ));
 
     // Spawn the drag buttons that allow the user to control the scale and roll
     // of the selected object.
-    commands
-        .spawn(Node {
+    commands.spawn((
+        Node {
             flex_direction: FlexDirection::Row,
             position_type: PositionType::Absolute,
-            right: Val::Px(10.0),
-            bottom: Val::Px(10.0),
-            column_gap: Val::Px(6.0),
+            right: px(10),
+            bottom: px(10),
+            column_gap: px(6),
             ..default()
-        })
-        .with_children(|parent| {
-            spawn_drag_button(parent, "Scale").insert(DragMode::Scale);
-            spawn_drag_button(parent, "Roll").insert(DragMode::Roll);
-        });
+        },
+        children![
+            (drag_button("Scale"), DragMode::Scale),
+            (drag_button("Roll"), DragMode::Roll),
+        ],
+    ));
 }
 
 /// Spawns a button that the user can drag to change a parameter.
-fn spawn_drag_button<'a>(
-    commands: &'a mut ChildSpawnerCommands,
-    label: &str,
-) -> EntityCommands<'a> {
-    let mut kid = commands.spawn(Node {
-        border: BUTTON_BORDER,
-        justify_content: JustifyContent::Center,
-        align_items: AlignItems::Center,
-        padding: BUTTON_PADDING,
-        ..default()
-    });
-    kid.insert((
+fn drag_button(label: &str) -> impl Bundle {
+    (
+        Node {
+            border: BUTTON_BORDER,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: BUTTON_PADDING,
+            border_radius: BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
+            ..default()
+        },
         Button,
         BackgroundColor(Color::BLACK),
-        BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
         BUTTON_BORDER_COLOR,
-    ))
-    .with_children(|parent| {
-        widgets::spawn_ui_text(parent, label, Color::WHITE);
-    });
-    kid
+        children![widgets::ui_text(label, Color::WHITE)],
+    )
 }
 
 /// Spawns the help text at the top of the screen.
@@ -304,8 +299,8 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
         Text::new(create_help_string(app_status)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         HelpText,
@@ -379,7 +374,7 @@ fn update_radio_buttons(
 
 /// Changes the selection when the user clicks a radio button.
 fn handle_selection_change(
-    mut events: EventReader<WidgetClickEvent<Selection>>,
+    mut events: MessageReader<WidgetClickEvent<Selection>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {

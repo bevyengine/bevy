@@ -65,7 +65,7 @@ fn setup(
     {
         commands.spawn((
             PointLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 range: 2.0,
                 color: DARK_CYAN.into(),
                 ..default()
@@ -74,7 +74,7 @@ fn setup(
         ));
         commands.spawn((
             SpotLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 range: 3.5,
                 color: PURPLE.into(),
                 outer_angle: PI / 4.0,
@@ -87,7 +87,7 @@ fn setup(
             DirectionalLight {
                 color: GOLD.into(),
                 illuminance: DirectionalLight::default().illuminance * 0.05,
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             Transform::from_xyz(-4.0, 2.0, 0.0).looking_at(Vec3::NEG_X * 1.5, Vec3::Y),
@@ -111,8 +111,8 @@ fn setup(
             ),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
+                top: px(12),
+                left: px(12),
                 ..default()
             },
         ));
@@ -127,8 +127,8 @@ fn setup(
                 GizmoColorText,
                 Node {
                     position_type: PositionType::Absolute,
-                    bottom: Val::Px(12.0),
-                    left: Val::Px(12.0),
+                    bottom: px(12),
+                    left: px(12),
                     ..default()
                 },
             ))

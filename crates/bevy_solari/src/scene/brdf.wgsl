@@ -3,7 +3,7 @@
 #import bevy_pbr::lighting::{F_AB, D_GGX, V_SmithGGXCorrelated, fresnel, specular_multiscatter}
 #import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
 #import bevy_render::maths::PI
-#import bevy_solari::scene_bindings::ResolvedMaterial
+#import bevy_solari::scene_bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD}
 
 fn evaluate_brdf(
     world_normal: vec3<f32>,
@@ -11,8 +11,8 @@ fn evaluate_brdf(
     wi: vec3<f32>,
     material: ResolvedMaterial,
 ) -> vec3<f32> {
-    let diffuse_brdf = diffuse_brdf(material.base_color, material.metallic);
-    let specular_brdf = specular_brdf(
+    let diffuse_brdf = evaluate_diffuse_brdf(world_normal, wi, material.base_color, material.metallic);
+    let specular_brdf = evaluate_specular_brdf(
         world_normal,
         wo,
         wi,
@@ -25,12 +25,12 @@ fn evaluate_brdf(
     return diffuse_brdf + specular_brdf;
 }
 
-fn diffuse_brdf(base_color: vec3<f32>, metallic: f32) -> vec3<f32> {
-    let diffuse_color = calculate_diffuse_color(base_color, metallic, 0.0, 0.0);
-    return diffuse_color / PI;
+fn evaluate_diffuse_brdf(N: vec3<f32>, L: vec3<f32>, base_color: vec3<f32>, metallic: f32) -> vec3<f32> {
+    let diffuse_color = calculate_diffuse_color(base_color, metallic, 0.0, 0.0) / PI;
+    return diffuse_color * saturate(dot(N, L));
 }
 
-fn specular_brdf(
+fn evaluate_specular_brdf(
     N: vec3<f32>,
     V: vec3<f32>,
     L: vec3<f32>,
@@ -47,10 +47,14 @@ fn specular_brdf(
     let NdotV = max(dot(N, V), 0.0001);
 
     let F0 = calculate_F0(base_color, metallic, reflectance);
-    let F_ab = F_AB(perceptual_roughness, NdotV);
+    let F = fresnel(F0, LdotH);
+
+    if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
+        return F;
+    }
 
     let D = D_GGX(roughness, NdotH);
     let Vs = V_SmithGGXCorrelated(roughness, NdotV, NdotL);
-    let F = fresnel(F0, LdotH);
-    return specular_multiscatter(D, Vs, F, F0, F_ab, 1.0);
+    let F_ab = F_AB(perceptual_roughness, NdotV);
+    return specular_multiscatter(D, Vs, F, F0, F_ab, 1.0) * saturate(dot(N, L));
 }

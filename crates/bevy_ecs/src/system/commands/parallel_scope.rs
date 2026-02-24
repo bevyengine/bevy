@@ -1,9 +1,10 @@
 use bevy_utils::Parallel;
 
 use crate::{
-    entity::Entities,
+    entity::{Entities, EntityAllocator},
     prelude::World,
     system::{Deferred, SystemBuffer, SystemMeta, SystemParam},
+    world::DeferredWorld,
 };
 
 use super::{CommandQueue, Commands};
@@ -51,6 +52,7 @@ struct ParallelCommandQueue {
 #[derive(SystemParam)]
 pub struct ParallelCommands<'w, 's> {
     state: Deferred<'s, ParallelCommandQueue>,
+    allocator: &'w EntityAllocator,
     entities: &'w Entities,
 }
 
@@ -63,6 +65,15 @@ impl SystemBuffer for ParallelCommandQueue {
             cq.apply(world);
         }
     }
+
+    #[inline]
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        #[cfg(feature = "trace")]
+        let _system_span = _system_meta.commands_span.enter();
+        for cq in self.thread_queues.iter_mut() {
+            world.commands().append(cq);
+        }
+    }
 }
 
 impl<'w, 's> ParallelCommands<'w, 's> {
@@ -71,7 +82,7 @@ impl<'w, 's> ParallelCommands<'w, 's> {
     /// For an example, see the type-level documentation for [`ParallelCommands`].
     pub fn command_scope<R>(&self, f: impl FnOnce(Commands) -> R) -> R {
         self.state.thread_queues.scope(|queue| {
-            let commands = Commands::new_from_entities(queue, self.entities);
+            let commands = Commands::new_from_entities(queue, self.allocator, self.entities);
             f(commands)
         })
     }

@@ -17,10 +17,10 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_log::error;
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_utils::default;
 use offset_allocator::{Allocation, Allocator};
-use tracing::error;
 use wgpu::{
     BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
     COPY_BUFFER_ALIGNMENT,
@@ -44,7 +44,7 @@ pub struct MeshAllocatorPlugin;
 /// rebinding. This resource manages these buffers.
 ///
 /// Within each slab, or hardware buffer, the underlying allocation algorithm is
-/// [`offset-allocator`], a Rust port of Sebastian Aaltonen's hard-real-time C++
+/// [`offset_allocator`], a Rust port of Sebastian Aaltonen's hard-real-time C++
 /// `OffsetAllocator`. Slabs start small and then grow as their contents fill
 /// up, up to a maximum size limit. To reduce fragmentation, vertex and index
 /// buffers that are too large bypass this system and receive their own buffers.
@@ -171,6 +171,15 @@ enum Slab {
     General(GeneralSlab),
     /// A slab that contains a single object.
     LargeObject(LargeObjectSlab),
+}
+
+impl Slab {
+    pub fn buffer_size(&self) -> u64 {
+        match self {
+            Self::General(gs) => gs.buffer.as_ref().map(|buffer| buffer.size()).unwrap_or(0),
+            Self::LargeObject(lo) => lo.buffer.as_ref().map(|buffer| buffer.size()).unwrap_or(0),
+        }
+    }
 }
 
 /// A resizable slab that can contain multiple objects.
@@ -408,6 +417,20 @@ impl MeshAllocator {
             self.mesh_id_to_vertex_slab.get(mesh_id).cloned(),
             self.mesh_id_to_index_slab.get(mesh_id).cloned(),
         )
+    }
+
+    /// Get the number of allocated slabs
+    pub fn slab_count(&self) -> usize {
+        self.slabs.len()
+    }
+
+    /// Get the total size of all allocated slabs
+    pub fn slabs_size(&self) -> u64 {
+        self.slabs.iter().map(|slab| slab.1.buffer_size()).sum()
+    }
+
+    pub fn allocations(&self) -> usize {
+        self.mesh_id_to_index_slab.len()
     }
 
     /// Given a slab and a mesh with data located with it, returns the buffer

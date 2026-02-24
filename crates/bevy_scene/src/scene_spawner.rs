@@ -2,8 +2,9 @@ use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
-    event::{EntityEvent, EventCursor, Events},
+    event::EntityEvent,
     hierarchy::ChildOf,
+    message::{MessageCursor, Messages},
     reflect::AppTypeRegistry,
     resource::Resource,
     world::{Mut, World},
@@ -16,13 +17,14 @@ use uuid::Uuid;
 
 use crate::{DynamicSceneRoot, SceneRoot};
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::prelude::SystemSet;
 use bevy_ecs::{
     change_detection::ResMut,
     prelude::{Changed, Component, Without},
     system::{Commands, Query},
 };
 
-/// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
+/// Triggered on a scene's parent entity when [`SceneInstance`](`crate::SceneInstance`) becomes ready to use.
 ///
 /// See also [`On`], [`SceneSpawner::instance_is_ready`].
 ///
@@ -30,6 +32,8 @@ use bevy_ecs::{
 #[derive(Clone, Copy, Debug, Eq, PartialEq, EntityEvent, Reflect)]
 #[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {
+    /// The entity whose scene instance is ready.
+    pub entity: Entity,
     /// Instance which has been spawned.
     pub instance_id: InstanceId,
 }
@@ -52,6 +56,13 @@ impl InstanceId {
     fn new() -> Self {
         InstanceId(Uuid::new_v4())
     }
+}
+
+/// Set enum for the systems relating to scene spawning.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum SceneSpawnerSystems {
+    /// Systems that spawn scenes.
+    Spawn,
 }
 
 /// Handles spawning and despawning scenes in the world, either synchronously or batched through the [`scene_spawner_system`].
@@ -81,7 +92,7 @@ pub struct SceneSpawner {
     pub(crate) spawned_scenes: HashMap<AssetId<Scene>, HashSet<InstanceId>>,
     pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
     spawned_instances: HashMap<InstanceId, InstanceInfo>,
-    scene_asset_event_reader: EventCursor<AssetEvent<Scene>>,
+    scene_asset_event_reader: MessageCursor<AssetEvent<Scene>>,
     // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on scenes
     // To handle scene hot reloading, they are unloaded/reloaded on asset modifications.
     // When loading several subassets of a scene as is common with gltf, they each trigger a complete asset load,
@@ -90,7 +101,7 @@ pub struct SceneSpawner {
     // Debouncing scene asset events let us ignore events that happen less than SCENE_ASSET_AGE_THRESHOLD frames
     // apart and not reload the scene in those cases as it's unlikely to be an actual asset change.
     debounced_scene_asset_events: HashMap<AssetId<Scene>, u32>,
-    dynamic_scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
+    dynamic_scene_asset_event_reader: MessageCursor<AssetEvent<DynamicScene>>,
     // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on scenes
     // See debounced_scene_asset_events
     debounced_dynamic_scene_asset_events: HashMap<AssetId<DynamicScene>, u32>,
@@ -506,12 +517,18 @@ impl SceneSpawner {
         for (instance_id, parent) in self.instances_ready.drain(..) {
             if let Some(parent) = parent {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                world
-                    .commands()
-                    .trigger_targets(SceneInstanceReady { instance_id }, parent);
+                world.commands().trigger(SceneInstanceReady {
+                    instance_id,
+                    entity: parent,
+                });
             } else {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                world.commands().trigger(SceneInstanceReady { instance_id });
+                // TODO: triggering this for PLACEHOLDER is suboptimal, but this scene system is on
+                // its way out, so lets avoid breaking people by making a second event.
+                world.commands().trigger(SceneInstanceReady {
+                    instance_id,
+                    entity: Entity::PLACEHOLDER,
+                });
             }
         }
     }
@@ -554,8 +571,8 @@ pub fn scene_spawner_system(world: &mut World) {
             .scenes_to_spawn
             .retain(|(_, _, parent)| is_parent_alive(parent));
 
-        let scene_asset_events = world.resource::<Events<AssetEvent<Scene>>>();
-        let dynamic_scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
+        let scene_asset_events = world.resource::<Messages<AssetEvent<Scene>>>();
+        let dynamic_scene_asset_events = world.resource::<Messages<AssetEvent<DynamicScene>>>();
         let scene_spawner = &mut *scene_spawner;
 
         let mut updated_spawned_scenes = Vec::new();
@@ -700,7 +717,7 @@ mod tests {
         component::Component,
         hierarchy::Children,
         observer::On,
-        prelude::ReflectComponent,
+        prelude::{ReflectComponent, ReflectResource},
         query::With,
         system::{Commands, Query, Res, ResMut, RunSystemOnce},
     };
@@ -731,6 +748,7 @@ mod tests {
         app.add_plugins(ScheduleRunnerPlugin::default())
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin);
+        app.register_type::<ComponentA>();
         app.update();
 
         let mut scene_world = World::new();
@@ -839,7 +857,8 @@ mod tests {
     #[reflect(Component)]
     struct ComponentF;
 
-    #[derive(Resource, Default)]
+    #[derive(Resource, Default, Reflect)]
+    #[reflect(Resource)]
     struct TriggerCount(u32);
 
     fn setup() -> App {
@@ -880,21 +899,21 @@ mod tests {
     fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Option<Entity>) {
         // Add observer
         app.world_mut().add_observer(
-            move |trigger: On<SceneInstanceReady>,
+            move |event: On<SceneInstanceReady>,
                   scene_spawner: Res<SceneSpawner>,
                   mut trigger_count: ResMut<TriggerCount>| {
                 assert_eq!(
-                    trigger.event().instance_id,
+                    event.event().instance_id,
                     scene_id,
                     "`SceneInstanceReady` contains the wrong `InstanceId`"
                 );
                 assert_eq!(
-                    trigger.target(),
+                    event.event_target(),
                     scene_entity.unwrap_or(Entity::PLACEHOLDER),
                     "`SceneInstanceReady` triggered on the wrong parent entity"
                 );
                 assert!(
-                    scene_spawner.instance_is_ready(trigger.event().instance_id),
+                    scene_spawner.instance_is_ready(event.event().instance_id),
                     "`InstanceId` is not ready"
                 );
                 trigger_count.0 += 1;
@@ -1053,6 +1072,8 @@ mod tests {
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin)
             .register_type::<ComponentA>()
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
             .register_type::<ComponentF>();
         app.update();
 

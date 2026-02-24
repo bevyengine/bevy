@@ -108,8 +108,8 @@ fn setup(
     // Spawn the text instructions
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextFont {
-        font: font.clone(),
-        font_size: 25.0,
+        font: font.clone().into(),
+        font_size: FontSize::Px(25.0),
         ..default()
     };
     commands.spawn((
@@ -301,7 +301,7 @@ fn drag(
 /// Quit when the user right clicks the Bevy logo
 fn quit(
     cursor_world_pos: Res<CursorWorldPos>,
-    mut app_exit: EventWriter<AppExit>,
+    mut app_exit: MessageWriter<AppExit>,
     bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
 ) {
     // If the cursor is not within the primary window skip this system

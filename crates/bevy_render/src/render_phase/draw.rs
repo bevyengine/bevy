@@ -1,3 +1,5 @@
+use bevy_material::labels::DrawFunctionId;
+
 use crate::render_phase::{PhaseItem, TrackedRenderPass};
 use bevy_app::{App, SubApp};
 use bevy_ecs::{
@@ -8,7 +10,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::TypeIdMap;
-use core::{any::TypeId, fmt::Debug, hash::Hash};
+use core::{any::TypeId, fmt::Debug};
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thiserror::Error;
 use variadics_please::all_tuples;
@@ -48,11 +50,6 @@ pub enum DrawError {
     #[error("View entity not found")]
     ViewEntityNotFound,
 }
-
-// TODO: make this generic?
-/// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct DrawFunctionId(u32);
 
 /// Stores all [`Draw`] functions for the [`PhaseItem`] type.
 ///
@@ -333,9 +330,7 @@ where
         let view = match self.view.get_manual(world, view) {
             Ok(view) => view,
             Err(err) => match err {
-                QueryEntityError::EntityDoesNotExist(_) => {
-                    return Err(DrawError::ViewEntityNotFound)
-                }
+                QueryEntityError::NotSpawned(_) => return Err(DrawError::ViewEntityNotFound),
                 QueryEntityError::QueryDoesNotMatch(_, _)
                 | QueryEntityError::AliasedMutability(_) => {
                     return Err(DrawError::InvalidViewQuery)

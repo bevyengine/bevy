@@ -2,7 +2,7 @@ use core::hint::black_box;
 use std::time::Duration;
 
 use benches::bench;
-use bevy_math::{Dir3, Mat4, Ray3d, Vec3};
+use bevy_math::{Affine3A, Dir3, Ray3d, Vec3};
 use bevy_picking::mesh_picking::ray_cast::{self, Backfaces};
 use criterion::{criterion_group, AxisScale, BenchmarkId, Criterion, PlotConfiguration};
 
@@ -44,7 +44,7 @@ fn create_mesh(vertices_per_side: u32) -> SimpleMesh {
         // All vertices have the same normal.
         normals.push([0.0, 1.0, 0.0]);
 
-        // Extend the indices for for all vertices except for the final row and column, since
+        // Extend the indices for all vertices except for the final row and column, since
         // indices are "between" points.
         if p % vertices_per_side != vertices_per_side - 1
             && p / vertices_per_side != vertices_per_side - 1
@@ -103,8 +103,8 @@ impl Benchmarks {
         )
     }
 
-    fn mesh_to_world(&self) -> Mat4 {
-        Mat4::IDENTITY
+    fn mesh_to_world(&self) -> Affine3A {
+        Affine3A::IDENTITY
     }
 
     fn backface_culling(&self) -> Backfaces {

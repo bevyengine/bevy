@@ -1,8 +1,8 @@
 extern crate proc_macro;
 
 use alloc::collections::BTreeMap;
-use parking_lot::{lock_api::RwLockReadGuard, MappedRwLockReadGuard, RwLock, RwLockWriteGuard};
 use proc_macro::TokenStream;
+use std::sync::{PoisonError, RwLock};
 use std::{
     env,
     path::{Path, PathBuf},
@@ -20,19 +20,21 @@ pub struct BevyManifest {
 const BEVY: &str = "bevy";
 
 impl BevyManifest {
-    /// Returns a global shared instance of the [`BevyManifest`] struct.
-    pub fn shared() -> MappedRwLockReadGuard<'static, BevyManifest> {
+    /// Calls `f` with a global shared instance of the [`BevyManifest`] struct.
+    pub fn shared<R>(f: impl FnOnce(&BevyManifest) -> R) -> R {
         static MANIFESTS: RwLock<BTreeMap<PathBuf, BevyManifest>> = RwLock::new(BTreeMap::new());
         let manifest_path = Self::get_manifest_path();
         let modified_time = Self::get_manifest_modified_time(&manifest_path)
             .expect("The Cargo.toml should have a modified time");
 
-        if let Ok(manifest) =
-            RwLockReadGuard::try_map(MANIFESTS.read(), |manifests| manifests.get(&manifest_path))
+        let manifests = MANIFESTS.read().unwrap_or_else(PoisonError::into_inner);
+        if let Some(manifest) = manifests.get(&manifest_path)
             && manifest.modified_time == modified_time
         {
-            return manifest;
+            return f(manifest);
         }
+
+        drop(manifests);
 
         let manifest = BevyManifest {
             manifest: Self::read_manifest(&manifest_path),
@@ -40,12 +42,17 @@ impl BevyManifest {
         };
 
         let key = manifest_path.clone();
-        let mut manifests = MANIFESTS.write();
-        manifests.insert(key, manifest);
+        // TODO: Switch to using RwLockWriteGuard::downgrade when it stabilizes.
+        MANIFESTS
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(key, manifest);
 
-        RwLockReadGuard::map(RwLockWriteGuard::downgrade(manifests), |manifests| {
-            manifests.get(&manifest_path).unwrap()
-        })
+        f(MANIFESTS
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&manifest_path)
+            .unwrap())
     }
 
     fn get_manifest_path() -> PathBuf {

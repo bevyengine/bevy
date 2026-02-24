@@ -56,13 +56,7 @@ fn update(
             .id();
 
         let camera = commands
-            .spawn((
-                Camera2d,
-                Camera {
-                    target: RenderTarget::Window(WindowRef::Entity(window)),
-                    ..default()
-                },
-            ))
+            .spawn((Camera2d, RenderTarget::Window(WindowRef::Entity(window))))
             .id();
 
         let info_text = format!(
@@ -72,8 +66,8 @@ fn update(
             Text(info_text),
             Node {
                 position_type: PositionType::Relative,
-                height: Val::Percent(100.0),
-                width: Val::Percent(100.0),
+                height: percent(100),
+                width: percent(100),
                 ..default()
             },
             UiTargetCamera(camera),

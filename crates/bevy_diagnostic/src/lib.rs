@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -17,7 +17,7 @@ extern crate alloc;
 
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
-mod frame_count_diagnostics_plugin;
+mod frame_count;
 mod frame_time_diagnostics_plugin;
 mod log_diagnostics_plugin;
 #[cfg(feature = "sysinfo_plugin")]
@@ -26,7 +26,7 @@ mod system_information_diagnostics_plugin;
 pub use diagnostic::*;
 
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
-pub use frame_count_diagnostics_plugin::{update_frame_count, FrameCount, FrameCountPlugin};
+pub use frame_count::{update_frame_count, FrameCount, FrameCountPlugin};
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
 pub use log_diagnostics_plugin::{LogDiagnosticsPlugin, LogDiagnosticsState};
 #[cfg(feature = "sysinfo_plugin")]

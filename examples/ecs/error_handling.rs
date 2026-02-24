@@ -5,9 +5,9 @@ use bevy::ecs::{error::warn, world::DeferredWorld};
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
+use chacha20::ChaCha8Rng;
 use rand::distr::Distribution;
 use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
 
 fn main() {
     let mut app = App::new();
@@ -22,7 +22,7 @@ fn main() {
 
     app.add_plugins(DefaultPlugins);
 
-    #[cfg(feature = "bevy_mesh_picking_backend")]
+    #[cfg(feature = "mesh_picking")]
     app.add_plugins(MeshPickingPlugin);
 
     // Fallible systems can be used the same way as regular systems. The only difference is they
@@ -73,7 +73,7 @@ fn setup(
     // Spawn a light:
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -123,12 +123,12 @@ fn setup(
 
 // Observer systems can also return a `Result`.
 fn fallible_observer(
-    trigger: On<Pointer<Move>>,
+    pointer_move: On<Pointer<Move>>,
     mut world: DeferredWorld,
     mut step: Local<f32>,
 ) -> Result {
     let mut transform = world
-        .get_mut::<Transform>(trigger.target())
+        .get_mut::<Transform>(pointer_move.entity)
         .ok_or("No transform found.")?;
 
     *step = if transform.translation.x > 3. {

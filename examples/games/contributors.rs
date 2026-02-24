@@ -1,8 +1,9 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
 use bevy::{math::bounding::Aabb2d, prelude::*};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 use std::{
     collections::HashMap,
     env::VarError,
@@ -139,8 +140,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     let text_style = TextFont {
-        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-        font_size: 60.0,
+        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+        font_size: FontSize::Px(60.0),
         ..default()
     };
 
@@ -151,15 +152,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ContributorDisplay,
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(12.),
-                left: Val::Px(12.),
+                top: px(12),
+                left: px(12),
                 ..default()
             },
         ))
         .with_child((
             TextSpan::default(),
             TextFont {
-                font_size: 30.,
+                font_size: FontSize::Px(30.),
                 ..text_style
             },
         ));

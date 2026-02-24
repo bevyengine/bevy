@@ -60,8 +60,8 @@ fn setup(mut commands: Commands) {
     commands
         .spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Column,
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands) {
             children![(
                 Text::default(),
                 TextFont {
-                    font_size: 100.0,
+                    font_size: FontSize::Px(100.0),
                     ..default()
                 },
             )],

@@ -2,7 +2,7 @@
 
 use bevy_ecs::{
     entity::Entity,
-    event::{BufferedEvent, EventReader},
+    message::{Message, MessageReader},
     resource::Resource,
     system::ResMut,
 };
@@ -37,7 +37,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
-#[derive(BufferedEvent, Debug, Clone, Copy, PartialEq)]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -432,7 +432,7 @@ impl Touches {
 /// the latter has convenient functions like [`Touches::just_pressed`] and [`Touches::just_released`].
 pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
-    mut touch_input_events: EventReader<TouchInput>,
+    mut touch_input_reader: MessageReader<TouchInput>,
 ) {
     if !touch_state.just_pressed.is_empty() {
         touch_state.just_pressed.clear();
@@ -444,13 +444,13 @@ pub fn touch_screen_input_system(
         touch_state.just_canceled.clear();
     }
 
-    if !touch_input_events.is_empty() {
+    if !touch_input_reader.is_empty() {
         for touch in touch_state.pressed.values_mut() {
             touch.previous_position = touch.position;
             touch.previous_force = touch.force;
         }
 
-        for event in touch_input_events.read() {
+        for event in touch_input_reader.read() {
             touch_state.process_touch_event(event);
         }
     }

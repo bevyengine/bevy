@@ -23,7 +23,7 @@
 
 // TODO: Fixed-point math and top-left rule
 
-var<workgroup> viewport_vertices: array<vec3f, 255>;
+var<workgroup> viewport_vertices: array<vec3f, 256>;
 
 @compute
 @workgroup_size(128, 1, 1) // 128 threads per workgroup, 1-2 vertices per thread, 1 triangle per thread, 1 cluster per workgroup

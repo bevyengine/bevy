@@ -138,8 +138,8 @@ fn spawn_text(mut commands: Commands) {
         ),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.),
-            left: Val::Px(12.),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -174,7 +174,7 @@ fn alter_mesh(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     // Obtain a mutable reference to the Mesh asset.
-    let Some(mesh) = meshes.get_mut(*left_shape) else {
+    let Some(mut mesh) = meshes.get_mut(*left_shape) else {
         return;
     };
 

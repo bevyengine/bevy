@@ -13,8 +13,8 @@ fn main() {
 }
 
 /// This system prints out all char events as they come in.
-fn print_char_event_system(mut char_input_events: EventReader<KeyboardInput>) {
-    for event in char_input_events.read() {
+fn print_char_event_system(mut keyboard_inputs: MessageReader<KeyboardInput>) {
+    for event in keyboard_inputs.read() {
         // Only check for characters when the key is pressed.
         if !event.state.is_pressed() {
             continue;

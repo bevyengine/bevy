@@ -33,6 +33,7 @@ use bevy_ecs::{
 /// * [`RunFixedMainLoop`]
 ///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]
+/// * [`SpawnScene`]
 /// * [`PostUpdate`]
 /// * [`Last`]
 ///
@@ -80,7 +81,7 @@ pub struct PostStartup;
 pub struct First;
 
 /// The schedule that contains logic that must run before [`Update`]. For example, a system that reads raw keyboard
-/// input OS events into an `Events` resource. This enables systems in [`Update`] to consume the events from the `Events`
+/// input OS events into a `Messages` resource. This enables systems in [`Update`] to consume the messages from the `Messages`
 /// resource without actually knowing about (or taking a direct scheduler dependency on) the "os-level keyboard event system".
 ///
 /// [`PreUpdate`] exists to do "engine/plugin preparation work" that ensures the APIs consumed in [`Update`] are "ready".
@@ -173,7 +174,7 @@ pub struct Update;
 
 /// The schedule that contains scene spawning.
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// This runs after [`Update`] and before [`PostUpdate`]. See the [`Main`] schedule for more details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct SpawnScene;
 
@@ -197,10 +198,6 @@ pub struct Last;
 /// Animation system set. This exists in [`PostUpdate`].
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct AnimationSystems;
-
-/// Deprecated alias for [`AnimationSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `AnimationSystems`.")]
-pub type Animation = AnimationSystems;
 
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.
@@ -484,7 +481,3 @@ pub enum RunFixedMainLoopSystems {
     /// ```
     AfterFixedMainLoop,
 }
-
-/// Deprecated alias for [`RunFixedMainLoopSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RunFixedMainLoopSystems`.")]
-pub type RunFixedMainLoopSystem = RunFixedMainLoopSystems;

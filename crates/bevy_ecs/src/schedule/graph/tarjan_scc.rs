@@ -13,7 +13,7 @@ use crate::schedule::graph::{DiGraph, GraphNodeId};
 /// [1]: https://homepages.ecs.vuw.ac.nz/~djp/files/P05.pdf
 /// [2]: https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 ///
-/// Returns each strongly strongly connected component (scc).
+/// Returns each strongly connected component (scc).
 /// The order of node ids within each scc is arbitrary, but the order of
 /// the sccs is their postorder (reverse topological sort).
 pub(crate) fn new_tarjan_scc<N: GraphNodeId, S: BuildHasher>(
@@ -102,7 +102,7 @@ impl<
     /// [1]: https://homepages.ecs.vuw.ac.nz/~djp/files/P05.pdf
     /// [2]: https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
     ///
-    /// Returns `Some` for each strongly strongly connected component (scc).
+    /// Returns `Some` for each strongly connected component (scc).
     /// The order of node ids within each scc is arbitrary, but the order of
     /// the sccs is their postorder (reverse topological sort).
     fn next_scc(&mut self) -> Option<&[N]> {

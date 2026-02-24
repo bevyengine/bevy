@@ -1,14 +1,14 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Macros for deriving asset traits.
 
-use bevy_macro_utils::BevyManifest;
+use bevy_macro_utils::{as_member, BevyManifest};
 use proc_macro::{Span, TokenStream};
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Path};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Path};
 
 pub(crate) fn bevy_asset_path() -> Path {
-    BevyManifest::shared().get_path("bevy_asset")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_asset"))
 }
 
 const DEPENDENCY_ATTRIBUTE: &str = "dependency";
@@ -55,17 +55,14 @@ fn derive_dependency_visitor_internal(
     let field_has_dep = |f: &syn::Field| f.attrs.iter().any(is_dep_attribute);
 
     let body = match &ast.data {
-        Data::Struct(data_struct) => {
-            let fields = data_struct.fields.iter();
-            let field_visitors = fields.enumerate().filter(|(_, f)| field_has_dep(f));
-            let field_visitors = field_visitors.map(|(i, field)| match &field.ident {
-                Some(ident) => visit_dep(quote!(&self.#ident)),
-                None => {
-                    let index = syn::Index::from(i);
-                    visit_dep(quote!(&self.#index))
-                }
-            });
-            Some(quote!( #(#field_visitors)* ))
+        Data::Struct(DataStruct { fields, .. }) => {
+            let field_visitors = fields
+                .iter()
+                .enumerate()
+                .filter(|(_, f)| field_has_dep(f))
+                .map(|(i, field)| as_member(field.ident.as_ref(), i))
+                .map(|member| visit_dep(quote!(&self.#member)));
+            Some(quote!(#(#field_visitors)*))
         }
         Data::Enum(data_enum) => {
             let variant_has_dep = |v: &syn::Variant| v.fields.iter().any(field_has_dep);
@@ -73,29 +70,15 @@ fn derive_dependency_visitor_internal(
             let cases = data_enum.variants.iter().filter(|v| variant_has_dep(v));
             let cases = cases.map(|variant| {
                 let ident = &variant.ident;
-                let fields = &variant.fields;
-
-                let field_visitors = fields.iter().enumerate().filter(|(_, f)| field_has_dep(f));
-
-                let field_visitors = field_visitors.map(|(i, field)| match &field.ident {
-                    Some(ident) => visit_dep(quote!(#ident)),
-                    None => {
-                        let ident = format_ident!("member{i}");
-                        visit_dep(quote!(#ident))
-                    }
-                });
-                let fields = match fields {
-                    syn::Fields::Named(fields) => {
-                        let named = fields.named.iter().map(|f| f.ident.as_ref());
-                        quote!({ #(#named,)* .. })
-                    }
-                    syn::Fields::Unnamed(fields) => {
-                        let named = (0..fields.unnamed.len()).map(|i| format_ident!("member{i}"));
-                        quote!( ( #(#named,)* ) )
-                    }
-                    syn::Fields::Unit => unreachable!("Can't pass filter is_dep_attribute"),
-                };
-                quote!(Self::#ident #fields => {
+                let field_members = variant
+                    .fields
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, f)| field_has_dep(f))
+                    .map(|(i, field)| as_member(field.ident.as_ref(), i));
+                let field_locals = field_members.clone().map(|m| format_ident!("__self_{}", m));
+                let field_visitors = field_locals.clone().map(|i| visit_dep(quote!(#i)));
+                quote!(Self::#ident {#(#field_members: #field_locals,)* ..} => {
                     #(#field_visitors)*
                 })
             });

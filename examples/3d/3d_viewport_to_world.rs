@@ -21,12 +21,9 @@ fn draw_cursor(
     if let Some(cursor_position) = window.cursor_position()
         // Calculate a ray pointing from the camera into the world based on the cursor's position.
         && let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position)
-        // Calculate if and at what distance the ray is hitting the ground plane.
-        && let Some(distance) =
-            ray.intersect_plane(ground.translation(), InfinitePlane3d::new(ground.up()))
+        // Calculate if and where the ray is hitting the ground plane.
+        && let Some(point) = ray.plane_intersection_point(ground.translation(), InfinitePlane3d::new(ground.up()))
     {
-        let point = ray.get_point(distance);
-
         // Draw a circle just above the ground plane at that position.
         gizmos.circle(
             Isometry3d::new(

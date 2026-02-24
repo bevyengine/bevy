@@ -12,33 +12,30 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Has, QueryItem, With},
+    query::{Has, With},
     resource::Resource,
-    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
-    world::World,
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_light::{FogVolume, VolumetricFog, VolumetricLight};
-use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
+use bevy_math::{vec4, Affine3A, Mat4, Vec3, Vec3A, Vec4};
 use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         binding_types::{
             sampler, texture_3d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
         },
-        BindGroupLayout, BindGroupLayoutEntries, BindingResource, BlendComponent, BlendFactor,
-        BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
-        DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp, Operations,
-        PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
+        BindGroupLayoutDescriptor, BindGroupLayoutEntries, BindingResource, BlendComponent,
+        BlendFactor, BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState,
+        ColorWrites, DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp,
+        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, SamplerBindingType, ShaderStages, ShaderType,
         SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureFormat,
         TextureSampleType, TextureUsages, VertexState,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::RenderEntity,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
@@ -50,9 +47,9 @@ use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
 use crate::{
-    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 
 use super::FogAssets;
@@ -105,7 +102,8 @@ pub struct VolumetricFogPipeline {
     /// All bind group layouts.
     ///
     /// Since there aren't too many of these, we precompile them all.
-    volumetric_view_bind_group_layouts: [BindGroupLayout; VOLUMETRIC_FOG_BIND_GROUP_LAYOUT_COUNT],
+    volumetric_view_bind_group_layouts:
+        [BindGroupLayoutDescriptor; VOLUMETRIC_FOG_BIND_GROUP_LAYOUT_COUNT],
 
     // The shader asset handle.
     shader: Handle<Shader>,
@@ -121,11 +119,6 @@ pub struct ViewVolumetricFogPipelines {
     /// The render pipeline that we use when a density texture is present.
     pub textured: CachedRenderPipelineId,
 }
-
-/// The node in the render graph, part of the postprocessing stack, that
-/// implements volumetric fog.
-#[derive(Default)]
-pub struct VolumetricFogNode;
 
 /// Identifies a single specialization of the volumetric fog shader.
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -204,7 +197,6 @@ pub struct VolumetricFogUniformBuffer(pub DynamicUniformBuffer<VolumetricFogUnif
 
 pub fn init_volumetric_fog_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     mesh_view_layouts: Res<MeshPipelineViewLayouts>,
     asset_server: Res<AssetServer>,
 ) {
@@ -249,7 +241,7 @@ pub fn init_volumetric_fog_pipeline(
 
         // Create the bind group layout.
         let description = flags.bind_group_layout_description();
-        render_device.create_bind_group_layout(&*description, &bind_group_layout_entries)
+        BindGroupLayoutDescriptor::new(description, &bind_group_layout_entries)
     });
 
     commands.insert_resource(VolumetricFogPipeline {
@@ -303,209 +295,195 @@ pub fn extract_volumetric_fog(
     }
 }
 
-impl ViewNode for VolumetricFogNode {
-    type ViewQuery = (
-        Read<ViewTarget>,
-        Read<ViewDepthTexture>,
-        Read<ViewVolumetricFogPipelines>,
-        Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
-        Read<ViewFogUniformOffset>,
-        Read<ViewLightProbesUniformOffset>,
-        Read<ViewVolumetricFog>,
-        Read<MeshViewBindGroup>,
-        Read<ViewScreenSpaceReflectionsUniformOffset>,
-        Read<Msaa>,
-        Read<ViewEnvironmentMapUniformOffset>,
-    );
+pub fn volumetric_fog(
+    view: ViewQuery<(
+        &ViewTarget,
+        &ViewDepthTexture,
+        &ViewVolumetricFogPipelines,
+        &ViewUniformOffset,
+        &ViewLightsUniformOffset,
+        &ViewFogUniformOffset,
+        &ViewLightProbesUniformOffset,
+        &ViewVolumetricFog,
+        &MeshViewBindGroup,
+        &ViewScreenSpaceReflectionsUniformOffset,
+        &ViewContactShadowsUniformOffset,
+        &Msaa,
+        &ViewEnvironmentMapUniformOffset,
+    )>,
+    pipeline_cache: Res<PipelineCache>,
+    volumetric_lighting_pipeline: Res<VolumetricFogPipeline>,
+    volumetric_lighting_uniform_buffers: Res<VolumetricFogUniformBuffer>,
+    image_assets: Res<RenderAssets<GpuImage>>,
+    mesh_allocator: Res<MeshAllocator>,
+    fog_assets: Res<FogAssets>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
+    mut ctx: RenderContext,
+) {
+    let (
+        view_target,
+        view_depth_texture,
+        view_volumetric_lighting_pipelines,
+        view_uniform_offset,
+        view_lights_offset,
+        view_fog_offset,
+        view_light_probes_offset,
+        view_fog_volumes,
+        view_bind_group,
+        view_ssr_offset,
+        view_contact_shadows_offset,
+        msaa,
+        view_environment_map_offset,
+    ) = view.into_inner();
 
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (
-            view_target,
-            view_depth_texture,
-            view_volumetric_lighting_pipelines,
-            view_uniform_offset,
-            view_lights_offset,
-            view_fog_offset,
-            view_light_probes_offset,
-            view_fog_volumes,
-            view_bind_group,
-            view_ssr_offset,
-            msaa,
-            view_environment_map_offset,
-        ): QueryItem<'w, '_, Self::ViewQuery>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let volumetric_lighting_pipeline = world.resource::<VolumetricFogPipeline>();
-        let volumetric_lighting_uniform_buffers = world.resource::<VolumetricFogUniformBuffer>();
-        let image_assets = world.resource::<RenderAssets<GpuImage>>();
-        let mesh_allocator = world.resource::<MeshAllocator>();
+    // Fetch the uniform buffer and binding.
+    let (
+        Some(textureless_pipeline),
+        Some(textured_pipeline),
+        Some(volumetric_lighting_uniform_buffer_binding),
+    ) = (
+        pipeline_cache.get_render_pipeline(view_volumetric_lighting_pipelines.textureless),
+        pipeline_cache.get_render_pipeline(view_volumetric_lighting_pipelines.textured),
+        volumetric_lighting_uniform_buffers.binding(),
+    )
+    else {
+        return;
+    };
 
-        // Fetch the uniform buffer and binding.
-        let (
-            Some(textureless_pipeline),
-            Some(textured_pipeline),
-            Some(volumetric_lighting_uniform_buffer_binding),
-        ) = (
-            pipeline_cache.get_render_pipeline(view_volumetric_lighting_pipelines.textureless),
-            pipeline_cache.get_render_pipeline(view_volumetric_lighting_pipelines.textured),
-            volumetric_lighting_uniform_buffers.binding(),
-        )
-        else {
-            return Ok(());
+    let command_encoder = ctx.command_encoder();
+    command_encoder.push_debug_group("volumetric_lighting");
+
+    for view_fog_volume in view_fog_volumes.iter() {
+        // If the camera is outside the fog volume, pick the cube mesh;
+        // otherwise, pick the plane mesh. In the latter case we'll be
+        // effectively rendering a full-screen quad.
+        let mesh_handle = if view_fog_volume.exterior {
+            fog_assets.cube_mesh.clone()
+        } else {
+            fog_assets.plane_mesh.clone()
         };
 
-        let diagnostics = render_context.diagnostic_recorder();
-        render_context
-            .command_encoder()
-            .push_debug_group("volumetric_lighting");
-        let time_span =
-            diagnostics.time_span(render_context.command_encoder(), "volumetric_lighting");
+        let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(&mesh_handle.id()) else {
+            continue;
+        };
 
-        let fog_assets = world.resource::<FogAssets>();
-        let render_meshes = world.resource::<RenderAssets<RenderMesh>>();
+        let density_image = view_fog_volume
+            .density_texture
+            .and_then(|density_texture| image_assets.get(density_texture));
 
-        for view_fog_volume in view_fog_volumes.iter() {
-            // If the camera is outside the fog volume, pick the cube mesh;
-            // otherwise, pick the plane mesh. In the latter case we'll be
-            // effectively rendering a full-screen quad.
-            let mesh_handle = if view_fog_volume.exterior {
-                fog_assets.cube_mesh.clone()
-            } else {
-                fog_assets.plane_mesh.clone()
-            };
+        // Pick the right pipeline, depending on whether a density texture
+        // is present or not.
+        let pipeline = if density_image.is_some() {
+            textured_pipeline
+        } else {
+            textureless_pipeline
+        };
 
-            let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(&mesh_handle.id())
-            else {
-                continue;
-            };
+        // This should always succeed, but if the asset was unloaded don't
+        // panic.
+        let Some(render_mesh) = render_meshes.get(&mesh_handle) else {
+            return;
+        };
 
-            let density_image = view_fog_volume
-                .density_texture
-                .and_then(|density_texture| image_assets.get(density_texture));
+        // Create the bind group for the view.
+        //
+        // TODO: Cache this.
 
-            // Pick the right pipeline, depending on whether a density texture
-            // is present or not.
-            let pipeline = if density_image.is_some() {
-                textured_pipeline
-            } else {
-                textureless_pipeline
-            };
+        let mut bind_group_layout_key = VolumetricFogBindGroupLayoutKey::empty();
+        bind_group_layout_key.set(
+            VolumetricFogBindGroupLayoutKey::MULTISAMPLED,
+            !matches!(*msaa, Msaa::Off),
+        );
 
-            // This should always succeed, but if the asset was unloaded don't
-            // panic.
-            let Some(render_mesh) = render_meshes.get(&mesh_handle) else {
-                return Ok(());
-            };
-
-            // Create the bind group for the view.
-            //
-            // TODO: Cache this.
-
-            let mut bind_group_layout_key = VolumetricFogBindGroupLayoutKey::empty();
-            bind_group_layout_key.set(
-                VolumetricFogBindGroupLayoutKey::MULTISAMPLED,
-                !matches!(*msaa, Msaa::Off),
-            );
-
-            // Create the bind group entries. The ones relating to the density
-            // texture will only be filled in if that texture is present.
-            let mut bind_group_entries = DynamicBindGroupEntries::sequential((
-                volumetric_lighting_uniform_buffer_binding.clone(),
-                BindingResource::TextureView(view_depth_texture.view()),
+        // Create the bind group entries. The ones relating to the density
+        // texture will only be filled in if that texture is present.
+        let mut bind_group_entries = DynamicBindGroupEntries::sequential((
+            volumetric_lighting_uniform_buffer_binding.clone(),
+            BindingResource::TextureView(view_depth_texture.view()),
+        ));
+        if let Some(density_image) = density_image {
+            bind_group_layout_key.insert(VolumetricFogBindGroupLayoutKey::DENSITY_TEXTURE);
+            bind_group_entries = bind_group_entries.extend_sequential((
+                BindingResource::TextureView(&density_image.texture_view),
+                BindingResource::Sampler(&density_image.sampler),
             ));
-            if let Some(density_image) = density_image {
-                bind_group_layout_key.insert(VolumetricFogBindGroupLayoutKey::DENSITY_TEXTURE);
-                bind_group_entries = bind_group_entries.extend_sequential((
-                    BindingResource::TextureView(&density_image.texture_view),
-                    BindingResource::Sampler(&density_image.sampler),
-                ));
-            }
-
-            let volumetric_view_bind_group_layout = &volumetric_lighting_pipeline
-                .volumetric_view_bind_group_layouts[bind_group_layout_key.bits() as usize];
-
-            let volumetric_view_bind_group = render_context.render_device().create_bind_group(
-                None,
-                volumetric_view_bind_group_layout,
-                &bind_group_entries,
-            );
-
-            let render_pass_descriptor = RenderPassDescriptor {
-                label: Some("volumetric lighting pass"),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: view_target.main_texture_view(),
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Load,
-                        store: StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            };
-
-            let mut render_pass = render_context
-                .command_encoder()
-                .begin_render_pass(&render_pass_descriptor);
-
-            render_pass.set_vertex_buffer(0, *vertex_buffer_slice.buffer.slice(..));
-            render_pass.set_pipeline(pipeline);
-            render_pass.set_bind_group(
-                0,
-                &view_bind_group.main,
-                &[
-                    view_uniform_offset.offset,
-                    view_lights_offset.offset,
-                    view_fog_offset.offset,
-                    **view_light_probes_offset,
-                    **view_ssr_offset,
-                    **view_environment_map_offset,
-                ],
-            );
-            render_pass.set_bind_group(
-                1,
-                &volumetric_view_bind_group,
-                &[view_fog_volume.uniform_buffer_offset],
-            );
-
-            // Draw elements or arrays, as appropriate.
-            match &render_mesh.buffer_info {
-                RenderMeshBufferInfo::Indexed {
-                    index_format,
-                    count,
-                } => {
-                    let Some(index_buffer_slice) =
-                        mesh_allocator.mesh_index_slice(&mesh_handle.id())
-                    else {
-                        continue;
-                    };
-
-                    render_pass
-                        .set_index_buffer(*index_buffer_slice.buffer.slice(..), *index_format);
-                    render_pass.draw_indexed(
-                        index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
-                        vertex_buffer_slice.range.start as i32,
-                        0..1,
-                    );
-                }
-                RenderMeshBufferInfo::NonIndexed => {
-                    render_pass.draw(vertex_buffer_slice.range, 0..1);
-                }
-            }
         }
 
-        time_span.end(render_context.command_encoder());
-        render_context.command_encoder().pop_debug_group();
+        let volumetric_view_bind_group_layout = &volumetric_lighting_pipeline
+            .volumetric_view_bind_group_layouts[bind_group_layout_key.bits() as usize];
 
-        Ok(())
+        let volumetric_view_bind_group = ctx.render_device().create_bind_group(
+            None,
+            &pipeline_cache.get_bind_group_layout(volumetric_view_bind_group_layout),
+            &bind_group_entries,
+        );
+
+        let render_pass_descriptor = RenderPassDescriptor {
+            label: Some("volumetric lighting pass"),
+            color_attachments: &[Some(RenderPassColorAttachment {
+                view: view_target.main_texture_view(),
+                depth_slice: None,
+                resolve_target: None,
+                ops: Operations {
+                    load: LoadOp::Load,
+                    store: StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        };
+
+        let command_encoder = ctx.command_encoder();
+        let mut render_pass = command_encoder.begin_render_pass(&render_pass_descriptor);
+
+        render_pass.set_vertex_buffer(0, *vertex_buffer_slice.buffer.slice(..));
+        render_pass.set_pipeline(pipeline);
+        render_pass.set_bind_group(
+            0,
+            &view_bind_group.main,
+            &[
+                view_uniform_offset.offset,
+                view_lights_offset.offset,
+                view_fog_offset.offset,
+                **view_light_probes_offset,
+                **view_ssr_offset,
+                **view_contact_shadows_offset,
+                **view_environment_map_offset,
+            ],
+        );
+        render_pass.set_bind_group(
+            1,
+            &volumetric_view_bind_group,
+            &[view_fog_volume.uniform_buffer_offset],
+        );
+
+        // Draw elements or arrays, as appropriate.
+        match &render_mesh.buffer_info {
+            RenderMeshBufferInfo::Indexed {
+                index_format,
+                count,
+            } => {
+                let Some(index_buffer_slice) = mesh_allocator.mesh_index_slice(&mesh_handle.id())
+                else {
+                    continue;
+                };
+
+                render_pass.set_index_buffer(*index_buffer_slice.buffer.slice(..), *index_format);
+                render_pass.draw_indexed(
+                    index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
+                    vertex_buffer_slice.range.start as i32,
+                    0..1,
+                );
+            }
+            RenderMeshBufferInfo::NonIndexed => {
+                render_pass.draw(vertex_buffer_slice.range, 0..1);
+            }
+        }
     }
+
+    ctx.command_encoder().pop_debug_group();
 }
 
 impl SpecializedRenderPipeline for VolumetricFogPipeline {
@@ -547,6 +525,13 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             .contains(MeshPipelineViewLayoutKey::MULTISAMPLED)
         {
             shader_defs.push("MULTISAMPLED".into());
+        }
+
+        if key
+            .mesh_pipeline_view_key
+            .contains(MeshPipelineViewLayoutKey::ATMOSPHERE)
+        {
+            shader_defs.push("ATMOSPHERE".into());
         }
 
         if key
@@ -626,6 +611,7 @@ pub fn prepare_volumetric_fog_pipelines(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<ExtractedAtmosphere>,
         ),
         With<VolumetricFog>,
     >,
@@ -644,6 +630,7 @@ pub fn prepare_volumetric_fog_pipelines(
         depth_prepass,
         motion_vector_prepass,
         deferred_prepass,
+        atmosphere,
     ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
@@ -658,6 +645,10 @@ pub fn prepare_volumetric_fog_pipelines(
             MeshPipelineViewLayoutKey::DEFERRED_PREPASS,
             deferred_prepass,
         );
+        mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, atmosphere);
+        if cfg!(feature = "bluenoise_texture") {
+            mesh_pipeline_view_key |= MeshPipelineViewLayoutKey::STBN;
+        }
 
         let mut textureless_flags = VolumetricFogPipelineKeyFlags::empty();
         textureless_flags.set(VolumetricFogPipelineKeyFlags::HDR, view.hdr);
@@ -698,12 +689,12 @@ pub fn prepare_volumetric_fog_uniforms(
     fog_volumes: Query<(Entity, &FogVolume, &GlobalTransform)>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut local_from_world_matrices: Local<Vec<Mat4>>,
+    mut local_from_world_matrices: Local<Vec<Affine3A>>,
 ) {
     // Do this up front to avoid O(n^2) matrix inversion.
     local_from_world_matrices.clear();
     for (_, _, fog_transform) in fog_volumes.iter() {
-        local_from_world_matrices.push(fog_transform.to_matrix().inverse());
+        local_from_world_matrices.push(fog_transform.affine().inverse());
     }
 
     let uniform_count = view_targets.iter().len() * local_from_world_matrices.len();
@@ -715,7 +706,7 @@ pub fn prepare_volumetric_fog_uniforms(
     };
 
     for (view_entity, extracted_view, volumetric_fog) in view_targets.iter() {
-        let world_from_view = extracted_view.world_from_view.to_matrix();
+        let world_from_view = extracted_view.world_from_view.affine();
 
         let mut view_fog_volumes = vec![];
 
@@ -736,7 +727,9 @@ pub fn prepare_volumetric_fog_uniforms(
             );
 
             // Calculate the radius of the sphere that bounds the fog volume.
-            let bounding_radius = (Mat3A::from_mat4(view_from_local) * Vec3A::splat(0.5)).length();
+            let bounding_radius = view_from_local
+                .transform_vector3a(Vec3A::splat(0.5))
+                .length();
 
             // Write out our uniform.
             let uniform_buffer_offset = writer.write(&VolumetricFogUniform {
@@ -788,9 +781,8 @@ pub fn prepare_view_depth_textures_for_volumetric_fog(
     }
 }
 
-fn get_far_planes(view_from_local: &Mat4) -> [Vec4; 3] {
+fn get_far_planes(view_from_local: &Affine3A) -> [Vec4; 3] {
     let (mut far_planes, mut next_index) = ([Vec4::ZERO; 3], 0);
-    let view_from_normal_local = Mat3A::from_mat4(*view_from_local);
 
     for &local_normal in &[
         Vec3A::X,
@@ -800,13 +792,15 @@ fn get_far_planes(view_from_local: &Mat4) -> [Vec4; 3] {
         Vec3A::Z,
         Vec3A::NEG_Z,
     ] {
-        let view_normal = (view_from_normal_local * local_normal).normalize_or_zero();
+        let view_normal = view_from_local
+            .transform_vector3a(local_normal)
+            .normalize_or_zero();
         if view_normal.z <= 0.0 {
             continue;
         }
 
-        let view_position = *view_from_local * (-local_normal * 0.5).extend(1.0);
-        let plane_coords = view_normal.extend(-view_normal.dot(view_position.xyz().into()));
+        let view_position = view_from_local.transform_point3a(-local_normal * 0.5);
+        let plane_coords = view_normal.extend(-view_normal.dot(view_position));
 
         far_planes[next_index] = plane_coords;
         next_index += 1;
@@ -846,8 +840,9 @@ impl VolumetricFogBindGroupLayoutKey {
 
 /// Given the transform from the view to the 1×1×1 cube in local fog volume
 /// space, returns true if the camera is inside the volume.
-fn camera_is_inside_fog_volume(local_from_view: &Mat4) -> bool {
-    Vec3A::from(local_from_view.col(3).xyz())
+fn camera_is_inside_fog_volume(local_from_view: &Affine3A) -> bool {
+    local_from_view
+        .translation
         .abs()
         .cmple(Vec3A::splat(0.5))
         .all()
@@ -858,10 +853,10 @@ fn camera_is_inside_fog_volume(local_from_view: &Mat4) -> bool {
 fn calculate_fog_volume_clip_from_local_transforms(
     interior: bool,
     clip_from_view: &Mat4,
-    view_from_local: &Mat4,
+    view_from_local: &Affine3A,
 ) -> Mat4 {
     if !interior {
-        return *clip_from_view * *view_from_local;
+        return *clip_from_view * Mat4::from(*view_from_local);
     }
 
     // If the camera is inside the fog volume, then we'll be rendering a full

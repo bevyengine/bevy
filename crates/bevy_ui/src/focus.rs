@@ -2,7 +2,7 @@ use crate::{
     ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
     UiStack,
 };
-use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
+use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget, RenderTarget};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
@@ -147,8 +147,9 @@ pub struct NodeQuery {
 ///
 /// Entities with a hidden [`InheritedVisibility`] are always treated as released.
 pub fn ui_focus_system(
+    mut hovered_nodes: Local<Vec<Entity>>,
     mut state: Local<State>,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<(Entity, &Camera, &RenderTarget)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
@@ -188,10 +189,10 @@ pub fn ui_focus_system(
 
     let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
         .iter()
-        .filter_map(|(entity, camera)| {
+        .filter_map(|(entity, camera, render_target)| {
             // Interactions are only supported for cameras rendering to a window.
             let Some(NormalizedRenderTarget::Window(window_ref)) =
-                camera.target.normalize(primary_window)
+                render_target.normalize(primary_window)
             else {
                 return None;
             };
@@ -215,17 +216,36 @@ pub fn ui_focus_system(
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
-    let mut hovered_nodes = ui_stack
-        .uinodes
+
+    hovered_nodes.clear();
+    // reverse the iterator to traverse the tree from closest slice to furthest
+    for uinodes in ui_stack
+        .partition
         .iter()
-        // reverse the iterator to traverse the tree from closest nodes to furthest
         .rev()
-        .filter_map(|entity| {
-            let Ok(node) = node_query.get_mut(*entity) else {
-                return None;
+        .map(|range| &ui_stack.uinodes[range.clone()])
+    {
+        // Retrieve the first node and resolve its camera target.
+        // Only need to do this once per slice, as all the nodes in the slice share the same camera.
+        let Ok(root_node) = node_query.get_mut(uinodes[0]) else {
+            continue;
+        };
+
+        let Some(camera_entity) = root_node.target_camera.get() else {
+            continue;
+        };
+
+        let cursor_position = camera_cursor_positions.get(&camera_entity);
+
+        for entity in uinodes.iter().rev().cloned() {
+            let Ok(node) = node_query.get_mut(entity) else {
+                continue;
             };
 
-            let inherited_visibility = node.inherited_visibility?;
+            let Some(inherited_visibility) = node.inherited_visibility else {
+                continue;
+            };
+
             // Nodes that are not rendered should not be interactable
             if !inherited_visibility.get() {
                 // Reset their interaction to None to avoid strange stuck state
@@ -233,15 +253,12 @@ pub fn ui_focus_system(
                     // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
                     interaction.set_if_neq(Interaction::None);
                 }
-                return None;
+                continue;
             }
-            let camera_entity = node.target_camera.get()?;
-
-            let cursor_position = camera_cursor_positions.get(&camera_entity);
 
             let contains_cursor = cursor_position.is_some_and(|point| {
                 node.node.contains_point(*node.transform, *point)
-                    && clip_check_recursive(*point, *entity, &clipping_query, &child_of_query)
+                    && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
             });
 
             // The mouse position relative to the node
@@ -270,7 +287,7 @@ pub fn ui_focus_system(
             }
 
             if contains_cursor {
-                Some(*entity)
+                hovered_nodes.push(entity);
             } else {
                 if let Some(mut interaction) = node.interaction
                     && (*interaction == Interaction::Hovered
@@ -278,14 +295,14 @@ pub fn ui_focus_system(
                 {
                     interaction.set_if_neq(Interaction::None);
                 }
-                None
+                continue;
             }
-        })
-        .collect::<Vec<Entity>>()
-        .into_iter();
+        }
+    }
 
     // set Pressed or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
+    let mut hovered_nodes = hovered_nodes.iter();
     let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {

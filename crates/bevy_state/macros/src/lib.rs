@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Macros for deriving `States` and `SubStates` traits.
 
@@ -24,5 +24,5 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
 }
 
 pub(crate) fn bevy_state_path() -> syn::Path {
-    BevyManifest::shared().get_path("bevy_state")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_state"))
 }

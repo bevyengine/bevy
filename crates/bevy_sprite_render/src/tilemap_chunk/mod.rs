@@ -18,12 +18,17 @@ use bevy_math::{primitives::Rectangle, UVec2};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
+use bevy_transform::components::Transform;
 use bevy_utils::default;
 use tracing::warn;
 
 mod tilemap_chunk_material;
 
 pub use tilemap_chunk_material::*;
+
+mod tile_orientation;
+
+pub use tile_orientation::*;
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks and updating their indices.
@@ -58,6 +63,32 @@ pub struct TilemapChunk {
     pub alpha_mode: AlphaMode2d,
 }
 
+impl TilemapChunk {
+    pub fn calculate_tile_transform(&self, position: UVec2) -> Transform {
+        Transform::from_xyz(
+            // tile position
+            position.x as f32
+            // times display size for a tile
+            * self.tile_display_size.x as f32
+            // plus 1/2 the tile_display_size to correct the center
+            + self.tile_display_size.x as f32 / 2.
+            // minus 1/2 the tilechunk size, in terms of the tile_display_size,
+            // to place the 0 at left of tilemapchunk
+            - self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.,
+            // tile position
+            position.y as f32
+            // times display size for a tile
+            * self.tile_display_size.y as f32
+            // minus 1/2 the tile_display_size to correct the center
+            + self.tile_display_size.y as f32 / 2.
+            // plus 1/2 the tilechunk size, in terms of the tile_display_size,
+            // to place the 0 at bottom of tilemapchunk
+            - self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.,
+            0.,
+        )
+    }
+}
+
 /// Data for a single tile in the tilemap chunk.
 #[derive(Clone, Copy, Debug, Reflect)]
 #[reflect(Clone, Debug, Default)]
@@ -68,6 +99,8 @@ pub struct TileData {
     pub color: Color,
     /// The visibility of the tile.
     pub visible: bool,
+    /// The orientation of the tile.
+    pub orientation: TileOrientation,
 }
 
 impl TileData {
@@ -86,6 +119,7 @@ impl Default for TileData {
             tileset_index: 0,
             color: Color::WHITE,
             visible: true,
+            orientation: TileOrientation::Default,
         }
     }
 }
@@ -155,7 +189,7 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
         .insert((Mesh2d(mesh), MeshMaterial2d(material)));
 }
 
-fn update_tilemap_chunk_indices(
+pub fn update_tilemap_chunk_indices(
     query: Query<
         (
             Entity,
@@ -192,7 +226,7 @@ fn update_tilemap_chunk_indices(
             );
             continue;
         };
-        let Some(tile_data_image) = images.get_mut(&material.tile_data) else {
+        let Some(mut tile_data_image) = images.get_mut(&material.tile_data) else {
             warn!(
                 "TilemapChunkMaterial tile data image not found for tilemap chunk {}",
                 chunk_entity
@@ -208,5 +242,17 @@ fn update_tilemap_chunk_indices(
         };
         data.clear();
         data.extend_from_slice(bytemuck::cast_slice(&packed_tile_data));
+    }
+}
+
+impl TilemapChunkTileData {
+    pub fn tile_data_from_tile_pos(
+        &self,
+        tilemap_size: UVec2,
+        position: UVec2,
+    ) -> Option<&TileData> {
+        self.0
+            .get(tilemap_size.x as usize * position.y as usize + position.x as usize)
+            .and_then(|opt| opt.as_ref())
     }
 }

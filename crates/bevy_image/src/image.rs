@@ -20,9 +20,9 @@ use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{
-    AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
-    SamplerDescriptor, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureUsages, TextureViewDescriptor,
+    AddressMode, CompareFunction, Extent3d, Features, FilterMode, MipmapFilterMode,
+    SamplerBorderColor, SamplerDescriptor, TextureDataOrder, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
 /// Trait used to provide default values for Bevy-external types that
@@ -35,6 +35,130 @@ pub trait BevyDefault {
 impl BevyDefault for TextureFormat {
     fn bevy_default() -> Self {
         TextureFormat::Rgba8UnormSrgb
+    }
+}
+
+/// Trait used to provide texture srgb view formats with static lifetime for `TextureDescriptor.view_formats`.
+pub trait TextureSrgbViewFormats {
+    /// Returns the srgb view formats for a type.
+    fn srgb_view_formats(&self) -> &'static [TextureFormat];
+}
+
+impl TextureSrgbViewFormats for TextureFormat {
+    /// Returns the srgb view formats if the format has an srgb variant, otherwise returns an empty slice.
+    ///
+    /// The return result covers all the results of [`TextureFormat::add_srgb_suffix`](wgpu_types::TextureFormat::add_srgb_suffix).
+    fn srgb_view_formats(&self) -> &'static [TextureFormat] {
+        match self {
+            TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
+            TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
+            TextureFormat::Bc1RgbaUnorm => &[TextureFormat::Bc1RgbaUnormSrgb],
+            TextureFormat::Bc2RgbaUnorm => &[TextureFormat::Bc2RgbaUnormSrgb],
+            TextureFormat::Bc3RgbaUnorm => &[TextureFormat::Bc3RgbaUnormSrgb],
+            TextureFormat::Bc7RgbaUnorm => &[TextureFormat::Bc7RgbaUnormSrgb],
+            TextureFormat::Etc2Rgb8Unorm => &[TextureFormat::Etc2Rgb8UnormSrgb],
+            TextureFormat::Etc2Rgb8A1Unorm => &[TextureFormat::Etc2Rgb8A1UnormSrgb],
+            TextureFormat::Etc2Rgba8Unorm => &[TextureFormat::Etc2Rgba8UnormSrgb],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B4x4,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B4x4,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x4,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x4,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B5x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x6,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B6x6,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x6,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x6,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x8,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B8x8,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x5,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x5,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x6,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x6,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x8,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x8,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x10,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B10x10,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x10,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x10,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x12,
+                channel: wgpu_types::AstcChannel::Unorm,
+            } => &[TextureFormat::Astc {
+                block: wgpu_types::AstcBlock::B12x12,
+                channel: wgpu_types::AstcChannel::UnormSrgb,
+            }],
+            _ => &[],
+        }
     }
 }
 
@@ -491,6 +615,11 @@ pub struct Image {
 /// [`ImageSampler::Default`], will read the sampler from the `ImagePlugin` at setup.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, Clone)
+)]
 pub enum ImageSampler {
     /// Default image sampler, derived from the `ImagePlugin` setup.
     #[default]
@@ -536,6 +665,11 @@ impl ImageSampler {
 ///
 /// This type mirrors [`AddressMode`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, Clone)
+)]
 pub enum ImageAddressMode {
     /// Clamp the value to the edge of the texture.
     ///
@@ -565,6 +699,11 @@ pub enum ImageAddressMode {
 ///
 /// This type mirrors [`FilterMode`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, Clone)
+)]
 pub enum ImageFilterMode {
     /// Nearest neighbor sampling.
     ///
@@ -581,6 +720,7 @@ pub enum ImageFilterMode {
 ///
 /// This type mirrors [`CompareFunction`].
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub enum ImageCompareFunction {
     /// Function never passes
     Never,
@@ -608,6 +748,7 @@ pub enum ImageCompareFunction {
 ///
 /// This type mirrors [`SamplerBorderColor`].
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub enum ImageSamplerBorderColor {
     /// RGBA color `[0, 0, 0, 0]`.
     TransparentBlack,
@@ -631,6 +772,11 @@ pub enum ImageSamplerBorderColor {
 ///
 /// This types mirrors [`SamplerDescriptor`], but that might change in future versions.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, Clone)
+)]
 pub struct ImageSamplerDescriptor {
     pub label: Option<String>,
     /// How to deal with out of bounds accesses in the u (i.e. x) direction.
@@ -699,6 +845,36 @@ impl ImageSamplerDescriptor {
         }
     }
 
+    /// Returns this sampler descriptor with a new `ImageFilterMode` min, mag, and mipmap filters
+    #[inline]
+    pub fn set_filter(&mut self, filter: ImageFilterMode) -> &mut Self {
+        self.mag_filter = filter;
+        self.min_filter = filter;
+        self.mipmap_filter = filter;
+        self
+    }
+
+    /// Returns this sampler descriptor with a new `ImageAddressMode` for u, v, and w
+    #[inline]
+    pub fn set_address_mode(&mut self, address_mode: ImageAddressMode) -> &mut Self {
+        self.address_mode_u = address_mode;
+        self.address_mode_v = address_mode;
+        self.address_mode_w = address_mode;
+        self
+    }
+
+    /// Returns this sampler descriptor with an `anisotropy_clamp` value and also
+    /// set filters to `ImageFilterMode::Linear`, which is required to
+    /// use anisotropy.
+    #[inline]
+    pub fn set_anisotropic_filter(&mut self, anisotropy_clamp: u16) -> &mut Self {
+        self.mag_filter = ImageFilterMode::Linear;
+        self.min_filter = ImageFilterMode::Linear;
+        self.mipmap_filter = ImageFilterMode::Linear;
+        self.anisotropy_clamp = anisotropy_clamp;
+        self
+    }
+
     pub fn as_wgpu(&self) -> SamplerDescriptor<Option<&str>> {
         SamplerDescriptor {
             label: self.label.as_deref(),
@@ -737,6 +913,15 @@ impl From<ImageFilterMode> for FilterMode {
     }
 }
 
+impl From<ImageFilterMode> for MipmapFilterMode {
+    fn from(value: ImageFilterMode) -> Self {
+        match value {
+            ImageFilterMode::Nearest => MipmapFilterMode::Nearest,
+            ImageFilterMode::Linear => MipmapFilterMode::Linear,
+        }
+    }
+}
+
 impl From<ImageCompareFunction> for CompareFunction {
     fn from(value: ImageCompareFunction) -> Self {
         match value {
@@ -770,6 +955,15 @@ impl From<AddressMode> for ImageAddressMode {
             AddressMode::Repeat => ImageAddressMode::Repeat,
             AddressMode::MirrorRepeat => ImageAddressMode::MirrorRepeat,
             AddressMode::ClampToBorder => ImageAddressMode::ClampToBorder,
+        }
+    }
+}
+
+impl From<MipmapFilterMode> for ImageFilterMode {
+    fn from(value: MipmapFilterMode) -> Self {
+        match value {
+            MipmapFilterMode::Nearest => ImageFilterMode::Nearest,
+            MipmapFilterMode::Linear => ImageFilterMode::Linear,
         }
     }
 }
@@ -832,7 +1026,14 @@ impl Default for Image {
     /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
         let mut image = Image::default_uninit();
-        image.data = Some(vec![255; image.texture_descriptor.format.pixel_size()]);
+        image.data = Some(vec![
+            255;
+            image
+                .texture_descriptor
+                .format
+                .pixel_size()
+                .unwrap_or(0)
+        ]);
         image
     }
 }
@@ -850,11 +1051,13 @@ impl Image {
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
     ) -> Self {
-        debug_assert_eq!(
-            size.volume() * format.pixel_size(),
-            data.len(),
-            "Pixel data, size and format have to match",
-        );
+        if let Ok(pixel_size) = format.pixel_size() {
+            debug_assert_eq!(
+                size.volume() * pixel_size,
+                data.len(),
+                "Pixel data, size and format have to match",
+            );
+        }
         let mut image = Image::new_uninit(size, dimension, format, asset_usage);
         image.data = Some(data);
         image
@@ -897,7 +1100,9 @@ impl Image {
         // when constructing a transparent color from bytes.
         // If this changes, this function will need to be updated.
         let format = TextureFormat::bevy_default();
-        debug_assert!(format.pixel_size() == 4);
+        if let Ok(pixel_size) = format.pixel_size() {
+            debug_assert!(pixel_size == 4);
+        }
         let data = vec![255, 255, 255, 0];
         Image::new(
             Extent3d::default(),
@@ -929,19 +1134,25 @@ impl Image {
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
     ) -> Self {
-        let byte_len = format.pixel_size() * size.volume();
-        debug_assert_eq!(
-            pixel.len() % format.pixel_size(),
-            0,
-            "Must not have incomplete pixel data (pixel size is {}B).",
-            format.pixel_size(),
-        );
-        debug_assert!(
-            pixel.len() <= byte_len,
-            "Fill data must fit within pixel buffer (expected {byte_len}B).",
-        );
-        let data = pixel.iter().copied().cycle().take(byte_len).collect();
-        Image::new(size, dimension, data, format, asset_usage)
+        let mut image = Image::new_uninit(size, dimension, format, asset_usage);
+        if let Ok(pixel_size) = image.texture_descriptor.format.pixel_size()
+            && pixel_size > 0
+        {
+            let byte_len = pixel_size * size.volume();
+            debug_assert_eq!(
+                pixel.len() % pixel_size,
+                0,
+                "Must not have incomplete pixel data (pixel size is {}B).",
+                pixel_size,
+            );
+            debug_assert!(
+                pixel.len() <= byte_len,
+                "Fill data must fit within pixel buffer (expected {byte_len}B).",
+            );
+            let data = pixel.iter().copied().cycle().take(byte_len).collect();
+            image.data = Some(data);
+        }
+        image
     }
 
     /// Create a new zero-filled image with a given size, which can be rendered to.
@@ -963,7 +1174,12 @@ impl Image {
     ///
     /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
     /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
-    pub fn new_target_texture(width: u32, height: u32, format: TextureFormat) -> Self {
+    pub fn new_target_texture(
+        width: u32,
+        height: u32,
+        format: TextureFormat,
+        view_format: Option<TextureFormat>,
+    ) -> Self {
         let size = Extent3d {
             width,
             height,
@@ -974,7 +1190,12 @@ impl Image {
             | TextureUsages::COPY_DST
             | TextureUsages::RENDER_ATTACHMENT;
         // Fill with zeroes
-        let data = vec![0; format.pixel_size() * size.volume()];
+        let data = vec![
+            0;
+            format.pixel_size().expect(
+                "Failed to create Image: can't get pixel size for this TextureFormat"
+            ) * size.volume()
+        ];
 
         Image {
             data: Some(data),
@@ -987,10 +1208,16 @@ impl Image {
                 mip_level_count: 1,
                 sample_count: 1,
                 usage,
-                view_formats: &[],
+                view_formats: match view_format {
+                    Some(_) => format.srgb_view_formats(),
+                    None => &[],
+                },
             },
             sampler: ImageSampler::Default,
-            texture_view_descriptor: None,
+            texture_view_descriptor: view_format.map(|f| TextureViewDescriptor {
+                format: Some(f),
+                ..Default::default()
+            }),
             asset_usage: RenderAssetUsages::default(),
             copy_on_resize: true,
         }
@@ -1034,29 +1261,28 @@ impl Image {
     /// If you need to keep pixel data intact, use [`Image::resize_in_place`].
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
-        if let Some(ref mut data) = self.data {
-            data.resize(
-                size.volume() * self.texture_descriptor.format.pixel_size(),
-                0,
-            );
+        if let Some(ref mut data) = self.data
+            && let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
+        {
+            data.resize(size.volume() * pixel_size, 0);
         }
     }
 
-    /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
-    /// same.
-    ///
-    /// # Panics
-    /// Panics if the `new_size` does not have the same volume as to old one.
-    pub fn reinterpret_size(&mut self, new_size: Extent3d) {
-        assert_eq!(
-            new_size.volume(),
-            self.texture_descriptor.size.volume(),
-            "Incompatible sizes: old = {:?} new = {:?}",
-            self.texture_descriptor.size,
-            new_size
-        );
+    /// Changes the `size` if the total number of data elements (pixels) remains the same.
+    /// If not, returns [`TextureReinterpretationError::IncompatibleSizes`].
+    pub fn reinterpret_size(
+        &mut self,
+        new_size: Extent3d,
+    ) -> Result<(), TextureReinterpretationError> {
+        if new_size.volume() != self.texture_descriptor.size.volume() {
+            return Err(TextureReinterpretationError::IncompatibleSizes {
+                old: self.texture_descriptor.size,
+                new: new_size,
+            });
+        }
 
         self.texture_descriptor.size = new_size;
+        Ok(())
     }
 
     /// Resizes the image to the new size, keeping the pixel data intact, anchored at the top-left.
@@ -1064,63 +1290,78 @@ impl Image {
     ///
     /// For faster resizing when keeping pixel data intact is not important, use [`Image::resize`].
     pub fn resize_in_place(&mut self, new_size: Extent3d) {
-        let old_size = self.texture_descriptor.size;
-        let pixel_size = self.texture_descriptor.format.pixel_size();
-        let byte_len = self.texture_descriptor.format.pixel_size() * new_size.volume();
-        self.texture_descriptor.size = new_size;
+        if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size() {
+            let old_size = self.texture_descriptor.size;
+            let byte_len = pixel_size * new_size.volume();
+            self.texture_descriptor.size = new_size;
 
-        let Some(ref mut data) = self.data else {
-            self.copy_on_resize = true;
-            return;
-        };
+            let Some(ref mut data) = self.data else {
+                self.copy_on_resize = true;
+                return;
+            };
 
-        let mut new: Vec<u8> = vec![0; byte_len];
+            let mut new: Vec<u8> = vec![0; byte_len];
 
-        let copy_width = old_size.width.min(new_size.width) as usize;
-        let copy_height = old_size.height.min(new_size.height) as usize;
-        let copy_depth = old_size
-            .depth_or_array_layers
-            .min(new_size.depth_or_array_layers) as usize;
+            let copy_width = old_size.width.min(new_size.width) as usize;
+            let copy_height = old_size.height.min(new_size.height) as usize;
+            let copy_depth = old_size
+                .depth_or_array_layers
+                .min(new_size.depth_or_array_layers) as usize;
 
-        let old_row_stride = old_size.width as usize * pixel_size;
-        let old_layer_stride = old_size.height as usize * old_row_stride;
+            let old_row_stride = old_size.width as usize * pixel_size;
+            let old_layer_stride = old_size.height as usize * old_row_stride;
 
-        let new_row_stride = new_size.width as usize * pixel_size;
-        let new_layer_stride = new_size.height as usize * new_row_stride;
+            let new_row_stride = new_size.width as usize * pixel_size;
+            let new_layer_stride = new_size.height as usize * new_row_stride;
 
-        for z in 0..copy_depth {
-            for y in 0..copy_height {
-                let old_offset = z * old_layer_stride + y * old_row_stride;
-                let new_offset = z * new_layer_stride + y * new_row_stride;
+            for z in 0..copy_depth {
+                for y in 0..copy_height {
+                    let old_offset = z * old_layer_stride + y * old_row_stride;
+                    let new_offset = z * new_layer_stride + y * new_row_stride;
 
-                let old_range = (old_offset)..(old_offset + copy_width * pixel_size);
-                let new_range = (new_offset)..(new_offset + copy_width * pixel_size);
+                    let old_range = (old_offset)..(old_offset + copy_width * pixel_size);
+                    let new_range = (new_offset)..(new_offset + copy_width * pixel_size);
 
-                new[new_range].copy_from_slice(&data[old_range]);
+                    new[new_range].copy_from_slice(&data[old_range]);
+                }
             }
-        }
 
-        self.data = Some(new);
+            self.data = Some(new);
+        }
     }
 
     /// Takes a 2D image containing vertically stacked images of the same size, and reinterprets
     /// it as a 2D array texture, where each of the stacked images becomes one layer of the
     /// array. This is primarily for use with the `texture2DArray` shader uniform type.
     ///
-    /// # Panics
-    /// Panics if the texture is not 2D, has more than one layers or is not evenly dividable into
-    /// the `layers`.
-    pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
+    /// # Errors
+    /// Returns [`TextureReinterpretationError`] if the texture is not 2D, has more than one layers
+    /// or is not evenly dividable into the `layers`.
+    pub fn reinterpret_stacked_2d_as_array(
+        &mut self,
+        layers: u32,
+    ) -> Result<(), TextureReinterpretationError> {
         // Must be a stacked image, and the height must be divisible by layers.
-        assert_eq!(self.texture_descriptor.dimension, TextureDimension::D2);
-        assert_eq!(self.texture_descriptor.size.depth_or_array_layers, 1);
-        assert_eq!(self.height() % layers, 0);
+        if self.texture_descriptor.dimension != TextureDimension::D2 {
+            return Err(TextureReinterpretationError::WrongDimension);
+        }
+        if self.texture_descriptor.size.depth_or_array_layers != 1 {
+            return Err(TextureReinterpretationError::InvalidLayerCount);
+        }
+        if !self.height().is_multiple_of(layers) {
+            return Err(TextureReinterpretationError::HeightNotDivisibleByLayers {
+                height: self.height(),
+                layers,
+            });
+        }
 
         self.reinterpret_size(Extent3d {
             width: self.width(),
             height: self.height() / layers,
             depth_or_array_layers: layers,
-        });
+        })?;
+
+        Ok(())
     }
 
     /// Convert a texture from a format to another. Only a few formats are
@@ -1204,6 +1445,7 @@ impl Image {
             }
         };
         image.sampler = image_sampler;
+        image.asset_usage = asset_usage;
         Ok(image)
     }
 
@@ -1223,50 +1465,90 @@ impl Image {
 
     /// Compute the byte offset where the data of a specific pixel is stored
     ///
-    /// Returns None if the provided coordinates are out of bounds.
+    /// Returns an error if the provided coordinates are out of bounds.
     ///
     /// For 2D textures, Z is the layer number. For 1D textures, Y and Z are ignored.
     #[inline(always)]
-    pub fn pixel_data_offset(&self, coords: UVec3) -> Option<usize> {
+    pub fn pixel_data_offset(&self, coords: UVec3) -> Result<usize, TextureAccessError> {
         let width = self.texture_descriptor.size.width;
         let height = self.texture_descriptor.size.height;
         let depth = self.texture_descriptor.size.depth_or_array_layers;
 
-        let pixel_size = self.texture_descriptor.format.pixel_size();
+        let pixel_size = self.texture_descriptor.format.pixel_size()?;
         let pixel_offset = match self.texture_descriptor.dimension {
             TextureDimension::D3 | TextureDimension::D2 => {
                 if coords.x >= width || coords.y >= height || coords.z >= depth {
-                    return None;
+                    return Err(TextureAccessError::OutOfBounds {
+                        x: coords.x,
+                        y: coords.y,
+                        z: coords.z,
+                    });
                 }
                 coords.z * height * width + coords.y * width + coords.x
             }
             TextureDimension::D1 => {
                 if coords.x >= width {
-                    return None;
+                    return Err(TextureAccessError::OutOfBounds {
+                        x: coords.x,
+                        y: coords.y,
+                        z: coords.z,
+                    });
                 }
                 coords.x
             }
         };
 
-        Some(pixel_offset as usize * pixel_size)
+        Ok(pixel_offset as usize * pixel_size)
     }
 
-    /// Get a reference to the data bytes where a specific pixel's value is stored
+    /// Get a reference to the data bytes where a specific pixel's value is stored.
     #[inline(always)]
-    pub fn pixel_bytes(&self, coords: UVec3) -> Option<&[u8]> {
-        let len = self.texture_descriptor.format.pixel_size();
-        let data = self.data.as_ref()?;
-        self.pixel_data_offset(coords)
-            .map(|start| &data[start..(start + len)])
+    pub fn pixel_bytes(&self, coords: UVec3) -> Result<&[u8], TextureAccessError> {
+        let len = self.texture_descriptor.format.pixel_size()?;
+        let start = self.pixel_data_offset(coords)?;
+        let Some(data) = self.data.as_ref() else {
+            return Err(TextureAccessError::Uninitialized);
+        };
+        Ok(&data[start..(start + len)])
     }
 
-    /// Get a mutable reference to the data bytes where a specific pixel's value is stored
+    /// Get a mutable reference to the data bytes where a specific pixel's value is stored.
     #[inline(always)]
-    pub fn pixel_bytes_mut(&mut self, coords: UVec3) -> Option<&mut [u8]> {
-        let len = self.texture_descriptor.format.pixel_size();
-        let offset = self.pixel_data_offset(coords);
-        let data = self.data.as_mut()?;
-        offset.map(|start| &mut data[start..(start + len)])
+    pub fn pixel_bytes_mut(&mut self, coords: UVec3) -> Result<&mut [u8], TextureAccessError> {
+        let len = self.texture_descriptor.format.pixel_size()?;
+        let offset = self.pixel_data_offset(coords)?;
+        let Some(data) = self.data.as_mut() else {
+            return Err(TextureAccessError::Uninitialized);
+        };
+
+        Ok(&mut data[offset..(offset + len)])
+    }
+
+    /// Clears the content of the image with the given pixel. The image needs to be initialized on
+    /// the cpu otherwise this is a noop.
+    ///
+    /// This does nothing if the image data is not already initialized
+    pub fn clear(&mut self, pixel: &[u8]) {
+        if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
+            && pixel_size > 0
+        {
+            let byte_len = pixel_size * self.texture_descriptor.size.volume();
+            debug_assert_eq!(
+                pixel.len() % pixel_size,
+                0,
+                "Must not have incomplete pixel data (pixel size is {}B).",
+                pixel_size,
+            );
+            debug_assert!(
+                pixel.len() <= byte_len,
+                "Clear data must fit within pixel buffer (expected {byte_len}B).",
+            );
+            if let Some(data) = self.data.as_mut() {
+                for pixel_data in data.chunks_mut(pixel_size) {
+                    pixel_data.copy_from_slice(pixel);
+                }
+            }
+        }
     }
 
     /// Read the color of a specific pixel (1D texture).
@@ -1391,13 +1673,7 @@ impl Image {
 
     #[inline(always)]
     fn get_color_at_internal(&self, coords: UVec3) -> Result<Color, TextureAccessError> {
-        let Some(bytes) = self.pixel_bytes(coords) else {
-            return Err(TextureAccessError::OutOfBounds {
-                x: coords.x,
-                y: coords.y,
-                z: coords.z,
-            });
-        };
+        let bytes = self.pixel_bytes(coords)?;
 
         // NOTE: GPUs are always Little Endian.
         // Make sure to respect that when we create color values from bytes.
@@ -1539,13 +1815,7 @@ impl Image {
     ) -> Result<(), TextureAccessError> {
         let format = self.texture_descriptor.format;
 
-        let Some(bytes) = self.pixel_bytes_mut(coords) else {
-            return Err(TextureAccessError::OutOfBounds {
-                x: coords.x,
-                y: coords.y,
-                z: coords.z,
-            });
-        };
+        let bytes = self.pixel_bytes_mut(coords)?;
 
         // NOTE: GPUs are always Little Endian.
         // Make sure to respect that when we convert color values to bytes.
@@ -1719,6 +1989,19 @@ pub enum TranscodeFormat {
     Rgb8,
 }
 
+/// An error that occurs when reinterpreting an image.
+#[derive(Error, Debug)]
+pub enum TextureReinterpretationError {
+    #[error("incompatible sizes: old = {old:?} new = {new:?}")]
+    IncompatibleSizes { old: Extent3d, new: Extent3d },
+    #[error("must be a 2d image")]
+    WrongDimension,
+    #[error("must not already be a layered image")]
+    InvalidLayerCount,
+    #[error("can not evenly divide height = {height} by layers = {layers}")]
+    HeightNotDivisibleByLayers { height: u32, layers: u32 },
+}
+
 /// An error that occurs when accessing specific pixels in a texture.
 #[derive(Error, Debug)]
 pub enum TextureAccessError {
@@ -1726,6 +2009,8 @@ pub enum TextureAccessError {
     OutOfBounds { x: u32, y: u32, z: u32 },
     #[error("unsupported texture format: {0:?}")]
     UnsupportedTextureFormat(TextureFormat),
+    #[error("image data is not initialized")]
+    Uninitialized,
     #[error("attempt to access texture with different dimension")]
     WrongDimension,
 }
@@ -1803,15 +2088,16 @@ impl Volume for Extent3d {
 /// Extends the wgpu [`TextureFormat`] with information about the pixel.
 pub trait TextureFormatPixelInfo {
     /// Returns the size of a pixel in bytes of the format.
-    fn pixel_size(&self) -> usize;
+    /// error with `TextureAccessError::UnsupportedTextureFormat` if the format is compressed.
+    fn pixel_size(&self) -> Result<usize, TextureAccessError>;
 }
 
 impl TextureFormatPixelInfo for TextureFormat {
-    fn pixel_size(&self) -> usize {
+    fn pixel_size(&self) -> Result<usize, TextureAccessError> {
         let info = self;
         match info.block_dimensions() {
-            (1, 1) => info.block_copy_size(None).unwrap() as usize,
-            _ => panic!("Using pixel_size for compressed textures is invalid"),
+            (1, 1) => Ok(info.block_copy_size(None).unwrap() as usize),
+            _ => Err(TextureAccessError::UnsupportedTextureFormat(*self)),
         }
     }
 }
@@ -1932,6 +2218,34 @@ mod test {
         assert!(matches!(
             image.get_color_at(5, 10),
             Err(TextureAccessError::OutOfBounds { x: 5, y: 10, z: 0 })
+        ));
+    }
+
+    #[test]
+    fn compressed_texture_format_is_reported_correctly() {
+        let mut image = Image::new_uninit(
+            Extent3d {
+                width: 4,
+                height: 4,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            TextureFormat::Bc1RgbaUnorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+
+        assert!(matches!(
+            image.get_color_at(0, 0),
+            Err(TextureAccessError::UnsupportedTextureFormat(
+                TextureFormat::Bc1RgbaUnorm
+            ))
+        ));
+
+        assert!(matches!(
+            image.set_color_at(0, 0, Color::WHITE),
+            Err(TextureAccessError::UnsupportedTextureFormat(
+                TextureFormat::Bc1RgbaUnorm
+            ))
         ));
     }
 
@@ -2113,5 +2427,56 @@ mod test {
             image.get_color_at_3d(0, 0, 1),
             Ok(Color::LinearRgba(GROW_FILL))
         ));
+    }
+
+    #[test]
+    fn image_clear() {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 32,
+                height: 32,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 0));
+
+        image.clear(&[255; 4]);
+
+        assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 255));
+    }
+
+    #[test]
+    fn get_or_init_sampler_modifications() {
+        // given some sampler
+        let mut default_sampler = ImageSampler::Default;
+        // a load_with_settings call wants to customize the descriptor
+        let my_sampler_in_a_loader = default_sampler
+            .get_or_init_descriptor()
+            .set_filter(ImageFilterMode::Linear)
+            .set_address_mode(ImageAddressMode::Repeat);
+
+        assert_eq!(
+            my_sampler_in_a_loader.address_mode_u,
+            ImageAddressMode::Repeat
+        );
+        assert_eq!(my_sampler_in_a_loader.min_filter, ImageFilterMode::Linear);
+    }
+
+    #[test]
+    fn get_or_init_sampler_anisotropy() {
+        // given some sampler
+        let mut default_sampler = ImageSampler::Default;
+        // a load_with_settings call wants to customize the descriptor
+        let my_sampler_in_a_loader = default_sampler
+            .get_or_init_descriptor()
+            .set_anisotropic_filter(8);
+
+        assert_eq!(my_sampler_in_a_loader.min_filter, ImageFilterMode::Linear);
+        assert_eq!(my_sampler_in_a_loader.anisotropy_clamp, 8);
     }
 }
