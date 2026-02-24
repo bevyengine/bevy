@@ -1,14 +1,11 @@
 //! Shows how to generate and store assets at runtime.
 
-use std::{thread::sleep, time::Duration};
-
 use bevy::{
     asset::RenderAssetUsages,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     mesh::{Indices, PrimitiveTopology},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
-    time::common_conditions::once_after_delay,
 };
 use rand::{rngs::StdRng, RngExt, SeedableRng};
 
@@ -16,10 +13,7 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            generate_image.run_if(once_after_delay(Duration::from_secs(4))),
-        )
+        .add_systems(Update, generate_image.run_if(run_once))
         .run();
 }
 
@@ -58,8 +52,8 @@ fn setup(
 }
 
 async fn generate_mesh(size: UVec2, seed: u64) -> Result<Mesh, std::io::Error> {
-    // This mesh could take a while to generate!
-    sleep(Duration::from_secs(3));
+    // This mesh could take a while to generate. It could even take several frames (though in this
+    // example it should be ~instant).
 
     let mut rng = StdRng::seed_from_u64(seed);
     let mut positions = vec![];
@@ -104,7 +98,7 @@ async fn generate_mesh(size: UVec2, seed: u64) -> Result<Mesh, std::io::Error> {
 #[derive(Resource)]
 struct HandleToGenerate(Handle<Image>);
 
-/// This system runs after a delay to populate the handle in [`HandleToGenerate`].
+/// This system runs once to populate the handle in [`HandleToGenerate`].
 ///
 /// This generates a runtime image. Since it's a system, it can use other data in the world to
 /// generate the asset!
