@@ -58,10 +58,10 @@ pub trait DelayedCommandsExt<'w> {
     /// Returns a [`DelayedCommands`] instance that can be used to queue
     /// commands to be submitted at a later point in time.
     ///
-    /// When dropped, the [`DelayedCommands`] submits spawn commands
-    /// that will spawn [`DelayedCommandQueue`] entities. The entities are ticked
-    /// and their queues submitted automatically by the [`tick_delayed_command_queues`]
-    /// after the specified delays.
+    /// When dropped, the [`DelayedCommands`] submits spawn commands that will
+    /// spawn [`DelayedCommandQueue`] entities. The entities' timers are ticked
+    /// by the [`tick_delayed_command_queues`] system, and their queues are
+    /// submitted when the timer finishes.
     ///
     /// # Usage
     ///
@@ -89,6 +89,13 @@ pub trait DelayedCommandsExt<'w> {
     /// }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
+    ///
+    /// # Timing
+    ///
+    /// Delayed commands are currently ticked by the default clock in the [`PreUpdate`]
+    /// schedule. There's currently no way to specify different clocks for different
+    /// delayed commands - this is a limitation of the system and if you need this behavior
+    /// you'll likely have to implement your own delay system.
     ///
     /// [`tick_delayed_command_queues`]: crate::tick_delayed_command_queues
     fn delayed(&mut self) -> DelayedCommands<'w, '_>;
