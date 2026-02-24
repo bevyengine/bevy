@@ -324,97 +324,13 @@ impl LoadPreferences for App {
         let app_types = app_types.clone();
         let types = app_types.read();
 
-        // Build an index that remembers all of the resource types that are to be saved to
-        // each individual settings file.
-        let mut file_index = PreferencesFileRegistry {
-            app_name: plugin.app_name.clone(),
-            files: HashMap::new(),
-            save_timer: Timer::new(Duration::from_secs(1), TimerMode::Once),
-        };
-        file_index.save_timer.pause(); // Ensure timer is initially paused
-
-        // Scan through types looking for resources that have the necessary traits and
-        // annotations.
-        for ty in types.iter() {
-            if !ty.contains::<ReflectDefault>() {
-                continue;
-            };
-
-            let Some(reflect_group) = ty.data::<ReflectSettingsGroup>() else {
-                continue;
-            };
-
-            // If no filename is specified, use "settings"
-            let filename = reflect_group.settings_source.unwrap_or("settings");
-            let pending_file = file_index
-                .files
-                .entry(filename)
-                .or_insert(PreferenceFileManifest {
-                    last_save,
-                    resource_types: Vec::new(),
-                });
-            pending_file.last_save = last_save;
-            pending_file.resource_types.push(ty.type_id());
-        }
+        let world = self.world_mut();
+        let file_index = build_preferences_registry(&app_name, &types, last_save);
 
         // Now load each of the toml files we discovered, and apply their properties to
         // the resources in the world.
-        let world = self.world_mut();
-        let types = app_types.read();
         for (filename, manifest) in file_index.files.iter() {
-            // Load the TOML file
-            let store = PreferencesStore::new(&app_name);
-            let toml = store.load(filename);
-            if toml.is_none() {
-                warn!("Filename {filename}.toml not found");
-            }
-
-            for tid in manifest.resource_types.iter() {
-                let ty = types.get(*tid).unwrap();
-                let Some(reflect_settings_group) = ty.data::<ReflectSettingsGroup>() else {
-                    continue;
-                };
-
-                let group = reflect_settings_group.settings_group_name;
-
-                let reflect_component = ty.data::<ReflectComponent>().unwrap();
-                let component_id = world.components().get_id(*tid);
-                let res_entity = component_id.and_then(|cid| world.resource_entities().get(cid));
-
-                // let deserializer = TypedReflectDeserializer::new(ty, &types);
-                if let Some(res_entity) = res_entity {
-                    // Resource already exists, so apply toml properties to it.
-                    let res_entity_mut = world.entity_mut(*res_entity);
-                    let Some(mut reflect) = reflect_component.reflect_mut(res_entity_mut) else {
-                        continue;
-                    };
-
-                    if let Some(ref toml) = toml
-                        && let Some(value) = toml.get(group)
-                    {
-                        load_properties(value, &mut *reflect, &types);
-                    }
-                } else {
-                    // The resource does not exist, so create a default.
-                    let reflect_default = ty.data::<ReflectDefault>().unwrap();
-                    let mut default_value = reflect_default.default();
-                    let types = app_types.read();
-                    let mut res_entity = world.spawn_empty();
-
-                    if let Some(ref toml) = toml
-                        && let Some(value) = toml.get(group)
-                    {
-                        load_properties(value, &mut *default_value, &types);
-                    }
-
-                    // Now add the new resource to the world.
-                    reflect_component.insert(
-                        &mut res_entity,
-                        default_value.as_partial_reflect(),
-                        &types,
-                    );
-                }
-            }
+            load_settings_file(world, &app_name, filename, manifest, &types);
         }
 
         // Cache the index so that we don't have to do it again when saving (and also makes
@@ -422,6 +338,124 @@ impl LoadPreferences for App {
         drop(types);
         world.insert_resource::<PreferencesFileRegistry>(file_index);
         self
+    }
+}
+
+/// Builds the preferences file registry by scanning the type registry for settings resources.
+/// This is separated from loading to enable testing without file I/O.
+///
+/// Returns the `PreferencesFileRegistry` that tracks which resources are associated with
+/// which settings files.
+fn build_preferences_registry(
+    app_name: &str,
+    types: &TypeRegistry,
+    last_save: Tick,
+) -> PreferencesFileRegistry {
+    // Build an index that remembers all of the resource types that are to be saved to
+    // each individual settings file.
+    let mut file_index = PreferencesFileRegistry {
+        app_name: app_name.to_string(),
+        files: HashMap::new(),
+        save_timer: Timer::new(Duration::from_secs(1), TimerMode::Once),
+    };
+    file_index.save_timer.pause(); // Ensure timer is initially paused
+
+    // Scan through types looking for resources that have the necessary traits and
+    // annotations.
+    for ty in types.iter() {
+        if !ty.contains::<ReflectDefault>() {
+            continue;
+        };
+
+        let Some(reflect_group) = ty.data::<ReflectSettingsGroup>() else {
+            continue;
+        };
+
+        // If no filename is specified, use "settings"
+        let filename = reflect_group.settings_source.unwrap_or("settings");
+        let pending_file = file_index
+            .files
+            .entry(filename)
+            .or_insert(PreferenceFileManifest {
+                last_save,
+                resource_types: Vec::new(),
+            });
+        pending_file.last_save = last_save;
+        pending_file.resource_types.push(ty.type_id());
+    }
+
+    file_index
+}
+
+/// Loads a single settings file and applies its values to the world's resources.
+fn load_settings_file(
+    world: &mut World,
+    app_name: &str,
+    filename: &str,
+    manifest: &PreferenceFileManifest,
+    types: &TypeRegistry,
+) {
+    // Load the TOML file
+    let store = PreferencesStore::new(app_name);
+    let toml = store.load(filename);
+    if toml.is_none() {
+        warn!("Filename {filename}.toml not found");
+    }
+
+    apply_settings_to_world(world, toml.as_ref(), manifest, types);
+}
+
+/// Applies settings from a TOML table to the world's resources.
+/// This is separated from file loading to enable testing without filesystem access.
+///
+/// For each resource type in the manifest, this function either:
+/// - Updates an existing resource with values from the TOML, or
+/// - Creates a new resource with default values merged with TOML values
+fn apply_settings_to_world(
+    world: &mut World,
+    toml: Option<&toml::Table>,
+    manifest: &PreferenceFileManifest,
+    types: &TypeRegistry,
+) {
+    for tid in manifest.resource_types.iter() {
+        let ty = types.get(*tid).unwrap();
+        let Some(reflect_settings_group) = ty.data::<ReflectSettingsGroup>() else {
+            continue;
+        };
+
+        let group = reflect_settings_group.settings_group_name;
+
+        let reflect_component = ty.data::<ReflectComponent>().unwrap();
+        let component_id = world.components().get_id(*tid);
+        let res_entity = component_id.and_then(|cid| world.resource_entities().get(cid));
+
+        if let Some(res_entity) = res_entity {
+            // Resource already exists, so apply toml properties to it.
+            let res_entity_mut = world.entity_mut(*res_entity);
+            let Some(mut reflect) = reflect_component.reflect_mut(res_entity_mut) else {
+                continue;
+            };
+
+            if let Some(toml) = toml
+                && let Some(value) = toml.get(group)
+            {
+                load_properties(value, &mut *reflect, types);
+            }
+        } else {
+            // The resource does not exist, so create a default.
+            let reflect_default = ty.data::<ReflectDefault>().unwrap();
+            let mut default_value = reflect_default.default();
+            let mut res_entity = world.spawn_empty();
+
+            if let Some(toml) = toml
+                && let Some(value) = toml.get(group)
+            {
+                load_properties(value, &mut *default_value, types);
+            }
+
+            // Now add the new resource to the world.
+            reflect_component.insert(&mut res_entity, default_value.as_partial_reflect(), types);
+        }
     }
 }
 
@@ -457,5 +491,226 @@ fn handle_delayed_save(
     preferences.save_timer.tick(time.delta());
     if preferences.save_timer.just_finished() {
         commands.queue(SavePreferences::IfChanged);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::change_detection::Tick;
+    use bevy_reflect::Reflect;
+
+    /// Test resource that uses default settings group name (derived from type name)
+    #[derive(Resource, SettingsGroup, Reflect, Default)]
+    #[reflect(Resource, SettingsGroup, Default)]
+    struct CounterSettings {
+        count: i32,
+    }
+
+    /// Test resource that shares the same settings group name as another resource
+    #[derive(Resource, SettingsGroup, Reflect, Default)]
+    #[reflect(Resource, SettingsGroup, Default)]
+    #[settings_group(group = "counter_settings")]
+    struct ExtraCounterSettings {
+        enabled: bool,
+    }
+
+    /// Test resource that uses a different settings file
+    #[derive(Resource, SettingsGroup, Reflect, Default)]
+    #[reflect(Resource, SettingsGroup, Default)]
+    #[settings_group(file = "audio")]
+    struct AudioSettings {
+        volume: f32,
+    }
+
+    #[test]
+    fn test_build_registry_single_resource() {
+        let mut types = TypeRegistry::default();
+        types.register::<CounterSettings>();
+
+        let registry = build_preferences_registry("test_app", &types, Tick::new(0));
+
+        assert_eq!(registry.app_name, "test_app");
+        assert_eq!(registry.files.len(), 1);
+        assert!(registry.files.contains_key("settings"));
+
+        let manifest = registry.files.get("settings").unwrap();
+        assert_eq!(manifest.resource_types.len(), 1);
+    }
+
+    #[test]
+    fn test_build_registry_merged_groups() {
+        let mut types = TypeRegistry::default();
+        types.register::<CounterSettings>();
+        types.register::<ExtraCounterSettings>();
+
+        let registry = build_preferences_registry("test_app", &types, Tick::new(0));
+
+        // Both resources should be in the same file
+        assert_eq!(registry.files.len(), 1);
+        assert!(registry.files.contains_key("settings"));
+
+        let manifest = registry.files.get("settings").unwrap();
+        // Both resources should be tracked
+        assert_eq!(manifest.resource_types.len(), 2);
+    }
+
+    #[test]
+    fn test_build_registry_separate_files() {
+        let mut types = TypeRegistry::default();
+        types.register::<CounterSettings>();
+        types.register::<AudioSettings>();
+
+        let registry = build_preferences_registry("test_app", &types, Tick::new(0));
+
+        // Resources should be in different files
+        assert_eq!(registry.files.len(), 2);
+        assert!(registry.files.contains_key("settings"));
+        assert!(registry.files.contains_key("audio"));
+
+        let settings_manifest = registry.files.get("settings").unwrap();
+        assert_eq!(settings_manifest.resource_types.len(), 1);
+
+        let audio_manifest = registry.files.get("audio").unwrap();
+        assert_eq!(audio_manifest.resource_types.len(), 1);
+    }
+
+    #[test]
+    fn test_resources_to_toml_merges_same_group() {
+        let mut world = World::new();
+        let mut types = TypeRegistry::default();
+        types.register::<CounterSettings>();
+        types.register::<ExtraCounterSettings>();
+
+        // Insert both resources
+        world.insert_resource(CounterSettings { count: 42 });
+        world.insert_resource(ExtraCounterSettings { enabled: true });
+
+        // Build a manifest with both resource types
+        let manifest = PreferenceFileManifest {
+            last_save: Tick::new(0),
+            resource_types: vec![
+                TypeId::of::<CounterSettings>(),
+                TypeId::of::<ExtraCounterSettings>(),
+            ],
+        };
+
+        let table = resources_to_toml(&world, &types, &manifest);
+
+        // Both resources should be merged into the same "counter_settings" section
+        assert!(table.contains_key("counter_settings"));
+        let counter_section = table.get("counter_settings").unwrap().as_table().unwrap();
+
+        // Check that both fields are present in the merged section
+        assert!(counter_section.contains_key("count"));
+        assert!(counter_section.contains_key("enabled"));
+        assert_eq!(
+            counter_section.get("count").unwrap().as_integer().unwrap(),
+            42
+        );
+        assert!(counter_section.get("enabled").unwrap().as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_round_trip_serialization() {
+        let mut world = World::new();
+        let mut types = TypeRegistry::default();
+        types.register::<CounterSettings>();
+        types.register::<ExtraCounterSettings>();
+
+        // Insert resources with specific values
+        world.insert_resource(CounterSettings { count: 123 });
+        world.insert_resource(ExtraCounterSettings { enabled: false });
+
+        // Build a manifest with both resource types
+        let manifest = PreferenceFileManifest {
+            last_save: Tick::new(0),
+            resource_types: vec![
+                TypeId::of::<CounterSettings>(),
+                TypeId::of::<ExtraCounterSettings>(),
+            ],
+        };
+
+        // Serialize to TOML
+        let table = resources_to_toml(&world, &types, &manifest);
+
+        // Create a new world and apply the TOML
+        let mut new_world = World::new();
+        apply_settings_to_world(&mut new_world, Some(&table), &manifest, &types);
+
+        // Verify resources were created with correct values
+        let counter = new_world.get_resource::<CounterSettings>().unwrap();
+        assert_eq!(counter.count, 123);
+
+        let extra = new_world.get_resource::<ExtraCounterSettings>().unwrap();
+        assert!(!extra.enabled);
+    }
+
+    #[test]
+    fn test_round_trip_with_existing_resources() {
+        let mut world = World::new();
+        let mut types = TypeRegistry::default();
+        types.register::<CounterSettings>();
+
+        // Insert resource with initial values
+        world.insert_resource(CounterSettings { count: 100 });
+
+        let manifest = PreferenceFileManifest {
+            last_save: Tick::new(0),
+            resource_types: vec![TypeId::of::<CounterSettings>()],
+        };
+
+        // Serialize
+        let table = resources_to_toml(&world, &types, &manifest);
+
+        // Modify the resource
+        world.resource_mut::<CounterSettings>().count = 999;
+
+        // Apply TOML (should restore the original value)
+        apply_settings_to_world(&mut world, Some(&table), &manifest, &types);
+
+        let counter = world.get_resource::<CounterSettings>().unwrap();
+        assert_eq!(counter.count, 100);
+    }
+
+    #[test]
+    fn test_partial_toml_preserves_missing_fields() {
+        let mut world = World::new();
+        let mut types = TypeRegistry::default();
+        types.register::<CounterSettings>();
+        types.register::<ExtraCounterSettings>();
+
+        // Insert resources with specific values
+        world.insert_resource(CounterSettings { count: 50 });
+        world.insert_resource(ExtraCounterSettings { enabled: true });
+
+        // Create a TOML table that only contains one field from one resource
+        let mut table = toml::Table::new();
+        let mut counter_section = toml::Table::new();
+        counter_section.insert("count".to_string(), toml::Value::Integer(999));
+        table.insert(
+            "counter_settings".to_string(),
+            toml::Value::Table(counter_section),
+        );
+        // Note: "enabled" field is missing from the TOML
+
+        let manifest = PreferenceFileManifest {
+            last_save: Tick::new(0),
+            resource_types: vec![
+                TypeId::of::<CounterSettings>(),
+                TypeId::of::<ExtraCounterSettings>(),
+            ],
+        };
+
+        // Apply the partial TOML
+        apply_settings_to_world(&mut world, Some(&table), &manifest, &types);
+
+        // Verify count was updated
+        let counter = world.get_resource::<CounterSettings>().unwrap();
+        assert_eq!(counter.count, 999);
+
+        // Verify enabled was preserved (not overwritten with default false)
+        let extra = world.get_resource::<ExtraCounterSettings>().unwrap();
+        assert!(extra.enabled);
     }
 }
