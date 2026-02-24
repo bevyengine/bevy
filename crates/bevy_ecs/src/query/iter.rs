@@ -1203,13 +1203,42 @@ where
         }
     }
 
+    /// Get next result from the query
+    pub fn fetch_next(&mut self) -> Option<D::Item<'_, 's>> {
+        while let Some(entity) = self.entity_iter.next() {
+            // SAFETY:
+            // - `entity` is passed from `entity_iter` the first time.
+            // - `self` is mutably borrowed, so there are no other items alive for any entity.
+            if let Some(item) = unsafe { self.fetch_next_impl(entity) } {
+                return Some(D::shrink(item));
+            }
+        }
+        None
+    }
+
+    /// Get next result from the back of the query
+    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_, 's>>
+    where
+        I: DoubleEndedIterator,
+    {
+        while let Some(entity) = self.entity_iter.next_back() {
+            // SAFETY:
+            // - `entity` is passed from `entity_iter` the first time.
+            // - `self` is mutably borrowed, so there are no other items alive for any entity.
+            if let Some(item) = unsafe { self.fetch_next_impl(entity) } {
+                return Some(D::shrink(item));
+            }
+        }
+        None
+    }
+
     /// # Safety
     ///
     /// - `entity` must stem from `self.entity_iter`
     /// - If `D` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
     /// - If `D` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
     #[inline(always)]
-    unsafe fn fetch_next(&mut self, entity: Entity) -> Option<D::Item<'w, 's>> {
+    unsafe fn fetch_next_impl(&mut self, entity: Entity) -> Option<D::Item<'w, 's>> {
         let (location, archetype, table);
         // SAFETY:
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
@@ -1262,7 +1291,7 @@ where
             // SAFETY:
             // - `entity` is passed from `entity_iter` the first time.
             // - `D: IterQueryData`
-            if let Some(item) = unsafe { self.fetch_next(entity) } {
+            if let Some(item) = unsafe { self.fetch_next_impl(entity) } {
                 return Some(item);
             }
         }
@@ -1288,7 +1317,7 @@ where
             // SAFETY:
             // - `entity` is passed from `entity_iter` the first time.
             // - `D: IterQueryData`
-            if let Some(item) = unsafe { self.fetch_next(entity) } {
+            if let Some(item) = unsafe { self.fetch_next_impl(entity) } {
                 return Some(item);
             }
         }
