@@ -295,16 +295,13 @@ impl Plugin for RenderPlugin {
         if insert_future_resources(&self.render_creation, app.world_mut()) {
             // We only create the render world and set up extraction if we
             // have a rendering backend available.
-            app.add_plugins(ExtractPlugin {
-                pre_extract: error_handler::update_state,
-                app_label: RenderApp.intern(),
-
-                base_schedule: Render::base_schedule,
-                schedule_label: Render.intern(),
-
-                extract_set: RenderSystems::ExtractCommands.intern(),
-                despawn_set: RenderSystems::PostCleanup.intern(),
-            });
+            app.add_plugins(ExtractPlugin::<RenderApp>::new(
+                error_handler::update_state,
+                Render::base_schedule,
+                Render.intern(),
+                RenderSystems::ExtractCommands.intern(),
+                RenderSystems::PostCleanup.intern(),
+            ));
         };
 
         app.add_plugins((

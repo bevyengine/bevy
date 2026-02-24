@@ -1,5 +1,5 @@
 use crate::sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
-use bevy_app::{App, InternedAppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin, SubApp};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
@@ -10,26 +10,49 @@ use bevy_ecs::{
     world::{Mut, World},
 };
 use bevy_utils::default;
+use core::marker::PhantomData;
 
 /// Plugin that sets up a [`SubApp`] with extraction from the
 /// main world to the sub world.
-pub struct ExtractPlugin {
+pub struct ExtractPlugin<L: AppLabel + Default> {
     /// Function that gets run at the beginning of each extraction.
     ///
     /// Gets the main world and render world as arguments (in that order).
     pub pre_extract: fn(&mut World, &mut World),
 
+    marker: PhantomData<L>,
+
     /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`] to set up with extraction.
-    pub app_label: InternedAppLabel,
+    app_label: InternedAppLabel,
 
-    pub base_schedule: fn() -> Schedule, // Render::base_schedule()
-    pub schedule_label: InternedScheduleLabel, // Render
+    pub base_schedule: fn() -> Schedule,
+    pub schedule_label: InternedScheduleLabel,
 
-    pub extract_set: InternedSystemSet, // RenderSystems::ExtractCommands
-    pub despawn_set: InternedSystemSet, // RenderSystems::PostCleanup
+    pub extract_set: InternedSystemSet,
+    pub despawn_set: InternedSystemSet,
 }
 
-impl Plugin for ExtractPlugin {
+impl<L: AppLabel + Default> ExtractPlugin<L> {
+    pub fn new(
+        pre_extract: fn(&mut World, &mut World),
+        base_schedule: fn() -> Schedule,
+        schedule_label: InternedScheduleLabel,
+        extract_set: InternedSystemSet,
+        despawn_set: InternedSystemSet,
+    ) -> Self {
+        Self {
+            pre_extract,
+            marker: PhantomData,
+            app_label: L::default().intern(),
+            base_schedule,
+            schedule_label,
+            extract_set,
+            despawn_set,
+        }
+    }
+}
+
+impl<L: AppLabel + Default> Plugin for ExtractPlugin<L> {
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncWorldPlugin);
         app.init_resource::<ScratchMainWorld>();
