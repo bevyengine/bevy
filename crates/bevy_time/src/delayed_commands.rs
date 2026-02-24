@@ -98,6 +98,7 @@ pub trait DelayedCommandsExt<'w> {
     /// you'll likely have to implement your own delay system.
     ///
     /// [`tick_delayed_command_queues`]: crate::tick_delayed_command_queues
+    /// [`PreUpdate`]: bevy_app::PreUpdate
     fn delayed(&mut self) -> DelayedCommands<'w, '_>;
 }
 
