@@ -36,7 +36,6 @@ use bevy_mesh::{
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
-use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
@@ -53,6 +52,7 @@ use smallvec::SmallVec;
 use std::{io::Error, sync::Mutex};
 use thiserror::Error;
 use tracing::{error, info_span, warn};
+use wgpu_types::Face;
 
 use crate::{
     convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
@@ -207,6 +207,8 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
+    /// If false, the loader will load gltf json without validation, for unsupported extension it will ignore validation check.
+    pub validate: bool,
     /// Overrides the default glTF coordinate conversion setting.
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
@@ -226,6 +228,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
+            validate: true,
             convert_coordinates: None,
             skinned_mesh_bounds_policy: None,
         }
@@ -240,7 +243,11 @@ impl GltfLoader {
         load_context: &'b mut LoadContext<'c>,
         settings: &'b GltfLoaderSettings,
     ) -> Result<Gltf, GltfError> {
-        let gltf = gltf::Gltf::from_slice(bytes)?;
+        let gltf = if settings.validate {
+            gltf::Gltf::from_slice(bytes)?
+        } else {
+            gltf::Gltf::from_slice_without_validation(bytes)?
+        };
 
         // clone extensions to start with a fresh processing state
         let mut extensions = loader.extensions.read().await.clone();
@@ -719,6 +726,52 @@ impl GltfLoader {
 
                 let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
 
+                let mut out_doc: Option<gltf::Document> = None;
+                let mut out_data: Option<Vec<Vec<u8>>> = None;
+                for extension in extensions.iter_mut() {
+                    extension.on_gltf_primitive(
+                        load_context,
+                        &gltf,
+                        &primitive,
+                        &buffer_data,
+                        &mut out_doc,
+                        &mut out_data,
+                    );
+                }
+
+                let primitive = if let Some(doc) = &out_doc {
+                    let meshes_len = doc.meshes().len();
+                    if meshes_len != 1 {
+                        warn!(
+                            "Extension returned {} meshes, expected exactly 1. Using original primitive.",
+                            meshes_len
+                        );
+                        primitive
+                    } else if let Some(mesh) = doc.meshes().next() {
+                        let primitives_len = mesh.primitives().len();
+                        if primitives_len != 1 {
+                            warn!(
+                                "Extension returned {} primitives, expected exactly 1. Using original primitive.",
+                                primitives_len
+                            );
+                            primitive
+                        } else if let Some(doc_primitive) = mesh.primitives().next() {
+                            doc_primitive
+                        } else {
+                            primitive
+                        }
+                    } else {
+                        primitive
+                    }
+                } else {
+                    primitive
+                };
+                let buffer_data = if let Some(data) = &out_data {
+                    data
+                } else {
+                    &buffer_data
+                };
+
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
                     if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
@@ -736,7 +789,7 @@ impl GltfLoader {
                     match convert_attribute(
                         semantic,
                         accessor,
-                        &buffer_data,
+                        buffer_data,
                         &loader.custom_vertex_attributes,
                         convert_coordinates.rotate_meshes,
                     ) {
