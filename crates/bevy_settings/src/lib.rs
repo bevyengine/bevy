@@ -55,7 +55,8 @@ use store_wasm::PreferencesStore;
 /// plugins.
 ///
 /// In many cases, you may want to introduce additional "glue" plugins that copy preference
-/// properties after they are loaded. For example, the [`bevy_window::WindowPlugin`] plugin knows
+/// properties after they are loaded. For example, the
+/// [`WindowPlugin`](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowPlugin.html) plugin knows
 /// nothing about preferences, but if you want the window size and position to persist between runs
 /// you can add an additional plugin which copies the window settings from the resource to the
 /// actual window entity.
@@ -75,6 +76,10 @@ pub struct PreferencesPlugin {
     /// The name of the application. This is used to uniquely identify the preferences directory
     /// so as not to confuse it with other applications' preferences. To ensure global uniqueness,
     /// it is recommended to use a reverse domain name, e.g. "com.example.myapp".
+    ///
+    /// If you are in the unfortunate position where you do not have a domain name and cannot
+    /// afford one, use a reverse domain based on the URL of your repo (GitHub, GitLab, Codeberg
+    /// and so on).
     pub app_name: String,
 }
 
