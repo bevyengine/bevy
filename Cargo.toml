@@ -2035,7 +2035,6 @@ wasm = false
 name = "generated_assets"
 path = "examples/asset/generated_assets.rs"
 doc-scrape-examples = true
-required-features = ["free_camera"]
 
 [package.metadata.example.generated_assets]
 name = "Generated Assets"

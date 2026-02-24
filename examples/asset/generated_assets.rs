@@ -1,19 +1,12 @@
 //! Shows how to generate and store assets at runtime.
 
-use bevy::{
-    asset::RenderAssetUsages,
-    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    mesh::{Indices, PrimitiveTopology},
-    prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
-};
-use rand::{rngs::StdRng, RngExt, SeedableRng};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FreeCameraPlugin))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, generate_image.run_if(run_once))
+        .add_systems(Update, generate_mesh_system.run_if(run_once))
         .run();
 }
 
@@ -21,114 +14,58 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    images: Res<Assets<Image>>,
+    meshes: Res<Assets<Mesh>>,
 ) {
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(0.0, 10.0, 0.0),
-        FreeCamera::default(),
-    ));
+    commands.spawn((Camera3d::default(), Transform::from_xyz(0.0, 0.0, 5.0)));
 
     commands.spawn((
         DirectionalLight::default(),
         Transform::default().looking_to(Dir3::new(Vec3::new(-1.0, -1.0, -1.0)).unwrap(), Dir3::Y),
     ));
 
+    // The simplest way to generate an asset is to add it directly to the `Assets`.
+    let material_handle = materials.add(StandardMaterial::default());
+
     commands.spawn((
-        // The simplest way to generate an asset is to add it directly to the `Assets`.
-        MeshMaterial3d(materials.add(StandardMaterial::default())),
+        Transform::from_xyz(-2.0, 0.0, 0.0),
+        MeshMaterial3d(material_handle.clone()),
         // Alternatively, `add_async` creates a task that runs your async function. Once it
         // completes, the asset is added to the `Assets`. This is "deferred" meaning that the asset
         // may take a frame to be added after the task completes.
-        Mesh3d(asset_server.add_async(generate_mesh(UVec2::new(100, 100), 1234))),
+        Mesh3d(asset_server.add_async(generate_mesh_async())),
     ));
 
     // The last way to generate assets is to reserve a handle, and then use `Assets::insert` to
-    // populate the asset later. In this example, the `generate_image` system runs to populate the
-    // image
-    let image_handle = images.reserve_handle();
-    commands.insert_resource(HandleToGenerate(image_handle.clone()));
-    commands.spawn(ImageNode::new(image_handle));
+    // populate the asset later. In this example, the `generate_mesh_system` system runs to populate
+    // the mesh.
+    let mesh_handle = meshes.reserve_handle();
+    commands.insert_resource(HandleToGenerate(mesh_handle.clone()));
+    commands.spawn((
+        Transform::from_xyz(2.0, 0.0, 0.0)
+            .with_rotation(Quat::from_rotation_x(50.0f32.to_radians())),
+        Mesh3d(mesh_handle),
+        MeshMaterial3d(material_handle),
+    ));
 }
 
-async fn generate_mesh(size: UVec2, seed: u64) -> Result<Mesh, std::io::Error> {
+async fn generate_mesh_async() -> Result<Mesh, std::io::Error> {
     // This mesh could take a while to generate. It could even take several frames (though in this
     // example it should be ~instant).
 
-    let mut rng = StdRng::seed_from_u64(seed);
-    let mut positions = vec![];
-    for y in 0..size.y {
-        for x in 0..size.x {
-            positions.push(Vec3::new(
-                x as f32 - size.x as f32 / 2.0,
-                rng.random::<f32>() * 2.0,
-                y as f32 - size.y as f32 / 2.0,
-            ));
-        }
-    }
-
-    let compute_index = |(x, y): (u32, u32)| x + y * size.x;
-    let mut indices = vec![];
-    for y in 0..(size.y - 1) {
-        for x in 0..(size.x - 1) {
-            indices.extend(
-                [
-                    (x, y),
-                    (x, y + 1),
-                    (x + 1, y),
-                    (x + 1, y),
-                    (x, y + 1),
-                    (x + 1, y + 1),
-                ]
-                .into_iter()
-                .map(compute_index),
-            );
-        }
-    }
-
-    Ok(Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::default(),
-    )
-    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-    .with_inserted_indices(Indices::U32(indices))
-    .with_computed_normals())
+    Ok(Mesh::from(Cone::new(1.0, 2.0)))
 }
 
 #[derive(Resource)]
-struct HandleToGenerate(Handle<Image>);
+struct HandleToGenerate(Handle<Mesh>);
 
 /// This system runs once to populate the handle in [`HandleToGenerate`].
 ///
-/// This generates a runtime image. Since it's a system, it can use other data in the world to
+/// This generates a runtime mesh. Since it's a system, it can use other data in the world to
 /// generate the asset!
-fn generate_image(handle_to_generate: Res<HandleToGenerate>, mut images: ResMut<Assets<Image>>) {
-    let mut image = Image::new_fill(
-        Extent3d {
-            width: 300,
-            height: 300,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &[0, 0, 0, 255],
-        TextureFormat::Rgba8Unorm,
-        RenderAssetUsages::default(),
-    );
-    for y in 0..image.height() {
-        for x in 0..image.width() {
-            image
-                .set_color_at(
-                    x,
-                    y,
-                    Color::Srgba(Srgba::new(
-                        x as f32 / (image.width() - 1) as f32,
-                        y as f32 / (image.height() - 1) as f32,
-                        0.0,
-                        1.0,
-                    )),
-                )
-                .unwrap();
-        }
-    }
-    images.insert(&handle_to_generate.0, image).unwrap();
+fn generate_mesh_system(
+    handle_to_generate: Res<HandleToGenerate>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    let mesh = Mesh::from(Torus::new(0.8, 1.2));
+    meshes.insert(&handle_to_generate.0, mesh).unwrap();
 }
