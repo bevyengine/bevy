@@ -347,11 +347,12 @@ fn queue_custom_mesh_pipeline(
             };
 
             // Get the mesh data
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
 
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+            let (vertex_slab, index_slab) =
+                mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id());
 
             // Specialize the key for the current mesh entity
             // For this example we only specialize based on the mesh topology
@@ -388,7 +389,7 @@ fn queue_custom_mesh_pipeline(
                 // For this example we can use the mesh asset id as the bin key,
                 // but you can use any asset_id as a key
                 Opaque3dBinKey {
-                    asset_id: mesh_instance.mesh_asset_id.into(),
+                    asset_id: mesh_instance.mesh_asset_id().into(),
                 },
                 (*render_entity, *visible_entity),
                 mesh_instance.current_uniform_index,
