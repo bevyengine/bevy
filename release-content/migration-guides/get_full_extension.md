@@ -1,6 +1,6 @@
 ---
 title: get_full_extension now returns Option<&str>.
-pull_requests: [14791, 15458, 15269]
+pull_requests: [23105]
 ---
 
 Previously, `AssetPath::get_full_extension` returned `Option<String>`. Now it returns
