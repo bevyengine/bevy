@@ -85,7 +85,7 @@ impl Plugin for TimePlugin {
                 .in_set(TimeSystems)
                 .ambiguous_with(message_update_system),
         )
-        .add_systems(PreUpdate, tick_delayed_command_queues)
+        .add_systems(PreUpdate, check_delayed_command_queues)
         .add_systems(
             RunFixedMainLoop,
             run_fixed_main_schedule.in_set(RunFixedMainLoopSystems::FixedMainLoop),

@@ -11,9 +11,7 @@ use crate::Time;
 ///
 /// When dropped, the queues are spawned into the world as new entities with
 /// [`DelayedCommandQueue`] components, and then checked by the
-/// [`tick_delayed_command_queues`] system.
-///
-/// [`tick_delayed_command_queues`]: crate::tick_delayed_command_queues
+/// [`check_delayed_command_queues`] system.
 pub struct DelayedCommands<'w, 's> {
     /// Used to own queues and deduplicate them by their duration.
     queues: HashMap<Duration, CommandQueue>,
@@ -61,14 +59,14 @@ impl<'w, 's> DelayedCommands<'w, 's> {
     }
 }
 
-/// Extension trait for `Commands` that provides delayed command functionality.
+/// Extension trait for [`Commands`] that provides delayed command functionality.
 pub trait DelayedCommandsExt<'w> {
     /// Returns a [`DelayedCommands`] instance that can be used to queue
     /// commands to be submitted at a later point in time.
     ///
     /// When dropped, the [`DelayedCommands`] submits spawn commands that will
     /// spawn [`DelayedCommandQueue`] entities. The entities are checked
-    /// by the [`tick_delayed_command_queues`] system, and their queues are
+    /// by the [`check_delayed_command_queues`] system, and their queues are
     /// submitted when the specified time has elapsed.
     ///
     /// # Usage
@@ -105,7 +103,6 @@ pub trait DelayedCommandsExt<'w> {
     /// delayed commands - this is a limitation of the system and if you need this behavior
     /// you'll likely have to implement your own delay system.
     ///
-    /// [`tick_delayed_command_queues`]: crate::tick_delayed_command_queues
     /// [`PreUpdate`]: bevy_app::PreUpdate
     fn delayed(&mut self) -> DelayedCommands<'w, '_>;
 }
@@ -128,10 +125,9 @@ impl<'w, 's> Drop for DelayedCommands<'w, 's> {
 /// A component with a [`CommandQueue`] to be submitted later.
 ///
 /// Queues in these components are checked automatically by the
-/// [`tick_delayed_command_queues`] added by [`TimePlugin`] and submitted when
+/// [`check_delayed_command_queues`] added by [`TimePlugin`] and submitted when
 /// the default clock's elapsed time exceeds `submit_at`.
 ///
-/// [`tick_delayed_command_queues`]: crate::tick_delayed_command_queues
 /// [`TimePlugin`]: crate::TimePlugin
 #[derive(Component)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
@@ -146,8 +142,8 @@ pub struct DelayedCommandQueue {
 
 /// The system used to check [`DelayedCommandQueue`]s, which are usually spawned
 /// by [`DelayedCommands`]. When the elapsed time exceeds a queue's `submit_at` time,
-/// the contained `queue`` is appended to the system's [`Commands`].
-pub fn tick_delayed_command_queues(
+/// the contained `queue` is appended to the system's [`Commands`].
+pub fn check_delayed_command_queues(
     queues: Query<(Entity, &mut DelayedCommandQueue)>,
     time: Res<Time>,
     mut commands: Commands,
