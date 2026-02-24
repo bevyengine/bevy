@@ -41,7 +41,6 @@ use bevy_render::camera::{DirtySpecializationSystems, DirtySpecializations, Pend
 use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
-use bevy_render::mesh::allocator::MeshSlabs;
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
 use bevy_render::renderer::RenderQueue;
 use bevy_render::RenderStartup;
@@ -1209,12 +1208,7 @@ pub fn queue_material_meshes(
             };
 
             // Fetch the slabs that this mesh resides in.
-            let Some(MeshSlabs {
-                vertex_slab_id: vertex_slab,
-                index_slab_id: index_slab,
-                morph_target_slab_id: morph_target_slab,
-            }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id)
-            else {
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id) else {
                 continue;
             };
 
@@ -1236,7 +1230,7 @@ pub fn queue_material_meshes(
                         pipeline: pipeline_id,
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
-                        indexed: index_slab.is_some(),
+                        indexed: mesh_slabs.index_slab_id.is_some(),
                         // Filled in later.
                         distance: 0.0,
                     });
@@ -1260,9 +1254,7 @@ pub fn queue_material_meshes(
                         pipeline: pipeline_id,
                         draw_function,
                         material_bind_group_index: Some(material.binding.group.0),
-                        vertex_slab,
-                        index_slab,
-                        morph_target_slab,
+                        slabs: mesh_slabs,
                         lightmap_slab: mesh_instance.shared.lightmap_slab_index.map(|index| *index),
                     };
                     let bin_key = Opaque3dBinKey {
@@ -1291,9 +1283,7 @@ pub fn queue_material_meshes(
                         draw_function,
                         pipeline: pipeline_id,
                         material_bind_group_index: Some(material.binding.group.0),
-                        vertex_slab,
-                        index_slab,
-                        morph_target_slab,
+                        slabs: mesh_slabs,
                     };
                     let bin_key = OpaqueNoLightmap3dBinKey {
                         asset_id: mesh_instance.mesh_asset_id.into(),
@@ -1326,7 +1316,7 @@ pub fn queue_material_meshes(
                         pipeline: pipeline_id,
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
-                        indexed: index_slab.is_some(),
+                        indexed: mesh_slabs.index_slab_id.is_some(),
                         // Filled in later.
                         distance: 0.0,
                     });

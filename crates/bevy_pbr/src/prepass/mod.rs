@@ -31,10 +31,7 @@ use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{DirtySpecializations, PendingQueues},
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{
-        allocator::{MeshAllocator, MeshSlabs},
-        RenderMesh,
-    },
+    mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -1293,12 +1290,7 @@ pub fn queue_prepass_material_meshes(
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
-            let Some(MeshSlabs {
-                vertex_slab_id: vertex_slab,
-                index_slab_id: index_slab,
-                morph_target_slab_id: morph_target_slab,
-            }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id)
-            else {
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id) else {
                 continue;
             };
 
@@ -1316,9 +1308,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab,
-                                index_slab,
-                                morph_target_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id.into(),
@@ -1345,9 +1335,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index,
-                                vertex_slab,
-                                index_slab,
-                                morph_target_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id.into(),
@@ -1368,9 +1356,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab,
-                                index_slab,
-                                morph_target_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id.into(),
@@ -1388,9 +1374,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab,
-                                index_slab,
-                                morph_target_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id.into(),

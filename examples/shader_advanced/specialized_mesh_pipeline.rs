@@ -354,12 +354,7 @@ fn queue_custom_mesh_pipeline(
                 continue;
             };
 
-            let Some(MeshSlabs {
-                vertex_slab_id: vertex_slab,
-                index_slab_id: index_slab,
-                morph_target_slab_id: morph_target_slab,
-            }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id)
-            else {
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id) else {
                 continue;
             };
 
@@ -391,10 +386,8 @@ fn queue_custom_mesh_pipeline(
                     draw_function,
                     pipeline: pipeline_id,
                     material_bind_group_index: None,
-                    vertex_slab,
-                    index_slab,
+                    slabs: mesh_slabs,
                     lightmap_slab: None,
-                    morph_target_slab,
                 },
                 // For this example we can use the mesh asset id as the bin key,
                 // but you can use any asset_id as a key

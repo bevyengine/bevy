@@ -34,7 +34,7 @@ use bevy_render::{
     },
     extract_resource::ExtractResource,
     mesh::{
-        allocator::{MeshAllocator, MeshSlabs, SlabId},
+        allocator::{MeshAllocator, MeshSlabs},
         RenderMesh, RenderMeshBufferInfo,
     },
     prelude::*,
@@ -279,22 +279,14 @@ pub struct Wireframe3dBatchSetKey {
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
-    /// The ID of the slab of GPU memory that contains vertex data.
-    ///
-    /// For non-mesh items, you can fill this with 0 if your items can be
-    /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
 
-    /// The ID of the slab of GPU memory that contains index data, if present.
+    /// The IDs of the slabs of GPU memory in the mesh allocator that contain
+    /// the mesh data.
     ///
-    /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
-
-    /// The ID of the slab that the morph target displacements reside in, if
-    /// morph targets are present.
-    ///
-    /// For non-mesh items, you can safely fill this with `None`.
-    pub morph_target_slab: Option<SlabId>,
+    /// For non-mesh items, you can fill the [`MeshSlabs::vertex_slab_id`] with
+    /// 0 if your items can be multi-drawn, or with a unique value if they
+    /// can't.
+    pub slabs: MeshSlabs,
 
     /// For the wide wireframe path, the mesh asset ID ensures all draws in one
     /// batch set share the same vertex-pull params uniform. `None` for the thin
@@ -304,7 +296,7 @@ pub struct Wireframe3dBatchSetKey {
 
 impl PhaseItemBatchSetKey for Wireframe3dBatchSetKey {
     fn indexed(&self) -> bool {
-        self.index_slab.is_some()
+        self.slabs.index_slab_id.is_some()
     }
 }
 
@@ -1615,12 +1607,15 @@ fn queue_wireframes(
                 pipeline: pipeline_id,
                 asset_id: wireframe_instance.untyped(),
                 draw_function,
-                vertex_slab,
-                morph_target_slab,
-                // wide wireframes use non-indexed draws (vertex pulling from storage),
-                // so set index_slab to None to make the preprocessor emit
-                // IndirectParametersNonIndexed instead of IndirectParametersIndexed.
-                index_slab: if is_wide { None } else { index_slab },
+                slabs: MeshSlabs {
+                    vertex_slab_id: vertex_slab,
+                    morph_target_slab_id: morph_target_slab,
+                    // wide wireframes use non-indexed draws (vertex pulling
+                    // from storage), so set index_slab to None to make the
+                    // preprocessor emit IndirectParametersNonIndexed instead of
+                    // IndirectParametersIndexed.
+                    index_slab_id: if is_wide { None } else { index_slab },
+                },
                 mesh_asset_id: if is_wide {
                     Some(mesh_instance.mesh_asset_id.untyped())
                 } else {

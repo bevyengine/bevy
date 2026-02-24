@@ -249,6 +249,7 @@ pub struct Wireframe2dBatchSetKey {
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
+
     /// The ID of the slab of GPU memory that contains vertex data.
     ///
     /// For non-mesh items, you can fill this with 0 if your items can be

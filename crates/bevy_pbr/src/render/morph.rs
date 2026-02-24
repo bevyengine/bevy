@@ -17,7 +17,6 @@ use bevy_render::{
     Extract,
 };
 use bytemuck::{NoUninit, Pod, Zeroable};
-use indexmap::IndexSet;
 
 use crate::{skin, RenderMeshInstances};
 
@@ -58,7 +57,7 @@ pub enum MorphIndices {
         /// in the `morph_descriptors` buffer.
         gpu_descriptor_indices: MainEntityHashMap<MorphDescriptorIndex>,
         /// Indices in the `morph_descriptors` buffer available for use.
-        gpu_descriptor_free_list: IndexSet<MorphDescriptorIndex>,
+        gpu_descriptor_free_list: Vec<MorphDescriptorIndex>,
     },
 }
 
@@ -89,7 +88,7 @@ impl FromWorld for MorphIndices {
             MorphIndices::Storage {
                 morph_weights_info: MainEntityHashMap::default(),
                 gpu_descriptor_indices: MainEntityHashMap::default(),
-                gpu_descriptor_free_list: IndexSet::default(),
+                gpu_descriptor_free_list: vec![],
             }
         }
     }
@@ -426,7 +425,7 @@ pub fn prepare_morph_descriptors(
     gpu_descriptor_indices.retain(|morph_target_main_entity, descriptor_index| {
         let live = morph_target_info.contains_key(morph_target_main_entity);
         if !live {
-            gpu_descriptor_free_list.insert(*descriptor_index);
+            gpu_descriptor_free_list.push(*descriptor_index);
         }
         live
     });
