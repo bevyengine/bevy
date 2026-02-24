@@ -738,11 +738,31 @@ impl GltfLoader {
                         &mut out_data,
                     );
                 }
-                let primitive = if let Some(doc) = &out_doc
-                    && let Some(mesh) = doc.meshes().next()
-                    && let Some(primitive) = mesh.primitives().next()
-                {
-                    primitive
+
+                let primitive = if let Some(doc) = &out_doc {
+                    let meshes_len = doc.meshes().len();
+                    if meshes_len != 1 {
+                        warn!(
+                            "Extension returned {} meshes, expected exactly 1. Using original primitive.",
+                            meshes_len
+                        );
+                        primitive
+                    } else if let Some(mesh) = doc.meshes().next() {
+                        let primitives_len = mesh.primitives().len();
+                        if primitives_len != 1 {
+                            warn!(
+                                "Extension returned {} primitives, expected exactly 1. Using original primitive.",
+                                primitives_len
+                            );
+                            primitive
+                        } else if let Some(doc_primitive) = mesh.primitives().next() {
+                            doc_primitive
+                        } else {
+                            primitive
+                        }
+                    } else {
+                        primitive
+                    }
                 } else {
                     primitive
                 };
