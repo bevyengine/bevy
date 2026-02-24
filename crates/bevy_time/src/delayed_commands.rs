@@ -10,9 +10,9 @@ use crate::{Time, Timer, TimerMode};
 /// A wrapper over [`Commands`] that stores [`CommandQueue`]s to be applied with given delays.
 ///
 /// When dropped, the queues are spawned into the world as new entities with
-/// [`DelayedCommandQueue`] components, and then ticked by the [`delayed_queues_system`].
+/// [`DelayedCommandQueue`] components, and then ticked by the [`tick_delayed_command_queues`].
 ///
-/// [`delayed_queues_system`]: crate::delayed_queues_system
+/// [`tick_delayed_command_queues`]: crate::tick_delayed_command_queues
 pub struct DelayedCommands<'w, 's> {
     /// Used to own queues and deduplicate them by their duration.
     queues: HashMap<Duration, CommandQueue>,
@@ -60,7 +60,7 @@ pub trait DelayedCommandsExt<'w> {
     ///
     /// When dropped, the [`DelayedCommands`] submits spawn commands
     /// that will spawn [`DelayedCommandQueue`] entities. The entities are ticked
-    /// and their queues submitted automatically by the [`delayed_queues_system`]
+    /// and their queues submitted automatically by the [`tick_delayed_command_queues`]
     /// after the specified delays.
     ///
     /// # Usage
@@ -90,7 +90,7 @@ pub trait DelayedCommandsExt<'w> {
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
     ///
-    /// [`delayed_queues_system`]: crate::delayed_queues_system
+    /// [`tick_delayed_command_queues`]: crate::tick_delayed_command_queues
     fn delayed(&mut self) -> DelayedCommands<'w, '_>;
 }
 
@@ -111,10 +111,10 @@ impl<'w, 's> Drop for DelayedCommands<'w, 's> {
 
 /// A component with a [`Timer`] and a [`CommandQueue`] to be submitted later.
 ///
-/// Timers in these components are ticked automatically by the [`delayed_queues_system`]
+/// Timers in these components are ticked automatically by the [`tick_delayed_command_queues`]
 /// added by [`TimePlugin`].
 ///
-/// [`delayed_queues_system`]: crate::delayed_queues_system
+/// [`tick_delayed_command_queues`]: crate::tick_delayed_command_queues
 /// [`TimePlugin`]: crate::TimePlugin
 #[derive(Component)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
