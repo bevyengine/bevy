@@ -1,4 +1,7 @@
-//! This example demonstrates an effect that's easy to compose with delayed commands.
+//! This example demonstrates how to send commands which will take effect after a period of time.
+//!
+//! We've chosen to demonstrate this effect through the creation of a grid of clickable,
+//! with "ripples" created when you click.
 
 use bevy::prelude::*;
 
