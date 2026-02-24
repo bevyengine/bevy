@@ -8,7 +8,7 @@ use bevy_ecs::{
 use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    extract_resource::ExtractBaseResource, sync_world::RenderEntity, Extract, RenderApp,
+    extract_resource::ExtractResource, sync_world::RenderEntity, Extract, RenderApp,
 };
 use bevy_transform::components::GlobalTransform;
 
