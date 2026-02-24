@@ -94,7 +94,7 @@ async fn generate_mesh(size: UVec2, seed: u64) -> Result<Mesh, std::io::Error> {
 
     Ok(Mesh::new(
         PrimitiveTopology::TriangleList,
-        RenderAssetUsages::RENDER_WORLD,
+        RenderAssetUsages::default(),
     )
     .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
     .with_inserted_indices(Indices::U32(indices))
@@ -118,7 +118,7 @@ fn generate_image(handle_to_generate: Res<HandleToGenerate>, mut images: ResMut<
         TextureDimension::D2,
         &[0, 0, 0, 255],
         TextureFormat::Rgba8Unorm,
-        RenderAssetUsages::RENDER_WORLD,
+        RenderAssetUsages::default(),
     );
     for y in 0..image.height() {
         for x in 0..image.width() {
