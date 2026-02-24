@@ -43,6 +43,27 @@ use store_fs::PreferencesStore;
 use store_wasm::PreferencesStore;
 
 /// Plugin to orchestrate loading and saving of preferences.
+///
+/// When using this plugin, care must be taken to ensure that plugins execute in the proper order.
+/// Loading preferences causes registered settings to be inserted into the world as bevy resources.
+/// You cannot access these values before they are loaded, but you may want to use the loaded values
+/// when configuring other plugins. For this reason, it's generally a good idea to initialize and
+/// load preferences before other plugins. The preferences plugin does not depend on any other
+/// plugins (it uses either direct filesystem access or web browser APIs depending on platform).
+///
+/// In many cases, you may want to introduce additional "glue" plugins that copy preference
+/// properties after they are loaded. For example, the [`bevy_window::WindowPlugin`] knows nothing
+/// about preferences, but if you want the window size and position to persist between runs you
+/// can add an additional plugin which copies the window settings from the resource to the actual
+/// window entity.
+///
+/// Saving of preferences is not automatic; the recommended practice is to issue a
+/// [`SavePreferencesDeferred`] command after modifying a settings resource. This will wait for
+/// a short interval and then spawn an i/o task to write out the changed settings file. You can
+/// also issue a [`SavePreferencesSync::IfChanged`] command immediately before exiting the app.
+/// Note that on some platforms, depending on how the user exits (such as invoking Command-Q on
+/// ``MacOS``) there may be no opportunity to intercept the app exit event, so the most reliable
+/// approach is to use both techniques: deferred save and save-on-exit.
 pub struct PreferencesPlugin {
     /// The name of the application. This is used to uniquely identify the preferences directory
     /// so as not to confuse it with other applications' preferences. To ensure global uniqueness,
@@ -76,7 +97,7 @@ pub trait SettingsGroup: Resource {
     fn settings_group_name() -> &'static str;
 
     /// The name of the configuration file that contains this settings group.
-    /// TODO: Eventually convert this into an enum which represents various configuration sources.
+    // TODO: Eventually convert this into an enum which represents various configuration sources.
     fn settings_source() -> Option<&'static str>;
 }
 
