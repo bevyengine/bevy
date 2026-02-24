@@ -11,9 +11,9 @@ fn main() {
 }
 
 #[derive(Component)]
-pub struct BlinkySquare;
+struct BlinkySquare;
 
-pub const SQUARE_SIZE: Vec2 = Vec2::splat(45.0);
+const SQUARE_SIZE: Vec2 = Vec2::splat(45.0);
 
 fn spawn(mut commands: Commands) {
     commands.spawn(Camera2d);
