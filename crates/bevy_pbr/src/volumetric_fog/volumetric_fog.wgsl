@@ -176,7 +176,13 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // We assume world and view have the same scale here.
     let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
-    let ray_length_view = abs(end_depth_view - start_depth_view);
+
+    let ray_length_view = max(0.0, end_depth_view - start_depth_view);
+    // If the end is behind the start of the first opaque pixel, then we know it
+    // is occluded, and we don't need to render it
+    if (ray_length_view == 0.0) {
+        return vec4(0.0, 0.0, 0.0, 0.0);
+    }
     let inv_step_count = 1.0 / f32(step_count);
     let step_size_world = ray_length_view * inv_step_count;
 

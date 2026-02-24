@@ -838,8 +838,9 @@ impl AssetServer {
         {
             Ok(loaded_asset) => {
                 let final_handle = if let Some(label) = path.label_cow() {
-                    match loaded_asset.labeled_assets.get(&label) {
+                    match loaded_asset.label_to_asset_index.get(&label) {
                         Some(labeled_asset) => {
+                            let labeled_asset = &loaded_asset.labeled_assets[*labeled_asset];
                             // If we know the requested type then check it
                             // matches the labeled asset.
                             if let Some(asset_id) = asset_id
@@ -862,7 +863,7 @@ impl AssetServer {
                         }
                         None => {
                             let mut all_labels: Vec<String> = loaded_asset
-                                .labeled_assets
+                                .label_to_asset_index
                                 .keys()
                                 .map(|s| (**s).to_owned())
                                 .collect();

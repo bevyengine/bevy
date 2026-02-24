@@ -397,7 +397,7 @@ pub fn extract_gradients(
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
                         z_order: uinode.stack_index as f32
                             + match node_type {
-                                NodeType::Rect => stack_z_offsets::GRADIENT,
+                                NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
                                 NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                             },
                         image: AssetId::default(),
@@ -616,14 +616,14 @@ pub fn queue_gradient(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (gradient.render_entity, gradient.main_entity),
             sort_key: FloatOrd(
                 gradient.stack_index as f32
                     + match gradient.node_type {
-                        NodeType::Rect => stack_z_offsets::GRADIENT,
+                        NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
                         NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                     },
             ),

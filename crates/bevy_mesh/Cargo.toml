@@ -31,7 +31,7 @@ wgpu-types = { version = "28", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
-hexasphere = "17.0"
+hexasphere = "18.0"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
@@ -50,5 +50,9 @@ morph = ["dep:bevy_image"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

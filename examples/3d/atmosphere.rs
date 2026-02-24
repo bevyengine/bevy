@@ -15,7 +15,7 @@ use bevy::{
     input::keyboard::KeyCode,
     light::{
         atmosphere::ScatteringMedium, light_consts::lux, Atmosphere, AtmosphereEnvironmentMapLight,
-        CascadeShadowConfigBuilder, FogVolume, VolumetricFog, VolumetricLight,
+        FogVolume, VolumetricFog, VolumetricLight,
     },
     pbr::{
         AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, ExtendedMaterial,
@@ -104,7 +104,7 @@ fn setup_camera_fog(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.4, 0.04, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
+        Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         // Earthlike atmosphere
         Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
         // Can be adjusted to change the scene scale and rendering quality
@@ -129,7 +129,10 @@ fn setup_camera_fog(
         },
         Msaa::Off,
         TemporalAntiAliasing::default(),
-        ScreenSpaceReflections::default(),
+        ScreenSpaceReflections {
+            min_perceptual_roughness: 0.0..0.0,
+            ..default()
+        },
     ));
 }
 
@@ -172,18 +175,9 @@ impl MaterialExtension for Water {
 fn setup_terrain_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mut water_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, Water>>>,
     asset_server: Res<AssetServer>,
 ) {
-    // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
-    let cascade_shadow_config = CascadeShadowConfigBuilder {
-        first_cascade_far_bound: 0.3,
-        maximum_distance: 15.0,
-        ..default()
-    }
-    .build();
-
     // Sun
     commands.spawn((
         DirectionalLight {
@@ -198,38 +192,12 @@ fn setup_terrain_scene(
         },
         Transform::from_xyz(1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         VolumetricLight,
-        cascade_shadow_config,
     ));
 
     // spawn the fog volume
     commands.spawn((
         FogVolume::default(),
         Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
-    ));
-
-    let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
-
-    // light probe spheres
-    commands.spawn((
-        Mesh3d(sphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            metallic: 1.0,
-            perceptual_roughness: 0.0,
-            ..default()
-        })),
-        Transform::from_xyz(-1.0, 0.1, -0.1).with_scale(Vec3::splat(0.05)),
-    ));
-
-    commands.spawn((
-        Mesh3d(sphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            metallic: 0.0,
-            perceptual_roughness: 1.0,
-            ..default()
-        })),
-        Transform::from_xyz(-1.0, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
     ));
 
     // Terrain
