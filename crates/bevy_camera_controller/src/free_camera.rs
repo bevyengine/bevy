@@ -23,7 +23,7 @@ use bevy_input::mouse::{
 };
 use bevy_input::ButtonInput;
 use bevy_log::info;
-use bevy_math::{EulerRot, Quat, StableInterpolate, Vec2, Vec3};
+use bevy_math::{ops::exp, EulerRot, Quat, StableInterpolate, Vec2, Vec3};
 use bevy_time::{Real, Time};
 use bevy_transform::prelude::Transform;
 use bevy_window::{CursorGrabMode, CursorOptions, Window};
@@ -94,8 +94,25 @@ pub struct FreeCamera {
     pub walk_speed: f32,
     /// Base multiplier for running translation speed.
     pub run_speed: f32,
-    /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](FreeCamera::walk_speed)
+    /// Multiplier for how much the mouse scroll wheel affects [`walk_speed`](FreeCamera::walk_speed)
     /// and [`run_speed`](FreeCamera::run_speed).
+    ///
+    /// Mouse scroll affects speed exponentially. This is to ensure that scrolling the same
+    /// amount always has the same effect on speed, regardless of how the scroll amount
+    /// is reported by the hardware (i.e. as one big event vs many smaller events). This
+    /// also allows the free camera to navigate very large scenes easier.
+    ///
+    /// For every unit of scroll, the speed of the camera is multiplied by a factor of
+    /// `e^(scroll_factor)`.
+    ///
+    /// A reasonable value to start with is a `scroll_factor` between 0.04879016 (~ln(1.05))
+    /// and 0.0953102 (~ln(1.1)). They represent an increase by a factor between 1.05 and 1.1 per
+    /// positive unit scroll and a reduction between ~0.952 (~e^-0.04879016) and ~0.909
+    /// (~e^-0.0953102) times its value per negative unit scroll
+    ///
+    /// A `scroll_factor` closer to 0.0 means that speed will be less sensitive to scroll.
+    /// A `scroll_factor` equal to 0.0 means that speed is unaffected by scroll
+    /// (it will be multiplied by a factor of 1.0 per positive and negative unit scroll).
     pub scroll_factor: f32,
     /// Friction factor used to exponentially decay [`velocity`](FreeCameraState::velocity) over time.
     pub friction: f32,
@@ -116,7 +133,8 @@ impl Default for FreeCamera {
             keyboard_key_toggle_cursor_grab: KeyCode::KeyM,
             walk_speed: 5.0,
             run_speed: 15.0,
-            scroll_factor: 0.5,
+            // Approximation of ln(1.05)
+            scroll_factor: 0.04879016,
             friction: 40.0,
         }
     }
@@ -230,18 +248,17 @@ pub fn run_freecamera_controller(
         return;
     }
 
-    let mut scroll = 0.0;
-
-    let amount = match accumulated_mouse_scroll.unit {
+    let scroll = match accumulated_mouse_scroll.unit {
         MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
         MouseScrollUnit::Pixel => {
             accumulated_mouse_scroll.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
         }
     };
-    scroll += amount;
-    state.speed_multiplier += scroll * config.scroll_factor;
-    // Clamp the speed multiplier for safety
-    state.speed_multiplier = state.speed_multiplier.clamp(0.0, f32::MAX);
+    // By using exponentiation we ensure that this scales up and down smoothly
+    // regardless of the amount of scrolling processed per frame
+    state.speed_multiplier *= exp(config.scroll_factor * scroll);
+    // Clamp the speed multiplier for safety.
+    state.speed_multiplier = state.speed_multiplier.clamp(f32::EPSILON, f32::MAX);
 
     // Handle key input
     let mut axis_input = Vec3::ZERO;

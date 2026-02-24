@@ -365,7 +365,7 @@ impl GetBatchData for StencilPipeline {
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
         let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
@@ -408,10 +408,10 @@ impl GetFullBatchData for StencilPipeline {
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((
-            mesh_instance.current_uniform_index,
+            NonMaxU32::new(mesh_instance.gpu_specific.current_uniform_index())?,
             mesh_instance
                 .should_batch()
-                .then_some(mesh_instance.mesh_asset_id),
+                .then_some(mesh_instance.mesh_asset_id()),
         ))
     }
 
@@ -427,7 +427,7 @@ impl GetFullBatchData for StencilPipeline {
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
         let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
@@ -435,7 +435,7 @@ impl GetFullBatchData for StencilPipeline {
         Some(MeshUniform::new(
             &mesh_instance.transforms,
             first_vertex_index,
-            mesh_instance.material_bindings_index.slot,
+            mesh_instance.material_bindings_index().slot,
             None,
             None,
             None,
@@ -571,7 +571,7 @@ fn queue_custom_meshes(
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
 

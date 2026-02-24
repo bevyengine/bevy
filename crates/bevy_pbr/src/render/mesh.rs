@@ -4,7 +4,8 @@ use crate::{
     resources::write_atmosphere_buffer,
     skin::skin_uniforms_from_world,
 };
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
+use bevy_asset::uuid::Uuid;
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetIndex};
 use bevy_camera::{
     primitives::Aabb,
     visibility::{NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange},
@@ -36,6 +37,7 @@ use bevy_mesh::{
     VertexAttributeDescriptor,
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_render::impl_atomic_pod;
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
@@ -63,11 +65,14 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, BufferedChannel, Parallel, TypeIdMap};
+use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
 use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
-use tracing::{error, info_span, warn, Instrument};
+use static_assertions::const_assert_eq;
+use std::mem::offset_of;
+use std::sync::mpsc;
+use tracing::{error, info_span, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::{
@@ -93,7 +98,6 @@ use bevy_tasks::ComputeTaskPool;
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
-use static_assertions::const_assert_eq;
 
 /// Provides support for rendering 3D meshes.
 pub struct MeshRenderPlugin {
@@ -566,6 +570,8 @@ pub struct MeshInputUniform {
     pub pad: u32,
 }
 
+impl_atomic_pod!(MeshInputUniform, MeshInputUniformBlob);
+
 /// Information about each mesh instance needed to cull it on GPU.
 ///
 /// This consists of its axis-aligned bounding box (AABB).
@@ -587,7 +593,9 @@ pub struct MeshCullingData {
 /// To avoid wasting CPU time in the CPU culling case, this buffer will be empty
 /// if GPU culling isn't in use.
 #[derive(Resource, Deref, DerefMut)]
-pub struct MeshCullingDataBuffer(RawBufferVec<MeshCullingData>);
+pub struct MeshCullingDataBuffer(AtomicRawBufferVec<MeshCullingData>);
+
+impl_atomic_pod!(MeshCullingData, MeshCullingDataBlob);
 
 impl MeshUniform {
     pub fn new(
@@ -688,8 +696,9 @@ impl MeshFlags {
 
 bitflags::bitflags! {
     /// Various useful flags for [`RenderMeshInstance`]s.
-    #[derive(Clone, Copy)]
-    pub struct RenderMeshInstanceFlags: u8 {
+    #[derive(Clone, Copy, Default, Pod, Zeroable)]
+    #[repr(C)]
+    pub struct RenderMeshInstanceFlags: u32 {
         /// The mesh casts shadows.
         const SHADOW_CASTER           = 1 << 0;
         /// The mesh can participate in automatic batching.
@@ -713,28 +722,191 @@ pub struct RenderMeshInstanceCpu {
     /// Data shared between both the CPU mesh uniform building and the GPU mesh
     /// uniform building paths.
     #[deref]
-    pub shared: RenderMeshInstanceShared,
+    pub shared: RenderMeshInstanceSharedFlatBlob,
     /// The transform of the mesh.
     ///
     /// This will be written into the [`MeshUniform`] at the appropriate time.
     pub transforms: MeshTransforms,
+    /// The set of render layers that this mesh belongs to.
+    pub render_layers: Option<RenderLayers>,
 }
 
 /// CPU data that the render world needs to keep for each entity that contains a
 /// mesh when using GPU mesh uniform building.
-#[derive(Deref, DerefMut)]
+#[derive(Deref)]
 pub struct RenderMeshInstanceGpu {
-    /// Data shared between both the CPU mesh uniform building and the GPU mesh
-    /// uniform building paths.
+    /// Thread-safe shared between both the CPU mesh uniform building and the
+    /// GPU mesh uniform building paths.
     #[deref]
-    pub shared: RenderMeshInstanceShared,
-    /// The representative position of the mesh instance in world-space.
+    pub shared: RenderMeshInstanceSharedFlatBlob,
+    /// Thread-safe per-mesh-instance data that's specific to the GPU mesh
+    /// uniform building path.
+    pub gpu_specific: RenderMeshInstanceGpuFlatBlob,
+    /// The render layers that this mesh instance belongs to.
     ///
-    /// This world-space center is used as a spatial proxy for view-dependent
-    /// operations such as distance computation and render-order sorting.
-    pub center: Vec3,
-    /// The index of the [`MeshInputUniform`] in the buffer.
-    pub current_uniform_index: NonMaxU32,
+    /// This contains a [`smallvec::SmallVec`], so it isn't thread-safe.
+    pub render_layers: Option<RenderLayers>,
+}
+
+/// The thread-safe POD that's stored for each mesh, common to both the CPU and
+/// GPU preprocessing paths.
+///
+/// Fields here are formatted in such a way as to implement [`bytemuck::Pod`]:
+/// i.e. with no vectors and no enums. A corresponding
+/// [`RenderMeshInstanceSharedFlatBlob`] is provided, for in-place update in
+/// shared memory.
+#[derive(Clone, Copy, Default, Pod, Zeroable)]
+#[repr(C)]
+pub struct RenderMeshInstanceSharedFlat {
+    asset_id: MeshAssetIdFlat,
+    material_bindings_index: MaterialBindingId,
+    lightmap_slab_index: LightmapSlabIndexFlat,
+    // FIXME: Remove this. This should be a field on `Mesh`.
+    model_space_center: Vec3,
+    tag: u32,
+    // FIXME: Remove this. This should be recomputed on demand, not cached here.
+    world_space_center: Vec3,
+    current_uniform_index: u32,
+    flags: RenderMeshInstanceFlags,
+}
+
+impl_atomic_pod!(
+    RenderMeshInstanceSharedFlat,
+    RenderMeshInstanceSharedFlatBlob,
+    field(asset_id: MeshAssetIdFlat, mesh_asset_id_flat, set_mesh_asset_id_flat),
+    field(
+        material_bindings_index: MaterialBindingId,
+        material_bindings_index,
+        set_material_bindings_index
+    ),
+    field(
+        lightmap_slab_index: LightmapSlabIndexFlat,
+        lightmap_slab_index_flat,
+        set_lightmap_slab_index_flat
+    ),
+    field(model_space_center: Vec3, model_space_center, set_model_space_center),
+    field(tag: u32, tag, set_tag),
+    field(flags: RenderMeshInstanceFlags, flags, set_flags),
+);
+
+impl RenderMeshInstanceSharedFlatBlob {
+    pub fn mesh_asset_id(&self) -> AssetId<Mesh> {
+        self.mesh_asset_id_flat().into()
+    }
+
+    pub fn set_mesh_asset_id(&self, asset_id: AssetId<Mesh>) {
+        self.set_mesh_asset_id_flat(asset_id.into());
+    }
+
+    pub fn lightmap_slab_index(&self) -> Option<LightmapSlabIndex> {
+        self.lightmap_slab_index_flat().into()
+    }
+
+    pub fn set_lightmap_slab_index(&self, lightmap_slab_index: Option<LightmapSlabIndex>) {
+        self.set_lightmap_slab_index_flat(lightmap_slab_index.into());
+    }
+
+    /// Returns true if this entity is eligible to participate in automatic
+    /// batching.
+    #[inline]
+    pub fn should_batch(&self) -> bool {
+        self.flags()
+            .contains(RenderMeshInstanceFlags::AUTOMATIC_BATCHING)
+    }
+}
+
+/// Data in [`RenderMeshInstanceGpu`] that's both specific to the GPU
+/// preprocessing path and POD.
+///
+/// This includes all the data except the `render_layers` list, which isn't POD.
+#[derive(Clone, Copy, Default, Pod, Zeroable)]
+#[repr(C)]
+pub struct RenderMeshInstanceGpuFlat {
+    // FIXME: Remove this. This should be recomputed on demand, not cached here.
+    world_space_center: Vec3,
+    current_uniform_index: u32,
+}
+
+impl_atomic_pod!(
+    RenderMeshInstanceGpuFlat,
+    RenderMeshInstanceGpuFlatBlob,
+    field(world_space_center: Vec3, world_space_center, set_world_space_center),
+    field(current_uniform_index: u32, current_uniform_index, set_current_uniform_index),
+);
+
+#[derive(Clone, Copy, Default, Pod, Zeroable)]
+#[repr(C)]
+struct MeshAssetIdFlat {
+    mode: u32,
+    words: [u32; 4],
+}
+
+#[derive(Clone, Copy, Default, Pod, Zeroable)]
+#[repr(C)]
+struct LightmapSlabIndexFlat(u32);
+
+const MESH_ASSET_ID_FLAT_MODE_INDEX: u32 = 0;
+const MESH_ASSET_ID_FLAT_MODE_UUID: u32 = 1;
+
+impl From<AssetId<Mesh>> for MeshAssetIdFlat {
+    #[inline]
+    fn from(value: AssetId<Mesh>) -> Self {
+        match value {
+            AssetId::Index { index, .. } => {
+                let bits = index.to_bits();
+                MeshAssetIdFlat {
+                    mode: MESH_ASSET_ID_FLAT_MODE_INDEX,
+                    words: [(bits & 0xffff_ffff) as u32, (bits >> 32) as u32, 0, 0],
+                }
+            }
+            AssetId::Uuid { uuid } => {
+                let (hi, lo) = uuid.as_u64_pair();
+                MeshAssetIdFlat {
+                    mode: MESH_ASSET_ID_FLAT_MODE_UUID,
+                    words: [
+                        (lo & 0xffff_ffff) as u32,
+                        (lo >> 32) as u32,
+                        (hi & 0xffff_ffff) as u32,
+                        (hi >> 32) as u32,
+                    ],
+                }
+            }
+        }
+    }
+}
+
+impl From<MeshAssetIdFlat> for AssetId<Mesh> {
+    #[inline]
+    fn from(value: MeshAssetIdFlat) -> AssetId<Mesh> {
+        if value.mode == MESH_ASSET_ID_FLAT_MODE_INDEX {
+            AssetId::from(AssetIndex::from_bits(
+                (value.words[0] as u64) | ((value.words[1] as u64) << 32),
+            ))
+        } else {
+            let lo = (value.words[0] as u64) | ((value.words[1] as u64) << 32);
+            let hi = (value.words[2] as u64) | ((value.words[3] as u64) << 32);
+            AssetId::Uuid {
+                uuid: Uuid::from_u64_pair(hi, lo),
+            }
+        }
+    }
+}
+
+impl From<Option<LightmapSlabIndex>> for LightmapSlabIndexFlat {
+    #[inline]
+    fn from(value: Option<LightmapSlabIndex>) -> Self {
+        match value {
+            Some(slab_index) => LightmapSlabIndexFlat((*slab_index).into()),
+            None => LightmapSlabIndexFlat(!0),
+        }
+    }
+}
+
+impl From<LightmapSlabIndexFlat> for Option<LightmapSlabIndex> {
+    #[inline]
+    fn from(value: LightmapSlabIndexFlat) -> Self {
+        NonMaxU32::new(value.0).map(LightmapSlabIndex)
+    }
 }
 
 /// CPU data that the render world needs to keep about each entity that contains
@@ -744,21 +916,19 @@ pub struct RenderMeshInstanceShared {
     pub mesh_asset_id: AssetId<Mesh>,
     /// A slot for the material bind group index.
     pub material_bindings_index: MaterialBindingId,
-    /// Various flags.
-    pub flags: RenderMeshInstanceFlags,
     /// Index of the slab that the lightmap resides in, if a lightmap is
     /// present.
     pub lightmap_slab_index: Option<LightmapSlabIndex>,
-    /// User supplied tag to identify this mesh instance.
-    pub tag: u32,
-    /// Render layers that this mesh instance belongs to.
-    pub render_layers: Option<RenderLayers>,
     /// A representative position of the mesh instance in local space,
     /// derived from its axis-aligned bounding box.
     ///
     /// This value is typically used as a spatial proxy for operations such as
     /// view-dependent sorting (e.g., transparent object ordering).
     pub center: Vec3,
+    /// User supplied tag to identify this mesh instance.
+    pub tag: u32,
+    /// Various flags.
+    pub flags: RenderMeshInstanceFlags,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -768,7 +938,7 @@ pub struct RenderMeshInstanceShared {
 /// prepared.
 pub struct RenderMeshInstanceGpuBuilder {
     /// Data that will be placed on the [`RenderMeshInstanceGpu`].
-    pub shared: RenderMeshInstanceShared,
+    pub shared: RenderMeshInstanceSharedFlat,
     /// The current transform.
     pub world_from_local: Affine3,
     /// Four 16-bit unsigned normalized UV values packed into a [`UVec2`]:
@@ -785,6 +955,8 @@ pub struct RenderMeshInstanceGpuBuilder {
     pub lightmap_uv_rect: UVec2,
     /// The index of the previous mesh input.
     pub previous_input_index: Option<NonMaxU32>,
+    /// The render layers that this mesh instance belongs to.
+    pub render_layers: Option<RenderLayers>,
     /// Various flags.
     pub mesh_flags: MeshFlags,
 }
@@ -841,7 +1013,7 @@ pub struct RenderMeshInstanceGpuQueues(Parallel<RenderMeshInstanceGpuQueue>);
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct MeshesToReextractNextFrame(MainEntityHashSet);
 
-impl RenderMeshInstanceShared {
+impl RenderMeshInstanceSharedFlat {
     /// A gpu builder will provide the mesh instance id
     /// during [`RenderMeshInstanceGpuPrepared::update`].
     fn for_gpu_building(
@@ -850,7 +1022,6 @@ impl RenderMeshInstanceShared {
         tag: Option<&MeshTag>,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
-        render_layers: Option<&RenderLayers>,
         aabb: Option<&Aabb>,
     ) -> Self {
         Self::for_cpu_building(
@@ -860,7 +1031,6 @@ impl RenderMeshInstanceShared {
             default(),
             not_shadow_caster,
             no_automatic_batching,
-            render_layers,
             aabb,
         )
     }
@@ -873,7 +1043,6 @@ impl RenderMeshInstanceShared {
         material_bindings_index: MaterialBindingId,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
-        render_layers: Option<&RenderLayers>,
         aabb: Option<&Aabb>,
     ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
@@ -887,23 +1056,19 @@ impl RenderMeshInstanceShared {
             previous_transform.is_some(),
         );
 
-        RenderMeshInstanceShared {
-            mesh_asset_id: mesh.id(),
-            flags: mesh_instance_flags,
+        RenderMeshInstanceSharedFlat {
+            asset_id: mesh.id().into(),
             material_bindings_index,
-            lightmap_slab_index: None,
+            model_space_center: aabb.map_or(Vec3::ZERO, |aabb| aabb.center.into()),
             tag: tag.map_or(0, |i| **i),
-            render_layers: render_layers.cloned(),
-            center: aabb.map_or(Vec3::ZERO, |aabb| aabb.center.into()),
+            flags: mesh_instance_flags,
+            // Filled in later.
+            lightmap_slab_index: LightmapSlabIndexFlat::default(),
+            // Filled in later.
+            world_space_center: Vec3::ZERO,
+            // Filled in later.
+            current_uniform_index: 0,
         }
-    }
-
-    /// Returns true if this entity is eligible to participate in automatic
-    /// batching.
-    #[inline]
-    pub fn should_batch(&self) -> bool {
-        self.flags
-            .contains(RenderMeshInstanceFlags::AUTOMATIC_BATCHING)
     }
 }
 
@@ -978,7 +1143,7 @@ impl RenderMeshInstances {
 impl RenderMeshInstancesCpu {
     fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
         self.get(&entity)
-            .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
+            .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id())
     }
 
     fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
@@ -986,11 +1151,12 @@ impl RenderMeshInstancesCpu {
             let world_from_local = &render_mesh_instance.transforms.world_from_local;
             let center = world_from_local
                 .matrix3
-                .mul_vec3(render_mesh_instance.shared.center)
+                .mul_vec3(render_mesh_instance.shared.model_space_center())
                 + world_from_local.translation;
 
             RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
+                render_layers: render_mesh_instance.render_layers.clone(),
                 center,
                 current_uniform_index: InputUniformIndex::default(),
             }
@@ -1001,7 +1167,7 @@ impl RenderMeshInstancesCpu {
     /// mesh.
     fn insert_mesh_instance_flags(&mut self, entity: MainEntity, flags: RenderMeshInstanceFlags) {
         if let Some(instance) = self.get_mut(&entity) {
-            instance.flags.insert(flags);
+            instance.set_flags(instance.flags() | flags);
         }
     }
 }
@@ -1009,16 +1175,17 @@ impl RenderMeshInstancesCpu {
 impl RenderMeshInstancesGpu {
     fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
         self.get(&entity)
-            .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
+            .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id())
     }
 
     fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
-                center: render_mesh_instance.center,
+                render_layers: render_mesh_instance.render_layers.clone(),
+                center: render_mesh_instance.gpu_specific.world_space_center(),
                 current_uniform_index: InputUniformIndex(
-                    render_mesh_instance.current_uniform_index.into(),
+                    render_mesh_instance.gpu_specific.current_uniform_index(),
                 ),
             })
     }
@@ -1027,7 +1194,7 @@ impl RenderMeshInstancesGpu {
     /// mesh.
     fn insert_mesh_instance_flags(&mut self, entity: MainEntity, flags: RenderMeshInstanceFlags) {
         if let Some(instance) = self.get_mut(&entity) {
-            instance.flags.insert(flags);
+            instance.set_flags(instance.flags() | flags);
         }
     }
 }
@@ -1158,7 +1325,7 @@ impl RenderMeshInstanceGpuBuilder {
         self.shared.material_bindings_index = mesh_material_binding_id;
 
         let (first_vertex_index, vertex_count) =
-            match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id) {
+            match mesh_allocator.mesh_vertex_slice(&self.shared.asset_id.into()) {
                 Some(mesh_vertex_slice) => (
                     mesh_vertex_slice.range.start,
                     mesh_vertex_slice.range.end - mesh_vertex_slice.range.start,
@@ -1166,7 +1333,7 @@ impl RenderMeshInstanceGpuBuilder {
                 None => (0, 0),
             };
         let (mesh_is_indexed, first_index_index, index_count) =
-            match mesh_allocator.mesh_index_slice(&self.shared.mesh_asset_id) {
+            match mesh_allocator.mesh_index_slice(&self.shared.asset_id.into()) {
                 Some(mesh_index_slice) => (
                     true,
                     mesh_index_slice.range.start,
@@ -1187,7 +1354,7 @@ impl RenderMeshInstanceGpuBuilder {
             .render_lightmaps
             .get(&entity)
             .map(|lightmap| lightmap.slab_index);
-        self.shared.lightmap_slab_index = lightmap_slab_index;
+        self.shared.lightmap_slab_index = lightmap_slab_index.into();
 
         // Create the mesh input uniform.
         let mesh_input_uniform = MeshInputUniform {
@@ -1212,24 +1379,30 @@ impl RenderMeshInstanceGpuBuilder {
         };
 
         let world_from_local = &self.world_from_local;
-        let center =
-            world_from_local.matrix3.mul_vec3(self.shared.center) + world_from_local.translation;
+        let center = world_from_local
+            .matrix3
+            .mul_vec3(self.shared.model_space_center)
+            + world_from_local.translation;
 
         Some(RenderMeshInstanceGpuPrepared {
             shared: self.shared,
             mesh_input_uniform,
             center,
+            render_layers: self.render_layers,
         })
     }
 }
 
+/// Data needed to construct the [`RenderMeshInstanceGpu`] for a mesh instance.
 pub struct RenderMeshInstanceGpuPrepared {
     /// Data shared between the CPU and GPU versions of this mesh instance.
-    shared: RenderMeshInstanceShared,
+    shared: RenderMeshInstanceSharedFlat,
     /// The data that will be uploaded to the GPU as a [`MeshInputUniform`].
     mesh_input_uniform: MeshInputUniform,
     /// The world-space center of the mesh instance, used for culling and sorting.
     center: Vec3,
+    /// The render layers that this mesh instance belongs to.
+    render_layers: Option<RenderLayers>,
 }
 
 impl RenderMeshInstanceGpuPrepared {
@@ -1240,7 +1413,7 @@ impl RenderMeshInstanceGpuPrepared {
         entity: MainEntity,
         render_mesh_instances: &mut MainEntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
-        previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
+        previous_input_buffer: &InstanceInputUniformBuffer<MeshInputUniform>,
     ) -> Option<u32> {
         // Did the last frame contain this entity as well?
         let current_uniform_index;
@@ -1249,38 +1422,48 @@ impl RenderMeshInstanceGpuPrepared {
                 // Yes, it did. Replace its entry with the new one.
 
                 // Reserve a slot.
-                current_uniform_index = u32::from(occupied_entry.get_mut().current_uniform_index);
+                current_uniform_index = occupied_entry
+                    .get_mut()
+                    .gpu_specific
+                    .current_uniform_index();
 
                 // Save the old mesh input uniform. The mesh preprocessing
                 // shader will need it to compute motion vectors.
                 let previous_mesh_input_uniform =
                     current_input_buffer.get_unchecked(current_uniform_index);
-                let previous_input_index = previous_input_buffer.add(previous_mesh_input_uniform);
+                let previous_input_index = previous_input_buffer.push(previous_mesh_input_uniform);
                 self.mesh_input_uniform.previous_input_index = previous_input_index;
 
                 // Write in the new mesh input uniform.
                 current_input_buffer.set(current_uniform_index, self.mesh_input_uniform);
 
-                occupied_entry.replace_entry_with(|_, _| {
-                    Some(RenderMeshInstanceGpu {
-                        shared: self.shared,
-                        center: self.center,
-                        current_uniform_index: NonMaxU32::new(current_uniform_index)
-                            .unwrap_or_default(),
-                    })
-                });
+                // Write the instance.
+                let existing_instance = occupied_entry.get_mut();
+                self.shared.write_to_blob(&existing_instance.shared);
+                existing_instance
+                    .gpu_specific
+                    .set_world_space_center(self.center);
+                existing_instance
+                    .gpu_specific
+                    .set_current_uniform_index(current_uniform_index);
+                existing_instance.render_layers = self.render_layers.clone();
             }
 
             Entry::Vacant(vacant_entry) => {
                 // No, this is a new entity. Push its data on to the buffer.
                 current_uniform_index = current_input_buffer.add(self.mesh_input_uniform);
 
-                vacant_entry.insert(RenderMeshInstanceGpu {
-                    shared: self.shared,
-                    center: self.center,
-                    current_uniform_index: NonMaxU32::new(current_uniform_index)
-                        .unwrap_or_default(),
+                let new_instance = vacant_entry.insert(RenderMeshInstanceGpu {
+                    shared: RenderMeshInstanceSharedFlatBlob::default(),
+                    gpu_specific: RenderMeshInstanceGpuFlatBlob::default(),
+                    render_layers: self.render_layers.clone(),
                 });
+                self.shared.write_to_blob(&new_instance.shared);
+                RenderMeshInstanceGpuFlat {
+                    world_space_center: self.center,
+                    current_uniform_index,
+                }
+                .write_to_blob(&new_instance.gpu_specific);
             }
         }
 
@@ -1298,7 +1481,9 @@ fn remove_mesh_input_uniform(
     // Remove the uniform data.
     let removed_render_mesh_instance = render_mesh_instances.remove(&entity)?;
 
-    let removed_uniform_index = removed_render_mesh_instance.current_uniform_index.get();
+    let removed_uniform_index = removed_render_mesh_instance
+        .gpu_specific
+        .current_uniform_index();
     current_input_buffer.remove(removed_uniform_index);
     Some(removed_uniform_index)
 }
@@ -1326,19 +1511,19 @@ impl MeshCullingData {
     fn update(
         &self,
         mesh_culling_data_buffer: &mut MeshCullingDataBuffer,
-        instance_data_index: usize,
+        instance_data_index: u32,
     ) {
         while mesh_culling_data_buffer.len() < instance_data_index + 1 {
             mesh_culling_data_buffer.push(MeshCullingData::default());
         }
-        mesh_culling_data_buffer.values_mut()[instance_data_index] = *self;
+        mesh_culling_data_buffer.set(instance_data_index, *self);
     }
 }
 
 impl Default for MeshCullingDataBuffer {
     #[inline]
     fn default() -> Self {
-        Self(RawBufferVec::new(BufferUsages::STORAGE))
+        Self(AtomicRawBufferVec::new(BufferUsages::STORAGE))
     }
 }
 
@@ -1348,7 +1533,9 @@ impl Default for MeshCullingDataBuffer {
 pub struct RenderMeshQueueData<'a> {
     /// General information about the mesh instance.
     #[deref]
-    pub shared: &'a RenderMeshInstanceShared,
+    pub shared: &'a RenderMeshInstanceSharedFlatBlob,
+    /// The render layers that this mesh instance belongs to.
+    pub render_layers: Option<RenderLayers>,
     /// The representative position of the mesh instance in world-space.
     ///
     /// This world-space center is used as a spatial proxy for view-dependent
@@ -1437,14 +1624,13 @@ pub fn extract_meshes_for_cpu_building(
                 .copied()
                 .unwrap_or_default();
 
-            let shared = RenderMeshInstanceShared::for_cpu_building(
+            let shared = RenderMeshInstanceSharedFlat::for_cpu_building(
                 previous_transform,
                 mesh,
                 tag,
                 material_bindings_index,
                 not_shadow_caster,
                 no_automatic_batching,
-                render_layers,
                 aabb,
             );
 
@@ -1460,7 +1646,8 @@ pub fn extract_meshes_for_cpu_building(
                         .into(),
                         flags: mesh_flags.bits(),
                     },
-                    shared,
+                    shared: (&shared).into(),
+                    render_layers: render_layers.cloned(),
                 },
             ));
         },
@@ -1690,13 +1877,12 @@ fn extract_mesh_for_gpu_building(
         transmitted_receiver,
     );
 
-    let shared = RenderMeshInstanceShared::for_gpu_building(
+    let shared = RenderMeshInstanceSharedFlat::for_gpu_building(
         previous_transform,
         mesh,
         tag,
         not_shadow_caster,
         no_automatic_batching,
-        render_layers,
         aabb,
     );
 
@@ -1710,7 +1896,9 @@ fn extract_mesh_for_gpu_building(
     {
         render_mesh_instances
             .get(&MainEntity::from(entity))
-            .map(|render_mesh_instance| render_mesh_instance.current_uniform_index)
+            .and_then(|render_mesh_instance| {
+                NonMaxU32::new(render_mesh_instance.gpu_specific.current_uniform_index())
+            })
     } else {
         None
     };
@@ -1721,6 +1909,7 @@ fn extract_mesh_for_gpu_building(
         lightmap_uv_rect,
         mesh_flags,
         previous_input_index,
+        render_layers: render_layers.cloned(),
     };
 
     queue.push(
@@ -1759,17 +1948,6 @@ pub fn set_mesh_motion_vector_flags(
     }
 }
 
-#[derive(Default)]
-pub struct GpuMeshBuildingChunks {
-    prepared: BufferedChannel<(
-        MainEntity,
-        RenderMeshInstanceGpuPrepared,
-        Option<MeshCullingData>,
-    )>,
-    reextract: BufferedChannel<MainEntity>,
-    removed: BufferedChannel<MainEntity>,
-}
-
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
 pub fn collect_meshes_for_gpu_building(
     render_mesh_instances: ResMut<RenderMeshInstances>,
@@ -1785,7 +1963,6 @@ pub fn collect_meshes_for_gpu_building(
     skin_uniforms: Res<SkinUniforms>,
     frame_count: Res<FrameCount>,
     mut meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
-    chunks: Local<GpuMeshBuildingChunks>,
 ) {
     let RenderMeshInstances::GpuBuilding(render_mesh_instances) =
         render_mesh_instances.into_inner()
@@ -1804,86 +1981,55 @@ pub fn collect_meshes_for_gpu_building(
     } = batched_instance_buffers.into_inner();
     previous_input_buffer.clear();
 
+    // Make sure the mesh culling data buffer has enough space.
+    if !current_input_buffer.is_empty() {
+        mesh_culling_data_buffer.grow(current_input_buffer.len() as u32);
+    }
+
+    // Pre-allocate the previous input buffer for concurrent pushes.
+    previous_input_buffer.reserve(current_input_buffer.len() as u32);
+
     // Channels used by parallel workers to send data to the single consumer.
-    let (prepared_rx, prepared_tx) = chunks.prepared.unbounded();
-    let (reextract_rx, reextract_tx) = chunks.reextract.unbounded();
-    let (removed_rx, removed_tx) = chunks.removed.unbounded();
+    let (prepared_tx, prepared_rx) = mpsc::channel();
+    let (reextract_tx, reextract_rx) = mpsc::channel();
+    let (removed_tx, removed_rx) = mpsc::channel();
 
-    // Reference data shared between tasks
-    let mesh_allocator = &mesh_allocator;
-    let mesh_material_ids = &mesh_material_ids;
-    let render_material_bindings = &render_material_bindings;
-    let render_lightmaps = &render_lightmaps;
-    let skin_uniforms = &skin_uniforms;
-    let frame_count = *frame_count;
+    {
+        // Reference data shared between tasks
+        let mesh_allocator = &mesh_allocator;
+        let mesh_material_ids = &mesh_material_ids;
+        let render_material_bindings = &render_material_bindings;
+        let render_lightmaps = &render_lightmaps;
+        let skin_uniforms = &skin_uniforms;
+        let frame_count = *frame_count;
+        let render_mesh_instances = &*render_mesh_instances;
+        let current_input_buffer = &*current_input_buffer;
+        let previous_input_buffer = &*previous_input_buffer;
+        let mesh_culling_data_buffer = &*mesh_culling_data_buffer;
 
-    // Spawn workers on the taskpool to prepare and update meshes in parallel.
-    ComputeTaskPool::get().scope(|scope| {
-        // This worker is the bottleneck of mesh preparation and can only run serially, so we want
-        // it to start working immediately. As soon as the parallel workers produce chunks of
-        // prepared meshes, this worker will consume them and update the GPU buffers.
-        scope.spawn(
-            async move {
-                while let Ok(mut batch) = prepared_rx.recv().await {
-                    for (entity, prepared, mesh_culling_builder) in batch.drain() {
-                        let Some(instance_data_index) = prepared.update(
-                            entity,
-                            &mut *render_mesh_instances,
-                            current_input_buffer,
-                            previous_input_buffer,
-                        ) else {
-                            continue;
-                        };
-                        if let Some(mesh_culling_data) = mesh_culling_builder {
-                            mesh_culling_data.update(
-                                &mut mesh_culling_data_buffer,
-                                instance_data_index as usize,
-                            );
-                        }
+        // Spawn workers on the taskpool to prepare and update meshes in parallel.
+        ComputeTaskPool::get().scope(|scope| {
+            // Iterate through each queue, spawning a task for each queue. This loop completes quickly
+            // as it does very little work, it is just spawning and moving data into tasks in a loop.
+            for queue in render_mesh_instance_queues.iter_mut() {
+                match *queue {
+                    RenderMeshInstanceGpuQueue::None => {
+                        // This can only happen if the queue is empty.
                     }
-                }
-                while let Ok(mut batch) = removed_rx.recv().await {
-                    for entity in batch.drain() {
-                        remove_mesh_input_uniform(
-                            entity,
-                            &mut *render_mesh_instances,
-                            current_input_buffer,
-                        );
-                    }
-                }
-                while let Ok(mut batch) = reextract_rx.recv().await {
-                    for entity in batch.drain() {
-                        meshes_to_reextract_next_frame.insert(entity);
-                    }
-                }
-                // Buffers can't be empty. Make sure there's something in the previous input buffer.
-                previous_input_buffer.ensure_nonempty();
-            }
-            .instrument(info_span!("collect_meshes_consumer")),
-        );
 
-        // Iterate through each queue, spawning a task for each queue. This loop completes quickly
-        // as it does very little work, it is just spawning and moving data into tasks in a loop.
-        for queue in render_mesh_instance_queues.iter_mut() {
-            match *queue {
-                RenderMeshInstanceGpuQueue::None => {
-                    // This can only happen if the queue is empty.
-                }
-
-                RenderMeshInstanceGpuQueue::CpuCulling {
-                    ref mut changed,
-                    ref mut removed,
-                } => {
-                    let mut prepared_tx = prepared_tx.clone();
-                    let mut reextract_tx = reextract_tx.clone();
-                    let mut removed_tx = removed_tx.clone();
-                    scope.spawn(async move {
-                        let _span = info_span!("prepared_mesh_producer").entered();
-                        changed
-                            .drain(..)
-                            .for_each(
-                                |(entity, mesh_instance_builder)| match mesh_instance_builder
-                                    .prepare(
+                    RenderMeshInstanceGpuQueue::CpuCulling {
+                        ref mut changed,
+                        ref mut removed,
+                    } => {
+                        let prepared_tx = prepared_tx.clone();
+                        let reextract_tx = reextract_tx.clone();
+                        let removed_tx = removed_tx.clone();
+                        scope.spawn(async move {
+                            let _span = info_span!("prepared_mesh_producer").entered();
+                            changed
+                                .drain(..)
+                                .for_each(|(entity, mesh_instance_builder)| {
+                                    match mesh_instance_builder.prepare(
                                         entity,
                                         mesh_allocator,
                                         mesh_material_ids,
@@ -1892,67 +2038,137 @@ pub fn collect_meshes_for_gpu_building(
                                         skin_uniforms,
                                         frame_count,
                                     ) {
-                                    Some(prepared) => {
-                                        prepared_tx.send_blocking((entity, prepared, None)).ok();
+                                        Some(prepared) => {
+                                            prepared_tx.send((entity, prepared, None)).ok();
+                                        }
+                                        None => {
+                                            reextract_tx.send(entity).ok();
+                                        }
                                     }
-                                    None => {
-                                        reextract_tx.send_blocking(entity).ok();
+                                });
+
+                            for entity in removed.drain(..) {
+                                removed_tx.send(entity).unwrap();
+                            }
+                        });
+                    }
+
+                    RenderMeshInstanceGpuQueue::GpuCulling {
+                        ref mut changed,
+                        ref mut removed,
+                    } => {
+                        let prepared_tx = prepared_tx.clone();
+                        let reextract_tx = reextract_tx.clone();
+                        let removed_tx = removed_tx.clone();
+                        scope.spawn(async move {
+                            let _span = info_span!("prepared_mesh_producer").entered();
+                            changed.drain(..).for_each(
+                                |(entity, mesh_instance_builder, mesh_culling_builder)| {
+                                    match mesh_instance_builder.prepare(
+                                        entity,
+                                        mesh_allocator,
+                                        mesh_material_ids,
+                                        render_material_bindings,
+                                        render_lightmaps,
+                                        skin_uniforms,
+                                        frame_count,
+                                    ) {
+                                        Some(mut prepared) => {
+                                            if let Some(render_mesh_instance) =
+                                                render_mesh_instances.get(&entity)
+                                                && prepared.render_layers
+                                                    == render_mesh_instance.render_layers
+                                            {
+                                                // We can take a fast path and
+                                                // write directly to shared
+                                                // memory, since the only fields
+                                                // that changed are POD fields.
+
+                                                prepared
+                                                    .shared
+                                                    .write_to_blob(&render_mesh_instance.shared);
+                                                render_mesh_instance
+                                                    .gpu_specific
+                                                    .set_world_space_center(prepared.center);
+
+                                                let current_uniform_index = render_mesh_instance
+                                                    .gpu_specific
+                                                    .current_uniform_index();
+
+                                                let previous_mesh_input_uniform =
+                                                    current_input_buffer
+                                                        .get_unchecked(current_uniform_index);
+                                                let previous_input_index = previous_input_buffer
+                                                    .push(previous_mesh_input_uniform);
+                                                prepared.mesh_input_uniform.previous_input_index =
+                                                    previous_input_index;
+
+                                                current_input_buffer.set(
+                                                    current_uniform_index,
+                                                    prepared.mesh_input_uniform,
+                                                );
+                                                mesh_culling_data_buffer.set(
+                                                    current_uniform_index,
+                                                    mesh_culling_builder,
+                                                );
+                                            } else {
+                                                // This is the slow path. Send
+                                                // the mesh instance to the
+                                                // collection sink.
+                                                let data =
+                                                    (entity, prepared, Some(mesh_culling_builder));
+                                                prepared_tx.send(data).ok();
+                                            }
+                                        }
+                                        None => {
+                                            reextract_tx.send(entity).ok();
+                                        }
                                     }
                                 },
                             );
 
-                        for entity in removed.drain(..) {
-                            removed_tx.send_blocking(entity).unwrap();
-                        }
-                    });
-                }
-
-                RenderMeshInstanceGpuQueue::GpuCulling {
-                    ref mut changed,
-                    ref mut removed,
-                } => {
-                    let mut prepared_tx = prepared_tx.clone();
-                    let mut reextract_tx = reextract_tx.clone();
-                    let mut removed_tx = removed_tx.clone();
-                    scope.spawn(async move {
-                        let _span = info_span!("prepared_mesh_producer").entered();
-                        changed.drain(..).for_each(
-                            |(entity, mesh_instance_builder, mesh_culling_builder)| {
-                                match mesh_instance_builder.prepare(
-                                    entity,
-                                    mesh_allocator,
-                                    mesh_material_ids,
-                                    render_material_bindings,
-                                    render_lightmaps,
-                                    skin_uniforms,
-                                    frame_count,
-                                ) {
-                                    Some(prepared) => {
-                                        let data = (entity, prepared, Some(mesh_culling_builder));
-                                        prepared_tx.send_blocking(data).ok();
-                                    }
-                                    None => {
-                                        reextract_tx.send_blocking(entity).ok();
-                                    }
-                                }
-                            },
-                        );
-
-                        for entity in removed.drain(..) {
-                            removed_tx.send_blocking(entity).unwrap();
-                        }
-                    });
+                            for entity in removed.drain(..) {
+                                removed_tx.send(entity).unwrap();
+                            }
+                        });
+                    }
                 }
             }
-        }
 
-        // Drop the senders owned by the scope, so the only senders left are those captured by the
-        // spawned tasks. When the tasks are complete, the channels will close, and the consumer
-        // will finish. Without this, the scope would deadlock on the blocked consumer.
-        drop(prepared_tx);
-        drop(reextract_tx);
-        drop(removed_tx);
-    });
+            // Drop the senders owned by the scope, so the only senders left are those captured by the
+            // spawned tasks. When the tasks are complete, the channels will close, and the consumer
+            // will finish. Without this, the scope would deadlock on the blocked consumer.
+            drop(prepared_tx);
+            drop(reextract_tx);
+            drop(removed_tx);
+        });
+    }
+
+    while let Ok(batch) = prepared_rx.recv() {
+        let (entity, prepared, mesh_culling_builder) = batch;
+        let Some(instance_data_index) = prepared.update(
+            entity,
+            &mut *render_mesh_instances,
+            current_input_buffer,
+            previous_input_buffer,
+        ) else {
+            continue;
+        };
+        if let Some(mesh_culling_data) = mesh_culling_builder {
+            mesh_culling_data.update(&mut mesh_culling_data_buffer, instance_data_index);
+        }
+    }
+    while let Ok(batch) = removed_rx.recv() {
+        let entity = batch;
+        remove_mesh_input_uniform(entity, &mut *render_mesh_instances, current_input_buffer);
+    }
+    while let Ok(batch) = reextract_rx.recv() {
+        let entity = batch;
+        meshes_to_reextract_next_frame.insert(entity);
+    }
+    previous_input_buffer.truncate();
+    // Buffers can't be empty. Make sure there's something in the previous input buffer.
+    previous_input_buffer.ensure_nonempty();
 }
 
 /// All data needed to construct a pipeline for rendering 3D meshes.
@@ -2119,14 +2335,14 @@ impl GetBatchData for MeshPipeline {
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
         let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
-        let material_bind_group_index = mesh_instance.material_bindings_index;
+        let material_bind_group_index = mesh_instance.material_bindings_index();
 
         Some((
             MeshUniform::new(
@@ -2135,11 +2351,11 @@ impl GetBatchData for MeshPipeline {
                 material_bind_group_index.slot,
                 maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
                 current_skin_index,
-                Some(mesh_instance.tag),
+                Some(mesh_instance.tag()),
             ),
             mesh_instance.should_batch().then_some((
                 material_bind_group_index.group,
-                mesh_instance.mesh_asset_id,
+                mesh_instance.mesh_asset_id(),
                 maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
@@ -2166,10 +2382,10 @@ impl GetFullBatchData for MeshPipeline {
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         Some((
-            mesh_instance.current_uniform_index,
+            NonMaxU32::new(mesh_instance.gpu_specific.current_uniform_index())?,
             mesh_instance.should_batch().then_some((
-                mesh_instance.material_bindings_index.group,
-                mesh_instance.mesh_asset_id,
+                mesh_instance.material_bindings_index().group,
+                mesh_instance.mesh_asset_id(),
                 maybe_lightmap.map(|lightmap| lightmap.slab_index),
             )),
         ))
@@ -2189,7 +2405,7 @@ impl GetFullBatchData for MeshPipeline {
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
         let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
@@ -2200,10 +2416,10 @@ impl GetFullBatchData for MeshPipeline {
         Some(MeshUniform::new(
             &mesh_instance.transforms,
             first_vertex_index,
-            mesh_instance.material_bindings_index.slot,
+            mesh_instance.material_bindings_index().slot,
             maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
             current_skin_index,
-            Some(mesh_instance.tag),
+            Some(mesh_instance.tag()),
         ))
     }
 
@@ -2222,7 +2438,7 @@ impl GetFullBatchData for MeshPipeline {
 
         mesh_instances
             .get(&main_entity)
-            .map(|entity| entity.current_uniform_index)
+            .and_then(|entity| NonMaxU32::new(entity.gpu_specific.current_uniform_index()))
     }
 
     fn write_batch_indirect_parameters_metadata(
