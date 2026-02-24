@@ -17,8 +17,9 @@ An `IterQueryData` bound has been added to iteration methods on `Query`:
 * `get_many_mut` / `get_many_inner` / `get_many_unique_mut` / `get_many_unique_inner`
 * `par_iter_mut` / `par_iter_inner` / `par_iter_many_unique_mut`
 * `single_mut` / `single_inner`
+* `iter_combinations_mut` / `iter_combinations_inner` / `iter_combinations_unsafe`
 
-`iter`, `iter_many`, `par_iter`, and `single` have no extra bounds,
+`iter`, `iter_many`, `par_iter`, `single`, and `iter_combinations` have no extra bounds,
 since read-only queries are always sound to iterate.
 `iter_many_mut` and `iter_many_inner` methods have no extra bounds, either,
 since they already prohibit concurrent access to multiple entities.

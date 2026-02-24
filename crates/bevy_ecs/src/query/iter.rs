@@ -2386,14 +2386,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
 /// [`Query`]: crate::system::Query
 /// [`Query::iter_combinations`]: crate::system::Query::iter_combinations
 /// [`Query::iter_combinations_mut`]: crate::system::Query::iter_combinations_mut
-pub struct QueryCombinationIter<'w, 's, D: QueryData, F: QueryFilter, const K: usize> {
+pub struct QueryCombinationIter<'w, 's, D: IterQueryData, F: QueryFilter, const K: usize> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<D, F>,
     cursors: [QueryIterationCursor<'w, 's, D, F>; K],
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<'w, 's, D, F, K> {
+impl<'w, 's, D: IterQueryData, F: QueryFilter, const K: usize>
+    QueryCombinationIter<'w, 's, D, F, K>
+{
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
     /// - `world` must be the same one used to initialize `query_state`.
@@ -2552,7 +2554,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> FusedIterator
 {
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug
+impl<'w, 's, D: IterQueryData, F: QueryFilter, const K: usize> Debug
     for QueryCombinationIter<'w, 's, D, F, K>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -2647,7 +2649,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// The result of `next` and any previous calls to `peek_last` with this row must have been
     /// dropped to prevent aliasing mutable references.
     #[inline]
-    unsafe fn peek_last(&mut self, query_state: &'s QueryState<D, F>) -> Option<D::Item<'w, 's>> {
+    unsafe fn peek_last(&mut self, query_state: &'s QueryState<D, F>) -> Option<D::Item<'w, 's>>
+    where
+        D: IterQueryData,
+    {
         if self.current_row > 0 {
             let index = self.current_row - 1;
             if self.is_dense {
@@ -2656,6 +2661,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // SAFETY:
                 //  - `set_table` must have been called previously either in `next` or before it.
                 //  - `*entity` and `index` are in the current table.
+                //  - `D: IterQueryData`
                 unsafe {
                     D::fetch(
                         &query_state.fetch_state,
@@ -2672,6 +2678,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // SAFETY:
                 //  - `set_archetype` must have been called previously either in `next` or before it.
                 //  - `archetype_entity.id()` and `archetype_entity.table_row()` are in the current archetype.
+                //  - `D: IterQueryData`
                 unsafe {
                     D::fetch(
                         &query_state.fetch_state,

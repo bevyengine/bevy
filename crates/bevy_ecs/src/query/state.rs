@@ -1254,7 +1254,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn iter_combinations_mut<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w mut World,
-    ) -> QueryCombinationIter<'w, 's, D, F, K> {
+    ) -> QueryCombinationIter<'w, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         self.query_mut(world).iter_combinations_inner()
     }
 
@@ -1406,7 +1409,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub unsafe fn iter_combinations_unchecked<'w, 's, const K: usize>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> QueryCombinationIter<'w, 's, D, F, K> {
+    ) -> QueryCombinationIter<'w, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: Upheld by caller
         unsafe { self.query_unchecked(world) }.iter_combinations_inner()
     }

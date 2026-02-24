@@ -767,9 +767,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_combinations`](Self::iter_combinations) for read-only query item combinations.
     /// - [`iter_combinations_inner`](Self::iter_combinations_inner) for mutable query item combinations with the full `'world` lifetime.
     #[inline]
-    pub fn iter_combinations_mut<const K: usize>(
-        &mut self,
-    ) -> QueryCombinationIter<'_, 's, D, F, K> {
+    pub fn iter_combinations_mut<const K: usize>(&mut self) -> QueryCombinationIter<'_, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().iter_combinations_inner()
     }
 
@@ -798,7 +799,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_combinations`](Self::iter_combinations) for read-only query item combinations.
     /// - [`iter_combinations_mut`](Self::iter_combinations_mut) for mutable query item combinations.
     #[inline]
-    pub fn iter_combinations_inner<const K: usize>(self) -> QueryCombinationIter<'w, 's, D, F, K> {
+    pub fn iter_combinations_inner<const K: usize>(self) -> QueryCombinationIter<'w, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe { QueryCombinationIter::new(self.world, self.state, self.last_run, self.this_run) }
     }
@@ -1139,7 +1143,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub unsafe fn iter_combinations_unsafe<const K: usize>(
         &self,
-    ) -> QueryCombinationIter<'_, 's, D, F, K> {
+    ) -> QueryCombinationIter<'_, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: The caller promises that this will not result in multiple mutable references.
         unsafe { self.reborrow_unsafe() }.iter_combinations_inner()
     }
