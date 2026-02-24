@@ -358,6 +358,14 @@ mod gizmos {
             .sphere(Isometry3d::from_translation(Vec3::X * -3.5), 0.75, GREEN)
             .resolution(30_000 / 3);
 
+        gizmos.text(
+            Isometry3d::from_translation(Vec3::Y * 1.5),
+            "text gizmo",
+            0.3,
+            Vec2 { x: 0., y: 0. },
+            Color::WHITE,
+        );
+
         // 3d grids with all variations of outer edges on or off
         for i in 0..8 {
             let x = 1.5 * (i % 4) as f32;

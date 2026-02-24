@@ -13,55 +13,6 @@ use core::ops::{Deref, DerefMut};
 /// tasks. Unlike `Parallel`, this allows you to execute a consuming task while producing tasks are
 /// concurrently sending data into the channel, enabling you to run a serial processing consumer
 /// at the same time as many parallel processing producers.
-///
-/// # Usage
-///
-/// ```
-/// use bevy_utils::BufferedChannel;
-/// use bevy_app::{App, TaskPoolPlugin, Update};
-/// use bevy_ecs::system::Local;
-/// use bevy_tasks::ComputeTaskPool;
-///
-/// App::new()
-///     .add_plugins(TaskPoolPlugin::default())
-///     .add_systems(Update, parallel_system)
-///     .update();
-///
-/// fn parallel_system(channel: Local<BufferedChannel<u64>>) {
-///     let (rx, tx) = channel.unbounded();
-///     ComputeTaskPool::get().scope(|scope| {
-///         // Spawn a single consumer task that reads from the producers. Note we can spawn this
-///         // first and have it immediately start processing the messages produced in parallel.
-///         // Because we are receiving asynchronously, we avoid deadlocks even on a single thread.
-///         scope.spawn(async move {
-///             let mut total = 0;
-///             let mut count = 0;
-///             while let Ok(mut chunk) = rx.recv().await {
-///                 count += chunk.len();
-///                 total += chunk.iter().sum::<u64>();
-///             }
-///             assert_eq!(count, 500_000);
-///             assert_eq!(total, 24_999_750_000);
-///         });
-///
-///         // Spawn a few producing tasks in parallel that send data into the buffered channel.
-///         for _ in 0..5 {
-///             let mut tx = tx.clone();
-///             scope.spawn(async move {
-///                 // Because this is buffered, we can iterate over hundreds of thousands of
-///                 // entities in each task while avoiding allocation and channel overhead.
-///                 // The buffer is flushed periodically, sending chunks of data to the receiver.
-///                 for i in 0..100_000 {
-///                     tx.send(i).await;
-///                 }
-///             });
-///         }
-///
-///         // Drop the unused sender so the channel can close.
-///         drop(tx);
-///     });
-/// }
-/// ```
 pub struct BufferedChannel<T: Send> {
     /// The minimum length of a `Vec` of buffered data before it is sent through the channel.
     pub chunk_size: usize,
@@ -75,6 +26,23 @@ impl<T: Send> Default for BufferedChannel<T> {
             // This was tuned based on benchmarks across a wide range of sizes.
             chunk_size: 1024,
             pool: Parallel::default(),
+        }
+    }
+}
+
+impl<T: Send> BufferedChannel<T> {
+    const MAX_POOL_SIZE: usize = 8;
+
+    fn recycle(&self, mut chunk: Vec<T>) {
+        if chunk.capacity() < self.chunk_size {
+            return;
+        }
+        chunk.clear();
+        let mut pool = self.pool.borrow_local_mut();
+        if pool.len() < Self::MAX_POOL_SIZE {
+            // Only push to the pool if it's not full
+            // Avoids memory leak if the sender and receiver never switch threads
+            pool.push(chunk);
         }
     }
 }
@@ -162,9 +130,8 @@ impl<'a, 'b, T: Send> IntoIterator for &'b mut RecycledVec<'a, T> {
 
 impl<'a, T: Send> Drop for RecycledVec<'a, T> {
     fn drop(&mut self) {
-        if let Some(mut buffer) = self.buffer.take() {
-            buffer.clear();
-            self.channel.pool.borrow_local_mut().push(buffer);
+        if let Some(buffer) = self.buffer.take() {
+            self.channel.recycle(buffer);
         }
     }
 }
@@ -254,7 +221,7 @@ impl<'a, T: Send> BufferedSender<'a, T> {
     }
 
     /// Flush any remaining messages in the local buffer, sending them into the channel.
-    fn flush(&mut self) {
+    pub fn flush(&mut self) {
         if let Some(buffer) = self.buffer.take() {
             if !buffer.is_empty() {
                 // The allocation is sent through the channel and will be reused when dropped.
@@ -264,7 +231,7 @@ impl<'a, T: Send> BufferedSender<'a, T> {
                 let _ = bevy_platform::future::block_on(self.tx.send(buffer));
             } else {
                 // If it's empty, just return it to the pool.
-                self.channel.pool.borrow_local_mut().push(buffer);
+                self.channel.recycle(buffer);
             }
         }
     }
