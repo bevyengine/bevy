@@ -111,8 +111,8 @@ pub struct Text(pub String);
 
 impl Text {
     /// Makes a new text component.
-    pub fn new(text: impl Into<String>) -> Self {
-        Self(text.into())
+    pub fn new(text: impl ToString) -> Self {
+        Self(text.to_string())
     }
 }
 
