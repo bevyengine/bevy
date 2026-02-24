@@ -51,7 +51,7 @@ where
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (L, EI)>,
 
-    /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`](bevy_app::SubApp) to set up with extraction.
+    /// The [`AppLabel`] of the [`SubApp`](bevy_app::SubApp) to set up with extraction.
     pub app_label: InternedAppLabel,
 }
 

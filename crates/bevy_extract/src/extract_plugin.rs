@@ -22,7 +22,7 @@ pub struct ExtractPlugin<L: AppLabel + Default> {
 
     marker: PhantomData<L>,
 
-    /// The [`AppLabel`](bevy_app::AppLabel) of the [`SubApp`] to set up with extraction.
+    /// The [`AppLabel`] of the [`SubApp`] to set up with extraction.
     app_label: InternedAppLabel,
 
     pub base_schedule: fn() -> Schedule,
