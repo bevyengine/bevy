@@ -30,6 +30,23 @@ impl<T: Send> Default for BufferedChannel<T> {
     }
 }
 
+impl<T: Send> BufferedChannel<T> {
+    const MAX_POOL_SIZE: usize = 8;
+
+    fn recycle(&self, mut chunk: Vec<T>) {
+        if chunk.capacity() < self.chunk_size {
+            return;
+        }
+        chunk.clear();
+        let mut pool = self.pool.borrow_local_mut();
+        if pool.len() < Self::MAX_POOL_SIZE {
+            // Only push to the pool if it's not full
+            // Avoids memory leak if the sender and receiver never switch threads
+            pool.push(chunk);
+        }
+    }
+}
+
 /// A wrapper around a [`Receiver`] that returns [`RecycledVec`]s to automatically return
 /// buffers to the [`BufferedChannel`] pool.
 pub struct BufferedReceiver<'a, T: Send> {
@@ -113,9 +130,8 @@ impl<'a, 'b, T: Send> IntoIterator for &'b mut RecycledVec<'a, T> {
 
 impl<'a, T: Send> Drop for RecycledVec<'a, T> {
     fn drop(&mut self) {
-        if let Some(mut buffer) = self.buffer.take() {
-            buffer.clear();
-            self.channel.pool.borrow_local_mut().push(buffer);
+        if let Some(buffer) = self.buffer.take() {
+            self.channel.recycle(buffer);
         }
     }
 }
@@ -205,7 +221,7 @@ impl<'a, T: Send> BufferedSender<'a, T> {
     }
 
     /// Flush any remaining messages in the local buffer, sending them into the channel.
-    fn flush(&mut self) {
+    pub fn flush(&mut self) {
         if let Some(buffer) = self.buffer.take() {
             if !buffer.is_empty() {
                 // The allocation is sent through the channel and will be reused when dropped.
@@ -215,7 +231,7 @@ impl<'a, T: Send> BufferedSender<'a, T> {
                 let _ = bevy_platform::future::block_on(self.tx.send(buffer));
             } else {
                 // If it's empty, just return it to the pool.
-                self.channel.pool.borrow_local_mut().push(buffer);
+                self.channel.recycle(buffer);
             }
         }
     }

@@ -11,8 +11,8 @@ use crate::{
     component::{ComponentId, Components},
     entity::{Entities, EntityAllocator},
     query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
-        QueryState, ReadOnlyQueryData,
+        Access, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData, QueryFilter,
+        QuerySingleError, QueryState, ReadOnlyQueryData,
     },
     resource::{Resource, IS_RESOURCE},
     storage::NonSendData,
@@ -228,7 +228,9 @@ pub unsafe trait SystemParam: Sized {
     /// Creates a new instance of this param's [`State`](SystemParam::State).
     fn init_state(world: &mut World) -> Self::State;
 
-    /// Registers any [`World`] access used by this [`SystemParam`]
+    /// Registers any [`World`] access used by this [`SystemParam`].
+    ///
+    /// This method must panic if the access would conflict with any existing access in the [`FilteredAccessSet`].
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
@@ -306,6 +308,9 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
     ///   in [`init_access`](SystemParam::init_access).
+    /// - [`SystemParam::init_access`] must not request conflicting access.
+    ///   If `Self` is `ReadOnlySystemParam`, the access is read-only and can never conflict.
+    ///   Otherwise, [`SystemParam::init_access`] must be called to ensure it does not panic.
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
@@ -337,7 +342,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World) -> Self::State {
-        QueryState::new(world)
+        // SAFETY: `SystemParam::init_access` calls `QueryState::init_access`,
+        // `SystemParam::init_access` must be called before `SystemParam::get_param`,
+        // and we only call methods on the `QueryState` in `get_param`.
+        unsafe { QueryState::new_unchecked(world) }
     }
 
     fn init_access(
@@ -346,15 +354,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        assert_component_access_compatibility(
-            &system_meta.name,
-            DebugName::type_name::<D>(),
-            DebugName::type_name::<F>(),
-            component_access_set,
-            &state.component_access,
-            world,
-        );
-        component_access_set.add(state.component_access.clone());
+        state.init_access(Some(system_meta.name()), component_access_set, world.into());
     }
 
     #[inline]
@@ -372,29 +372,9 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 }
 
-fn assert_component_access_compatibility(
-    system_name: &DebugName,
-    query_type: DebugName,
-    filter_type: DebugName,
-    system_access: &FilteredAccessSet,
-    current: &FilteredAccess,
-    world: &World,
-) {
-    let conflicts = system_access.get_conflicts_single(current);
-    if conflicts.is_empty() {
-        return;
-    }
-    let mut accesses = conflicts.format_conflict_list(world);
-    // Access list may be empty (if access to all components requested)
-    if !accesses.is_empty() {
-        accesses.push(' ');
-    }
-    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001", query_type.shortname(), filter_type.shortname());
-}
-
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'a, 'b, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+unsafe impl<'a, 'b, D: IterQueryData + 'static, F: QueryFilter + 'static> SystemParam
     for Single<'a, 'b, D, F>
 {
     type State = QueryState<D, F>;
@@ -2788,7 +2768,7 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         let combined_access = component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
+            let accesses = conflicts.format_conflict_list(world.into());
             let system_name = &system_meta.name;
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
@@ -2837,7 +2817,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         let combined_access = component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
+            let accesses = conflicts.format_conflict_list(world.into());
             let system_name = &system_meta.name;
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }

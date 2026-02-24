@@ -205,12 +205,12 @@ pub struct Over {
 /// An [`Enter`] event would not be sent for A because it is a shared ancestor of both C and E.
 ///
 /// Note: An [`Enter`] event may be fired for an ancestor even if the pointer does not enter
-/// within the ancestor's bounds. More concretely, if a child's bounds extend beyond the parent's,
+/// within the ancestor's bounds. More concretely, if a child's bounds extend beyond the parent's
 /// and the pointer enters the child's bounds without crossing into the parent's,
 /// two [`Enter`] events are still emitted for both the child and the parent.
 /// This matches the triggering behavior of `mouseenter` events on the web.
-/// To find out whether a pointer is within an entity's bounds upon entering,
-/// check the value of [`is_in_bounds`](Enter::is_in_bounds).
+/// To find out whether a pointer is within the target entity's bounds
+/// immediately upon entering, check the value of [`is_in_bounds`](Enter::is_in_bounds).
 ///
 /// Refer to [`pointer_events`] for more information on how these events are triggered.
 #[derive(Clone, PartialEq, Debug, Reflect)]
@@ -254,13 +254,13 @@ pub struct Out {
 /// [`Leave`] events would be sent for both C and its direct ancestor B.
 /// A [`Leave`] event would not be sent for A because it is a shared ancestor of both C and E.
 ///
-/// Note: An [`Leave`] event may be fired for an ancestor even if the pointer does not leave
-/// the ancestor's bounds. More concretely, if a child's bounds extend beyond the parent's,
-/// and the pointer enters the child's bounds without crossing into the parent's,
-/// two [`Enter`] events are still emitted for both the child and the parent.
+/// Note: A [`Leave`] event may be fired for an ancestor even if the pointer does not leave
+/// the ancestor's bounds. More concretely, if a child's bounds extend beyond the parent's
+/// and the pointer leaves from within those extended bounds,
+/// two [`Leave`] events are still emitted for both the child and the parent.
 /// This matches the triggering behavior of `mouseleave` events on the web.
-/// To find out whether the pointer was within an entity's bounds before leaving,
-/// check the value of [`was_in_bounds`](Leave::was_in_bounds).
+/// To find out whether the pointer was within the target entity's bounds
+/// right before leaving, check the value of [`was_in_bounds`](Leave::was_in_bounds).
 ///
 /// Refer to [`pointer_events`] for more information on how these events are triggered.
 #[derive(Clone, PartialEq, Debug, Reflect)]

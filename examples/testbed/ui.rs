@@ -46,6 +46,7 @@ fn main() {
     .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
     .add_systems(OnEnter(Scene::Transformations), transformations::setup)
     .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
+    .add_systems(OnEnter(Scene::OuterColor), outer_color::setup)
     .add_systems(Update, switch_scene);
 
     match args.scene {
@@ -84,6 +85,7 @@ enum Scene {
     #[cfg(feature = "bevy_ui_debug")]
     DebugOutlines,
     ViewportCoords,
+    OuterColor,
 }
 
 impl std::str::FromStr for Scene {
@@ -121,7 +123,8 @@ impl Next for Scene {
             #[cfg(not(feature = "bevy_ui_debug"))]
             Scene::RadialGradient => Scene::Transformations,
             Scene::Transformations => Scene::ViewportCoords,
-            Scene::ViewportCoords => Scene::Image,
+            Scene::ViewportCoords => Scene::OuterColor,
+            Scene::OuterColor => Scene::Image,
         }
     }
 }
@@ -1756,6 +1759,55 @@ mod viewport_coords {
                     BackgroundColor(PALETTE[6].into()),
                     BorderColor::all(PALETTE[8]),
                 ));
+            });
+    }
+}
+
+mod outer_color {
+    use bevy::prelude::*;
+
+    pub fn setup(mut commands: Commands) {
+        let radius = percent(33.);
+        let width = px(10.);
+
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::OuterColor)));
+        commands
+            .spawn((
+                Node {
+                    display: Display::Grid,
+                    grid_template_columns: RepeatedGridTrack::px(3, 200.),
+                    grid_template_rows: RepeatedGridTrack::px(3, 200.),
+                    margin: UiRect::AUTO,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::OuterColor),
+            ))
+            .with_children(|builder| {
+                for (border, border_radius, invert) in [
+                    (UiRect::ZERO, BorderRadius::bottom_right(radius), true),
+                    (UiRect::top(width), BorderRadius::top(radius), false),
+                    (UiRect::ZERO, BorderRadius::bottom_left(radius), true),
+                    (UiRect::left(width), BorderRadius::left(radius), false),
+                    (UiRect::all(width), BorderRadius::all(radius), true),
+                    (UiRect::right(width), BorderRadius::right(radius), false),
+                    (UiRect::ZERO, BorderRadius::top_right(radius), true),
+                    (UiRect::bottom(width), BorderRadius::bottom(radius), false),
+                    (UiRect::ZERO, BorderRadius::top_left(radius), true),
+                ] {
+                    builder
+                        .spawn((
+                            Node {
+                                width: px(200.),
+                                height: px(200.),
+                                border_radius,
+                                border,
+                                ..default()
+                            },
+                            BorderColor::all(bevy::color::palettes::css::RED),
+                        ))
+                        .insert_if(BackgroundColor(Color::WHITE), || !invert)
+                        .insert_if(OuterColor(Color::WHITE), || invert);
+                }
             });
     }
 }

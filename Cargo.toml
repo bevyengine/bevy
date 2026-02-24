@@ -426,10 +426,10 @@ raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
 type_label_buffers = ["bevy_internal/type_label_buffers"]
 
 # Tracing support, saving a file in Chrome Tracing format
-trace_chrome = ["trace", "bevy_internal/trace_chrome"]
+trace_chrome = ["trace", "bevy_internal/trace_chrome", "debug"]
 
 # Tracing support, exposing a port for Tracy
-trace_tracy = ["trace", "bevy_internal/trace_tracy"]
+trace_tracy = ["trace", "bevy_internal/trace_tracy", "debug"]
 
 # Tracing support, with memory profiling, exposing a port for Tracy
 trace_tracy_memory = ["bevy_internal/trace_tracy_memory"]
@@ -775,8 +775,7 @@ web-sys = { version = "0.3", features = ["Window"] }
 [[example]]
 name = "context_menu"
 path = "examples/usage/context_menu.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.context_menu]
 name = "Context Menu"
@@ -787,8 +786,7 @@ wasm = true
 [[example]]
 name = "hello_world"
 path = "examples/hello_world.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.hello_world]
 hidden = true
@@ -819,8 +817,7 @@ wasm = true
 [[example]]
 name = "2d_viewport_to_world"
 path = "examples/2d/2d_viewport_to_world.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.2d_viewport_to_world]
 name = "2D Viewport To World"
@@ -831,8 +828,7 @@ wasm = true
 [[example]]
 name = "rotate_to_cursor"
 path = "examples/2d/rotate_to_cursor.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.rotate_to_cursor]
 name = "2D Rotation to Cursor"
@@ -843,8 +839,7 @@ wasm = true
 [[example]]
 name = "rotation"
 path = "examples/2d/rotation.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.rotation]
 name = "Generic 2D Rotation"
@@ -855,8 +850,7 @@ wasm = true
 [[example]]
 name = "mesh2d"
 path = "examples/2d/mesh2d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.mesh2d]
 name = "Mesh 2D"
@@ -867,8 +861,7 @@ wasm = true
 [[example]]
 name = "mesh2d_arcs"
 path = "examples/2d/mesh2d_arcs.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.mesh2d_arcs]
 name = "Arc 2D Meshes"
@@ -879,8 +872,7 @@ wasm = true
 [[example]]
 name = "mesh2d_manual"
 path = "examples/2d/mesh2d_manual.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.mesh2d_manual]
 name = "Manual Mesh 2D"
@@ -891,8 +883,7 @@ wasm = true
 [[example]]
 name = "mesh2d_vertex_color_texture"
 path = "examples/2d/mesh2d_vertex_color_texture.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.mesh2d_vertex_color_texture]
 name = "Mesh 2D With Vertex Colors"
@@ -903,8 +894,7 @@ wasm = true
 [[example]]
 name = "2d_shapes"
 path = "examples/2d/2d_shapes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
@@ -915,8 +905,7 @@ wasm = true
 [[example]]
 name = "cpu_draw"
 path = "examples/2d/cpu_draw.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.cpu_draw]
 name = "CPU Drawing"
@@ -927,8 +916,7 @@ wasm = true
 [[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.sprite]
 name = "Sprite"
@@ -939,8 +927,7 @@ wasm = true
 [[example]]
 name = "sprite_animation"
 path = "examples/2d/sprite_animation.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_animation]
 name = "Sprite Animation"
@@ -951,8 +938,7 @@ wasm = true
 [[example]]
 name = "sprite_scale"
 path = "examples/2d/sprite_scale.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_scale]
 name = "Sprite Scale"
@@ -963,8 +949,7 @@ wasm = true
 [[example]]
 name = "sprite_flipping"
 path = "examples/2d/sprite_flipping.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_flipping]
 name = "Sprite Flipping"
@@ -997,8 +982,7 @@ wasm = true
 [[example]]
 name = "sprite_slice"
 path = "examples/2d/sprite_slice.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_slice]
 name = "Sprite Slice"
@@ -1009,8 +993,7 @@ wasm = true
 [[example]]
 name = "text2d"
 path = "examples/2d/text2d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.text2d]
 name = "Text 2D"
@@ -1021,8 +1004,7 @@ wasm = true
 [[example]]
 name = "multi_window_text"
 path = "examples/window/multi_window_text.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.multi_window_text]
 name = "Multi-Window Text"
@@ -1033,8 +1015,7 @@ wasm = true
 [[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.texture_atlas]
 name = "Texture Atlas"
@@ -1046,8 +1027,7 @@ wasm = false
 [[example]]
 name = "tilemap_chunk"
 path = "examples/2d/tilemap_chunk.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.tilemap_chunk]
 name = "Tilemap Chunk"
@@ -1056,10 +1036,21 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "transparency_2d"
-path = "examples/2d/transparency_2d.rs"
+name = "tilemap_chunk_orientation"
+path = "examples/2d/tilemap_chunk_orientation.rs"
 # Causes an ICE on docs.rs
 doc-scrape-examples = false
+
+[package.metadata.example.tilemap_chunk_orientation]
+name = "Tilemap Chunk with Orientations"
+description = "Renders a tilemap chunk using tile orientations (mirrored, rotated)"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "transparency_2d"
+path = "examples/2d/transparency_2d.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.transparency_2d]
 name = "Transparency in 2D"
@@ -1092,8 +1083,7 @@ wasm = true
 [[example]]
 name = "pixel_grid_snap"
 path = "examples/2d/pixel_grid_snap.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.pixel_grid_snap]
 name = "Pixel Grid Snapping"
@@ -1104,8 +1094,7 @@ wasm = true
 [[example]]
 name = "bounding_2d"
 path = "examples/math/bounding_2d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.bounding_2d]
 name = "Bounding Volume Intersections (2D)"
@@ -1116,8 +1105,7 @@ wasm = true
 [[example]]
 name = "wireframe_2d"
 path = "examples/2d/wireframe_2d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.wireframe_2d]
 name = "2D Wireframe"
@@ -1130,8 +1118,7 @@ wasm = false
 [[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.3d_scene]
 name = "3D Scene"
@@ -1142,8 +1129,7 @@ wasm = true
 [[example]]
 name = "3d_shapes"
 path = "examples/3d/3d_shapes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
@@ -1154,8 +1140,7 @@ wasm = true
 [[example]]
 name = "3d_viewport_to_world"
 path = "examples/3d/3d_viewport_to_world.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.3d_viewport_to_world]
 name = "3D Viewport To World"
@@ -1177,8 +1162,7 @@ wasm = true
 [[example]]
 name = "generate_custom_mesh"
 path = "examples/3d/generate_custom_mesh.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.generate_custom_mesh]
 name = "Generate Custom Mesh"
@@ -1189,8 +1173,7 @@ wasm = true
 [[example]]
 name = "anti_aliasing"
 path = "examples/3d/anti_aliasing.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.anti_aliasing]
 name = "Anti-aliasing"
@@ -1202,8 +1185,7 @@ wasm = false
 [[example]]
 name = "atmospheric_fog"
 path = "examples/3d/atmospheric_fog.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.atmospheric_fog]
 name = "Atmospheric Fog"
@@ -1214,8 +1196,7 @@ wasm = true
 [[example]]
 name = "atmosphere"
 path = "examples/3d/atmosphere.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.atmosphere]
 name = "Atmosphere"
@@ -1226,8 +1207,7 @@ wasm = true
 [[example]]
 name = "fog"
 path = "examples/3d/fog.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.fog]
 name = "Fog"
@@ -1238,8 +1218,7 @@ wasm = true
 [[example]]
 name = "auto_exposure"
 path = "examples/3d/auto_exposure.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.auto_exposure]
 name = "Auto Exposure"
@@ -1251,8 +1230,7 @@ wasm = false
 [[example]]
 name = "blend_modes"
 path = "examples/3d/blend_modes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.blend_modes]
 name = "Blend Modes"
@@ -1263,8 +1241,7 @@ wasm = true
 [[example]]
 name = "contact_shadows"
 path = "examples/3d/contact_shadows.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["bluenoise_texture"]
 
 [package.metadata.example.contact_shadows]
@@ -1276,8 +1253,7 @@ wasm = true
 [[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.lighting]
 name = "Lighting"
@@ -1288,8 +1264,7 @@ wasm = true
 [[example]]
 name = "lines"
 path = "examples/3d/lines.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.lines]
 name = "Lines"
@@ -1301,8 +1276,7 @@ wasm = false
 [[example]]
 name = "ssao"
 path = "examples/3d/ssao.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.ssao]
 name = "Screen Space Ambient Occlusion"
@@ -1314,8 +1288,7 @@ wasm = false
 [[example]]
 name = "spotlight"
 path = "examples/3d/spotlight.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.spotlight]
 name = "Spotlight"
@@ -1326,8 +1299,7 @@ wasm = true
 [[example]]
 name = "bloom_3d"
 path = "examples/3d/bloom_3d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.bloom_3d]
 name = "3D Bloom"
@@ -1338,8 +1310,7 @@ wasm = true
 [[example]]
 name = "decal"
 path = "examples/3d/decal.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["free_camera"]
 
 [package.metadata.example.decal]
@@ -1351,8 +1322,7 @@ wasm = true
 [[example]]
 name = "deferred_rendering"
 path = "examples/3d/deferred_rendering.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.deferred_rendering]
 name = "Deferred Rendering"
@@ -1363,8 +1333,7 @@ wasm = true
 [[example]]
 name = "motion_blur"
 path = "examples/3d/motion_blur.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.motion_blur]
 name = "Motion Blur"
@@ -1375,8 +1344,7 @@ wasm = true
 [[example]]
 name = "order_independent_transparency"
 path = "examples/3d/order_independent_transparency.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.order_independent_transparency]
 name = "Order Independent Transparency"
@@ -1388,8 +1356,7 @@ wasm = false
 [[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.tonemapping]
 name = "Tonemapping"
@@ -1400,8 +1367,7 @@ wasm = true
 [[example]]
 name = "orthographic"
 path = "examples/3d/orthographic.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.orthographic]
 name = "Orthographic View"
@@ -1423,8 +1389,7 @@ wasm = true
 [[example]]
 name = "pbr"
 path = "examples/3d/pbr.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.pbr]
 name = "Physically Based Rendering"
@@ -1435,8 +1400,7 @@ wasm = true
 [[example]]
 name = "parallax_mapping"
 path = "examples/3d/parallax_mapping.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.parallax_mapping]
 name = "Parallax Mapping"
@@ -1447,8 +1411,7 @@ wasm = true
 [[example]]
 name = "render_to_texture"
 path = "examples/3d/render_to_texture.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.render_to_texture]
 name = "Render to Texture"
@@ -1459,8 +1422,7 @@ wasm = true
 [[example]]
 name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["free_camera"]
 
 [package.metadata.example.shadow_biases]
@@ -1472,8 +1434,7 @@ wasm = true
 [[example]]
 name = "shadow_caster_receiver"
 path = "examples/3d/shadow_caster_receiver.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.shadow_caster_receiver]
 name = "Shadow Caster and Receiver"
@@ -1484,8 +1445,7 @@ wasm = true
 [[example]]
 name = "skybox"
 path = "examples/3d/skybox.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["free_camera"]
 
 [package.metadata.example.skybox]
@@ -1497,8 +1457,7 @@ wasm = true
 [[example]]
 name = "solari"
 path = "examples/3d/solari.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["bevy_solari", "https", "free_camera"]
 
 [package.metadata.example.solari]
@@ -1521,8 +1480,7 @@ wasm = true
 [[example]]
 name = "split_screen"
 path = "examples/3d/split_screen.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.split_screen]
 name = "Split Screen"
@@ -1533,8 +1491,7 @@ wasm = true
 [[example]]
 name = "texture"
 path = "examples/3d/texture.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.texture]
 name = "Texture"
@@ -1545,8 +1502,7 @@ wasm = true
 [[example]]
 name = "transparency_3d"
 path = "examples/3d/transparency_3d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.transparency_3d]
 name = "Transparency in 3D"
@@ -1557,8 +1513,7 @@ wasm = true
 [[example]]
 name = "transmission"
 path = "examples/3d/transmission.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.transmission]
 name = "Transmission"
@@ -1569,8 +1524,7 @@ wasm = true
 [[example]]
 name = "two_passes"
 path = "examples/3d/two_passes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.two_passes]
 name = "Two Passes"
@@ -1592,8 +1546,7 @@ wasm = true
 [[example]]
 name = "wireframe"
 path = "examples/3d/wireframe.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.wireframe]
 name = "Wireframe"
@@ -1605,8 +1558,7 @@ wasm = false
 [[example]]
 name = "irradiance_volumes"
 path = "examples/3d/irradiance_volumes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.irradiance_volumes]
 name = "Irradiance Volumes"
@@ -1619,8 +1571,7 @@ wasm = false
 [[example]]
 name = "meshlet"
 path = "examples/3d/meshlet.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["meshlet", "https", "free_camera"]
 
 [package.metadata.example.meshlet]
@@ -1633,8 +1584,7 @@ wasm = false
 [[example]]
 name = "mesh_ray_cast"
 path = "examples/3d/mesh_ray_cast.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.mesh_ray_cast]
 name = "Mesh Ray Cast"
@@ -1645,8 +1595,7 @@ wasm = true
 [[example]]
 name = "lightmaps"
 path = "examples/3d/lightmaps.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.lightmaps]
 name = "Lightmaps"
@@ -1666,8 +1615,7 @@ hidden = true
 [[example]]
 name = "animation_events"
 path = "examples/animation/animation_events.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.animation_events]
 name = "Animation Events"
@@ -1678,8 +1626,7 @@ wasm = true
 [[example]]
 name = "animated_mesh"
 path = "examples/animation/animated_mesh.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.animated_mesh]
 name = "Animated Mesh"
@@ -1690,8 +1637,7 @@ wasm = true
 [[example]]
 name = "animated_mesh_control"
 path = "examples/animation/animated_mesh_control.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.animated_mesh_control]
 name = "Animated Mesh Control"
@@ -1702,8 +1648,7 @@ wasm = true
 [[example]]
 name = "animated_mesh_events"
 path = "examples/animation/animated_mesh_events.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.animated_mesh_events]
 name = "Animated Mesh Events"
@@ -1714,8 +1659,7 @@ wasm = true
 [[example]]
 name = "animation_graph"
 path = "examples/animation/animation_graph.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.animation_graph]
 name = "Animation Graph"
@@ -1726,8 +1670,7 @@ wasm = true
 [[example]]
 name = "morph_targets"
 path = "examples/animation/morph_targets.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.morph_targets]
 name = "Morph Targets"
@@ -1749,8 +1692,7 @@ wasm = true
 [[example]]
 name = "color_animation"
 path = "examples/animation/color_animation.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.color_animation]
 name = "Color animation"
@@ -1761,8 +1703,7 @@ wasm = true
 [[example]]
 name = "eased_motion"
 path = "examples/animation/eased_motion.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.eased_motion]
 name = "Eased Motion"
@@ -1773,8 +1714,7 @@ wasm = true
 [[example]]
 name = "easing_functions"
 path = "examples/animation/easing_functions.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.easing_functions]
 name = "Easing Functions"
@@ -1785,8 +1725,7 @@ wasm = true
 [[example]]
 name = "custom_skinned_mesh"
 path = "examples/animation/custom_skinned_mesh.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_skinned_mesh]
 name = "Custom Skinned Mesh"
@@ -1798,8 +1737,7 @@ wasm = true
 [[example]]
 name = "custom_loop"
 path = "examples/app/custom_loop.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_loop]
 name = "Custom Loop"
@@ -1883,8 +1821,7 @@ wasm = false
 [[example]]
 name = "log_layers_ecs"
 path = "examples/app/log_layers_ecs.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.log_layers_ecs]
 name = "Advanced log layers"
@@ -1896,8 +1833,7 @@ wasm = false
 [[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.plugin]
 name = "Plugin"
@@ -1974,8 +1910,7 @@ wasm = false
 [[example]]
 name = "headless_renderer"
 path = "examples/app/headless_renderer.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.headless_renderer]
 name = "Headless Renderer"
@@ -1986,8 +1921,7 @@ wasm = false
 [[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.without_winit]
 name = "Without Winit"
@@ -1999,8 +1933,7 @@ wasm = false
 [[example]]
 name = "alter_mesh"
 path = "examples/asset/alter_mesh.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.alter_mesh]
 name = "Alter Mesh"
@@ -2011,8 +1944,7 @@ wasm = false
 [[example]]
 name = "alter_sprite"
 path = "examples/asset/alter_sprite.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.alter_sprite]
 name = "Alter Sprite"
@@ -2023,8 +1955,7 @@ wasm = false
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.asset_loading]
 name = "Asset Loading"
@@ -2058,8 +1989,7 @@ wasm = false
 [[example]]
 name = "asset_decompression"
 path = "examples/asset/asset_decompression.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.asset_decompression]
 name = "Asset Decompression"
@@ -2070,8 +2000,7 @@ wasm = false
 [[example]]
 name = "custom_asset"
 path = "examples/asset/custom_asset.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_asset]
 name = "Custom Asset"
@@ -2082,8 +2011,7 @@ wasm = true
 [[example]]
 name = "custom_asset_reader"
 path = "examples/asset/custom_asset_reader.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_asset_reader]
 name = "Custom Asset IO"
@@ -2142,8 +2070,7 @@ wasm = false
 [[example]]
 name = "asset_processing"
 path = "examples/asset/processing/asset_processing.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["file_watcher", "asset_processor"]
 
 [package.metadata.example.asset_processing]
@@ -2155,8 +2082,7 @@ wasm = false
 [[example]]
 name = "repeated_texture"
 path = "examples/asset/repeated_texture.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.repeated_texture]
 name = "Repeated texture configuration"
@@ -2168,8 +2094,7 @@ wasm = true
 [[example]]
 name = "multi_asset_sync"
 path = "examples/asset/multi_asset_sync.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.multi_asset_sync]
 name = "Multi-asset synchronization"
@@ -2181,8 +2106,7 @@ wasm = true
 [[example]]
 name = "async_compute"
 path = "examples/async_tasks/async_compute.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.async_compute]
 name = "Async Compute"
@@ -2193,8 +2117,7 @@ wasm = false
 [[example]]
 name = "async_channel_pattern"
 path = "examples/async_tasks/async_channel_pattern.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.async_channel_pattern]
 name = "Async Channel Pattern"
@@ -2205,8 +2128,7 @@ wasm = true
 [[example]]
 name = "external_source_external_thread"
 path = "examples/async_tasks/external_source_external_thread.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.external_source_external_thread]
 name = "External Source of Data on an External Thread"
@@ -2240,8 +2162,7 @@ wasm = true
 [[example]]
 name = "decodable"
 path = "examples/audio/decodable.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.decodable]
 name = "Decodable"
@@ -2252,8 +2173,7 @@ wasm = true
 [[example]]
 name = "soundtrack"
 path = "examples/audio/soundtrack.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.soundtrack]
 name = "Soundtrack"
@@ -2264,8 +2184,7 @@ wasm = true
 [[example]]
 name = "spatial_audio_2d"
 path = "examples/audio/spatial_audio_2d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.spatial_audio_2d]
 name = "Spatial Audio 2D"
@@ -2276,8 +2195,7 @@ wasm = true
 [[example]]
 name = "spatial_audio_3d"
 path = "examples/audio/spatial_audio_3d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.spatial_audio_3d]
 name = "Spatial Audio 3D"
@@ -2288,8 +2206,7 @@ wasm = true
 [[example]]
 name = "pitch"
 path = "examples/audio/pitch.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.pitch]
 name = "Pitch"
@@ -2301,8 +2218,7 @@ wasm = true
 [[example]]
 name = "log_diagnostics"
 path = "examples/diagnostics/log_diagnostics.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.log_diagnostics]
 name = "Log Diagnostics"
@@ -2313,8 +2229,7 @@ wasm = true
 [[example]]
 name = "custom_diagnostic"
 path = "examples/diagnostics/custom_diagnostic.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_diagnostic]
 name = "Custom Diagnostic"
@@ -2337,8 +2252,7 @@ wasm = true
 [[example]]
 name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.ecs_guide]
 name = "ECS Guide"
@@ -2349,8 +2263,7 @@ wasm = false
 [[example]]
 name = "change_detection"
 path = "examples/ecs/change_detection.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["track_location"]
 
 [package.metadata.example.change_detection]
@@ -2362,8 +2275,7 @@ wasm = false
 [[example]]
 name = "component_hooks"
 path = "examples/ecs/component_hooks.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.component_hooks]
 name = "Component Hooks"
@@ -2374,8 +2286,7 @@ wasm = false
 [[example]]
 name = "custom_schedule"
 path = "examples/ecs/custom_schedule.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_schedule]
 name = "Custom Schedule"
@@ -2386,8 +2297,7 @@ wasm = false
 [[example]]
 name = "custom_query_param"
 path = "examples/ecs/custom_query_param.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_query_param]
 name = "Custom Query Parameters"
@@ -2398,8 +2308,7 @@ wasm = false
 [[example]]
 name = "dynamic"
 path = "examples/ecs/dynamic.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["debug"]
 
 [package.metadata.example.dynamic]
@@ -2411,8 +2320,7 @@ wasm = false
 [[example]]
 name = "message"
 path = "examples/ecs/message.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.message]
 name = "Message"
@@ -2423,8 +2331,7 @@ wasm = false
 [[example]]
 name = "send_and_receive_messages"
 path = "examples/ecs/send_and_receive_messages.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.send_and_receive_messages]
 name = "Send and receive messages"
@@ -2435,8 +2342,7 @@ wasm = false
 [[example]]
 name = "entity_disabling"
 path = "examples/ecs/entity_disabling.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.entity_disabling]
 name = "Entity disabling"
@@ -2447,8 +2353,7 @@ wasm = true
 [[example]]
 name = "fixed_timestep"
 path = "examples/ecs/fixed_timestep.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.fixed_timestep]
 name = "Fixed Timestep"
@@ -2459,8 +2364,7 @@ wasm = false
 [[example]]
 name = "generic_system"
 path = "examples/ecs/generic_system.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.generic_system]
 name = "Generic System"
@@ -2471,8 +2375,7 @@ wasm = false
 [[example]]
 name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.hierarchy]
 name = "Hierarchy"
@@ -2483,8 +2386,7 @@ wasm = false
 [[example]]
 name = "immutable_components"
 path = "examples/ecs/immutable_components.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.immutable_components]
 name = "Immutable Components"
@@ -2495,8 +2397,7 @@ wasm = false
 [[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.iter_combinations]
 name = "Iter Combinations"
@@ -2507,8 +2408,7 @@ wasm = true
 [[example]]
 name = "one_shot_systems"
 path = "examples/ecs/one_shot_systems.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.one_shot_systems]
 name = "One Shot Systems"
@@ -2519,8 +2419,7 @@ wasm = false
 [[example]]
 name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.parallel_query]
 name = "Parallel Query"
@@ -2531,8 +2430,7 @@ wasm = false
 [[example]]
 name = "relationships"
 path = "examples/ecs/relationships.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.relationships]
 name = "Relationships"
@@ -2543,8 +2441,7 @@ wasm = false
 [[example]]
 name = "removal_detection"
 path = "examples/ecs/removal_detection.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.removal_detection]
 name = "Removal Detection"
@@ -2555,8 +2452,7 @@ wasm = false
 [[example]]
 name = "run_conditions"
 path = "examples/ecs/run_conditions.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.run_conditions]
 name = "Run Conditions"
@@ -2567,8 +2463,7 @@ wasm = false
 [[example]]
 name = "fallible_params"
 path = "examples/ecs/fallible_params.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.fallible_params]
 name = "Fallible System Parameters"
@@ -2579,8 +2474,7 @@ wasm = false
 [[example]]
 name = "error_handling"
 path = "examples/ecs/error_handling.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["mesh_picking"]
 
 [package.metadata.example.error_handling]
@@ -2592,8 +2486,7 @@ wasm = false
 [[example]]
 name = "startup_system"
 path = "examples/ecs/startup_system.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.startup_system]
 name = "Startup System"
@@ -2604,8 +2497,7 @@ wasm = false
 [[example]]
 name = "states"
 path = "examples/state/states.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.states]
 name = "States"
@@ -2616,8 +2508,7 @@ wasm = false
 [[example]]
 name = "sub_states"
 path = "examples/state/sub_states.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.sub_states]
@@ -2629,8 +2520,7 @@ wasm = false
 [[example]]
 name = "computed_states"
 path = "examples/state/computed_states.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.computed_states]
@@ -2642,8 +2532,7 @@ wasm = false
 [[example]]
 name = "custom_transitions"
 path = "examples/state/custom_transitions.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.custom_transitions]
@@ -2655,8 +2544,7 @@ wasm = false
 [[example]]
 name = "system_piping"
 path = "examples/ecs/system_piping.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.system_piping]
 name = "System Piping"
@@ -2667,8 +2555,7 @@ wasm = false
 [[example]]
 name = "state_scoped"
 path = "examples/ecs/state_scoped.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.state_scoped]
 name = "State Scoped"
@@ -2679,8 +2566,7 @@ wasm = false
 [[example]]
 name = "system_closure"
 path = "examples/ecs/system_closure.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.system_closure]
 name = "System Closure"
@@ -2715,8 +2601,7 @@ wasm = false
 [[example]]
 name = "time"
 path = "examples/time/time.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.time]
 name = "Time handling"
@@ -2727,8 +2612,7 @@ wasm = false
 [[example]]
 name = "virtual_time"
 path = "examples/time/virtual_time.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.virtual_time]
 name = "Virtual time"
@@ -2739,8 +2623,7 @@ wasm = false
 [[example]]
 name = "timers"
 path = "examples/time/timers.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.timers]
 name = "Timers"
@@ -2753,8 +2636,7 @@ wasm = false
 [[example]]
 name = "alien_cake_addict"
 path = "examples/games/alien_cake_addict.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.alien_cake_addict]
 name = "Alien Cake Addict"
@@ -2765,8 +2647,7 @@ wasm = true
 [[example]]
 name = "breakout"
 path = "examples/games/breakout.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.breakout]
 name = "Breakout"
@@ -2777,8 +2658,7 @@ wasm = true
 [[example]]
 name = "contributors"
 path = "examples/games/contributors.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.contributors]
 name = "Contributors"
@@ -2789,8 +2669,7 @@ wasm = true
 [[example]]
 name = "desk_toy"
 path = "examples/games/desk_toy.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.desk_toy]
 name = "Desk Toy"
@@ -2801,8 +2680,7 @@ wasm = false
 [[example]]
 name = "game_menu"
 path = "examples/games/game_menu.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.game_menu]
 name = "Game Menu"
@@ -2813,8 +2691,7 @@ wasm = true
 [[example]]
 name = "loading_screen"
 path = "examples/games/loading_screen.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.loading_screen]
 name = "Loading Screen"
@@ -2826,8 +2703,7 @@ wasm = true
 [[example]]
 name = "char_input_events"
 path = "examples/input/char_input_events.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.char_input_events]
 name = "Char Input Events"
@@ -2959,8 +2835,7 @@ wasm = false
 [[example]]
 name = "text_input"
 path = "examples/input/text_input.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.text_input]
 name = "Text Input"
@@ -2972,8 +2847,7 @@ wasm = false
 [[example]]
 name = "reflection"
 path = "examples/reflection/reflection.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.reflection]
 name = "Reflection"
@@ -3051,8 +2925,7 @@ wasm = false
 [[example]]
 name = "type_data"
 path = "examples/reflection/type_data.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.type_data]
 name = "Type Data"
@@ -3075,8 +2948,7 @@ wasm = false
 [[example]]
 name = "scene"
 path = "examples/scene/scene.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.scene]
 name = "Scene"
@@ -3098,8 +2970,7 @@ There are also compute shaders which are used for more general processing levera
 [[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.shader_defs]
 name = "Shader Defs"
@@ -3132,8 +3003,7 @@ wasm = true
 [[example]]
 name = "extended_material"
 path = "examples/shader/extended_material.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.extended_material]
 name = "Extended Material"
@@ -3144,8 +3014,7 @@ wasm = true
 [[example]]
 name = "shader_prepass"
 path = "examples/shader/shader_prepass.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.shader_prepass]
 name = "Material Prepass"
@@ -3156,8 +3025,7 @@ wasm = false
 [[example]]
 name = "shader_material_screenspace_texture"
 path = "examples/shader/shader_material_screenspace_texture.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.shader_material_screenspace_texture]
 name = "Material - Screenspace Texture"
@@ -3192,8 +3060,7 @@ wasm = true
 [[example]]
 name = "automatic_instancing"
 path = "examples/shader/automatic_instancing.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.automatic_instancing]
 name = "Instancing"
@@ -3204,8 +3071,7 @@ wasm = true
 [[example]]
 name = "animate_shader"
 path = "examples/shader/animate_shader.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.animate_shader]
 name = "Animated"
@@ -3216,8 +3082,7 @@ wasm = true
 [[example]]
 name = "compute_shader_game_of_life"
 path = "examples/shader/compute_shader_game_of_life.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.compute_shader_game_of_life]
 name = "Compute - Game of Life"
@@ -3228,8 +3093,7 @@ wasm = false
 [[example]]
 name = "gpu_readback"
 path = "examples/shader/gpu_readback.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.gpu_readback]
 name = "GPU readback"
@@ -3251,8 +3115,7 @@ wasm = false
 [[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.array_texture]
 name = "Array Texture"
@@ -3294,8 +3157,7 @@ wasm = true
 [[example]]
 name = "custom_post_processing"
 path = "examples/shader_advanced/custom_post_processing.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_post_processing]
 name = "Post Processing - Custom Render Pass"
@@ -3306,8 +3168,7 @@ wasm = true
 [[example]]
 name = "custom_shader_instancing"
 path = "examples/shader_advanced/custom_shader_instancing.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_shader_instancing]
 name = "Instancing"
@@ -3318,8 +3179,7 @@ wasm = true
 [[example]]
 name = "custom_render_phase"
 path = "examples/shader_advanced/custom_render_phase.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_render_phase]
 name = "Custom Render Phase"
@@ -3330,8 +3190,7 @@ wasm = true
 [[example]]
 name = "manual_material"
 path = "examples/shader_advanced/manual_material.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.manual_material]
 name = "Manual Material Implementation"
@@ -3342,8 +3201,7 @@ wasm = true
 [[example]]
 name = "texture_binding_array"
 path = "examples/shader_advanced/texture_binding_array.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.texture_binding_array]
 name = "Texture Binding Array (Bindless Textures)"
@@ -3354,8 +3212,7 @@ wasm = false
 [[example]]
 name = "specialized_mesh_pipeline"
 path = "examples/shader_advanced/specialized_mesh_pipeline.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.specialized_mesh_pipeline]
 name = "Specialized Mesh Pipeline"
@@ -3366,8 +3223,7 @@ wasm = true
 [[example]]
 name = "fullscreen_material"
 path = "examples/shader_advanced/fullscreen_material.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.fullscreen_material]
 name = "Fullscreen Material"
@@ -3391,8 +3247,7 @@ cargo run --release --example <example name>
 [[example]]
 name = "bevymark"
 path = "examples/stress_tests/bevymark.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.bevymark]
 name = "Bevymark"
@@ -3414,8 +3269,7 @@ wasm = true
 [[example]]
 name = "many_animated_sprites"
 path = "examples/stress_tests/many_animated_sprites.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_animated_sprites]
 name = "Many Animated Sprites"
@@ -3426,8 +3280,7 @@ wasm = true
 [[example]]
 name = "many_animated_sprite_meshes"
 path = "examples/stress_tests/many_animated_sprite_meshes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_animated_sprite_meshes]
 name = "Many Animated Sprite Meshes"
@@ -3438,8 +3291,7 @@ wasm = false
 [[example]]
 name = "many_buttons"
 path = "examples/stress_tests/many_buttons.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_buttons]
 name = "Many Buttons"
@@ -3450,8 +3302,7 @@ wasm = true
 [[example]]
 name = "many_gradients"
 path = "examples/stress_tests/many_gradients.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_gradients]
 name = "Many Gradients"
@@ -3462,8 +3313,7 @@ wasm = true
 [[example]]
 name = "many_cameras_lights"
 path = "examples/stress_tests/many_cameras_lights.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_cameras_lights]
 name = "Many Cameras & Lights"
@@ -3474,8 +3324,7 @@ wasm = true
 [[example]]
 name = "many_components"
 path = "examples/stress_tests/many_components.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_components]
 name = "Many Components (and Entities and Systems)"
@@ -3486,8 +3335,7 @@ wasm = false
 [[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_cubes]
 name = "Many Cubes"
@@ -3498,8 +3346,7 @@ wasm = true
 [[example]]
 name = "many_gizmos"
 path = "examples/stress_tests/many_gizmos.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_gizmos]
 name = "Many Gizmos"
@@ -3510,8 +3357,7 @@ wasm = true
 [[example]]
 name = "many_foxes"
 path = "examples/stress_tests/many_foxes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_foxes]
 name = "Many Foxes"
@@ -3533,8 +3379,7 @@ wasm = true
 [[example]]
 name = "many_glyphs"
 path = "examples/stress_tests/many_glyphs.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_glyphs]
 name = "Many Glyphs"
@@ -3545,8 +3390,7 @@ wasm = true
 [[example]]
 name = "many_lights"
 path = "examples/stress_tests/many_lights.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_lights]
 name = "Many Lights"
@@ -3557,8 +3401,7 @@ wasm = true
 [[example]]
 name = "many_sprites"
 path = "examples/stress_tests/many_sprites.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_sprites]
 name = "Many Sprites"
@@ -3569,8 +3412,7 @@ wasm = true
 [[example]]
 name = "many_sprite_meshes"
 path = "examples/stress_tests/many_sprite_meshes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_sprite_meshes]
 name = "Many Sprite Meshes"
@@ -3581,8 +3423,7 @@ wasm = false
 [[example]]
 name = "many_text2d"
 path = "examples/stress_tests/many_text2d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_text2d]
 name = "Many Text2d"
@@ -3593,8 +3434,7 @@ wasm = true
 [[example]]
 name = "many_materials"
 path = "examples/stress_tests/many_materials.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.many_materials]
 name = "Many Animated Materials"
@@ -3605,8 +3445,7 @@ wasm = true
 [[example]]
 name = "transform_hierarchy"
 path = "examples/stress_tests/transform_hierarchy.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.transform_hierarchy]
 name = "Transform Hierarchy"
@@ -3617,8 +3456,7 @@ wasm = false
 [[example]]
 name = "text_pipeline"
 path = "examples/stress_tests/text_pipeline.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.text_pipeline]
 name = "Text Pipeline"
@@ -3630,8 +3468,7 @@ wasm = false
 [[example]]
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["free_camera"]
 
 [package.metadata.example.scene_viewer]
@@ -3643,8 +3480,7 @@ wasm = true
 [[example]]
 name = "gamepad_viewer"
 path = "examples/tools/gamepad_viewer.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.gamepad_viewer]
 name = "Gamepad Viewer"
@@ -3655,8 +3491,7 @@ wasm = true
 [[example]]
 name = "nondeterministic_system_order"
 path = "examples/ecs/nondeterministic_system_order.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.nondeterministic_system_order]
 name = "Nondeterministic System Order"
@@ -3667,8 +3502,7 @@ wasm = false
 [[example]]
 name = "observers"
 path = "examples/ecs/observers.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.observers]
 name = "Observers"
@@ -3679,8 +3513,7 @@ wasm = true
 [[example]]
 name = "observer_propagation"
 path = "examples/ecs/observer_propagation.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.observer_propagation]
 name = "Observer Propagation"
@@ -3691,8 +3524,7 @@ wasm = true
 [[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.3d_rotation]
 name = "3D Rotation"
@@ -3703,8 +3535,7 @@ wasm = true
 [[example]]
 name = "align"
 path = "examples/transforms/align.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.align]
 name = "Alignment"
@@ -3715,8 +3546,7 @@ wasm = true
 [[example]]
 name = "scale"
 path = "examples/transforms/scale.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.scale]
 name = "Scale"
@@ -3727,8 +3557,7 @@ wasm = true
 [[example]]
 name = "transform"
 path = "examples/transforms/transform.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.transform]
 name = "Transform"
@@ -3739,8 +3568,7 @@ wasm = true
 [[example]]
 name = "translation"
 path = "examples/transforms/translation.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.translation]
 name = "Translation"
@@ -3752,8 +3580,7 @@ wasm = true
 [[example]]
 name = "anchor_layout"
 path = "examples/ui/layout/anchor_layout.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.anchor_layout]
 name = "Anchor Layout"
@@ -3764,8 +3591,7 @@ wasm = true
 [[example]]
 name = "borders"
 path = "examples/ui/styling/borders.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.borders]
 name = "Borders"
@@ -3776,8 +3602,7 @@ wasm = true
 [[example]]
 name = "box_shadow"
 path = "examples/ui/styling/box_shadow.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.box_shadow]
 name = "Box Shadow"
@@ -3788,8 +3613,7 @@ wasm = true
 [[example]]
 name = "button"
 path = "examples/ui/widgets/button.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.button]
 name = "Button"
@@ -3822,8 +3646,7 @@ wasm = true
 [[example]]
 name = "display_and_visibility"
 path = "examples/ui/layout/display_and_visibility.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.display_and_visibility]
 name = "Display and Visibility"
@@ -3834,8 +3657,7 @@ wasm = true
 [[example]]
 name = "font_weights"
 path = "examples/ui/text/font_weights.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.font_weights]
 name = "Font Weights"
@@ -3857,8 +3679,7 @@ wasm = false
 [[example]]
 name = "vertical_slider"
 path = "examples/ui/widgets/vertical_slider.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.vertical_slider]
 name = "Vertical Slider"
@@ -3880,8 +3701,7 @@ wasm = true
 [[example]]
 name = "overflow"
 path = "examples/ui/scroll_and_overflow/overflow.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.overflow]
 name = "Overflow"
@@ -3892,8 +3712,7 @@ wasm = true
 [[example]]
 name = "overflow_clip_margin"
 path = "examples/ui/scroll_and_overflow/overflow_clip_margin.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.overflow_clip_margin]
 name = "Overflow Clip Margin"
@@ -3905,8 +3724,7 @@ wasm = true
 [[example]]
 name = "overflow_debug"
 path = "examples/ui/scroll_and_overflow/overflow_debug.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.overflow_debug]
 name = "Overflow and Clipping Debug"
@@ -3917,8 +3735,7 @@ wasm = true
 [[example]]
 name = "relative_cursor_position"
 path = "examples/ui/relative_cursor_position.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.relative_cursor_position]
 name = "Relative Cursor Position"
@@ -3929,8 +3746,7 @@ wasm = true
 [[example]]
 name = "render_ui_to_texture"
 path = "examples/ui/render_ui_to_texture.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.render_ui_to_texture]
 name = "Render UI to Texture"
@@ -3941,8 +3757,7 @@ wasm = true
 [[example]]
 name = "size_constraints"
 path = "examples/ui/layout/size_constraints.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.size_constraints]
 name = "Size Constraints"
@@ -3953,8 +3768,7 @@ wasm = true
 [[example]]
 name = "strikethrough_and_underline"
 path = "examples/ui/text/strikethrough_and_underline.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.strikethrough_and_underline]
 name = "Strikethrough and Underline"
@@ -3965,8 +3779,7 @@ wasm = true
 [[example]]
 name = "generic_font_families"
 path = "examples/ui/text/generic_font_families.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["system_font_discovery"]
 
 [package.metadata.example.generic_font_families]
@@ -3978,8 +3791,7 @@ wasm = true
 [[example]]
 name = "text"
 path = "examples/ui/text/text.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.text]
 name = "Text"
@@ -3990,8 +3802,7 @@ wasm = true
 [[example]]
 name = "text_background_colors"
 path = "examples/ui/text/text_background_colors.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.text_background_colors]
 name = "Text Background Colors"
@@ -4002,8 +3813,7 @@ wasm = true
 [[example]]
 name = "text_debug"
 path = "examples/ui/text/text_debug.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.text_debug]
 name = "Text Debug"
@@ -4014,8 +3824,7 @@ wasm = true
 [[example]]
 name = "flex_layout"
 path = "examples/ui/layout/flex_layout.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.flex_layout]
 name = "Flex Layout"
@@ -4026,8 +3835,7 @@ wasm = true
 [[example]]
 name = "text_wrap_debug"
 path = "examples/ui/text/text_wrap_debug.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.text_wrap_debug]
 name = "Text Wrap Debug"
@@ -4038,8 +3846,7 @@ wasm = true
 [[example]]
 name = "ghost_nodes"
 path = "examples/ui/layout/ghost_nodes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["ghost_nodes"]
 
 [package.metadata.example.ghost_nodes]
@@ -4051,8 +3858,7 @@ wasm = true
 [[example]]
 name = "grid"
 path = "examples/ui/layout/grid.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.grid]
 name = "CSS Grid"
@@ -4063,8 +3869,7 @@ wasm = true
 [[example]]
 name = "gradients"
 path = "examples/ui/styling/gradients.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.gradients]
 name = "Gradients"
@@ -4075,8 +3880,7 @@ wasm = true
 [[example]]
 name = "stacked_gradients"
 path = "examples/ui/styling/stacked_gradients.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.stacked_gradients]
 name = "Stacked Gradients"
@@ -4087,8 +3891,7 @@ wasm = true
 [[example]]
 name = "scroll"
 path = "examples/ui/scroll_and_overflow/scroll.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.scroll]
 name = "Scroll"
@@ -4099,8 +3902,7 @@ wasm = true
 [[example]]
 name = "transparency_ui"
 path = "examples/ui/styling/transparency_ui.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.transparency_ui]
 name = "Transparency UI"
@@ -4134,8 +3936,7 @@ wasm = true
 [[example]]
 name = "ui_scaling"
 path = "examples/ui/ui_scaling.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.ui_scaling]
 name = "UI Scaling"
@@ -4146,8 +3947,7 @@ wasm = true
 [[example]]
 name = "ui_texture_atlas"
 path = "examples/ui/images/ui_texture_atlas.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.ui_texture_atlas]
 name = "UI Texture Atlas"
@@ -4191,8 +3991,7 @@ wasm = true
 [[example]]
 name = "ui_transform"
 path = "examples/ui/ui_transform.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.ui_transform]
 name = "UI Transform"
@@ -4203,8 +4002,7 @@ wasm = true
 [[example]]
 name = "ui_target_camera"
 path = "examples/ui/ui_target_camera.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.ui_target_camera]
 name = "UI Target Camera"
@@ -4215,8 +4013,7 @@ wasm = true
 [[example]]
 name = "viewport_node"
 path = "examples/ui/widgets/viewport_node.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.viewport_node]
 name = "Viewport Node"
@@ -4227,8 +4024,7 @@ wasm = true
 [[example]]
 name = "image_node"
 path = "examples/ui/images/image_node.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.image_node]
 name = "Image Node"
@@ -4239,8 +4035,7 @@ wasm = true
 [[example]]
 name = "image_node_resizing"
 path = "examples/ui/images/image_node_resizing.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.image_node_resizing]
 name = "Image Node Resizing"
@@ -4252,8 +4047,7 @@ wasm = true
 [[example]]
 name = "clear_color"
 path = "examples/window/clear_color.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.clear_color]
 name = "Clear Color"
@@ -4264,8 +4058,7 @@ wasm = true
 [[example]]
 name = "custom_cursor_image"
 path = "examples/window/custom_cursor_image.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["custom_cursor"]
 
 [package.metadata.example.custom_cursor_image]
@@ -4277,8 +4070,7 @@ wasm = true
 [[example]]
 name = "low_power"
 path = "examples/window/low_power.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.low_power]
 name = "Low Power"
@@ -4289,8 +4081,7 @@ wasm = true
 [[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.multiple_windows]
 name = "Multiple Windows"
@@ -4334,8 +4125,7 @@ wasm = false
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.window_settings]
 name = "Window Settings"
@@ -4346,8 +4136,7 @@ wasm = true
 [[example]]
 name = "window_drag_move"
 path = "examples/window/window_drag_move.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.window_drag_move]
 name = "Window Drag Move"
@@ -4358,8 +4147,7 @@ wasm = false
 [[example]]
 name = "ambiguity_detection"
 path = "tests/ecs/ambiguity_detection.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.ambiguity_detection]
 hidden = true
@@ -4367,8 +4155,7 @@ hidden = true
 [[example]]
 name = "resizing"
 path = "tests/window/resizing.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.resizing]
 hidden = true
@@ -4376,8 +4163,7 @@ hidden = true
 [[example]]
 name = "minimizing"
 path = "tests/window/minimizing.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.minimizing]
 hidden = true
@@ -4385,8 +4171,7 @@ hidden = true
 [[example]]
 name = "desktop_request_redraw"
 path = "tests/window/desktop_request_redraw.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.desktop_request_redraw]
@@ -4395,8 +4180,7 @@ hidden = true
 [[example]]
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [[example]]
 name = "fallback_image"
@@ -4409,8 +4193,7 @@ hidden = true
 [[example]]
 name = "reflection_probes"
 path = "examples/3d/reflection_probes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.reflection_probes]
 name = "Reflection Probes"
@@ -4427,8 +4210,7 @@ wasm = true
 [[example]]
 name = "drag_to_scroll"
 path = "examples/ui/scroll_and_overflow/drag_to_scroll.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.drag_to_scroll]
 name = "Drag to Scroll"
@@ -4439,8 +4221,7 @@ wasm = true
 [[example]]
 name = "ui_material"
 path = "examples/ui/ui_material.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.ui_material]
 name = "UI Material"
@@ -4451,8 +4232,7 @@ wasm = true
 [[example]]
 name = "cubic_splines"
 path = "examples/math/cubic_splines.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.cubic_splines]
 name = "Cubic Splines"
@@ -4463,8 +4243,7 @@ wasm = true
 [[example]]
 name = "render_primitives"
 path = "examples/math/render_primitives.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.render_primitives]
 name = "Rendering Primitives"
@@ -4476,8 +4255,7 @@ wasm = true
 [[example]]
 name = "sampling_primitives"
 path = "examples/math/sampling_primitives.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.sampling_primitives]
 name = "Sampling Primitives"
@@ -4488,8 +4266,7 @@ wasm = true
 [[example]]
 name = "custom_primitives"
 path = "examples/math/custom_primitives.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_primitives]
 name = "Custom Primitives"
@@ -4500,8 +4277,7 @@ wasm = true
 [[example]]
 name = "random_sampling"
 path = "examples/math/random_sampling.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.random_sampling]
 name = "Random Sampling"
@@ -4512,8 +4288,7 @@ wasm = true
 [[example]]
 name = "smooth_follow"
 path = "examples/movement/smooth_follow.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.smooth_follow]
 name = "Smooth Follow"
@@ -4525,8 +4300,7 @@ wasm = true
 [[example]]
 name = "2d_gizmos"
 path = "examples/gizmos/2d_gizmos.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.2d_gizmos]
 name = "2D Gizmos"
@@ -4537,8 +4311,7 @@ wasm = true
 [[example]]
 name = "3d_gizmos"
 path = "examples/gizmos/3d_gizmos.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["free_camera"]
 
 [package.metadata.example.3d_gizmos]
@@ -4550,8 +4323,7 @@ wasm = true
 [[example]]
 name = "axes"
 path = "examples/gizmos/axes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.axes]
 name = "Axes"
@@ -4562,8 +4334,7 @@ wasm = true
 [[example]]
 name = "light_gizmos"
 path = "examples/gizmos/light_gizmos.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.light_gizmos]
 name = "Light Gizmos"
@@ -4574,8 +4345,7 @@ wasm = true
 [[example]]
 name = "2d_text_gizmos"
 path = "examples/gizmos/2d_text_gizmos.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.2d_text_gizmos]
 name = "Text Gizmos 2d"
@@ -4586,8 +4356,7 @@ wasm = true
 [[example]]
 name = "anchored_text_gizmos"
 path = "examples/gizmos/anchored_text_gizmos.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.anchored_text_gizmos]
 name = "Anchored Text Gizmos"
@@ -4598,8 +4367,7 @@ wasm = true
 [[example]]
 name = "3d_text_gizmos"
 path = "examples/gizmos/3d_text_gizmos.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.3d_text_gizmos]
 name = "Text Gizmos 3d"
@@ -4610,8 +4378,7 @@ wasm = true
 [[example]]
 name = "text_gizmos_font"
 path = "examples/gizmos/text_gizmos_font.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.text_gizmos_font]
 name = "Text Gizmos Font"
@@ -4622,8 +4389,7 @@ wasm = true
 [[example]]
 name = "debug_frustum_culling"
 path = "examples/usage/debug_frustum_culling.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["free_camera"]
 
 [package.metadata.example.debug_frustum_culling]
@@ -4636,8 +4402,7 @@ wasm = true
 [[example]]
 name = "custom_gltf_vertex_attribute"
 path = "examples/gltf/custom_gltf_vertex_attribute.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_gltf_vertex_attribute]
 name = "Custom glTF vertex attribute 2D"
@@ -4648,8 +4413,7 @@ wasm = true
 [[example]]
 name = "edit_material_on_gltf"
 path = "examples/gltf/edit_material_on_gltf.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.edit_material_on_gltf]
 name = "Edit glTF Material"
@@ -4693,8 +4457,7 @@ wasm = true
 [[example]]
 name = "gltf_extension_animation_graph"
 path = "examples/gltf/gltf_extension_animation_graph.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.gltf_extension_animation_graph]
 name = "glTF extension AnimationGraph"
@@ -4705,8 +4468,7 @@ wasm = true
 [[example]]
 name = "gltf_extension_mesh_2d"
 path = "examples/gltf/gltf_extension_mesh_2d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.gltf_extension_mesh_2d]
 name = "glTF extension processing to build Mesh2ds from glTF data"
@@ -4717,8 +4479,7 @@ wasm = true
 [[example]]
 name = "query_gltf_primitives"
 path = "examples/gltf/query_gltf_primitives.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.query_gltf_primitives]
 name = "Query glTF primitives"
@@ -4746,8 +4507,7 @@ required-features = ["bevy_dev_tools"]
 [[example]]
 name = "2d_top_down_camera"
 path = "examples/camera/2d_top_down_camera.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.2d_top_down_camera]
 name = "2D top-down camera"
@@ -4758,8 +4518,7 @@ wasm = true
 [[example]]
 name = "custom_projection"
 path = "examples/camera/custom_projection.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_projection]
 name = "Custom Projection"
@@ -4770,8 +4529,7 @@ wasm = true
 [[example]]
 name = "first_person_view_model"
 path = "examples/camera/first_person_view_model.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.first_person_view_model]
 name = "First person view model"
@@ -4782,8 +4540,7 @@ wasm = true
 [[example]]
 name = "free_camera_controller"
 path = "examples/camera/free_camera_controller.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["free_camera"]
 
 [package.metadata.example.free_camera_controller]
@@ -4795,8 +4552,7 @@ wasm = true
 [[example]]
 name = "projection_zoom"
 path = "examples/camera/projection_zoom.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.projection_zoom]
 name = "Projection Zoom"
@@ -4807,8 +4563,7 @@ wasm = true
 [[example]]
 name = "camera_orbit"
 path = "examples/camera/camera_orbit.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.camera_orbit]
 name = "Camera Orbit"
@@ -4819,8 +4574,7 @@ wasm = true
 [[example]]
 name = "2d_screen_shake"
 path = "examples/camera/2d_screen_shake.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.2d_screen_shake]
 name = "Screen Shake"
@@ -4831,8 +4585,7 @@ wasm = true
 [[example]]
 name = "2d_on_ui"
 path = "examples/camera/2d_on_ui.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.2d_on_ui]
 name = "2D on Bevy UI"
@@ -4849,8 +4602,7 @@ wasm = true
 [[example]]
 name = "visibility_range"
 path = "examples/3d/visibility_range.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.visibility_range]
 name = "Visibility range"
@@ -4861,8 +4613,7 @@ wasm = true
 [[example]]
 name = "ssr"
 path = "examples/3d/ssr.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["bluenoise_texture"]
 
 [package.metadata.example.ssr]
@@ -4874,8 +4625,7 @@ wasm = false
 [[example]]
 name = "camera_sub_view"
 path = "examples/3d/camera_sub_view.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.camera_sub_view]
 name = "Camera sub view"
@@ -4886,8 +4636,7 @@ wasm = true
 [[example]]
 name = "color_grading"
 path = "examples/3d/color_grading.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.color_grading]
 name = "Color grading"
@@ -4898,8 +4647,7 @@ wasm = true
 [[example]]
 name = "clearcoat"
 path = "examples/3d/clearcoat.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["pbr_multi_layer_material_textures"]
 
 [package.metadata.example.clearcoat]
@@ -4911,8 +4659,7 @@ wasm = false
 [[example]]
 name = "depth_of_field"
 path = "examples/3d/depth_of_field.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.depth_of_field]
 name = "Depth of field"
@@ -4923,8 +4670,7 @@ wasm = false
 [[example]]
 name = "volumetric_fog"
 path = "examples/3d/volumetric_fog.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.volumetric_fog]
 name = "Volumetric fog"
@@ -4935,8 +4681,7 @@ wasm = true
 [[example]]
 name = "client"
 path = "examples/remote/client.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["bevy_remote"]
 
 [package.metadata.example.client]
@@ -4960,8 +4705,7 @@ wasm = false
 [[example]]
 name = "anisotropy"
 path = "examples/3d/anisotropy.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["jpeg", "pbr_anisotropy_texture"]
 
 [package.metadata.example.anisotropy]
@@ -4973,8 +4717,7 @@ wasm = false
 [[example]]
 name = "custom_phase_item"
 path = "examples/shader_advanced/custom_phase_item.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.custom_phase_item]
 name = "Custom phase item"
@@ -4985,8 +4728,7 @@ wasm = true
 [[example]]
 name = "fog_volumes"
 path = "examples/3d/fog_volumes.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.fog_volumes]
 name = "Fog volumes"
@@ -4997,8 +4739,7 @@ wasm = false
 [[example]]
 name = "scrolling_fog"
 path = "examples/3d/scrolling_fog.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.scrolling_fog]
 name = "Scrolling fog"
@@ -5009,8 +4750,7 @@ wasm = false
 [[example]]
 name = "physics_in_fixed_timestep"
 path = "examples/movement/physics_in_fixed_timestep.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.physics_in_fixed_timestep]
 name = "Run physics in a fixed timestep"
@@ -5021,8 +4761,7 @@ wasm = true
 [[example]]
 name = "post_processing"
 path = "examples/3d/post_processing.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.post_processing]
 name = "Built-in postprocessing"
@@ -5033,8 +4772,7 @@ wasm = true
 [[example]]
 name = "rotate_environment_map"
 path = "examples/3d/rotate_environment_map.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["pbr_multi_layer_material_textures"]
 
 [package.metadata.example.rotate_environment_map]
@@ -5046,8 +4784,7 @@ wasm = false
 [[example]]
 name = "mesh_picking"
 path = "examples/picking/mesh_picking.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["mesh_picking"]
 
 [package.metadata.example.mesh_picking]
@@ -5059,8 +4796,7 @@ wasm = true
 [[example]]
 name = "simple_picking"
 path = "examples/picking/simple_picking.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["ui_picking"]
 
 [package.metadata.example.simple_picking]
@@ -5072,8 +4808,7 @@ wasm = true
 [[example]]
 name = "sprite_picking"
 path = "examples/picking/sprite_picking.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["sprite_picking"]
 
 [package.metadata.example.sprite_picking]
@@ -5085,8 +4820,7 @@ wasm = true
 [[example]]
 name = "debug_picking"
 path = "examples/picking/debug_picking.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.debug_picking]
@@ -5110,8 +4844,7 @@ wasm = true
 [[example]]
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.animation_masks]
 name = "Animation Masks"
@@ -5122,8 +4855,7 @@ wasm = true
 [[example]]
 name = "pcss"
 path = "examples/3d/pcss.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["experimental_pbr_pcss"]
 
 [package.metadata.example.pcss]
@@ -5135,8 +4867,7 @@ wasm = false
 [[example]]
 name = "mixed_lighting"
 path = "examples/3d/mixed_lighting.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["jpeg"]
 
 [package.metadata.example.mixed_lighting]
@@ -5148,8 +4879,7 @@ wasm = true
 [[example]]
 name = "animated_ui"
 path = "examples/animation/animated_ui.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.animated_ui]
 name = "Animated UI"
@@ -5160,8 +4890,7 @@ wasm = true
 [[example]]
 name = "shader_material_bindless"
 path = "examples/shader/shader_material_bindless.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.shader_material_bindless]
 name = "Material - Bindless"
@@ -5172,8 +4901,7 @@ wasm = true
 [[example]]
 name = "specular_tint"
 path = "examples/3d/specular_tint.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["pbr_specular_textures"]
 
 [package.metadata.example.specular_tint]
@@ -5185,8 +4913,7 @@ wasm = true
 [[example]]
 name = "test_invalid_skinned_mesh"
 path = "tests/3d/test_invalid_skinned_mesh.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.test_invalid_skinned_mesh]
 hidden = true
@@ -5232,8 +4959,7 @@ all-features = true
 [[example]]
 name = "monitor_info"
 path = "examples/window/monitor_info.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.monitor_info]
 name = "Monitor info"
@@ -5245,8 +4971,7 @@ wasm = false
 [[example]]
 name = "testbed_2d"
 path = "examples/testbed/2d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.testbed_2d]
 hidden = true
@@ -5254,8 +4979,7 @@ hidden = true
 [[example]]
 name = "testbed_3d"
 path = "examples/testbed/3d.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.testbed_3d]
 hidden = true
@@ -5263,8 +4987,7 @@ hidden = true
 [[example]]
 name = "testbed_ui"
 path = "examples/testbed/ui.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.testbed_ui]
 hidden = true
@@ -5272,8 +4995,7 @@ hidden = true
 [[example]]
 name = "testbed_full_ui"
 path = "examples/testbed/full_ui.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.testbed_full_ui]
 hidden = true
@@ -5292,8 +5014,7 @@ wasm = true
 [[example]]
 name = "directional_navigation"
 path = "examples/ui/navigation/directional_navigation.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.directional_navigation]
 name = "Directional Navigation"
@@ -5304,8 +5025,7 @@ wasm = true
 [[example]]
 name = "directional_navigation_overrides"
 path = "examples/ui/navigation/directional_navigation_overrides.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.directional_navigation_overrides]
 name = "Directional Navigation Overrides"
@@ -5316,8 +5036,7 @@ wasm = true
 [[example]]
 name = "clustered_decals"
 path = "examples/3d/clustered_decals.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["pbr_clustered_decals"]
 
 [package.metadata.example.clustered_decals]
@@ -5329,8 +5048,7 @@ wasm = false
 [[example]]
 name = "light_textures"
 path = "examples/3d/light_textures.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["pbr_light_textures"]
 
 [package.metadata.example.light_textures]
@@ -5342,8 +5060,7 @@ wasm = false
 [[example]]
 name = "occlusion_culling"
 path = "examples/3d/occlusion_culling.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.occlusion_culling]
 name = "Occlusion Culling"
@@ -5354,8 +5071,7 @@ wasm = false
 [[example]]
 name = "widgets"
 path = "examples/helpers/widgets.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 crate-type = ["lib"]
 
 [package.metadata.example.widgets]
@@ -5367,8 +5083,7 @@ wasm = true
 [[example]]
 name = "no_std_library"
 path = "examples/no_std/library/src/lib.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 crate-type = ["lib"]
 
 [package.metadata.example.no_std_library]
@@ -5380,8 +5095,7 @@ wasm = true
 [[example]]
 name = "extended_material_bindless"
 path = "examples/shader/extended_material_bindless.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.extended_material_bindless]
 name = "Extended Bindless Material"
@@ -5392,8 +5106,7 @@ wasm = false
 [[example]]
 name = "cooldown"
 path = "examples/usage/cooldown.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.cooldown]
 name = "Cooldown"
@@ -5404,8 +5117,7 @@ wasm = true
 [[example]]
 name = "hotpatching_systems"
 path = "examples/ecs/hotpatching_systems.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["hotpatching"]
 
 [package.metadata.example.hotpatching_systems]
@@ -5417,8 +5129,7 @@ wasm = false
 [[example]]
 name = "standard_widgets"
 path = "examples/ui/widgets/standard_widgets.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.standard_widgets]
 name = "Standard Widgets"
@@ -5429,8 +5140,7 @@ wasm = true
 [[example]]
 name = "standard_widgets_observers"
 path = "examples/ui/widgets/standard_widgets_observers.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.standard_widgets_observers]
 name = "Standard Widgets (w/Observers)"
@@ -5441,8 +5151,7 @@ wasm = true
 [[example]]
 name = "scrollbars"
 path = "examples/ui/scroll_and_overflow/scrollbars.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.scrollbars]
 name = "Scrollbars"
@@ -5465,8 +5174,7 @@ wasm = true
 [[example]]
 name = "feathers"
 path = "examples/ui/widgets/feathers.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["experimental_bevy_feathers"]
 
 [package.metadata.example.feathers]
@@ -5478,8 +5186,7 @@ wasm = true
 [[example]]
 name = "render_depth_to_texture"
 path = "examples/shader_advanced/render_depth_to_texture.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.render_depth_to_texture]
 name = "Render Depth to Texture"
@@ -5490,8 +5197,7 @@ wasm = true
 [[example]]
 name = "pan_camera_controller"
 path = "examples/camera/pan_camera_controller.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["pan_camera"]
 
 [package.metadata.example.pan_camera_controller]
@@ -5514,8 +5220,7 @@ wasm = false
 [[example]]
 name = "clustered_decal_maps"
 path = "examples/3d/clustered_decal_maps.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 required-features = ["pbr_clustered_decals", "https"]
 
 [package.metadata.example.clustered_decal_maps]
@@ -5527,8 +5232,7 @@ wasm = false
 [[example]]
 name = "mirror"
 path = "examples/3d/mirror.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.mirror]
 name = "Mirror"
