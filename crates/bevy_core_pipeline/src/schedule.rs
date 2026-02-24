@@ -34,7 +34,7 @@ pub struct Core3d;
 /// These stages include and run in the following order:
 /// - `Prepass`: Initial rendering operations, such as depth pre-pass.
 /// - `MainPass`: The primary rendering operations, including drawing opaque and transparent objects.
-/// - `EarlyPostProcess`: Early post processing effects.
+/// - `EarlyPostProcess`: Post processing effects intended to run before anti aliasing.
 /// - `AntiAlias`: Anti aliasing effects.
 /// - `PostProcess`: Final rendering operations, such as post-processing effects.
 ///
