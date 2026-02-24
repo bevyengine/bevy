@@ -93,7 +93,7 @@ fn update(
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 #[bind_group_data(CustomMaterialKey)]
 struct CustomMaterial {
-    // Needed for 16 bit alignment in WebGL2
+    // Needed for 16 byte alignment on WebGL2
     #[uniform(0)]
     time: Vec4,
     party_mode: bool,

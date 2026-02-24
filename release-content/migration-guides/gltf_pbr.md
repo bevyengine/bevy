@@ -5,6 +5,8 @@ pull_requests: [22569]
 
 Previously, `bevy_gltf` depended on `bevy_pbr`. This meant scene definition was tightly coupled to rendering. This dependency has been inverted, to allow `bevy_gltf` to function without any of the rendering stack present.
 
+`bevy_gltf` is also an optional dependency.
+
 In 0.18, loading a material sub-asset would return a `Handle<StandardMaterial>`.
 
 ```rs

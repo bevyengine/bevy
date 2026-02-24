@@ -134,6 +134,7 @@ Example | Description
 [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 [Tilemap Chunk](../examples/2d/tilemap_chunk.rs) | Renders a tilemap chunk
+[Tilemap Chunk with Orientations](../examples/2d/tilemap_chunk_orientation.rs) | Renders a tilemap chunk using tile orientations (mirrored, rotated)
 [Transparency in 2D](../examples/2d/transparency_2d.rs) | Demonstrates transparency in 2d
 
 ### 3D Rendering

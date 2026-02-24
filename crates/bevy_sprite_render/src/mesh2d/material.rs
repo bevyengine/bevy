@@ -4,7 +4,9 @@ use crate::{
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, AssetServer, Handle};
+use bevy_asset::{
+    AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, AssetServer, Handle, UntypedAssetId,
+};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_core_pipeline::{
     core_2d::{
@@ -15,7 +17,10 @@ use bevy_core_pipeline::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::SRes, SystemParamItem},
+    system::{
+        lifetimeless::{SRes, SResMut},
+        SystemParamItem,
+    },
 };
 use bevy_math::FloatOrd;
 use bevy_mesh::MeshVertexBufferLayoutRef;
@@ -311,7 +316,8 @@ where
                         specialize_material2d_meshes::<M>
                             .in_set(RenderSystems::Specialize)
                             .after(prepare_assets::<PreparedMaterial2d<M>>)
-                            .after(prepare_assets::<RenderMesh>),
+                            .after(prepare_assets::<RenderMesh>)
+                            .after(prepare_pending_mesh_material2d_queues),
                         queue_material2d_meshes::<M>
                             .in_set(RenderSystems::QueueMeshes)
                             .after(prepare_assets::<PreparedMaterial2d<M>>),
@@ -332,6 +338,7 @@ impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
 
 pub fn extract_mesh_materials_2d<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
+    mut render_material_2d_ids: ResMut<RenderMaterial2dIds>,
     changed_meshes_query: Extract<
         Query<
             (Entity, &ViewVisibility, &MeshMaterial2d<M>),
@@ -342,9 +349,14 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
 ) {
     for (entity, view_visibility, material) in &changed_meshes_query {
         if view_visibility.get() {
-            add_mesh_instance(entity, material, &mut material_instances);
+            add_mesh_instance(
+                entity,
+                material,
+                &mut material_instances,
+                &mut render_material_2d_ids,
+            );
         } else {
-            remove_mesh_instance(entity, &mut material_instances);
+            remove_mesh_instance(entity, &mut material_instances, &mut render_material_2d_ids);
         }
     }
 
@@ -353,30 +365,31 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
         if !changed_meshes_query.contains(entity) {
-            remove_mesh_instance(entity, &mut material_instances);
+            remove_mesh_instance(entity, &mut material_instances, &mut render_material_2d_ids);
         }
     }
 
-    // Adds or updates a mesh instance in the [`RenderMaterial2dInstances`]
-    // array.
     fn add_mesh_instance<M>(
         entity: Entity,
         material: &MeshMaterial2d<M>,
         material_instances: &mut RenderMaterial2dInstances<M>,
+        render_material_2d_ids: &mut RenderMaterial2dIds,
     ) where
         M: Material2d,
     {
         material_instances.insert(entity.into(), material.id());
+        render_material_2d_ids.insert(entity.into(), material.id().into());
     }
 
-    // Removes a mesh instance from the [`RenderMaterial2dInstances`] array.
     fn remove_mesh_instance<M>(
         entity: Entity,
         material_instances: &mut RenderMaterial2dInstances<M>,
+        render_material_2d_ids: &mut RenderMaterial2dIds,
     ) where
         M: Material2d,
     {
         material_instances.remove(&MainEntity::from(entity));
+        render_material_2d_ids.remove(&MainEntity::from(entity));
     }
 }
 
@@ -711,6 +724,20 @@ pub fn check_entities_needing_specialization<M>(
 #[derive(Default, Deref, DerefMut, Resource)]
 pub struct PendingMeshMaterial2dQueues(pub PendingQueues);
 
+/// Prepares the [`PendingMeshMaterial2dQueues`] for a new frame by swapping
+/// the current and previous frame queues for each view.
+pub fn prepare_pending_mesh_material2d_queues(
+    mut pending_mesh_material2d_queues: ResMut<PendingMeshMaterial2dQueues>,
+    views: Query<&ExtractedView>,
+) {
+    let mut all_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
+    for view in &views {
+        all_views.insert(view.retained_view_entity);
+        pending_mesh_material2d_queues.prepare_for_new_frame(view.retained_view_entity);
+    }
+    pending_mesh_material2d_queues.expire_stale_views(&all_views);
+}
+
 pub fn specialize_material2d_meshes<M: Material2d>(
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
@@ -736,13 +763,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
         return;
     }
 
-    // Record the retained IDs of all views so that we can expire old pending
-    // queues.
-    let mut all_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
-
     for (view_entity, view, visible_entities) in &views {
-        all_views.insert(view.retained_view_entity);
-
         if !transparent_render_phases.contains_key(&view.retained_view_entity)
             && !opaque_render_phases.contains_key(&view.retained_view_entity)
             && !alpha_mask_render_phases.contains_key(&view.retained_view_entity)
@@ -772,9 +793,11 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             }
         }
 
-        // Initialize the pending queues.
-        let view_pending_mesh_material2d_queues =
-            pending_mesh_material2d_queues.prepare_for_new_frame(view.retained_view_entity);
+        let Some(view_pending_mesh_material2d_queues) =
+            pending_mesh_material2d_queues.get_mut(&view.retained_view_entity)
+        else {
+            continue;
+        };
 
         // Now process all 2D meshes that need to be re-specialized.
         for (render_entity, visible_entity) in dirty_specializations.iter_to_specialize(
@@ -787,12 +810,8 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             }
 
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
-                // We couldn't fetch the material instance, probably because the
-                // material hasn't been loaded yet. Add the entity to the list
-                // of pending mesh materials and bail.
-                view_pending_mesh_material2d_queues
-                    .current_frame
-                    .insert((*render_entity, *visible_entity));
+                // Entity doesn't have this material type. Skip it; the
+                // correct material type's specialize system will handle it.
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
@@ -835,8 +854,6 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             view_specialized_material_pipeline_cache.insert(*visible_entity, pipeline_id);
         }
     }
-
-    pending_mesh_material2d_queues.expire_stale_views(&all_views);
 }
 
 pub fn queue_material2d_meshes<M: Material2d>(
@@ -887,20 +904,27 @@ pub fn queue_material2d_meshes<M: Material2d>(
             .get_mut(&view.retained_view_entity)
             .expect(
                 "View pending mesh material 2D queues should have been created in \
-                 `specialize_material2d_meshes`",
+                 `prepare_pending_mesh_material2d_queues`",
             );
 
-        // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
-        for &main_entity in
-            dirty_specializations.iter_to_dequeue(view.retained_view_entity, visible_entities)
+        // Remove entities that became invisible or fully lost their
+        // mesh/material from the render phases. Entities that are also
+        // in `changed_renderables` are switching material type and will
+        // be handled by the inline dequeue in the queue loop below.
+        for main_entity in visible_entities
+            .removed_entities
+            .iter()
+            .map(|(_, main_entity)| main_entity)
+            .chain(
+                dirty_specializations
+                    .removed_renderables
+                    .iter()
+                    .filter(|e| !dirty_specializations.changed_renderables.contains(*e)),
+            )
         {
-            // Note that this requires that all entities assigned to the
-            // transparent phase have `Entity::PLACEHOLDER` as their render
-            // entity.
-            transparent_phase.remove(Entity::PLACEHOLDER, main_entity);
-
-            opaque_phase.remove(main_entity);
-            alpha_mask_phase.remove(main_entity);
+            transparent_phase.remove(Entity::PLACEHOLDER, *main_entity);
+            opaque_phase.remove(*main_entity);
+            alpha_mask_phase.remove(*main_entity);
         }
 
         // Now iterate over all newly-visible entities and those that need
@@ -918,12 +942,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
             };
 
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
-                // We couldn't fetch the material instance, probably because the
-                // material hasn't been loaded yet. Add the entity to the list
-                // of pending mesh materials and bail.
-                view_pending_mesh_material2d_queues
-                    .current_frame
-                    .insert((*render_entity, *visible_entity));
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
@@ -941,6 +959,14 @@ pub fn queue_material2d_meshes<M: Material2d>(
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
+
+            // Remove old phase item before re-adding. This handles bin
+            // key changes and is safe even if the entity wasn't previously
+            // queued. Doing this after the pipeline check ensures
+            // each material type only dequeues its own entities.
+            transparent_phase.remove(Entity::PLACEHOLDER, *visible_entity);
+            opaque_phase.remove(*visible_entity);
+            alpha_mask_phase.remove(*visible_entity);
 
             mesh_instance.material_bind_group_id = material_2d.get_bind_group_id();
             let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
@@ -1030,6 +1056,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct Material2dBindGroupId(pub Option<BindGroupId>);
 
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct RenderMaterial2dBindGroupIds(HashMap<UntypedAssetId, Material2dBindGroupId>);
+
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct RenderMaterial2dIds(MainEntityHashMap<UntypedAssetId>);
+
 /// Common [`Material2d`] properties, calculated for a specific material instance.
 pub struct Material2dProperties {
     /// The [`AlphaMode2d`] of this material.
@@ -1070,12 +1102,13 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         SRes<DrawFunctions<Opaque2d>>,
         SRes<DrawFunctions<AlphaMask2d>>,
         SRes<DrawFunctions<Transparent2d>>,
+        SResMut<RenderMaterial2dBindGroupIds>,
         M::Param,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        _: AssetId<Self::SourceAsset>,
+        material_id: AssetId<Self::SourceAsset>,
         (
             render_device,
             pipeline_cache,
@@ -1083,6 +1116,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
             opaque_draw_functions,
             alpha_mask_draw_functions,
             transparent_draw_functions,
+            render_material_2d_bind_group_ids,
             material_param,
         ): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
@@ -1107,6 +1141,11 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
                         transparent_draw_functions.read().id::<DrawMaterial2d<M>>()
                     }
                 };
+
+                render_material_2d_bind_group_ids.insert(
+                    material_id.into(),
+                    Material2dBindGroupId(Some(prepared.bind_group.id())),
+                );
 
                 Ok(PreparedMaterial2d {
                     bindings: prepared.bindings,

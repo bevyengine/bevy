@@ -2,6 +2,7 @@ use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     message::MessageRegistry,
+    observer::IntoObserver,
     prelude::*,
     schedule::{
         InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy,
@@ -356,6 +357,12 @@ impl SubApp {
 
         schedules.ignore_ambiguity(schedule, a, b);
 
+        self
+    }
+
+    /// See [`App::add_observer`].
+    pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> &mut Self {
+        self.world_mut().add_observer(observer);
         self
     }
 
