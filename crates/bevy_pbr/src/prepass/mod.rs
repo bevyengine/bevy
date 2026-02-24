@@ -1010,7 +1010,7 @@ pub(crate) fn specialize_prepass_material_meshes(
                     removals.push((extracted_view.retained_view_entity, *visible_entity));
                     continue;
                 }
-                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                     continue;
                 };
 
@@ -1074,13 +1074,13 @@ pub(crate) fn specialize_prepass_material_meshes(
                 // If the previous frame has skins or morph targets, note that.
                 if motion_vector_prepass.is_some() {
                     if mesh_instance
-                        .flags
+                        .flags()
                         .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
                     {
                         mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
                     }
                     if mesh_instance
-                        .flags
+                        .flags()
                         .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
                     {
                         mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
@@ -1290,7 +1290,8 @@ pub fn queue_prepass_material_meshes(
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+            let (vertex_slab, index_slab) =
+                mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id());
 
             let deferred = match material.properties.render_method {
                 OpaqueRendererMethod::Forward => false,
@@ -1310,7 +1311,7 @@ pub fn queue_prepass_material_meshes(
                                 index_slab,
                             },
                             OpaqueNoLightmap3dBinKey {
-                                asset_id: mesh_instance.mesh_asset_id.into(),
+                                asset_id: mesh_instance.mesh_asset_id().into(),
                             },
                             (*render_entity, *visible_entity),
                             mesh_instance.current_uniform_index,
@@ -1338,7 +1339,7 @@ pub fn queue_prepass_material_meshes(
                                 index_slab,
                             },
                             OpaqueNoLightmap3dBinKey {
-                                asset_id: mesh_instance.mesh_asset_id.into(),
+                                asset_id: mesh_instance.mesh_asset_id().into(),
                             },
                             (*render_entity, *visible_entity),
                             mesh_instance.current_uniform_index,
@@ -1360,7 +1361,7 @@ pub fn queue_prepass_material_meshes(
                                 index_slab,
                             },
                             OpaqueNoLightmap3dBinKey {
-                                asset_id: mesh_instance.mesh_asset_id.into(),
+                                asset_id: mesh_instance.mesh_asset_id().into(),
                             },
                             (*render_entity, *visible_entity),
                             mesh_instance.current_uniform_index,
@@ -1379,7 +1380,7 @@ pub fn queue_prepass_material_meshes(
                                 index_slab,
                             },
                             OpaqueNoLightmap3dBinKey {
-                                asset_id: mesh_instance.mesh_asset_id.into(),
+                                asset_id: mesh_instance.mesh_asset_id().into(),
                             },
                             (*render_entity, *visible_entity),
                             mesh_instance.current_uniform_index,
