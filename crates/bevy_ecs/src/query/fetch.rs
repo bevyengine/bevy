@@ -406,7 +406,7 @@ pub unsafe trait QueryData: WorldQuery {
     label = "invalid contiguous `Query` data",
     note = "if `{Self}` is a custom query type, using `QueryData` derive macro, ensure that the `#[query_data(contiguous(target))]` attribute is added"
 )]
-pub trait ContiguousQueryData: ArchetypeQueryData {
+pub trait ContiguousQueryData: ArchetypeQueryData + IterQueryData {
     /// Item returned by [`ContiguousQueryData::fetch_contiguous`].
     /// Represents a contiguous chunk of memory.
     type Contiguous<'w, 's>;
