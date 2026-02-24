@@ -9,13 +9,14 @@ use wgpu_types::TextureFormat;
 
 use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
 
-/// Saver for images that can be saved by the `image` crate.
+/// [`AssetSaver`] for images that can be saved by the `image` crate.
 ///
 /// Unlike `CompressedImageSaver`, this does not attempt to do any "texture optimization", like
 /// compression (though some file formats intrinsically perform some compression, e.g., JPEG).
 ///
-/// Some file formats do not support all texture formats. In some cases, [`ImageSaver`] will convert
-/// the image to allow writing as the requested file format.
+/// Some file formats do not support all texture formats (e.g., PNG does not support
+/// [`TextureFormat::Rg8Unorm`]). In some cases, [`ImageSaver`] will convert the image to allow
+/// writing as the requested file format.
 #[derive(Clone, TypePath)]
 pub struct ImageSaver;
 
@@ -135,17 +136,19 @@ pub enum SaveImageError {
     /// Cannot deduce file format from extension because there is no extension.
     #[error("SaveImageFormatSetting::FromExtension was set, but the asset path has no extension")]
     MissingExtension,
-    /// Cannot deduce file format from extension since this extension is unknown.
+    /// Cannot deduce file format from extension since this extension is unknown. Holds the
+    /// extension that could not be matched.
     #[error("could not determine asset format for extension \"{0}\"")]
     UnknownExtension(String),
-    /// [`Image::data`] is [`None`], so there is no data to save.
-    #[error("the provided image does not contain any pixel data. Its data may live on the GPU (which we can't save out)")]
+    /// [`Image::data`] is [`None`], so there is no data to save. See
+    /// [`RenderAssetUsages`](bevy_asset::RenderAssetUsages) for more.
+    #[error("the provided image does not contain any pixel data. Its data may live on the GPU (which we can't save out) due to `RenderAssetUsages`")]
     ImageMissingData,
     /// The image saver doesn't support the file format being requested.
     #[error("the requested file format {0:?} is not supported for saving")]
     UnsupportedFormat(ImageFormat),
-    /// The image saver doesn't support the format of the image data for the image format.
-    #[error("the image uses a color type \"{1:?}\" that is not supported for saving by the image format \"{0:?}\"")]
+    /// The image saver doesn't support the texture format of the image data for the image format.
+    #[error("the image uses a texture format \"{1:?}\" that is not supported for saving by the image format \"{0:?}\"")]
     UnsupportedSaveColorTypeForFormat(ImageFormat, TextureFormat),
     /// The [`image`] crate returned an error.
     #[error(transparent)]
