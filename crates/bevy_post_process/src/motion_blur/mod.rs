@@ -24,7 +24,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::{
-        ComponentUniforms, ExtractBaseComponent, ExtractComponentPlugin, UniformComponentPlugin,
+        ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
     globals::GlobalsBuffer,
     render_resource::{
@@ -119,7 +119,7 @@ impl SyncComponent for MotionBlur {
     type Out = MotionBlurUniform;
 }
 
-impl ExtractBaseComponent<RenderApp> for MotionBlur {
+impl ExtractComponent<RenderApp> for MotionBlur {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 

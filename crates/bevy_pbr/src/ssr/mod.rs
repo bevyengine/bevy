@@ -25,7 +25,7 @@ use bevy_light::EnvironmentMapLight;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
-    extract_component::{ExtractBaseComponent, ExtractComponentPlugin},
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
         binding_types, AddressMode, BindGroupEntries, BindGroupLayoutDescriptor,
@@ -516,7 +516,7 @@ impl SyncComponent for ScreenSpaceReflections {
     type Out = ScreenSpaceReflectionsUniform;
 }
 
-impl ExtractBaseComponent<RenderApp> for ScreenSpaceReflections {
+impl ExtractComponent<RenderApp> for ScreenSpaceReflections {
     type QueryData = Read<ScreenSpaceReflections>;
     type QueryFilter = ();
 

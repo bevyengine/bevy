@@ -42,7 +42,7 @@ pub fn extract_raytracing_scene(
 #[derive(Resource, Deref, Default)]
 pub struct StandardMaterialAssets(HashMap<AssetId<StandardMaterial>, StandardMaterial>);
 
-impl ExtractBaseResource<RenderApp> for StandardMaterialAssets {
+impl ExtractResource<RenderApp> for StandardMaterialAssets {
     type Source = Assets<StandardMaterial>;
 
     fn extract_resource(source: &Self::Source) -> Self {

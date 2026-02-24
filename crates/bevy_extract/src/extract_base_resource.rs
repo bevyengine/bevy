@@ -15,9 +15,7 @@ use crate::{Extract, ExtractSchedule};
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractBaseResourcePlugin`].
-pub trait ExtractBaseResource<L: AppLabel + Default, F: 'static + Send + Sync = ()>:
-    Resource
-{
+pub trait ExtractResource<L: AppLabel + Default, F: 'static + Send + Sync = ()>: Resource {
     type Source: Resource;
 
     /// Defines how the resource is transferred into the "render world".
@@ -34,14 +32,14 @@ pub trait ExtractBaseResource<L: AppLabel + Default, F: 'static + Send + Sync = 
 /// marker, e.g. the type of the plugin that calls [`ExtractBaseResourcePlugin`].
 pub struct ExtractBaseResourcePlugin<
     L: AppLabel + Default,
-    R: ExtractBaseResource<L, F>,
+    R: ExtractResource<L, F>,
     F: 'static + Send + Sync = (),
 > {
     marker: PhantomData<(L, R, F)>,
     app_label: InternedAppLabel,
 }
 
-impl<L: AppLabel + Default, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync> Default
+impl<L: AppLabel + Default, R: ExtractResource<L, F>, F: 'static + Send + Sync> Default
     for ExtractBaseResourcePlugin<L, R, F>
 {
     fn default() -> Self {
@@ -52,7 +50,7 @@ impl<L: AppLabel + Default, R: ExtractBaseResource<L, F>, F: 'static + Send + Sy
     }
 }
 
-impl<L: AppLabel + Default, R: ExtractBaseResource<L, F>, F: 'static + Send + Sync> Plugin
+impl<L: AppLabel + Default, R: ExtractResource<L, F>, F: 'static + Send + Sync> Plugin
     for ExtractBaseResourcePlugin<L, R, F>
 {
     fn build(&self, app: &mut App) {
@@ -70,7 +68,7 @@ impl<L: AppLabel + Default, R: ExtractBaseResource<L, F>, F: 'static + Send + Sy
 /// This system extracts the resource of the corresponding [`Resource`] type
 pub fn extract_resource<
     L: AppLabel + Default,
-    R: ExtractBaseResource<L, F>,
+    R: ExtractResource<L, F>,
     F: 'static + Send + Sync,
 >(
     mut commands: Commands,

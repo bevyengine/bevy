@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::{ExtractBaseComponent, ExtractComponentPlugin},
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     sync_component::SyncComponent,
@@ -84,7 +84,7 @@ impl SyncComponent for ContactShadows {
     type Out = Self;
 }
 
-impl ExtractBaseComponent<RenderApp> for ContactShadows {
+impl ExtractComponent<RenderApp> for ContactShadows {
     type QueryData = &'static ContactShadows;
     type QueryFilter = ();
 

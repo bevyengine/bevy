@@ -10,7 +10,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::{ExtractBaseComponent, ExtractComponentPlugin, UniformComponentPlugin},
+    extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
@@ -80,7 +80,7 @@ impl SyncComponent for ContrastAdaptiveSharpening {
     type Out = (DenoiseCas, CasUniform);
 }
 
-impl ExtractBaseComponent<RenderApp> for ContrastAdaptiveSharpening {
+impl ExtractComponent<RenderApp> for ContrastAdaptiveSharpening {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 

@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::ExtractBaseComponent, render_resource::ShaderType,
+    extract_component::ExtractComponent, render_resource::ShaderType,
     sync_component::SyncComponent, RenderApp,
 };
 
@@ -90,7 +90,7 @@ impl SyncComponent for ChromaticAberration {
     type Out = Self;
 }
 
-impl ExtractBaseComponent<RenderApp> for ChromaticAberration {
+impl ExtractComponent<RenderApp> for ChromaticAberration {
     type QueryData = Read<ChromaticAberration>;
     type QueryFilter = With<Camera>;
 

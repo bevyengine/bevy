@@ -69,6 +69,12 @@ pub mod prelude {
 }
 
 // Re-exports
+pub mod extract_base_component {
+    pub use bevy_extract::extract_base_component::{ExtractBaseComponent, ExtractComponent};
+}
+pub mod extract_base_resource {
+    pub use bevy_extract::extract_base_resource::{ExtractBaseResource, ExtractResource};
+}
 pub mod extract_instances {
     pub use bevy_extract::extract_instances::{ExtractInstance, ExtractInstancesPlugin};
 }

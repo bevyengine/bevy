@@ -90,7 +90,7 @@ impl SyncComponent for InstanceMaterialData {
     type Out = Self;
 }
 
-impl ExtractBaseComponent<RenderApp> for InstanceMaterialData {
+impl ExtractComponent<RenderApp> for InstanceMaterialData {
     type QueryData = &'static InstanceMaterialData;
     type QueryFilter = ();
 

@@ -131,7 +131,7 @@ mod test {
     use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 
     use crate::{
-        extract_base_component::{ExtractBaseComponent, ExtractBaseComponentPlugin},
+        extract_base_component::{ExtractBaseComponentPlugin, ExtractComponent},
         extract_plugin::ExtractPlugin,
         sync_component::SyncComponent,
         sync_world::MainEntity,
@@ -180,7 +180,7 @@ mod test {
         type Out = (RenderComponent, RenderComponentExtra);
     }
 
-    impl ExtractBaseComponent<ExtractApp> for RenderComponent {
+    impl ExtractComponent<ExtractApp> for RenderComponent {
         type QueryData = &'static Self;
 
         type QueryFilter = ();
@@ -196,7 +196,7 @@ mod test {
         type Out = RenderComponentSeparate;
     }
 
-    impl ExtractBaseComponent<ExtractApp> for RenderComponentSeparate {
+    impl ExtractComponent<ExtractApp> for RenderComponentSeparate {
         type QueryData = &'static Self;
 
         type QueryFilter = ();

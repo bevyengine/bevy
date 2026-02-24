@@ -20,7 +20,7 @@ use bevy_ecs::{
 use bevy_image::BevyDefault;
 use bevy_render::{
     extract_component::{
-        ComponentUniforms, DynamicUniformIndex, ExtractBaseComponent, ExtractComponentPlugin,
+        ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,
     },
     render_resource::{
@@ -75,7 +75,7 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
 
 /// A trait to define a material that will render to the entire screen using a fullscreen triangle.
 pub trait FullscreenMaterial:
-    Component + ExtractBaseComponent<RenderApp> + Clone + Copy + ShaderType + WriteInto + Default
+    Component + ExtractComponent<RenderApp> + Clone + Copy + ShaderType + WriteInto + Default
 {
     /// The shader that will run on the entire screen using a fullscreen triangle.
     fn fragment_shader() -> ShaderRef;

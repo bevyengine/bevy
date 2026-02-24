@@ -15,7 +15,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_render_path::extract_resource::ExtractBaseResource<#bevy_render_path::RenderApp> for #struct_name #type_generics #where_clause {
+        impl #impl_generics #bevy_render_path::extract_base_resource::ExtractResource<#bevy_render_path::RenderApp> for #struct_name #type_generics #where_clause {
             type Source = Self;
 
             fn extract_resource(source: &Self::Source) -> Self {

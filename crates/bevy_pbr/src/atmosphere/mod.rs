@@ -60,7 +60,7 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 use bevy_render::{
-    extract_component::{ExtractBaseComponent, UniformComponentPlugin},
+    extract_component::{ExtractComponent, UniformComponentPlugin},
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
     renderer::RenderDevice,
     sync_component::SyncComponent,
@@ -376,7 +376,7 @@ impl SyncComponent for GpuAtmosphereSettings {
     type Out = Self;
 }
 
-impl ExtractBaseComponent<RenderApp> for GpuAtmosphereSettings {
+impl ExtractComponent<RenderApp> for GpuAtmosphereSettings {
     type QueryData = Read<AtmosphereSettings>;
     type QueryFilter = (With<Camera3d>, With<Atmosphere>);
 

@@ -42,7 +42,7 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_extract::{
-    extract_base_component::ExtractBaseComponent, extract_base_resource::ExtractBaseResource,
+    extract_base_component::ExtractComponent, extract_base_resource::ExtractResource,
 };
 use bevy_image::Image;
 use bevy_log::warn;
@@ -119,7 +119,7 @@ fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .
     }
 }
 
-impl ExtractBaseResource<RenderApp, CameraPlugin> for ClearColor {
+impl ExtractResource<RenderApp, CameraPlugin> for ClearColor {
     type Source = Self;
 
     fn extract_resource(source: &Self::Source) -> Self {
@@ -131,7 +131,7 @@ impl SyncComponent<CameraPlugin> for CameraMainTextureUsages {
     type Out = Self;
 }
 
-impl ExtractBaseComponent<RenderApp, CameraPlugin> for CameraMainTextureUsages {
+impl ExtractComponent<RenderApp, CameraPlugin> for CameraMainTextureUsages {
     type QueryData = &'static Self;
     type QueryFilter = ();
 
@@ -144,7 +144,7 @@ impl SyncComponent<CameraPlugin> for Camera2d {
     type Out = Self;
 }
 
-impl ExtractBaseComponent<RenderApp, CameraPlugin> for Camera2d {
+impl ExtractComponent<RenderApp, CameraPlugin> for Camera2d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 
@@ -157,7 +157,7 @@ impl SyncComponent<CameraPlugin> for Camera3d {
     type Out = Self;
 }
 
-impl ExtractBaseComponent<RenderApp, CameraPlugin> for Camera3d {
+impl ExtractComponent<RenderApp, CameraPlugin> for Camera3d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 
