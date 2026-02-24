@@ -1722,11 +1722,7 @@ mod tests {
     use super::*;
     use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind};
     use bevy_ecs::{
-        component::Component,
-        event::Event,
-        observer::On,
-        resource::Resource,
-        system::ResMut,
+        component::Component, event::Event, observer::On, resource::Resource, system::ResMut,
     };
     use bevy_reflect::Reflect;
     use serde_json::Value::Null;
