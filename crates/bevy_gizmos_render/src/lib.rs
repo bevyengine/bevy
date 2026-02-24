@@ -98,7 +98,6 @@ impl Plugin for GizmoRenderPlugin {
             .init_resource::<LineGizmoEntities>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-
             #[cfg(feature = "bevy_pbr")]
             render_app.add_systems(
                 RenderStartup,
