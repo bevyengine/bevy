@@ -683,6 +683,10 @@ mod tests {
         let j = ParsedPath::parse("tuple_variant.1").unwrap();
         let k = ParsedPath::parse("struct_variant.東京").unwrap();
         let l = ParsedPath::parse("struct_variant#0").unwrap();
+        let i2 = ParsedPath::parse("unit_variant{0}").unwrap();
+        let j2 = ParsedPath::parse("tuple_variant{1}.1").unwrap();
+        let k2 = ParsedPath::parse("struct_variant{2}.東京").unwrap();
+        let l2 = ParsedPath::parse("struct_variant{2}#0").unwrap();
         let m = ParsedPath::parse("array[2]").unwrap();
         let n = ParsedPath::parse("tuple.1").unwrap();
 
@@ -698,6 +702,10 @@ mod tests {
             assert_eq!(*j.element::<u32>(&a).unwrap(), 321);
             assert_eq!(*k.element::<char>(&a).unwrap(), 'm');
             assert_eq!(*l.element::<char>(&a).unwrap(), 'm');
+            assert_eq!(*i2.element::<F>(&a).unwrap(), F::Unit);
+            assert_eq!(*j2.element::<u32>(&a).unwrap(), 321);
+            assert_eq!(*k2.element::<char>(&a).unwrap(), 'm');
+            assert_eq!(*l2.element::<char>(&a).unwrap(), 'm');
             assert_eq!(*m.element::<i32>(&a).unwrap(), 309);
             assert_eq!(*n.element::<f32>(&a).unwrap(), 1.23);
         }
@@ -792,6 +800,19 @@ mod tests {
                     expected: VariantType::Tuple,
                 },
                 access: ParsedPath::parse_static("unit_variant.0").unwrap()[1]
+                    .access
+                    .clone(),
+                offset: Some(13),
+            })
+        );
+        assert_eq!(
+            a.reflect_path("unit_variant{4}.0").err().unwrap(),
+            ReflectPathError::InvalidAccess(AccessError {
+                kind: AccessErrorKind::IncorrectEnumVariantIndex {
+                    expected: 4,
+                    actual: 0
+                },
+                access: ParsedPath::parse_static("unit_variant{4}.0").unwrap()[1]
                     .access
                     .clone(),
                 offset: Some(13),

@@ -27,6 +27,14 @@ pub enum AccessErrorKind {
         /// The actual [`VariantType`] that was found.
         actual: VariantType,
     },
+    /// An error that occurs when using an [`Access`] on the wrong enum variant index.
+    /// (ex: attempting to access `{3}` on Option<u32>)
+    IncorrectEnumVariantIndex {
+        /// The variant index that was expected based on the [`Access`]
+        expected: usize,
+        /// The actual index of the enum variant
+        actual: usize
+    },
 }
 
 impl AccessErrorKind {
@@ -111,7 +119,11 @@ impl fmt::Display for AccessError<'_> {
                         f,
                         "The {type_accessed} accessed doesn't have index `{}`",
                         access.display_value()
-                    )
+                    ),
+                    // This should be unreachable.
+                    // TODO - make sure we fix this when we make paired v_index + field access
+                    Access::VariantIndex(_) => write!(f, "If you are reading this, send help." ),
+                    
                 }
             }
             AccessErrorKind::IncompatibleTypes { expected, actual } => write!(
@@ -124,6 +136,7 @@ impl fmt::Display for AccessError<'_> {
                 "Expected variant {} access to access a {expected:?} variant, found a {actual:?} variant instead.",
                 access.kind()
             ),
+            AccessErrorKind::IncorrectEnumVariantIndex { expected, actual } => write!(f, "Expected to access variant {} at index {expected:?}, found variant with index {actual:?} instead.", access.kind()),
         }
     }
 }

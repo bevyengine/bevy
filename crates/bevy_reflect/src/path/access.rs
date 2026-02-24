@@ -22,6 +22,8 @@ pub enum Access<'a> {
     TupleIndex(usize),
     /// An index-based access on a list.
     ListIndex(usize),
+    /// A witness for validating the access of an enum variant.
+    VariantIndex(usize),
 }
 
 impl fmt::Display for Access<'_> {
@@ -31,6 +33,7 @@ impl fmt::Display for Access<'_> {
             Access::FieldIndex(index) => write!(f, "#{index}"),
             Access::TupleIndex(index) => write!(f, ".{index}"),
             Access::ListIndex(index) => write!(f, "[{index}]"),
+            Access::VariantIndex(index) => write!(f, "{{{index}}}"),
         }
     }
 }
@@ -47,6 +50,7 @@ impl<'a> Access<'a> {
             Self::FieldIndex(value) => Access::FieldIndex(value),
             Self::TupleIndex(value) => Access::TupleIndex(value),
             Self::ListIndex(value) => Access::ListIndex(value),
+            Self::VariantIndex(value) => Access::VariantIndex(value),
         }
     }
 
@@ -102,6 +106,20 @@ impl<'a> Access<'a> {
             (&Self::ListIndex(index), Array(list)) => Ok(list.get(index)),
             (Self::ListIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
                 expected: ReflectKind::List,
+                actual: actual.into(),
+            }),
+            (&Self::VariantIndex(index), Enum(enum_ref)) => {
+                if enum_ref.variant_index() == index {
+                    Ok(Some(enum_ref.as_partial_reflect()))
+                } else {
+                    Err(AccessErrorKind::IncorrectEnumVariantIndex {
+                        expected: index,
+                        actual: enum_ref.variant_index(),
+                    })
+                }
+            }
+            (&Self::VariantIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
+                expected: ReflectKind::Enum,
                 actual: actual.into(),
             }),
         }
@@ -163,6 +181,20 @@ impl<'a> Access<'a> {
                 expected: ReflectKind::List,
                 actual: actual.into(),
             }),
+            (&Self::VariantIndex(index), Enum(enum_ref)) => {
+                if enum_ref.variant_index() == index {
+                    Ok(Some(enum_ref.as_partial_reflect_mut()))
+                } else {
+                    Err(AccessErrorKind::IncorrectEnumVariantIndex {
+                        expected: index,
+                        actual: enum_ref.variant_index(),
+                    })
+                }
+            }
+            (&Self::VariantIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
+                expected: ReflectKind::Enum,
+                actual: actual.into(),
+            }),
         }
     }
 
@@ -170,7 +202,10 @@ impl<'a> Access<'a> {
     pub fn display_value(&self) -> &dyn fmt::Display {
         match self {
             Self::Field(value) => value,
-            Self::FieldIndex(value) | Self::TupleIndex(value) | Self::ListIndex(value) => value,
+            Self::FieldIndex(value)
+            | Self::TupleIndex(value)
+            | Self::ListIndex(value)
+            | Self::VariantIndex(value) => value,
         }
     }
 
@@ -179,6 +214,7 @@ impl<'a> Access<'a> {
             Self::Field(_) => "field",
             Self::FieldIndex(_) => "field index",
             Self::TupleIndex(_) | Self::ListIndex(_) => "index",
+            Self::VariantIndex(_) => "variant index",
         }
     }
 }

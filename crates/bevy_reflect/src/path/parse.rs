@@ -97,6 +97,15 @@ impl<'a> PathParser<'a> {
                     None => Err(Error::Unclosed),
                 }
             }
+            Token::CloseCurly => Err(Error::CloseBeforeOpen),
+            Token::OpenCurly => {
+                let index_ident = self.next_ident()?.variant_index()?;
+                match self.next_token() {
+                    Some(Token::CloseCurly) => Ok(index_ident),
+                    Some(other) => Err(Error::BadClose(other)),
+                    None => Err(Error::Unclosed),
+                }
+            }
         }
     }
 
@@ -137,6 +146,9 @@ impl<'a> Ident<'a> {
     fn list_index(self) -> Result<Access<'a>, Error<'a>> {
         Ok(Access::ListIndex(self.0.parse()?))
     }
+    fn variant_index(self) -> Result<Access<'a>, Error<'a>> {
+        Ok(Access::VariantIndex(self.0.parse()?))
+    }
 }
 
 // NOTE: We use repr(u8) so that the `match byte` in `Token::symbol_from_byte`
@@ -149,6 +161,8 @@ enum Token<'a> {
     Pound = b'#',
     OpenBracket = b'[',
     CloseBracket = b']',
+    OpenCurly = b'{',
+    CloseCurly = b'}',
     Ident(Ident<'a>),
 }
 
@@ -159,19 +173,23 @@ impl fmt::Display for Token<'_> {
             Token::Pound => f.write_char('#'),
             Token::OpenBracket => f.write_char('['),
             Token::CloseBracket => f.write_char(']'),
+            Token::OpenCurly => f.write_char('{'),
+            Token::CloseCurly => f.write_char('}'),
             Token::Ident(ident) => f.write_str(ident.0),
         }
     }
 }
 
 impl<'a> Token<'a> {
-    const SYMBOLS: &'static [u8] = b".#[]";
+    const SYMBOLS: &'static [u8] = b".#[]{}";
     fn symbol_from_byte(byte: u8) -> Option<Self> {
         match byte {
             b'.' => Some(Self::Dot),
             b'#' => Some(Self::Pound),
             b'[' => Some(Self::OpenBracket),
             b']' => Some(Self::CloseBracket),
+            b'{' => Some(Self::OpenCurly),
+            b'}' => Some(Self::CloseCurly),
             _ => None,
         }
     }
