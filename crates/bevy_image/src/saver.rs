@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use bevy_asset::{saver::AssetSaver, AsyncWriteExt};
+use bevy_asset::{saver::AssetSaver, AssetPath, AsyncWriteExt};
 use bevy_reflect::TypePath;
 use image::{write_buffer_with_format, ExtendedColorType};
 use serde::{Deserialize, Serialize};
@@ -31,12 +31,12 @@ impl AssetSaver for ImageSaver {
         _writer: &mut bevy_asset::io::Writer,
         asset: bevy_asset::saver::SavedAsset<'_, '_, Self::Asset>,
         settings: &Self::Settings,
-        asset_path: bevy_asset::AssetPath<'_>,
+        asset_path: AssetPath<'_>,
     ) -> Result<ImageLoaderSettings, Self::Error> {
         let format = match settings.format {
             SaveImageFormatSetting::Format(format) => format,
             SaveImageFormatSetting::FromExtension => match asset_path.get_extension() {
-                None => return Err(SaveImageError::MissingExtension),
+                None => return Err(SaveImageError::MissingExtension(asset_path.into_owned())),
                 Some(extension) => ImageFormat::from_extension(extension)
                     .ok_or_else(|| SaveImageError::UnknownExtension(extension.to_owned()))?,
             },
@@ -127,8 +127,8 @@ pub enum SaveImageFormatSetting {
 #[derive(Error, Debug)]
 pub enum SaveImageError {
     /// Cannot deduce file format from extension because there is no extension.
-    #[error("SaveImageFormatSetting::FromExtension was set, but the asset path has no extension")]
-    MissingExtension,
+    #[error("SaveImageFormatSetting::FromExtension was set, but the asset path \"{0}\" has no extension")]
+    MissingExtension(AssetPath<'static>),
     /// Cannot deduce file format from extension since this extension is unknown. Holds the
     /// extension that could not be matched.
     #[error("could not determine asset format for extension \"{0}\"")]
