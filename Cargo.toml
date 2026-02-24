@@ -2039,7 +2039,7 @@ required-features = ["free_camera"]
 
 [package.metadata.example.generated_assets]
 name = "Generated Assets"
-description = "Shows how to add assets generated at runtime"
+description = "Shows how to generate and store assets at runtime"
 category = "Assets"
 wasm = true
 
