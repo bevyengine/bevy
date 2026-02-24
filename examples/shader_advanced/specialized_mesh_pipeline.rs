@@ -22,10 +22,7 @@ use bevy::{
         batching::gpu_preprocessing::GpuPreprocessingSupport,
         camera::{DirtySpecializations, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{
-            allocator::{MeshAllocator, MeshSlabs},
-            RenderMesh,
-        },
+        mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, SetItemPipeline,

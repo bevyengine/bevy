@@ -38,6 +38,7 @@ use bevy::{
         Render, RenderApp, RenderSystems,
     },
 };
+use bevy_render::mesh::allocator::MeshSlabs;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using
