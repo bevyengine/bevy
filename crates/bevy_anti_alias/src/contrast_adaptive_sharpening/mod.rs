@@ -118,7 +118,7 @@ impl Plugin for CasPlugin {
             .add_systems(RenderStartup, init_cas_pipeline)
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare))
             .add_systems(Core3d, cas.after(fxaa).in_set(Core3dSystems::AntiAlias))
-            .add_systems(Core2d, cas.after(fxaa).in_set(Core2dSystems::PostProcess));
+            .add_systems(Core2d, cas.after(fxaa).in_set(Core2dSystems::AntiAlias));
     }
 }
 
