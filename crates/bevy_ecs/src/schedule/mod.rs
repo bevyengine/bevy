@@ -11,6 +11,10 @@ mod schedule;
 mod set;
 mod stepping;
 
+/// Common run conditions
+pub mod schedule_commands;
+pub use schedule_commands::*;
+
 pub use self::graph::GraphInfo;
 pub use self::{condition::*, config::*, error::*, executor::*, node::*, schedule::*, set::*};
 pub use pass::ScheduleBuildPass;

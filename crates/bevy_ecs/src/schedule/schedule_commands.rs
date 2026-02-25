@@ -32,7 +32,7 @@ impl<'w, 's> ScheduleCommands<'w, 's> {
 
     /// Move the queues into [`ScheduleCommandQueues`] resource.
     fn submit(&mut self) {
-        let queues = mem::replace(&mut self.queues, HashMap::default());
+        let queues = mem::take(&mut self.queues);
 
         self.commands.queue(move |world: &mut World| {
             for (label, mut queue) in queues {
@@ -99,7 +99,6 @@ fn apply_schedule_command(
         commands.append(queue);
     }
 }
-
 /// Extension trait for [`Commands`] that provides delayed command functionality.
 pub trait ScheduleCommandsExt<'w> {
     /// Returns a [`ScheduleCommands`] instance that can be used to queue
@@ -113,9 +112,10 @@ pub trait ScheduleCommandsExt<'w> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_time::DelayedCommandsExt;
+    /// # use bevy_app::Update;
+    /// # use bevy_ecs::schedule::schedule_commands::ScheduleCommandsExt;
     /// fn my_system(mut commands: Commands) {
-    ///     // Spawn an entity after one second
+    ///     // Spawn an entity after Update Schedule
     ///     commands.scheduled().label(Update).spawn_empty();
     /// }
     /// # bevy_ecs::system::assert_is_system(my_system);
@@ -145,41 +145,74 @@ impl<'w, 's> Drop for ScheduleCommands<'w, 's> {
 }
 
 #[cfg(test)]
-#[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use bevy_app::{App, First, FixedMain, Main, RunFixedMainLoop, Startup};
-    use bevy_ecs::{
-        resource::Resource,
-        schedule::{InternedScheduleLabel, ScheduleLabel},
-        system::Commands,
-        world::World,
-    };
     use std::vec::Vec;
 
-    use crate::ScheduleCommandsExt;
+    use bevy_ecs_macros::{Component, Resource};
+
+    use crate::schedule::schedule_commands::ScheduleCommandsExt;
+    use crate::schedule::set::ScheduleLabel;
+    use crate::schedule::ScheduleCommandQueues;
+    use crate::system::Local;
+    use crate::{
+        prelude::Schedules, schedule::InternedScheduleLabel, system::Commands, world::World,
+    };
+
+    #[derive(Resource, Default)]
+    pub struct ScheduleOrder(pub Vec<i32>);
+
+    /// The schedule that runs before [`Startup`].
+    ///
+    /// See the [`Main`] schedule for some details about how schedules are run.
+    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    pub struct PreStartup;
+
+    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    pub struct Startup;
+
+    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    pub struct PostStartup;
+
+    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    pub struct Update;
+
+    fn init_world() -> World {
+        let mut world = World::new();
+        world.init_resource::<ScheduleOrder>();
+
+        let mut schedules = Schedules::new();
+        schedules.entry(PreStartup);
+        schedules.entry(Startup);
+        schedules.entry(PostStartup);
+        schedules.entry(Update);
+
+        world.insert_resource(schedules);
+
+        world
+    }
+
+    fn runner<'a>(world: &'a mut World, labels: &'a [InternedScheduleLabel]) -> &'a mut World {
+        for label in labels {
+            world.schedule_scope(*label, |world, schedule| {
+                schedule.run(world);
+            });
+        }
+        world
+    }
+
+    fn schedule_labels() -> [InternedScheduleLabel; 4] {
+        [
+            PreStartup.intern(),
+            Startup.intern(),
+            PostStartup.intern(),
+            Update.intern(),
+        ]
+    }
 
     #[test]
     fn delayed_queues_should_run() {
-        #[derive(Resource, Default)]
-        pub struct ScheduleOrder(pub Vec<i32>);
-
         fn queue_commands(mut commands: Commands) {
-            // let list: [(InternedScheduleLabel, i32)] = [
-            //     (PreStartup.intern(), -1),
-            //     (Startup.intern(), 0),
-            //     (PostStartup.intern(), 1),
-            //     (PreUpdate.intern(), 2),
-            //     (Update.intern(), 3),
-            //     (PostUpdate.intern(), 4),
-            //     (Last.intern(), 5),
-            // ];
-            let list: [(InternedScheduleLabel, i32); 4] = [
-                (First.intern(), -1),
-                (FixedMain.intern(), 0),
-                (Main.intern(), 1),
-                (RunFixedMainLoop.intern(), 2),
-            ];
-            for (label, order) in list {
+            for (label, order) in schedule_labels().into_iter().zip([-1, 0, 1, 2]) {
                 commands
                     .scheduled()
                     .label(label)
@@ -189,15 +222,68 @@ mod tests {
             }
         }
 
-        let mut app = App::new();
+        let mut world = init_world();
 
-        app.init_resource::<ScheduleOrder>()
+        world
+            .resource_mut::<Schedules>()
             .add_systems(Startup, queue_commands);
 
-        app.update();
-        app.update();
+        world.flush();
 
-        let order = &app.world().resource::<ScheduleOrder>().0;
-        assert_eq!(&[-1, 2].to_vec(), order)
+        runner(&mut world, &schedule_labels());
+
+        world.flush();
+        let order = &world.resource::<ScheduleOrder>().0;
+        assert_eq!(&[1, 2].to_vec(), order);
+
+        // second run
+        runner(&mut world, &schedule_labels());
+
+        world.flush();
+        let order = &world.resource::<ScheduleOrder>().0;
+        assert_eq!(&[1, 2, -1, 1, 2].to_vec(), order);
+    }
+
+    #[derive(Component)]
+    pub struct TestComponent;
+
+    #[test]
+    fn apply_queue_system_unique() {
+        let mut world = init_world();
+
+        world.resource_mut::<Schedules>().add_systems(
+            Startup,
+            |mut commands: Commands, mut once: Local<bool>| {
+                if !*once {
+                    commands.scheduled().label(Update).spawn(TestComponent);
+                    *once = true;
+                }
+            },
+        );
+
+        let schedules = world.resource_mut::<Schedules>();
+        let schedule = schedules.get(Update).unwrap();
+
+        assert_eq!(0, schedule.systems_len());
+
+        runner(&mut world, &schedule_labels());
+        world.flush();
+
+        // run again
+        runner(&mut world, &schedule_labels());
+        world.flush();
+
+        let schedules = world.resource_mut::<Schedules>();
+        let schedule = schedules.get(Update).unwrap();
+
+        assert_eq!(1, schedule.systems_len());
+
+        let mut binding = world.query::<&TestComponent>();
+
+        binding.single(&world).unwrap();
+
+        let resource = world.resource::<ScheduleCommandQueues>();
+
+        assert!(resource.0.get(&Update.intern()).unwrap().is_empty());
     }
 }
