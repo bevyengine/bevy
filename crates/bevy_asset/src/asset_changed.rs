@@ -304,7 +304,7 @@ mod tests {
         component::Component,
         message::MessageWriter,
         resource::Resource,
-        system::{Commands, IntoSystem, Local, Query, Res, ResMut},
+        system::{assert_is_system, Commands, IntoSystem, Local, Query, Res, ResMut},
     };
     use bevy_reflect::TypePath;
 
@@ -322,6 +322,21 @@ mod tests {
         fn as_asset_id(&self) -> AssetId<Self::Asset> {
             self.0.id()
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn should_conflict() {
+        #[derive(Component)]
+        struct Foo;
+
+        // should conflict, doesn't.
+        fn system(
+            _: Query<&Foo, AssetChanged<MyComponent>>,
+            _: Query<&mut AssetChanges<MyAsset>, bevy_ecs::query::Without<Foo>>,
+        ) {
+        }
+        assert_is_system(system);
     }
 
     fn run_app<Marker>(system: impl IntoSystem<(), (), Marker>) {
