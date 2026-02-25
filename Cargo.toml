@@ -2044,6 +2044,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "generated_assets"
+path = "examples/asset/generated_assets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.generated_assets]
+name = "Generated Assets"
+description = "Shows how to generate and store assets at runtime"
+category = "Assets"
+wasm = true
+
+[[example]]
 name = "web_asset"
 path = "examples/asset/web_asset.rs"
 doc-scrape-examples = true
