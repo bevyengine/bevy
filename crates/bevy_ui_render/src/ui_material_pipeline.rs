@@ -405,7 +405,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
-            let mut batch_shader_handle = AssetId::invalid();
+            let mut batch_shader_handle = None;
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
@@ -416,11 +416,11 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                 {
                     let mut existing_batch = batches
                         .last_mut()
-                        .filter(|_| batch_shader_handle == extracted_uinode.material);
+                        .filter(|_| batch_shader_handle == Some(extracted_uinode.material));
 
                     if existing_batch.is_none() {
                         batch_item_index = item_index;
-                        batch_shader_handle = extracted_uinode.material;
+                        batch_shader_handle = Some(extracted_uinode.material);
 
                         let new_batch = UiMaterialBatch {
                             range: index..index,
@@ -531,7 +531,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                     existing_batch.unwrap().1.range.end = index;
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else {
-                    batch_shader_handle = AssetId::invalid();
+                    batch_shader_handle = None;
                 }
             }
         }

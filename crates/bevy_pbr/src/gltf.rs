@@ -29,7 +29,8 @@ pub(crate) fn add_gltf(app: &mut App) {
         .push(Box::new(GltfExtensionHandlerPbr));
 }
 
-fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMaterial {
+/// Converts a [`GltfMaterial`] to a [`StandardMaterial`]
+pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> StandardMaterial {
     StandardMaterial {
         base_color: material.base_color,
         base_color_channel: material.base_color_channel.clone(),

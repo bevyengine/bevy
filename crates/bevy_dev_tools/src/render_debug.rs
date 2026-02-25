@@ -1,7 +1,7 @@
 //! Renderer debugging overlay
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, Handle};
+use bevy_asset::{embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     mip_generation::experimental::depth::ViewDepthPyramid,
     oit::OrderIndependentTransparencySettingsOffset,
@@ -13,12 +13,11 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     message::{Message, MessageReader, MessageWriter},
-    prelude::{Has, ReflectComponent, World},
+    prelude::{Has, ReflectComponent},
     reflect::ReflectResource,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
-    world::FromWorld,
 };
 use bevy_input::{prelude::KeyCode, ButtonInput};
 use bevy_log::info;
@@ -38,14 +37,15 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::{FallbackImage, GpuImage},
     view::{Msaa, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 
 use bevy_pbr::{
-    Bluenoise, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
-    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    Bluenoise, MeshPipelineSet, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
+    MeshViewBindGroup, ViewContactShadowsUniformOffset, ViewEnvironmentMapUniformOffset,
+    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset,
 };
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
@@ -65,6 +65,15 @@ impl Plugin for RenderDebugOverlayPlugin {
                 ExtractComponentPlugin::<RenderDebugOverlay>::default(),
             ))
             .add_systems(bevy_app::Update, (handle_input, update_overlay).chain());
+
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.add_systems(
+            RenderStartup,
+            init_render_debug_overlay_pipeline.after(MeshPipelineSet),
+        );
     }
 
     fn finish(&self, app: &mut App) {
@@ -73,7 +82,6 @@ impl Plugin for RenderDebugOverlayPlugin {
         };
 
         render_app
-            .init_resource::<RenderDebugOverlayPipeline>()
             .init_resource::<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>()
             .init_resource::<RenderDebugOverlayUniforms>()
             .add_systems(
@@ -351,47 +359,45 @@ struct RenderDebugOverlayPipeline {
     fullscreen_vertex_shader: VertexState,
 }
 
-impl FromWorld for RenderDebugOverlayPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let asset_server = world.resource::<bevy_asset::AssetServer>();
-        let mesh_view_layouts = world.resource::<MeshPipelineViewLayouts>().clone();
-        let fullscreen_vertex_shader = world.resource::<FullscreenShader>().to_vertex_state();
+fn init_render_debug_overlay_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    mesh_view_layouts: Res<MeshPipelineViewLayouts>,
+    asset_server: Res<AssetServer>,
+    fullscreen_shader: Res<FullscreenShader>,
+) {
+    let fullscreen_vertex_shader = fullscreen_shader.to_vertex_state();
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        let bind_group_layout_descriptor = BindGroupLayoutDescriptor::new(
-            "debug_overlay_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    binding_types::uniform_buffer::<RenderDebugOverlayUniform>(true),
-                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
-                    binding_types::sampler(
-                        bevy_render::render_resource::SamplerBindingType::Filtering,
-                    ),
-                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
-                    binding_types::sampler(
-                        bevy_render::render_resource::SamplerBindingType::Filtering,
-                    ),
-                ),
+    let bind_group_layout_descriptor = BindGroupLayoutDescriptor::new(
+        "debug_overlay_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                binding_types::uniform_buffer::<RenderDebugOverlayUniform>(true),
+                binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                binding_types::sampler(bevy_render::render_resource::SamplerBindingType::Filtering),
+                binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                binding_types::sampler(bevy_render::render_resource::SamplerBindingType::Filtering),
             ),
-        );
+        ),
+    );
 
-        let bind_group_layout = render_device.create_bind_group_layout(
-            bind_group_layout_descriptor.label.as_ref(),
-            &bind_group_layout_descriptor.entries,
-        );
+    let bind_group_layout = render_device.create_bind_group_layout(
+        bind_group_layout_descriptor.label.as_ref(),
+        &bind_group_layout_descriptor.entries,
+    );
 
-        Self {
-            shader: asset_server.load("embedded://bevy_dev_tools/debug_overlay.wgsl"),
-            mesh_view_layouts,
-            bind_group_layout,
-            bind_group_layout_descriptor,
-            sampler,
-            fullscreen_vertex_shader,
-        }
-    }
+    let res = RenderDebugOverlayPipeline {
+        shader: asset_server.load("embedded://bevy_dev_tools/debug_overlay.wgsl"),
+        mesh_view_layouts: mesh_view_layouts.clone(),
+        bind_group_layout,
+        bind_group_layout_descriptor,
+        sampler,
+        fullscreen_vertex_shader,
+    };
+    commands.insert_resource(res);
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
