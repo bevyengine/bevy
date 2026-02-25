@@ -25,6 +25,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
+use bevy_text::editing::TextCursorStyle;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
@@ -109,7 +110,9 @@ pub mod stack_z_offsets {
     pub const BORDER_GRADIENT: f32 = 0.03;
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
+    pub const TEXT_SELECTION: f32 = 0.55;
     pub const TEXT: f32 = 0.06;
+    pub const TEXT_CURSOR: f32 = 0.065;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
 }
 
@@ -1272,6 +1275,106 @@ pub fn extract_text_decorations(
                     main_entity: entity.into(),
                 });
             }
+        }
+    }
+}
+
+pub fn extract_text_cursor(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    text_node_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &UiGlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedUiTargetCamera,
+            &TextLayoutInfo,
+            &TextCursorStyle,
+        )>,
+    >,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let mut camera_mapper = camera_map.get_mapper();
+
+    for (
+        entity,
+        uinode,
+        global_transform,
+        inherited_visibility,
+        maybe_clip,
+        target_camera,
+        text_layout_info,
+        cursor_style,
+    ) in text_node_query.iter()
+    {
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(target_camera) else {
+            continue;
+        };
+
+        let transform =
+            Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
+
+        if !text_layout_info.selection_rects.is_empty()
+            && !cursor_style.selection_color.is_fully_transparent()
+        {
+            let selection_color = cursor_style.selection_color.to_linear();
+
+            for selection in text_layout_info.selection_rects.iter() {
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_SELECTION,
+                    clip: maybe_clip.map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    extracted_camera_entity,
+                    transform: transform * Affine2::from_translation(selection.center()),
+                    item: ExtractedUiItem::Node {
+                        color: selection_color,
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: selection.size(),
+                        },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::default(),
+                        border_radius: ResolvedBorderRadius::default(),
+                        node_type: NodeType::Rect,
+                    },
+                    main_entity: entity.into(),
+                });
+            }
+        }
+
+        if !text_layout_info.cursor.is_empty() && !cursor_style.color.is_fully_transparent() {
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_CURSOR,
+                clip: maybe_clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                transform: transform * Affine2::from_translation(text_layout_info.cursor.center()),
+                item: ExtractedUiItem::Node {
+                    color: cursor_style.color.to_linear(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: text_layout_info.cursor.size(),
+                    },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border: BorderRect::default(),
+                    border_radius: ResolvedBorderRadius::default(),
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
         }
     }
 }
