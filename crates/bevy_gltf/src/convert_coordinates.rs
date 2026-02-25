@@ -91,6 +91,7 @@ pub struct GltfConvertCoordinates {
     pub rotate_meshes: bool,
 }
 
+#[derive(Copy, Clone)]
 pub(crate) struct Conversion {
     local: Quat,
     inverse_parent: Quat,
@@ -102,6 +103,13 @@ impl Conversion {
     pub(crate) fn from_local_and_parent(local: Quat, parent: Quat) -> Self {
         Self {
             local,
+            inverse_parent: parent.inverse(),
+        }
+    }
+
+    pub(crate) fn from_parent(parent: Quat) -> Self {
+        Self {
+            local: Quat::IDENTITY,
             inverse_parent: parent.inverse(),
         }
     }

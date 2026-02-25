@@ -26,7 +26,10 @@ use bevy_image::{
     ImageType, TextureError,
 };
 use bevy_light::{DirectionalLight, PointLight, SpotLight};
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{
+    bounding::{Aabb3d, BoundingVolume},
+    Mat4, Quat, Vec3,
+};
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_mesh::UvChannel;
 use bevy_mesh::{
@@ -55,9 +58,10 @@ use tracing::{error, info_span, warn};
 use wgpu_types::Face;
 
 use crate::{
-    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
-    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
-    GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
+    convert_coordinates::Conversion, loader::gltf_ext::scene::node_transforms_and_conversions,
+    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterial,
+    GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras,
+    GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -784,6 +788,13 @@ impl GltfLoader {
                     &buffer_data
                 };
 
+                let convert_mesh_coordinates =
+                    Conversion::from_parent(if convert_coordinates.rotate_meshes {
+                        Conversion::GLTF_TO_BEVY
+                    } else {
+                        Quat::IDENTITY
+                    });
+
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
                     if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
@@ -803,7 +814,7 @@ impl GltfLoader {
                         accessor,
                         buffer_data,
                         &loader.custom_vertex_attributes,
-                        convert_coordinates.rotate_meshes,
+                        convert_mesh_coordinates,
                     ) {
                         Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                         Err(err) => warn!("{}", err),
@@ -1706,7 +1717,11 @@ fn load_node(
                 //
                 // XXX TODO
                 //let mesh_entity_transform = convert_coordinates.mesh_conversion_transform_inverse();
-                let mesh_entity_transform = parent_node_conversion * mesh_conversion_inverse;
+                let parent_node_conversion: Quat = todo!();
+                let mesh_conversion_inverse: Quat = todo!();
+                let mesh_conversion: Conversion = todo!();
+                let mesh_entity_transform =
+                    Transform::from_rotation(parent_node_conversion * mesh_conversion_inverse);
 
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
@@ -1740,7 +1755,7 @@ fn load_node(
 
                 if convert_coordinates.rotate_meshes {
                     // XXX TODO: Same conversion that's applied to vertices.
-                    aabb = aabb.rotated_by(mesh_conversion.local);
+                    aabb = aabb.rotated_by(mesh_conversion_inverse);
                 }
 
                 mesh_entity.insert(Aabb::from(aabb));

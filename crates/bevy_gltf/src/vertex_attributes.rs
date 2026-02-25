@@ -6,6 +6,8 @@ use gltf::{
 };
 use thiserror::Error;
 
+use crate::convert_coordinates::Conversion;
+
 /// Represents whether integer data requires normalization
 #[derive(Copy, Clone)]
 struct Normalization(bool);
@@ -132,22 +134,27 @@ impl<'a> VertexAttributeIter<'a> {
     }
 
     /// Materializes values for any supported format of vertex attribute
-    fn into_any_values(self, convert_coordinates: bool) -> Result<Values, AccessFailed> {
+    fn into_any_values(
+        self,
+        convert_coordinates: Option<Conversion>,
+    ) -> Result<Values, AccessFailed> {
         match self {
             VertexAttributeIter::F32(it) => Ok(Values::Float32(it.collect())),
             VertexAttributeIter::U32(it) => Ok(Values::Uint32(it.collect())),
             VertexAttributeIter::F32x2(it) => Ok(Values::Float32x2(it.collect())),
             VertexAttributeIter::U32x2(it) => Ok(Values::Uint32x2(it.collect())),
-            VertexAttributeIter::F32x3(it) => Ok(if convert_coordinates {
-                // The following f32x3 values need to be converted to the correct coordinate system
-                // - Positions
-                // - Normals
-                //
-                // See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview>
-                Values::Float32x3(it.map(ConvertCoordinates::convert_coordinates).collect())
-            } else {
-                Values::Float32x3(it.collect())
-            }),
+            VertexAttributeIter::F32x3(it) => {
+                Ok(if let Some(convert_coordinates) = convert_coordinates {
+                    // The following f32x3 values need to be converted to the correct coordinate system
+                    // - Positions
+                    // - Normals
+                    //
+                    // See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview>
+                    Values::Float32x3(it.map(ConvertCoordinates::convert_coordinates).collect())
+                } else {
+                    Values::Float32x3(it.collect())
+                })
+            }
             VertexAttributeIter::U32x3(it) => Ok(Values::Uint32x3(it.collect())),
             VertexAttributeIter::F32x4(it) => Ok(if convert_coordinates {
                 // The following f32x4 values need to be converted to the correct coordinate system
@@ -269,44 +276,45 @@ pub(crate) fn convert_attribute(
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
     custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
-    convert_coordinates: bool,
+    convert_coordinates: Conversion,
 ) -> Result<(MeshVertexAttribute, Values), ConvertAttributeError> {
+    // XXX TODO: unclear where we put the conversion here.
     if let Some((attribute, conversion, convert_coordinates)) = match &semantic {
         gltf::Semantic::Positions => Some((
             Mesh::ATTRIBUTE_POSITION,
             ConversionMode::Any,
-            convert_coordinates,
+            Some(convert_coordinates),
         )),
         gltf::Semantic::Normals => Some((
             Mesh::ATTRIBUTE_NORMAL,
             ConversionMode::Any,
-            convert_coordinates,
+            Some(convert_coordinates),
         )),
         gltf::Semantic::Tangents => Some((
             Mesh::ATTRIBUTE_TANGENT,
             ConversionMode::Any,
-            convert_coordinates,
+            Some(convert_coordinates),
         )),
-        gltf::Semantic::Colors(0) => Some((Mesh::ATTRIBUTE_COLOR, ConversionMode::Rgba, false)),
+        gltf::Semantic::Colors(0) => Some((Mesh::ATTRIBUTE_COLOR, ConversionMode::Rgba, None)),
         gltf::Semantic::TexCoords(0) => {
-            Some((Mesh::ATTRIBUTE_UV_0, ConversionMode::TexCoord, false))
+            Some((Mesh::ATTRIBUTE_UV_0, ConversionMode::TexCoord, None))
         }
         gltf::Semantic::TexCoords(1) => {
-            Some((Mesh::ATTRIBUTE_UV_1, ConversionMode::TexCoord, false))
+            Some((Mesh::ATTRIBUTE_UV_1, ConversionMode::TexCoord, None))
         }
         gltf::Semantic::Joints(0) => Some((
             Mesh::ATTRIBUTE_JOINT_INDEX,
             ConversionMode::JointIndex,
-            false,
+            None,
         )),
         gltf::Semantic::Weights(0) => Some((
             Mesh::ATTRIBUTE_JOINT_WEIGHT,
             ConversionMode::JointWeight,
-            false,
+            None,
         )),
         gltf::Semantic::Extras(name) => custom_vertex_attributes
             .get(name.as_str())
-            .map(|attr| (*attr, ConversionMode::Any, false)),
+            .map(|attr| (*attr, ConversionMode::Any, None)),
         _ => None,
     } {
         let raw_iter = VertexAttributeIter::from_accessor(accessor.clone(), buffer_data);
