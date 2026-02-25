@@ -1,3 +1,4 @@
+use bevy_math::Quat;
 use bevy_mesh::{Mesh, MeshVertexAttribute, VertexAttributeValues as Values, VertexFormat};
 use bevy_platform::collections::HashMap;
 use gltf::{
@@ -6,7 +7,9 @@ use gltf::{
 };
 use thiserror::Error;
 
-use crate::convert_coordinates::Conversion;
+use crate::convert_coordinates::{
+    attribute_coordinate_conversion, CoordinateConversionAttributeError,
+};
 
 /// Represents whether integer data requires normalization
 #[derive(Copy, Clone)]
@@ -134,37 +137,15 @@ impl<'a> VertexAttributeIter<'a> {
     }
 
     /// Materializes values for any supported format of vertex attribute
-    fn into_any_values(
-        self,
-        convert_coordinates: Option<Conversion>,
-    ) -> Result<Values, AccessFailed> {
+    fn into_any_values(self) -> Result<Values, AccessFailed> {
         match self {
             VertexAttributeIter::F32(it) => Ok(Values::Float32(it.collect())),
             VertexAttributeIter::U32(it) => Ok(Values::Uint32(it.collect())),
             VertexAttributeIter::F32x2(it) => Ok(Values::Float32x2(it.collect())),
             VertexAttributeIter::U32x2(it) => Ok(Values::Uint32x2(it.collect())),
-            VertexAttributeIter::F32x3(it) => {
-                Ok(if let Some(convert_coordinates) = convert_coordinates {
-                    // The following f32x3 values need to be converted to the correct coordinate system
-                    // - Positions
-                    // - Normals
-                    //
-                    // See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview>
-                    Values::Float32x3(it.map(ConvertCoordinates::convert_coordinates).collect())
-                } else {
-                    Values::Float32x3(it.collect())
-                })
-            }
+            VertexAttributeIter::F32x3(it) => Ok(Values::Float32x3(it.collect())),
             VertexAttributeIter::U32x3(it) => Ok(Values::Uint32x3(it.collect())),
-            VertexAttributeIter::F32x4(it) => Ok(if convert_coordinates {
-                // The following f32x4 values need to be converted to the correct coordinate system
-                // - Tangents
-                //
-                // See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview>
-                Values::Float32x4(it.map(ConvertCoordinates::convert_coordinates).collect())
-            } else {
-                Values::Float32x4(it.collect())
-            }),
+            VertexAttributeIter::F32x4(it) => Ok(Values::Float32x4(it.collect())),
             VertexAttributeIter::U32x4(it) => Ok(Values::Uint32x4(it.collect())),
             VertexAttributeIter::S16x2(it, n) => {
                 Ok(n.apply_either(it.collect(), Values::Snorm16x2, Values::Sint16x2))
@@ -212,7 +193,7 @@ impl<'a> VertexAttributeIter<'a> {
             VertexAttributeIter::U16x4(it, Normalization(true)) => Ok(Values::Float32x4(
                 ReadColors::RgbaU16(it).into_rgba_f32().collect(),
             )),
-            s => s.into_any_values(false),
+            s => s.into_any_values(),
         }
     }
 
@@ -222,7 +203,7 @@ impl<'a> VertexAttributeIter<'a> {
             VertexAttributeIter::U8x4(it, Normalization(false)) => {
                 Ok(Values::Uint16x4(ReadJoints::U8(it).into_u16().collect()))
             }
-            s => s.into_any_values(false),
+            s => s.into_any_values(),
         }
     }
 
@@ -235,7 +216,7 @@ impl<'a> VertexAttributeIter<'a> {
             VertexAttributeIter::U16x4(it, Normalization(true)) => {
                 Ok(Values::Float32x4(ReadWeights::U16(it).into_f32().collect()))
             }
-            s => s.into_any_values(false),
+            s => s.into_any_values(),
         }
     }
 
@@ -248,7 +229,7 @@ impl<'a> VertexAttributeIter<'a> {
             VertexAttributeIter::U16x2(it, Normalization(true)) => Ok(Values::Float32x2(
                 ReadTexCoords::U16(it).into_f32().collect(),
             )),
-            s => s.into_any_values(false),
+            s => s.into_any_values(),
         }
     }
 }
@@ -269,6 +250,8 @@ pub(crate) enum ConvertAttributeError {
     AccessFailed(AccessFailed, usize),
     #[error("Unknown vertex attribute {0}")]
     UnknownName(String),
+    #[error(transparent)]
+    CoordinateConversion(#[from] CoordinateConversionAttributeError),
 }
 
 pub(crate) fn convert_attribute(
@@ -276,70 +259,49 @@ pub(crate) fn convert_attribute(
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
     custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
-    convert_coordinates: Conversion,
+    convert_coordinates: Quat,
 ) -> Result<(MeshVertexAttribute, Values), ConvertAttributeError> {
-    // XXX TODO: unclear where we put the conversion here.
-    if let Some((attribute, conversion, convert_coordinates)) = match &semantic {
-        gltf::Semantic::Positions => Some((
-            Mesh::ATTRIBUTE_POSITION,
-            ConversionMode::Any,
-            Some(convert_coordinates),
-        )),
-        gltf::Semantic::Normals => Some((
-            Mesh::ATTRIBUTE_NORMAL,
-            ConversionMode::Any,
-            Some(convert_coordinates),
-        )),
-        gltf::Semantic::Tangents => Some((
-            Mesh::ATTRIBUTE_TANGENT,
-            ConversionMode::Any,
-            Some(convert_coordinates),
-        )),
-        gltf::Semantic::Colors(0) => Some((Mesh::ATTRIBUTE_COLOR, ConversionMode::Rgba, None)),
-        gltf::Semantic::TexCoords(0) => {
-            Some((Mesh::ATTRIBUTE_UV_0, ConversionMode::TexCoord, None))
+    if let Some((attribute, conversion)) = match &semantic {
+        gltf::Semantic::Positions => Some((Mesh::ATTRIBUTE_POSITION, ConversionMode::Any)),
+        gltf::Semantic::Normals => Some((Mesh::ATTRIBUTE_NORMAL, ConversionMode::Any)),
+        gltf::Semantic::Tangents => Some((Mesh::ATTRIBUTE_TANGENT, ConversionMode::Any)),
+        gltf::Semantic::Colors(0) => Some((Mesh::ATTRIBUTE_COLOR, ConversionMode::Rgba)),
+        gltf::Semantic::TexCoords(0) => Some((Mesh::ATTRIBUTE_UV_0, ConversionMode::TexCoord)),
+        gltf::Semantic::TexCoords(1) => Some((Mesh::ATTRIBUTE_UV_1, ConversionMode::TexCoord)),
+        gltf::Semantic::Joints(0) => {
+            Some((Mesh::ATTRIBUTE_JOINT_INDEX, ConversionMode::JointIndex))
         }
-        gltf::Semantic::TexCoords(1) => {
-            Some((Mesh::ATTRIBUTE_UV_1, ConversionMode::TexCoord, None))
+        gltf::Semantic::Weights(0) => {
+            Some((Mesh::ATTRIBUTE_JOINT_WEIGHT, ConversionMode::JointWeight))
         }
-        gltf::Semantic::Joints(0) => Some((
-            Mesh::ATTRIBUTE_JOINT_INDEX,
-            ConversionMode::JointIndex,
-            None,
-        )),
-        gltf::Semantic::Weights(0) => Some((
-            Mesh::ATTRIBUTE_JOINT_WEIGHT,
-            ConversionMode::JointWeight,
-            None,
-        )),
         gltf::Semantic::Extras(name) => custom_vertex_attributes
             .get(name.as_str())
-            .map(|attr| (*attr, ConversionMode::Any, None)),
+            .map(|attr| (*attr, ConversionMode::Any)),
         _ => None,
     } {
         let raw_iter = VertexAttributeIter::from_accessor(accessor.clone(), buffer_data);
-        let converted_values = raw_iter.and_then(|iter| match conversion {
-            ConversionMode::Any => iter.into_any_values(convert_coordinates),
-            ConversionMode::Rgba => iter.into_rgba_values(),
-            ConversionMode::TexCoord => iter.into_tex_coord_values(),
-            ConversionMode::JointIndex => iter.into_joint_index_values(),
-            ConversionMode::JointWeight => iter.into_joint_weight_values(),
-        });
-        match converted_values {
-            Ok(values) => {
-                let loaded_format = VertexFormat::from(&values);
-                if attribute.format == loaded_format {
-                    Ok((attribute, values))
-                } else {
-                    Err(ConvertAttributeError::WrongFormat(
-                        semantic.to_string(),
-                        loaded_format,
-                        attribute.name.to_string(),
-                        attribute.format,
-                    ))
-                }
-            }
-            Err(err) => Err(ConvertAttributeError::AccessFailed(err, accessor.index())),
+        let converted_values = raw_iter
+            .and_then(|iter| match conversion {
+                ConversionMode::Any => iter.into_any_values(),
+                ConversionMode::Rgba => iter.into_rgba_values(),
+                ConversionMode::TexCoord => iter.into_tex_coord_values(),
+                ConversionMode::JointIndex => iter.into_joint_index_values(),
+                ConversionMode::JointWeight => iter.into_joint_weight_values(),
+            })
+            .map_err(|err| ConvertAttributeError::AccessFailed(err, accessor.index()))?;
+        let converted_values =
+            attribute_coordinate_conversion(attribute, converted_values, convert_coordinates)?;
+
+        let loaded_format = VertexFormat::from(&converted_values);
+        if attribute.format == loaded_format {
+            Ok((attribute, converted_values))
+        } else {
+            Err(ConvertAttributeError::WrongFormat(
+                semantic.to_string(),
+                loaded_format,
+                attribute.name.to_string(),
+                attribute.format,
+            ))
         }
     } else {
         Err(ConvertAttributeError::UnknownName(semantic.to_string()))

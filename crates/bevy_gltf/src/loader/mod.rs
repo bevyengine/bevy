@@ -788,12 +788,8 @@ impl GltfLoader {
                     &buffer_data
                 };
 
-                let convert_mesh_coordinates =
-                    Conversion::from_parent(if convert_coordinates.rotate_meshes {
-                        Conversion::GLTF_TO_BEVY
-                    } else {
-                        Quat::IDENTITY
-                    });
+                // XXX TODO: Duplicated elsewhere.
+                let convert_mesh_vertex_rotation = convert_coordinates.mesh_rotation().inverse();
 
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
@@ -814,7 +810,7 @@ impl GltfLoader {
                         accessor,
                         buffer_data,
                         &loader.custom_vertex_attributes,
-                        convert_mesh_coordinates,
+                        convert_mesh_vertex_rotation,
                     ) {
                         Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                         Err(err) => warn!("{}", err),
@@ -841,7 +837,7 @@ impl GltfLoader {
                         };
                         let morph_target_image = MorphTargetImage::new(
                             morph_target_reader.map(|i| PrimitiveMorphAttributesIter {
-                                convert_coordinates: convert_coordinates.rotate_meshes,
+                                convert_coordinates: convert_mesh_vertex_rotation,
                                 positions: i.0,
                                 normals: i.1,
                                 tangents: i.2,
@@ -955,8 +951,10 @@ impl GltfLoader {
                         // XXX TODO: Review
                         mats.zip(gltf_skin.joints())
                             .map(|(mat, node)| {
-                                node_conversions[node.index()]
-                                    .inverse_mat4(Mat4::from_cols_array_2d(&mat))
+                                // XXX TODO: Move to utilities?
+                                Mat4::from_quat(node_conversions[node.index()].local().inverse())
+                                    * Mat4::from_cols_array_2d(&mat)
+                                    * Mat4::from_quat(convert_coordinates.mesh_rotation())
                             })
                             .collect()
                     })
@@ -1098,6 +1096,7 @@ impl GltfLoader {
                             &mut active_camera_found,
                             &node_transforms,
                             &Transform::default(),
+                            &node_conversions,
                             #[cfg(feature = "bevy_animation")]
                             &animation_roots,
                             #[cfg(feature = "bevy_animation")]
@@ -1569,6 +1568,7 @@ fn load_node(
     active_camera_found: &mut bool,
     node_transforms: &[Transform],
     parent_transform: &Transform,
+    node_conversions: &[Conversion],
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     textures: &[Handle<Image>],
@@ -1715,13 +1715,17 @@ fn load_node(
                 // applied to the mesh asset. This preserves the mesh's relation
                 // to the node transform.
                 //
-                // XXX TODO
-                //let mesh_entity_transform = convert_coordinates.mesh_conversion_transform_inverse();
-                let parent_node_conversion: Quat = todo!();
-                let mesh_conversion_inverse: Quat = todo!();
-                let mesh_conversion: Conversion = todo!();
+                // XXX TODO: Duplicated elsewhere?
+                let convert_mesh_coordinates = Conversion::from_local_and_parent(
+                    convert_coordinates.mesh_rotation(),
+                    node_conversions[gltf_node.index()].local(),
+                );
+
+                // XXX TODO: Explain.
+                let convert_mesh_vertex_coordinates = convert_mesh_coordinates.local().inverse();
+
                 let mesh_entity_transform =
-                    Transform::from_rotation(parent_node_conversion * mesh_conversion_inverse);
+                    Transform::from_rotation(convert_mesh_coordinates.rotation(Quat::IDENTITY));
 
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
@@ -1754,8 +1758,7 @@ fn load_node(
                 );
 
                 if convert_coordinates.rotate_meshes {
-                    // XXX TODO: Same conversion that's applied to vertices.
-                    aabb = aabb.rotated_by(mesh_conversion_inverse);
+                    aabb = aabb.rotated_by(convert_mesh_vertex_coordinates);
                 }
 
                 mesh_entity.insert(Aabb::from(aabb));
@@ -1899,6 +1902,7 @@ fn load_node(
                 active_camera_found,
                 node_transforms,
                 &world_transform,
+                node_conversions,
                 #[cfg(feature = "bevy_animation")]
                 animation_roots,
                 #[cfg(feature = "bevy_animation")]
@@ -2087,7 +2091,7 @@ impl ImageOrPath {
 }
 
 struct PrimitiveMorphAttributesIter<'s> {
-    convert_coordinates: bool,
+    convert_coordinates: Quat,
     positions: Option<Iter<'s, [f32; 3]>>,
     normals: Option<Iter<'s, [f32; 3]>>,
     tangents: Option<Iter<'s, [f32; 3]>>,
@@ -2104,19 +2108,20 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
             return None;
         }
 
-        let mut attributes = MorphAttributes {
-            position: position.map(Into::into).unwrap_or(Vec3::ZERO),
-            normal: normal.map(Into::into).unwrap_or(Vec3::ZERO),
-            tangent: tangent.map(Into::into).unwrap_or(Vec3::ZERO),
+        let attributes = MorphAttributes {
+            position: position
+                .map(Vec3::from_array)
+                .map(|p: Vec3| self.convert_coordinates * p)
+                .unwrap_or(Vec3::ZERO),
+            normal: normal
+                .map(Vec3::from_array)
+                .map(|n| self.convert_coordinates * n)
+                .unwrap_or(Vec3::ZERO),
+            tangent: tangent
+                .map(Vec3::from_array)
+                .map(|t| self.convert_coordinates * t)
+                .unwrap_or(Vec3::ZERO),
         };
-
-        if self.convert_coordinates {
-            attributes = MorphAttributes {
-                position: attributes.position.convert_coordinates(),
-                normal: attributes.normal.convert_coordinates(),
-                tangent: attributes.tangent.convert_coordinates(),
-            }
-        }
 
         Some(attributes)
     }

@@ -49,10 +49,13 @@ struct Args {
     /// spawn a light even if the scene already has one
     #[argh(switch)]
     add_light: Option<bool>,
-    /// enable `GltfPlugin::convert_coordinates::scenes`
+    /// enable `GltfPlugin::convert_coordinates::rotate_scene`
     #[argh(switch)]
     convert_scene_coordinates: Option<bool>,
-    /// enable `GltfPlugin::convert_coordinates::meshes`
+    /// enable `GltfPlugin::convert_coordinates::rotate_nodes`
+    #[argh(switch)]
+    convert_node_coordinates: Option<bool>,
+    /// enable `GltfPlugin::convert_coordinates::rotate_meshes`
     #[argh(switch)]
     convert_mesh_coordinates: Option<bool>,
 }
@@ -96,7 +99,8 @@ fn main() {
             })
             .set(GltfPlugin {
                 convert_coordinates: GltfConvertCoordinates {
-                    rotate_scene_entity: args.convert_scene_coordinates == Some(true),
+                    rotate_scene: args.convert_scene_coordinates == Some(true),
+                    rotate_nodes: args.convert_node_coordinates == Some(true),
                     rotate_meshes: args.convert_mesh_coordinates == Some(true),
                 },
                 ..default()

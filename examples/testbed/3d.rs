@@ -439,7 +439,8 @@ mod gltf_coordinate_conversion {
                     GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
                     |s: &mut GltfLoaderSettings| {
                         s.convert_coordinates = Some(GltfConvertCoordinates {
-                            rotate_scene_entity: true,
+                            rotate_scene: true,
+                            rotate_nodes: true,
                             rotate_meshes: true,
                         });
                     },

@@ -1,36 +1,12 @@
 //! Utilities for converting from glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
 //! to Bevy's.
+use bevy_mesh::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
+use gltf::Node;
 use serde::{Deserialize, Serialize};
 
-use bevy_math::{Mat4, Quat, Vec3};
+use bevy_math::{Quat, Vec3, Vec4};
 use bevy_transform::components::Transform;
-
-/*
-pub(crate) trait ConvertCoordinates {
-    /// Converts from glTF coordinates to Bevy's coordinate system. See
-    /// [`GltfConvertCoordinates`] for an explanation of the conversion.
-    fn convert_coordinates(self) -> Self;
-}
-
-impl ConvertCoordinates for Vec3 {
-    fn convert_coordinates(self) -> Self {
-        Vec3::new(-self.x, self.y, -self.z)
-    }
-}
-
-impl ConvertCoordinates for [f32; 3] {
-    fn convert_coordinates(self) -> Self {
-        [-self[0], self[1], -self[2]]
-    }
-}
-
-impl ConvertCoordinates for [f32; 4] {
-    fn convert_coordinates(self) -> Self {
-        // Solution of q' = r q r*
-        [-self[0], self[1], -self[2], self[3]]
-    }
-}
-*/
+use thiserror::Error;
 
 /// Options for converting scenes and assets from glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
 /// (+Z forward) to Bevy's coordinate system (-Z forward).
@@ -91,39 +67,97 @@ pub struct GltfConvertCoordinates {
     pub rotate_meshes: bool,
 }
 
-#[derive(Copy, Clone)]
+impl GltfConvertCoordinates {
+    const GLTF_TO_BEVY: Quat = Quat::from_xyzw(0.0, 1.0, 0.0, 0.0);
+
+    fn conversion_rotation(convert: bool) -> Quat {
+        if convert {
+            Self::GLTF_TO_BEVY
+        } else {
+            Quat::IDENTITY
+        }
+    }
+
+    pub(crate) fn node_rotation(&self, node: &Node) -> Quat {
+        Self::conversion_rotation(
+            self.rotate_nodes && node.camera().is_none() && node.light().is_none(),
+        )
+    }
+
+    pub(crate) fn scene_rotation(&self) -> Quat {
+        Self::conversion_rotation(self.rotate_scene)
+    }
+
+    pub(crate) fn mesh_rotation(&self) -> Quat {
+        Self::conversion_rotation(self.rotate_meshes)
+    }
+}
+
+#[derive(Error, Debug)]
+pub(crate) enum CoordinateConversionAttributeError {
+    #[error("Cannot apply coordinate conversion to attribute {0} - unsupported format {1:?}")]
+    UnsupportedFormat(&'static str, VertexFormat),
+}
+
+pub(crate) fn attribute_coordinate_conversion(
+    attribute: MeshVertexAttribute,
+    values: VertexAttributeValues,
+    rotation: Quat,
+) -> Result<VertexAttributeValues, CoordinateConversionAttributeError> {
+    match attribute {
+        Mesh::ATTRIBUTE_POSITION | Mesh::ATTRIBUTE_NORMAL | Mesh::ATTRIBUTE_TANGENT => match values
+        {
+            VertexAttributeValues::Float32x3(mut values) => {
+                for value in &mut values {
+                    *value = (rotation * Vec3::from_array(*value)).to_array();
+                }
+                Ok(VertexAttributeValues::Float32x3(values))
+            }
+
+            VertexAttributeValues::Float32x4(mut values) => {
+                for value in &mut values {
+                    *value = (rotation * Vec4::from_array(*value).truncate())
+                        .extend(value[3])
+                        .to_array();
+                }
+                Ok(VertexAttributeValues::Float32x4(values))
+            }
+
+            _ => Err(CoordinateConversionAttributeError::UnsupportedFormat(
+                attribute.name,
+                VertexFormat::from(&values),
+            )),
+        },
+        _ => Ok(values),
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
 pub(crate) struct Conversion {
     local: Quat,
-    inverse_parent: Quat,
+    parent: Quat,
 }
 
 impl Conversion {
-    pub(crate) const GLTF_TO_BEVY: Quat = Quat::from_xyzw(0.0, 1.0, 0.0, 0.0);
-
     pub(crate) fn from_local_and_parent(local: Quat, parent: Quat) -> Self {
-        Self {
-            local,
-            inverse_parent: parent.inverse(),
-        }
+        Self { local, parent }
     }
 
-    pub(crate) fn from_parent(parent: Quat) -> Self {
-        Self {
-            local: Quat::IDENTITY,
-            inverse_parent: parent.inverse(),
-        }
+    pub(crate) fn local(&self) -> Quat {
+        self.local
     }
 
     pub(crate) fn translation(&self, t: Vec3) -> Vec3 {
-        self.inverse_parent * t
+        self.parent.inverse() * t
     }
 
     pub(crate) fn rotation(&self, r: Quat) -> Quat {
-        self.inverse_parent * r * self.local
+        self.parent.inverse() * r * self.local
     }
 
     pub(crate) fn scale(&self, s: Vec3) -> Vec3 {
         // XXX TODO
+        //self.local.inverse() * s
         s
     }
 
@@ -131,18 +165,5 @@ impl Conversion {
         Transform::from_translation(self.translation(t.translation))
             .with_rotation(self.rotation(t.rotation))
             .with_scale(self.scale(t.scale))
-    }
-
-    pub(crate) fn mat4(&self, m: Mat4) -> Mat4 {
-        // XXX TODO: Consider more efficient alternatives.
-        let inverse_parent_matrix = Mat4::from_quat(self.inverse_parent);
-        let local_matrix = Mat4::from_quat(self.local);
-
-        inverse_parent_matrix * m * local_matrix
-    }
-
-    pub(crate) fn inverse_mat4(&self, m: Mat4) -> Mat4 {
-        // XXX TODO:
-        self.mat4(m)
     }
 }
