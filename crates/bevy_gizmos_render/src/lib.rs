@@ -33,8 +33,6 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::Affine3Ext;
-#[cfg(feature = "bevy_pbr")]
-use bevy_pbr::MeshPipelineSet;
 use bevy_reflect::Reflect;
 
 use {bevy_gizmos::config::GizmoMeshConfig, bevy_mesh::VertexBufferLayout};
@@ -98,11 +96,7 @@ impl Plugin for GizmoRenderPlugin {
             .init_resource::<LineGizmoEntities>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            #[cfg(feature = "bevy_pbr")]
-            render_app.add_systems(
-                RenderStartup,
-                init_line_gizmo_uniform_bind_group_layout.after(MeshPipelineSet),
-            );
+            render_app.add_systems(RenderStartup, init_line_gizmo_uniform_bind_group_layout);
 
             render_app.add_systems(
                 Render,
