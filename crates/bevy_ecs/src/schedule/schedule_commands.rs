@@ -112,8 +112,11 @@ pub trait ScheduleCommandsExt<'w> {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_app::Update;
     /// # use bevy_ecs::schedule::schedule_commands::ScheduleCommandsExt;
+    /// # use bevy_ecs::schedule::ScheduleLabel;
+    /// #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+    /// pub struct Update;
+    ///
     /// fn my_system(mut commands: Commands) {
     ///     // Spawn an entity after Update Schedule
     ///     commands.scheduled().label(Update).spawn_empty();
@@ -146,7 +149,7 @@ impl<'w, 's> Drop for ScheduleCommands<'w, 's> {
 
 #[cfg(test)]
 mod tests {
-    use std::vec::Vec;
+    use alloc::vec::Vec;
 
     use bevy_ecs_macros::{Component, Resource};
 
