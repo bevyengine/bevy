@@ -418,6 +418,10 @@ pub struct TextLayoutInfo {
     pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
+    /// Cursor size and position for editing
+    pub cursor: Rect,
+    /// Selection rects
+    pub selection_rects: Vec<Rect>,
 }
 
 impl TextLayoutInfo {
