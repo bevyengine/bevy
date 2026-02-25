@@ -204,7 +204,7 @@ impl Plugin for DepthOfFieldPlugin {
 
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
-        app.add_plugins(SyncComponentPlugin::<DepthOfField>::default());
+        app.add_plugins(SyncComponentPlugin::<RenderApp, DepthOfField>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -654,7 +654,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
     }
 }
 
-impl SyncComponent for DepthOfField {
+impl SyncComponent<RenderApp> for DepthOfField {
     type Out = (
         DepthOfField,
         DepthOfFieldUniform,
@@ -683,7 +683,7 @@ fn extract_depth_of_field_settings(
 
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
-            entity_commands.remove::<<DepthOfField as SyncComponent>::Out>();
+            entity_commands.remove::<<DepthOfField as SyncComponent<RenderApp>>::Out>();
 
             continue;
         };

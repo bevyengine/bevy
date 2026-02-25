@@ -204,7 +204,7 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceAmbientOcclusionPlugin,
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
-                SyncComponentPlugin::<ShadowFilteringMethod, Self>::default(),
+                SyncComponentPlugin::<RenderApp, ShadowFilteringMethod, Self>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
                 GpuMeshPreprocessPlugin {
@@ -218,10 +218,10 @@ impl Plugin for PbrPlugin {
             ))
             .add_plugins((
                 decal::ForwardDecalPlugin,
-                SyncComponentPlugin::<DirectionalLight, Self>::default(),
-                SyncComponentPlugin::<PointLight, Self>::default(),
-                SyncComponentPlugin::<SpotLight, Self>::default(),
-                SyncComponentPlugin::<AmbientLight, Self>::default(),
+                SyncComponentPlugin::<RenderApp, DirectionalLight, Self>::default(),
+                SyncComponentPlugin::<RenderApp, PointLight, Self>::default(),
+                SyncComponentPlugin::<RenderApp, SpotLight, Self>::default(),
+                SyncComponentPlugin::<RenderApp, AmbientLight, Self>::default(),
             ))
             .add_plugins((ScatteringMediumPlugin, AtmospherePlugin));
 
@@ -368,18 +368,18 @@ pub fn stbn_placeholder() -> Image {
     }
 }
 
-impl SyncComponent<PbrPlugin> for DirectionalLight {
+impl SyncComponent<RenderApp, PbrPlugin> for DirectionalLight {
     type Out = Self;
 }
-impl SyncComponent<PbrPlugin> for PointLight {
+impl SyncComponent<RenderApp, PbrPlugin> for PointLight {
     type Out = Self;
 }
-impl SyncComponent<PbrPlugin> for SpotLight {
+impl SyncComponent<RenderApp, PbrPlugin> for SpotLight {
     type Out = Self;
 }
-impl SyncComponent<PbrPlugin> for AmbientLight {
+impl SyncComponent<RenderApp, PbrPlugin> for AmbientLight {
     type Out = Self;
 }
-impl SyncComponent<PbrPlugin> for ShadowFilteringMethod {
+impl SyncComponent<RenderApp, PbrPlugin> for ShadowFilteringMethod {
     type Out = Self;
 }

@@ -4,7 +4,7 @@ use bevy_ecs::{component::Component, prelude::ReflectComponent};
 use bevy_mesh::Mesh;
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::sync_world::SyncToRenderWorld;
+use bevy_render::{sync_world::SyncToRenderWorld, RenderApp};
 use bevy_transform::components::Transform;
 use derive_more::derive::From;
 
@@ -17,5 +17,5 @@ use derive_more::derive::From;
 /// The material used for this entity must be [`MeshMaterial3d<StandardMaterial>`].
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
-#[require(MeshMaterial3d<StandardMaterial>, Transform, SyncToRenderWorld)]
+#[require(MeshMaterial3d<StandardMaterial>, Transform, SyncToRenderWorld<RenderApp>)]
 pub struct RaytracingMesh3d(pub Handle<Mesh>);

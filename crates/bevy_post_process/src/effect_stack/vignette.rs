@@ -103,7 +103,7 @@ impl Default for Vignette {
     }
 }
 
-impl SyncComponent for Vignette {
+impl SyncComponent<RenderApp> for Vignette {
     type Out = Self;
 }
 

@@ -147,7 +147,7 @@ impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "clustered.wgsl");
 
-        app.add_plugins(SyncComponentPlugin::<ClusteredDecal, Self>::default());
+        app.add_plugins(SyncComponentPlugin::<RenderApp, ClusteredDecal, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -170,7 +170,7 @@ impl Plugin for ClusteredDecalPlugin {
     }
 }
 
-impl SyncComponent<ClusteredDecalPlugin> for ClusteredDecal {
+impl SyncComponent<RenderApp, ClusteredDecalPlugin> for ClusteredDecal {
     type Out = Self;
 }
 

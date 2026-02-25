@@ -86,7 +86,7 @@ impl Default for ChromaticAberration {
     }
 }
 
-impl SyncComponent for ChromaticAberration {
+impl SyncComponent<RenderApp> for ChromaticAberration {
     type Out = Self;
 }
 

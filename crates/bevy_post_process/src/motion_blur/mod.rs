@@ -115,7 +115,7 @@ impl Default for MotionBlur {
     }
 }
 
-impl SyncComponent for MotionBlur {
+impl SyncComponent<RenderApp> for MotionBlur {
     type Out = MotionBlurUniform;
 }
 

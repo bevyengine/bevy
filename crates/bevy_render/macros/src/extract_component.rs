@@ -39,7 +39,7 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_render_path::sync_component::SyncComponent for #struct_name #type_generics #where_clause {
+        impl #impl_generics #bevy_render_path::sync_component::SyncComponent<#bevy_render_path::RenderApp> for #struct_name #type_generics #where_clause {
             type Out = Self;
         }
 

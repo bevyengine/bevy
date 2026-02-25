@@ -80,7 +80,7 @@ impl From<ContactShadows> for ContactShadowsUniform {
     }
 }
 
-impl SyncComponent for ContactShadows {
+impl SyncComponent<RenderApp> for ContactShadows {
     type Out = Self;
 }
 

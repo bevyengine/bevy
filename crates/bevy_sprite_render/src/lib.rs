@@ -86,7 +86,7 @@ impl Plugin for SpriteRenderPlugin {
                 .in_set(SpriteSystems::ComputeSlices),
         );
 
-        app.register_required_components::<Sprite, SyncToRenderWorld>();
+        app.register_required_components::<Sprite, SyncToRenderWorld<RenderApp>>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

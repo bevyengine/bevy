@@ -372,7 +372,7 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
     }
 }
 
-impl SyncComponent for GpuAtmosphereSettings {
+impl SyncComponent<RenderApp> for GpuAtmosphereSettings {
     type Out = Self;
 }
 

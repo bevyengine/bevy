@@ -220,7 +220,7 @@ pub enum BloomCompositeMode {
     Additive,
 }
 
-impl SyncComponent for Bloom {
+impl SyncComponent<RenderApp> for Bloom {
     type Out = (Self, BloomUniforms);
 }
 

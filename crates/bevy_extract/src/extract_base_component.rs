@@ -25,7 +25,7 @@ pub use bevy_extract_macros::ExtractBaseComponent;
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractBaseComponentPlugin`].
 pub trait ExtractComponent<L: AppLabel + Default, F: 'static + Send + Sync = ()>:
-    SyncComponent<F>
+    SyncComponent<L, F>
 {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;
@@ -82,11 +82,11 @@ impl<L: AppLabel + Default, C: ExtractComponent<L, F>, F: 'static + Send + Sync>
     }
 }
 
-impl<L: AppLabel + Default, C: ExtractComponent<L, F>, F: 'static + Send + Sync> Plugin
+impl<L: AppLabel + Default + Clone, C: ExtractComponent<L, F>, F: 'static + Send + Sync> Plugin
     for ExtractBaseComponentPlugin<L, C, F>
 {
     fn build(&self, app: &mut App) {
-        app.add_plugins(SyncComponentPlugin::<C, F>::default());
+        app.add_plugins(SyncComponentPlugin::<L, C, F>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(self.app_label) {
             if self.only_extract_visible {

@@ -61,7 +61,7 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.register_required_components::<Camera, Msaa>()
-            .register_required_components::<Camera, SyncToRenderWorld>()
+            .register_required_components::<Camera, SyncToRenderWorld<RenderApp>>()
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
             .add_plugins((
@@ -127,7 +127,7 @@ impl ExtractResource<RenderApp, CameraPlugin> for ClearColor {
     }
 }
 
-impl SyncComponent<CameraPlugin> for CameraMainTextureUsages {
+impl SyncComponent<RenderApp, CameraPlugin> for CameraMainTextureUsages {
     type Out = Self;
 }
 
@@ -140,7 +140,7 @@ impl ExtractComponent<RenderApp, CameraPlugin> for CameraMainTextureUsages {
     }
 }
 
-impl SyncComponent<CameraPlugin> for Camera2d {
+impl SyncComponent<RenderApp, CameraPlugin> for Camera2d {
     type Out = Self;
 }
 
@@ -153,7 +153,7 @@ impl ExtractComponent<RenderApp, CameraPlugin> for Camera2d {
     }
 }
 
-impl SyncComponent<CameraPlugin> for Camera3d {
+impl SyncComponent<RenderApp, CameraPlugin> for Camera3d {
     type Out = Self;
 }
 

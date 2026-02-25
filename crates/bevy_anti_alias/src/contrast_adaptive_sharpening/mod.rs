@@ -76,7 +76,7 @@ pub struct CasUniform {
     sharpness: f32,
 }
 
-impl SyncComponent for ContrastAdaptiveSharpening {
+impl SyncComponent<RenderApp> for ContrastAdaptiveSharpening {
     type Out = (DenoiseCas, CasUniform);
 }
 

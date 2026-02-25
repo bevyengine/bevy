@@ -1,4 +1,6 @@
-use bevy_app::Plugin;
+use std::marker::PhantomData;
+
+use bevy_app::{AppLabel, /*InternedAppLabel,*/ Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -89,19 +91,31 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// [`ExtractBaseComponentPlugin`]: crate::extract_base_component::ExtractBaseComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 /// [`RenderAsset`]: https://docs.rs/bevy/latest/bevy/render/render_asset/trait.RenderAsset.html
-#[derive(Default)]
-pub struct SyncWorldPlugin;
+pub struct SyncWorldPlugin<L: AppLabel + Default> {
+    marker: PhantomData<L>,
+    // /// The [`AppLabel`] of the [`SubApp`](bevy_app::SubApp) to set up with extraction.
+    // app_label: InternedAppLabel,
+}
 
-impl Plugin for SyncWorldPlugin {
+impl<L: AppLabel + Default> Default for SyncWorldPlugin<L> {
+    fn default() -> Self {
+        Self {
+            marker: PhantomData,
+            // app_label: L::default().intern(),
+        }
+    }
+}
+
+impl<L: AppLabel + Default + Clone> Plugin for SyncWorldPlugin<L> {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
         app.add_observer(
-            |add: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |add: On<Add, SyncToRenderWorld<L>>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(add.entity));
             },
         );
         app.add_observer(
-            |remove: On<Remove, SyncToRenderWorld>,
+            |remove: On<Remove, SyncToRenderWorld<L>>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(remove.entity) {
@@ -124,7 +138,7 @@ impl Plugin for SyncWorldPlugin {
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 #[component(storage = "SparseSet")]
-pub struct SyncToRenderWorld;
+pub struct SyncToRenderWorld<L: AppLabel + Default + Clone>(PhantomData<L>);
 
 /// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity.
 ///
@@ -532,6 +546,9 @@ mod render_entities_world_query_impls {
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
+    use bevy_app::AppLabel;
     use bevy_ecs::{
         component::Component,
         entity::Entity,
@@ -550,6 +567,9 @@ mod tests {
     #[derive(Component)]
     struct RenderDataComponent;
 
+    #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+    struct ExtractApp;
+
     #[test]
     fn sync_world() {
         let mut main_world = World::new();
@@ -557,12 +577,13 @@ mod tests {
         main_world.init_resource::<PendingSyncEntity>();
 
         main_world.add_observer(
-            |add: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |add: On<Add, SyncToRenderWorld<ExtractApp>>,
+             mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(add.entity));
             },
         );
         main_world.add_observer(
-            |remove: On<Remove, SyncToRenderWorld>,
+            |remove: On<Remove, SyncToRenderWorld<ExtractApp>>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(remove.entity) {
@@ -580,7 +601,7 @@ mod tests {
         let main_entity = main_world
             .spawn(RenderDataComponent)
             // indicates that its entity needs to be synchronized to the render world
-            .insert(SyncToRenderWorld)
+            .insert(SyncToRenderWorld::<ExtractApp>(PhantomData::<ExtractApp>))
             .id();
 
         entity_sync_system(&mut main_world, &mut render_world);
