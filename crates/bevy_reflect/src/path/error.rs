@@ -120,9 +120,8 @@ impl fmt::Display for AccessError<'_> {
                         "The {type_accessed} accessed doesn't have index `{}`",
                         access.display_value()
                     ),
-                    // This should be unreachable.
-                    // TODO - make sure we fix this when we make paired v_index + field access
-                    Access::VariantIndex(_) => write!(f, "If you are reading this, send help." ),
+                    //TODO - migrate IncompatibleEnumVariantTypes here.
+                    Access::Variant(_) => write!(f, "If you are reading this, send help." ),
                     
                 }
             }

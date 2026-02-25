@@ -5,6 +5,8 @@ use core::{
 };
 use thiserror::Error;
 
+use crate::VariantAccess;
+
 use super::{Access, ReflectPathError};
 
 /// An error that occurs when parsing reflect path strings.
@@ -98,10 +100,50 @@ impl<'a> PathParser<'a> {
                 }
             }
             Token::CloseCurly => Err(Error::CloseBeforeOpen),
+
             Token::OpenCurly => {
                 let index_ident = self.next_ident()?.variant_index()?;
+                let vindex = (match index_ident {
+                    // "Safety" here depends on variant_index only returning Unit
+                    Access::Variant(VariantAccess::Unit(v)) => Some(v),
+                    _ => None,
+                })
+                .expect("unreachable");
                 match self.next_token() {
+                    //This is a unit variant, form: {1}
                     Some(Token::CloseCurly) => Ok(index_ident),
+                    //This is a field variant, form {1.field}
+                    Some(Token::Dot) => {
+                        let val_ident = self.next_ident()?.field();
+                        match self.next_token() {
+                            Some(Token::CloseCurly) => match val_ident {
+                                Access::Field(cow) => {
+                                    Ok(Access::Variant(VariantAccess::Field(vindex, cow)))
+                                }
+                                Access::TupleIndex(idx) => {
+                                    Ok(Access::Variant(VariantAccess::TupleIndex(vindex, idx)))
+                                }
+                                // "Safety" here depends on Ident::field only returning Field/TupleIndex
+                                _ => panic!("unreachable"),
+                            },
+                            _ => Err(Error::Unclosed),
+                        }
+                    }
+                    //this is an index variant, form {1#2}
+                    Some(Token::Pound) => {
+                        let val_ident = self.next_ident()?.field_index()?;
+                        let val = (match val_ident {
+                            Access::FieldIndex(val) => Some(val),
+                            _ => None,
+                        })
+                        .expect("unreachable");
+                        match self.next_token() {
+                            Some(Token::CloseCurly) => {
+                                Ok(Access::Variant(VariantAccess::FieldIndex(vindex, val)))
+                            }
+                            _ => Err(Error::Unclosed),
+                        }
+                    }
                     Some(other) => Err(Error::BadClose(other)),
                     None => Err(Error::Unclosed),
                 }
@@ -147,7 +189,7 @@ impl<'a> Ident<'a> {
         Ok(Access::ListIndex(self.0.parse()?))
     }
     fn variant_index(self) -> Result<Access<'a>, Error<'a>> {
-        Ok(Access::VariantIndex(self.0.parse()?))
+        Ok(Access::Variant(VariantAccess::Unit(self.0.parse()?)))
     }
 }
 

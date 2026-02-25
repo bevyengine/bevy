@@ -1,7 +1,7 @@
 //! Representation for individual element accesses within a path.
 
 use alloc::borrow::Cow;
-use core::fmt;
+use core::fmt::{self};
 
 use super::error::AccessErrorKind;
 use crate::{enums::VariantType, AccessError, PartialReflect, ReflectKind, ReflectMut, ReflectRef};
@@ -22,8 +22,20 @@ pub enum Access<'a> {
     TupleIndex(usize),
     /// An index-based access on a list.
     ListIndex(usize),
-    /// A witness for validating the access of an enum variant.
-    VariantIndex(usize),
+    /// Variant index-based access for an enum.
+    Variant(VariantAccess<'a>),
+}
+/// Field Access for Enum variants.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum VariantAccess<'a> {
+    /// Access for a unit enum variant - ex: `Option::None`
+    Unit(usize),
+    /// Access for a struct enum variant, keyed on field name.
+    Field(usize, Cow<'a, str>),
+    /// Access for a struct enum variant, keyed on field index.
+    FieldIndex(usize, usize),
+    /// Access for a Tuple enum variant, keyed on tuple index.
+    TupleIndex(usize, usize),
 }
 
 impl fmt::Display for Access<'_> {
@@ -33,7 +45,17 @@ impl fmt::Display for Access<'_> {
             Access::FieldIndex(index) => write!(f, "#{index}"),
             Access::TupleIndex(index) => write!(f, ".{index}"),
             Access::ListIndex(index) => write!(f, "[{index}]"),
-            Access::VariantIndex(index) => write!(f, "{{{index}}}"),
+            Access::Variant(index) => write!(f, "{}", index),
+        }
+    }
+}
+impl fmt::Display for VariantAccess<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VariantAccess::Unit(vidx) => write!(f, "{{{vidx}}}"),
+            VariantAccess::Field(vidx, field) => write!(f, "{{{vidx}.{field}}}"),
+            VariantAccess::FieldIndex(vidx, index) => write!(f, "{{{vidx}#{index}}}"),
+            VariantAccess::TupleIndex(vidx, index) => write!(f, "{{{vidx}.{index}}}"),
         }
     }
 }
@@ -45,12 +67,22 @@ impl<'a> Access<'a> {
     /// the field's [`Cow<str>`] will be converted to its owned
     /// counterpart, which doesn't require a reference.
     pub fn into_owned(self) -> Access<'static> {
+        use VariantAccess::*;
         match self {
             Self::Field(value) => Access::Field(Cow::Owned(value.into_owned())),
             Self::FieldIndex(value) => Access::FieldIndex(value),
             Self::TupleIndex(value) => Access::TupleIndex(value),
             Self::ListIndex(value) => Access::ListIndex(value),
-            Self::VariantIndex(value) => Access::VariantIndex(value),
+            Self::Variant(Unit(v)) => Access::Variant(Unit(v)),
+            Self::Variant(Field(v_index, field)) => {
+                Access::Variant(Field(v_index, Cow::Owned(field.into_owned())))
+            }
+            Self::Variant(FieldIndex(v_index, index)) => {
+                Access::Variant(FieldIndex(v_index, index))
+            }
+            Self::Variant(TupleIndex(v_index, index)) => {
+                Access::Variant(TupleIndex(v_index, index))
+            }
         }
     }
 
@@ -69,21 +101,14 @@ impl<'a> Access<'a> {
         base: &'r dyn PartialReflect,
     ) -> InnerResult<Option<&'r dyn PartialReflect>> {
         use ReflectRef::*;
+        use VariantAccess::*;
 
         let invalid_variant =
             |expected, actual| AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual };
 
         match (self, base.reflect_ref()) {
             (Self::Field(field), Struct(struct_ref)) => Ok(struct_ref.field(field.as_ref())),
-            (Self::Field(field), Enum(enum_ref)) => match enum_ref.variant_type() {
-                VariantType::Struct => Ok(enum_ref.field(field.as_ref())),
-                actual => Err(invalid_variant(VariantType::Struct, actual)),
-            },
             (&Self::FieldIndex(index), Struct(struct_ref)) => Ok(struct_ref.field_at(index)),
-            (&Self::FieldIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
-                VariantType::Struct => Ok(enum_ref.field_at(index)),
-                actual => Err(invalid_variant(VariantType::Struct, actual)),
-            },
             (Self::Field(_) | Self::FieldIndex(_), actual) => {
                 Err(AccessErrorKind::IncompatibleTypes {
                     expected: ReflectKind::Struct,
@@ -93,10 +118,7 @@ impl<'a> Access<'a> {
 
             (&Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field(index)),
             (&Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field(index)),
-            (&Self::TupleIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
-                VariantType::Tuple => Ok(enum_ref.field_at(index)),
-                actual => Err(invalid_variant(VariantType::Tuple, actual)),
-            },
+
             (Self::TupleIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
                 expected: ReflectKind::Tuple,
                 actual: actual.into(),
@@ -108,7 +130,46 @@ impl<'a> Access<'a> {
                 expected: ReflectKind::List,
                 actual: actual.into(),
             }),
-            (&Self::VariantIndex(index), Enum(enum_ref)) => {
+            (Self::Variant(Field(index, field)), Enum(enum_ref)) => {
+                if enum_ref.variant_index() != *index {
+                    Err(AccessErrorKind::IncorrectEnumVariantIndex {
+                        expected: *index,
+                        actual: enum_ref.variant_index(),
+                    })
+                } else {
+                    match enum_ref.variant_type() {
+                        VariantType::Struct => Ok(enum_ref.field(field.as_ref())),
+                        actual => Err(invalid_variant(VariantType::Struct, actual)),
+                    }
+                }
+            }
+            (&Self::Variant(FieldIndex(v_index, index)), Enum(enum_ref)) => {
+                if enum_ref.variant_index() != v_index {
+                    Err(AccessErrorKind::IncorrectEnumVariantIndex {
+                        expected: v_index,
+                        actual: enum_ref.variant_index(),
+                    })
+                } else {
+                    match enum_ref.variant_type() {
+                        VariantType::Struct => Ok(enum_ref.field_at(index)),
+                        actual => Err(invalid_variant(VariantType::Struct, actual)),
+                    }
+                }
+            }
+            (&Self::Variant(TupleIndex(v_index, index)), Enum(enum_ref)) => {
+                if enum_ref.variant_index() != v_index {
+                    Err(AccessErrorKind::IncorrectEnumVariantIndex {
+                        expected: v_index,
+                        actual: enum_ref.variant_index(),
+                    })
+                } else {
+                    match enum_ref.variant_type() {
+                        VariantType::Tuple => Ok(enum_ref.field_at(index)),
+                        actual => Err(invalid_variant(VariantType::Tuple, actual)),
+                    }
+                }
+            }
+            (&Self::Variant(Unit(index)), Enum(enum_ref)) => {
                 if enum_ref.variant_index() == index {
                     Ok(Some(enum_ref.as_partial_reflect()))
                 } else {
@@ -118,7 +179,7 @@ impl<'a> Access<'a> {
                     })
                 }
             }
-            (&Self::VariantIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
+            (&Self::Variant(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
                 expected: ReflectKind::Enum,
                 actual: actual.into(),
             }),
@@ -142,21 +203,14 @@ impl<'a> Access<'a> {
         base: &'r mut dyn PartialReflect,
     ) -> InnerResult<Option<&'r mut dyn PartialReflect>> {
         use ReflectMut::*;
+        use VariantAccess::*;
 
         let invalid_variant =
             |expected, actual| AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual };
 
         match (self, base.reflect_mut()) {
             (Self::Field(field), Struct(struct_mut)) => Ok(struct_mut.field_mut(field.as_ref())),
-            (Self::Field(field), Enum(enum_mut)) => match enum_mut.variant_type() {
-                VariantType::Struct => Ok(enum_mut.field_mut(field.as_ref())),
-                actual => Err(invalid_variant(VariantType::Struct, actual)),
-            },
             (&Self::FieldIndex(index), Struct(struct_mut)) => Ok(struct_mut.field_at_mut(index)),
-            (&Self::FieldIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
-                VariantType::Struct => Ok(enum_mut.field_at_mut(index)),
-                actual => Err(invalid_variant(VariantType::Struct, actual)),
-            },
             (Self::Field(_) | Self::FieldIndex(_), actual) => {
                 Err(AccessErrorKind::IncompatibleTypes {
                     expected: ReflectKind::Struct,
@@ -166,10 +220,6 @@ impl<'a> Access<'a> {
 
             (&Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field_mut(index)),
             (&Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field_mut(index)),
-            (&Self::TupleIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
-                VariantType::Tuple => Ok(enum_mut.field_at_mut(index)),
-                actual => Err(invalid_variant(VariantType::Tuple, actual)),
-            },
             (Self::TupleIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
                 expected: ReflectKind::Tuple,
                 actual: actual.into(),
@@ -181,7 +231,46 @@ impl<'a> Access<'a> {
                 expected: ReflectKind::List,
                 actual: actual.into(),
             }),
-            (&Self::VariantIndex(index), Enum(enum_ref)) => {
+            (Self::Variant(Field(index, field)), Enum(enum_ref)) => {
+                if enum_ref.variant_index() != *index {
+                    Err(AccessErrorKind::IncorrectEnumVariantIndex {
+                        expected: *index,
+                        actual: enum_ref.variant_index(),
+                    })
+                } else {
+                    match enum_ref.variant_type() {
+                        VariantType::Struct => Ok(enum_ref.field_mut(field.as_ref())),
+                        actual => Err(invalid_variant(VariantType::Struct, actual)),
+                    }
+                }
+            }
+            (&Self::Variant(FieldIndex(v_index, index)), Enum(enum_ref)) => {
+                if enum_ref.variant_index() != v_index {
+                    Err(AccessErrorKind::IncorrectEnumVariantIndex {
+                        expected: v_index,
+                        actual: enum_ref.variant_index(),
+                    })
+                } else {
+                    match enum_ref.variant_type() {
+                        VariantType::Struct => Ok(enum_ref.field_at_mut(index)),
+                        actual => Err(invalid_variant(VariantType::Struct, actual)),
+                    }
+                }
+            }
+            (&Self::Variant(TupleIndex(v_index, index)), Enum(enum_ref)) => {
+                if enum_ref.variant_index() != v_index {
+                    Err(AccessErrorKind::IncorrectEnumVariantIndex {
+                        expected: v_index,
+                        actual: enum_ref.variant_index(),
+                    })
+                } else {
+                    match enum_ref.variant_type() {
+                        VariantType::Tuple => Ok(enum_ref.field_at_mut(index)),
+                        actual => Err(invalid_variant(VariantType::Tuple, actual)),
+                    }
+                }
+            }
+            (&Self::Variant(Unit(index)), Enum(enum_ref)) => {
                 if enum_ref.variant_index() == index {
                     Ok(Some(enum_ref.as_partial_reflect_mut()))
                 } else {
@@ -191,7 +280,7 @@ impl<'a> Access<'a> {
                     })
                 }
             }
-            (&Self::VariantIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
+            (&Self::Variant(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
                 expected: ReflectKind::Enum,
                 actual: actual.into(),
             }),
@@ -202,19 +291,21 @@ impl<'a> Access<'a> {
     pub fn display_value(&self) -> &dyn fmt::Display {
         match self {
             Self::Field(value) => value,
-            Self::FieldIndex(value)
-            | Self::TupleIndex(value)
-            | Self::ListIndex(value)
-            | Self::VariantIndex(value) => value,
+            Self::FieldIndex(value) | Self::TupleIndex(value) | Self::ListIndex(value) => value,
+            Self::Variant(value) => value,
         }
     }
 
     pub(super) fn kind(&self) -> &'static str {
+        use VariantAccess::*;
         match self {
             Self::Field(_) => "field",
             Self::FieldIndex(_) => "field index",
             Self::TupleIndex(_) | Self::ListIndex(_) => "index",
-            Self::VariantIndex(_) => "variant index",
+            Self::Variant(Unit(_)) => "unit variant index",
+            Self::Variant(FieldIndex(_, _)) => "variant index with field index",
+            Self::Variant(TupleIndex(_, _)) => "variant index with tuple index",
+            Self::Variant(Field(_, _)) => "variant index with field",
         }
     }
 }
