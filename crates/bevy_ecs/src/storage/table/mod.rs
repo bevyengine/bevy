@@ -632,8 +632,9 @@ impl Default for Tables {
     }
 }
 
-pub(crate) struct TableMoveResult {
+pub(crate) struct TableMoveResult<'a> {
     pub swapped_entity: Option<Entity>,
+    pub new_table: &'a mut Table,
     pub new_row: TableRow,
 }
 
@@ -741,7 +742,7 @@ impl Tables {
         old_table_id: TableId,
         new_table_id: TableId,
         row: TableRow,
-    ) -> TableMoveResult {
+    ) -> TableMoveResult<'_> {
         assert!(old_table_id != new_table_id);
         // SAFETY:
         // - `old_table_id` and `new_table_id` are asserted to not overlap.
@@ -810,7 +811,11 @@ impl Tables {
             }
         }
 
+        // Need to end the mutable borrow so we can return `dst_table`.
+        drop(dst_iter);
+
         TableMoveResult {
+            new_table: dst_table,
             new_row: dst_row,
             swapped_entity: if row.index() == last_index {
                 None

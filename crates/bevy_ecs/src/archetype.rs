@@ -872,6 +872,9 @@ impl Archetypes {
             let archetype_a = &mut self[id_a];
             (archetype_a, None)
         } else {
+            // SAFETY:
+            // - `id_a` and `id_b` do not overlap in this branch.
+            // - The caller ensures `id_a` and `id_b` are in-bounds.
             let [archetype_a, archetype_b] = unsafe {
                 self.archetypes
                     .get_disjoint_unchecked_mut([id_a.index(), id_b.index()])
