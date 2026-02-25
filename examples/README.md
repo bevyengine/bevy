@@ -134,6 +134,7 @@ Example | Description
 [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 [Tilemap Chunk](../examples/2d/tilemap_chunk.rs) | Renders a tilemap chunk
+[Tilemap Chunk with Orientations](../examples/2d/tilemap_chunk_orientation.rs) | Renders a tilemap chunk using tile orientations (mirrored, rotated)
 [Transparency in 2D](../examples/2d/transparency_2d.rs) | Demonstrates transparency in 2d
 
 ### 3D Rendering
@@ -325,6 +326,7 @@ Example | Description
 [Contiguous Query](../examples/ecs/contiguous_query.rs) | Demonstrates contiguous queries
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
+[Delayed Commands](../examples/ecs/delayed_commands.rs) | Demonstrates how to schedule ECS commands with a delay
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
