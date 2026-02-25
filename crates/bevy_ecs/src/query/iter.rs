@@ -956,8 +956,9 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D,
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         // SAFETY:
-        // `tables` and `archetypes` belong to the same world that the cursor was initialized for.
-        // `query_state` is the state that was passed to `QueryIterationCursor::init`.
+        // - `tables` and `archetypes` belong to the same world that the cursor was initialized for.
+        // - `query_state` is the state that was passed to `QueryIterationCursor::init`.
+        // - `D: IterQueryData`
         unsafe {
             self.cursor
                 .next(self.tables, self.archetypes, self.query_state)
@@ -1173,8 +1174,8 @@ where
     /// # Safety
     ///
     /// - `entity` must stem from `self.entity_iter`
-    /// - If `Self` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
-    /// - If `Self` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
+    /// - If `D` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
+    /// - If `D` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
     #[inline(always)]
     unsafe fn fetch_next(&mut self, entity: Entity) -> Option<D::Item<'w, 's>> {
         let (location, archetype, table);
@@ -1345,8 +1346,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// # Safety
     ///
     /// - All arguments must stem from the same valid `QueryManyIter`.
-    /// - If `Self` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
-    /// - If `Self` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
+    /// - If `D` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
+    /// - If `D` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
     #[inline(always)]
     unsafe fn fetch_next_aliased_unchecked(
         entity_iter: impl Iterator<Item: EntityEquivalent>,
@@ -2181,8 +2182,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
     /// # Safety
     ///
     /// - `entity` must stem from `self.entity_iter`
-    /// - If `Self` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
-    /// - If `Self` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
+    /// - If `D` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
+    /// - If `D` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
     #[inline(always)]
     unsafe fn fetch_next_aliased_unchecked(&mut self, entity: Entity) -> Option<D::Item<'w, 's>> {
         let (location, archetype, table);
@@ -2714,9 +2715,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     // QueryState::par_fold_init_unchecked_manual, QueryState::par_many_fold_init_unchecked_manual,
     // QueryState::par_many_unique_fold_init_unchecked_manual, QueryContiguousIter::next
     /// # Safety
-    /// `tables` and `archetypes` must belong to the same world that the [`QueryIterationCursor`]
-    /// was initialized for.
-    /// `query_state` must be the same [`QueryState`] that was passed to `init` or `init_empty`.
+    /// - `tables` and `archetypes` must belong to the same world that the [`QueryIterationCursor`]
+    ///   was initialized for.
+    /// - `query_state` must be the same [`QueryState`] that was passed to `init` or `init_empty`.
+    /// - If `D` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
+    /// - If `D` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
     #[inline(always)]
     unsafe fn next(
         &mut self,
@@ -2763,6 +2766,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // - `current_row` must be a table row in range of the current table,
                 //   because if it was not, then the above would have been executed.
                 // - fetch is only called once for each `entity`.
+                // - caller ensures no conflicting `Item`s are alive
                 let item =
                     unsafe { D::fetch(&query_state.fetch_state, &mut self.fetch, *entity, row) };
                 if let Some(item) = item {
@@ -2821,6 +2825,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // - `current_row` must be an archetype index row in range of the current archetype,
                 //   because if it was not, then the if above would have been executed.
                 // - fetch is only called once for each `archetype_entity`.
+                // - caller ensures no conflicting `Item`s are alive
                 let item = unsafe {
                     D::fetch(
                         &query_state.fetch_state,
