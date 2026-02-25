@@ -25,13 +25,15 @@ pub(crate) struct BundleInserter<'w> {
     world: UnsafeWorldCell<'w>,
     bundle_info: ConstNonNull<BundleInfo>,
     archetype_after_insert: ConstNonNull<ArchetypeAfterBundleInsert>,
-    table: NonNull<Table>,
+    table_after_insert: NonNull<Table>,
     archetype: NonNull<Archetype>,
     archetype_move_type: ArchetypeMoveType,
     change_tick: Tick,
 }
 
 impl<'w> BundleInserter<'w> {
+    /// # Safety
+    /// - `archetype_id` must correspond to a valid archetype in `world`.
     #[inline]
     pub(crate) fn new<T: Bundle>(
         world: &'w mut World,
@@ -47,7 +49,8 @@ impl<'w> BundleInserter<'w> {
     /// Creates a new [`BundleInserter`].
     ///
     /// # Safety
-    /// - Caller must ensure that `bundle_id` exists in `world.bundles`.
+    /// - `bundle_id` must correspond to an existing bundle in `world`.
+    /// - `archetype_id` must correspond to a valid archetype in `world`.
     #[inline]
     pub(crate) unsafe fn new_with_id(
         world: &'w mut World,
@@ -66,66 +69,51 @@ impl<'w> BundleInserter<'w> {
             archetype_id,
         );
 
-        let inserter = if new_archetype_id == archetype_id {
-            let archetype = &mut world.archetypes[archetype_id];
-            // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
-            let archetype_after_insert = unsafe {
-                archetype
-                    .edges()
-                    .get_archetype_after_bundle_insert_internal(bundle_id)
-                    .debug_checked_unwrap()
-            };
-            let table_id = archetype.table_id();
-            let table = &mut world.storages.tables[table_id];
-            Self {
-                archetype_after_insert: archetype_after_insert.into(),
-                archetype: archetype.into(),
-                bundle_info: bundle_info.into(),
-                table: table.into(),
-                archetype_move_type: ArchetypeMoveType::SameArchetype,
-                change_tick,
-                world: world.as_unsafe_world_cell(),
-            }
+        // SAFETY:
+        // - The caller ensures `archetype_id` is valid.
+        // - `new_archetype_id` was just created or fetched from the archetype graph.
+        let (archetype, new_archetype) = unsafe {
+            world
+                .archetypes
+                .get_maybe_disjoint_mut(archetype_id, new_archetype_id)
+        };
+
+        // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
+        let archetype_after_insert = unsafe {
+            archetype
+                .edges()
+                .get_archetype_after_bundle_insert_internal(bundle_id)
+                .debug_checked_unwrap()
+                .into()
+        };
+
+        let (archetype_move_type, table_id) = if new_archetype.is_none() {
+            (ArchetypeMoveType::SameArchetype, archetype.table_id())
         } else {
-            let (archetype, new_archetype) =
-                world.archetypes.get_2_mut(archetype_id, new_archetype_id);
-            // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
-            let archetype_after_insert = unsafe {
-                archetype
-                    .edges()
-                    .get_archetype_after_bundle_insert_internal(bundle_id)
-                    .debug_checked_unwrap()
-            };
-            let table_id = archetype.table_id();
-            let new_table_id = new_archetype.table_id();
-            if table_id == new_table_id {
-                let table = &mut world.storages.tables[table_id];
-                Self {
-                    archetype_after_insert: archetype_after_insert.into(),
-                    archetype: archetype.into(),
-                    bundle_info: bundle_info.into(),
-                    table: table.into(),
-                    archetype_move_type: ArchetypeMoveType::NewArchetypeSameTable {
-                        new_archetype: new_archetype.into(),
-                    },
-                    change_tick,
-                    world: world.as_unsafe_world_cell(),
+            // SAFETY: `new_archetype` is not `None` in this branch.
+            let new_archetype = unsafe { new_archetype.unwrap_unchecked() };
+            let archetype_move_type = if archetype.table_id() == new_archetype.table_id() {
+                ArchetypeMoveType::NewArchetypeSameTable {
+                    new_archetype: new_archetype.into(),
                 }
             } else {
-                let (table, new_table) = world.storages.tables.get_2_mut(table_id, new_table_id);
-                Self {
-                    archetype_after_insert: archetype_after_insert.into(),
-                    archetype: archetype.into(),
-                    bundle_info: bundle_info.into(),
-                    table: table.into(),
-                    archetype_move_type: ArchetypeMoveType::NewArchetypeNewTable {
-                        new_archetype: new_archetype.into(),
-                        new_table: new_table.into(),
-                    },
-                    change_tick,
-                    world: world.as_unsafe_world_cell(),
+                ArchetypeMoveType::NewArchetypeNewTable {
+                    new_archetype: new_archetype.into(),
                 }
-            }
+            };
+            (archetype_move_type, new_archetype.table_id())
+        };
+
+        let table_after_insert = &mut world.storages.tables[table_id];
+
+        let inserter = Self {
+            archetype: archetype.into(),
+            archetype_after_insert,
+            bundle_info: bundle_info.into(),
+            table_after_insert: table_after_insert.into(),
+            archetype_move_type,
+            change_tick,
+            world: world.as_unsafe_world_cell(),
         };
 
         if is_new_created {
@@ -147,18 +135,11 @@ impl<'w> BundleInserter<'w> {
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
-        mut table: NonNull<Table>,
         mut archetype: NonNull<Archetype>,
         archetype_after_insert: &ArchetypeAfterBundleInsert,
         world: &'a UnsafeWorldCell<'w>,
         archetype_move_type: &'a mut ArchetypeMoveType,
-    ) -> (
-        &'a Archetype,
-        EntityLocation,
-        &'a mut SparseSets,
-        &'a mut Table,
-        TableRow,
-    ) {
+    ) -> (&'a Archetype, EntityLocation, &'a mut SparseSets, TableRow) {
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
         unsafe {
@@ -197,8 +178,6 @@ impl<'w> BundleInserter<'w> {
             }
         }
 
-        let table = table.as_mut();
-
         // SAFETY: Archetype gets borrowed when running the on_discard observers above,
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
         let archetype = archetype.as_mut();
@@ -211,13 +190,7 @@ impl<'w> BundleInserter<'w> {
                     &mut world.storages.sparse_sets
                 };
 
-                (
-                    &*archetype,
-                    location,
-                    sparse_sets,
-                    table,
-                    location.table_row,
-                )
+                (&*archetype, location, sparse_sets, location.table_row)
             }
             ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
@@ -246,27 +219,19 @@ impl<'w> BundleInserter<'w> {
                 let new_location = new_archetype.allocate(entity, result.table_row);
                 entities.update_existing_location(entity.index(), Some(new_location));
 
-                (
-                    &*new_archetype,
-                    new_location,
-                    sparse_sets,
-                    table,
-                    result.table_row,
-                )
+                (&*new_archetype, new_location, sparse_sets, result.table_row)
             }
-            ArchetypeMoveType::NewArchetypeNewTable {
-                new_archetype,
-                new_table,
-            } => {
-                let new_table = new_table.as_mut();
+            ArchetypeMoveType::NewArchetypeNewTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
+                let new_table_id = new_archetype.table_id();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let (archetypes_ptr, sparse_sets, entities) = {
+                let (archetypes_ptr, tables, sparse_sets, entities) = {
                     let world = world.world_mut();
                     let archetype_ptr: *mut Archetype = world.archetypes.archetypes.as_mut_ptr();
                     (
                         archetype_ptr,
+                        &mut world.storages.tables,
                         &mut world.storages.sparse_sets,
                         &mut world.entities,
                     )
@@ -286,9 +251,16 @@ impl<'w> BundleInserter<'w> {
                         }),
                     );
                 }
-                // PERF: store "non bundle" components in edge, then just move those to avoid
-                // redundant copies
-                let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
+
+                // SAFETY:
+                // - `location.table_id` is obtained from a valid location
+                //   and `new_table_id` was obtained from a valid archetype.
+                // - `DROP` is `true`.
+                // - Valid values will be written to new components by the caller (`Self::insert`).
+                let move_result = unsafe {
+                    tables.move_row::<true>(location.table_id, new_table_id, result.table_row)
+                };
+
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
                 entities.update_existing_location(entity.index(), Some(new_location));
 
@@ -325,7 +297,6 @@ impl<'w> BundleInserter<'w> {
                     &*new_archetype,
                     new_location,
                     sparse_sets,
-                    new_table,
                     move_result.new_row,
                 )
             }
@@ -356,13 +327,12 @@ impl<'w> BundleInserter<'w> {
 
         let (new_archetype, new_location) = {
             // Non-generic prelude extracted to improve compile time by minimizing monomorphized code.
-            let (new_archetype, new_location, sparse_sets, table, table_row) = Self::before_insert(
+            let (new_archetype, new_location, sparse_sets, table_row) = Self::before_insert(
                 entity,
                 location,
                 insert_mode,
                 caller,
                 relationship_hook_mode,
-                self.table,
                 self.archetype,
                 archetype_after_insert,
                 &self.world,
@@ -370,7 +340,7 @@ impl<'w> BundleInserter<'w> {
             );
 
             self.bundle_info.as_ref().write_components(
-                table,
+                self.table_after_insert.as_mut(),
                 sparse_sets,
                 archetype_after_insert,
                 archetype_after_insert.required_components.iter(),
