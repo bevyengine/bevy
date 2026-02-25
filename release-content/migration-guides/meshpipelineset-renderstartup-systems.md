@@ -1,5 +1,5 @@
 ---
-title: `MeshPipelineViewLayouts`, `MeshPipeline` and `RenderDebugOverlayPipeline` are now `RenderStartup` systems
+title: Resources `MeshPipelineViewLayouts`, `MeshPipeline` and `RenderDebugOverlayPipeline` are now created in `RenderStartup` systems
 pull_requests: [22443]
 ---
 
