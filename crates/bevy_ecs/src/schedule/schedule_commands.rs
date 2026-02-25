@@ -156,7 +156,6 @@ mod tests {
     use crate::schedule::schedule_commands::ScheduleCommandsExt;
     use crate::schedule::set::ScheduleLabel;
     use crate::schedule::ScheduleCommandQueues;
-    use crate::system::Local;
     use crate::{
         prelude::Schedules, schedule::InternedScheduleLabel, system::Commands, world::World,
     };
@@ -254,15 +253,11 @@ mod tests {
     fn apply_queue_system_unique() {
         let mut world = init_world();
 
-        world.resource_mut::<Schedules>().add_systems(
-            Startup,
-            |mut commands: Commands, mut once: Local<bool>| {
-                if !*once {
-                    commands.scheduled().label(Update).spawn(TestComponent);
-                    *once = true;
-                }
-            },
-        );
+        world
+            .resource_mut::<Schedules>()
+            .add_systems(Startup, |mut commands: Commands| {
+                commands.scheduled().label(Update).spawn(TestComponent);
+            });
 
         let schedules = world.resource_mut::<Schedules>();
         let schedule = schedules.get(Update).unwrap();
@@ -283,7 +278,9 @@ mod tests {
 
         let mut binding = world.query::<&TestComponent>();
 
-        binding.single(&world).unwrap();
+        let entitis = binding.iter(&world);
+
+        assert_eq!(2, entitis.count());
 
         let resource = world.resource::<ScheduleCommandQueues>();
 
