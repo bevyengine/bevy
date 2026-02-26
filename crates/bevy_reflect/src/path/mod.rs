@@ -807,6 +807,16 @@ mod tests {
             })
         );
         assert_eq!(
+            a.reflect_path("tuple_variant{1.32}").err().unwrap(),
+            ReflectPathError::InvalidAccess(AccessError {
+                kind: AccessErrorKind::MissingField(ReflectKind::Enum),
+                access: ParsedPath::parse_static("tuple_variant{1.32}").unwrap()[1]
+                    .access
+                    .clone(),
+                offset: Some(14)
+            })
+        );
+        assert_eq!(
             a.reflect_path("x[0]").err().unwrap(),
             invalid_access(2, ReflectKind::Struct, ReflectKind::List, "x[0]")
         );
