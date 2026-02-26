@@ -471,6 +471,8 @@ fn gather_light_probes<C>(
                         "Clustering shouldn't have clustered light probe {:?}",
                         main_entity
                     );
+                    // Things that should never happen won't happen in debug mode.
+                    debug_assert!(false);
                     continue;
                 };
                 // If we don't successfully create `LightProbeInfo`, that means

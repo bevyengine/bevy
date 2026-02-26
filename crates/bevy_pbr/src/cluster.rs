@@ -426,6 +426,8 @@ pub fn prepare_clusters(
                             "Clustered light or decal {:?} had no assigned index!",
                             entity
                         );
+                        // Things that should never happen won't happen in debug mode.
+                        debug_assert!(false);
                         view_clusters_bindings.push_dummy_index();
                     }
                 }
