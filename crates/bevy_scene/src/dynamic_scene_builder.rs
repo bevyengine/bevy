@@ -3,6 +3,7 @@ use core::any::TypeId;
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
+use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
     component::{Component, ComponentId},
     entity::{Entity, EntityHashMap, EntityMapper},
@@ -317,6 +318,10 @@ impl<'w> DynamicSceneBuilder<'w> {
             };
 
             let original_entity = self.original_world.entity(entity);
+            if original_entity.contains_id(IS_RESOURCE) {
+                continue;
+            }
+
             for &component_id in original_entity.archetype().components().iter() {
                 let mut extract_and_push = || {
                     let type_id = self
@@ -392,19 +397,19 @@ impl<'w> DynamicSceneBuilder<'w> {
         let original_world_dqf_id = self
             .original_world
             .components()
-            .get_valid_resource_id(TypeId::of::<DefaultQueryFilters>());
+            .get_valid_id(TypeId::of::<DefaultQueryFilters>());
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
-        for (component_id, _) in self.original_world.storages().resources.iter() {
-            if Some(component_id) == original_world_dqf_id {
+        for (component_id, entity) in self.original_world.resource_entities().iter() {
+            if Some(*component_id) == original_world_dqf_id {
                 continue;
             }
             let mut extract_and_push = || {
                 let type_id = self
                     .original_world
                     .components()
-                    .get_info(component_id)?
+                    .get_info(*component_id)?
                     .type_id()?;
 
                 let is_denied = self.resource_filter.is_denied_by_id(type_id);
@@ -416,22 +421,22 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                 let type_registration = type_registry.get(type_id)?;
 
-                let resource = type_registration
-                    .data::<ReflectResource>()?
-                    .reflect(self.original_world)
-                    .ok()?;
+                type_registration.data::<ReflectResource>()?;
+                let component = type_registration
+                    .data::<ReflectComponent>()?
+                    .reflect(self.original_world.entity(*entity))?;
 
-                let mut resource =
-                    clone_reflect_value(resource.as_partial_reflect(), type_registration);
+                let mut component =
+                    clone_reflect_value(component.as_partial_reflect(), type_registration);
 
                 // Map entities in the resource if an entity map is provided
                 if let Some(entity_map) = self.entity_map.as_mut()
                     && let Some(map_entities) = type_registration.data::<ReflectMapEntities>()
                 {
-                    map_entities.map_entities(resource.as_partial_reflect_mut(), &mut **entity_map);
+                    map_entities.map_entities(component.as_partial_reflect_mut(), &mut **entity_map);
                 }
 
-                self.extracted_resources.insert(component_id, resource);
+                self.extracted_resources.insert(*component_id, component);
                 Some(())
             };
             extract_and_push();

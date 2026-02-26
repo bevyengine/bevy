@@ -4,7 +4,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 use std::f32::consts::PI;
 
@@ -37,10 +37,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(Update, animate_materials)
@@ -95,7 +92,7 @@ fn animate_materials(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (i, material_handle) in material_handles.iter().enumerate() {
-        if let Some(material) = materials.get_mut(material_handle) {
+        if let Some(mut material) = materials.get_mut(material_handle) {
             let color = Color::hsl(
                 ((i as f32 * 2.345 + time.elapsed_secs()) * 100.0) % 360.0,
                 1.0,

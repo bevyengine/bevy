@@ -8,8 +8,8 @@ use bevy::{
     light::CascadeShadowConfigBuilder,
     prelude::*,
 };
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 const FOX_PATH: &str = "models/animated/Fox.glb";
 
@@ -155,7 +155,7 @@ fn setup_scene_once_loaded(
             AnimationNodeType::Clip(handle) => clips.get_mut(handle),
             _ => unreachable!(),
         };
-        clip.unwrap()
+        clip.unwrap().into_inner()
     }
 
     for (entity, mut player) in &mut players {
