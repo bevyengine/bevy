@@ -19,6 +19,16 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
 
+#[proc_macro_derive(ExtractResource)]
+pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
+    extract_resource::derive_extract_resource(input)
+}
+
+#[proc_macro_derive(ExtractComponent, attributes(extract_component_filter))]
+pub fn derive_extract_component(input: TokenStream) -> TokenStream {
+    extract_component::derive_extract_component(input)
+}
+
 #[proc_macro_derive(
     AsBindGroup,
     attributes(
@@ -66,14 +76,4 @@ pub fn derive_specialize(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SpecializerKey)]
 pub fn derive_specializer_key(input: TokenStream) -> TokenStream {
     specializer::impl_specializer_key(input)
-}
-
-#[proc_macro_derive(ExtractResource)]
-pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
-    extract_resource::derive_extract_resource(input)
-}
-
-#[proc_macro_derive(ExtractComponent, attributes(extract_component_filter))]
-pub fn derive_extract_component(input: TokenStream) -> TokenStream {
-    extract_component::derive_extract_component(input)
 }

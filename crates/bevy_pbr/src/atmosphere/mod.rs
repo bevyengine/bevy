@@ -54,18 +54,14 @@ use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::ExtractComponentPlugin,
-    render_resource::{TextureFormat, TextureUsages},
-    renderer::RenderAdapter,
-    Render, RenderApp, RenderSystems,
-};
-use bevy_render::{
-    extract_component::{ExtractComponent, UniformComponentPlugin},
-    render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
-    renderer::RenderDevice,
+    extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
+    render_resource::{
+        DownlevelFlags, ShaderType, SpecializedRenderPipelines, TextureFormat, TextureUsages,
+    },
+    renderer::{RenderAdapter, RenderDevice},
     sync_component::SyncComponent,
     sync_world::RenderEntity,
-    Extract, ExtractSchedule, RenderStartup,
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 use bevy_shader::load_shader_library;
