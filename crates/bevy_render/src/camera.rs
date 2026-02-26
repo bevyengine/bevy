@@ -11,8 +11,8 @@ use crate::{
     texture::{GpuImage, ManualTextureViews},
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
-        RenderVisibleEntities, RenderVisibleMeshEntities, RetainedViewEntity, ViewUniformOffset,
-        VisibilityExtractionSystemParam,
+        RenderVisibleEntities, RenderVisibleEntitiesClass, RenderVisibleEntitiesCpuCulling,
+        RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -478,12 +478,13 @@ pub fn extract_cameras(
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
-    mut existing_render_visible_entities: Query<&mut RenderVisibleEntities>,
+    mut existing_render_visible_entities_cpu_culling: Query<
+        &mut RenderVisibleEntitiesCpuCulling,
+        With<RenderVisibleEntities>,
+    >,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     visibility_extraction_system_param: VisibilityExtractionSystemParam,
 ) {
-    let prepared_visibility_extraction_system_param = visibility_extraction_system_param.prepare();
-
     let primary_window = primary_window.iter().next();
     type ExtractedCameraComponents = (
         ExtractedCamera,
@@ -545,24 +546,31 @@ pub fn extract_cameras(
                 continue;
             }
 
-            let mut render_visible_entities =
-                match existing_render_visible_entities.get_mut(render_entity) {
-                    Ok(ref mut existing_render_visible_entities) => {
-                        mem::take(&mut **existing_render_visible_entities)
-                    }
-                    Err(_) => RenderVisibleEntities::default(),
+            let (mut render_visible_entities_cpu_culling, view_is_new) =
+                match existing_render_visible_entities_cpu_culling.get_mut(render_entity) {
+                    Ok(ref mut existing_render_visible_entities_cpu_culling) => (
+                        mem::take(&mut **existing_render_visible_entities_cpu_culling),
+                        false,
+                    ),
+                    Err(_) => (RenderVisibleEntitiesCpuCulling::default(), true),
                 };
 
             for (visibility_class, visible_mesh_entities) in visible_entities.entities.iter() {
-                render_visible_entities
-                    .entities
+                let render_view_visible_entities = render_visible_entities_cpu_culling
+                    .classes
                     .entry(*visibility_class)
-                    .or_default()
-                    .update_from(
-                        &prepared_visibility_extraction_system_param,
-                        visible_mesh_entities,
-                        *visibility_class,
-                    );
+                    .or_default();
+                render_view_visible_entities.entities.clear();
+                for main_entity in visible_mesh_entities {
+                    let render_entity =
+                        match visibility_extraction_system_param.mapper.get(*main_entity) {
+                            Ok(render_entity) => render_entity.entity(),
+                            Err(_) => Entity::PLACEHOLDER,
+                        };
+                    render_view_visible_entities
+                        .entities
+                        .push((render_entity, MainEntity::from(*main_entity)));
+                }
             }
 
             // Don't delete "unused" visibility classes from
@@ -604,9 +612,14 @@ pub fn extract_cameras(
                     color_grading,
                     invert_culling: camera.invert_culling,
                 },
-                render_visible_entities,
+                render_visible_entities_cpu_culling,
                 *frustum,
             ));
+
+            // FIXME: try required components on the cpu version of this?
+            if view_is_new {
+                commands.insert(RenderVisibleEntities::default());
+            }
 
             if let Some(temporal_jitter) = temporal_jitter {
                 commands.insert(temporal_jitter.clone());
@@ -790,7 +803,7 @@ impl DirtySpecializations {
     /// entity returned will be [`Entity::PLACEHOLDER`].
     fn entity_pair_from_visible_main_entity<'a>(
         &'a self,
-        render_visible_mesh_entities: &'a RenderVisibleMeshEntities,
+        render_visible_mesh_entities: &'a RenderVisibleEntitiesClass,
         main_entity: &'a MainEntity,
     ) -> Option<(&'a Entity, &'a MainEntity)> {
         // Check entities with CPU culling.
@@ -832,20 +845,20 @@ impl DirtySpecializations {
     pub fn iter_to_specialize<'a>(
         &'a self,
         view: RetainedViewEntity,
-        render_visible_mesh_entities: &'a RenderVisibleMeshEntities,
+        render_view_visible_mesh_entities: &'a RenderVisibleEntitiesClass,
         last_frame_view_pending_queues: &'a HashSet<(Entity, MainEntity)>,
     ) -> impl Iterator<Item = (&'a Entity, &'a MainEntity)> {
         (if self.must_wipe_specializations_for_view(view) {
-            Either::Left(render_visible_mesh_entities.iter_visible())
+            Either::Left(render_view_visible_mesh_entities.iter_visible())
         } else {
             Either::Right(
-                render_visible_mesh_entities
-                    .added_entities
+                render_view_visible_mesh_entities
+                    .added_entities()
                     .iter()
                     .map(|(entity, main_entity)| (entity, main_entity))
                     .chain(self.changed_renderables.iter().filter_map(|main_entity| {
                         self.entity_pair_from_visible_main_entity(
-                            render_visible_mesh_entities,
+                            render_view_visible_mesh_entities,
                             main_entity,
                         )
                     })),
@@ -853,7 +866,7 @@ impl DirtySpecializations {
         })
         .chain(last_frame_view_pending_queues.iter().filter_map(
             |(entity, main_entity)| {
-                if render_visible_mesh_entities.entity_pair_is_visible(*entity, *main_entity) {
+                if render_view_visible_mesh_entities.entity_pair_is_visible(*entity, *main_entity) {
                     Some((entity, main_entity))
                 } else {
                     None
@@ -872,7 +885,7 @@ impl DirtySpecializations {
     pub fn iter_to_dequeue<'a>(
         &'a self,
         view: RetainedViewEntity,
-        render_visible_mesh_entities: &'a RenderVisibleMeshEntities,
+        render_visible_mesh_entities: &'a RenderVisibleEntitiesClass,
     ) -> impl Iterator<Item = &'a MainEntity> {
         render_visible_mesh_entities
             .removed_entities
@@ -909,7 +922,7 @@ impl DirtySpecializations {
     pub fn iter_to_queue<'a>(
         &'a self,
         view: RetainedViewEntity,
-        render_visible_mesh_entities: &'a RenderVisibleMeshEntities,
+        render_visible_mesh_entities: &'a RenderVisibleEntitiesClass,
         last_frame_view_pending_queues: &'a HashSet<(Entity, MainEntity)>,
     ) -> impl Iterator<Item = (&'a Entity, &'a MainEntity)> {
         (if self.must_wipe_specializations_for_view(view) {
@@ -917,7 +930,7 @@ impl DirtySpecializations {
         } else {
             Either::Right(
                 render_visible_mesh_entities
-                    .added_entities
+                    .added_entities()
                     .iter()
                     .map(|(entity, main_entity)| (entity, main_entity))
                     .chain(self.changed_renderables.iter().filter_map(|main_entity| {
@@ -930,7 +943,7 @@ impl DirtySpecializations {
                         // [`RenderVisibleMeshEntities`] are guaranteed to be
                         // sorted.
                         if render_visible_mesh_entities
-                            .added_entities
+                            .added_entities()
                             .binary_search_by_key(main_entity, |(_, main_entity)| *main_entity)
                             .is_err()
                         {

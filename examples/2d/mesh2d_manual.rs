@@ -28,7 +28,7 @@ use bevy::{
         },
         sync_component::{SyncComponent, SyncComponentPlugin},
         sync_world::{MainEntityHashMap, RenderEntity},
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
+        view::{ExtractedView, RenderShadowMapVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
     sprite_render::{
@@ -37,6 +37,7 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
+use bevy_render::view::RenderVisibleEntities;
 use std::f32::consts::PI;
 
 fn main() {

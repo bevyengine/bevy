@@ -3,19 +3,21 @@ use core::{any::TypeId, mem};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    lifecycle::RemovedComponents,
     prelude::ReflectComponent,
-    query::{Changed, Or},
+    query::{Changed, Or, With},
     system::{
         lifetimeless::{Read, SQuery},
-        SystemParam,
+        Local, Query, SystemParam,
     },
 };
+use bevy_log::info_span;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::TypeIdMap;
 
 use crate::{
     sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
+    view::RetainedViewEntity,
     Extract,
 };
 
@@ -28,9 +30,14 @@ pub use range::*;
 /// This component is extracted from [`VisibleEntities`].
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-pub struct RenderVisibleEntities {
+pub struct RenderShadowMapVisibleEntities {
     #[reflect(ignore, clone)]
-    pub entities: TypeIdMap<RenderVisibleMeshEntities>,
+    pub subviews: HashMap<RetainedViewEntity, RenderVisibleEntities>,
+}
+
+#[derive(Clone, Component, Default, Debug)]
+pub struct RenderVisibleEntities {
+    pub classes: TypeIdMap<RenderVisibleEntitiesClass>,
 }
 
 /// Stores a list of all entities that are visible from this view, as well as
@@ -43,9 +50,9 @@ pub struct RenderVisibleEntities {
 /// always be [`Entity::PLACEHOLDER`]. The render-world entities are kept for
 /// legacy passes that still need to process visibility of render-world
 /// entities.
-#[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Debug, Default, Clone)]
-pub struct RenderVisibleMeshEntities {
+#[derive(Clone, Debug, Default, Reflect)]
+#[reflect(Debug, Default, Clone)]
+pub struct RenderVisibleEntitiesClass {
     /// A sorted list of all entities that don't have [`NoCpuCulling`]
     /// components and are visible from this view.
     #[reflect(ignore, clone)]
@@ -55,22 +62,54 @@ pub struct RenderVisibleMeshEntities {
     pub entities_no_cpu_culling: MainEntityHashMap<Entity>,
     /// A sorted list of all entities that were invisible last frame (including
     /// ones that didn't exist at all last frame) and became visible this frame.
-    pub added_entities: Vec<(Entity, MainEntity)>,
+    added_entities: Vec<(Entity, MainEntity)>,
     /// A sorted list of all entities that were visible last frame and became
     /// invisible this frame, including those that were despawned this frame.
     pub removed_entities: Vec<(Entity, MainEntity)>,
 }
 
+#[derive(Component, Default)]
+pub struct RenderShadowMapVisibleEntitiesCpuCulling {
+    pub subviews: HashMap<RetainedViewEntity, RenderVisibleEntitiesCpuCulling>,
+}
+
+#[derive(Component, Clone, Default, Debug)]
+pub struct RenderVisibleEntitiesCpuCulling {
+    pub classes: TypeIdMap<RenderVisibleEntitiesClassCpuCulling>,
+}
+
+#[derive(Clone, Default, Debug)]
+pub struct RenderVisibleEntitiesClassCpuCulling {
+    pub entities: Vec<(Entity, MainEntity)>,
+}
+
+/*
+#[derive(Resource, Default)]
+pub struct RenderVisibleEntitiesGpuCulling {
+    pub entities: TypeIdMap<RenderViewEntitiesGpuCulling>,
+}
+
+pub struct RenderViewEntitiesGpuCulling {
+    pub added_entities: Vec<(Entity, MainEntity)>,
+    pub removed_entities: Vec<(Entity, MainEntity)>,
+}
+*/
+
 impl RenderVisibleEntities {
-    pub fn get<QF>(&self) -> Option<&RenderVisibleMeshEntities>
+    pub fn get<QF>(&self) -> Option<&RenderVisibleEntitiesClass>
     where
         QF: 'static,
     {
-        self.entities.get(&TypeId::of::<QF>())
+        self.classes.get(&TypeId::of::<QF>())
     }
 }
 
-impl RenderVisibleMeshEntities {
+impl RenderVisibleEntitiesClass {
+    fn prepare_for_new_frame(&mut self) {
+        self.added_entities.clear();
+        self.removed_entities.clear();
+    }
+
     /// Processes a list of visible entities for a new frame, computing the set
     /// of newly-added and newly-removed entities as it goes.
     ///
@@ -78,135 +117,65 @@ impl RenderVisibleMeshEntities {
     /// `visible_mesh_entities_cpu_culling` list. Entities that opted out of CPU
     /// culling are fetched from the ECS via the
     /// `PreparedVisibilityExtractionSystemParam`.
-    pub fn update_from(
-        &mut self,
-        visibility_extraction_system_param: &PreparedVisibilityExtractionSystemParam,
-        visible_mesh_entities_cpu_culling: &[Entity],
-        visibility_class: TypeId,
-    ) {
-        let PreparedVisibilityExtractionSystemParam {
-            mapper,
-            no_cpu_culling_changed_entities,
-            no_cpu_culling_removed_entities,
-        } = visibility_extraction_system_param;
+    fn update_from_cpu(&mut self, visible_mesh_entities_cpu_culling: &[(Entity, MainEntity)]) {
+        let _update_from = info_span!("update_from", name = "update_from").entered();
 
         let old_entities_cpu_culling = mem::take(&mut self.entities_cpu_culling);
-        self.added_entities.clear();
-        self.removed_entities.clear();
 
         // March over the old and new visible CPU culling entity lists in
         // lockstep, diffing as we go to determine the added and removed
         // entities. The lists must be sorted.
         let mut old_entity_cpu_culling_iter = old_entities_cpu_culling.iter().peekable();
-        for &visible_main_entity in visible_mesh_entities_cpu_culling {
-            let visible_main_entity = MainEntity::from(visible_main_entity);
+        {
+            let _old_entity_cpu_culling_span =
+                info_span!("old_entity_cpu_culling", name = "old_entity_cpu_culling").entered();
+            for (render_entity, visible_main_entity) in visible_mesh_entities_cpu_culling {
+                // Mark entities as removed until we see the one we're looking at.
+                while old_entity_cpu_culling_iter
+                    .peek()
+                    .is_some_and(|(_, main_entity)| *main_entity < *visible_main_entity)
+                {
+                    self.removed_entities
+                        .push(*old_entity_cpu_culling_iter.next().unwrap());
+                }
 
-            // Mark entities as removed until we see the one we're looking at.
-            while old_entity_cpu_culling_iter
-                .peek()
-                .is_some_and(|(_, main_entity)| *main_entity < visible_main_entity)
-            {
-                self.removed_entities
-                    .push(*old_entity_cpu_culling_iter.next().unwrap());
-            }
+                // Add the visible entity to the list.
+                self.entities_cpu_culling
+                    .push((*render_entity, *visible_main_entity));
 
-            // Add the visible entity to the list.
-            let render_entity = mapper
-                .get(*visible_main_entity)
-                .cloned()
-                .unwrap_or(RenderEntity::from(Entity::PLACEHOLDER));
-            self.entities_cpu_culling
-                .push((*render_entity, visible_main_entity));
-
-            // If the next entity in the old list isn't equal to the entity we
-            // just marked visible, then our entity is newly visible this frame.
-            if old_entity_cpu_culling_iter
-                .peek()
-                .is_some_and(|&&(_, main_entity)| main_entity == visible_main_entity)
-            {
-                old_entity_cpu_culling_iter.next();
-            } else {
-                self.added_entities
-                    .push((*render_entity, visible_main_entity));
+                // If the next entity in the old list isn't equal to the entity we
+                // just marked visible, then our entity is newly visible this frame.
+                if old_entity_cpu_culling_iter
+                    .peek()
+                    .is_some_and(|&&(_, main_entity)| main_entity == *visible_main_entity)
+                {
+                    old_entity_cpu_culling_iter.next();
+                } else {
+                    self.added_entities
+                        .push((*render_entity, *visible_main_entity));
+                }
             }
         }
 
         // Any entities that do CPU culling and that we didn't see yet are
         // removed, so drain them.
-        self.removed_entities
-            .extend(old_entity_cpu_culling_iter.copied());
-
-        // Now process all changed entities that have `NoCpuCulling`.
-        for (visible_main_entity, entity_visibility_class, inherited_visibility) in
-            no_cpu_culling_changed_entities.iter()
         {
-            let visible_main_entity = MainEntity::from(visible_main_entity);
-            let render_entity = mapper
-                .get(*visible_main_entity)
-                .cloned()
-                .unwrap_or(RenderEntity::from(Entity::PLACEHOLDER));
-
-            // If the entity is invisible, then remove it from the set of
-            // visible entities if it's there.
-            if !entity_visibility_class.contains(&visibility_class) || !inherited_visibility.get() {
-                if self
-                    .entities_no_cpu_culling
-                    .remove(&visible_main_entity)
-                    .is_some()
-                {
-                    self.removed_entities
-                        .push((*render_entity, visible_main_entity));
-                }
-                continue;
-            }
-
-            // Otherwise, it's a newly-visible entity (as far as the CPU is
-            // concerned). Mark it as such.
-            self.added_entities
-                .push((*render_entity, visible_main_entity));
-            self.entities_no_cpu_culling
-                .insert(visible_main_entity, *render_entity);
-        }
-
-        // Our list of added entities must be sorted. Ensure that.
-        self.added_entities
-            .sort_unstable_by_key(|(_, main_entity)| *main_entity);
-
-        // Finally, remove entities that had [`NoCpuCulling`] removed.
-        for removed_main_entity in no_cpu_culling_removed_entities {
-            let removed_main_entity = MainEntity::from(*removed_main_entity);
-
-            // The fact that an entity is present in
-            // `RemovedComponents<NoCpuCulling>` doesn't necessarily mean that
-            // it's now invisible. First, the entity might simply have had
-            // [`NoCpuCulling`] removed in order to go from being culled on GPU
-            // to culled on CPU; in that case, the entity should remain visible.
-            // We check for that situation:
-            if self
-                .entities_cpu_culling
-                .binary_search_by_key(&removed_main_entity, |(_, main_entity)| *main_entity)
-                .is_ok()
-            {
-                continue;
-            }
-
-            // Second, the entity might have had [`NoCpuCulling`] removed and
-            // then re-added in the same frame, in which case, again, it should
-            // remain visible. We likewise check for that situation:
-            if self
-                .added_entities
-                .binary_search_by_key(&removed_main_entity, |(_, main_entity)| *main_entity)
-                .is_ok()
-            {
-                continue;
-            }
-
-            // If we got here, the entity is now known to be invisible. Remove
-            // it.
+            let _old_entity_cpu_culling_removal_span = info_span!(
+                "old_entity_cpu_culling_removal",
+                name = "old_entity_cpu_culling_removal"
+            )
+            .entered();
             self.removed_entities
-                .push((Entity::PLACEHOLDER, removed_main_entity));
-            self.entities_no_cpu_culling.remove(&removed_main_entity);
+                .extend(old_entity_cpu_culling_iter.copied());
         }
+    }
+
+    pub fn add_entity(&mut self, pair: (Entity, MainEntity)) {
+        self.added_entities.push(pair);
+    }
+
+    pub fn added_entities(&self) -> &[(Entity, MainEntity)] {
+        &self.added_entities
     }
 
     /// Returns true if the given entity pair is known to be visible.
@@ -237,6 +206,11 @@ impl RenderVisibleMeshEntities {
                     .map(|(main_entity, entity)| (entity, main_entity)),
             )
     }
+
+    pub fn sort_added_entities(&mut self) {
+        self.added_entities
+            .sort_unstable_by_key(|(_, main_entity)| *main_entity);
+    }
 }
 
 /// A system parameter that goes on any render-world system that needs to
@@ -245,13 +219,6 @@ impl RenderVisibleMeshEntities {
 pub struct VisibilityExtractionSystemParam<'w, 's> {
     /// Maps entities in the main world to entities in the render world.
     pub mapper: Extract<'w, 's, SQuery<Read<RenderEntity>>>,
-    /// Entities that have [`NoCpuCulling`] components and have changed in such
-    /// a way as to affect their CPU-side visibility.
-    pub no_cpu_culling_added_entities:
-        Extract<'w, 's, VisibilityExtractionNoCpuCullingChangedQuery>,
-    /// Entities that have had their [`NoCpuCulling`] components removed.
-    pub no_cpu_culling_removed_entities:
-        Extract<'w, 's, RemovedComponents<'static, 'static, NoCpuCulling>>,
 }
 
 /// A structure derived from [`VisibilityExtractionSystemParam`] that must be
@@ -265,38 +232,112 @@ pub struct VisibilityExtractionSystemParam<'w, 's> {
 pub struct PreparedVisibilityExtractionSystemParam<'w, 's> {
     /// Maps entities in the main world to entities in the render world.
     pub mapper: Extract<'w, 's, SQuery<Read<RenderEntity>>>,
-    /// Entities that have [`NoCpuCulling`] components and have changed in such
-    /// a way as to affect their CPU-side visibility.
-    pub no_cpu_culling_changed_entities:
-        Extract<'w, 's, VisibilityExtractionNoCpuCullingChangedQuery>,
-    /// Entities that have had their [`NoCpuCulling`] components removed.
-    ///
-    /// This is the same as
-    /// [`VisibilityExtractionSystemParam::no_cpu_culling_removed_entities`],
-    /// but collected into a vector.
-    pub no_cpu_culling_removed_entities: Vec<Entity>,
 }
 
 /// The query, part of [`VisibilityExtractionSystemParam`], that searches for
 /// entities with [`NoCpuCulling`] that might have changed visibility.
 pub type VisibilityExtractionNoCpuCullingChangedQuery = SQuery<
     (Entity, Read<VisibilityClass>, Read<InheritedVisibility>),
-    Or<(Changed<NoCpuCulling>, Changed<InheritedVisibility>)>,
+    (
+        Or<(Changed<NoCpuCulling>, Changed<InheritedVisibility>)>,
+        With<NoCpuCulling>,
+    ),
 >;
 
-impl<'w, 's> VisibilityExtractionSystemParam<'w, 's> {
-    /// Converts a [`VisibilityExtractionSystemParam`] to a
-    /// [`PreparedVisibilityExtractionSystemParam`].
-    ///
-    /// This simply drains the
-    /// [`VisibilityExtractionSystemParam::no_cpu_culling_removed_entities`]
-    /// list into a vector.
-    pub fn prepare(mut self) -> PreparedVisibilityExtractionSystemParam<'w, 's> {
-        let no_cpu_culling_removed_entities = self.no_cpu_culling_removed_entities.read().collect();
-        PreparedVisibilityExtractionSystemParam {
-            mapper: self.mapper,
-            no_cpu_culling_changed_entities: self.no_cpu_culling_added_entities,
-            no_cpu_culling_removed_entities,
+pub fn collect_render_visible_entities(
+    mut cameras: Query<(
+        &mut RenderVisibleEntities,
+        Option<&mut RenderVisibleEntitiesCpuCulling>,
+    )>,
+    mut lights: Query<(
+        &MainEntity,
+        &mut RenderShadowMapVisibleEntities,
+        Option<&mut RenderShadowMapVisibleEntitiesCpuCulling>,
+    )>,
+    mut visibility_classes: Local<HashSet<TypeId>>,
+) {
+    // Collect cameras.
+    for (mut render_visible_entities, mut maybe_render_visible_entities_cpu_culling) in
+        cameras.iter_mut()
+    {
+        let mut maybe_render_subview_visible_entities_cpu_culling =
+            maybe_render_visible_entities_cpu_culling.as_deref_mut();
+        collect_render_visible_entities_for_subview(
+            &mut render_visible_entities,
+            &mut maybe_render_subview_visible_entities_cpu_culling,
+            &mut visibility_classes,
+        );
+    }
+
+    // Collect shadow maps.
+    for (
+        main_light_entity,
+        mut render_shadow_map_visible_entities,
+        mut maybe_render_shadow_map_visible_entities_cpu_culling,
+    ) in lights.iter_mut()
+    {
+        for (subview, mut render_visible_entities) in
+            render_shadow_map_visible_entities.subviews.iter_mut()
+        {
+            let mut maybe_render_subview_visible_entities_cpu_culling =
+                maybe_render_shadow_map_visible_entities_cpu_culling
+                    .as_mut()
+                    .and_then(|render_subview_visible_entities_cpu_culling| {
+                        render_subview_visible_entities_cpu_culling
+                            .subviews
+                            .get_mut(subview)
+                    });
+            collect_render_visible_entities_for_subview(
+                render_visible_entities,
+                &mut maybe_render_subview_visible_entities_cpu_culling,
+                &mut visibility_classes,
+            );
         }
+    }
+}
+
+fn collect_render_visible_entities_for_subview(
+    render_visible_entities: &mut RenderVisibleEntities,
+    maybe_render_subview_visible_entities_cpu_culling: &mut Option<
+        &mut RenderVisibleEntitiesCpuCulling,
+    >,
+    visibility_classes: &mut HashSet<TypeId>,
+) {
+    visibility_classes.clear();
+    visibility_classes.extend(render_visible_entities.classes.keys().copied());
+    if let Some(ref mut render_subview_visible_entities_cpu_culling) =
+        *maybe_render_subview_visible_entities_cpu_culling
+    {
+        visibility_classes.extend(
+            render_subview_visible_entities_cpu_culling
+                .classes
+                .keys()
+                .copied(),
+        );
+    }
+
+    for visibility_class in visibility_classes.iter() {
+        let entities = render_visible_entities
+            .classes
+            .entry(*visibility_class)
+            .or_default();
+
+        entities.prepare_for_new_frame();
+
+        let Some(ref mut render_subview_visible_entities_cpu_culling) =
+            *maybe_render_subview_visible_entities_cpu_culling
+        else {
+            continue;
+        };
+        let Some(render_view_entities_cpu_culling) = render_subview_visible_entities_cpu_culling
+            .classes
+            .get_mut(visibility_class)
+        else {
+            continue;
+        };
+        render_view_entities_cpu_culling
+            .entities
+            .sort_unstable_by_key(|(_, main_entity)| *main_entity);
+        entities.update_from_cpu(&render_view_entities_cpu_culling.entities);
     }
 }

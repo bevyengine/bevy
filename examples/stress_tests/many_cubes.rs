@@ -137,6 +137,7 @@ fn main() {
         LogDiagnosticsPlugin::default(),
     ))
     .insert_resource(WinitSettings::continuous())
+    .insert_resource(StaticTransformOptimizations::enabled())
     .add_systems(Startup, setup)
     .add_systems(Update, print_mesh_count);
 

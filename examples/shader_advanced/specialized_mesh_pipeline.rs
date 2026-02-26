@@ -35,10 +35,11 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
+        view::{ExtractedView, RenderShadowMapVisibleEntities, ViewTarget},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
+use bevy_render::view::RenderVisibleEntities;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
