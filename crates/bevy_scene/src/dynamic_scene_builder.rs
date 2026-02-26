@@ -433,7 +433,8 @@ impl<'w> DynamicSceneBuilder<'w> {
                 if let Some(entity_map) = self.entity_map.as_mut()
                     && let Some(map_entities) = type_registration.data::<ReflectMapEntities>()
                 {
-                    map_entities.map_entities(component.as_partial_reflect_mut(), &mut **entity_map);
+                    map_entities
+                        .map_entities(component.as_partial_reflect_mut(), &mut **entity_map);
                 }
 
                 self.extracted_resources.insert(*component_id, component);
