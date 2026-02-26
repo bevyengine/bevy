@@ -1762,6 +1762,7 @@ pub fn extract_meshes_for_gpu_building(
     gpu_culling_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
     meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
     mut reextract_entities: Local<EntityHashSet>,
+    mut potential_reextraction_set: Local<IndexSet<Entity, EntityHash>>,
     mut potential_reextraction_bitfield: Local<Vec<AtomicU64>>,
 ) {
     reextract_entities.clear();
@@ -1778,21 +1779,23 @@ pub fn extract_meshes_for_gpu_building(
     // because the material hadn't yet been loaded. We reextract such materials
     // on subsequent frames so that `collect_meshes_for_gpu_building` will check
     // to see if their materials have been prepared.
-    let potential_reextraction_set: IndexSet<Entity, EntityHash> = meshes_to_reextract_next_frame
-        .iter()
-        .map(|&e| *e)
-        .chain(removed_previous_global_transform_query.read())
-        .chain(removed_lightmap_query.read())
-        .chain(removed_aabb_query.read())
-        .chain(removed_mesh_tag_query.read())
-        .chain(removed_no_frustum_culling_query.read())
-        .chain(removed_not_shadow_receiver_query.read())
-        .chain(removed_transmitted_receiver_query.read())
-        .chain(removed_not_shadow_caster_query.read())
-        .chain(removed_no_automatic_batching_query.read())
-        .chain(removed_visibility_range_query.read())
-        .chain(removed_skinned_mesh_query.read())
-        .collect();
+    potential_reextraction_set.clear();
+    potential_reextraction_set.extend(
+        meshes_to_reextract_next_frame
+            .iter()
+            .map(|&e| *e)
+            .chain(removed_previous_global_transform_query.read())
+            .chain(removed_lightmap_query.read())
+            .chain(removed_aabb_query.read())
+            .chain(removed_mesh_tag_query.read())
+            .chain(removed_no_frustum_culling_query.read())
+            .chain(removed_not_shadow_receiver_query.read())
+            .chain(removed_transmitted_receiver_query.read())
+            .chain(removed_not_shadow_caster_query.read())
+            .chain(removed_no_automatic_batching_query.read())
+            .chain(removed_visibility_range_query.read())
+            .chain(removed_skinned_mesh_query.read()),
+    );
 
     // We have to skip the meshes in the potential reextraction set if we
     // encounter them during the `changed_meshes_query` below. But, because
