@@ -240,6 +240,7 @@ impl Plugin for ImagePlugin {
     }
 }
 
+/// The format of an on-disk image asset.
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
     #[cfg(feature = "basis-universal")]
@@ -518,7 +519,7 @@ impl ImageFormat {
     }
 
     /// Returns the equivalent bevy [`ImageFormat`] of an [`image::ImageFormat`].
-    /// 
+    ///
     /// Returns `None` if the format is unsupported, or its feature is disabled.
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
         #[expect(
@@ -886,7 +887,7 @@ impl ImageSamplerDescriptor {
         self
     }
 
-    /// Converts this sampler to its `wgpu` equivalent. 
+    /// Converts this sampler to its `wgpu` equivalent.
     pub fn as_wgpu(&self) -> SamplerDescriptor<Option<&str>> {
         SamplerDescriptor {
             label: self.label.as_deref(),
@@ -1979,19 +1980,27 @@ impl Image {
     }
 }
 
+/// A UASTC texture channel layout
 #[derive(Clone, Copy, Debug)]
 pub enum DataFormat {
+    /// 3-color
     Rgb,
+    /// 4-color
     Rgba,
+    /// 1-color (R) extended to 3 (RRR)
     Rrr,
+    /// 2-color (RG) extended to 4 (RRRG)
     Rrrg,
+    /// 2-color
     Rg,
 }
 
 /// Texture data need to be transcoded from this format for use with `wgpu`.
 #[derive(Clone, Copy, Debug)]
 pub enum TranscodeFormat {
+    /// Has to be transcoded from a compressed ETC1S texture.
     Etc1s,
+    /// Has to be transcoded from a compressed UASTC texture.
     Uastc(DataFormat),
     /// Has to be transcoded from `R8UnormSrgb` to `R8Unorm` for use with `wgpu`.
     R8UnormSrgb,
@@ -2004,25 +2013,56 @@ pub enum TranscodeFormat {
 /// An error that occurs when reinterpreting an image.
 #[derive(Error, Debug)]
 pub enum TextureReinterpretationError {
+    /// The pixel volumes of the original and reinterpreted extents were different.
     #[error("incompatible sizes: old = {old:?} new = {new:?}")]
-    IncompatibleSizes { old: Extent3d, new: Extent3d },
+    IncompatibleSizes {
+        /// The original image extent.
+        old: Extent3d,
+        /// The desired reinterpreted extent.
+        new: Extent3d,
+    },
+    /// The image was expected to be 2d.
     #[error("must be a 2d image")]
     WrongDimension,
+    /// The image was expected to have a sinle layer.
     #[error("must not already be a layered image")]
     InvalidLayerCount,
+    /// The stacked image could not be evenly divided into the desired number of image layers.
     #[error("can not evenly divide height = {height} by layers = {layers}")]
-    HeightNotDivisibleByLayers { height: u32, layers: u32 },
+    HeightNotDivisibleByLayers {
+        /// The total image height in pixels.
+        height: u32,
+        /// The desired number of image layers.
+        layers: u32,
+    },
 }
 
 /// An error that occurs when accessing specific pixels in a texture.
 #[derive(Error, Debug)]
 pub enum TextureAccessError {
+    /// Attempted to access a pixel outside the texture bounds.
     #[error("out of bounds (x: {x}, y: {y}, z: {z})")]
-    OutOfBounds { x: u32, y: u32, z: u32 },
+    OutOfBounds {
+        /// The pixel x-coordinate.
+        x: u32,
+        /// The pixel y-coordinate.
+        y: u32,
+        /// The pixel z-coordinate.
+        z: u32,
+    },
+    /// Attempted to perform an image operation on an unsupported texture format.
+    ///
+    /// Most often this is returned when attempting to access pixel data of compressed textures.
     #[error("unsupported texture format: {0:?}")]
     UnsupportedTextureFormat(TextureFormat),
+    /// Attempted to access the data of an image before it was initialized, or after it was moved
+    /// to the GPU.
+    ///
+    /// See [`RenderAssetUsages`] for more information about when an asset's data is moved, and
+    /// how to retain it if necessary.
     #[error("image data is not initialized")]
     Uninitialized,
+    /// The texture's dimension was different than indicated by the accessor used.
     #[error("attempt to access texture with different dimension")]
     WrongDimension,
 }
@@ -2075,9 +2115,9 @@ pub enum ImageType<'a> {
 
 impl<'a> ImageType<'a> {
     /// Attempts to detect the appropriate [`ImageFormat`] for this image type.
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// A [`TextureError`] will be returned if this image type is a MIME type or file extension for
     /// an unsupported or disabled format.
     pub fn to_image_format(&self) -> Result<ImageFormat, TextureError> {
@@ -2122,17 +2162,23 @@ impl TextureFormatPixelInfo for TextureFormat {
 }
 
 bitflags::bitflags! {
+    /// A set of flags describing the compressed formats supported by a render device.
     #[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
     #[repr(transparent)]
     pub struct CompressedImageFormats: u32 {
+        /// No support for compressed textures.
         const NONE     = 0;
+        /// Support for Adaptive Scalable Texture Compression.
         const ASTC_LDR = 1 << 0;
+        /// Support for Block Compressed textures.
         const BC       = 1 << 1;
+        /// Support for Ericsson Texture Compression.
         const ETC2     = 1 << 2;
     }
 }
 
 impl CompressedImageFormats {
+    /// Get the supported texture compression formats from a wgpu device's features.
     pub fn from_features(features: Features) -> Self {
         let mut supported_compressed_formats = Self::default();
         if features.contains(Features::TEXTURE_COMPRESSION_ASTC) {
@@ -2147,6 +2193,10 @@ impl CompressedImageFormats {
         supported_compressed_formats
     }
 
+    /// Returns `true` if the given [`TextureFormat`] is supported by the available compression
+    /// features.
+    ///
+    /// Always returns `true` for uncompressed formats.
     pub fn supports(&self, format: TextureFormat) -> bool {
         match format {
             TextureFormat::Bc1RgbaUnorm
