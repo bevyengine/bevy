@@ -50,7 +50,7 @@ pub struct HierarchyPropagatePlugin<
 }
 
 impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>
-    HierarchyPropagatePlugin<C, F, R>
+HierarchyPropagatePlugin<C, F, R>
 {
     /// Construct the plugin. The propagation systems will be placed in the specified schedule.
     pub fn new(schedule: impl ScheduleLabel) -> Self {
@@ -135,7 +135,7 @@ impl<C: Component + Clone + PartialEq> Default for PropagateSet<C> {
 }
 
 impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship> Plugin
-    for HierarchyPropagatePlugin<C, F, R>
+for HierarchyPropagatePlugin<C, F, R>
 {
     fn build(&self, app: &mut App) {
         app.add_systems(
@@ -191,14 +191,13 @@ pub fn on_r_inserted<C: Component + Clone + PartialEq, F: QueryFilter + 'static,
     query: Query<(&R, Option<&Inherited<C>>), (Without<Propagate<C>>, F)>,
     relations: Query<&Inherited<C>, Without<PropagateStop<C>>>,
 ) {
-    let entity = event.entity;
-    let Ok((relation, maybe_inherited)) = query.get(entity) else {
+    let Ok((relation, maybe_inherited)) = query.get(event.entity) else {
         return;
     };
     if let Ok(inherited) = relations.get(relation.get()) {
-        commands.entity(entity).try_insert(inherited.clone());
+        commands.entity(event.entity).try_insert(inherited.clone());
     } else if maybe_inherited.is_some() {
-        commands.entity(entity).try_remove::<Inherited<C>>();
+        commands.entity(event.entity).try_remove::<Inherited<C>>();
     }
 }
 
@@ -208,9 +207,8 @@ pub fn on_r_removed<C: Component + Clone + PartialEq, F: QueryFilter + 'static, 
     mut commands: Commands,
     query: Query<(), (With<Inherited<C>>, Without<Propagate<C>>, F)>,
 ) {
-    let entity = event.entity;
-    if query.get(entity).is_ok() {
-        commands.entity(entity).try_remove::<Inherited<C>>();
+    if query.contains(event.entity) {
+        commands.entity(event.entity).try_remove::<Inherited<C>>();
     }
 }
 
