@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use bevy_app::{AppLabel, /*InternedAppLabel,*/ Plugin};
 use bevy_derive::{Deref, DerefMut};

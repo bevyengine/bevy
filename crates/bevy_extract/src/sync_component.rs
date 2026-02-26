@@ -1,5 +1,4 @@
 use core::marker::PhantomData;
-use std::any::TypeId;
 
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_ecs::{
