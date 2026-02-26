@@ -1458,7 +1458,7 @@ pub fn prepare_uinodes(
 
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
-            let mut batch_image_handle = AssetId::invalid();
+            let mut batch_image_handle = None;
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
@@ -1467,21 +1467,21 @@ pub fn prepare_uinodes(
                     .get(item.index)
                     .filter(|n| item.entity() == n.render_entity)
                 else {
-                    batch_image_handle = AssetId::invalid();
+                    batch_image_handle = None;
                     continue;
                 };
 
                 let mut existing_batch = batches.last_mut();
 
-                if batch_image_handle == AssetId::invalid()
+                if batch_image_handle.is_none()
                     || existing_batch.is_none()
-                    || (batch_image_handle != AssetId::default()
+                    || (batch_image_handle != Some(AssetId::default())
                         && extracted_uinode.image != AssetId::default()
-                        && batch_image_handle != extracted_uinode.image)
+                        && batch_image_handle != Some(extracted_uinode.image))
                 {
                     if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
                         batch_item_index = item_index;
-                        batch_image_handle = extracted_uinode.image;
+                        batch_image_handle = Some(extracted_uinode.image);
 
                         let new_batch = UiBatch {
                             range: vertices_index..vertices_index,
@@ -1492,7 +1492,7 @@ pub fn prepare_uinodes(
 
                         image_bind_groups
                             .values
-                            .entry(batch_image_handle)
+                            .entry(extracted_uinode.image)
                             .or_insert_with(|| {
                                 render_device.create_bind_group(
                                     "ui_material_bind_group",
@@ -1509,18 +1509,18 @@ pub fn prepare_uinodes(
                     } else {
                         continue;
                     }
-                } else if batch_image_handle == AssetId::default()
+                } else if batch_image_handle == Some(AssetId::default())
                     && extracted_uinode.image != AssetId::default()
                 {
                     if let Some(ref mut existing_batch) = existing_batch
                         && let Some(gpu_image) = gpu_images.get(extracted_uinode.image)
                     {
-                        batch_image_handle = extracted_uinode.image;
+                        batch_image_handle = Some(extracted_uinode.image);
                         existing_batch.1.image = extracted_uinode.image;
 
                         image_bind_groups
                             .values
-                            .entry(batch_image_handle)
+                            .entry(extracted_uinode.image)
                             .or_insert_with(|| {
                                 render_device.create_bind_group(
                                     "ui_material_bind_group",

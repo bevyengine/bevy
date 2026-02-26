@@ -17,7 +17,9 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::BevyDefault as _;
-use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup, ViewKeyCache};
+use bevy_pbr::{
+    MeshPipeline, MeshPipelineKey, MeshPipelineSet, SetMeshViewBindGroup, ViewKeyCache,
+};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -51,7 +53,9 @@ impl Plugin for LineGizmo3dPlugin {
             )
             .add_systems(
                 RenderStartup,
-                init_line_gizmo_pipelines.after(init_line_gizmo_uniform_bind_group_layout),
+                init_line_gizmo_pipelines
+                    .after(init_line_gizmo_uniform_bind_group_layout)
+                    .after(MeshPipelineSet),
             )
             .add_systems(
                 Render,

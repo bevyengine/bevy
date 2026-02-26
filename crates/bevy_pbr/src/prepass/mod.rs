@@ -226,19 +226,21 @@ pub fn update_mesh_previous_global_transforms(
         (Entity, &GlobalTransform),
         (PreviousMeshFilter, Without<PreviousGlobalTransform>),
     >,
-    mut meshes: Query<(&GlobalTransform, &mut PreviousGlobalTransform), PreviousMeshFilter>,
+    mut meshes: Query<(Ref<GlobalTransform>, &mut PreviousGlobalTransform), PreviousMeshFilter>,
 ) {
-    let should_run = views.iter().any(|camera| camera.is_active);
-
-    if should_run {
-        for (entity, transform) in &new_meshes {
-            let new_previous_transform = PreviousGlobalTransform(transform.affine());
-            commands.entity(entity).try_insert(new_previous_transform);
-        }
-        meshes.par_iter_mut().for_each(|(transform, mut previous)| {
-            previous.set_if_neq(PreviousGlobalTransform(transform.affine()));
-        });
+    if !views.iter().any(|camera| camera.is_active) {
+        return;
     }
+
+    for (entity, transform) in &new_meshes {
+        let new_previous_transform = PreviousGlobalTransform(transform.affine());
+        commands.entity(entity).try_insert(new_previous_transform);
+    }
+    meshes.par_iter_mut().for_each(|(transform, mut previous)| {
+        if transform.is_changed_after(previous.last_changed()) {
+            *previous = PreviousGlobalTransform(transform.affine());
+        }
+    });
 }
 
 #[derive(Resource, Clone)]

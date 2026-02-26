@@ -32,7 +32,6 @@ bevy_mesh = { path = "../bevy_mesh", version = "0.19.0-dev", features = [
   "bevy_mikktspace",
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.19.0-dev" }
 bevy_material = { path = "../bevy_material", version = "0.19.0-dev" }
 bevy_scene = { path = "../bevy_scene", version = "0.19.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
