@@ -240,9 +240,6 @@ impl Plugin for ImagePlugin {
     }
 }
 
-pub const TEXTURE_ASSET_INDEX: u64 = 0;
-pub const SAMPLER_ASSET_INDEX: u64 = 1;
-
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
     #[cfg(feature = "basis-universal")]
@@ -395,6 +392,9 @@ impl ImageFormat {
         }
     }
 
+    /// Returns the image format associated with the given MIME type.
+    ///
+    /// `None` is returned if the MIME type is unknown, or its format's feature is not enabled.
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         #[expect(
             clippy::allow_attributes,
@@ -428,6 +428,9 @@ impl ImageFormat {
         })
     }
 
+    /// Returns the image format associated with the given file extension.
+    ///
+    /// `None` is returned if the extension is unknown, or its format's feature is not enabled.
     pub fn from_extension(extension: &str) -> Option<Self> {
         #[expect(
             clippy::allow_attributes,
@@ -458,6 +461,7 @@ impl ImageFormat {
         })
     }
 
+    /// Returns the equivalent [`image::ImageFormat`] if available.
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
         #[expect(
             clippy::allow_attributes,
@@ -513,6 +517,9 @@ impl ImageFormat {
         })
     }
 
+    /// Returns the equivalent bevy [`ImageFormat`] of an [`image::ImageFormat`].
+    /// 
+    /// Returns `None` if the format is unsupported, or its feature is disabled.
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
         #[expect(
             clippy::allow_attributes,
@@ -542,7 +549,9 @@ impl ImageFormat {
     }
 }
 
+/// A trait for creating [`Extent3d`] values.
 pub trait ToExtents {
+    /// Converts this type to an [`Extent3d`].
     fn to_extents(self) -> Extent3d;
 }
 impl ToExtents for UVec2 {
@@ -606,6 +615,7 @@ pub struct Image {
     /// - [`TextureViewDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
     ///   If you use assets, the label is purely a debugging aid.
     pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
+    /// Where this image asset will be used. See [`RenderAssetUsages`] for more.
     pub asset_usage: RenderAssetUsages,
     /// Whether this image should be copied on the GPU when resized.
     pub copy_on_resize: bool,
@@ -778,6 +788,7 @@ pub enum ImageSamplerBorderColor {
     reflect(Default, Debug, Clone)
 )]
 pub struct ImageSamplerDescriptor {
+    /// An optional label used to identify this sampler in logs.
     pub label: Option<String>,
     /// How to deal with out of bounds accesses in the u (i.e. x) direction.
     pub address_mode_u: ImageAddressMode,
@@ -875,6 +886,7 @@ impl ImageSamplerDescriptor {
         self
     }
 
+    /// Converts this sampler to its `wgpu` equivalent. 
     pub fn as_wgpu(&self) -> SamplerDescriptor<Option<&str>> {
         SamplerDescriptor {
             label: self.label.as_deref(),
@@ -2062,6 +2074,12 @@ pub enum ImageType<'a> {
 }
 
 impl<'a> ImageType<'a> {
+    /// Attempts to detect the appropriate [`ImageFormat`] for this image type.
+    /// 
+    /// # Errors
+    /// 
+    /// A [`TextureError`] will be returned if this image type is a MIME type or file extension for
+    /// an unsupported or disabled format.
     pub fn to_image_format(&self) -> Result<ImageFormat, TextureError> {
         match self {
             ImageType::MimeType(mime_type) => ImageFormat::from_mime_type(mime_type)
@@ -2075,6 +2093,7 @@ impl<'a> ImageType<'a> {
 
 /// Used to calculate the volume of an item.
 pub trait Volume {
+    /// Calculates the volume of the item.
     fn volume(&self) -> usize;
 }
 
