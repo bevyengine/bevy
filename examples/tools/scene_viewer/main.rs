@@ -58,6 +58,9 @@ struct Args {
     /// enable `GltfPlugin::convert_coordinates::rotate_meshes`
     #[argh(switch)]
     convert_mesh_coordinates: Option<bool>,
+    /// add an axis gizmo to show the scene orientation
+    #[argh(switch)]
+    axis: Option<bool>,
 }
 
 impl Args {
@@ -153,6 +156,7 @@ fn setup_scene_after_load(
     asset_server: Res<AssetServer>,
     args: Res<Args>,
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
+    mut gizmos: ResMut<Assets<GizmoAsset>>,
 ) {
     if scene_handle.is_loaded && !*setup {
         *setup = true;
@@ -250,6 +254,19 @@ fn setup_scene_after_load(
             }
 
             scene_handle.has_light = true;
+        }
+
+        if args.axis == Some(true) {
+            // Ensure the axis always extends past the AABB of the scene.
+            let length = aabb.min().abs().max(aabb.max().abs()).max_element() * 1.3;
+
+            let mut gizmo = GizmoAsset::new();
+            gizmo.axes(Transform::IDENTITY, length);
+
+            commands.spawn(Gizmo {
+                handle: gizmos.add(gizmo),
+                ..Default::default()
+            });
         }
     }
 }
