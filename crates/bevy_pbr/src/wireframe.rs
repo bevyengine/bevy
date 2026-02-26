@@ -1,8 +1,8 @@
 use crate::{
     render::{PreprocessBindGroups, PreprocessPipelines},
-    DrawMesh, MeshPipeline, MeshPipelineKey, RenderLightmaps, RenderMeshInstanceFlags,
-    RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup,
-    ViewKeyCache,
+    DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet, RenderLightmaps,
+    RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
+    SetMeshViewBindingArrayBindGroup, ViewKeyCache,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
@@ -149,7 +149,10 @@ impl Plugin for WireframePlugin {
             .init_resource::<WireframeWideBindGroups>()
             .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
             .init_resource::<PendingWireframeQueues>()
-            .add_systems(RenderStartup, init_wireframe_3d_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_wireframe_3d_pipeline.after(MeshPipelineSet),
+            )
             .add_systems(
                 Core3d,
                 wireframe_3d

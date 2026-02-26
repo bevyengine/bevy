@@ -754,7 +754,14 @@ impl SpawnDetails {
     /// Returns `true` if the entity spawned since the last time this system ran.
     /// Otherwise, returns `false`.
     pub fn is_spawned(self) -> bool {
-        self.spawn_tick.is_newer_than(self.last_run, self.this_run)
+        self.is_spawned_after(self.last_run)
+    }
+
+    /// Returns `true` if the entity spawned after the `other` tick.
+    /// Otherwise, returns `false`.
+    #[inline]
+    pub fn is_spawned_after(self, other: Tick) -> bool {
+        self.spawn_tick.is_newer_than(other, self.this_run)
     }
 
     /// Returns the `Tick` this entity spawned at.

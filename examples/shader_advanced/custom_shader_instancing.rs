@@ -8,7 +8,7 @@
 //! It's generally recommended to try the built-in instancing before going with this approach.
 
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
-use bevy::pbr::{SetMeshViewBindingArrayBindGroup, ViewKeyCache};
+use bevy::pbr::{MeshPipelineSet, SetMeshViewBindingArrayBindGroup, ViewKeyCache};
 use bevy::{
     camera::visibility::NoFrustumCulling,
     core_pipeline::core_3d::Transparent3d,
@@ -107,7 +107,7 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_systems(RenderStartup, init_custom_pipeline)
+            .add_systems(RenderStartup, init_custom_pipeline.after(MeshPipelineSet))
             .add_systems(
                 Render,
                 (
