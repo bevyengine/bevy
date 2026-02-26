@@ -1842,13 +1842,13 @@ pub fn extract_meshes_for_gpu_building(
     for (word_index, word) in potential_reextraction_bitfield.iter().enumerate() {
         // Iterate over the bits in the word.
         let mut word = word.load(Ordering::Relaxed);
-        while word != 0 {
-            let bit_in_word = word.trailing_zeros();
+        while word != !0 {
+            let bit_in_word = word.trailing_ones();
             let bit = word_index * 64 + (bit_in_word as usize);
             if let Some(entity) = potential_reextraction_set.get_index(bit) {
                 reextract_entities.insert(*entity);
             }
-            word &= !(1 << bit_in_word);
+            word |= 1 << bit_in_word;
         }
     }
 
