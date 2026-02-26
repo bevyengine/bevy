@@ -5,7 +5,7 @@ use crate::{
     skin::skin_uniforms_from_world,
 };
 use bevy_asset::uuid::Uuid;
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetIndex};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetIndex, AssetServer};
 use bevy_camera::{
     primitives::Aabb,
     visibility::{NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange},
@@ -24,7 +24,7 @@ use bevy_ecs::{
     prelude::*,
     query::{QueryData, ROQueryItem},
     relationship::RelationshipSourceCollection,
-    system::{lifetimeless::*, SystemParamItem, SystemState},
+    system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_light::{
@@ -130,6 +130,9 @@ impl MeshRenderPlugin {
 /// See: <https://gpuweb.github.io/gpuweb/#limits>
 #[cfg(debug_assertions)]
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct MeshPipelineSet;
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
@@ -293,9 +296,12 @@ impl Plugin for MeshRenderPlugin {
                 ));
             }
 
-            render_app
-                .init_resource::<MeshPipelineViewLayouts>()
-                .init_resource::<MeshPipeline>();
+            render_app.add_systems(
+                RenderStartup,
+                (init_mesh_pipeline_view_layouts, init_mesh_pipeline)
+                    .chain()
+                    .in_set(MeshPipelineSet),
+            );
         }
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
@@ -2207,35 +2213,35 @@ pub struct MeshPipeline {
     pub skins_use_uniform_buffers: bool,
 }
 
-impl FromWorld for MeshPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let shader = load_embedded_asset!(world, "mesh.wgsl");
-        let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<RenderAdapter>,
-            Res<MeshPipelineViewLayouts>,
-        )> = SystemState::new(world);
-        let (render_device, render_adapter, view_layouts) = system_state.get_mut(world);
+fn init_mesh_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
+    view_layouts: Res<MeshPipelineViewLayouts>,
+    asset_server: Res<AssetServer>,
+) {
+    let shader = load_embedded_asset!(asset_server.as_ref(), "mesh.wgsl");
 
-        let clustered_forward_buffer_binding_type = render_device
-            .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+    let clustered_forward_buffer_binding_type =
+        render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
-        MeshPipeline {
-            view_layouts: view_layouts.clone(),
-            clustered_forward_buffer_binding_type,
-            mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
-            shader,
-            per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(
-                &render_device.limits(),
-            ),
-            binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
-            clustered_decals_are_usable: decal::clustered::clustered_decals_are_usable(
-                &render_device,
-                &render_adapter,
-            ),
-            skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device.limits()),
-        }
-    }
+    let res = MeshPipeline {
+        view_layouts: view_layouts.clone(),
+        clustered_forward_buffer_binding_type,
+        mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
+        shader,
+        per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(
+            &render_device.limits(),
+        ),
+        binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
+        clustered_decals_are_usable: decal::clustered::clustered_decals_are_usable(
+            &render_device,
+            &render_adapter,
+        ),
+        skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device.limits()),
+    };
+
+    commands.insert_resource(res);
 }
 
 impl MeshPipeline {

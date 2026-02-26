@@ -2044,6 +2044,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "generated_assets"
+path = "examples/asset/generated_assets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.generated_assets]
+name = "Generated Assets"
+description = "Shows how to generate and store assets at runtime"
+category = "Assets"
+wasm = true
+
+[[example]]
 name = "web_asset"
 path = "examples/asset/web_asset.rs"
 doc-scrape-examples = true
@@ -2493,6 +2504,17 @@ name = "Startup System"
 description = "Demonstrates a startup system (one that runs once when the app starts up)"
 category = "ECS (Entity Component System)"
 wasm = false
+
+[[example]]
+name = "delayed_commands"
+path = "examples/ecs/delayed_commands.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.delayed_commands]
+name = "Delayed Commands"
+description = "Demonstrates how to schedule ECS commands with a delay"
+category = "ECS (Entity Component System)"
+wasm = true
 
 [[example]]
 name = "states"

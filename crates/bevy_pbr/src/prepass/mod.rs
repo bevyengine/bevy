@@ -227,7 +227,6 @@ pub fn update_mesh_previous_global_transforms(
         (PreviousMeshFilter, Without<PreviousGlobalTransform>),
     >,
     mut meshes: Query<(Ref<GlobalTransform>, &mut PreviousGlobalTransform), PreviousMeshFilter>,
-    system_change_tick: SystemChangeTick,
 ) {
     if !views.iter().any(|camera| camera.is_active) {
         return;
@@ -238,10 +237,7 @@ pub fn update_mesh_previous_global_transforms(
         commands.entity(entity).try_insert(new_previous_transform);
     }
     meshes.par_iter_mut().for_each(|(transform, mut previous)| {
-        if transform
-            .last_changed()
-            .is_newer_than(previous.last_changed(), system_change_tick.this_run())
-        {
+        if transform.is_changed_after(previous.last_changed()) {
             *previous = PreviousGlobalTransform(transform.affine());
         }
     });
