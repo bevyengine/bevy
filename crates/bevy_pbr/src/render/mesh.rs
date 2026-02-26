@@ -1842,16 +1842,15 @@ pub fn extract_meshes_for_gpu_building(
 
     // Add the entities in the potential reextraction set to the
     // `reextract_entities` list, unless we saw them in the query above.
-    for (word_index, word) in potential_reextraction_bitfield.iter().enumerate() {
-        // Iterate over the bits in the word.
-        let mut word = word.load(Ordering::Relaxed);
-        while word != !0 {
-            let bit_in_word = word.trailing_ones();
-            let bit = word_index * 64 + (bit_in_word as usize);
-            if let Some(entity) = potential_reextraction_set.get_index(bit) {
-                reextract_entities.insert(*entity);
-            }
-            word |= 1 << bit_in_word;
+    //
+    // Note that this will likely iterate over some spurious zero bits at the
+    // end, since we rounded the number of elements to potentially reextract up
+    // to the nearest multiple of 64. But that's OK, because we check to see
+    // whether the indices exist in the potential reextraction set before adding
+    // the corresponding entities to the `reextract_entities` list.
+    for bit in AtomicU64ZeroBitIter::new(&potential_reextraction_bitfield) {
+        if let Some(entity) = potential_reextraction_set.get_index(bit as usize) {
+            reextract_entities.insert(*entity);
         }
     }
 
@@ -1963,6 +1962,49 @@ fn extract_mesh_for_gpu_building(
         gpu_mesh_instance_builder,
         gpu_mesh_culling_data,
     );
+}
+
+/// An iterator over the 0 positions in an array of atomic words.
+struct AtomicU64ZeroBitIter<'a> {
+    /// The slice of atomic words.
+    bits: &'a [AtomicU64],
+    /// The current word.
+    ///
+    /// We change bits from 0 to 1 as we encounter them.
+    current_word: u64,
+    /// The index of the word after [`Self::current_word`].
+    next_index: usize,
+}
+
+impl<'a> AtomicU64ZeroBitIter<'a> {
+    /// Creates a new [`AtomicU64ZeroBitIter`] ready to iterate over the given
+    /// bits.
+    fn new(bits: &'a [AtomicU64]) -> AtomicU64ZeroBitIter<'a> {
+        AtomicU64ZeroBitIter {
+            bits,
+            current_word: !0,
+            next_index: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for AtomicU64ZeroBitIter<'a> {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // Repeatedly the next word if we're out of zero bits to find in the
+        // word.
+        while self.current_word == !0 {
+            self.current_word = self.bits.get(self.next_index)?.load(Ordering::Relaxed);
+            self.next_index += 1;
+        }
+
+        // Find the next zero bit index.
+        let bit_index = self.current_word.trailing_ones();
+        self.current_word |= 1 << bit_index;
+        let word_index = ((self.next_index - 1) * 64) as u32;
+        Some(word_index + bit_index)
+    }
 }
 
 /// A system that sets the [`RenderMeshInstanceFlags`] for each mesh based on
@@ -3818,11 +3860,99 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
 
 #[cfg(test)]
 mod tests {
-    use super::MeshPipelineKey;
+    use core::sync::atomic::{AtomicU64, Ordering};
+
+    use super::{AtomicU64ZeroBitIter, MeshPipelineKey};
+
     #[test]
     fn mesh_key_msaa_samples() {
         for i in [1, 2, 4, 8, 16, 32, 64, 128] {
             assert_eq!(MeshPipelineKey::from_msaa_samples(i).msaa_samples(), i);
+        }
+    }
+
+    /// Tests that the `AtomicU64ZeroBitIter` works.
+    #[test]
+    fn atomic_u64_zero_bit_iter() {
+        // Randomly-generated test data.
+        // We use separate constants for this because the Rust compiler
+        // complains if you make a static array of slices containing atomics.
+        static TEST_DATA_0: [AtomicU64; 1] = [AtomicU64::new(0x7b52f5ca63498b6a)];
+        static TEST_DATA_1: [AtomicU64; 2] = [
+            AtomicU64::new(0x5705b33451b95827),
+            AtomicU64::new(0x1939ee614074abad),
+        ];
+        static TEST_DATA_2: [AtomicU64; 3] = [
+            AtomicU64::new(0xf33c508d14d145c),
+            AtomicU64::new(0x2a4749823594ea),
+            AtomicU64::new(0x5e68df04196a3818),
+        ];
+        static TEST_DATA_3: [AtomicU64; 6] = [
+            AtomicU64::new(0x2336dbda2bd74d09),
+            AtomicU64::new(0x10b7da1dacf22d33),
+            AtomicU64::new(0x6eaaf908d957923a),
+            AtomicU64::new(0x7ec7ffb64cb9c4a6),
+            AtomicU64::new(0x6dd027da8ad22fa0),
+            AtomicU64::new(0x13278c5caa74f73d),
+        ];
+        static TEST_DATA_4: [AtomicU64; 4] = [
+            AtomicU64::new(0x32c66f0334bb09e9),
+            AtomicU64::new(0x60815770d307bdcd),
+            AtomicU64::new(0x6270a1e972fb8469),
+            AtomicU64::new(0x610e995c042d6df4),
+        ];
+        static TEST_DATA_5: [AtomicU64; 3] = [
+            AtomicU64::new(0x7fe756fc690097eb),
+            AtomicU64::new(0x15d87ce6679b1bd8),
+            AtomicU64::new(0x1985ea515135b255),
+        ];
+        static TEST_DATA_6: [AtomicU64; 4] = [
+            AtomicU64::new(0x1afb9d361c135827),
+            AtomicU64::new(0x4a79ad582628a854),
+            AtomicU64::new(0x57a802160315c974),
+            AtomicU64::new(0x1c0aef068db1f6fb),
+        ];
+        static TEST_DATA_7: [AtomicU64; 3] = [
+            AtomicU64::new(0x53d10eb77230c696),
+            AtomicU64::new(0x2ca2d709994855fb),
+            AtomicU64::new(0x26536a13f647f2f7),
+        ];
+        static TEST_DATA_8: [AtomicU64; 2] = [
+            AtomicU64::new(0x6ed95eb903155e00),
+            AtomicU64::new(0x5e5d58eec92cba0),
+        ];
+        static TEST_DATA_9: [AtomicU64; 1] = [AtomicU64::new(0x2caa4b77512b1664)];
+
+        let test_data = [
+            &TEST_DATA_0[..],
+            &TEST_DATA_1[..],
+            &TEST_DATA_2[..],
+            &TEST_DATA_3[..],
+            &TEST_DATA_4[..],
+            &TEST_DATA_5[..],
+            &TEST_DATA_6[..],
+            &TEST_DATA_7[..],
+            &TEST_DATA_8[..],
+            &TEST_DATA_9[..],
+        ];
+
+        for bits in &test_data {
+            // Compute the zero positions naively.
+            let mut reference_zero_positions = vec![];
+            for (word_index, word) in (*bits).iter().enumerate() {
+                let word = word.load(Ordering::Relaxed);
+                for bit_index in 0..64 {
+                    if ((word >> bit_index) & 1) == 0 {
+                        reference_zero_positions.push((word_index * 64 + bit_index) as u32);
+                    }
+                }
+            }
+
+            // Compute the zero positions using the iterator.
+            let test_zero_positions: Vec<_> = AtomicU64ZeroBitIter::new(bits).collect();
+
+            // Check for equality.
+            assert_eq!(test_zero_positions, reference_zero_positions);
         }
     }
 }
