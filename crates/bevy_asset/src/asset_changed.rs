@@ -170,9 +170,8 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         // SAFETY:
         // - `state.resource_id` was obtained from `world.init_resource::<AssetChanges<A::Asset>>()`,
         //   so the untyped pointer returned by `get_resource_by_id` can safely be dereferenced into that type.
-        // - `update_component_access` declares a read on `state.resource_id`, so it is safe to
-        //   read that resource here (see trait-level safety comments on `WorldQuery`, regarding
-        //   readonly resource access in `init_fetch`)
+        // - `init_nested_access` declares a read on `state.resource_id`, so it is safe to
+        //   read that resource here (see trait-level safety comments on `WorldQuery`)
         let Some(changes) = (unsafe {
             world
                 .get_resource_by_id(state.resource_id)
