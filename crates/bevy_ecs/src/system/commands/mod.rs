@@ -1453,10 +1453,11 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
     #[track_caller]
-    pub fn insert_if<C>(&mut self, bundle: impl Bundle, condition: C) -> &mut Self
-    where
-        C: CommandCondition,
-    {
+    pub fn insert_if(
+        &mut self,
+        bundle: impl Bundle,
+        condition: impl CommandCondition,
+    ) -> &mut Self {
         if condition.evaluate() {
             self.insert(bundle)
         } else {
@@ -1482,10 +1483,11 @@ impl<'a> EntityCommands<'a> {
     /// This is the same as [`EntityCommands::insert_if`], but in case of duplicate
     /// components will leave the old values instead of replacing them with new ones.
     #[track_caller]
-    pub fn insert_if_new_and<C>(&mut self, bundle: impl Bundle, condition: C) -> &mut Self
-    where
-        C: CommandCondition,
-    {
+    pub fn insert_if_new_and(
+        &mut self,
+        bundle: impl Bundle,
+        condition: impl CommandCondition,
+    ) -> &mut Self {
         if condition.evaluate() {
             self.insert_if_new(bundle)
         } else {
@@ -1606,10 +1608,11 @@ impl<'a> EntityCommands<'a> {
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn try_insert_if<C>(&mut self, bundle: impl Bundle, condition: C) -> &mut Self
-    where
-        C: CommandCondition,
-    {
+    pub fn try_insert_if(
+        &mut self,
+        bundle: impl Bundle,
+        condition: impl CommandCondition,
+    ) -> &mut Self {
         if condition.evaluate() {
             self.try_insert(bundle)
         } else {
@@ -1628,10 +1631,11 @@ impl<'a> EntityCommands<'a> {
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn try_insert_if_new_and<C>(&mut self, bundle: impl Bundle, condition: C) -> &mut Self
-    where
-        C: CommandCondition,
-    {
+    pub fn try_insert_if_new_and(
+        &mut self,
+        bundle: impl Bundle,
+        condition: impl CommandCondition,
+    ) -> &mut Self {
         if condition.evaluate() {
             self.try_insert_if_new(bundle)
         } else {
@@ -1729,10 +1733,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
     #[track_caller]
-    pub fn remove_if<B: Bundle, C>(&mut self, condition: C) -> &mut Self
-    where
-        C: CommandCondition,
-    {
+    pub fn remove_if<B: Bundle>(&mut self, condition: impl CommandCondition) -> &mut Self {
         if condition.evaluate() {
             self.remove::<B>()
         } else {
@@ -1749,10 +1750,7 @@ impl<'a> EntityCommands<'a> {
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn try_remove_if<B: Bundle, C>(&mut self, condition: C) -> &mut Self
-    where
-        C: CommandCondition,
-    {
+    pub fn try_remove_if<B: Bundle>(&mut self, condition: impl CommandCondition) -> &mut Self {
         if condition.evaluate() {
             self.try_remove::<B>()
         } else {
