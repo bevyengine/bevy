@@ -305,8 +305,8 @@ pub fn propagate_output<C: Component + Clone + PartialEq, F: QueryFilter>(
         (Entity, &Inherited<C>, Option<&C>),
         (Changed<Inherited<C>>, Without<PropagateOver<C>>, F),
     >,
-    mut removed: RemovedComponents<Inherited<C>>,
-    skip: Query<(), With<PropagateOver<C>>>,
+    mut inherited_removed: RemovedComponents<Inherited<C>>,
+    without_propagation_components: Query<(), (Without<PropagateOver<C>>, Without<Inherited<C>>)>,
 ) {
     for (entity, inherited, maybe_current) in &changed {
         if maybe_current.is_some_and(|c| &inherited.0 == c) {
@@ -316,9 +316,10 @@ pub fn propagate_output<C: Component + Clone + PartialEq, F: QueryFilter>(
         commands.entity(entity).try_insert(inherited.0.clone());
     }
 
-    for removed in removed.read() {
-        if skip.get(removed).is_err() {
-            commands.entity(removed).try_remove::<C>();
+    for inherited_removed in inherited_removed.read() {
+        // Skip removal if propagation components were re-added this update
+        if without_propagation_components.contains(inherited_removed) {
+            commands.entity(inherited_removed).try_remove::<C>();
         }
     }
 }
