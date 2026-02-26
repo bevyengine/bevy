@@ -50,7 +50,7 @@ pub struct HierarchyPropagatePlugin<
 }
 
 impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>
-HierarchyPropagatePlugin<C, F, R>
+    HierarchyPropagatePlugin<C, F, R>
 {
     /// Construct the plugin. The propagation systems will be placed in the specified schedule.
     pub fn new(schedule: impl ScheduleLabel) -> Self {
@@ -135,7 +135,7 @@ impl<C: Component + Clone + PartialEq> Default for PropagateSet<C> {
 }
 
 impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship> Plugin
-for HierarchyPropagatePlugin<C, F, R>
+    for HierarchyPropagatePlugin<C, F, R>
 {
     fn build(&self, app: &mut App) {
         app.add_systems(
@@ -185,7 +185,11 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
 }
 
 /// Add/remove [`Inherited::<C>`] when an entity gains or changes its `R` relationship
-pub fn on_r_inserted<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship>(
+pub fn on_r_inserted<
+    C: Component + Clone + PartialEq,
+    F: QueryFilter + 'static,
+    R: Relationship,
+>(
     event: On<Insert, R>,
     mut commands: Commands,
     query: Query<(&R, Option<&Inherited<C>>), (Without<Propagate<C>>, F)>,
