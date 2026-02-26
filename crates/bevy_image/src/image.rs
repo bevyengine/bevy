@@ -2024,7 +2024,7 @@ pub enum TextureReinterpretationError {
     /// The image was expected to be 2d.
     #[error("must be a 2d image")]
     WrongDimension,
-    /// The image was expected to have a sinle layer.
+    /// The image was expected to have a single layer.
     #[error("must not already be a layered image")]
     InvalidLayerCount,
     /// The stacked image could not be evenly divided into the desired number of image layers.
