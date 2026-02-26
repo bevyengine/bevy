@@ -90,7 +90,7 @@ impl<'a> PathParser<'a> {
             Token::Dot => Ok(self.next_ident()?.field()),
             Token::Pound => self.next_ident()?.field_index(),
             Token::Ident(ident) => Ok(ident.field()),
-            Token::CloseBracket => Err(Error::CloseBeforeOpen),
+            Token::CloseBracket | Token::CloseCurly => Err(Error::CloseBeforeOpen),
             Token::OpenBracket => {
                 let index_ident = self.next_ident()?.list_index()?;
                 match self.next_token() {
@@ -99,8 +99,6 @@ impl<'a> PathParser<'a> {
                     None => Err(Error::Unclosed),
                 }
             }
-            Token::CloseCurly => Err(Error::CloseBeforeOpen),
-
             Token::OpenCurly => {
                 let index_ident = self.next_ident()?.variant_index()?;
                 let vindex = (match index_ident {

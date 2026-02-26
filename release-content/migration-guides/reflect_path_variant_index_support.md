@@ -33,10 +33,8 @@ let still_five = value_index_0.reflect_element(ok_fiveanother_enum).unwrap();
 
 This poses obvious soundness issues with our path!
 
-
  Now that `ReflectPath` can encode and enforce assumptions about which variant we are accessing, we can enforce a limited degree of soundness:
- 
- 
+
  ```rust
  //0.19
  
@@ -67,19 +65,6 @@ let safe_six = variant_index_0_value_index_0.reflect_element::<u32>(err_six).unw
 let final_five = variant_index_1_value_index_0.reflect_element::<u32>(ok_five).unwrap();
  ```
 
-
 This change also changes the syntax supported by `ReflectPath` into something that is capable of statically addressing arbitrary fields on types.
 
 Because of this ambiguity, users wishing to express structural access to a field without an instance of a type could not do so, which impaired the ergonomics and utility of abstractions built on top of `ReflectPath` in spaces such as BRP, editors, or inspectors.
-
-
-
-Copy the contents of this file into a new file in `./migration-guides`, update the metadata, and add migration guide content here.
-
-Remember, your aim is to communicate:
-
-- What has changed since the last release?
-- Why did we make this breaking change?
-- How can users migrate their existing code?
-
-For more specifics about style and content, see the [instructions](./migration_guides.md).
