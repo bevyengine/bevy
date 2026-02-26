@@ -19,6 +19,7 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_diagnostic::FrameCount;
+use bevy_ecs::entity::EntityHash;
 use bevy_ecs::{
     entity::EntityHashSet,
     prelude::*,
@@ -67,7 +68,10 @@ use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
+use core::iter;
 use core::mem::size_of;
+use core::sync::atomic::{AtomicU64, Ordering};
+use indexmap::IndexSet;
 use material_bind_groups::MaterialBindingId;
 use static_assertions::const_assert_eq;
 use std::mem::offset_of;
@@ -1758,6 +1762,7 @@ pub fn extract_meshes_for_gpu_building(
     gpu_culling_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
     meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
     mut reextract_entities: Local<EntityHashSet>,
+    mut potential_reextraction_bitfield: Local<Vec<AtomicU64>>,
 ) {
     reextract_entities.clear();
 
@@ -1766,6 +1771,39 @@ pub fn extract_meshes_for_gpu_building(
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
         render_mesh_instance_queue.init(any_gpu_culling);
     }
+
+    // Process materials that `collect_meshes_for_gpu_building` marked as
+    // needing to be reextracted. This will happen when we extracted a mesh on
+    // some previous frame, but its material hadn't been prepared yet, perhaps
+    // because the material hadn't yet been loaded. We reextract such materials
+    // on subsequent frames so that `collect_meshes_for_gpu_building` will check
+    // to see if their materials have been prepared.
+    let potential_reextraction_set: IndexSet<Entity, EntityHash> = meshes_to_reextract_next_frame
+        .iter()
+        .map(|&e| *e)
+        .chain(removed_previous_global_transform_query.read())
+        .chain(removed_lightmap_query.read())
+        .chain(removed_aabb_query.read())
+        .chain(removed_mesh_tag_query.read())
+        .chain(removed_no_frustum_culling_query.read())
+        .chain(removed_not_shadow_receiver_query.read())
+        .chain(removed_transmitted_receiver_query.read())
+        .chain(removed_not_shadow_caster_query.read())
+        .chain(removed_no_automatic_batching_query.read())
+        .chain(removed_visibility_range_query.read())
+        .chain(removed_skinned_mesh_query.read())
+        .collect();
+
+    // We have to skip the meshes in the potential reextraction set if we
+    // encounter them during the `changed_meshes_query` below. But, because
+    // `changed_meshes_query` is currently a full table scan, we don't want to
+    // have to query it multiple times. So we instead represent the potential
+    // reextraction set as a bitfield and set the bit corresponding to an entity
+    // as we encounter that entity below.
+    potential_reextraction_bitfield.clear();
+    potential_reextraction_bitfield.extend(
+        iter::repeat_with(|| AtomicU64::new(0)).take(potential_reextraction_set.len().div_ceil(64)),
+    );
 
     // Collect render mesh instances. Build up the uniform buffer.
 
@@ -1789,31 +1827,30 @@ pub fn extract_meshes_for_gpu_building(
                 queue,
                 any_gpu_culling,
             );
+
+            // If this entity was in the potential reextraction set, set the
+            // appropriate bit.
+            if let Some(bit_index) = potential_reextraction_set.get_index_of(&query_row.0) {
+                potential_reextraction_bitfield[bit_index / 64]
+                    .fetch_or(1 << (bit_index % 64), Ordering::Relaxed);
+            }
         },
     );
 
-    // Process materials that `collect_meshes_for_gpu_building` marked as
-    // needing to be reextracted. This will happen when we extracted a mesh on
-    // some previous frame, but its material hadn't been prepared yet, perhaps
-    // because the material hadn't yet been loaded. We reextract such materials
-    // on subsequent frames so that `collect_meshes_for_gpu_building` will check
-    // to see if their materials have been prepared.
-    let iters = meshes_to_reextract_next_frame
-        .iter()
-        .map(|&e| *e)
-        .chain(removed_previous_global_transform_query.read())
-        .chain(removed_lightmap_query.read())
-        .chain(removed_aabb_query.read())
-        .chain(removed_mesh_tag_query.read())
-        .chain(removed_no_frustum_culling_query.read())
-        .chain(removed_not_shadow_receiver_query.read())
-        .chain(removed_transmitted_receiver_query.read())
-        .chain(removed_not_shadow_caster_query.read())
-        .chain(removed_no_automatic_batching_query.read())
-        .chain(removed_visibility_range_query.read())
-        .chain(removed_skinned_mesh_query.read());
-
-    reextract_entities.extend_from_iter(iters);
+    // Add the entities in the potential reextraction set to the
+    // `reextract_entities` list, unless we saw them in the query above.
+    for (word_index, word) in potential_reextraction_bitfield.iter().enumerate() {
+        // Iterate over the bits in the word.
+        let mut word = word.load(Ordering::Relaxed);
+        while word != 0 {
+            let bit_in_word = word.trailing_zeros();
+            let bit = word_index * 64 + (bit_in_word as usize);
+            if let Some(entity) = potential_reextraction_set.get_index(bit) {
+                reextract_entities.insert(*entity);
+            }
+            word &= !(1 << bit_in_word);
+        }
+    }
 
     let mut queue = render_mesh_instance_queues.borrow_local_mut();
     for entity in &reextract_entities {
