@@ -363,7 +363,6 @@ mod tests {
         #[derive(Component)]
         struct Foo;
 
-        // should conflict, doesn't.
         fn system(
             _: Query<&Foo, AssetChanged<MyComponent>>,
             _: Query<&mut AssetChanges<MyAsset>, bevy_ecs::query::Without<Foo>>,
