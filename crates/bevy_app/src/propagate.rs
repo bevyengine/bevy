@@ -10,7 +10,8 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::ChildOf,
     intern::Interned,
-    lifecycle::RemovedComponents,
+    lifecycle::{Insert, Remove, RemovedComponents},
+    observer::On,
     query::{Changed, Or, QueryFilter, With, Without},
     relationship::{Relationship, RelationshipTarget},
     schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
@@ -141,7 +142,6 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
             self.schedule,
             (
                 update_source::<C, F, R>,
-                update_reparented::<C, F, R>,
                 update_removed_limit::<C, F, R>,
                 propagate_inherited::<C, F, R>,
                 propagate_output::<C, F>,
@@ -149,6 +149,8 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
                 .chain()
                 .in_set(PropagateSet::<C>::default()),
         );
+        app.add_observer(on_r_inserted::<C, F, R>);
+        app.add_observer(on_r_removed::<C, F, R>);
     }
 }
 
@@ -166,7 +168,7 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
             .try_insert(Inherited(source.0.clone()));
     }
 
-    // set `Inherited::<C>` based on ancestry when `Propagate::<C>` is removed
+    // set `Inherited::<C>` base d on ancestry when `Propagate::<C>` is removed
     for removed in removed.read() {
         if let Ok(mut commands) = commands.get_entity(removed) {
             if let Some(inherited) = relationship
@@ -182,23 +184,33 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
     }
 }
 
-/// add/remove `Inherited::<C>` for entities which have changed relationship
-pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
+/// Add/remove [`Inherited::<C>`] when an entity gains or changes its `R` relationship
+pub fn on_r_inserted<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship>(
+    event: On<Insert, R>,
     mut commands: Commands,
-    moved: Query<(Entity, &R, Option<&Inherited<C>>), (Changed<R>, Without<Propagate<C>>, F)>,
+    query: Query<(&R, Option<&Inherited<C>>), (Without<Propagate<C>>, F)>,
     relations: Query<&Inherited<C>, Without<PropagateStop<C>>>,
-    orphaned: Query<Entity, (With<Inherited<C>>, Without<Propagate<C>>, Without<R>, F)>,
 ) {
-    for (entity, relation, maybe_inherited) in &moved {
-        if let Ok(inherited) = relations.get(relation.get()) {
-            commands.entity(entity).try_insert(inherited.clone());
-        } else if maybe_inherited.is_some() {
-            commands.entity(entity).try_remove::<Inherited<C>>();
-        }
+    let entity = event.entity;
+    let Ok((relation, maybe_inherited)) = query.get(entity) else {
+        return;
+    };
+    if let Ok(inherited) = relations.get(relation.get()) {
+        commands.entity(entity).try_insert(inherited.clone());
+    } else if maybe_inherited.is_some() {
+        commands.entity(entity).try_remove::<Inherited<C>>();
     }
+}
 
-    for orphan in &orphaned {
-        commands.entity(orphan).try_remove::<Inherited<C>>();
+/// Remove [`Inherited::<C>`] when an entity loses its `R` relationship
+pub fn on_r_removed<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship>(
+    event: On<Remove, R>,
+    mut commands: Commands,
+    query: Query<(), (With<Inherited<C>>, Without<Propagate<C>>, F)>,
+) {
+    let entity = event.entity;
+    if query.get(entity).is_ok() {
+        commands.entity(entity).try_remove::<Inherited<C>>();
     }
 }
 
