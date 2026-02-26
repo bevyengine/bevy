@@ -1992,8 +1992,7 @@ impl<'a> Iterator for AtomicU64ZeroBitIter<'a> {
     type Item = u32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // Repeatedly the next word if we're out of zero bits to find in the
-        // word.
+        // Repeatedly load the next word if we're out of zero bits in this one.
         while self.current_word == !0 {
             self.current_word = self.bits.get(self.next_index)?.load(Ordering::Relaxed);
             self.next_index += 1;
