@@ -17,14 +17,17 @@ use bevy_ecs::{
 use bevy_image::ToExtents;
 use bevy_light::atmosphere::ScatteringMedium;
 use bevy_math::{Affine3A, Mat4, Vec3, Vec3A};
+use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_render::{
     extract_component::ComponentUniforms,
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniforms},
 };
+
+
 use bevy_shader::Shader;
 use bevy_utils::default;
 
@@ -594,7 +597,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             Entity,
             &ExtractedAtmosphere,
             &AtmosphereTextures,
-            &ViewDepthTexture,
+            &ViewPrepassTextures,  // replaces ViewDepthTexture
             &Msaa,
         ),
         (With<Camera3d>, With<ExtractedAtmosphere>),
@@ -640,7 +643,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .binding()
         .ok_or(AtmosphereBindGroupError::LightUniforms)?;
 
-    for (entity, atmosphere, textures, view_depth_texture, msaa) in &views {
+    for (entity, atmosphere, textures, prepass_textures, msaa) in &views {
         let gpu_medium = gpu_media
             .get(atmosphere.medium)
             .ok_or(ScatteringMediumMissingError(atmosphere.medium))?;
@@ -749,8 +752,13 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (10, &textures.sky_view_lut.default_view),
                 (11, &textures.aerial_view_lut.default_view),
                 (12, &**atmosphere_sampler),
-                // view depth texture
-                (13, view_depth_texture.view()),
+               // prepass depth — stable copy written before main pass, never mutated by post-processing
+                (13, &prepass_textures
+                    .depth
+                    .as_ref()
+                    .expect("Atmosphere requires DepthPrepass")
+                    .texture
+                    .default_view),
             )),
         );
 
