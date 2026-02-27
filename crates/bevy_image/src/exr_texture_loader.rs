@@ -1,4 +1,4 @@
-use crate::{Image, TextureAccessError, TextureFormatPixelInfo};
+use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
 use bevy_reflect::TypePath;
 use image::ImageDecoder;
@@ -26,8 +26,6 @@ pub enum ExrTextureLoaderError {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     ImageError(#[from] image::ImageError),
-    #[error("Texture access error: {0}")]
-    TextureAccess(#[from] TextureAccessError),
 }
 
 impl AssetLoader for ExrTextureLoader {
@@ -43,7 +41,9 @@ impl AssetLoader for ExrTextureLoader {
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
         debug_assert_eq!(
-            format.pixel_size()?,
+            format
+                .pixel_size()
+                .expect("`Rgba32Float` is not a compressed format"),
             4 * 4,
             "Format should have 32bit x 4 size"
         );

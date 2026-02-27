@@ -1,4 +1,4 @@
-use crate::{Image, TextureAccessError, TextureFormatPixelInfo};
+use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use bevy_reflect::TypePath;
@@ -23,8 +23,6 @@ pub enum HdrTextureLoaderError {
     Io(#[from] std::io::Error),
     #[error("Could not extract image: {0}")]
     Image(#[from] image::ImageError),
-    #[error("Texture access error: {0}")]
-    TextureAccess(#[from] TextureAccessError),
 }
 
 impl AssetLoader for HdrTextureLoader {
@@ -38,7 +36,9 @@ impl AssetLoader for HdrTextureLoader {
         _load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
-        let pixel_size = format.pixel_size()?;
+        let pixel_size = format
+            .pixel_size()
+            .expect("`Rgba32Float` is not a compressed format");
         debug_assert_eq!(pixel_size, 4 * 4, "Format should have 32bit x 4 size");
 
         let mut bytes = Vec::new();
