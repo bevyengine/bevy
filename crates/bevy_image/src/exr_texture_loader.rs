@@ -11,7 +11,7 @@ use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 #[cfg(feature = "exr")]
 pub struct ExrTextureLoader;
 
-/// Settings for [`ExtTextureLoader`].
+/// Settings for [`ExrTextureLoader`].
 #[derive(Serialize, Deserialize, Default, Debug)]
 #[cfg(feature = "exr")]
 pub struct ExrTextureLoaderSettings {
