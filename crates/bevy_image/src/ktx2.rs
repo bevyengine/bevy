@@ -21,9 +21,9 @@ use wgpu_types::{
 use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
 
 /// Converts KTX2 bytes to a bevy [`Image`] using the given compressed format support.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error if the provided buffer contained invalid data, decompression fails, or transcoding
 /// of unsupported data formats fails.
 #[cfg(feature = "ktx2")]
@@ -388,9 +388,9 @@ pub fn get_transcoded_formats(
 }
 
 /// Reads the [`TextureFormat`] from a [`ktx2::Reader`].
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error for invalid KTX2 data, or unsupported texture formats.
 #[cfg(feature = "ktx2")]
 pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
@@ -479,9 +479,9 @@ fn sample_information_to_data_type(
 }
 
 /// Reads the [`TextureFormat`] from a KTX2 data format descriptor header.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error for invalid or unsupported texture formats.
 #[cfg(feature = "ktx2")]
 pub fn ktx2_dfd_header_to_texture_format(
@@ -1206,9 +1206,9 @@ pub fn ktx2_dfd_header_to_texture_format(
 }
 
 /// Converts a KTX2 texture format identifier to a [`TextureFormat`].
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error for unsupported texture formats.
 #[cfg(feature = "ktx2")]
 pub fn ktx2_format_to_texture_format(
