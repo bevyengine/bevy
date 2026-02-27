@@ -210,13 +210,15 @@ pub const IS_RESOURCE: ComponentId = ComponentId::new(crate::component::IS_RESOU
 mod tests {
     use crate::{
         change_detection::MaybeLocation,
-        entity::Entity,
+        entity::{Entity, EntityMapper, MapEntities},
+        lifecycle::HookContext,
         ptr::OwningPtr,
+        relationship,
         resource::{IsResource, Resource},
-        world::World,
+        world::{DeferredWorld, World},
     };
     use alloc::vec::Vec;
-    use bevy_platform::prelude::String;
+    use bevy_platform::{collections::HashMap, prelude::String};
 
     #[test]
     fn unique_resource_entities() {
@@ -312,8 +314,34 @@ mod tests {
 
     #[test]
     fn component_features() {
+        #[allow(dead_code)]
+        fn do_nothing(_world: DeferredWorld, _context: HookContext) {}
+
         #[derive(Resource)]
-        #[resource(immutable)]
-        struct MyResource;
+        #[resource(
+            immutable,
+            storage = "SparseSet",
+            on_add = do_nothing,
+            on_insert = do_nothing,
+            on_discard = do_nothing,
+            on_remove = do_nothing,
+            on_despawn = do_nothing,
+            clone_behavior = Ignore,
+            map_entities,
+        )]
+        #[allow(dead_code)]
+        struct MyResource {
+            items: HashMap<Entity, usize>,
+        }
+
+        impl MapEntities for MyResource {
+            fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+                self.items = self
+                    .items
+                    .drain()
+                    .map(|(id, count)| (entity_mapper.get_mapped(id), count))
+                    .collect();
+            }
+        }
     }
 }
