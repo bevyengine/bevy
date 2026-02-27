@@ -4,7 +4,7 @@ use core::ops::{Deref, DerefMut};
 use log::warn;
 
 use crate::{
-    component::{Component, ComponentId, Mutable},
+    component::{Component, ComponentId},
     entity::Entity,
     lifecycle::HookContext,
     storage::SparseSet,
@@ -85,7 +85,7 @@ use bevy_platform::cell::SyncUnsafeCell;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Component<Mutability = Mutable> {}
+pub trait Resource: Component {}
 
 /// A cache that links each `ComponentId` from a resource to the corresponding entity.
 #[derive(Default)]
@@ -308,5 +308,12 @@ mod tests {
         assert!(world.entity(id).get::<IsResource>().is_none());
         assert!(world.entity(second_entity).get::<TestResource>().is_some());
         assert!(world.entity(second_entity).get::<IsResource>().is_some());
+    }
+
+    #[test]
+    fn component_features() {
+        #[derive(Resource)]
+        #[resource(immutable)]
+        struct MyResource;
     }
 }
