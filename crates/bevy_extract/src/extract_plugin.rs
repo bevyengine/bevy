@@ -427,7 +427,10 @@ mod test {
             ExtractAppA,
             RenderComponentSeparateBoth,
         >::default());
-        app.add_plugins(ExtractBaseComponentPlugin::<c, RenderComponentSeparateBoth>::default());
+        app.add_plugins(ExtractBaseComponentPlugin::<
+            ExtractAppB,
+            RenderComponentSeparateBoth,
+        >::default());
 
         app.add_systems(Startup, |mut commands: Commands| {
             commands.spawn((
