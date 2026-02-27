@@ -3,6 +3,7 @@ use crate::{
 };
 use bevy_asset::{load_embedded_asset, AssetId, Handle};
 use bevy_camera::{Camera, Camera3d};
+use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_core_pipeline::FullscreenShader;
 use bevy_derive::Deref;
 use bevy_ecs::{
@@ -17,7 +18,6 @@ use bevy_ecs::{
 use bevy_image::ToExtents;
 use bevy_light::atmosphere::ScatteringMedium;
 use bevy_math::{Affine3A, Mat4, Vec3, Vec3A};
-use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_render::{
     extract_component::ComponentUniforms,
     render_asset::RenderAssets,
@@ -26,7 +26,6 @@ use bevy_render::{
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniforms},
 };
-
 
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -597,7 +596,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             Entity,
             &ExtractedAtmosphere,
             &AtmosphereTextures,
-            &ViewPrepassTextures,  // replaces ViewDepthTexture
+            &ViewPrepassTextures, // replaces ViewDepthTexture
             &Msaa,
         ),
         (With<Camera3d>, With<ExtractedAtmosphere>),
@@ -752,13 +751,16 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (10, &textures.sky_view_lut.default_view),
                 (11, &textures.aerial_view_lut.default_view),
                 (12, &**atmosphere_sampler),
-               // prepass depth — stable copy written before main pass, never mutated by post-processing
-                (13, &prepass_textures
-                    .depth
-                    .as_ref()
-                    .expect("Atmosphere requires DepthPrepass")
-                    .texture
-                    .default_view),
+                // prepass depth — stable copy written before main pass, never mutated by post-processing
+                (
+                    13,
+                    &prepass_textures
+                        .depth
+                        .as_ref()
+                        .expect("Atmosphere requires DepthPrepass")
+                        .texture
+                        .default_view,
+                ),
             )),
         );
 
