@@ -54,7 +54,7 @@ pub struct GlobalClusterSettings {
 /// Settings relating to GPU clustering.
 #[derive(Clone, Copy, Debug)]
 pub struct GlobalClusterGpuSettings {
-    /// The initial size of the list of Z slices.
+    /// The initial capacity of the list of Z slices.
     ///
     /// If there are too many clusterable objects on screen, this can overflow.
     /// Bevy will detect this situation and resize it, but you might see a few
@@ -63,9 +63,9 @@ pub struct GlobalClusterGpuSettings {
     ///
     /// The default value is
     /// `bevy::pbr::cluster::GPU_CLUSTERING_INITIAL_Z_SLICE_LIST_SIZE`.
-    pub initial_z_slice_list_size: usize,
+    pub initial_z_slice_list_capacity: usize,
 
-    /// The initial size of the list of clusterable objects.
+    /// The initial capacity of the list of clusterable objects.
     ///
     /// If there are too many clusterable objects on screen, this can overflow.
     /// Bevy will detect this situation and resize it, but you might see a few
@@ -73,8 +73,8 @@ pub struct GlobalClusterGpuSettings {
     /// can set this to a higher value.
     ///
     /// The default value is
-    /// `bevy::pbr::cluster::GPU_CLUSTERING_INITIAL_INDEX_LIST_SIZE`.
-    pub initial_index_list_size: usize,
+    /// `bevy::pbr::cluster::GPU_CLUSTERING_INITIAL_INDEX_LIST_CAPACITY`.
+    pub initial_index_list_capacity: usize,
 }
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward

@@ -248,7 +248,7 @@ pub struct ClusterMetadata {
     ///
     /// This is set to 0 by the CPU, and the GPU updates it with the computed
     /// value.
-    index_list_size: u32,
+    index_list_capacity: u32,
 
     /// The farthest depth that any clustered object AABB has extended to this
     /// frame.
@@ -334,12 +334,12 @@ struct ViewClusteringReadbackData {
     ///
     /// This starts out at the default size as specified by the allocation and
     /// can grow based on the results of GPU readback.
-    max_z_slice_list_size: usize,
+    z_slice_list_capacity: usize,
     /// The current capacity of the clustered object index list.
     ///
     /// This starts out at the default size as specified by the allocation and
     /// can grow based on the results of GPU readback.
-    max_index_list_size: usize,
+    max_index_list_capacity: usize,
     /// Buffers corresponding to GPU readback operations in progress.
     metadata_staging_pending_buffers: Vec<Buffer>,
     /// Buffers corresponding to GPU readback operations that are finished.
@@ -365,13 +365,13 @@ struct ViewClusteringLastFrameStatistics {
 impl ViewClusteringReadbackData {
     /// Creates a new [`ViewClusteringReadbackData`] for a view.
     ///
-    /// The [`Self::max_z_slice_list_size`] and [`Self::max_index_list_size`]
-    /// are calculated based on the initial sizes that the application set in
-    /// the [`GlobalClusterGpuSettings`].
+    /// The [`Self::z_slice_list_capacity`] and
+    /// [`Self::max_index_list_capacity`] are calculated based on the initial
+    /// capacities that the application set in the [`GlobalClusterGpuSettings`].
     fn new(settings: &GlobalClusterGpuSettings) -> ViewClusteringReadbackData {
         ViewClusteringReadbackData {
-            max_z_slice_list_size: settings.initial_z_slice_list_size,
-            max_index_list_size: settings.initial_index_list_size,
+            z_slice_list_capacity: settings.initial_z_slice_list_capacity,
+            max_index_list_capacity: settings.initial_index_list_capacity,
             metadata_staging_pending_buffers: vec![],
             metadata_staging_free_buffers: vec![],
             last_frame_statistics: None,
@@ -396,39 +396,41 @@ impl ViewClusteringReadbackData {
     /// the given metadata read back from the GPU.
     fn update_from_metadata(&mut self, gpu_clustering_metadata: &ClusterMetadata) {
         // Schedule a resize of the Z slice list if the GPU overflowed.
-        if self.max_z_slice_list_size
+        if self.z_slice_list_capacity
             < gpu_clustering_metadata.indirect_draw_params.instance_count as usize
         {
-            let new_size = gpu_clustering_metadata
+            let new_capacity = gpu_clustering_metadata
                 .indirect_draw_params
                 .instance_count
                 .next_power_of_two();
             warn!(
                 "Resizing the view clustering Z slice list from a capacity of {0} elements to \
                 a capacity of {1} elements. The scene lighting may have been corrupted for a \
-                few frames. To avoid this, set the `gpu_clustering.z_slice_list_size` field \
+                few frames. To avoid this, set the `gpu_clustering.z_slice_list_capacity` field \
                 on the `GlobalClusterSettings` resource to at least {1}.",
-                self.max_z_slice_list_size, new_size
+                self.z_slice_list_capacity, new_capacity
             );
-            self.max_z_slice_list_size = new_size as usize;
+            self.z_slice_list_capacity = new_capacity as usize;
         }
 
         // Schedule a resize of the index slice list if the GPU overflowed.
-        if self.max_index_list_size < gpu_clustering_metadata.index_list_size as usize {
-            let new_size = gpu_clustering_metadata.index_list_size.next_power_of_two();
+        if self.max_index_list_capacity < gpu_clustering_metadata.index_list_capacity as usize {
+            let new_capacity = gpu_clustering_metadata
+                .index_list_capacity
+                .next_power_of_two();
             warn!(
                 "Resizing the view clustering index list from a capacity of {0} elements to a \
                 capacity of {1} elements. The scene lighting may have been corrupted for a \
-                few frames. To avoid this, set the `gpu_clustering.index_list_size` field on \
+                few frames. To avoid this, set the `gpu_clustering.index_list_capacity` field on \
                 the `GlobalClusterSettings` resource to at least {1}.",
-                self.max_index_list_size, new_size
+                self.max_index_list_capacity, new_capacity
             );
-            self.max_index_list_size = new_size as usize;
+            self.max_index_list_capacity = new_capacity as usize;
         }
 
         // Record the statistics we just received.
         self.last_frame_statistics = Some(ViewClusteringLastFrameStatistics {
-            index_list_size: gpu_clustering_metadata.index_list_size,
+            index_list_size: gpu_clustering_metadata.index_list_capacity,
             farthest_z: gpu_clustering_metadata.farthest_z,
         });
     }
@@ -794,7 +796,7 @@ fn cluster_on_gpu(
     )>,
     pipeline_cache: Res<PipelineCache>,
     clustering_mesh_buffers: Res<GpuClusteringMeshBuffers>,
-    render_view_clustering_index_list_sizes: Res<RenderViewClusteringReadbackData>,
+    render_view_clustering_readback_data: Res<RenderViewClusteringReadbackData>,
     mut render_context: RenderContext,
 ) {
     let (
@@ -813,7 +815,7 @@ fn cluster_on_gpu(
         return;
     };
 
-    let Some(view_clustering_readback_data) = render_view_clustering_index_list_sizes
+    let Some(view_clustering_readback_data) = render_view_clustering_readback_data
         .views
         .get(view_main_entity)
     else {
@@ -1175,22 +1177,22 @@ fn prepare_clustering_bind_groups(
     light_meta: Res<LightMeta>,
     view_uniforms: Res<ViewUniforms>,
 ) {
-    let Some(gpu_clustered_lights_binding) = global_clusterable_object_meta
-        .gpu_clustered_lights
-        .binding()
+    let (
+        Some(gpu_clustered_lights_binding),
+        Some(light_probes_binding),
+        Some(decals_buffer),
+        Some(lights_binding),
+        Some(view_binding),
+    ) = (
+        global_clusterable_object_meta
+            .gpu_clustered_lights
+            .binding(),
+        light_probes_buffer.binding(),
+        decals_buffer.buffer(),
+        light_meta.view_gpu_lights.binding(),
+        view_uniforms.uniforms.binding(),
+    )
     else {
-        return;
-    };
-    let Some(light_probes_binding) = light_probes_buffer.binding() else {
-        return;
-    };
-    let Some(decals_buffer) = decals_buffer.buffer() else {
-        return;
-    };
-    let Some(lights_binding) = light_meta.view_gpu_lights.binding() else {
-        return;
-    };
-    let Some(view_binding) = view_uniforms.uniforms.binding() else {
         return;
     };
 
@@ -1666,24 +1668,24 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             reflection_probe_count,
             irradiance_volume_count,
             decal_count,
-            index_list_size: view_clustering_buffer_size_data.max_index_list_size as u32,
-            z_slice_list_capacity: view_clustering_buffer_size_data.max_z_slice_list_size as u32,
+            index_list_capacity: view_clustering_buffer_size_data.max_index_list_capacity as u32,
+            z_slice_list_capacity: view_clustering_buffer_size_data.z_slice_list_capacity as u32,
             farthest_z: 0.0,
         };
 
         // Allocate Z slices.
         if view_gpu_clustering_buffers.z_slices_buffer.len()
-            < view_clustering_buffer_size_data.max_z_slice_list_size
+            < view_clustering_buffer_size_data.z_slice_list_capacity
         {
             view_gpu_clustering_buffers.z_slices_buffer.add_multiple(
-                view_clustering_buffer_size_data.max_z_slice_list_size
+                view_clustering_buffer_size_data.z_slice_list_capacity
                     - view_gpu_clustering_buffers.z_slices_buffer.len(),
             );
         }
 
         // Make room for the appropriate number of indices.
         view_clusters_bindings
-            .reserve_indices(view_clustering_buffer_size_data.max_index_list_size);
+            .reserve_indices(view_clustering_buffer_size_data.max_index_list_capacity);
         view_clusters_bindings.write_buffers(render_device, &render_queue);
 
         // Allocate scratchpad offsets and counts.

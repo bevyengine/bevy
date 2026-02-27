@@ -45,17 +45,17 @@ const CLUSTER_COUNT_SIZE: u32 = 9;
 const CLUSTER_OFFSET_MASK: u32 = (1 << (32 - (CLUSTER_COUNT_SIZE * 2))) - 1;
 const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 
-/// The initial size of the Z slice list.
+/// The initial capacity of the Z slice list.
 ///
 /// The application can override this by setting
-/// [`GlobalClusterGpuSettings::initial_z_slice_list_size`].
-pub const GPU_CLUSTERING_INITIAL_Z_SLICE_LIST_SIZE: usize = 1024;
+/// [`GlobalClusterGpuSettings::initial_z_slice_list_capacity`].
+pub const GPU_CLUSTERING_INITIAL_Z_SLICE_LIST_CAPACITY: usize = 1024;
 
-/// The initial size of the clustered object index list.
+/// The initial capacity of the clustered object index list.
 ///
 /// The application can override this by setting
-/// [`GlobalClusterGpuSettings::initial_index_list_size`].
-pub const GPU_CLUSTERING_INITIAL_INDEX_LIST_SIZE: usize = 65536;
+/// [`GlobalClusterGpuSettings::initial_index_list_capacity`].
+pub const GPU_CLUSTERING_INITIAL_INDEX_LIST_CAPACITY: usize = 65536;
 
 /// Creates the default [`GlobalClusterSettings`] resource.
 pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettings {
@@ -80,8 +80,8 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
     let gpu_clustering = if gpu_clustering_supported {
         info!("GPU clustering is supported on this device.");
         Some(GlobalClusterGpuSettings {
-            initial_z_slice_list_size: GPU_CLUSTERING_INITIAL_Z_SLICE_LIST_SIZE,
-            initial_index_list_size: GPU_CLUSTERING_INITIAL_INDEX_LIST_SIZE,
+            initial_z_slice_list_capacity: GPU_CLUSTERING_INITIAL_Z_SLICE_LIST_CAPACITY,
+            initial_index_list_capacity: GPU_CLUSTERING_INITIAL_INDEX_LIST_CAPACITY,
         })
     } else {
         info!("GPU clustering isn't supported on this device; falling back to CPU clustering.");
