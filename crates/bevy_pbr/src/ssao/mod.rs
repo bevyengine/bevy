@@ -50,7 +50,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         embedded_asset!(app, "ssao.wgsl");
         embedded_asset!(app, "spatial_denoise.wgsl");
 
-        app.add_plugins(SyncComponentPlugin::<RenderApp, ScreenSpaceAmbientOcclusion>::default());
+        app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
     }
 
     fn finish(&self, app: &mut App) {

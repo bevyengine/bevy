@@ -306,7 +306,7 @@ impl Plugin for ColoredMesh2dPlugin {
         // shader, including `embedded_asset`/`load_embedded_asset`.
         let shader = shaders.add(Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()));
 
-        app.add_plugins(SyncComponentPlugin::<RenderApp, ColoredMesh2d>::default());
+        app.add_plugins(SyncComponentPlugin::<ColoredMesh2d>::default());
 
         // Register our custom draw function, and add our render systems
         app.get_sub_app_mut(RenderApp)

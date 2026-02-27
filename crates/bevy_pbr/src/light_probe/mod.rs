@@ -379,7 +379,7 @@ impl Plugin for LightProbePlugin {
 
         app.add_plugins((
             EnvironmentMapGenerationPlugin,
-            ExtractInstancesPlugin::<RenderApp, EnvironmentMapIds>::default(),
+            ExtractInstancesPlugin::<EnvironmentMapIds>::default(),
         ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

@@ -70,7 +70,7 @@ impl Plugin for VolumetricFogPlugin {
         let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh());
         let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
 
-        app.add_plugins(SyncComponentPlugin::<RenderApp, FogVolume, Self>::default());
+        app.add_plugins(SyncComponentPlugin::<FogVolume, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

@@ -76,16 +76,24 @@ pub mod extract_base_resource {
     pub use bevy_extract::extract_base_resource::{ExtractBaseResource, ExtractResource};
 }
 pub mod extract_instances {
-    pub use bevy_extract::extract_instances::{ExtractInstance, ExtractInstancesPlugin};
+    pub use bevy_extract::extract_instances::ExtractInstance;
+
+    pub type ExtractInstancesPlugin<EI> =
+        bevy_extract::extract_instances::ExtractInstancesPlugin<crate::RenderApp, EI>;
 }
 pub mod sync_component {
-    pub use bevy_extract::sync_component::{SyncComponent, SyncComponentPlugin};
+    pub use bevy_extract::sync_component::SyncComponent;
+
+    pub type SyncComponentPlugin<C, F = ()> =
+        bevy_extract::sync_component::SyncComponentPlugin<crate::RenderApp, C, F>;
 }
 pub mod sync_world {
     pub use bevy_extract::sync_world::{
         MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity, SyncToRenderWorld,
         TemporaryRenderEntity,
     };
+
+    pub type SyncWorldPlugin = bevy_extract::sync_world::SyncWorldPlugin<crate::RenderApp>;
 }
 pub use bevy_extract::{Extract, ExtractSchedule, MainWorld};
 

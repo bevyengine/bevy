@@ -204,7 +204,7 @@ impl Plugin for DepthOfFieldPlugin {
 
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
-        app.add_plugins(SyncComponentPlugin::<RenderApp, DepthOfField>::default());
+        app.add_plugins(SyncComponentPlugin::<DepthOfField>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
