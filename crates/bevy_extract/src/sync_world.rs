@@ -546,7 +546,7 @@ mod render_entities_world_query_impls {
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
+    use core::marker::PhantomData;
 
     use bevy_app::AppLabel;
     use bevy_ecs::{
