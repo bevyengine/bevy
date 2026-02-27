@@ -11,16 +11,21 @@ use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 #[derive(Clone, Default, TypePath)]
 pub struct HdrTextureLoader;
 
+/// Settings for [`HdrTextureLoader`].
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct HdrTextureLoaderSettings {
+    /// Where the asset will be used - see the docs on [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
 }
 
+/// Possible errors that can be produced by [`HdrTextureLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum HdrTextureLoaderError {
+    /// I/O Error.
     #[error("Could load texture: {0}")]
     Io(#[from] std::io::Error),
+    /// Failed to decode the texture.
     #[error("Could not extract image: {0}")]
     Image(#[from] image::ImageError),
 }

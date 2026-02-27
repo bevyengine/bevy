@@ -243,36 +243,52 @@ impl Plugin for ImagePlugin {
 /// The format of an on-disk image asset.
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
+    /// An image in basis universal format.
     #[cfg(feature = "basis-universal")]
     Basis,
+    /// An image in BMP format.
     #[cfg(feature = "bmp")]
     Bmp,
+    /// An image in DDS format.
     #[cfg(feature = "dds")]
     Dds,
+    /// An image in Farbfeld format.
     #[cfg(feature = "ff")]
     Farbfeld,
+    /// An image in GIF format.
     #[cfg(feature = "gif")]
     Gif,
+    /// An image in Open EXR format.
     #[cfg(feature = "exr")]
     OpenExr,
+    /// An image in Radiance HDR format.
     #[cfg(feature = "hdr")]
     Hdr,
+    /// An image in ICO format.
     #[cfg(feature = "ico")]
     Ico,
+    /// An image in JPEG format.
     #[cfg(feature = "jpeg")]
     Jpeg,
+    /// An image in Khronos KTX2 format.
     #[cfg(feature = "ktx2")]
     Ktx2,
+    /// An image in PNG format.
     #[cfg(feature = "png")]
     Png,
+    /// An image in general PNM format
     #[cfg(feature = "pnm")]
     Pnm,
+    /// An image in QOI format.
     #[cfg(feature = "qoi")]
     Qoi,
+    /// An image in TGA format.
     #[cfg(feature = "tga")]
     Tga,
+    /// An image in TIFF format.
     #[cfg(feature = "tiff")]
     Tiff,
+    /// An image in WEBP format.
     #[cfg(feature = "webp")]
     WebP,
 }

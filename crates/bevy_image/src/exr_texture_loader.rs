@@ -11,9 +11,11 @@ use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 #[cfg(feature = "exr")]
 pub struct ExrTextureLoader;
 
+/// Settings for [`ExtTextureLoader`].
 #[derive(Serialize, Deserialize, Default, Debug)]
 #[cfg(feature = "exr")]
 pub struct ExrTextureLoaderSettings {
+    /// Where the asset will be used - see the docs on [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
 }
 
@@ -22,8 +24,10 @@ pub struct ExrTextureLoaderSettings {
 #[derive(Debug, Error, TypePath)]
 #[cfg(feature = "exr")]
 pub enum ExrTextureLoaderError {
+    /// I/O Error.
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    /// Failed to decode the texture.
     #[error(transparent)]
     ImageError(#[from] image::ImageError),
 }
