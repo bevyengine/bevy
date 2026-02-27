@@ -68,6 +68,8 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 
+use bevy_core_pipeline::prepass::DepthPrepass;
+
 use bevy_shader::load_shader_library;
 use environment::{
     atmosphere_environment, init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
@@ -111,7 +113,7 @@ impl Plugin for AtmospherePlugin {
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))
-        .register_required_components::<Atmosphere, AtmosphereSettings>()
+        .register_required_components::<Atmosphere, DepthPrepass>()
         .add_systems(Update, prepare_atmosphere_probe_components);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
