@@ -2,7 +2,10 @@
 
 use std::{f32::consts::PI, time::Duration};
 
-use bevy::{animation::RepeatAnimation, light::CascadeShadowConfigBuilder, prelude::*};
+use bevy::{
+    animation::RepeatAnimation, light::CascadeShadowConfigBuilder, prelude::*,
+    scene::SceneInstanceReady,
+};
 
 const FOX_PATH: &str = "models/animated/Fox.glb";
 
@@ -15,8 +18,14 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, setup_scene_once_loaded)
-        .add_systems(Update, keyboard_control)
+        .add_systems(
+            Update,
+            spawn_fox_asset_when_ready.run_if(not(resource_exists::<Animations>)),
+        )
+        .add_systems(
+            Update,
+            keyboard_control.run_if(resource_exists::<Animations>),
+        )
         .run();
 }
 
@@ -26,27 +35,18 @@ struct Animations {
     graph_handle: Handle<AnimationGraph>,
 }
 
+#[derive(Resource)]
+struct Fox(Handle<Gltf>);
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
-    // Build the animation graph
-    let (graph, node_indices) = AnimationGraph::from_clips([
-        asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
-        asset_server.load(GltfAssetLabel::Animation(1).from_asset(FOX_PATH)),
-        asset_server.load(GltfAssetLabel::Animation(0).from_asset(FOX_PATH)),
-    ]);
-
-    // Keep our animation graph in a Resource so that it can be inserted onto
-    // the correct entity once the scene actually loads.
-    let graph_handle = graphs.add(graph);
-    commands.insert_resource(Animations {
-        animations: node_indices,
-        graph_handle,
-    });
+    // trigger a load for the glTF asset
+    // and store the handle in a Resource
+    commands.insert_resource(Fox(asset_server.load(FOX_PATH)));
 
     // Camera
     commands.spawn((
@@ -75,13 +75,7 @@ fn setup(
         .build(),
     ));
 
-    // Fox
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
-    ));
-
     // Instructions
-
     commands.spawn((
         Text::new(concat!(
             "space: play / pause\n",
@@ -100,29 +94,72 @@ fn setup(
     ));
 }
 
-// An `AnimationPlayer` is automatically added to the scene when it's ready.
-// When the player is added, start the animation.
-fn setup_scene_once_loaded(
+fn spawn_fox_asset_when_ready(
+    mut commands: Commands,
+    fox_handle: Res<Fox>,
+    asset_server: Res<AssetServer>,
+    gltfs: Res<Assets<Gltf>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+) {
+    if !asset_server.is_loaded_with_dependencies(&fox_handle.0) {
+        // fox is not loaded yet
+        return;
+    }
+
+    let fox = gltfs
+        .get(&fox_handle.0)
+        .expect("a loaded asset should exist in the glTF assets collection");
+
+    // Build the animation graph
+    let (graph, node_indices) = AnimationGraph::from_clips([
+        fox.named_animations["Run"].clone(),
+        fox.named_animations["Walk"].clone(),
+        fox.named_animations["Survey"].clone(),
+    ]);
+
+    // Keep our animation graph in a Resource so that it can be inserted onto
+    // the correct entity once the scene actually loads.
+    let graph_handle = graphs.add(graph);
+    commands.insert_resource(Animations {
+        animations: node_indices,
+        graph_handle,
+    });
+
+    // Fox
+    commands
+        .spawn(SceneRoot(
+            fox.default_scene
+                .clone()
+                .expect("a default scene exists in this file"),
+        ))
+        .observe(setup_scene);
+}
+
+// An `AnimationPlayer` is automatically added to the scene when loading the
+// glTF file, so it already exists on the appropriate entity when
+// `SceneInstanceReady` fires. There will be only one player in this example,
+// so we use `Single`.
+fn setup_scene(
+    _ready: On<SceneInstanceReady>,
     mut commands: Commands,
     animations: Res<Animations>,
-    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+    player: Single<(Entity, &mut AnimationPlayer)>,
 ) {
-    for (entity, mut player) in &mut players {
-        let mut transitions = AnimationTransitions::new();
+    let (entity, mut player) = player.into_inner();
+    let mut transitions = AnimationTransitions::new();
 
-        // Make sure to start the animation via the `AnimationTransitions`
-        // component. The `AnimationTransitions` component wants to manage all
-        // the animations and will get confused if the animations are started
-        // directly via the `AnimationPlayer`.
-        transitions
-            .play(&mut player, animations.animations[0], Duration::ZERO)
-            .repeat();
+    // Make sure to start the animation via the `AnimationTransitions`
+    // component. The `AnimationTransitions` component wants to manage all
+    // the animations and will get confused if the animations are started
+    // directly via the `AnimationPlayer`.
+    transitions
+        .play(&mut player, animations.animations[0], Duration::ZERO)
+        .repeat();
 
-        commands
-            .entity(entity)
-            .insert(AnimationGraphHandle(animations.graph_handle.clone()))
-            .insert(transitions);
-    }
+    commands
+        .entity(entity)
+        .insert(AnimationGraphHandle(animations.graph_handle.clone()))
+        .insert(transitions);
 }
 
 fn keyboard_control(

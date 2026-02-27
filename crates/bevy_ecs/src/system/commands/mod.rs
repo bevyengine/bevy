@@ -268,6 +268,20 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Returns a new [`Commands`] that writes commands to the provided [`CommandQueue`] instead of the one from `self`.
+    ///
+    /// This is useful if you have a `Commands` that writes to one queue and you want one that writes to another.
+    ///
+    /// Note that you're responsible for ensuring the queue eventually writes its commands to the world. One way to
+    /// do this is calling [`Commands::append`] on a `Commands` that writes to the world queue. Failure to write a
+    /// queue may result in entities being allocated but never spawned, which means those entity IDs are never
+    /// freed for reuse.
+    ///
+    /// The original `Commands` isn't mutated or borrowed after this returns, so you can keep using it.
+    pub fn rebound_to<'q>(&self, queue: &'q mut CommandQueue) -> Commands<'w, 'q> {
+        Commands::new_from_entities(queue, self.allocator, self.entities)
+    }
+
     /// Returns a [`Commands`] with a smaller lifetime.
     ///
     /// This is useful if you have `&mut Commands` but need `Commands`.

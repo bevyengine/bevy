@@ -1,8 +1,8 @@
 use crate::{
     render::{PreprocessBindGroups, PreprocessPipelines},
-    DrawMesh, MeshPipeline, MeshPipelineKey, RenderLightmaps, RenderMeshInstanceFlags,
-    RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup,
-    ViewKeyCache,
+    DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet, RenderLightmaps,
+    RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
+    SetMeshViewBindingArrayBindGroup, ViewKeyCache,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
@@ -149,7 +149,10 @@ impl Plugin for WireframePlugin {
             .init_resource::<WireframeWideBindGroups>()
             .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
             .init_resource::<PendingWireframeQueues>()
-            .add_systems(RenderStartup, init_wireframe_3d_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_wireframe_3d_pipeline.after(MeshPipelineSet),
+            )
             .add_systems(
                 Core3d,
                 wireframe_3d
@@ -440,7 +443,7 @@ pub fn prepare_wireframe_wide_bind_groups(
         let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*entity) else {
             continue;
         };
-        let mesh_id = mesh_instance.mesh_asset_id;
+        let mesh_id = mesh_instance.mesh_asset_id();
         if !seen.insert(mesh_id) {
             continue;
         }
@@ -539,7 +542,7 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dWideBindGroup {
         let Some((bind_group, dynamic_offset)) = wide_bind_groups
             .into_inner()
             .bind_groups
-            .get(&mesh_instance.mesh_asset_id)
+            .get(&mesh_instance.mesh_asset_id())
         else {
             return RenderCommandResult::Skip;
         };
@@ -1423,7 +1426,7 @@ pub fn specialize_wireframes(
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
 
@@ -1437,13 +1440,13 @@ pub fn specialize_wireframes(
             if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
                 // If the previous frame have skins or morph targets, note that.
                 if mesh_instance
-                    .flags
+                    .flags()
                     .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
                 {
                     mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
                 }
                 if mesh_instance
-                    .flags
+                    .flags()
                     .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
                 {
                     mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
@@ -1594,9 +1597,10 @@ fn queue_wireframes(
                 .unwrap_or(false);
             let draw_function = if is_wide { draw_wide } else { draw_thin };
 
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+            let (vertex_slab, index_slab) =
+                mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id());
             let bin_key = Wireframe3dBinKey {
-                asset_id: mesh_instance.mesh_asset_id.untyped(),
+                asset_id: mesh_instance.mesh_asset_id().untyped(),
             };
             let batch_set_key = Wireframe3dBatchSetKey {
                 pipeline: pipeline_id,
@@ -1608,7 +1612,7 @@ fn queue_wireframes(
                 // IndirectParametersNonIndexed instead of IndirectParametersIndexed.
                 index_slab: if is_wide { None } else { index_slab },
                 mesh_asset_id: if is_wide {
-                    Some(mesh_instance.mesh_asset_id.untyped())
+                    Some(mesh_instance.mesh_asset_id().untyped())
                 } else {
                     None
                 },
