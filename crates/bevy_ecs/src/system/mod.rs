@@ -411,7 +411,7 @@ mod tests {
         lifecycle::RemovedComponents,
         name::Name,
         prelude::{Add, AnyOf, EntityRef, On},
-        query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
+        query::{Added, Changed, NestedQuery, Or, SpawnDetails, Spawned, With, Without},
         resource::Resource,
         schedule::{
             common_conditions::resource_exists, ApplyDeferred, IntoScheduleConfigs, Schedule,
@@ -894,6 +894,33 @@ mod tests {
     }
 
     #[test]
+    #[should_panic = "error[B0001]"]
+    fn nested_query_conflicts_with_main_query() {
+        fn sys(_: Query<(&mut A, NestedQuery<&A>)>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn nested_query_conflicts_with_earlier_query() {
+        fn sys(_: Query<&mut A>, _: Query<NestedQuery<&A>>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn nested_query_conflicts_with_later_query() {
+        fn sys(_: Query<NestedQuery<&A>>, _: Query<&mut A>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     fn query_set_system() {
         fn sys(mut _set: ParamSet<(Query<&mut A>, Query<&A>)>) {}
         let mut world = World::default();
@@ -1006,7 +1033,7 @@ mod tests {
         // existence.
         struct NotSend1(alloc::rc::Rc<i32>);
         struct NotSend2(alloc::rc::Rc<i32>);
-        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(0)));
+        world.insert_non_send(NotSend1(alloc::rc::Rc::new(0)));
 
         fn sys(
             op: Option<NonSend<NotSend1>>,
@@ -1034,8 +1061,8 @@ mod tests {
         struct NotSend1(alloc::rc::Rc<i32>);
         struct NotSend2(alloc::rc::Rc<i32>);
 
-        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(1)));
-        world.insert_non_send_resource(NotSend2(alloc::rc::Rc::new(2)));
+        world.insert_non_send(NotSend1(alloc::rc::Rc::new(1)));
+        world.insert_non_send(NotSend2(alloc::rc::Rc::new(2)));
 
         fn sys(
             _op: NonSend<NotSend1>,
@@ -1198,10 +1225,7 @@ mod tests {
         let y_access = y.initialize(&mut world);
 
         let conflicts = x_access.get_conflicts(&y_access);
-        let b_id = world
-            .components()
-            .get_resource_id(TypeId::of::<ResB>())
-            .unwrap();
+        let b_id = world.components().get_id(TypeId::of::<ResB>()).unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id].into());
     }
@@ -1876,7 +1900,7 @@ mod tests {
                     res.0 += 2;
                 },
             )
-                .distributive_run_if(resource_exists::<A>.or(resource_exists::<B>)),
+                .distributive_run_if(resource_exists::<A>.or_eager(resource_exists::<B>)),
         );
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);
@@ -1884,6 +1908,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "debug"), ignore)]
     #[should_panic(
         expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_system::sys`: error"
     )]
@@ -1898,6 +1923,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "debug"), ignore)]
     #[should_panic(
         expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_exclusive_system::sys`: error"
     )]

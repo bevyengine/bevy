@@ -19,8 +19,8 @@ use bevy_render::texture::CachedTexture;
 use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{
-        Buffer, BufferDescriptor, BufferUsages, Texture, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
+        Buffer, BufferDescriptor, BufferUsages, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages, TextureView, TextureViewDescriptor,
     },
     renderer::RenderDevice,
 };
@@ -48,8 +48,8 @@ pub const LIGHT_CACHE_LIGHTS_PER_CELL: u64 = 8;
 pub struct SolariLightingResources {
     pub light_tile_samples: Buffer,
     pub light_tile_resolved_samples: Buffer,
-    pub di_reservoirs_a: (Texture, TextureView),
-    pub di_reservoirs_b: (Texture, TextureView),
+    pub di_reservoirs_a: TextureView,
+    pub di_reservoirs_b: TextureView,
     pub gi_reservoirs_a: Buffer,
     pub gi_reservoirs_b: Buffer,
     pub world_cache_checksums: Buffer,
@@ -125,18 +125,18 @@ pub fn prepare_solari_lighting_resources(
         });
 
         let di_reservoirs = |name| {
-            let tex = render_device.create_texture(&TextureDescriptor {
-                label: Some(name),
-                size: view_size.to_extents(),
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba32Uint,
-                usage: TextureUsages::STORAGE_BINDING,
-                view_formats: &[],
-            });
-            let view = tex.create_view(&TextureViewDescriptor::default());
-            (tex, view)
+            render_device
+                .create_texture(&TextureDescriptor {
+                    label: Some(name),
+                    size: view_size.to_extents(),
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::Rgba32Uint,
+                    usage: TextureUsages::STORAGE_BINDING,
+                    view_formats: &[],
+                })
+                .create_view(&TextureViewDescriptor::default())
         };
         let di_reservoirs_a = di_reservoirs("solari_lighting_di_reservoirs_a");
         let di_reservoirs_b = di_reservoirs("solari_lighting_di_reservoirs_b");
@@ -218,7 +218,7 @@ pub fn prepare_solari_lighting_resources(
         let world_cache_active_cells_count = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_world_cache_active_cells_count"),
             size: size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 

@@ -11,11 +11,11 @@ use bevy_ecs::{
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
+use bevy_log::{debug, error};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::render_asset::RenderAssetBytesPerFrameLimiter;
 use core::marker::PhantomData;
 use thiserror::Error;
-use tracing::{debug, error};
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
@@ -125,6 +125,7 @@ impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
             render_app
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<ErasedRenderAssets<A::ErasedAsset>>()
+                .allow_ambiguous_resource::<ErasedRenderAssets<A::ErasedAsset>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(
                     ExtractSchedule,

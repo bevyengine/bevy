@@ -1,23 +1,27 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncCell;
+use bevy_utils::prelude::DebugName;
 use variadics_please::all_tuples;
 
 use crate::{
+    change_detection::{CheckChangeTicks, Tick},
     prelude::QueryBuilder,
-    query::{QueryData, QueryFilter, QueryState},
+    query::{FilteredAccessSet, QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
-        DynSystemParam, DynSystemParamState, If, Local, ParamSet, Query, SystemParam,
-        SystemParamValidationError,
+        DynSystemParam, DynSystemParamState, FromInput, FunctionSystem, If, IntoResult, IntoSystem,
+        Local, ParamSet, Query, ReadOnlySystem, System, SystemInput, SystemMeta, SystemParam,
+        SystemParamFunction, SystemParamValidationError,
     },
     world::{
-        FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
-        FilteredResourcesMutBuilder, FromWorld, World,
+        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources,
+        FilteredResourcesBuilder, FilteredResourcesMut, FilteredResourcesMutBuilder, FromWorld,
+        World,
     },
 };
-use core::fmt::Debug;
+use core::{fmt::Debug, marker::PhantomData, mem};
 
-use super::{Res, ResMut, SystemState};
+use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
 
 /// A builder that can create a [`SystemParam`].
 ///
@@ -34,12 +38,26 @@ use super::{Res, ResMut, SystemState};
 /// #
 /// fn some_system(param: MyParam) {}
 ///
-/// fn build_system(builder: impl SystemParamBuilder<MyParam>) {
-///     let mut world = World::new();
+/// fn build_system(builder: impl SystemParamBuilder<MyParam> + 'static) {
 ///     // To build a system, create a tuple of `SystemParamBuilder`s
 ///     // with a builder for each parameter.
 ///     // Note that the builder for a system must be a tuple,
 ///     // even if there is only one parameter.
+/// #   let _system: bevy_ecs::system::IntoBuilderSystem<fn(MyParam), (), (), _, _> =
+///     (builder,)
+///         .build_system(some_system);
+/// }
+///
+/// fn build_system_direct(builder: impl SystemParamBuilder<MyParam>) {
+///     let mut world = World::new();
+///     // You can also construct a system in two steps, first by
+///     // constructing a [`SystemState`] with `build_state` and
+///     // second by constructing the final system with `build_system`.
+///     // This can be useful in cases that require type inference
+///     // for function parameters (like closures!), since normal
+///     // `build_system` requires explicitly specifying all parameter
+///     // types. See `build_closure_system_infer/explicit` below for more
+///     // info.
 ///     (builder,)
 ///         .build_state(&mut world)
 ///         .build_system(some_system);
@@ -61,10 +79,10 @@ use super::{Res, ResMut, SystemState};
 /// fn build_closure_system_explicit(builder: impl SystemParamBuilder<MyParam>) {
 ///     let mut world = World::new();
 ///     // Alternately, you can provide all types in the closure
-///     // parameter list and call `build_any_system()`.
-///     (builder, ParamBuilder)
-///         .build_state(&mut world)
-///         .build_any_system(|param: MyParam, res: Res<R>| {});
+///     // parameter list and call `build_system()` normally.
+///     (builder, ParamBuilder::resource())
+///         .build_state(&mut world) // this line can be optionally omitted, since all the parameter types are explicit!
+///         .build_system(|param: MyParam, res: Res<R>| {});
 /// }
 /// ```
 ///
@@ -118,6 +136,32 @@ pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
     /// To create a system, call [`SystemState::build_system`] on the result.
     fn build_state(self, world: &mut World) -> SystemState<P> {
         SystemState::from_builder(world, self)
+    }
+
+    /// Create a [`System`] from a [`SystemParamBuilder`] directly.
+    ///
+    /// This method is useful in cases where type inference for
+    /// closure parameters isn't necessary, or where it's not
+    /// possible to call [`SystemState::build_system`] by passing
+    /// in an `&mut World`. Rather than constructing the system's
+    /// state immediately, this function returns a wrapper that
+    /// initializes the system state during the first run.
+    ///
+    /// Caveats:
+    /// - doesn't support parameter type inference.
+    /// - only works for 'static system param builder types.
+    ///
+    /// In cases where  either of these are required, call
+    /// [`SystemParamBuilder::build_state`] instead.
+    fn build_system<Marker, In, Out, Func>(
+        self,
+        func: Func,
+    ) -> IntoBuilderSystem<Marker, In, Out, Func, Self>
+    where
+        Self: 'static,
+        Func: SystemParamFunction<Marker, Param = P>,
+    {
+        IntoBuilderSystem::new(self, func)
     }
 }
 
@@ -202,6 +246,257 @@ impl ParamBuilder {
     ) -> impl SystemParamBuilder<Query<'w, 's, D, F>> {
         Self
     }
+}
+
+/// A marker type used to distinguish builder systems from plain function systems.
+#[doc(hidden)]
+pub struct IsBuilderSystem;
+
+/// An [`IntoSystem`] creating an instance of [`BuilderSystem`]
+pub struct IntoBuilderSystem<Marker, In, Out, Func, Builder>
+where
+    Func: SystemParamFunction<Marker>,
+    Builder: SystemParamBuilder<Func::Param>,
+{
+    builder: Builder,
+    func: Func,
+    _marker: PhantomData<fn(In) -> (Marker, Out)>,
+}
+
+impl<Marker, In, Out, Func, Builder> IntoBuilderSystem<Marker, In, Out, Func, Builder>
+where
+    Func: SystemParamFunction<Marker>,
+    Builder: SystemParamBuilder<Func::Param>,
+{
+    /// Returns a new [`IntoBuilderSystem`] given a system param builder and system function
+    pub fn new(builder: Builder, func: Func) -> Self {
+        Self {
+            builder,
+            func,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<Marker, In, Out, Func, Builder> IntoSystem<In, Out, (IsBuilderSystem, Marker)>
+    for IntoBuilderSystem<Marker, In, Out, Func, Builder>
+where
+    Marker: 'static,
+    In: SystemInput + 'static,
+    Out: 'static,
+    Func: SystemParamFunction<Marker, In: FromInput<In>, Out: IntoResult<Out>>,
+    Builder: SystemParamBuilder<Func::Param> + Send + Sync + 'static,
+{
+    type System = BuilderSystem<Marker, In, Out, Func, Builder>;
+
+    fn into_system(this: Self) -> Self::System {
+        BuilderSystem::new(this.builder, this.func)
+    }
+}
+
+/// A [`System`] created from a [`SystemParamBuilder`] whose state is not
+/// initialized until the first run.
+pub struct BuilderSystem<Marker, In, Out, Func, Builder>
+where
+    Func: SystemParamFunction<Marker>,
+    Builder: SystemParamBuilder<Func::Param>,
+{
+    inner: BuilderSystemInner<Marker, In, Out, Func, Builder>,
+}
+
+impl<Marker, In, Out, Func, Builder> BuilderSystem<Marker, In, Out, Func, Builder>
+where
+    Func: SystemParamFunction<Marker>,
+    Builder: SystemParamBuilder<Func::Param>,
+{
+    /// Returns a new `BuilderSystem` given a system param builder and a system function
+    pub fn new(builder: Builder, func: Func) -> Self {
+        Self {
+            inner: BuilderSystemInner::Uninitialized {
+                builder,
+                func,
+                meta: SystemMeta::new::<Func>(),
+            },
+        }
+    }
+}
+
+enum BuilderSystemInner<Marker, In, Out, Func, Builder>
+where
+    Func: SystemParamFunction<Marker>,
+    Builder: SystemParamBuilder<Func::Param>,
+{
+    /// A properly initialized system whose state has been constructed
+    Initialized {
+        system: FunctionSystem<Marker, In, Out, Func>,
+    },
+    /// An uninitialized system, whose state hasn't been constructed from
+    /// the param builder yet
+    Uninitialized {
+        builder: Builder,
+        func: Func,
+        meta: SystemMeta,
+    },
+    /// This only exists as a variant to use with `mem::replace` in `initialize`.
+    /// If this state is ever observed outside `initialize`, then a `panic!`
+    /// interrupted initialization, leaving this system in an invalid state.
+    Invalid,
+}
+
+impl<Marker, In, Out, Func, Builder> System for BuilderSystem<Marker, In, Out, Func, Builder>
+where
+    Marker: 'static,
+    In: SystemInput + 'static,
+    Out: 'static,
+    Func: SystemParamFunction<Marker, In: FromInput<In>, Out: IntoResult<Out>>,
+    Builder: SystemParamBuilder<Func::Param> + Send + Sync + 'static,
+{
+    type In = In;
+
+    type Out = Out;
+
+    #[inline]
+    fn name(&self) -> DebugName {
+        match &self.inner {
+            BuilderSystemInner::Initialized { system } => system.name(),
+            BuilderSystemInner::Uninitialized { meta, .. } => meta.name().clone(),
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        match &self.inner {
+            BuilderSystemInner::Initialized { system, .. } => system.flags(),
+            BuilderSystemInner::Uninitialized { meta, .. } => meta.flags(),
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
+
+    #[inline]
+    unsafe fn run_unsafe(
+        &mut self,
+        input: super::SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Result<Self::Out, RunSystemError> {
+        match &mut self.inner {
+            // SAFETY: requirements upheld by the caller.
+            BuilderSystemInner::Initialized { system, .. } => unsafe {
+                system.run_unsafe(input, world)
+            },
+            BuilderSystemInner::Uninitialized { .. } => panic!(
+                "BuilderSystem {} was not initialized before calling run_unsafe.",
+                self.name()
+            ),
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
+
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        match &mut self.inner {
+            BuilderSystemInner::Initialized { system, .. } => system.refresh_hotpatch(),
+            BuilderSystemInner::Uninitialized { .. } => {}
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn apply_deferred(&mut self, world: &mut World) {
+        match &mut self.inner {
+            BuilderSystemInner::Initialized { system, .. } => system.apply_deferred(world),
+            BuilderSystemInner::Uninitialized { .. } => {}
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, world: DeferredWorld) {
+        match &mut self.inner {
+            BuilderSystemInner::Initialized { system, .. } => system.queue_deferred(world),
+            BuilderSystemInner::Uninitialized { .. } => {}
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
+
+    #[inline]
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        match &mut self.inner {
+            // SAFETY: requirements upheld by the caller.
+            BuilderSystemInner::Initialized { system, .. } => unsafe {
+                system.validate_param_unsafe(world)
+            },
+            BuilderSystemInner::Uninitialized { .. } => panic!(
+                "BuilderSystem {} was not initialized before calling validate_param_unsafe.",
+                self.name()
+            ),
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+        let inner = mem::replace(&mut self.inner, BuilderSystemInner::Invalid);
+        match inner {
+            BuilderSystemInner::Initialized { mut system } => {
+                let access = system.initialize(world);
+                self.inner = BuilderSystemInner::Initialized { system };
+                access
+            }
+            BuilderSystemInner::Uninitialized { builder, func, .. } => {
+                let mut system = builder.build_state(world).build_any_system(func);
+                let access = system.initialize(world);
+                self.inner = BuilderSystemInner::Initialized { system };
+                access
+            }
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        match &mut self.inner {
+            BuilderSystemInner::Initialized { system, .. } => system.check_change_tick(check),
+            BuilderSystemInner::Uninitialized { .. } => {}
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn get_last_run(&self) -> Tick {
+        match &self.inner {
+            BuilderSystemInner::Initialized { system, .. } => system.get_last_run(),
+            BuilderSystemInner::Uninitialized { meta, .. } => meta.get_last_run(),
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn set_last_run(&mut self, last_run: Tick) {
+        match &mut self.inner {
+            BuilderSystemInner::Initialized { system, .. } => system.set_last_run(last_run),
+            BuilderSystemInner::Uninitialized { meta, .. } => meta.set_last_run(last_run),
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
+}
+
+// SAFETY: if the wrapped system is read-only, so is this one
+unsafe impl<Marker, In, Out, Func, Builder> ReadOnlySystem
+    for BuilderSystem<Marker, In, Out, Func, Builder>
+where
+    Marker: 'static,
+    In: SystemInput + 'static,
+    Out: 'static,
+    Func: SystemParamFunction<Marker, In: FromInput<In>, Out: IntoResult<Out>>,
+    Builder: SystemParamBuilder<Func::Param> + Send + Sync + 'static,
+    // the important bound
+    FunctionSystem<Marker, In, Out, Func>: ReadOnlySystem,
+{
 }
 
 // SAFETY: Any `QueryState<D, F>` for the correct world is valid for `Query::State`,
@@ -626,7 +921,7 @@ mod tests {
         system::{Local, RunSystemOnce},
     };
     use alloc::vec;
-    use bevy_reflect::{FromType, Reflect, ReflectRef};
+    use bevy_reflect::Reflect;
 
     use super::*;
 
@@ -671,6 +966,11 @@ mod tests {
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 10);
+
+        let builder_system = (LocalBuilder(10),).build_system(local_system);
+
+        let output = world.run_system_once(builder_system).unwrap();
+        assert_eq!(output, 10);
     }
 
     #[test]
@@ -688,10 +988,18 @@ mod tests {
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 1);
+
+        let builder_system = (QueryParamBuilder::new(|query| {
+            query.with::<A>();
+        }),)
+            .build_system(query_system);
+
+        let output = world.run_system_once(builder_system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
-    fn query_builder_result_fallible() {
+    fn query_builder_system_result_fallible() {
         let mut world = World::new();
 
         world.spawn(A);
@@ -706,6 +1014,16 @@ mod tests {
         // The type annotation here is necessary since the system
         // could also return `Result<usize>`
         let output: usize = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
+
+        let builder_system = (QueryParamBuilder::new(|query| {
+            query.with::<A>();
+        }),)
+            .build_system(query_system_result);
+
+        // The type annotation here is necessary since the system
+        // could also return `Result<usize>`
+        let output: usize = world.run_system_once(builder_system).unwrap();
         assert_eq!(output, 1);
     }
 
@@ -726,6 +1044,16 @@ mod tests {
         // could also return `usize`
         let output: Result<usize> = world.run_system_once(system).unwrap();
         assert_eq!(output.unwrap(), 1);
+
+        let builder_system = (QueryParamBuilder::new(|query| {
+            query.with::<A>();
+        }),)
+            .build_system(query_system_result);
+
+        // The type annotation here is necessary since the system
+        // could also return `usize`
+        let output: Result<usize> = world.run_system_once(builder_system).unwrap();
+        assert_eq!(output.unwrap(), 1);
     }
 
     #[test]
@@ -741,6 +1069,13 @@ mod tests {
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 1);
+
+        let state = QueryBuilder::new(&mut world).with::<A>().build();
+
+        let builder_system = (state,).build_system(query_system);
+
+        let output = world.run_system_once(builder_system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
@@ -755,6 +1090,11 @@ mod tests {
             .build_system(multi_param_system);
 
         let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
+
+        let builder_system = (LocalBuilder(0), ParamBuilder).build_system(multi_param_system);
+
+        let output = world.run_system_once(builder_system).unwrap();
         assert_eq!(output, 1);
     }
 
@@ -785,6 +1125,8 @@ mod tests {
                 count
             });
 
+        // NOTE: this isn't compatible with `BuilderSystem`, because the system param builder isn't 'static
+
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 3);
     }
@@ -799,6 +1141,8 @@ mod tests {
         let system = (LocalBuilder(0u64), ParamBuilder::local::<u64>())
             .build_state(&mut world)
             .build_system(|a, b| *a + *b + 1);
+
+        // NOTE: this isn't compatible with `BuilderSystem`, because it uses parameter type inference
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 1);
@@ -829,6 +1173,21 @@ mod tests {
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 5);
+
+        let builder_system = (ParamSetBuilder((
+            QueryParamBuilder::new(|builder| {
+                builder.with::<B>();
+            }),
+            QueryParamBuilder::new(|builder| {
+                builder.with::<C>();
+            }),
+        )),)
+            .build_system(|mut params: ParamSet<(Query<&mut A>, Query<&mut A>)>| {
+                params.p0().iter().count() + params.p1().iter().count()
+            });
+
+        let output = world.run_system_once(builder_system).unwrap();
+        assert_eq!(output, 5);
     }
 
     #[test]
@@ -855,6 +1214,8 @@ mod tests {
                 params.for_each(|mut query| count += query.iter_mut().count());
                 count
             });
+
+        // NOTE: this isn't compatible with `BuilderSystem`, because the system param builder isn't 'static
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 5);
@@ -885,6 +1246,8 @@ mod tests {
                 },
             );
 
+        // NOTE: this isn't compatible with `BuilderSystem`, because the system param builder isn't 'static
+
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 4);
     }
@@ -913,6 +1276,17 @@ mod tests {
             .build_system(|param: CustomParam| *param.local + param.query.iter().count());
 
         let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 101);
+
+        let builder_system = (CustomParamBuilder {
+            local: LocalBuilder(100),
+            query: QueryParamBuilder::new(|builder| {
+                builder.with::<A>();
+            }),
+        },)
+            .build_system(|param: CustomParam| *param.local + param.query.iter().count());
+
+        let output = world.run_system_once(builder_system).unwrap();
         assert_eq!(output, 101);
     }
 
@@ -1024,32 +1398,5 @@ mod tests {
         )
             .build_state(&mut world)
             .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
-    }
-
-    #[test]
-    fn filtered_resource_reflect() {
-        let mut world = World::new();
-        world.insert_resource(R { foo: 7 });
-
-        let system = (FilteredResourcesParamBuilder::new(|builder| {
-            builder.add_read::<R>();
-        }),)
-            .build_state(&mut world)
-            .build_system(|res: FilteredResources| {
-                let reflect_resource = <ReflectResource as FromType<R>>::from_type();
-                let ReflectRef::Struct(reflect_struct) =
-                    reflect_resource.reflect(res).unwrap().reflect_ref()
-                else {
-                    panic!()
-                };
-                *reflect_struct
-                    .field("foo")
-                    .unwrap()
-                    .try_downcast_ref::<usize>()
-                    .unwrap()
-            });
-
-        let output = world.run_system_once(system).unwrap();
-        assert_eq!(output, 7);
     }
 }

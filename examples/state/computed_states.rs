@@ -16,7 +16,7 @@
 //! And lastly, we'll add [`Tutorial`], a computed state deriving from [`TutorialState`], [`InGame`] and [`IsPaused`], with 2 distinct
 //! states to display the 2 tutorial texts.
 
-use bevy::{dev_tools::states::*, prelude::*};
+use bevy::{dev_tools::states::*, input::keyboard::Key, prelude::*};
 
 use ui::*;
 
@@ -282,11 +282,11 @@ fn toggle_pause(
 }
 
 fn toggle_turbo(
-    input: Res<ButtonInput<KeyCode>>,
+    input: Res<ButtonInput<Key>>,
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    if input.just_pressed(KeyCode::KeyT)
+    if input.just_pressed(Key::Character("t".into()))
         && let AppState::InGame { paused, turbo } = current_state.get()
     {
         next_state.set(AppState::InGame {
@@ -358,7 +358,7 @@ mod ui {
                         children![(
                             Text::new("Play"),
                             TextFont {
-                                font_size: 33.0,
+                                font_size: FontSize::Px(33.0),
                                 ..default()
                             },
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -383,7 +383,7 @@ mod ui {
                         children![(
                             Text::new("Tutorial"),
                             TextFont {
-                                font_size: 33.0,
+                                font_size: FontSize::Px(33.0),
                                 ..default()
                             },
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -470,7 +470,7 @@ mod ui {
                 children![(
                     Text::new("Paused"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -496,7 +496,7 @@ mod ui {
             children![(
                 Text::new("TURBO MODE"),
                 TextFont {
-                    font_size: 33.0,
+                    font_size: FontSize::Px(33.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.9, 0.3, 0.1)),
@@ -533,7 +533,7 @@ mod ui {
                 (
                     Text::new("Move the bevy logo with the arrow keys"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
@@ -541,7 +541,7 @@ mod ui {
                 (
                     Text::new("Press T to enter TURBO MODE"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
@@ -549,7 +549,7 @@ mod ui {
                 (
                     Text::new("Press SPACE to pause"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
@@ -557,7 +557,7 @@ mod ui {
                 (
                     Text::new("Press ESCAPE to return to the menu"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
@@ -584,7 +584,7 @@ mod ui {
                 (
                     Text::new("Press SPACE to resume"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
@@ -592,7 +592,7 @@ mod ui {
                 (
                     Text::new("Press ESCAPE to return to the menu"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),

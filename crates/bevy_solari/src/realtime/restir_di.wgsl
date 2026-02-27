@@ -1,6 +1,8 @@
 // https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
 // https://d1qx31qr3h6wln.cloudfront.net/publications/ReSTIR%20GI.pdf
 
+enable wgpu_ray_query;
+
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_pbr::utils::{rand_f, rand_range_u, sample_disk}
@@ -9,8 +11,8 @@
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_diffuse_brdf}
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
 #import bevy_solari::presample_light_tiles::unpack_resolved_light_sample
-#import bevy_solari::sampling::{LightSample, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility, balance_heuristic}
-#import bevy_solari::scene_bindings::{previous_frame_light_id_translations, ResolvedMaterial, LIGHT_NOT_PRESENT_THIS_FRAME}
+#import bevy_solari::sampling::{LightSample, NULL_LIGHT_ID, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility, balance_heuristic}
+#import bevy_solari::scene_bindings::{light_sources, previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME, ResolvedMaterial}
 #import bevy_solari::specular_gi::SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD
 #import bevy_solari::light_cache_query::evaluate_lighting
 #import bevy_solari::realtime_bindings::{view_output, light_tile_samples, light_tile_resolved_samples, di_reservoirs_a, di_reservoirs_b, gbuffer, depth_buffer, motion_vectors, previous_gbuffer, previous_depth_buffer, view, previous_view, constants, ResolvedLightSamplePacked}
@@ -18,8 +20,6 @@
 const INITIAL_SAMPLES = 8u;
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 20.0;
-
-const NULL_RESERVOIR_SAMPLE = 0xFFFFFFFFu;
 
 @compute @workgroup_size(8, 8, 1)
 fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invocation_index) local_index: u32) {
@@ -36,8 +36,14 @@ fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>, @bu
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
     let wo = normalize(view.world_position - surface.world_position);
 
-    let lighting = evaluate_lighting(&rng, global_id.xy, local_index, surface.world_position, surface.world_normal, wo, surface.material);
-    let initial_reservoir =  Reservoir(lighting.light_sample, 1.0, lighting.inverse_pdf);
+    var initial_reservoir: Reservoir;
+    if global_id.x > u32(view.main_pass_viewport.z) >> 1u {
+        evaluate_lighting(&rng, global_id.xy, local_index, surface.world_position, surface.world_normal, wo, surface.material);
+        initial_reservoir = generate_initial_reservoir(surface.world_position, surface.world_normal, evaluate_diffuse_brdf(surface.world_normal, wo, surface.material.base_color, surface.material.metallic), global_id.xy / 8u, &rng);
+    } else {
+        let lighting = evaluate_lighting(&rng, global_id.xy, local_index, surface.world_position, surface.world_normal, wo, surface.material);
+        initial_reservoir =  Reservoir(lighting.light_sample, 1.0, lighting.inverse_pdf);
+    }
     let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
     let merge_result = merge_reservoirs(
         initial_reservoir, surface.world_position, surface.world_normal, wo, surface.material,
@@ -89,8 +95,8 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>, @built
 
     var brdf: vec3<f32>;
     // If the surface is very smooth, let specular GI handle the specular lobe
-    if surface.material.roughness < SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD {
-        brdf = evaluate_diffuse_brdf(surface.material.base_color, surface.material.metallic);
+    if surface.material.roughness <= SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD {
+        brdf = evaluate_diffuse_brdf(surface.world_normal, merge_result.wi, surface.material.base_color, surface.material.metallic);
     } else {
         brdf = evaluate_brdf(surface.world_normal, wo, merge_result.wi, surface.material);
     }
@@ -100,6 +106,49 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>, @built
     pixel_color += surface.material.emissive;
     pixel_color *= view.exposure;
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
+}
+
+fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> Reservoir {
+    var workgroup_rng = (workgroup_id.x * 5782582u) + workgroup_id.y;
+    let light_tile_start = rand_range_u(128u, &workgroup_rng) * 1024u;
+
+    var reservoir = empty_reservoir();
+    var weight_sum = 0.0;
+    let mis_weight = 1.0 / f32(INITIAL_SAMPLES);
+
+    var reservoir_target_function = 0.0;
+    var light_sample_world_position = vec4(0.0);
+    var selected_tile_sample = 0u;
+    for (var i = 0u; i < INITIAL_SAMPLES; i++) {
+        let tile_sample = light_tile_start + rand_range_u(1024u, rng);
+        let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample]);
+        let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, world_position, world_normal);
+
+        let target_function = luminance(light_contribution.radiance * diffuse_brdf * saturate(dot(light_contribution.wi, world_normal)));
+        let resampling_weight = mis_weight * (target_function * light_contribution.inverse_pdf);
+
+        weight_sum += resampling_weight;
+
+        if rand_f(rng) < resampling_weight / weight_sum {
+            reservoir_target_function = target_function;
+            light_sample_world_position = resolved_light_sample.world_position;
+            selected_tile_sample = tile_sample;
+        }
+    }
+
+    if reservoir_target_function != 0.0 {
+        reservoir.sample = light_tile_samples[selected_tile_sample];
+    }
+
+    if reservoir_valid(reservoir) {
+        let inverse_target_function = select(0.0, 1.0 / reservoir_target_function, reservoir_target_function > 0.0);
+        reservoir.unbiased_contribution_weight = weight_sum * inverse_target_function;
+
+        reservoir.unbiased_contribution_weight *= trace_light_visibility(world_position, light_sample_world_position);
+    }
+
+    reservoir.confidence_weight = 1.0;
+    return reservoir;
 }
 
 fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> NeighborInfo {
@@ -147,12 +196,14 @@ fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world
 }
 
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> NeighborInfo {
+    var search_radius = SPATIAL_REUSE_RADIUS_PIXELS;
     for (var i = 0u; i < 5u; i++) {
-        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, rng);
+        let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, search_radius, rng);
 
         let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
         let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
         if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
+            search_radius /= 2.0;
             continue;
         }
 
@@ -163,8 +214,8 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     return empty_neighbor_info();
 }
 
-fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) -> vec2<u32> {
-    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng);
+fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, search_radius: f32, rng: ptr<function, u32>) -> vec2<u32> {
+    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(search_radius, rng);
     spatial_id = clamp(spatial_id, vec2(0.0), view.main_pass_viewport.zw - 1.0);
     return vec2<u32>(spatial_id);
 }
@@ -185,7 +236,7 @@ struct Reservoir {
 
 fn empty_reservoir() -> Reservoir {
     return Reservoir(
-        LightSample(NULL_RESERVOIR_SAMPLE, 0u),
+        LightSample(NULL_LIGHT_ID, 0u),
         0.0,
         0.0,
     );
@@ -202,7 +253,7 @@ fn empty_neighbor_info() -> NeighborInfo {
 }
 
 fn reservoir_valid(reservoir: Reservoir) -> bool {
-    return reservoir.sample.light_id != NULL_RESERVOIR_SAMPLE;
+    return reservoir.sample.light_id != NULL_LIGHT_ID;
 }
 
 fn pack_reservoir(reservoir: Reservoir) -> vec4<u32> {

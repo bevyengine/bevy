@@ -1,3 +1,5 @@
+enable wgpu_ray_query;
+
 #define_import_path bevy_solari::light_cache_query
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance

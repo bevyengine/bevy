@@ -131,11 +131,13 @@ mod assets;
 pub mod convert_coordinates;
 mod label;
 mod loader;
+mod material;
 mod vertex_attributes;
 
 extern crate alloc;
 
 use alloc::sync::Arc;
+use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tracing::warn;
 
@@ -157,7 +159,13 @@ pub mod prelude {
 
 use crate::{convert_coordinates::GltfConvertCoordinates, extensions::GltfExtensionHandlers};
 
-pub use {assets::*, label::GltfAssetLabel, loader::*};
+pub use {assets::*, label::GltfAssetLabel, loader::*, material::GltfMaterial};
+
+/// Re-exports for GLTF
+pub mod gltf {
+    #[doc(hidden)]
+    pub use gltf::{Animation, Document, Gltf, Material, Mesh, Primitive, Scene, Texture};
+}
 
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
 /// Stores default [`ImageSamplerDescriptor`] in main world.
@@ -191,6 +199,24 @@ impl DefaultGltfImageSampler {
     }
 }
 
+/// Controls the bounds related components that are assigned to skinned mesh
+/// entities. These components are used by systems like frustum culling.
+#[derive(Default, Copy, Clone, PartialEq, Serialize, Deserialize)]
+pub enum GltfSkinnedMeshBoundsPolicy {
+    /// Skinned meshes are assigned an `Aabb` component calculated from the bind
+    /// pose `Mesh`.
+    BindPose,
+    /// Skinned meshes are created with [`SkinnedMeshBounds`](bevy_mesh::skinning::SkinnedMeshBounds)
+    /// and assigned a [`DynamicSkinnedMeshBounds`](bevy_camera::visibility::DynamicSkinnedMeshBounds)
+    /// component. See `DynamicSkinnedMeshBounds` for details.
+    #[default]
+    Dynamic,
+    /// Same as `BindPose`, but also assign a `NoFrustumCulling` component. That
+    /// component tells the `bevy_camera` plugin to avoid frustum culling the
+    /// skinned mesh.
+    NoFrustumCulling,
+}
+
 /// Adds support for glTF file loading to the app.
 pub struct GltfPlugin {
     /// The default image sampler to lay glTF sampler data on top of.
@@ -206,6 +232,10 @@ pub struct GltfPlugin {
     ///
     /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+
+    /// The default policy for skinned mesh bounds. Can be overridden by
+    /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
+    pub skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 }
 
 impl Default for GltfPlugin {
@@ -214,6 +244,7 @@ impl Default for GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
             convert_coordinates: GltfConvertCoordinates::default(),
+            skinned_mesh_bounds_policy: Default::default(),
         }
     }
 }
@@ -241,6 +272,7 @@ impl Plugin for GltfPlugin {
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
             .init_asset::<GltfSkin>()
+            .init_asset::<GltfMaterial>()
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"])
             .init_resource::<GltfExtensionHandlers>();
     }
@@ -268,6 +300,7 @@ impl Plugin for GltfPlugin {
             default_sampler,
             default_convert_coordinates: self.convert_coordinates,
             extensions: extensions.0.clone(),
+            default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
         });
     }
 }

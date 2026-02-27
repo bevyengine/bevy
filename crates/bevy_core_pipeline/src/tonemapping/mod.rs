@@ -5,6 +5,8 @@ use bevy_asset::{
 use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
+#[cfg(not(feature = "tonemapping_luts"))]
+use bevy_log::error;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -21,13 +23,11 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bitflags::bitflags;
-#[cfg(not(feature = "tonemapping_luts"))]
-use tracing::error;
 
 mod node;
 
 use bevy_utils::default;
-pub use node::TonemappingNode;
+pub use node::tonemapping;
 
 use crate::FullscreenShader;
 

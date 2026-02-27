@@ -1,7 +1,7 @@
-use core::{iter, marker::PhantomData};
+use core::{iter, marker::PhantomData, slice};
 
 use crate::{
-    render_resource::Buffer,
+    render_resource::{AtomicPod, Buffer},
     renderer::{RenderDevice, RenderQueue},
 };
 use bytemuck::{must_cast_slice, NoUninit};
@@ -158,7 +158,7 @@ impl<T: NoUninit> RawBufferVec<T> {
         if capacity > self.capacity || (self.changed && size > 0) {
             self.capacity = capacity;
             self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
-                label: self.label.as_deref(),
+                label: make_buffer_label::<Self>(&self.label),
                 size: size as BufferAddress,
                 usage: BufferUsages::COPY_DST | self.buffer_usage,
                 mapped_at_creation: false,
@@ -243,6 +243,7 @@ where
     T: NoUninit + Default,
 {
     pub fn grow_set(&mut self, index: u32, value: T) {
+        self.values.reserve(index as usize + 1);
         while index as usize + 1 > self.len() {
             self.values.push(T::default());
         }
@@ -254,6 +255,173 @@ impl<T: NoUninit> Extend<T> for RawBufferVec<T> {
     #[inline]
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         self.values.extend(iter);
+    }
+}
+
+/// A [`RawBufferVec`] that holds data that implements [`AtomicPod`].
+///
+/// This allows multiple threads to update the buffer to be sent to the GPU
+/// simultaneously. Note that they may only update *existing* data; pushing
+/// *new* data still requires exclusive access.
+pub struct AtomicRawBufferVec<T>
+where
+    T: AtomicPod,
+{
+    /// The underlying values.
+    ///
+    /// These are stored as their blob representation to allow for thread-safe
+    /// update.
+    values: Vec<T::Blob>,
+    /// The GPU buffer, if allocated.
+    buffer: Option<Buffer>,
+    /// The capacity of the GPU buffer.
+    capacity: usize,
+    /// The allowed `wgpu` buffer usages for the GPU buffer.
+    buffer_usage: BufferUsages,
+    /// An optional debug label to identify this buffer.
+    label: Option<String>,
+    /// Whether the buffer has been mutated on the CPU since the last time it
+    /// was uploaded to the GPU.
+    changed: bool,
+    phantom: PhantomData<T>,
+}
+
+impl<T> AtomicRawBufferVec<T>
+where
+    T: AtomicPod,
+{
+    /// Creates a new [`AtomicRawBufferVec`].
+    ///
+    /// The `buffer_usage` parameter tells `wgpu` which usages are allowed for
+    /// the backing buffer.
+    pub const fn new(buffer_usage: BufferUsages) -> Self {
+        Self {
+            values: Vec::new(),
+            buffer: None,
+            capacity: 0,
+            buffer_usage,
+            label: None,
+            changed: false,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Removes all elements from the buffer.
+    pub fn clear(&mut self) {
+        self.values.clear();
+    }
+
+    /// Returns the number of elements in the buffer.
+    pub fn len(&self) -> u32 {
+        self.values.len() as u32
+    }
+
+    /// Returns true if the vector is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Adds a new value to the buffer, and returns its index.
+    ///
+    /// Internally, the value is converted to its blob representation.
+    pub fn push(&mut self, value: T) -> u32 {
+        let index = self.values.len();
+        self.values.push(T::Blob::default());
+        value.write_to_blob(&self.values[index]);
+        index as u32
+    }
+
+    /// Copies a value out of the buffer.
+    pub fn get(&self, index: u32) -> T {
+        T::read_from_blob(&self.values[index as usize])
+    }
+
+    /// Sets the value at the given index.
+    ///
+    /// If the index isn't in range of the buffer, this method panics.
+    ///
+    /// Internally, the value is converted to its blob representation.
+    ///
+    /// Note that this method is thread-safe and doesn't require `&mut self`.
+    /// It's your responsibility, however, to ensure synchronization; though
+    /// this method is memory-safe, it's possible for other threads to observe
+    /// partially-overwritten values if [`Self::get`] or similar methods are
+    /// called while the write operation is occurring.
+    pub fn set(&self, index: u32, value: T) {
+        value.write_to_blob(&self.values[index as usize]);
+    }
+
+    /// Creates a [`Buffer`] on the [`RenderDevice`] with size
+    /// at least `size_of::<T>() * capacity`, unless a such a buffer already exists.
+    ///
+    /// If a [`Buffer`] exists, but is too small, references to it will be discarded,
+    /// and a new [`Buffer`] will be created. Any previously created [`Buffer`]s
+    /// that are no longer referenced will be deleted by the [`RenderDevice`]
+    /// once it is done using them (typically 1-2 frames).
+    ///
+    /// In addition to any [`BufferUsages`] provided when
+    /// the `AtomicRawBufferVec` was created, the buffer on the [`RenderDevice`]
+    /// is marked as [`BufferUsages::COPY_DST`](BufferUsages).
+    pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
+        let size = size_of::<T::Blob>() * capacity;
+        if capacity > self.capacity || (self.changed && size > 0) {
+            self.capacity = capacity;
+            self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
+                label: make_buffer_label::<Self>(&self.label),
+                size: size as BufferAddress,
+                usage: BufferUsages::COPY_DST | self.buffer_usage,
+                mapped_at_creation: false,
+            }));
+            self.changed = false;
+        }
+    }
+
+    /// Queues writing of data from system RAM to VRAM using the
+    /// [`RenderDevice`] and the provided [`RenderQueue`].
+    ///
+    /// Before queuing the write, a [`reserve`](AtomicRawBufferVec::reserve)
+    /// operation is executed.
+    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+        if self.values.is_empty() {
+            return;
+        }
+        self.reserve(self.values.len(), device);
+        if let Some(buffer) = &self.buffer {
+            // SAFETY: We have `&mut self`, so there are no other references to
+            // our buffer, and the `Blob` type must implement `AtomicPodBlob`,
+            // which guarantees that it be bit-equivalent to an array of
+            // `AtomicU32`s (i.e. POD except that they're atomic).
+            unsafe {
+                let bytes: &[u8] = slice::from_raw_parts(
+                    self.values.as_ptr().cast::<u8>(),
+                    self.values.len() * size_of::<T::Blob>(),
+                );
+                queue.write_buffer(buffer, 0, bytes);
+            }
+        }
+    }
+
+    /// Returns a handle to the buffer, if the data has been uploaded.
+    #[inline]
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.buffer.as_ref()
+    }
+
+    /// Grows the buffer by adding default values so that it's at least the
+    /// given size.
+    ///
+    /// If the buffer is already large enough, this method does nothing.
+    pub fn grow(&mut self, new_len: u32) {
+        if self.len() < new_len {
+            self.values.resize_with(new_len as usize, T::Blob::default);
+        }
+    }
+
+    /// Truncates the buffer to the given length.
+    ///
+    /// If the buffer is already shorter, this method does nothing.
+    pub fn truncate(&mut self, len: u32) {
+        self.values.truncate(len as usize);
     }
 }
 
@@ -345,8 +513,10 @@ where
         let element_size = u64::from(T::min_size()) as usize;
         let offset = self.data.len();
 
-        // TODO: Consider using unsafe code to push uninitialized, to prevent
-        // the zeroing. It shows up in profiles.
+        // `extend` does not optimize for reallocation. Related `trusted_len` feature is unstable.
+        self.data.reserve(self.data.len() + element_size);
+        // We can't optimize and push uninitialized data here (using e.g. spare_capacity_mut())
+        // because write_into() does not initialize inner padding bytes in T's expansion
         self.data.extend(iter::repeat_n(0, element_size));
 
         // Take a slice of the new data for `write_into` to use. This is
@@ -377,6 +547,13 @@ where
         self.label.as_deref()
     }
 
+    /// Preallocates space for `count` elements in the internal CPU-side buffer.
+    ///
+    /// Unlike [`Self::reserve`], this doesn't have any effect on the GPU buffer.
+    pub fn reserve_internal(&mut self, count: usize) {
+        self.data.reserve(count * u64::from(T::min_size()) as usize);
+    }
+
     /// Creates a [`Buffer`] on the [`RenderDevice`] with size
     /// at least `size_of::<T>() * capacity`, unless such a buffer already exists.
     ///
@@ -396,7 +573,7 @@ where
         self.capacity = capacity;
         let size = u64::from(T::min_size()) as usize * capacity;
         self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
-            label: self.label.as_deref(),
+            label: make_buffer_label::<Self>(&self.label),
             size: size as BufferAddress,
             usage: BufferUsages::COPY_DST | self.buffer_usage,
             mapped_at_creation: false,
@@ -543,6 +720,31 @@ where
         self.len
     }
 
+    /// Returns the amount of space that the GPU will use before reallocating.
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// Changes the debugging label of the buffer.
+    ///
+    /// The next time the buffer is updated (via [`Self::reserve`]), Bevy will inform
+    /// the driver of the new label.
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.label_changed = true;
+        }
+
+        self.label = label;
+    }
+
+    /// Returns the label
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
     /// Materializes the buffer on the GPU with space for `capacity` elements.
     ///
     /// If the buffer is already big enough, this function doesn't reallocate
@@ -555,7 +757,7 @@ where
         self.capacity = capacity;
         let size = self.item_size * capacity;
         self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
-            label: self.label.as_deref(),
+            label: make_buffer_label::<Self>(&self.label),
             size: size as BufferAddress,
             usage: BufferUsages::COPY_DST | self.buffer_usage,
             mapped_at_creation: false,
@@ -584,4 +786,20 @@ pub enum WriteBufferRangeError {
     BufferNotInitialized,
     #[error("there are no values to upload")]
     NoValuesToUpload,
+}
+
+#[inline]
+#[cfg_attr(
+    not(feature = "type_label_buffers"),
+    expect(
+        clippy::extra_unused_type_parameters,
+        reason = "conditional compilation"
+    )
+)]
+pub(crate) fn make_buffer_label<'a, T>(label: &'a Option<String>) -> Option<&'a str> {
+    #[cfg(feature = "type_label_buffers")]
+    if label.is_none() {
+        return Some(core::any::type_name::<T>());
+    }
+    label.as_deref()
 }

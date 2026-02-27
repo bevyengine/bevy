@@ -12,6 +12,7 @@ extern crate alloc;
 
 mod mesh2d;
 mod render;
+mod sprite_mesh;
 #[cfg(feature = "bevy_text")]
 mod text2d;
 mod texture_slice;
@@ -22,12 +23,13 @@ mod tilemap_chunk;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{ColorMaterial, MeshMaterial2d};
+    pub use crate::{ColorMaterial, MeshMaterial2d, SpriteMaterial};
 }
 
 use bevy_shader::load_shader_library;
 pub use mesh2d::*;
 pub use render::*;
+pub use sprite_mesh::*;
 pub(crate) use texture_slice::*;
 pub use tilemap_chunk::*;
 
@@ -71,6 +73,7 @@ impl Plugin for SpriteRenderPlugin {
         app.add_plugins((
             Mesh2dRenderPlugin,
             ColorMaterialPlugin,
+            SpriteMeshPlugin,
             TilemapChunkPlugin,
             TilemapChunkMaterialPlugin,
         ))
