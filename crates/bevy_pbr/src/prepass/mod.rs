@@ -227,7 +227,6 @@ pub fn update_mesh_previous_global_transforms(
         (PreviousMeshFilter, Without<PreviousGlobalTransform>),
     >,
     mut meshes: Query<(Ref<GlobalTransform>, &mut PreviousGlobalTransform), PreviousMeshFilter>,
-    system_change_tick: SystemChangeTick,
 ) {
     if !views.iter().any(|camera| camera.is_active) {
         return;
@@ -238,10 +237,7 @@ pub fn update_mesh_previous_global_transforms(
         commands.entity(entity).try_insert(new_previous_transform);
     }
     meshes.par_iter_mut().for_each(|(transform, mut previous)| {
-        if transform
-            .last_changed()
-            .is_newer_than(previous.last_changed(), system_change_tick.this_run())
-        {
+        if transform.is_changed_after(previous.last_changed()) {
             *previous = PreviousGlobalTransform(transform.affine());
         }
     });
@@ -1296,8 +1292,9 @@ pub fn queue_prepass_material_meshes(
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
-            let (vertex_slab, index_slab) =
-                mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id());
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id()) else {
+                continue;
+            };
 
             let deferred = match material.properties.render_method {
                 OpaqueRendererMethod::Forward => false,
@@ -1313,8 +1310,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab: vertex_slab.unwrap_or_default(),
-                                index_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id().into(),
@@ -1341,8 +1337,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index,
-                                vertex_slab: vertex_slab.unwrap_or_default(),
-                                index_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id().into(),
@@ -1363,8 +1358,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab: vertex_slab.unwrap_or_default(),
-                                index_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id().into(),
@@ -1382,8 +1376,7 @@ pub fn queue_prepass_material_meshes(
                                 draw_function,
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
-                                vertex_slab: vertex_slab.unwrap_or_default(),
-                                index_slab,
+                                slabs: mesh_slabs,
                             },
                             OpaqueNoLightmap3dBinKey {
                                 asset_id: mesh_instance.mesh_asset_id().into(),

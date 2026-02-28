@@ -14,8 +14,9 @@ use bevy::{
     math::{vec3, vec4},
     mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{
-        DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
-        SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup, ViewKeyCache,
+        DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet, MeshPipelineViewLayoutKey,
+        RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
+        ViewKeyCache,
     },
     prelude::*,
     render::{
@@ -115,7 +116,10 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
             .init_resource::<PendingCustomMeshQueues>()
             // We need to use a custom draw command so we need to register it
             .add_render_command::<Opaque3d, DrawSpecializedPipelineCommands>()
-            .add_systems(RenderStartup, init_custom_mesh_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_custom_mesh_pipeline.after(MeshPipelineSet),
+            )
             .add_systems(
                 Render,
                 queue_custom_mesh_pipeline.in_set(RenderSystems::Queue),
@@ -351,8 +355,9 @@ fn queue_custom_mesh_pipeline(
                 continue;
             };
 
-            let (vertex_slab, index_slab) =
-                mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id());
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id()) else {
+                continue;
+            };
 
             // Specialize the key for the current mesh entity
             // For this example we only specialize based on the mesh topology
@@ -382,8 +387,7 @@ fn queue_custom_mesh_pipeline(
                     draw_function,
                     pipeline: pipeline_id,
                     material_bind_group_index: None,
-                    vertex_slab: vertex_slab.unwrap_or_default(),
-                    index_slab,
+                    slabs: mesh_slabs,
                     lightmap_slab: None,
                 },
                 // For this example we can use the mesh asset id as the bin key,

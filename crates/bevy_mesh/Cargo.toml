@@ -12,6 +12,7 @@ keywords = ["bevy"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.19.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.19.0-dev" }
+bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.19.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.19.0-dev", optional = true }
 bevy_math = { path = "../bevy_math", version = "0.19.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev" }
@@ -35,6 +36,7 @@ hexasphere = "18.0"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
+encase = "0.12"
 
 [dev-dependencies]
 approx = "0.5"

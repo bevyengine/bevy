@@ -10,8 +10,8 @@ use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
         CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoFrustumCulling,
-        RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems, VisibleEntityRanges,
-        VisibleMeshEntities,
+        RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems, VisibleEntities,
+        VisibleEntityRanges, VisibleMeshEntities,
     },
     Camera3d, CameraUpdateSystems,
 };
@@ -23,11 +23,11 @@ use bevy_mesh::Mesh3d;
 use bevy_reflect::prelude::*;
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::Parallel;
-use core::{mem, ops::DerefMut};
+use core::{any::TypeId, mem, ops::DerefMut};
 
 pub mod cluster;
+use cluster::assign::assign_objects_to_clusters;
 pub use cluster::ClusteredDecal;
-use cluster::{assign::assign_objects_to_clusters, VisibleClusterableObjects};
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
 use bevy_camera::visibility::SetViewVisibility;
@@ -80,7 +80,7 @@ pub mod prelude {
 
 use crate::{
     atmosphere::ScatteringMedium,
-    cluster::{add_light_probe_and_decal_aabbs, Clusters},
+    cluster::{add_light_probe_and_decal_aabbs, ClusterVisibilityClass, Clusters},
     directional_light::validate_shadow_map_size,
     point_light::update_point_light_bounding_spheres,
     spot_light::update_spot_light_bounding_spheres,
@@ -483,7 +483,7 @@ pub fn check_dir_light_mesh_visibility(
 /// Updates the visibility for [`PointLight`]s and [`SpotLight`]s so that
 /// shadow map rendering can work.
 pub fn check_point_light_mesh_visibility(
-    visible_point_lights: Query<&VisibleClusterableObjects>,
+    visible_point_lights: Query<&VisibleEntities>,
     mut point_lights: Query<(
         &PointLight,
         &GlobalTransform,
@@ -524,7 +524,7 @@ pub fn check_point_light_mesh_visibility(
 
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
-        for light_entity in visible_lights.point_and_spot_lights.iter().copied() {
+        for &light_entity in visible_lights.get(TypeId::of::<ClusterVisibilityClass>()) {
             if !checked_lights.insert(light_entity) {
                 continue;
             }

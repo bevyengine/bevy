@@ -1,25 +1,30 @@
-use core::num::NonZero;
+use core::{iter, num::NonZero};
 
 use bevy_camera::Camera;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_light::{
-    cluster::{ClusterableObjectCounts, Clusters, GlobalClusterSettings},
+    cluster::{
+        ClusterableObjectCounts, ClusterableObjects, Clusters, GlobalClusterGpuSettings,
+        GlobalClusterSettings,
+    },
     ClusteredDecal, EnvironmentMapLight, IrradianceVolume, PointLight, SpotLight,
 };
 use bevy_math::{uvec4, UVec3, UVec4, Vec4};
 use bevy_render::{
     render_resource::{
-        BindingResource, BufferBindingType, BufferUsages, RawBufferVec, ShaderSize, ShaderType,
-        StorageBuffer, UniformBuffer,
+        BindingResource, BufferBindingType, BufferUsages, DownlevelFlags, RawBufferVec, ShaderSize,
+        ShaderType, StorageBuffer, UniformBuffer, UninitBufferVec,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::{MainEntity, RenderEntity},
     Extract,
 };
 use bytemuck::{Pod, Zeroable};
-use tracing::{error, trace, warn};
+use tracing::{error, info, trace, warn};
 
 use crate::{MeshPipeline, RenderViewLightProbes};
+
+pub(crate) mod gpu;
 
 // NOTE: this must be kept in sync with the same constants in
 // `mesh_view_types.wgsl`.
@@ -40,6 +45,19 @@ const CLUSTER_COUNT_SIZE: u32 = 9;
 const CLUSTER_OFFSET_MASK: u32 = (1 << (32 - (CLUSTER_COUNT_SIZE * 2))) - 1;
 const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 
+/// The initial capacity of the Z slice list.
+///
+/// The application can override this by setting
+/// [`GlobalClusterGpuSettings::initial_z_slice_list_capacity`].
+pub const GPU_CLUSTERING_INITIAL_Z_SLICE_LIST_CAPACITY: usize = 1024;
+
+/// The initial capacity of the clustered object index list.
+///
+/// The application can override this by setting
+/// [`GlobalClusterGpuSettings::initial_index_list_capacity`].
+pub const GPU_CLUSTERING_INITIAL_INDEX_LIST_CAPACITY: usize = 65536;
+
+/// Creates the default [`GlobalClusterSettings`] resource.
 pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettings {
     let device = world.resource::<RenderDevice>();
     let adapter = world.resource::<RenderAdapter>();
@@ -49,9 +67,31 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
         device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
         BufferBindingType::Storage { .. }
     );
+
+    // We need to support compute shaders to use GPU clustering. To deal with
+    // the `WGPU_SETTINGS_PRIO="webgl2"` environment setting, we check the
+    // `RenderDevice` limits in addition to the `RenderAdapter`.
+    let gpu_clustering_supported = adapter
+        .get_downlevel_capabilities()
+        .flags
+        .contains(DownlevelFlags::COMPUTE_SHADERS)
+        && device.limits().max_storage_buffers_per_shader_stage > 0;
+
+    let gpu_clustering = if gpu_clustering_supported {
+        info!("GPU clustering is supported on this device.");
+        Some(GlobalClusterGpuSettings {
+            initial_z_slice_list_capacity: GPU_CLUSTERING_INITIAL_Z_SLICE_LIST_CAPACITY,
+            initial_index_list_capacity: GPU_CLUSTERING_INITIAL_INDEX_LIST_CAPACITY,
+        })
+    } else {
+        info!("GPU clustering isn't supported on this device; falling back to CPU clustering.");
+        None
+    };
+
     GlobalClusterSettings {
         supports_storage_buffers,
         clustered_decals_are_usable,
+        gpu_clustering,
         max_uniform_buffer_clusterable_objects: MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
         view_cluster_bindings_max_indices: ViewClusterBindings::MAX_INDICES,
     }
@@ -80,7 +120,8 @@ pub struct GpuClusteredLight {
     /// Note that this is separate from clustered decals. Clustered decals have
     /// their own structures and don't use [`GpuClusteredLight`].
     pub(crate) decal_index: u32,
-    pub(crate) pad: f32,
+    /// The radius of the range that the light affects, used for clustering.
+    pub(crate) range: f32,
 }
 
 /// Contains information about clusterable objects in the scene that's global:
@@ -122,7 +163,18 @@ pub struct ExtractedClusterConfig {
     pub(crate) dimensions: UVec3,
 }
 
-/// A single command in the stream that [`extract_clusters`] produces.
+impl<'a> From<&'a Clusters> for ExtractedClusterConfig {
+    fn from(clusters: &'a Clusters) -> Self {
+        Self {
+            near: clusters.near,
+            far: clusters.far,
+            dimensions: clusters.dimensions,
+        }
+    }
+}
+
+/// A single command in the stream that [`extract_clusters_for_cpu_clustering`]
+/// produces.
 enum ExtractedClusterableObjectElement {
     /// Marks the beginning of a new cluster.
     ClusterHeader(ClusterableObjectCounts),
@@ -168,8 +220,11 @@ struct GpuClusterOffsetsAndCountsStorage {
     /// lights, reflection probes, and irradiance volumes in each cluster, in
     /// that order. The remaining fields are filled with zeroes.
     #[shader(size(runtime))]
-    data: Vec<[UVec4; 2]>,
+    data: Vec<GpuClusterOffsetAndCounts>,
 }
+
+/// The type we use for the offset and counts for each cluster.
+type GpuClusterOffsetAndCounts = [UVec4; 2];
 
 enum ViewClusterBuffers {
     Uniform {
@@ -179,7 +234,7 @@ enum ViewClusterBuffers {
         cluster_offsets_and_counts: UniformBuffer<GpuClusterOffsetsAndCountsUniform>,
     },
     Storage {
-        clusterable_object_index_lists: StorageBuffer<GpuClusterableObjectIndexListsStorage>,
+        clusterable_object_index_lists: UninitBufferVec<u32>,
         cluster_offsets_and_counts: StorageBuffer<GpuClusterOffsetsAndCountsStorage>,
     },
 }
@@ -287,29 +342,50 @@ impl GpuClusteredLights {
     }
 }
 
-/// Extracts clusters from the main world from the render world.
-pub fn extract_clusters(
+/// A shortcut for testing the type of a clusterable object.
+type ClusterExtractionMapperQueryFlags = (
+    Has<PointLight>,
+    Has<SpotLight>,
+    Has<EnvironmentMapLight>,
+    Has<IrradianceVolume>,
+    Has<ClusteredDecal>,
+);
+/// A shortcut for testing whether an entity is any type of clusterable object.
+type ClusterExtractionMapperQueryFilter = Or<(
+    With<PointLight>,
+    With<SpotLight>,
+    With<EnvironmentMapLight>,
+    With<IrradianceVolume>,
+    With<ClusteredDecal>,
+)>;
+
+/// A run condition that tests whether GPU clustering is enabled.
+///
+/// This is the version for use in extraction systems.
+pub fn gpu_clustering_is_enabled_during_extraction(
+    global_cluster_settings: Extract<Res<GlobalClusterSettings>>,
+) -> bool {
+    global_cluster_settings.gpu_clustering.is_some()
+}
+
+/// A run condition that tests whether GPU clustering is enabled.
+///
+/// This is the version for use in non-extraction systems.
+pub fn gpu_clustering_is_enabled(global_cluster_settings: Res<GlobalClusterSettings>) -> bool {
+    global_cluster_settings.gpu_clustering.is_some()
+}
+
+/// Extracts the clusters that the CPU produced into the render world.
+pub fn extract_clusters_for_cpu_clustering(
     mut commands: Commands,
     views: Extract<Query<(RenderEntity, &Clusters, &Camera)>>,
     mapper: Extract<
         Query<
-            (
-                Option<&RenderEntity>,
-                Has<PointLight>,
-                Has<SpotLight>,
-                Has<EnvironmentMapLight>,
-                Has<IrradianceVolume>,
-                Has<ClusteredDecal>,
-            ),
-            Or<(
-                With<PointLight>,
-                With<SpotLight>,
-                With<EnvironmentMapLight>,
-                With<IrradianceVolume>,
-                With<ClusteredDecal>,
-            )>,
+            (Option<&RenderEntity>, ClusterExtractionMapperQueryFlags),
+            ClusterExtractionMapperQueryFilter,
         >,
     >,
+    global_cluster_settings: Extract<Res<GlobalClusterSettings>>,
 ) {
     for (entity, clusters, camera) in &views {
         let mut entity_commands = commands
@@ -320,19 +396,29 @@ pub fn extract_clusters(
             continue;
         }
 
+        let clusterable_objects = match clusters.clusterable_objects {
+            ClusterableObjects::Cpu(ref cpu_clusterable_objects) => cpu_clusterable_objects,
+            ClusterableObjects::Gpu => {
+                error!("Clusterable objects must have been in CPU mode if doing CPU clustering");
+                continue;
+            }
+        };
+
         let mut data = vec![];
-        for cluster_objects in &clusters.clusterable_objects {
+        for cluster_objects in clusterable_objects {
             data.push(ExtractedClusterableObjectElement::ClusterHeader(
                 cluster_objects.counts,
             ));
             for clusterable_entity in cluster_objects.iter() {
                 let Ok((
                     maybe_render_entity,
-                    is_point_light,
-                    is_spot_light,
-                    is_reflection_probe,
-                    is_irradiance_volume,
-                    is_clustered_decal,
+                    (
+                        is_point_light,
+                        is_spot_light,
+                        is_reflection_probe,
+                        is_irradiance_volume,
+                        is_clustered_decal,
+                    ),
                 )) = mapper.get(*clusterable_entity)
                 else {
                     error!(
@@ -364,16 +450,16 @@ pub fn extract_clusters(
 
         entity_commands.insert((
             ExtractedClusterableObjects { data },
-            ExtractedClusterConfig {
-                near: clusters.near,
-                far: clusters.far,
-                dimensions: clusters.dimensions,
-            },
+            ExtractedClusterConfig::from(clusters),
         ));
     }
+
+    commands.insert_resource(global_cluster_settings.clone());
 }
 
-pub fn prepare_clusters(
+/// Creates and populates the GPU buffers that store clusters when CPU
+/// clustering is being used.
+pub fn prepare_clusters_for_cpu_clustering(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -505,7 +591,7 @@ impl ViewClusterBindings {
                 cluster_offsets_and_counts,
                 ..
             } => {
-                clusterable_object_index_lists.get_mut().data.clear();
+                clusterable_object_index_lists.clear();
                 cluster_offsets_and_counts.get_mut().data.clear();
             }
         }
@@ -566,11 +652,11 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists.get_mut().data[array_index][component] |=
                     index << (8 * sub_index);
             }
-            ViewClusterBuffers::Storage {
-                clusterable_object_index_lists,
-                ..
-            } => {
-                clusterable_object_index_lists.get_mut().data.push(index);
+            ViewClusterBuffers::Storage { .. } => {
+                error!(
+                    "Shouldn't be pushing a clusterable object index from CPU when GPU clustering \
+                     is in use"
+                );
             }
         }
 
@@ -590,6 +676,45 @@ impl ViewClusterBindings {
         self.push_raw_index(!0);
     }
 
+    /// Reserves space in the cluster offsets-and-counts list for `clusters`
+    /// clusters.
+    pub fn reserve_clusters(&mut self, clusters: usize) {
+        match &mut self.buffers {
+            ViewClusterBuffers::Uniform { .. } => {
+                error!("`reserve_clusters` should only be called in GPU clustering, which requires a storage buffer");
+            }
+            ViewClusterBuffers::Storage {
+                cluster_offsets_and_counts,
+                ..
+            } => {
+                cluster_offsets_and_counts
+                    .get_mut()
+                    .data
+                    .extend(iter::repeat_n(
+                        GpuClusterOffsetAndCounts::default(),
+                        clusters,
+                    ));
+                self.n_offsets += clusters;
+            }
+        }
+    }
+
+    /// Reserves space in the index lists for `elements` indices.
+    pub fn reserve_indices(&mut self, elements: usize) {
+        match &mut self.buffers {
+            ViewClusterBuffers::Uniform { .. } => {
+                error!("`reserve_indices` should only be called in GPU clustering, which requires a storage buffer");
+            }
+            ViewClusterBuffers::Storage {
+                clusterable_object_index_lists,
+                ..
+            } => {
+                clusterable_object_index_lists.add_multiple(elements);
+                self.n_indices += elements;
+            }
+        }
+    }
+
     pub fn write_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform {
@@ -603,7 +728,7 @@ impl ViewClusterBindings {
                 clusterable_object_index_lists,
                 cluster_offsets_and_counts,
             } => {
-                clusterable_object_index_lists.write_buffer(render_device, render_queue);
+                clusterable_object_index_lists.write_buffer(render_device);
                 cluster_offsets_and_counts.write_buffer(render_device, render_queue);
             }
         }
@@ -671,7 +796,9 @@ impl ViewClusterBuffers {
 
     fn storage() -> Self {
         ViewClusterBuffers::Storage {
-            clusterable_object_index_lists: StorageBuffer::default(),
+            clusterable_object_index_lists: UninitBufferVec::new(
+                BufferUsages::STORAGE | BufferUsages::COPY_DST,
+            ),
             cluster_offsets_and_counts: StorageBuffer::default(),
         }
     }
