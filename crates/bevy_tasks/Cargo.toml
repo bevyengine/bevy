@@ -51,6 +51,8 @@ atomic-waker = { version = "1", default-features = false }
 crossbeam-queue = { version = "0.3", default-features = false, features = [
   "alloc",
 ] }
+gdt-cpus = "25.5"
+log = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 pin-project = "1"
