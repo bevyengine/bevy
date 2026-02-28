@@ -2,13 +2,13 @@
 
 use bevy_camera::{
     primitives::{Aabb, Frustum, Sphere},
-    visibility::RenderLayers,
+    visibility::{RenderLayers, ViewVisibility},
     Camera,
 };
 use bevy_ecs::{
     entity::Entity,
     query::{Has, With},
-    system::{Commands, Local, Query, Res},
+    system::{Local, Query, Res},
 };
 use bevy_math::{
     ops::{self, sin_cos},
@@ -16,14 +16,11 @@ use bevy_math::{
     Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
 };
 use bevy_transform::components::GlobalTransform;
-use tracing::warn;
+use tracing::{error, warn};
 
-use super::{
-    ClusterConfig, ClusterFarZMode, ClusteredDecal, Clusters, GlobalClusterSettings,
-    VisibleClusterableObjects,
-};
+use super::{ClusterConfig, ClusterFarZMode, ClusteredDecal, Clusters, GlobalClusterSettings};
 use crate::{
-    cluster::ObjectsInCluster, EnvironmentMapLight, LightProbe, PointLight, SpotLight,
+    cluster::ClusterableObjects, EnvironmentMapLight, LightProbe, PointLight, SpotLight,
     VolumetricLight,
 };
 
@@ -134,20 +131,18 @@ impl ClusterableObjectType {
 ///
 /// NOTE: Run this before `update_point_light_frusta`!
 pub(crate) fn assign_objects_to_clusters(
-    mut commands: Commands,
     mut views: Query<(
-        Entity,
         &GlobalTransform,
         &Camera,
         &Frustum,
         Option<&ClusterConfig>,
         &mut Clusters,
         Option<&RenderLayers>,
-        Option<&mut VisibleClusterableObjects>,
     )>,
     point_lights_query: Query<(
         Entity,
         &GlobalTransform,
+        &ViewVisibility,
         &PointLight,
         Option<&RenderLayers>,
         Option<&VolumetricLight>,
@@ -155,15 +150,21 @@ pub(crate) fn assign_objects_to_clusters(
     spot_lights_query: Query<(
         Entity,
         &GlobalTransform,
+        &ViewVisibility,
         &SpotLight,
         Option<&RenderLayers>,
         Option<&VolumetricLight>,
     )>,
     light_probes_query: Query<
-        (Entity, &GlobalTransform, Has<EnvironmentMapLight>),
+        (
+            Entity,
+            &GlobalTransform,
+            &ViewVisibility,
+            Has<EnvironmentMapLight>,
+        ),
         With<LightProbe>,
     >,
-    decals_query: Query<(Entity, &GlobalTransform), With<ClusteredDecal>>,
+    decals_query: Query<(Entity, &GlobalTransform, &ViewVisibility), With<ClusteredDecal>>,
     mut clusterable_objects: Local<Vec<ClusterableObjectAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_clusterable_objects_warning_emitted: Local<bool>,
@@ -174,153 +175,136 @@ pub(crate) fn assign_objects_to_clusters(
     };
 
     clusterable_objects.clear();
-    // collect just the relevant query data into a persisted vec to avoid reallocating each frame
-    clusterable_objects.extend(point_lights_query.iter().map(
-        |(entity, transform, point_light, maybe_layers, volumetric)| {
-            ClusterableObjectAssignmentData {
-                entity,
-                transform: GlobalTransform::from_translation(transform.translation()),
-                range: point_light.range,
-                object_type: ClusterableObjectType::PointLight {
-                    shadow_maps_enabled: point_light.shadow_maps_enabled,
-                    volumetric: volumetric.is_some(),
-                },
-                render_layers: maybe_layers.unwrap_or_default().clone(),
-            }
-        },
-    ));
-    clusterable_objects.extend(spot_lights_query.iter().map(
-        |(entity, transform, spot_light, maybe_layers, volumetric)| {
-            ClusterableObjectAssignmentData {
-                entity,
-                transform: *transform,
-                range: spot_light.range,
-                object_type: ClusterableObjectType::SpotLight {
-                    outer_angle: spot_light.outer_angle,
-                    shadow_maps_enabled: spot_light.shadow_maps_enabled,
-                    volumetric: volumetric.is_some(),
-                },
-                render_layers: maybe_layers.unwrap_or_default().clone(),
-            }
-        },
-    ));
 
-    // Gather up light probes, but only if we're clustering them.
-    //
-    // UBOs aren't large enough to hold indices for light probes, so we can't
-    // cluster light probes on such platforms (mainly WebGL 2). Besides, those
-    // platforms typically lack bindless textures, so multiple light probes
-    // wouldn't be supported anyhow.
-    if global_cluster_settings.supports_storage_buffers {
-        clusterable_objects.extend(light_probes_query.iter().map(
-            |(entity, transform, is_reflection_probe)| ClusterableObjectAssignmentData {
-                entity,
-                transform: *transform,
-                range: transform.radius_vec3a(Vec3A::ONE),
-                object_type: if is_reflection_probe {
-                    ClusterableObjectType::ReflectionProbe
+    // Collect clusterable objects if GPU clustering is enabled.
+    if global_cluster_settings.gpu_clustering.is_none() {
+        // collect just the relevant query data into a persisted vec to avoid reallocating each frame
+        clusterable_objects.extend(point_lights_query.iter().filter_map(
+            |(entity, transform, view_visibility, point_light, maybe_layers, volumetric)| {
+                if view_visibility.get() {
+                    Some(ClusterableObjectAssignmentData {
+                        entity,
+                        transform: GlobalTransform::from_translation(transform.translation()),
+                        range: point_light.range,
+                        object_type: ClusterableObjectType::PointLight {
+                            shadow_maps_enabled: point_light.shadow_maps_enabled,
+                            volumetric: volumetric.is_some(),
+                        },
+                        render_layers: maybe_layers.unwrap_or_default().clone(),
+                    })
                 } else {
-                    ClusterableObjectType::IrradianceVolume
-                },
-                render_layers: RenderLayers::default(),
+                    None
+                }
             },
         ));
-    }
-
-    // Add decals if the current platform supports them.
-    if global_cluster_settings.clustered_decals_are_usable {
-        clusterable_objects.extend(decals_query.iter().map(|(entity, transform)| {
-            ClusterableObjectAssignmentData {
-                entity,
-                transform: *transform,
-                range: transform.scale().length(),
-                object_type: ClusterableObjectType::Decal,
-                render_layers: RenderLayers::default(),
-            }
-        }));
-    }
-
-    if clusterable_objects.len() > global_cluster_settings.max_uniform_buffer_clusterable_objects
-        && !global_cluster_settings.supports_storage_buffers
-    {
-        clusterable_objects.sort_by_cached_key(|clusterable_object| {
-            (
-                clusterable_object.object_type.ordering(),
-                clusterable_object.entity,
-            )
-        });
-
-        // check each clusterable object against each view's frustum, keep only
-        // those that affect at least one of our views
-        let frusta: Vec<_> = views
-            .iter()
-            .map(|(_, _, _, frustum, _, _, _, _)| *frustum)
-            .collect();
-        let mut clusterable_objects_in_view_count = 0;
-        clusterable_objects.retain(|clusterable_object| {
-            // take one extra clusterable object to check if we should emit the warning
-            if clusterable_objects_in_view_count
-                == global_cluster_settings.max_uniform_buffer_clusterable_objects + 1
-            {
-                false
-            } else {
-                let clusterable_object_sphere = clusterable_object.sphere();
-                let clusterable_object_in_view = frusta
-                    .iter()
-                    .any(|frustum| frustum.intersects_sphere(&clusterable_object_sphere, true));
-
-                if clusterable_object_in_view {
-                    clusterable_objects_in_view_count += 1;
+        clusterable_objects.extend(spot_lights_query.iter().filter_map(
+            |(entity, transform, view_visibility, spot_light, maybe_layers, volumetric)| {
+                if view_visibility.get() {
+                    Some(ClusterableObjectAssignmentData {
+                        entity,
+                        transform: *transform,
+                        range: spot_light.range,
+                        object_type: ClusterableObjectType::SpotLight {
+                            outer_angle: spot_light.outer_angle,
+                            shadow_maps_enabled: spot_light.shadow_maps_enabled,
+                            volumetric: volumetric.is_some(),
+                        },
+                        render_layers: maybe_layers.unwrap_or_default().clone(),
+                    })
+                } else {
+                    None
                 }
+            },
+        ));
 
-                clusterable_object_in_view
-            }
-        });
+        // Gather up light probes, but only if we're clustering them.
+        //
+        // UBOs aren't large enough to hold indices for light probes, so we can't
+        // cluster light probes on such platforms (mainly WebGL 2). Besides, those
+        // platforms typically lack bindless textures, so multiple light probes
+        // wouldn't be supported anyhow.
+        if global_cluster_settings.supports_storage_buffers {
+            clusterable_objects.extend(light_probes_query.iter().filter_map(
+                |(entity, transform, view_visibility, is_reflection_probe)| {
+                    if view_visibility.get() {
+                        Some(ClusterableObjectAssignmentData {
+                            entity,
+                            transform: *transform,
+                            range: transform.radius_vec3a(Vec3A::ONE),
+                            object_type: if is_reflection_probe {
+                                ClusterableObjectType::ReflectionProbe
+                            } else {
+                                ClusterableObjectType::IrradianceVolume
+                            },
+                            render_layers: RenderLayers::default(),
+                        })
+                    } else {
+                        None
+                    }
+                },
+            ));
+        }
+
+        // Add decals if the current platform supports them.
+        if global_cluster_settings.clustered_decals_are_usable {
+            clusterable_objects.extend(decals_query.iter().filter_map(
+                |(entity, transform, view_visibility)| {
+                    if view_visibility.get() {
+                        Some(ClusterableObjectAssignmentData {
+                            entity,
+                            transform: *transform,
+                            range: transform.scale().length(),
+                            object_type: ClusterableObjectType::Decal,
+                            render_layers: RenderLayers::default(),
+                        })
+                    } else {
+                        None
+                    }
+                },
+            ));
+        }
 
         if clusterable_objects.len()
             > global_cluster_settings.max_uniform_buffer_clusterable_objects
-            && !*max_clusterable_objects_warning_emitted
+            && !global_cluster_settings.supports_storage_buffers
         {
-            warn!(
-                "max_uniform_buffer_clusterable_objects ({}) exceeded",
-                global_cluster_settings.max_uniform_buffer_clusterable_objects
-            );
-            *max_clusterable_objects_warning_emitted = true;
-        }
+            clusterable_objects.sort_by_cached_key(|clusterable_object| {
+                (
+                    clusterable_object.object_type.ordering(),
+                    clusterable_object.entity,
+                )
+            });
 
-        clusterable_objects
-            .truncate(global_cluster_settings.max_uniform_buffer_clusterable_objects);
+            if clusterable_objects.len()
+                > global_cluster_settings.max_uniform_buffer_clusterable_objects
+                && !*max_clusterable_objects_warning_emitted
+            {
+                warn!(
+                    "max_uniform_buffer_clusterable_objects ({}) exceeded",
+                    global_cluster_settings.max_uniform_buffer_clusterable_objects
+                );
+                *max_clusterable_objects_warning_emitted = true;
+            }
+
+            clusterable_objects
+                .truncate(global_cluster_settings.max_uniform_buffer_clusterable_objects);
+        }
     }
 
-    for (
-        view_entity,
-        camera_transform,
-        camera,
-        frustum,
-        config,
-        clusters,
-        maybe_layers,
-        mut visible_clusterable_objects,
-    ) in &mut views
-    {
+    for (camera_transform, camera, frustum, config, clusters, maybe_layers) in &mut views {
         let view_layers = maybe_layers.unwrap_or_default();
         let clusters = clusters.into_inner();
         let config = config.copied().unwrap_or_default();
 
         if matches!(config, ClusterConfig::None) {
-            if visible_clusterable_objects.is_some() {
-                commands
-                    .entity(view_entity)
-                    .remove::<VisibleClusterableObjects>();
-            }
-            clusters.clear();
+            clusters.clear(&global_cluster_settings);
             continue;
         }
 
         let screen_size = match camera.physical_viewport_size() {
             Some(screen_size) if screen_size.x != 0 && screen_size.y != 0 => screen_size,
             _ => {
-                clusters.clear();
+                clusters.clear(&global_cluster_settings);
                 continue;
             }
         };
@@ -400,389 +384,383 @@ pub(crate) fn assign_objects_to_clusters(
 
         let view_from_clip = camera.clip_from_view().inverse();
 
-        for clusterable_objects in &mut clusters.clusterable_objects {
-            clusterable_objects.clear();
-        }
         let cluster_count =
             (clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z) as usize;
-        clusters
-            .clusterable_objects
-            .resize_with(cluster_count, ObjectsInCluster::default);
-
-        // initialize empty cluster bounding spheres
-        cluster_aabb_spheres.clear();
-        cluster_aabb_spheres.extend(core::iter::repeat_n(None, cluster_count));
-
-        // Calculate the x/y/z cluster frustum planes in view space
-        let mut x_planes = Vec::with_capacity(clusters.dimensions.x as usize + 1);
-        let mut y_planes = Vec::with_capacity(clusters.dimensions.y as usize + 1);
-        let mut z_planes = Vec::with_capacity(clusters.dimensions.z as usize + 1);
-
-        if is_orthographic {
-            let x_slices = clusters.dimensions.x as f32;
-            for x in 0..=clusters.dimensions.x {
-                let x_proportion = x as f32 / x_slices;
-                let x_pos = x_proportion * 2.0 - 1.0;
-                let view_x = clip_to_view(view_from_clip, Vec4::new(x_pos, 0.0, 1.0, 1.0)).x;
-                let normal = Vec3::X;
-                let d = view_x * normal.x;
-                x_planes.push(HalfSpace::new(normal.extend(d)));
-            }
-
-            let y_slices = clusters.dimensions.y as f32;
-            for y in 0..=clusters.dimensions.y {
-                let y_proportion = 1.0 - y as f32 / y_slices;
-                let y_pos = y_proportion * 2.0 - 1.0;
-                let view_y = clip_to_view(view_from_clip, Vec4::new(0.0, y_pos, 1.0, 1.0)).y;
-                let normal = Vec3::Y;
-                let d = view_y * normal.y;
-                y_planes.push(HalfSpace::new(normal.extend(d)));
-            }
-        } else {
-            let x_slices = clusters.dimensions.x as f32;
-            for x in 0..=clusters.dimensions.x {
-                let x_proportion = x as f32 / x_slices;
-                let x_pos = x_proportion * 2.0 - 1.0;
-                let nb = clip_to_view(view_from_clip, Vec4::new(x_pos, -1.0, 1.0, 1.0)).xyz();
-                let nt = clip_to_view(view_from_clip, Vec4::new(x_pos, 1.0, 1.0, 1.0)).xyz();
-                let normal = nb.cross(nt);
-                let d = nb.dot(normal);
-                x_planes.push(HalfSpace::new(normal.extend(d)));
-            }
-
-            let y_slices = clusters.dimensions.y as f32;
-            for y in 0..=clusters.dimensions.y {
-                let y_proportion = 1.0 - y as f32 / y_slices;
-                let y_pos = y_proportion * 2.0 - 1.0;
-                let nl = clip_to_view(view_from_clip, Vec4::new(-1.0, y_pos, 1.0, 1.0)).xyz();
-                let nr = clip_to_view(view_from_clip, Vec4::new(1.0, y_pos, 1.0, 1.0)).xyz();
-                let normal = nr.cross(nl);
-                let d = nr.dot(normal);
-                y_planes.push(HalfSpace::new(normal.extend(d)));
-            }
-        }
-
-        let z_slices = clusters.dimensions.z;
-        for z in 0..=z_slices {
-            let view_z = z_slice_to_view_z(first_slice_depth, far_z, z_slices, z, is_orthographic);
-            let normal = -Vec3::Z;
-            let d = view_z * normal.z;
-            z_planes.push(HalfSpace::new(normal.extend(d)));
-        }
+        clusters.reset_for_new_frame(cluster_count, &global_cluster_settings);
 
         let (mut total_cluster_index_count, mut farthest_z) = (0, 0.0f32);
         let view_from_world_row_2 = view_from_world.row(2);
 
-        let mut update_from_object_intersections =
-            |visible_clusterable_objects: &mut VisibleClusterableObjects| {
-                for clusterable_object in &clusterable_objects {
-                    // check if the clusterable light layers overlap the view layers
-                    if !view_layers.intersects(&clusterable_object.render_layers) {
-                        continue;
+        if matches!(clusters.clusterable_objects, ClusterableObjects::Cpu(..)) {
+            // initialize empty cluster bounding spheres
+            cluster_aabb_spheres.clear();
+            cluster_aabb_spheres.extend(core::iter::repeat_n(None, cluster_count));
+
+            // Calculate the x/y/z cluster frustum planes in view space
+            let mut x_planes = Vec::with_capacity(clusters.dimensions.x as usize + 1);
+            let mut y_planes = Vec::with_capacity(clusters.dimensions.y as usize + 1);
+            let mut z_planes = Vec::with_capacity(clusters.dimensions.z as usize + 1);
+
+            if is_orthographic {
+                let x_slices = clusters.dimensions.x as f32;
+                for x in 0..=clusters.dimensions.x {
+                    let x_proportion = x as f32 / x_slices;
+                    let x_pos = x_proportion * 2.0 - 1.0;
+                    let view_x = clip_to_view(view_from_clip, Vec4::new(x_pos, 0.0, 1.0, 1.0)).x;
+                    let normal = Vec3::X;
+                    let d = view_x * normal.x;
+                    x_planes.push(HalfSpace::new(normal.extend(d)));
+                }
+
+                let y_slices = clusters.dimensions.y as f32;
+                for y in 0..=clusters.dimensions.y {
+                    let y_proportion = 1.0 - y as f32 / y_slices;
+                    let y_pos = y_proportion * 2.0 - 1.0;
+                    let view_y = clip_to_view(view_from_clip, Vec4::new(0.0, y_pos, 1.0, 1.0)).y;
+                    let normal = Vec3::Y;
+                    let d = view_y * normal.y;
+                    y_planes.push(HalfSpace::new(normal.extend(d)));
+                }
+            } else {
+                let x_slices = clusters.dimensions.x as f32;
+                for x in 0..=clusters.dimensions.x {
+                    let x_proportion = x as f32 / x_slices;
+                    let x_pos = x_proportion * 2.0 - 1.0;
+                    let nb = clip_to_view(view_from_clip, Vec4::new(x_pos, -1.0, 1.0, 1.0)).xyz();
+                    let nt = clip_to_view(view_from_clip, Vec4::new(x_pos, 1.0, 1.0, 1.0)).xyz();
+                    let normal = nb.cross(nt);
+                    let d = nb.dot(normal);
+                    x_planes.push(HalfSpace::new(normal.extend(d)));
+                }
+
+                let y_slices = clusters.dimensions.y as f32;
+                for y in 0..=clusters.dimensions.y {
+                    let y_proportion = 1.0 - y as f32 / y_slices;
+                    let y_pos = y_proportion * 2.0 - 1.0;
+                    let nl = clip_to_view(view_from_clip, Vec4::new(-1.0, y_pos, 1.0, 1.0)).xyz();
+                    let nr = clip_to_view(view_from_clip, Vec4::new(1.0, y_pos, 1.0, 1.0)).xyz();
+                    let normal = nr.cross(nl);
+                    let d = nr.dot(normal);
+                    y_planes.push(HalfSpace::new(normal.extend(d)));
+                }
+            }
+
+            let z_slices = clusters.dimensions.z;
+            for z in 0..=z_slices {
+                let view_z =
+                    z_slice_to_view_z(first_slice_depth, far_z, z_slices, z, is_orthographic);
+                let normal = -Vec3::Z;
+                let d = view_z * normal.z;
+                z_planes.push(HalfSpace::new(normal.extend(d)));
+            }
+
+            for clusterable_object in &clusterable_objects {
+                // check if the clusterable light layers overlap the view layers
+                if !view_layers.intersects(&clusterable_object.render_layers) {
+                    continue;
+                }
+
+                let clusterable_object_sphere = clusterable_object.sphere();
+
+                // Check if the clusterable object is within the view frustum
+                if !frustum.intersects_sphere(&clusterable_object_sphere, true) {
+                    continue;
+                }
+
+                // note: caching seems to be slower than calling twice for this aabb calculation
+                let (
+                    clusterable_object_aabb_xy_ndc_z_view_min,
+                    clusterable_object_aabb_xy_ndc_z_view_max,
+                ) = cluster_space_clusterable_object_aabb(
+                    view_from_world,
+                    view_from_world_scale,
+                    camera.clip_from_view(),
+                    &clusterable_object_sphere,
+                );
+
+                let min_cluster = ndc_position_to_cluster(
+                    clusters.dimensions,
+                    cluster_factors,
+                    is_orthographic,
+                    clusterable_object_aabb_xy_ndc_z_view_min,
+                    clusterable_object_aabb_xy_ndc_z_view_min.z,
+                );
+                let max_cluster = ndc_position_to_cluster(
+                    clusters.dimensions,
+                    cluster_factors,
+                    is_orthographic,
+                    clusterable_object_aabb_xy_ndc_z_view_max,
+                    clusterable_object_aabb_xy_ndc_z_view_max.z,
+                );
+                let (min_cluster, max_cluster) =
+                    (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
+
+                // If we're doing GPU clustering, then all we have to do is
+                // to push the Z range we computed. Otherwise, proceed to
+                // assign to individual clusters.
+                let clusterable_objects = match clusters.clusterable_objects {
+                    ClusterableObjects::Gpu => {
+                        error!(
+                            "We shouldn't be clustering objects on CPU if we're in GPU clustering \
+                             mode"
+                        );
+                        return;
                     }
-
-                    let clusterable_object_sphere = clusterable_object.sphere();
-
-                    // Check if the clusterable object is within the view frustum
-                    if !frustum.intersects_sphere(&clusterable_object_sphere, true) {
-                        continue;
+                    ClusterableObjects::Cpu(ref mut clusterable_objects_cpu) => {
+                        clusterable_objects_cpu
                     }
+                };
 
-                    // NOTE: The clusterable object intersects the frustum so it
-                    // must be visible and part of the global set
-                    visible_clusterable_objects
-                        .add(clusterable_object.entity, &clusterable_object.object_type);
+                // What follows is the Iterative Sphere Refinement algorithm from Just Cause 3
+                // Persson et al, Practical Clustered Shading
+                // http://newq.net/dl/pub/s2015_practical.pdf
+                // NOTE: A sphere under perspective projection is no longer a sphere. It gets
+                // stretched and warped, which prevents simpler algorithms from being correct
+                // as they often assume that the widest part of the sphere under projection is the
+                // center point on the axis of interest plus the radius, and that is not true!
+                let view_clusterable_object_sphere = Sphere {
+                    center: Vec3A::from_vec4(
+                        view_from_world * clusterable_object_sphere.center.extend(1.0),
+                    ),
+                    radius: clusterable_object_sphere.radius * view_from_world_scale_max,
+                };
 
-                    let this_object_far_z = -view_from_world_row_2
-                        .dot(clusterable_object.transform.translation().extend(1.0))
-                        + clusterable_object.range * view_from_world_scale.z;
-                    farthest_z = farthest_z.max(this_object_far_z);
+                let this_object_far_z = -view_from_world_row_2
+                    .dot(clusterable_object.transform.translation().extend(1.0))
+                    + clusterable_object.range * view_from_world_scale.z;
+                farthest_z = farthest_z.max(this_object_far_z);
 
-                    // note: caching seems to be slower than calling twice for this aabb calculation
-                    let (
-                        clusterable_object_aabb_xy_ndc_z_view_min,
-                        clusterable_object_aabb_xy_ndc_z_view_max,
-                    ) = cluster_space_clusterable_object_aabb(
-                        view_from_world,
-                        view_from_world_scale,
-                        camera.clip_from_view(),
-                        &clusterable_object_sphere,
-                    );
-
-                    let min_cluster = ndc_position_to_cluster(
-                        clusters.dimensions,
-                        cluster_factors,
-                        is_orthographic,
-                        clusterable_object_aabb_xy_ndc_z_view_min,
-                        clusterable_object_aabb_xy_ndc_z_view_min.z,
-                    );
-                    let max_cluster = ndc_position_to_cluster(
-                        clusters.dimensions,
-                        cluster_factors,
-                        is_orthographic,
-                        clusterable_object_aabb_xy_ndc_z_view_max,
-                        clusterable_object_aabb_xy_ndc_z_view_max.z,
-                    );
-                    let (min_cluster, max_cluster) =
-                        (min_cluster.min(max_cluster), min_cluster.max(max_cluster));
-
-                    // What follows is the Iterative Sphere Refinement algorithm from Just Cause 3
-                    // Persson et al, Practical Clustered Shading
-                    // http://newq.net/dl/pub/s2015_practical.pdf
-                    // NOTE: A sphere under perspective projection is no longer a sphere. It gets
-                    // stretched and warped, which prevents simpler algorithms from being correct
-                    // as they often assume that the widest part of the sphere under projection is the
-                    // center point on the axis of interest plus the radius, and that is not true!
-                    let view_clusterable_object_sphere = Sphere {
-                        center: Vec3A::from_vec4(
-                            view_from_world * clusterable_object_sphere.center.extend(1.0),
-                        ),
-                        radius: clusterable_object_sphere.radius * view_from_world_scale_max,
-                    };
-                    let spot_light_dir_sin_cos = match clusterable_object.object_type {
-                        ClusterableObjectType::SpotLight { outer_angle, .. } => {
-                            let (angle_sin, angle_cos) = sin_cos(outer_angle);
-                            Some((
-                                (view_from_world * clusterable_object.transform.back().extend(0.0))
-                                    .truncate()
-                                    .normalize(),
-                                angle_sin,
-                                angle_cos,
-                            ))
-                        }
-                        ClusterableObjectType::Decal => {
-                            // TODO: cull via a frustum
-                            None
-                        }
-                        ClusterableObjectType::PointLight { .. }
-                        | ClusterableObjectType::ReflectionProbe
-                        | ClusterableObjectType::IrradianceVolume => None,
-                    };
-                    let clusterable_object_center_clip =
-                        camera.clip_from_view() * view_clusterable_object_sphere.center.extend(1.0);
-                    let object_center_ndc =
-                        clusterable_object_center_clip.xyz() / clusterable_object_center_clip.w;
-                    let cluster_coordinates = ndc_position_to_cluster(
-                        clusters.dimensions,
-                        cluster_factors,
-                        is_orthographic,
-                        object_center_ndc,
-                        view_clusterable_object_sphere.center.z,
-                    );
-                    let z_center = if object_center_ndc.z <= 1.0 {
-                        Some(cluster_coordinates.z)
-                    } else {
+                let spot_light_dir_sin_cos = match clusterable_object.object_type {
+                    ClusterableObjectType::SpotLight { outer_angle, .. } => {
+                        let (angle_sin, angle_cos) = sin_cos(outer_angle);
+                        Some((
+                            (view_from_world * clusterable_object.transform.back().extend(0.0))
+                                .truncate()
+                                .normalize(),
+                            angle_sin,
+                            angle_cos,
+                        ))
+                    }
+                    ClusterableObjectType::Decal => {
+                        // TODO: cull via a frustum
                         None
-                    };
-                    let y_center = if object_center_ndc.y > 1.0 {
-                        None
-                    } else if object_center_ndc.y < -1.0 {
-                        Some(clusters.dimensions.y + 1)
-                    } else {
-                        Some(cluster_coordinates.y)
-                    };
-                    for z in min_cluster.z..=max_cluster.z {
-                        let mut z_object = view_clusterable_object_sphere;
-                        if z_center.is_none() || z != z_center.unwrap() {
-                            // The z plane closer to the clusterable object has the
-                            // larger radius circle where the light sphere
-                            // intersects the z plane.
-                            let z_plane = if z_center.is_some() && z < z_center.unwrap() {
-                                z_planes[(z + 1) as usize]
+                    }
+                    ClusterableObjectType::PointLight { .. }
+                    | ClusterableObjectType::ReflectionProbe
+                    | ClusterableObjectType::IrradianceVolume => None,
+                };
+                let clusterable_object_center_clip =
+                    camera.clip_from_view() * view_clusterable_object_sphere.center.extend(1.0);
+                let object_center_ndc =
+                    clusterable_object_center_clip.xyz() / clusterable_object_center_clip.w;
+                let cluster_coordinates = ndc_position_to_cluster(
+                    clusters.dimensions,
+                    cluster_factors,
+                    is_orthographic,
+                    object_center_ndc,
+                    view_clusterable_object_sphere.center.z,
+                );
+                let z_center = if object_center_ndc.z <= 1.0 {
+                    Some(cluster_coordinates.z)
+                } else {
+                    None
+                };
+                let y_center = if object_center_ndc.y > 1.0 {
+                    None
+                } else if object_center_ndc.y < -1.0 {
+                    Some(clusters.dimensions.y + 1)
+                } else {
+                    Some(cluster_coordinates.y)
+                };
+                for z in min_cluster.z..=max_cluster.z {
+                    let mut z_object = view_clusterable_object_sphere;
+                    if z_center.is_none() || z != z_center.unwrap() {
+                        // The z plane closer to the clusterable object has the
+                        // larger radius circle where the light sphere
+                        // intersects the z plane.
+                        let z_plane = if z_center.is_some() && z < z_center.unwrap() {
+                            z_planes[(z + 1) as usize]
+                        } else {
+                            z_planes[z as usize]
+                        };
+                        // Project the sphere to this z plane and use its radius as the radius of a
+                        // new, refined sphere.
+                        if let Some(projected) = project_to_plane_z(z_object, z_plane) {
+                            z_object = projected;
+                        } else {
+                            continue;
+                        }
+                    }
+                    for y in min_cluster.y..=max_cluster.y {
+                        let mut y_object = z_object;
+                        if y_center.is_none() || y != y_center.unwrap() {
+                            // The y plane closer to the clusterable object has
+                            // the larger radius circle where the light sphere
+                            // intersects the y plane.
+                            let y_plane = if y_center.is_some() && y < y_center.unwrap() {
+                                y_planes[(y + 1) as usize]
                             } else {
-                                z_planes[z as usize]
+                                y_planes[y as usize]
                             };
-                            // Project the sphere to this z plane and use its radius as the radius of a
-                            // new, refined sphere.
-                            if let Some(projected) = project_to_plane_z(z_object, z_plane) {
-                                z_object = projected;
+                            // Project the refined sphere to this y plane and use its radius as the
+                            // radius of a new, even more refined sphere.
+                            if let Some(projected) =
+                                project_to_plane_y(y_object, y_plane, is_orthographic)
+                            {
+                                y_object = projected;
                             } else {
                                 continue;
                             }
                         }
-                        for y in min_cluster.y..=max_cluster.y {
-                            let mut y_object = z_object;
-                            if y_center.is_none() || y != y_center.unwrap() {
-                                // The y plane closer to the clusterable object has
-                                // the larger radius circle where the light sphere
-                                // intersects the y plane.
-                                let y_plane = if y_center.is_some() && y < y_center.unwrap() {
-                                    y_planes[(y + 1) as usize]
-                                } else {
-                                    y_planes[y as usize]
-                                };
-                                // Project the refined sphere to this y plane and use its radius as the
-                                // radius of a new, even more refined sphere.
-                                if let Some(projected) =
-                                    project_to_plane_y(y_object, y_plane, is_orthographic)
-                                {
-                                    y_object = projected;
-                                } else {
-                                    continue;
-                                }
+                        // Loop from the left to find the first affected cluster
+                        let mut min_x = min_cluster.x;
+                        loop {
+                            if min_x >= max_cluster.x
+                                || -get_distance_x(
+                                    x_planes[(min_x + 1) as usize],
+                                    y_object.center,
+                                    is_orthographic,
+                                ) + y_object.radius
+                                    > 0.0
+                            {
+                                break;
                             }
-                            // Loop from the left to find the first affected cluster
-                            let mut min_x = min_cluster.x;
-                            loop {
-                                if min_x >= max_cluster.x
-                                    || -get_distance_x(
-                                        x_planes[(min_x + 1) as usize],
-                                        y_object.center,
-                                        is_orthographic,
-                                    ) + y_object.radius
-                                        > 0.0
-                                {
-                                    break;
-                                }
-                                min_x += 1;
+                            min_x += 1;
+                        }
+                        // Loop from the right to find the last affected cluster
+                        let mut max_x = max_cluster.x;
+                        loop {
+                            if max_x <= min_x
+                                || get_distance_x(
+                                    x_planes[max_x as usize],
+                                    y_object.center,
+                                    is_orthographic,
+                                ) + y_object.radius
+                                    > 0.0
+                            {
+                                break;
                             }
-                            // Loop from the right to find the last affected cluster
-                            let mut max_x = max_cluster.x;
-                            loop {
-                                if max_x <= min_x
-                                    || get_distance_x(
-                                        x_planes[max_x as usize],
-                                        y_object.center,
-                                        is_orthographic,
-                                    ) + y_object.radius
-                                        > 0.0
-                                {
-                                    break;
-                                }
-                                max_x -= 1;
-                            }
-                            let mut cluster_index = ((y * clusters.dimensions.x + min_x)
-                                * clusters.dimensions.z
-                                + z) as usize;
+                            max_x -= 1;
+                        }
+                        let mut cluster_index = ((y * clusters.dimensions.x + min_x)
+                            * clusters.dimensions.z
+                            + z) as usize;
 
-                            match clusterable_object.object_type {
-                                ClusterableObjectType::SpotLight { .. } => {
-                                    let (view_light_direction, angle_sin, angle_cos) =
-                                        spot_light_dir_sin_cos.unwrap();
-                                    for x in min_x..=max_x {
-                                        // further culling for spot lights
-                                        // get or initialize cluster bounding sphere
-                                        let cluster_aabb_sphere =
-                                            &mut cluster_aabb_spheres[cluster_index];
-                                        let cluster_aabb_sphere =
-                                            if let Some(sphere) = cluster_aabb_sphere {
-                                                &*sphere
-                                            } else {
-                                                let aabb = compute_aabb_for_cluster(
-                                                    first_slice_depth,
-                                                    far_z,
-                                                    clusters.tile_size.as_vec2(),
-                                                    screen_size.as_vec2(),
-                                                    view_from_clip,
-                                                    is_orthographic,
-                                                    clusters.dimensions,
-                                                    UVec3::new(x, y, z),
-                                                );
-                                                let sphere = Sphere {
-                                                    center: aabb.center,
-                                                    radius: aabb.half_extents.length(),
-                                                };
-                                                *cluster_aabb_sphere = Some(sphere);
-                                                cluster_aabb_sphere.as_ref().unwrap()
+                        match clusterable_object.object_type {
+                            ClusterableObjectType::SpotLight { .. } => {
+                                let (view_light_direction, angle_sin, angle_cos) =
+                                    spot_light_dir_sin_cos.unwrap();
+                                for x in min_x..=max_x {
+                                    // further culling for spot lights
+                                    // get or initialize cluster bounding sphere
+                                    let cluster_aabb_sphere =
+                                        &mut cluster_aabb_spheres[cluster_index];
+                                    let cluster_aabb_sphere =
+                                        if let Some(sphere) = cluster_aabb_sphere {
+                                            &*sphere
+                                        } else {
+                                            let aabb = compute_aabb_for_cluster(
+                                                first_slice_depth,
+                                                far_z,
+                                                clusters.tile_size.as_vec2(),
+                                                screen_size.as_vec2(),
+                                                view_from_clip,
+                                                is_orthographic,
+                                                clusters.dimensions,
+                                                UVec3::new(x, y, z),
+                                            );
+                                            let sphere = Sphere {
+                                                center: aabb.center,
+                                                radius: aabb.half_extents.length(),
                                             };
+                                            *cluster_aabb_sphere = Some(sphere);
+                                            cluster_aabb_sphere.as_ref().unwrap()
+                                        };
 
-                                        // test -- based on https://bartwronski.com/2017/04/13/cull-that-cone/
-                                        let spot_light_offset = Vec3::from(
-                                            view_clusterable_object_sphere.center
-                                                - cluster_aabb_sphere.center,
-                                        );
-                                        let spot_light_dist_sq = spot_light_offset.length_squared();
-                                        let v1_len = spot_light_offset.dot(view_light_direction);
+                                    // test -- based on https://bartwronski.com/2017/04/13/cull-that-cone/
+                                    let spot_light_offset = Vec3::from(
+                                        view_clusterable_object_sphere.center
+                                            - cluster_aabb_sphere.center,
+                                    );
+                                    let spot_light_dist_sq = spot_light_offset.length_squared();
+                                    let v1_len = spot_light_offset.dot(view_light_direction);
 
-                                        let distance_closest_point = (angle_cos
-                                            * (spot_light_dist_sq - v1_len * v1_len).sqrt())
-                                            - v1_len * angle_sin;
-                                        let angle_cull =
-                                            distance_closest_point > cluster_aabb_sphere.radius;
+                                    let distance_closest_point = (angle_cos
+                                        * (spot_light_dist_sq - v1_len * v1_len).sqrt())
+                                        - v1_len * angle_sin;
+                                    let angle_cull =
+                                        distance_closest_point > cluster_aabb_sphere.radius;
 
-                                        let front_cull = v1_len
-                                            > cluster_aabb_sphere.radius
-                                                + clusterable_object.range
-                                                    * view_from_world_scale_max;
-                                        let back_cull = v1_len < -cluster_aabb_sphere.radius;
+                                    let front_cull = v1_len
+                                        > cluster_aabb_sphere.radius
+                                            + clusterable_object.range * view_from_world_scale_max;
+                                    let back_cull = v1_len < -cluster_aabb_sphere.radius;
 
-                                        if !angle_cull && !front_cull && !back_cull {
-                                            // this cluster is affected by the spot light
-                                            clusters.clusterable_objects[cluster_index]
-                                                .add_spot_light(clusterable_object.entity);
-                                            total_cluster_index_count += 1;
-                                        }
-                                        cluster_index += clusters.dimensions.z as usize;
+                                    if !angle_cull && !front_cull && !back_cull {
+                                        // this cluster is affected by the spot light
+                                        clusterable_objects[cluster_index]
+                                            .add_spot_light(clusterable_object.entity);
+                                        total_cluster_index_count += 1;
                                     }
+                                    cluster_index += clusters.dimensions.z as usize;
                                 }
+                            }
 
-                                ClusterableObjectType::PointLight { .. } => {
-                                    for _ in min_x..=max_x {
-                                        // all clusters within range are affected by point lights
-                                        clusters.clusterable_objects[cluster_index]
-                                            .add_point_light(clusterable_object.entity);
-                                        cluster_index += clusters.dimensions.z as usize;
-                                    }
-                                    total_cluster_index_count += (max_x - min_x + 1) as usize;
+                            ClusterableObjectType::PointLight { .. } => {
+                                for _ in min_x..=max_x {
+                                    // all clusters within range are affected by point lights
+                                    clusterable_objects[cluster_index]
+                                        .add_point_light(clusterable_object.entity);
+                                    cluster_index += clusters.dimensions.z as usize;
                                 }
+                                total_cluster_index_count += (max_x - min_x + 1) as usize;
+                            }
 
-                                ClusterableObjectType::ReflectionProbe => {
-                                    // Reflection probes currently affect all
-                                    // clusters in their bounding sphere.
-                                    //
-                                    // TODO: Cull more aggressively based on the
-                                    // probe's OBB.
-                                    for _ in min_x..=max_x {
-                                        clusters.clusterable_objects[cluster_index]
-                                            .add_reflection_probe(clusterable_object.entity);
-                                        cluster_index += clusters.dimensions.z as usize;
-                                    }
-                                    total_cluster_index_count += (max_x - min_x + 1) as usize;
+                            ClusterableObjectType::ReflectionProbe => {
+                                // Reflection probes currently affect all
+                                // clusters in their bounding sphere.
+                                //
+                                // TODO: Cull more aggressively based on the
+                                // probe's OBB.
+                                for _ in min_x..=max_x {
+                                    clusterable_objects[cluster_index]
+                                        .add_reflection_probe(clusterable_object.entity);
+                                    cluster_index += clusters.dimensions.z as usize;
                                 }
+                                total_cluster_index_count += (max_x - min_x + 1) as usize;
+                            }
 
-                                ClusterableObjectType::IrradianceVolume => {
-                                    // Irradiance volumes currently affect all
-                                    // clusters in their bounding sphere.
-                                    //
-                                    // TODO: Cull more aggressively based on the
-                                    // probe's OBB.
-                                    for _ in min_x..=max_x {
-                                        clusters.clusterable_objects[cluster_index]
-                                            .add_irradiance_volume(clusterable_object.entity);
-                                        cluster_index += clusters.dimensions.z as usize;
-                                    }
-                                    total_cluster_index_count += (max_x - min_x + 1) as usize;
+                            ClusterableObjectType::IrradianceVolume => {
+                                // Irradiance volumes currently affect all
+                                // clusters in their bounding sphere.
+                                //
+                                // TODO: Cull more aggressively based on the
+                                // probe's OBB.
+                                for _ in min_x..=max_x {
+                                    clusterable_objects[cluster_index]
+                                        .add_irradiance_volume(clusterable_object.entity);
+                                    cluster_index += clusters.dimensions.z as usize;
                                 }
+                                total_cluster_index_count += (max_x - min_x + 1) as usize;
+                            }
 
-                                ClusterableObjectType::Decal => {
-                                    // Decals currently affect all clusters in their
-                                    // bounding sphere.
-                                    //
-                                    // TODO: Cull more aggressively based on the
-                                    // decal's OBB.
-                                    for _ in min_x..=max_x {
-                                        clusters.clusterable_objects[cluster_index]
-                                            .add_decal(clusterable_object.entity);
-                                        cluster_index += clusters.dimensions.z as usize;
-                                    }
-                                    total_cluster_index_count += (max_x - min_x + 1) as usize;
+                            ClusterableObjectType::Decal => {
+                                // Decals currently affect all clusters in their
+                                // bounding sphere.
+                                //
+                                // TODO: Cull more aggressively based on the
+                                // decal's OBB.
+                                for _ in min_x..=max_x {
+                                    clusterable_objects[cluster_index]
+                                        .add_decal(clusterable_object.entity);
+                                    cluster_index += clusters.dimensions.z as usize;
                                 }
+                                total_cluster_index_count += (max_x - min_x + 1) as usize;
                             }
                         }
                     }
                 }
-            };
-
-        // reuse existing visible clusterable objects Vec, if it exists
-        if let Some(visible_clusterable_objects) = visible_clusterable_objects.as_mut() {
-            visible_clusterable_objects.clear();
-            update_from_object_intersections(visible_clusterable_objects);
-        } else {
-            let mut visible_clusterable_objects = VisibleClusterableObjects::new();
-            update_from_object_intersections(&mut visible_clusterable_objects);
-            commands
-                .entity(view_entity)
-                .insert(visible_clusterable_objects);
+            }
         }
 
         // Save statistics for this frame so that the `dynamic_resizing` and

@@ -123,6 +123,7 @@ bitflags::bitflags! {
         const VOLUMETRIC                        = 1 << 2;
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 3;
         const CONTACT_SHADOWS_ENABLED           = 1 << 4;
+        const SPOT_LIGHT                        = 1 << 5;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -1038,6 +1039,8 @@ pub fn prepare_lights(
 
         let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
             Some((inner, outer)) => {
+                flags |= PointLightFlags::SPOT_LIGHT;
+
                 let light_direction = light.transform.forward();
                 if light_direction.y.is_sign_negative() {
                     flags |= PointLightFlags::SPOT_LIGHT_Y_NEGATIVE;
@@ -1089,7 +1092,7 @@ pub fn prepare_lights(
                     .and_then(|decals| decals.get(entity))
                     .and_then(|index| index.try_into().ok())
                     .unwrap_or(u32::MAX),
-                pad: 0.0,
+                range: light.range,
                 soft_shadow_size: if light.soft_shadows_enabled {
                     light.radius
                 } else {

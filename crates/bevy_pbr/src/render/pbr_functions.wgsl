@@ -438,7 +438,7 @@ fn apply_pbr_lighting(
         view_bindings::view.view_from_world[2].z,
         view_bindings::view.view_from_world[3].z
     ), in.world_position);
-    let cluster_index = clustering::fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
+    let cluster_index = clustering::view_fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
 

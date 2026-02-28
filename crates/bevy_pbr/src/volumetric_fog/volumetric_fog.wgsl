@@ -337,7 +337,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // Point lights and Spot lights
     let view_z = view_start_pos.z;
     let is_orthographic = view.clip_from_view[3].w == 1.0;
-    let cluster_index = clustering::fragment_cluster_index(frag_coord.xy, view_z, is_orthographic);
+    let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, view_z, is_orthographic);
     var clusterable_object_index_ranges =
         clustering::unpack_clusterable_object_index_ranges(cluster_index);
     for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
