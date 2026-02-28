@@ -22,6 +22,7 @@ use bevy::{
     render::{
         camera::{DirtySpecializations, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
+        mesh::allocator::MeshSlabs,
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
             RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
@@ -38,7 +39,6 @@ use bevy::{
         Render, RenderApp, RenderSystems,
     },
 };
-use bevy_render::mesh::allocator::MeshSlabs;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using
