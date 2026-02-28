@@ -3,12 +3,12 @@ use bevy_ecs::{
     resource::Resource,
     world::{FromWorld, World},
 };
+use bevy_log::error;
 use bevy_mesh::{
     morph::{MorphAttributes, MorphBuildError, MAX_MORPH_WEIGHTS, MAX_TEXTURE_WIDTH},
     Mesh,
 };
 use bevy_platform::collections::HashMap;
-use tracing::error;
 use wgpu::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     TextureViewDescriptor,
