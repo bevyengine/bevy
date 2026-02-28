@@ -297,6 +297,8 @@ struct SlabAllocation {
     allocation: Allocation,
     /// The number of slots that this allocation takes up.
     slot_count: u32,
+    /// The number of padding elements that this allocation takes up.
+    padding_elem_count: u32,
 }
 
 /// Holds information about all slabs scheduled to be allocated or reallocated.
@@ -448,7 +450,8 @@ impl MeshAllocator {
                     range: (slab_allocation.allocation.offset
                         * general_slab.element_layout.elements_per_slot)
                         ..((slab_allocation.allocation.offset + slab_allocation.slot_count)
-                            * general_slab.element_layout.elements_per_slot),
+                            * general_slab.element_layout.elements_per_slot)
+                            - slab_allocation.padding_elem_count,
                 })
             }
 
@@ -722,6 +725,7 @@ impl MeshAllocator {
     ) {
         let data_element_count = data_byte_len.div_ceil(layout.size) as u32;
         let data_slot_count = data_element_count.div_ceil(layout.elements_per_slot);
+        let padding_elem_count = data_slot_count * layout.elements_per_slot - data_element_count;
 
         // If the mesh data is too large for a slab, give it a slab of its own.
         if data_slot_count as u64 * layout.slot_size()
@@ -729,7 +733,14 @@ impl MeshAllocator {
         {
             self.allocate_large(mesh_id, layout);
         } else {
-            self.allocate_general(mesh_id, data_slot_count, layout, slabs_to_grow, settings);
+            self.allocate_general(
+                mesh_id,
+                data_slot_count,
+                padding_elem_count,
+                layout,
+                slabs_to_grow,
+                settings,
+            );
         }
     }
 
@@ -739,6 +750,7 @@ impl MeshAllocator {
         &mut self,
         mesh_id: &AssetId<Mesh>,
         data_slot_count: u32,
+        padding_elem_count: u32,
         layout: ElementLayout,
         slabs_to_grow: &mut SlabsToReallocate,
         settings: &MeshAllocatorSettings,
@@ -779,6 +791,7 @@ impl MeshAllocator {
                 slab_allocation: SlabAllocation {
                     allocation,
                     slot_count: data_slot_count,
+                    padding_elem_count,
                 },
             });
             break;
@@ -795,6 +808,7 @@ impl MeshAllocator {
                 settings,
                 layout,
                 data_slot_count,
+                padding_elem_count,
             );
 
             self.slabs.insert(new_slab_id, Slab::General(new_slab));
@@ -922,6 +936,7 @@ impl GeneralSlab {
         settings: &MeshAllocatorSettings,
         layout: ElementLayout,
         data_slot_count: u32,
+        padding_elem_count: u32,
     ) -> GeneralSlab {
         let initial_slab_slot_capacity = (settings.min_slab_size.div_ceil(layout.slot_size())
             as u32)
@@ -945,6 +960,7 @@ impl GeneralSlab {
                 slab_allocation: SlabAllocation {
                     slot_count: data_slot_count,
                     allocation,
+                    padding_elem_count,
                 },
             });
         }

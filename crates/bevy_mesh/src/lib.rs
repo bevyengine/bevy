@@ -45,6 +45,10 @@ bitflags! {
     #[derive(Clone, Debug)]
     pub struct BaseMeshPipelineKey: u64 {
         const MORPH_TARGETS = 1 << (u64::BITS - 1);
+        const INDEX_FORMAT_RESERVED_BITS = Self::INDEX_FORMAT_MASK_BITS << Self::INDEX_FORMAT_SHIFT_BITS;
+        const INDEX_FORMAT_NONE = 0 << Self::INDEX_FORMAT_SHIFT_BITS;
+        const INDEX_FORMAT_U32  = 1 << Self::INDEX_FORMAT_SHIFT_BITS;
+        const INDEX_FORMAT_U16  = 2 << Self::INDEX_FORMAT_SHIFT_BITS;
     }
 }
 
@@ -69,11 +73,26 @@ impl BaseMeshPipelineKey {
     pub const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u64 =
         (u64::BITS - 1 - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones()) as u64;
 
-    pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
+    pub const INDEX_FORMAT_MASK_BITS: u64 = 0b11;
+    pub const INDEX_FORMAT_SHIFT_BITS: u64 =
+        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::INDEX_FORMAT_MASK_BITS.count_ones() as u64;
+
+    pub fn from_primitive_topology_and_index(
+        primitive_topology: PrimitiveTopology,
+        indices: Option<wgpu_types::IndexFormat>,
+    ) -> Self {
+        let index_bits = match indices {
+            None => BaseMeshPipelineKey::INDEX_FORMAT_NONE,
+            Some(indices) => match indices {
+                wgpu_types::IndexFormat::Uint16 => BaseMeshPipelineKey::INDEX_FORMAT_U16,
+                wgpu_types::IndexFormat::Uint32 => BaseMeshPipelineKey::INDEX_FORMAT_U32,
+            },
+        }
+        .bits();
         let primitive_topology_bits = ((primitive_topology as u64)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits)
+        Self::from_bits_retain(primitive_topology_bits | index_bits)
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
