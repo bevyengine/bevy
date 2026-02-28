@@ -2063,12 +2063,12 @@ pub(crate) fn specialize_shadows(
                         continue;
                     }
                     if !mesh_instance
-                        .flags
+                        .flags()
                         .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                     {
                         continue;
                     }
-                    let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                    let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                         continue;
                     };
 
@@ -2266,20 +2266,14 @@ pub fn queue_shadows(
                     continue;
                 };
                 if !mesh_instance
-                    .flags
+                    .flags()
                     .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                 {
                     continue;
                 }
 
-                let mesh_layers = mesh_instance
-                    .shared
-                    .render_layers
-                    .as_ref()
-                    .unwrap_or_default();
-
+                let mesh_layers = mesh_instance.render_layers.as_ref().unwrap_or_default();
                 let camera_layers = camera_layers.unwrap_or_default();
-
                 if !camera_layers.intersects(mesh_layers) {
                     continue;
                 }
@@ -2307,7 +2301,7 @@ pub fn queue_shadows(
                     Some(material.binding.group.0)
                 };
 
-                let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id)
+                let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())
                 else {
                     continue;
                 };
@@ -2322,7 +2316,7 @@ pub fn queue_shadows(
                 shadow_phase.add(
                     batch_set_key,
                     ShadowBinKey {
-                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        asset_id: mesh_instance.mesh_asset_id().into(),
                     },
                     (*render_entity, *main_entity),
                     mesh_instance.current_uniform_index,

@@ -306,7 +306,7 @@ impl Plugin for MaterialsPlugin {
                 .add_render_command::<Transparent3d, DrawMaterial>()
                 .add_render_command::<Opaque3d, DrawMaterial>()
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
-                .add_systems(RenderStartup, init_material_pipeline)
+                .add_systems(RenderStartup, init_material_pipeline.after(MeshPipelineSet))
                 .add_systems(
                     Render,
                     (
@@ -654,9 +654,9 @@ fn mark_meshes_as_changed_if_their_materials_changed<M>(
 ) where
     M: Material,
 {
-    for mut mesh in &mut changed_meshes_query {
+    changed_meshes_query.par_iter_mut().for_each(|mut mesh| {
         mesh.set_changed();
-    }
+    });
 }
 
 /// Fills the [`RenderMaterialInstances`] resources from the meshes in the
@@ -1010,7 +1010,7 @@ pub(crate) fn specialize_material_meshes(
                         .insert((*render_entity, *visible_entity));
                     continue;
                 };
-                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
@@ -1049,13 +1049,13 @@ pub(crate) fn specialize_material_meshes(
 
                 if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
                     if mesh_instance
-                        .flags
+                        .flags()
                         .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
                     {
                         mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
                     }
                     if mesh_instance
-                        .flags
+                        .flags()
                         .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
                     {
                         mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
@@ -1208,7 +1208,7 @@ pub fn queue_material_meshes(
             };
 
             // Fetch the slabs that this mesh resides in.
-            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id) else {
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id()) else {
                 continue;
             };
 
@@ -1255,10 +1255,13 @@ pub fn queue_material_meshes(
                         draw_function,
                         material_bind_group_index: Some(material.binding.group.0),
                         slabs: mesh_slabs,
-                        lightmap_slab: mesh_instance.shared.lightmap_slab_index.map(|index| *index),
+                        lightmap_slab: mesh_instance
+                            .shared
+                            .lightmap_slab_index()
+                            .map(|index| *index),
                     };
                     let bin_key = Opaque3dBinKey {
-                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        asset_id: mesh_instance.mesh_asset_id().into(),
                     };
                     opaque_phase.add(
                         batch_set_key,
@@ -1286,7 +1289,7 @@ pub fn queue_material_meshes(
                         slabs: mesh_slabs,
                     };
                     let bin_key = OpaqueNoLightmap3dBinKey {
-                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        asset_id: mesh_instance.mesh_asset_id().into(),
                     };
                     alpha_mask_phase.add(
                         batch_set_key,

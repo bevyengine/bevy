@@ -3,6 +3,7 @@
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    post_process::motion_blur::MotionBlur,
     prelude::*,
     scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
@@ -124,6 +125,10 @@ struct Args {
     /// options: 'instant', 'gradual', 'regular-cycle', 'random-cycle', 'random-steady' - default = 'instant'
     #[argh(option, default = "ArgSpawning::Instant")]
     spawning: ArgSpawning,
+
+    /// enable motion blur
+    #[argh(switch)]
+    motion_blur: bool,
 }
 
 fn main() {
@@ -202,10 +207,23 @@ fn setup(
             ArgCamera::Far => 200.0,
         };
 
-    commands.spawn((
+    let mut camera = commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, camera_distance).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+
+    if args.motion_blur {
+        camera.insert((
+            MotionBlur {
+                // Use an unrealistically large shutter angle so that motion blur is clearly visible.
+                shutter_angle: 3.0,
+                ..Default::default()
+            },
+            // MSAA and MotionBlur are not compatible on WebGL.
+            #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+            Msaa::Off,
+        ));
+    }
 
     const ASSET_PATH: &str = "models/animated/MorphStressTest.gltf";
 
