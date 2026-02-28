@@ -10,6 +10,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use bevy_ecs_macros::Event;
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
@@ -351,7 +352,6 @@ pub struct Schedule {
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
-    warnings: Vec<ScheduleBuildWarning>,
 }
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
@@ -376,7 +376,6 @@ impl Schedule {
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
-            warnings: Vec::new(),
         };
         // Call `set_build_settings` to add any default build passes
         this.set_build_settings(Default::default());
@@ -565,22 +564,35 @@ impl Schedule {
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
     /// and re-initializes the executor.
     ///
-    /// Moves all systems and run conditions out of the [`ScheduleGraph`].
-    pub fn initialize(&mut self, world: &mut World) -> Result<(), ScheduleBuildError> {
+    /// Moves all systems and run conditions out of the [`ScheduleGraph`]. If the schedule is built
+    /// successfully, returns [`Some`] with the metadata. If the schedule has previously been built
+    /// successfully, returns [`None`].
+    pub fn initialize(
+        &mut self,
+        world: &mut World,
+    ) -> Result<Option<ScheduleBuildMetadata>, ScheduleBuildError> {
+        let mut build_metadata = None;
         if self.graph.changed {
             self.graph.initialize(world);
             let ignored_ambiguities = world
                 .get_resource_or_init::<Schedules>()
                 .ignored_scheduling_ambiguities
                 .clone();
-            self.warnings = self.graph.update_schedule(
-                world,
-                &mut self.executable,
-                &ignored_ambiguities,
-                self.label,
-            )?;
+
+            let mut event = ScheduleBuilt {
+                label: self.label,
+                build_metadata: self.graph.update_schedule(
+                    world,
+                    &mut self.executable,
+                    &ignored_ambiguities,
+                    self.label,
+                )?,
+            };
             self.graph.changed = false;
             self.executor_initialized = false;
+
+            world.trigger_ref(&mut event);
+            build_metadata = Some(event.build_metadata);
         }
 
         if !self.executor_initialized {
@@ -588,7 +600,7 @@ impl Schedule {
             self.executor_initialized = true;
         }
 
-        Ok(())
+        Ok(build_metadata)
     }
 
     /// Returns the [`ScheduleGraph`].
@@ -672,12 +684,6 @@ impl Schedule {
         } else {
             self.executable.systems.len()
         }
-    }
-
-    /// Returns warnings that were generated during the last call to
-    /// [`Schedule::initialize`].
-    pub fn warnings(&self) -> &[ScheduleBuildWarning] {
-        &self.warnings
     }
 }
 
@@ -1119,7 +1125,7 @@ impl ScheduleGraph {
         &mut self,
         world: &mut World,
         ignored_ambiguities: &BTreeSet<ComponentId>,
-    ) -> Result<(SystemSchedule, Vec<ScheduleBuildWarning>), ScheduleBuildError> {
+    ) -> Result<(SystemSchedule, ScheduleBuildMetadata), ScheduleBuildError> {
         let mut warnings = Vec::new();
 
         // Check system set memberships for cycles.
@@ -1179,8 +1185,16 @@ impl ScheduleGraph {
 
         // Allow modification of the schedule graph by build passes.
         let mut passes = core::mem::take(&mut self.passes);
+        let mut added_edges = Default::default();
         for pass in passes.values_mut() {
-            pass.build(world, self, &mut flat_dependency)?;
+            pass.build(
+                world,
+                self,
+                FlattenedDependencies {
+                    dag: &mut flat_dependency,
+                    added_edges: &mut added_edges,
+                },
+            )?;
         }
         self.passes = passes;
 
@@ -1218,7 +1232,10 @@ impl ScheduleGraph {
         // build the schedule
         Ok((
             self.build_schedule_inner(flat_dependency, hierarchy_analysis),
-            warnings,
+            ScheduleBuildMetadata {
+                warnings,
+                edges_added_by_build_passes: added_edges,
+            },
         ))
     }
 
@@ -1324,7 +1341,7 @@ impl ScheduleGraph {
         schedule: &mut SystemSchedule,
         ignored_ambiguities: &BTreeSet<ComponentId>,
         schedule_label: InternedScheduleLabel,
-    ) -> Result<Vec<ScheduleBuildWarning>, ScheduleBuildError> {
+    ) -> Result<ScheduleBuildMetadata, ScheduleBuildError> {
         if !self.systems.is_initialized() || !self.system_sets.is_initialized() {
             return Err(ScheduleBuildError::Uninitialized);
         }
@@ -1355,10 +1372,10 @@ impl ScheduleGraph {
             }
         }
 
-        let (new_schedule, warnings) = self.build_schedule(world, ignored_ambiguities)?;
+        let (new_schedule, build_metadata) = self.build_schedule(world, ignored_ambiguities)?;
         *schedule = new_schedule;
 
-        for warning in &warnings {
+        for warning in &build_metadata.warnings {
             warn!(
                 "{:?} schedule built successfully, however: {}",
                 schedule_label,
@@ -1379,7 +1396,7 @@ impl ScheduleGraph {
             schedule.set_conditions.push(conditions);
         }
 
-        Ok(warnings)
+        Ok(build_metadata)
     }
 }
 
@@ -1585,6 +1602,28 @@ impl ScheduleBuildSettings {
     }
 }
 
+/// Metadata about the schedule build process.
+pub struct ScheduleBuildMetadata {
+    /// Warnings about the schedule graph detected by the build process.
+    pub warnings: Vec<ScheduleBuildWarning>,
+    /// Edges added by [`ScheduleBuildPass`]es.
+    ///
+    /// These edges are not stored in the [`ScheduleGraph`], and so are only available during the
+    /// build process.
+    pub edges_added_by_build_passes: HashSet<(SystemKey, SystemKey)>,
+}
+
+/// An event triggered when a schedule is successfully built.
+///
+/// Note: When this event is triggered, the corresponding [`Schedule`] is not present in the world.
+#[derive(Event)]
+pub struct ScheduleBuilt {
+    /// The schedule that was built.
+    pub label: InternedScheduleLabel,
+    /// The metadata for the build process of this schedule.
+    pub build_metadata: ScheduleBuildMetadata,
+}
+
 /// Error to denote that [`Schedule::initialize`] or [`Schedule::run`] has not yet been called for
 /// this schedule.
 #[derive(Error, Debug)]
@@ -1602,8 +1641,9 @@ mod tests {
         error::{ignore, panic, DefaultErrorHandler, Result},
         prelude::{ApplyDeferred, IntoSystemSet, Res, Resource},
         schedule::{
-            passes::AutoInsertApplyDeferredPass, tests::ResMut, IntoScheduleConfigs, Schedule,
-            ScheduleBuildPass, ScheduleBuildSettings, ScheduleCleanupPolicy, SystemSet,
+            passes::AutoInsertApplyDeferredPass, tests::ResMut, FlattenedDependencies,
+            IntoScheduleConfigs, Schedule, ScheduleBuildPass, ScheduleBuildSettings,
+            ScheduleCleanupPolicy, SystemSet,
         },
         system::Commands,
         world::World,
@@ -2600,7 +2640,7 @@ mod tests {
                 &mut self,
                 _world: &mut World,
                 _graph: &mut super::ScheduleGraph,
-                _dependency_flattened: &mut crate::schedule::graph::Dag<crate::schedule::SystemKey>,
+                _dependency_flattened: FlattenedDependencies<'_>,
             ) -> core::result::Result<(), crate::schedule::ScheduleBuildError> {
                 Ok(())
             }

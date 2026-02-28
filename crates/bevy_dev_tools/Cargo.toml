@@ -9,10 +9,18 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-bevy_ci_testing = ["serde", "ron"]
+default = ["schedule_data"]
+bevy_ci_testing = ["dep:serde", "dep:ron"]
 screenrecording = ["dep:x264"]
 webgl = ["bevy_render/webgl"]
 webgpu = ["bevy_render/webgpu"]
+schedule_data = [
+  "dep:serde",
+  "dep:ron",
+  "dep:bevy_platform",
+  "dep:bevy_utils",
+  "dep:thiserror",
+]
 
 [dependencies]
 # bevy
@@ -37,13 +45,22 @@ bevy_transform = { path = "../bevy_transform", version = "0.19.0-dev" }
 bevy_shader = { path = "../bevy_shader", version = "0.19.0-dev" }
 bevy_ui = { path = "../bevy_ui", version = "0.19.0-dev" }
 bevy_ui_render = { path = "../bevy_ui_render", version = "0.19.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.19.0-dev", optional = true }
 bevy_window = { path = "../bevy_window", version = "0.19.0-dev" }
 bevy_state = { path = "../bevy_state", version = "0.19.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.19.0-dev", optional = true }
 
 # other
+thiserror = { version = "2.0", default-features = false, optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 ron = { version = "0.12", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+# Allow tests to depend on the names of systems.
+bevy_ecs = { path = "../bevy_ecs", version = "0.19.0-dev", features = [
+  "debug",
+] }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 x264 = { version = "0.5.0", optional = true }
