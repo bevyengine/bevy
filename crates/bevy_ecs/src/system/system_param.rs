@@ -9,12 +9,12 @@ use crate::{
     bundle::Bundles,
     change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
     component::{ComponentId, Components},
-    entity::{Entities, EntityAllocator},
+    entity::{Entities, Entity, EntityAllocator},
     query::{
         Access, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData, QueryFilter,
         QuerySingleError, QueryState, ReadOnlyQueryData,
     },
-    resource::{Resource, IS_RESOURCE},
+    resource::{IsResource, Resource, IS_RESOURCE},
     storage::NonSendData,
     system::{Query, Single, SystemMeta},
     world::{
@@ -738,15 +738,21 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 // SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
-    type State = ComponentId;
+    type State = (ComponentId, Entity);
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        world.components_registrator().register_component::<T>()
+        let component_id = world.components_registrator().register_component::<T>();
+        if let Some(entity) = world.resource_entities().get(component_id) {
+            return (component_id, *entity);
+        } else {
+            let entity = world.spawn(IsResource(component_id)).id();
+            return (component_id, entity);
+        }
     }
 
     fn init_access(
-        &component_id: &Self::State,
+        &(component_id, _): &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
@@ -777,13 +783,12 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
     #[inline]
     unsafe fn validate_param(
-        &mut component_id: &mut Self::State,
+        &mut (component_id, entity): &mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to the resource
-        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
-            && let Ok(entity_ref) = world.get_entity(*entity)
+        if let Ok(entity_ref) = world.get_entity(entity)
             && entity_ref.contains_id(component_id)
         {
             Ok(())
@@ -796,13 +801,15 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        &mut component_id: &'s mut Self::State,
+        &mut (component_id, entity): &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
-            .get_resource_with_ticks(component_id)
+            .get_entity(entity)
+            .ok()
+            .and_then(|entity| entity.get_with_ticks(component_id))
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
@@ -826,15 +833,21 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 // SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
-    type State = ComponentId;
+    type State = (ComponentId, Entity);
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        world.components_registrator().register_component::<T>()
+        let component_id = world.components_registrator().register_component::<T>();
+        if let Some(entity) = world.resource_entities().get(component_id) {
+            return (component_id, *entity);
+        } else {
+            let entity = world.spawn(IsResource(component_id)).id();
+            return (component_id, entity);
+        }
     }
 
     fn init_access(
-        &component_id: &Self::State,
+        &(component_id, _): &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
@@ -868,13 +881,12 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
     #[inline]
     unsafe fn validate_param(
-        &mut component_id: &mut Self::State,
+        &mut (component_id, entity): &mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to the resource.
-        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
-            && let Ok(entity_ref) = world.get_entity(*entity)
+        if let Ok(entity_ref) = world.get_entity(entity)
             && entity_ref.contains_id(component_id)
         {
             Ok(())
@@ -887,13 +899,15 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        &mut component_id: &'s mut Self::State,
+        &mut (component_id, entity): &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         let value = world
-            .get_resource_mut_by_id(component_id)
+            .get_entity(entity)
+            .ok()
+            .and_then(|entity| entity.get_mut_by_id(component_id).ok())
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",

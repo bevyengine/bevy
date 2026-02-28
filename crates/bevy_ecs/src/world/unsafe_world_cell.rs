@@ -1121,6 +1121,39 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
+    /// Gets the component of the given [`ComponentId`] from the entity with the tick information.
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`UnsafeEntityCell::get`], this returns a raw pointer to the component,
+    /// which is only valid while the `'w` borrow of the lifetime is active.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component
+    /// - no other mutable references to the component exist at the same time
+    #[inline]
+    pub unsafe fn get_with_ticks(
+        self,
+        component_id: ComponentId,
+    ) -> Option<(Ptr<'w>, ComponentTickCells<'w>)> {
+        let info = self.world.components().get_info(component_id)?;
+        // SAFETY:
+        // - caller ensures there is no `&mut World`
+        // - caller ensures there are no mutable borrows of this resource
+        // - caller ensures that we have permission to access this resource
+        // - storage_type and location are valid
+        get_component_and_ticks(
+            self.world,
+            component_id,
+            info.storage_type(),
+            self.entity,
+            self.location,
+        )
+    }
+
     /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
     /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
     ///
