@@ -745,10 +745,9 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         let component_id = world.components_registrator().register_component::<T>();
         if let Some(entity) = world.resource_entities().get(component_id) {
             return (component_id, *entity);
-        } else {
-            let entity = world.spawn(IsResource(component_id)).id();
-            return (component_id, entity);
         }
+        let entity = world.spawn(IsResource(component_id)).id();
+        (component_id, entity)
     }
 
     fn init_access(
@@ -840,10 +839,9 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         let component_id = world.components_registrator().register_component::<T>();
         if let Some(entity) = world.resource_entities().get(component_id) {
             return (component_id, *entity);
-        } else {
-            let entity = world.spawn(IsResource(component_id)).id();
-            return (component_id, entity);
         }
+        let entity = world.spawn(IsResource(component_id)).id();
+        (component_id, entity)
     }
 
     fn init_access(
