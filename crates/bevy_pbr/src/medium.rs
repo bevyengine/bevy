@@ -1,3 +1,4 @@
+use bevy_color::ColorToComponents;
 use bevy_light::atmosphere::{ScatteringMedium, ScatteringTerm};
 
 use bevy_app::{App, Plugin};
@@ -6,7 +7,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Res, SystemParamItem},
 };
-use bevy_math::Vec4;
+use bevy_math::{ops, Vec4};
 use bevy_render::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
     render_resource::{
@@ -53,8 +54,8 @@ pub struct GpuScatteringMedium {
     /// The `scattering_lut`, a 2D `falloff_resolution x phase_resolution` LUT which
     /// contains the medium's scattering density multiplied by the phase function, with
     /// the U axis corresponding to the falloff parameter and the V axis corresponding
-    /// to `neg_LdotV * 0.5 + 0.5`, where `neg_LdotV` is the dot product of the light
-    /// direction and the incoming view vector.
+    /// to a nonlinear mapping of `neg_LdotV`, where `neg_LdotV` is the dot product of
+    /// the light direction and the incoming view vector.
     pub scattering_lut: Texture,
     /// The default [`TextureView`] of the `scattering_lut`
     pub scattering_lut_view: TextureView,
@@ -98,21 +99,32 @@ impl RenderAsset for GpuScatteringMedium {
             source_asset.falloff_resolution as usize * source_asset.phase_resolution as usize,
         );
 
+        // Define the power curve parameter for the nonlinear phase mapping
+        const PHASE_MAPPING_N: f32 = 0.5;
+        let inv_n = 1.0 / PHASE_MAPPING_N;
+
         scattering.extend(
             (0..source_asset.falloff_resolution * source_asset.phase_resolution).map(|raw_i| {
                 let i = raw_i % source_asset.phase_resolution;
                 let j = raw_i / source_asset.phase_resolution;
                 let falloff = (i as f32 + 0.5) / source_asset.falloff_resolution as f32;
                 let phase = (j as f32 + 0.5) / source_asset.phase_resolution as f32;
-                let neg_l_dot_v = phase * 2.0 - 1.0;
+
+                // Nonlinear phase mapping to mitigate banding in low-resolution LUTs.
+                // Phase functions peak at forward/backward scattering. Linearly
+                // sampling these regions causes banding. The power curve (n < 1)
+                // allocates more texels near the peaks.
+                let s = 2.0 * phase - 1.0;
+                let neg_l_dot_v = s.signum() * (1.0 - ops::powf(1.0 - s.abs(), inv_n));
 
                 source_asset
                     .terms
                     .iter()
-                    .map(|term| {
-                        term.scattering.extend(0.0)
-                            * term.falloff.sample(falloff)
-                            * term.phase.sample(neg_l_dot_v)
+                    .filter_map(|term| {
+                        let f = term.falloff.sample(falloff);
+                        term.phase
+                            .sample(neg_l_dot_v)
+                            .map(|phase| (term.scattering * phase.to_vec3() * f).extend(0.0))
                     })
                     .sum::<Vec4>()
             }),
