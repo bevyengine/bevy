@@ -58,10 +58,10 @@ use tracing::{error, info_span, warn};
 use wgpu_types::Face;
 
 use crate::{
-    convert_coordinates::Conversion, loader::gltf_ext::scene::node_transforms_and_conversions,
-    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterial,
-    GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras,
-    GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
+    loader::gltf_ext::scene::node_transforms_and_conversions, vertex_attributes::convert_attribute,
+    Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
+    GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin,
+    GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -948,10 +948,11 @@ impl GltfLoader {
                 let local_to_bone_bind_matrices: Vec<Mat4> = reader
                     .read_inverse_bind_matrices()
                     .map(|mats| {
-                        // XXX TODO: Review
                         mats.zip(gltf_skin.joints())
                             .map(|(mat, node)| {
-                                // XXX TODO: Move to utilities?
+                                // The inverse bindpose is a mapping from mesh-space
+                                // to joint-space, so it's affected by the conversion
+                                // of both meshes and joint nodes.
                                 Mat4::from_quat(node_conversions[node.index()].local().inverse())
                                     * Mat4::from_cols_array_2d(&mat)
                                     * Mat4::from_quat(convert_coordinates.mesh_rotation())
@@ -1096,7 +1097,6 @@ impl GltfLoader {
                             &mut active_camera_found,
                             &node_transforms,
                             &Transform::default(),
-                            &node_conversions,
                             #[cfg(feature = "bevy_animation")]
                             &animation_roots,
                             #[cfg(feature = "bevy_animation")]
@@ -1568,7 +1568,6 @@ fn load_node(
     active_camera_found: &mut bool,
     node_transforms: &[Transform],
     parent_transform: &Transform,
-    node_conversions: &[Conversion],
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     textures: &[Handle<Image>],
@@ -1714,15 +1713,11 @@ fn load_node(
                 // Apply the inverse of the conversion transform that's been
                 // applied to the mesh asset. This preserves the mesh's relation
                 // to the node transform.
-                //
-                // XXX TODO: Duplicated elsewhere?
-                let convert_mesh_coordinates = Conversion::from_local_and_parent(
-                    convert_coordinates.mesh_rotation(),
-                    node_conversions[gltf_node.index()].local(),
-                );
+                let convert_mesh_coordinates =
+                    convert_coordinates.mesh_hierarchy_conversion(gltf_node);
 
                 // XXX TODO: Explain.
-                let convert_mesh_vertex_coordinates = convert_mesh_coordinates.local().inverse();
+                let convert_mesh_vertex_coordinates = convert_coordinates.mesh_vertex_rotation();
 
                 let mesh_entity_transform =
                     Transform::from_rotation(convert_mesh_coordinates.rotation(Quat::IDENTITY));
@@ -1902,7 +1897,6 @@ fn load_node(
                 active_camera_found,
                 node_transforms,
                 &world_transform,
-                node_conversions,
                 #[cfg(feature = "bevy_animation")]
                 animation_roots,
                 #[cfg(feature = "bevy_animation")]

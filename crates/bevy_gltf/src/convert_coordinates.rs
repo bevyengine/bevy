@@ -91,6 +91,30 @@ impl GltfConvertCoordinates {
     pub(crate) fn mesh_rotation(&self) -> Quat {
         Self::conversion_rotation(self.rotate_meshes)
     }
+
+    pub(crate) fn node_hierarchy_conversion(
+        &self,
+        node: &Node,
+        parent_node: Option<&Node>,
+    ) -> HierarchyConversion {
+        let parent_conversion = if let Some(parent_node) = parent_node {
+            self.node_rotation(parent_node)
+        } else {
+            self.scene_rotation()
+        };
+
+        let local_conversion = self.node_rotation(node);
+
+        HierarchyConversion::from_local_and_parent(local_conversion, parent_conversion)
+    }
+
+    pub(crate) fn mesh_hierarchy_conversion(&self, node: &Node) -> HierarchyConversion {
+        HierarchyConversion::from_local_and_parent(self.mesh_rotation(), self.node_rotation(node))
+    }
+
+    pub(crate) fn mesh_vertex_rotation(&self) -> Quat {
+        self.mesh_rotation().inverse()
+    }
 }
 
 #[derive(Error, Debug)]
@@ -132,13 +156,15 @@ pub(crate) fn attribute_coordinate_conversion(
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub(crate) struct Conversion {
+// Helper for apply a local rotation conversions to nodes in a hierarchy without
+// causing children to inherit their parent's conversion.
+#[derive(Copy, Clone, Default, Debug)]
+pub(crate) struct HierarchyConversion {
     local: Quat,
     parent: Quat,
 }
 
-impl Conversion {
+impl HierarchyConversion {
     pub(crate) fn from_local_and_parent(local: Quat, parent: Quat) -> Self {
         Self { local, parent }
     }
