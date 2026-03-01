@@ -146,6 +146,9 @@ fn main() {
 
     if args.rotate_cubes {
         app.add_systems(Update, rotate_cubes);
+        app.insert_resource(StaticTransformOptimizations::disabled());
+    } else {
+        app.insert_resource(StaticTransformOptimizations::enabled());
     }
 
     if args.animate_materials {

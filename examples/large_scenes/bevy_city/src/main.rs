@@ -66,6 +66,7 @@ fn main() {
             default_color: WHITE.into(),
             ..default()
         })
+        .insert_resource(StaticTransformOptimizations::enabled())
         .add_systems(
             Startup,
             (
