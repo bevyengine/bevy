@@ -12,7 +12,7 @@ use bevy_ecs::{
     intern::Interned,
     lifecycle::{Insert, Remove, RemovedComponents},
     observer::On,
-    query::{Changed, Or, QueryFilter, With, Without},
+    query::{Changed, Has, Or, QueryFilter, With, Without},
     relationship::{Relationship, RelationshipTarget},
     schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, Local, Query},
