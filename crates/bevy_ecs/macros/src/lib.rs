@@ -157,7 +157,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[inline]
             unsafe fn get_components(
                 ptr: #ecs_path::ptr::MovingPtr<'_, Self>,
-                func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
+                func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::component::ChangeMode, #ecs_path::ptr::OwningPtr<'_>)
             ) {
                 use #ecs_path::__macro_exports::DebugCheckedUnwrap;
 

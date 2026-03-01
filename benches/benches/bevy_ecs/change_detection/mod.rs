@@ -11,6 +11,8 @@ use chacha20::ChaCha8Rng;
 use criterion::{criterion_group, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};
 
+pub mod distributions;
+
 criterion_group!(
     benches,
     all_added_detection,
@@ -38,6 +40,9 @@ struct Sparse(f32);
 #[derive(Component, Default)]
 #[component(storage = "Table")]
 struct Data<const X: u16>(f32);
+#[derive(Component, Default)]
+#[component(storage = "Table", change = "indexed")]
+struct TableIndexed(f32);
 
 trait BenchModify {
     fn bench_modify(&mut self) -> f32;
@@ -51,6 +56,13 @@ impl BenchModify for Table {
 }
 
 impl BenchModify for Sparse {
+    fn bench_modify(&mut self) -> f32 {
+        self.0 += 1f32;
+        black_box(self.0)
+    }
+}
+
+impl BenchModify for TableIndexed {
     fn bench_modify(&mut self) -> f32 {
         self.0 += 1f32;
         black_box(self.0)
@@ -120,6 +132,7 @@ fn all_added_detection(criterion: &mut Criterion) {
             vec![
                 Box::new(all_added_detection_generic::<Table>),
                 Box::new(all_added_detection_generic::<Sparse>),
+                Box::new(all_added_detection_generic::<TableIndexed>),
             ],
             entity_count,
         );
@@ -168,6 +181,7 @@ fn all_changed_detection(criterion: &mut Criterion) {
             vec![
                 Box::new(all_changed_detection_generic::<Table>),
                 Box::new(all_changed_detection_generic::<Sparse>),
+                Box::new(all_changed_detection_generic::<TableIndexed>),
             ],
             entity_count,
         );
@@ -218,6 +232,7 @@ fn few_changed_detection(criterion: &mut Criterion) {
             vec![
                 Box::new(few_changed_detection_generic::<Table>),
                 Box::new(few_changed_detection_generic::<Sparse>),
+                Box::new(few_changed_detection_generic::<TableIndexed>),
             ],
             entity_count,
         );
@@ -262,6 +277,7 @@ fn none_changed_detection(criterion: &mut Criterion) {
             vec![
                 Box::new(none_changed_detection_generic::<Table>),
                 Box::new(none_changed_detection_generic::<Sparse>),
+                Box::new(none_changed_detection_generic::<TableIndexed>),
             ],
             entity_count,
         );
@@ -370,6 +386,11 @@ fn multiple_archetype_none_changed_detection(criterion: &mut Criterion) {
                 entity_count,
             );
             multiple_archetype_none_changed_detection_generic::<Sparse>(
+                &mut group,
+                archetype_count,
+                entity_count,
+            );
+            multiple_archetype_none_changed_detection_generic::<TableIndexed>(
                 &mut group,
                 archetype_count,
                 entity_count,

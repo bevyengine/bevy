@@ -1,7 +1,7 @@
 use crate::{
     archetype::Archetype,
     change_detection::Tick,
-    component::{Component, ComponentId, Components, StorageType},
+    component::{ChangeMode, Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity},
     query::{DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -90,6 +90,8 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
     const IS_ARCHETYPAL: bool;
+
+    const USES_INDEX: bool;
 
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
     /// If false, the entity will be skipped.
@@ -204,6 +206,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for With<T> {
     const IS_ARCHETYPAL: bool = true;
+    const USES_INDEX: bool = false;
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -305,6 +308,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for Without<T> {
     const IS_ARCHETYPAL: bool = true;
+    const USES_INDEX: bool = false;
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -416,11 +420,6 @@ macro_rules! impl_or_query_filter {
 
             #[inline]
             unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
-                // If this is an archetypal query, then it is guaranteed to match all entities,
-                // so `filter_fetch` will ignore `$filter.matches` and we don't need to initialize it.
-                if Self::IS_ARCHETYPAL {
-                    return;
-                }
                 let ($($filter,)*) = fetch;
                 let ($($state,)*) = state;
                 $(
@@ -439,11 +438,6 @@ macro_rules! impl_or_query_filter {
                 archetype: &'w Archetype,
                 table: &'w Table
             ) {
-                // If this is an archetypal query, then it is guaranteed to match all entities,
-                // so `filter_fetch` will ignore `$filter.matches` and we don't need to initialize it.
-                if Self::IS_ARCHETYPAL {
-                    return;
-                }
                 let ($($filter,)*) = fetch;
                 let ($($state,)*) = &state;
                 $(
@@ -453,6 +447,7 @@ macro_rules! impl_or_query_filter {
                        unsafe { $filter::set_archetype(&mut $filter.fetch, $state, archetype, table); }
                     }
                 )*
+
             }
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
@@ -522,6 +517,11 @@ macro_rules! impl_or_query_filter {
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
+            const USES_INDEX: bool = true
+                // Every filter must either have an index or be archetypal...
+                $(&& ($filter::IS_ARCHETYPAL || $filter::USES_INDEX))*
+                // ...and there must be at least one index.
+                && (false $(|| $filter::USES_INDEX)*);
 
             #[inline(always)]
             unsafe fn filter_fetch(
@@ -564,6 +564,7 @@ macro_rules! impl_tuple_query_filter {
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
+            const USES_INDEX: bool = false $(|| $name::USES_INDEX)*;
 
             #[inline(always)]
             unsafe fn filter_fetch(
@@ -648,6 +649,7 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for Allow<T> {
     const IS_ARCHETYPAL: bool = true;
+    const USES_INDEX: bool = false;
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -851,6 +853,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
+    const USES_INDEX: bool = matches!(T::CHANGE_MODE, ChangeMode::Indexed);
+
     #[inline(always)]
     unsafe fn filter_fetch(
         _state: &Self::State,
@@ -1078,6 +1082,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Changed<T> {
     const IS_ARCHETYPAL: bool = false;
+    const USES_INDEX: bool = matches!(T::CHANGE_MODE, ChangeMode::Indexed);
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -1233,6 +1238,7 @@ unsafe impl WorldQuery for Spawned {
 // SAFETY: WorldQuery impl accesses no components or component ticks
 unsafe impl QueryFilter for Spawned {
     const IS_ARCHETYPAL: bool = false;
+    const USES_INDEX: bool = false;
 
     #[inline(always)]
     unsafe fn filter_fetch(

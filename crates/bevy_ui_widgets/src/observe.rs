@@ -49,7 +49,11 @@ impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
     #[inline]
     unsafe fn get_components(
         ptr: bevy_ecs::ptr::MovingPtr<'_, Self>,
-        _func: &mut impl FnMut(bevy_ecs::component::StorageType, bevy_ecs::ptr::OwningPtr<'_>),
+        _func: &mut impl FnMut(
+            bevy_ecs::component::StorageType,
+            bevy_ecs::component::ChangeMode,
+            bevy_ecs::ptr::OwningPtr<'_>,
+        ),
     ) {
         // SAFETY: We must not drop the pointer here, or it will be uninitialized in `apply_effect`
         // below.

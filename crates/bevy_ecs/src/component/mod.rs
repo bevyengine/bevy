@@ -1,11 +1,13 @@
 //! Types for declaring and storing [`Component`]s.
 
+mod change_index;
 mod clone;
 mod constants;
 mod info;
 mod register;
 mod required;
 
+pub use change_index::*;
 pub use clone::*;
 pub use constants::*;
 pub use info::*;
@@ -512,6 +514,8 @@ pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
 
+    const CHANGE_MODE: ChangeMode;
+
     /// A marker type to assist Bevy with determining if this component is
     /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
     /// while immutable components will instead have [`Component<Mutability = Immutable>`].
@@ -734,6 +738,13 @@ pub enum StorageType {
     Table,
     /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
+}
+
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
+pub enum ChangeMode {
+    #[default]
+    Default,
+    Indexed,
 }
 
 /// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific component type.

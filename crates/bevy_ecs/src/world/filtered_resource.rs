@@ -164,7 +164,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
         }
 
         // SAFETY: We have read access to this resource
-        let (value, ticks) = unsafe { self.world.get_resource_with_ticks(component_id) }
+        let (value, ticks, _) = unsafe { self.world.get_resource_with_ticks(component_id) }
             .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
 
         Ok(Ref {
@@ -487,7 +487,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         }
 
         // SAFETY: We have read access to this resource
-        let (value, ticks) = unsafe { self.world.get_resource_with_ticks(component_id) }
+        let (value, ticks, _) = unsafe { self.world.get_resource_with_ticks(component_id) }
             .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
 
         Ok(MutUntyped {
@@ -495,7 +495,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
             value: unsafe { value.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
             ticks: unsafe {
-                ComponentTicksMut::from_tick_cells(ticks, self.last_run, self.this_run)
+                ComponentTicksMut::from_tick_cells(ticks, None, self.last_run, self.this_run)
             },
         })
     }

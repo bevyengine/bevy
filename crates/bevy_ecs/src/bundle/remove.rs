@@ -202,7 +202,7 @@ impl<'w> BundleRemover<'w> {
             self.bundle_info.as_ref().explicit_components(),
         );
 
-        // Handle sparse set removes
+        // Handle sparse set removes and change indexes
         for component_id in self.bundle_info.as_ref().iter_explicit_components() {
             if self.old_archetype.as_ref().contains(component_id) {
                 world.removed_components.write(component_id, entity);
@@ -259,6 +259,7 @@ impl<'w> BundleRemover<'w> {
                         old_table_id,
                         new_table_id,
                         location.table_row,
+                        self.world.change_tick(),
                     )
                 }
             } else {
@@ -274,6 +275,7 @@ impl<'w> BundleRemover<'w> {
                         old_table_id,
                         new_table_id,
                         location.table_row,
+                        self.world.change_tick(),
                     )
                 }
             };

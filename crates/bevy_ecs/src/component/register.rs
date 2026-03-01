@@ -4,7 +4,9 @@ use bevy_utils::TypeIdMap;
 use core::any::Any;
 use core::{any::TypeId, fmt::Debug, ops::Deref};
 
-use crate::component::{enforce_no_required_components_recursion, RequiredComponentsRegistrator};
+use crate::component::{
+    enforce_no_required_components_recursion, RequiredComponentsRegistrator,
+};
 use crate::lifecycle::ComponentHooks;
 use crate::{
     component::{
