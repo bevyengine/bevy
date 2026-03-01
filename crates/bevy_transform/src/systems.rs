@@ -1,11 +1,14 @@
 use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
 use alloc::vec::Vec;
-use bevy_ecs::{entity::Entities, prelude::*};
+#[cfg(not(feature = "std"))]
+use bevy_ecs::entity::Entities;
+use bevy_ecs::prelude::*;
 use bevy_log::info_span;
+use bevy_log::tracing::Instrument;
+use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "std")]
-use bevy_utils::Parallel;
+use bevy_utils::{BufferedChannel, Parallel};
 use core::sync::atomic::{AtomicU64, Ordering};
-
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
 #[cfg(not(feature = "std"))]
@@ -112,21 +115,23 @@ impl Default for StaticTransformOptimizations {
 ///
 /// Configure behavior with [`StaticTransformOptimizations`].
 pub fn mark_dirty_trees(
-    changed: Query<
-        (Entity, Option<&ChildOf>),
-        Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>,
-    >,
+    changed: Query<Entity, Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>>,
     mut orphaned: RemovedComponents<ChildOf>,
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
     mut static_optimizations: ResMut<StaticTransformOptimizations>,
-    entities: &Entities,
+    // Used only in the no_std path to resolve entity indices back to live entities.
+    #[cfg(not(feature = "std"))] entities: &Entities,
     #[cfg(not(feature = "std"))] mut changed_bitset: Local<Vec<u64>>,
     #[cfg(feature = "std")] mut changed_bitset: Local<Vec<AtomicU64>>,
     // Per-thread overflow bitset: used only when an entity index exceeds the current capacity of
     // the shared bitset.  At steady-state this stays empty.  After the parallel phase the overflow
     // bitsets are merged into the primary bitset, growing it to accommodate the new indices.
     #[cfg(feature = "std")] mut overflow_bitset: Local<Parallel<Vec<u64>>>,
+    // Reusable channel for streaming newly-marked entities from parallel producers to the serial
+    // consumer that calls set_changed().  Allocations are pooled and reused each frame.
+    #[cfg(feature = "std")] output_channel: Local<BufferedChannel<Entity>>,
+    #[cfg(feature = "std")] mut input_channel: Local<BufferedChannel<Entity>>,
 ) {
     let threshold = static_optimizations.threshold.clamp(0.0, 1.0);
     match threshold {
@@ -147,201 +152,178 @@ pub fn mark_dirty_trees(
         return;
     }
 
-    // In parallel, record each changed entity and its entire ancestor chain in the shared bitset.
+    // Each worker walks its changed entity up to the root, recording each newly marked entity in
+    // the shared atomic bitset. The bitset provides cross-thread early exit: if an entity has
+    // already been visited, the worker can stop traversing the hierarchy. Entities are sent through
+    // the channel the first time they are visited, to call set_changed() concurrently.
     #[cfg(feature = "std")]
     {
-        let shared: &[AtomicU64] = &*changed_bitset;
-        let overflow_ref = &*overflow_bitset;
-        let parents_ref = &parents;
-        changed.par_iter().for_each_init(
-            || overflow_ref.borrow_local_mut(),
-            |overflow, (entity, child_of)| {
-                // Record the entity's own index with early exit: if the bit is already set
-                // (e.g. a changed descendant already walked up through this ancestor), its
-                // ancestor chain was already walked — skip entirely.
-                let leaf_idx = entity.index().index() as usize;
-                let leaf_word = leaf_idx / 64;
-                let leaf_bit = 1u64 << (leaf_idx % 64);
-                if leaf_word < shared.len() {
-                    if shared[leaf_word].fetch_or(leaf_bit, Ordering::Relaxed) & leaf_bit != 0 {
-                        return;
+        input_channel.chunk_size = 256;
+        ComputeTaskPool::get().scope(|scope| {
+            let (input_rx, mut input_tx) = input_channel.unbounded();
+            let (output_rx, output_tx) = output_channel.unbounded();
+            let shared: &[AtomicU64] = &*changed_bitset;
+            let overflow_ref = &*overflow_bitset;
+            let parents_ref = &parents;
+
+            // Consumer: drain the channel and call set_changed() for every newly-marked entity.
+            scope.spawn(
+                async move {
+                    while let Ok(mut chunk) = output_rx.recv().await {
+                        for entity in chunk.drain() {
+                            if let Ok(mut tree) = transforms.get_mut(entity) {
+                                tree.set_changed();
+                            }
+                        }
                     }
-                } else {
-                    if leaf_word < overflow.len() && overflow[leaf_word] & leaf_bit != 0 {
-                        return;
-                    }
-                    if leaf_word >= overflow.len() {
-                        overflow.resize(leaf_word + 1, 0u64);
-                    }
-                    overflow[leaf_word] |= leaf_bit;
                 }
-                // Walk ancestors with early exit.
-                let mut current = child_of.map(ChildOf::parent);
-                while let Some(e) = current {
-                    let idx = e.index().index() as usize;
-                    let word = idx / 64;
-                    let bit = 1u64 << (idx % 64);
-                    if word < shared.len() {
-                        // Common case: in-range, atomic OR.  Stop if the bit was already set.
-                        if shared[word].fetch_or(bit, Ordering::Relaxed) & bit != 0 {
-                            break;
+                .instrument(info_span!("mark_dirty_apply")),
+            );
+
+            // Producer: in parallel, read changed entities, traverse the hierarchy and send out
+            // entities that should be marked dirty for the consumer.
+            for _ in 0..ComputeTaskPool::get().thread_num() - 1 {
+                let input_rx = input_rx.clone();
+                let mut output_tx = output_tx.clone();
+                scope.spawn(
+                    async move {
+                        for mut entity in input_rx.recv().await.iter().flatten().copied() {
+                            // Walk ancestors with early exit.
+                            'traversal: loop {
+                                let idx = entity.index().index() as usize;
+                                let word = idx / 64;
+                                let bit = 1u64 << (idx % 64);
+                                if word < shared.len()
+                                    && shared[word].fetch_or(bit, Ordering::Relaxed) & bit != 0
+                                {
+                                    break; // The entity has already been visited by some thread.
+                                } else {
+                                    // We have encountered an entity with an ID larger than our shared
+                                    // bitset, so we need to use a thread-local overflow bitset.
+                                    let mut overflow = overflow_ref.borrow_local_mut();
+                                    if word < overflow.len() && overflow[word] & bit != 0 {
+                                        break; // The entity has already been visited by this thread.
+                                    }
+                                    if word >= overflow.len() {
+                                        overflow.resize(word + 1, 0u64);
+                                    }
+                                    overflow[word] |= bit;
+                                }
+                                // First to mark this ancestor — send it to the consumer.
+                                let _ = output_tx.send(entity).await;
+
+                                match parents_ref.get(entity).ok().map(ChildOf::parent) {
+                                    Some(parent) => entity = parent,
+                                    None => break 'traversal,
+                                }
+                            }
                         }
-                    } else {
-                        // Overflow: entity index exceeds shared bitset capacity.
-                        if word < overflow.len() && overflow[word] & bit != 0 {
-                            break; // intra-thread early exit
-                        }
-                        if word >= overflow.len() {
-                            overflow.resize(word + 1, 0u64);
-                        }
-                        overflow[word] |= bit;
                     }
-                    current = parents_ref.get(e).ok().map(ChildOf::parent);
+                    .instrument(info_span!("mark_dirty_producer")),
+                );
+            }
+
+            // Up to this point, we have only spawned producer and consumer tasks; they won't do
+            // anything until we start feeding them data:
+            info_span!("mark_dirty_inputs").in_scope(move || {
+                changed.par_iter().for_each_init(
+                    || input_tx.clone(),
+                    |input_tx, entity| {
+                        let _ = input_tx.send_blocking(entity);
+                    },
+                );
+                for entity in orphaned.read() {
+                    let _ = input_tx.send_blocking(entity);
                 }
-            },
-        );
+            });
+            // Drop the senders so the tasks can exit once they have drained all items.
+            drop(output_tx);
+        });
+
+        // Merge overflow bitsets into the shared bitset (grows it to cover new indices).
+        // Once steady-state is reached, the overflow stays empty, so this loop body never executes.
+        for overflow in overflow_bitset.iter_mut() {
+            if overflow.len() > changed_bitset.len() {
+                changed_bitset.resize_with(overflow.len(), Default::default);
+            }
+            overflow.clear();
+        }
+
+        // Reset the bitset for the next frame.
+        changed_bitset.clear();
     }
+
     #[cfg(not(feature = "std"))]
-    for (entity, child_of) in changed.iter() {
-        let leaf_idx = entity.index().index() as usize;
-        let leaf_word = leaf_idx / 64;
-        let leaf_bit = 1u64 << (leaf_idx % 64);
-        if leaf_word >= changed_bitset.len() {
-            changed_bitset.resize(leaf_word + 1, 0u64);
-        }
-        if changed_bitset[leaf_word] & leaf_bit != 0 {
-            continue;
-        }
-        changed_bitset[leaf_word] |= leaf_bit;
-        let mut current = child_of.map(ChildOf::parent);
-        while let Some(e) = current {
-            let idx = e.index().index() as usize;
-            let word = idx / 64;
-            let bit = 1u64 << (idx % 64);
-            if word >= changed_bitset.len() {
-                changed_bitset.resize(word + 1, 0u64);
+    {
+        for (entity, child_of) in changed.iter() {
+            let leaf_idx = entity.index().index() as usize;
+            let leaf_word = leaf_idx / 64;
+            let leaf_bit = 1u64 << (leaf_idx % 64);
+            if leaf_word >= changed_bitset.len() {
+                changed_bitset.resize(leaf_word + 1, 0u64);
             }
-            if changed_bitset[word] & bit != 0 {
-                break;
-            }
-            changed_bitset[word] |= bit;
-            current = parents.get(e).ok().map(ChildOf::parent);
-        }
-    }
-
-    let merge_span = info_span!("merge").entered();
-    // Merge overflow Vecs into shared_bits, growing the shared bitset as needed, then clear
-    // the overflow Vecs for next frame (capacity is preserved to avoid reallocation).
-    // In steady state overflow is empty, so this loop body never executes.
-    #[cfg(feature = "std")]
-    for overflow in overflow_bitset.iter_mut() {
-        if overflow.is_empty() {
-            continue;
-        }
-        if overflow.len() > changed_bitset.len() {
-            changed_bitset.resize_with(overflow.len(), || AtomicU64::new(0));
-        }
-        for (i, &w) in overflow.iter().enumerate() {
-            if w != 0 {
-                changed_bitset[i].fetch_or(w, Ordering::Relaxed);
-            }
-        }
-        overflow.clear();
-    }
-    drop(merge_span);
-
-    // Sequential extension: add orphaned entities to shared_bits with the same early-exit walk.
-    #[cfg(feature = "std")]
-    let extend = |entity: Entity, bits: &mut Vec<AtomicU64>| {
-        let mut current = Some(entity);
-        while let Some(e) = current {
-            let idx = e.index().index() as usize;
-            let word = idx / 64;
-            let bit = 1u64 << (idx % 64);
-            if word >= bits.len() {
-                bits.resize_with(word + 1, || AtomicU64::new(0));
-            }
-            if bits[word].fetch_or(bit, Ordering::Relaxed) & bit != 0 {
-                break;
-            }
-            current = parents.get(e).ok().map(ChildOf::parent);
-        }
-    };
-    #[cfg(not(feature = "std"))]
-    let extend = |entity: Entity, bits: &mut Vec<u64>| {
-        let mut current = Some(entity);
-        while let Some(e) = current {
-            let idx = e.index().index() as usize;
-            let word = idx / 64;
-            let bit = 1u64 << (idx % 64);
-            if word >= bits.len() {
-                bits.resize(word + 1, 0u64);
-            }
-            if bits[word] & bit != 0 {
-                break;
-            }
-            bits[word] |= bit;
-            current = parents.get(e).ok().map(ChildOf::parent);
-        }
-    };
-
-    for entity in orphaned.read() {
-        extend(entity, &mut *changed_bitset);
-    }
-
-    let apply_span = info_span!("apply").entered();
-    // Phase 2: scan shared_bits, apply set_changed() to every marked entity (leaves and
-    // ancestors alike), and reset each word inline via swap(0) — a single atomic
-    // read-and-clear per word, no separate reset pass needed.
-    #[cfg(feature = "std")]
-    for (word_idx, atomic_word) in changed_bitset.iter().enumerate() {
-        let word = atomic_word.swap(0, Ordering::Relaxed);
-        if word == 0 {
-            continue;
-        }
-        let mut bits = word;
-        while bits != 0 {
-            let bit = bits.trailing_zeros() as usize;
-            bits &= bits - 1; // clear lowest set bit
-            let entity_idx = word_idx * 64 + bit;
-            // Entity indices are u32; skip if out of range (unreachable in practice).
-            let Some(probe) = u32::try_from(entity_idx)
-                .ok()
-                .and_then(Entity::from_raw_u32)
-            else {
+            if changed_bitset[leaf_word] & leaf_bit != 0 {
                 continue;
-            };
-            let entity = entities.resolve_from_index(probe.index());
-            if let Ok(mut tree) = transforms.get_mut(entity) {
-                tree.set_changed();
+            }
+            changed_bitset[leaf_word] |= leaf_bit;
+            let mut current = child_of.map(ChildOf::parent);
+            while let Some(e) = current {
+                let idx = e.index().index() as usize;
+                let word = idx / 64;
+                let bit = 1u64 << (idx % 64);
+                if word >= changed_bitset.len() {
+                    changed_bitset.resize(word + 1, 0u64);
+                }
+                if changed_bitset[word] & bit != 0 {
+                    break;
+                }
+                changed_bitset[word] |= bit;
+                current = parents.get(e).ok().map(ChildOf::parent);
             }
         }
-    }
 
-    #[cfg(not(feature = "std"))]
-    for (word_idx, word) in changed_bitset.iter_mut().enumerate() {
-        let w = core::mem::replace(word, 0);
-        if w == 0 {
-            continue;
+        // Handle orphaned entities: walk their ancestor chain, dedup via bitset.
+        for entity in orphaned.read() {
+            let mut current = Some(entity);
+            while let Some(e) = current {
+                let idx = e.index().index() as usize;
+                let word = idx / 64;
+                let bit = 1u64 << (idx % 64);
+                if word >= changed_bitset.len() {
+                    changed_bitset.resize(word + 1, 0u64);
+                }
+                if changed_bitset[word] & bit != 0 {
+                    break;
+                }
+                changed_bitset[word] |= bit;
+                current = parents.get(e).ok().map(ChildOf::parent);
+            }
         }
-        let mut bits = w;
-        while bits != 0 {
-            let bit = bits.trailing_zeros() as usize;
-            bits &= bits - 1;
-            let entity_idx = word_idx * 64 + bit;
-            let Some(probe) = u32::try_from(entity_idx)
-                .ok()
-                .and_then(Entity::from_raw_u32)
-            else {
+
+        // Scan bitset, call set_changed() for each marked entity, and reset inline.
+        for (word_idx, word) in changed_bitset.iter_mut().enumerate() {
+            let w = core::mem::replace(word, 0);
+            if w == 0 {
                 continue;
-            };
-            let entity = entities.resolve_from_index(probe.index());
-            if let Ok(mut tree) = transforms.get_mut(entity) {
-                tree.set_changed();
+            }
+            let mut bits = w;
+            while bits != 0 {
+                let bit = bits.trailing_zeros() as usize;
+                bits &= bits - 1;
+                let entity_idx = word_idx * 64 + bit;
+                let Some(probe) = u32::try_from(entity_idx)
+                    .ok()
+                    .and_then(Entity::from_raw_u32)
+                else {
+                    continue;
+                };
+                let entity = entities.resolve_from_index(probe.index());
+                if let Ok(mut tree) = transforms.get_mut(entity) {
+                    tree.set_changed();
+                }
             }
         }
     }
-    drop(apply_span);
 }
 
 // TODO: This serial implementation isn't actually serial, it parallelizes across the roots.
