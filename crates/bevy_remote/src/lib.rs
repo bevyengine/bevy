@@ -167,8 +167,8 @@
 //!             "components": ["bevy_transform::components::transform::Transform"]
 //!             "option": [],
 //!             "has": []
-//!        },
-//!        "filter": {
+//!         },
+//!         "filter": {
 //!           "with": [],
 //!           "without": []
 //!         },
@@ -189,8 +189,8 @@
 //!             "components": []
 //!             "option": "all",
 //!             "has": []
-//!        },
-//!        "filter": {
+//!         },
+//!         "filter": {
 //!            "with": [],
 //!           "without": []
 //!         },
@@ -202,88 +202,88 @@
 //! This should return you something like the below (in a larger list):
 //! ```json
 //! {
-//!      "components": {
-//!        "bevy_camera::Camera3d": {
-//!          "depth_load_op": {
-//!            "Clear": 0.0
-//!          },
-//!          "depth_texture_usages": 16,
-//!        },
-//!        "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
-//!        "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",
-//!        "bevy_light::cluster::ClusterConfig": {
-//!          "FixedZ": {
-//!         "dynamic_resizing": true,
-//!            "total": 4096,
-//!            "z_config": {
-//!              "far_z_mode": "MaxClusterableObjectRange",
-//!              "first_slice_depth": 5.0
-//!            },
-//!            "z_slices": 24
-//!          }
-//!        },
-//!        "bevy_camera::Camera": {
-//!          "clear_color": "Default",
-//!          "is_active": true,
-//!          "msaa_writeback": true,
-//!          "order": 0,
-//!          "sub_camera_view": null,
-//!          "target": {
-//!            "Window": "Primary"
-//!          },
-//!       "viewport": null
-//!        },
-//!        "bevy_camera::Projection": {
-//!          "Perspective": {
-//!            "aspect_ratio": 1.7777777910232544,
-//!            "far": 1000.0,
-//!            "fov": 0.7853981852531433,
-//!            "near": 0.10000000149011612
-//!          }
-//!        },
-//!        "bevy_camera::primitives::Frustum": {},
-//!     "bevy_render::sync_world::RenderEntity": 4294967291,
-//!        "bevy_render::sync_world::SyncToRenderWorld": {},
-//!        "bevy_render::view::Msaa": "Sample4",
-//!        "bevy_camera::visibility::InheritedVisibility": true,
-//!        "bevy_camera::visibility::ViewVisibility": false,
-//!        "bevy_camera::visibility::Visibility": "Inherited",
-//!        "bevy_camera::visibility::VisibleEntities": {},
-//!        "bevy_transform::components::global_transform::GlobalTransform": [
-//!          0.9635179042816162,
-//!          -3.725290298461914e-9,
-//!          0.26764383912086487,
-//!          0.11616238951683044,
-//!          0.9009039402008056,
-//!          -0.4181846082210541,
-//!          -0.24112138152122495,
-//!          0.4340185225009918,
-//!          0.8680371046066284,
-//!          -2.5,
-//!          4.5,
-//!          9.0
-//!        ],
-//!        "bevy_transform::components::transform::Transform": {
-//!       "rotation": [
-//!            -0.22055435180664065,
-//!            -0.13167093694210052,
-//!            -0.03006339818239212,
-//!            0.9659786224365234
-//!          ],
-//!          "scale": [
-//!            1.0,
-//!            1.0,
-//!            1.0
+//!   "components": {
+//!     "bevy_camera::Camera3d": {
+//!       "depth_load_op": {
+//!         "Clear": 0.0
+//!       },
+//!       "depth_texture_usages": 16,
+//!     },
+//!     "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
+//!     "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",
+//!     "bevy_light::cluster::ClusterConfig": {
+//!       "FixedZ": {
+//!      "dynamic_resizing": true,
+//!         "total": 4096,
+//!         "z_config": {
+//!           "far_z_mode": "MaxClusterableObjectRange",
+//!           "first_slice_depth": 5.0
+//!         },
+//!         "z_slices": 24
+//!       }
+//!     },
+//!     "bevy_camera::Camera": {
+//!       "clear_color": "Default",
+//!       "is_active": true,
+//!       "msaa_writeback": true,
+//!       "order": 0,
+//!       "sub_camera_view": null,
+//!       "target": {
+//!         "Window": "Primary"
+//!       },
+//!    "viewport": null
+//!     },
+//!     "bevy_camera::Projection": {
+//!       "Perspective": {
+//!         "aspect_ratio": 1.7777777910232544,
+//!         "far": 1000.0,
+//!         "fov": 0.7853981852531433,
+//!         "near": 0.10000000149011612
+//!       }
+//!     },
+//!     "bevy_camera::primitives::Frustum": {},
+//!  "bevy_render::sync_world::RenderEntity": 4294967291,
+//!     "bevy_render::sync_world::SyncToRenderWorld": {},
+//!     "bevy_render::view::Msaa": "Sample4",
+//!     "bevy_camera::visibility::InheritedVisibility": true,
+//!     "bevy_camera::visibility::ViewVisibility": false,
+//!     "bevy_camera::visibility::Visibility": "Inherited",
+//!     "bevy_camera::visibility::VisibleEntities": {},
+//!     "bevy_transform::components::global_transform::GlobalTransform": [
+//!       0.9635179042816162,
+//!       -3.725290298461914e-9,
+//!       0.26764383912086487,
+//!       0.11616238951683044,
+//!       0.9009039402008056,
+//!       -0.4181846082210541,
+//!       -0.24112138152122495,
+//!       0.4340185225009918,
+//!       0.8680371046066284,
+//!       -2.5,
+//!       4.5,
+//!       9.0
+//!     ],
+//!     "bevy_transform::components::transform::Transform": {
+//!    "rotation": [
+//!         -0.22055435180664065,
+//!         -0.13167093694210052,
+//!         -0.03006339818239212,
+//!         0.9659786224365234
 //!       ],
-//!          "translation": [
-//!            -2.5,
-//!          4.5,
-//!            9.0
-//!          ]
-//!        },
-//!        "bevy_transform::components::transform::TransformTreeChanged": null
-//!      },
-//!      "entity": 4294967261
+//!       "scale": [
+//!         1.0,
+//!         1.0,
+//!         1.0
+//!    ],
+//!       "translation": [
+//!         -2.5,
+//!       4.5,
+//!         9.0
+//!       ]
+//!     },
+//!     "bevy_transform::components::transform::TransformTreeChanged": null
+//!   },
+//!   "entity": 4294967261
 //!},
 //! ```
 //!

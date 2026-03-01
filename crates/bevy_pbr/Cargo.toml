@@ -87,6 +87,7 @@ nonmax = "0.5"
 static_assertions = "1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 offset-allocator = "0.2"
+arrayvec = { version = "0.7", default-features = false }
 indexmap = { version = "2" }
 
 [lints]

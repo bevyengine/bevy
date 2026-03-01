@@ -30,7 +30,7 @@ use bevy_math::{Mat4, Vec3};
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_mesh::UvChannel;
 use bevy_mesh::{
-    morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
+    morph::{MeshMorphWeights, MorphAttributes, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
 };
@@ -812,26 +812,17 @@ impl GltfLoader {
                 {
                     let morph_target_reader = reader.read_morph_targets();
                     if morph_target_reader.len() != 0 {
-                        let morph_targets_label = GltfAssetLabel::MorphTarget {
-                            mesh: gltf_mesh.index(),
-                            primitive: primitive.index(),
-                        };
-                        let morph_target_image = MorphTargetImage::new(
-                            morph_target_reader.map(|i| PrimitiveMorphAttributesIter {
-                                convert_coordinates: convert_coordinates.rotate_meshes,
-                                positions: i.0,
-                                normals: i.1,
-                                tangents: i.2,
-                            }),
-                            mesh.count_vertices(),
-                            RenderAssetUsages::default(),
-                        )?;
-                        let handle = load_context.add_labeled_asset(
-                            morph_targets_label.to_string(),
-                            morph_target_image.0,
+                        mesh.set_morph_targets(
+                            morph_target_reader
+                                .flat_map(|i| PrimitiveMorphAttributesIter {
+                                    convert_coordinates: convert_coordinates.rotate_meshes,
+                                    positions: i.0,
+                                    normals: i.1,
+                                    tangents: i.2,
+                                })
+                                .collect(),
                         );
 
-                        mesh.set_morph_targets(handle);
                         let extras = gltf_mesh.extras().as_ref();
                         if let Some(names) = extras.and_then(|extras| {
                             serde_json::from_str::<MorphTargetNames>(extras.get()).ok()
@@ -2076,6 +2067,9 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
             position: position.map(Into::into).unwrap_or(Vec3::ZERO),
             normal: normal.map(Into::into).unwrap_or(Vec3::ZERO),
             tangent: tangent.map(Into::into).unwrap_or(Vec3::ZERO),
+            pad_a: 0.0,
+            pad_b: 0.0,
+            pad_c: 0.0,
         };
 
         if self.convert_coordinates {
@@ -2083,6 +2077,9 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
                 position: attributes.position.convert_coordinates(),
                 normal: attributes.normal.convert_coordinates(),
                 tangent: attributes.tangent.convert_coordinates(),
+                pad_a: 0.0,
+                pad_b: 0.0,
+                pad_c: 0.0,
             }
         }
 

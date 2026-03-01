@@ -15,7 +15,7 @@ use std::ops::Range;
 use bevy::camera::Viewport;
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::math::Affine3Ext;
-use bevy::pbr::{SetMeshViewEmptyBindGroup, ViewKeyCache};
+use bevy::pbr::{MeshPipelineSet, SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
     core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
@@ -131,7 +131,7 @@ impl Plugin for MeshStencilPhasePlugin {
             .add_render_command::<Stencil3d, DrawMesh3dStencil>()
             .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
             .init_resource::<PendingCustomMeshQueues>()
-            .add_systems(RenderStartup, init_stencil_pipeline)
+            .add_systems(RenderStartup, init_stencil_pipeline.after(MeshPipelineSet))
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
                 Render,
@@ -384,7 +384,7 @@ impl GetBatchData for StencilPipeline {
                 current_skin_index: u32::MAX,
                 material_and_lightmap_bind_group_slot: 0,
                 tag: 0,
-                pad: 0,
+                morph_descriptor_index: u32::MAX,
             }
         };
         Some((mesh_uniform, None))
@@ -436,6 +436,7 @@ impl GetFullBatchData for StencilPipeline {
             &mesh_instance.transforms,
             first_vertex_index,
             mesh_instance.material_bindings_index().slot,
+            None,
             None,
             None,
             None,

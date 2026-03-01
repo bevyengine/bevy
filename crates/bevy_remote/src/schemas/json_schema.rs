@@ -182,7 +182,7 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata)> for JsonSchemaBevyType {
     }
 }
 
-/// JSON Schema type for Bevy Registry Types
+/// JSON Schema type for Bevy Registry Types.
 /// It tries to follow this standard: <https://json-schema.org/specification>
 ///
 /// To take the full advantage from info provided by Bevy registry it provides extra fields
