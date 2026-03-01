@@ -430,6 +430,9 @@ macro_rules! change_detection_mut_impl {
             #[track_caller]
             fn set_changed(&mut self) {
                 *self.ticks.changed = self.ticks.this_run;
+                if let Some((change_index, table_row)) = self.ticks.change_index {
+                    change_index.note_changed(table_row, self.ticks.this_run);
+                }
                 self.ticks.changed_by.assign(MaybeLocation::caller());
             }
 
@@ -438,6 +441,11 @@ macro_rules! change_detection_mut_impl {
             fn set_added(&mut self) {
                 *self.ticks.changed = self.ticks.this_run;
                 *self.ticks.added = self.ticks.this_run;
+                // TODO: Speed this up. We need to put a `Component` bound on
+                // `T` for this.
+                if let Some((change_index, entity)) = self.ticks.change_index {
+                    change_index.note_changed(entity, self.ticks.this_run);
+                }
                 self.ticks.changed_by.assign(MaybeLocation::caller());
             }
 
@@ -505,6 +513,7 @@ macro_rules! impl_methods {
                         added: self.ticks.added,
                         changed: self.ticks.changed,
                         changed_by: self.ticks.changed_by.as_deref_mut(),
+                        change_index: self.ticks.change_index,
                         last_run: self.ticks.last_run,
                         this_run: self.ticks.this_run,
                     },

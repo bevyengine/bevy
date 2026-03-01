@@ -212,6 +212,7 @@ pub fn update_previous_view_data(
 }
 
 #[derive(Component, PartialEq, Clone, Default)]
+#[component(change = "indexed")]
 pub struct PreviousGlobalTransform(pub Affine3A);
 
 #[cfg(not(feature = "meshlet"))]

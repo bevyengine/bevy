@@ -1182,13 +1182,14 @@ impl World {
     ) -> EntityWorldMut<'_> {
         // SAFETY: Locations are immediately made valid
         unsafe {
+            let change_tick = self.change_tick();
             let archetype = self.archetypes.empty_mut();
             // PERF: consider avoiding allocating entities in the empty archetype unless needed
-            let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
+            let table = &mut self.storages.tables[archetype.table_id()];
+            let table_row = table.allocate(entity);
             // SAFETY: no components are allocated by archetype.allocate() because the archetype is
             // empty
             let location = archetype.allocate(entity, table_row);
-            let change_tick = self.change_tick();
             let was_at = self.entities.set_location(entity.index(), Some(location));
             assert!(
                 was_at.is_none(),
@@ -1196,6 +1197,9 @@ impl World {
             );
             self.entities
                 .mark_spawned_or_despawned(entity.index(), caller, change_tick);
+            // There's no need to update the change index since there's
+            // guaranteed not to be one.
+            debug_assert!(table.change_index().is_none());
 
             EntityWorldMut::new(self, entity, Some(location))
         }
@@ -2913,6 +2917,8 @@ impl World {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
                 changed_by: changed_by.as_mut(),
+                // TODO: Fetch the change index!
+                change_index: None,
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
@@ -3932,7 +3938,9 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::{DetectChangesMut, MaybeLocation},
-        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
+        component::{
+            ChangeMode, ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType,
+        },
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         prelude::{Event, Mut, On, Res},
@@ -4195,6 +4203,7 @@ mod tests {
             ComponentDescriptor::new_with_layout(
                 "Custom Test Component".to_string(),
                 StorageType::Table,
+                ChangeMode::Default,
                 core::alloc::Layout::new::<[u8; 8]>(),
                 Some(|ptr| {
                     let data = ptr.read::<[u8; 8]>();

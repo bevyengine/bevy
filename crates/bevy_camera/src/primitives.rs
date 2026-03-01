@@ -61,6 +61,7 @@ impl MeshAabb for Mesh {
 /// [`Mesh3d`]: bevy_mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
+#[component(change = "indexed")]
 pub struct Aabb {
     pub center: Vec3A,
     pub half_extents: Vec3A,

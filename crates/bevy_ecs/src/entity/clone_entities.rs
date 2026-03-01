@@ -1462,7 +1462,7 @@ use private::{FilterableId, FilterableIds, Marker};
 mod tests {
     use super::*;
     use crate::{
-        component::{ComponentDescriptor, StorageType},
+        component::{ChangeMode, ComponentDescriptor, StorageType},
         lifecycle::HookContext,
         prelude::{ChildOf, Children, Resource},
         world::{DeferredWorld, FromWorld, World},
@@ -2105,6 +2105,7 @@ mod tests {
             ComponentDescriptor::new_with_layout(
                 "DynamicComp",
                 StorageType::Table,
+                ChangeMode::Default,
                 layout,
                 None,
                 true,

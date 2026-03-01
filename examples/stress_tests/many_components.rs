@@ -28,6 +28,7 @@ use bevy::{
     MinimalPlugins,
 };
 
+use bevy_ecs::component::ChangeMode;
 use chacha20::ChaCha8Rng;
 use rand::prelude::{IndexedRandom, RngExt, SeedableRng};
 use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
@@ -93,6 +94,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                     ComponentDescriptor::new_with_layout(
                         format!("Component{i}").to_string(),
                         StorageType::Table,
+                        ChangeMode::Default,
                         Layout::new::<u8>(),
                         None,
                         true, // is mutable

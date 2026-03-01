@@ -161,6 +161,7 @@ mod tests {
             changed_by: caller.as_mut(),
             last_run: Tick::new(3),
             this_run: Tick::new(4),
+            change_index: None,
         };
         let mut res = R {};
 
@@ -192,6 +193,7 @@ mod tests {
             Tick::new(2), // last_run
             Tick::new(4), // this_run
             caller.as_mut(),
+            None,
         );
 
         assert!(!val.is_added());
@@ -211,6 +213,7 @@ mod tests {
             changed_by: caller.as_mut(),
             last_run: Tick::new(3),
             this_run: Tick::new(4),
+            change_index: None,
         };
         let mut res = R {};
 
@@ -244,6 +247,7 @@ mod tests {
             changed_by: caller.as_mut(),
             last_run,
             this_run,
+            change_index: None,
         };
 
         let mut outer = Outer(0);
@@ -332,6 +336,7 @@ mod tests {
             changed_by: caller.as_mut(),
             last_run,
             this_run,
+            change_index: None,
         };
 
         let mut value: i32 = 5;
@@ -368,6 +373,7 @@ mod tests {
             changed_by: caller.as_mut(),
             last_run: Tick::new(3),
             this_run: Tick::new(4),
+            change_index: None,
         };
         let mut c = C {};
 

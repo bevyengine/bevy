@@ -3,10 +3,11 @@ use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
     bundle::Bundle,
     change_detection::Tick,
+    component::{ChangeIndex, PAGE_SIZE},
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
     query::{
         ArchetypeFilter, ArchetypeQueryData, ContiguousQueryData, DebugCheckedUnwrap,
-        IterQueryData, QueryState, SingleEntityQueryData, StorageId,
+        IterQueryData, QueryState, SingleEntityQueryData, StorageId, WorldQuery,
     },
     storage::{Table, TableRow, Tables},
     world::{
@@ -185,6 +186,10 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         Func: FnMut(B, D::Item<'w, 's>) -> B,
     {
+        // SAFETY: `self.cursor.is_dense` is false, so storage ids are guaranteed to be archetype ids.
+        let archetype_id = unsafe { storage.archetype_id };
+        // SAFETY: Matched archetype IDs are guaranteed to still exist.
+        let archetype = unsafe { self.archetypes.get(archetype_id).debug_checked_unwrap() };
         if self.cursor.is_dense {
             // SAFETY: `self.cursor.is_dense` is true, so storage ids are guaranteed to be table ids.
             let table_id = unsafe { storage.table_id };
@@ -199,10 +204,6 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 // - The if block ensures that the query iteration is dense
                 unsafe { self.fold_over_table_range(accum, func, table, range) };
         } else {
-            // SAFETY: `self.cursor.is_dense` is false, so storage ids are guaranteed to be archetype ids.
-            let archetype_id = unsafe { storage.archetype_id };
-            // SAFETY: Matched archetype IDs are guaranteed to still exist.
-            let archetype = unsafe { self.archetypes.get(archetype_id).debug_checked_unwrap() };
             // SAFETY: Matched table IDs are guaranteed to still exist.
             let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
 
@@ -243,7 +244,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         mut accum: B,
         func: &mut Func,
         table: &'w Table,
-        rows: Range<u32>,
+        mut rows: Range<u32>,
     ) -> B
     where
         Func: FnMut(B, D::Item<'w, 's>) -> B,
@@ -260,7 +261,18 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         );
 
         let entities = table.entities();
-        for row in rows {
+        loop {
+            let row = advance_row::<F>(
+                table.change_index(),
+                rows.clone(),
+                self.cursor.last_run,
+                self.cursor.this_run,
+            );
+            if row == rows.end {
+                break;
+            }
+            rows.start = row + 1;
+
             // SAFETY: Caller assures `row` in range of the current archetype.
             let entity = unsafe { entities.get_unchecked(row as usize) };
             // SAFETY: This is from an exclusive range, so it can't be max.
@@ -384,7 +396,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         mut accum: B,
         func: &mut Func,
         archetype: &'w Archetype,
-        rows: Range<u32>,
+        mut rows: Range<u32>,
     ) -> B
     where
         Func: FnMut(B, D::Item<'w, 's>) -> B,
@@ -411,7 +423,18 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             table,
         );
         let entities = table.entities();
-        for row in rows {
+        loop {
+            let row = advance_row::<F>(
+                table.change_index(),
+                0..self.cursor.current_len,
+                self.cursor.last_run,
+                self.cursor.this_run,
+            );
+            if row == rows.end {
+                break;
+            }
+            rows.start = row + 1;
+
             // SAFETY: Caller assures `row` in range of the current archetype.
             let entity = unsafe { *entities.get_unchecked(row as usize) };
             // SAFETY: This is from an exclusive range, so it can't be max.
@@ -1173,8 +1196,9 @@ impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> Iterator
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
+            let storage = self.storage_id_iter.next()?;
             // SAFETY: Query is dense
-            let table_id = unsafe { self.storage_id_iter.next()?.table_id };
+            let table_id = unsafe { storage.table_id };
             // SAFETY: `table_id` was returned by `self.storage_id_iter` which always returns a
             // valid id
             let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
@@ -2727,12 +2751,16 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     storage_id_iter: core::slice::Iter<'s, StorageId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
+    entities: &'w Entities,
     fetch: D::Fetch<'w>,
     filter: F::Fetch<'w>,
     // length of the table or length of the archetype, depending on whether both `D`'s and `F`'s fetches are dense
     current_len: u32,
     // either table row or archetype index, depending on whether both `D`'s and `F`'s fetches are dense
     current_row: u32,
+    current_change_index: Option<&'w ChangeIndex>,
+    last_run: Tick,
+    this_run: Tick,
 }
 
 impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
@@ -2742,10 +2770,14 @@ impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> 
             storage_id_iter: self.storage_id_iter.clone(),
             table_entities: self.table_entities,
             archetype_entities: self.archetype_entities,
+            entities: self.entities,
             fetch: self.fetch.clone(),
             filter: self.filter.clone(),
             current_len: self.current_len,
             current_row: self.current_row,
+            current_change_index: None,
+            last_run: self.last_run,
+            this_run: self.this_run,
         }
     }
 }
@@ -2782,10 +2814,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             filter,
             table_entities: &[],
             archetype_entities: &[],
+            entities: world.entities(),
             storage_id_iter: query_state.matched_storage_ids.iter(),
             is_dense: query_state.is_dense,
             current_len: 0,
             current_row: 0,
+            current_change_index: None,
+            last_run,
+            this_run,
         }
     }
 
@@ -2794,11 +2830,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             is_dense: self.is_dense,
             fetch: D::shrink_fetch(self.fetch.clone()),
             filter: F::shrink_fetch(self.filter.clone()),
+            entities: self.entities,
             table_entities: self.table_entities,
             archetype_entities: self.archetype_entities,
             storage_id_iter: self.storage_id_iter.clone(),
+            current_change_index: self.current_change_index,
             current_len: self.current_len,
             current_row: self.current_row,
+            last_run: self.last_run,
+            this_run: self.this_run,
         }
     }
 
@@ -2890,8 +2930,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             // QueryContiguousIter::next as well
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
-                if self.current_row == self.current_len {
-                    let table_id = self.storage_id_iter.next()?.table_id;
+                while self.current_row == self.current_len {
+                    let storage = self.storage_id_iter.next()?;
+                    let table_id = storage.table_id;
                     let table = tables.get(table_id).debug_checked_unwrap();
                     if table.is_empty() {
                         continue;
@@ -2903,8 +2944,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         F::set_table(&mut self.filter, &query_state.filter_state, table);
                     }
                     self.table_entities = table.entities();
+                    self.current_change_index = table.change_index();
                     self.current_len = table.entity_count();
-                    self.current_row = 0;
+                    self.current_row = advance_row::<F>(
+                        self.current_change_index,
+                        0..self.current_len,
+                        self.last_run,
+                        self.this_run,
+                    );
                 }
 
                 // SAFETY: set_table was called prior.
@@ -2913,7 +2960,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     unsafe { self.table_entities.get_unchecked(self.current_row as usize) };
                 // SAFETY: The row is less than the u32 len, so it must not be max.
                 let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(self.current_row)) };
-                self.current_row += 1;
+
+                self.current_row = advance_row::<F>(
+                    self.current_change_index,
+                    (self.current_row + 1)..self.current_len,
+                    self.last_run,
+                    self.this_run,
+                );
 
                 if !F::filter_fetch(&query_state.filter_state, &mut self.filter, *entity, row) {
                     continue;
@@ -2967,6 +3020,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     self.archetype_entities
                         .get_unchecked(self.current_row as usize)
                 };
+
                 self.current_row += 1;
 
                 if !F::filter_fetch(
@@ -2997,6 +3051,26 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 }
             }
         }
+    }
+}
+
+#[inline]
+unsafe fn advance_row<F>(
+    maybe_change_index: Option<&ChangeIndex>,
+    range: Range<u32>,
+    since: Tick,
+    now: Tick,
+) -> u32
+where
+    F: QueryFilter + WorldQuery,
+{
+    if F::USES_INDEX
+        && range.start.is_multiple_of(PAGE_SIZE)
+        && let Some(change_index) = maybe_change_index
+    {
+        change_index.advance_row(range.clone(), since, now)
+    } else {
+        range.start
     }
 }
 

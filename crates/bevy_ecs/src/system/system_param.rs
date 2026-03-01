@@ -707,7 +707,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        let (ptr, ticks) = world.get_resource_with_ticks(component_id).ok_or_else(|| {
+        let (ptr, ticks, _) = world.get_resource_with_ticks(component_id).ok_or_else(|| {
             SystemParamValidationError::invalid::<Self>("Resource does not exist")
         })?;
         Ok(Res {
@@ -775,6 +775,8 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 changed_by: value.ticks.changed_by,
                 last_run: system_meta.last_run,
                 this_run: change_tick,
+                // TODO: Fetch this!
+                change_index: None,
             },
         })
     }
@@ -1405,7 +1407,12 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         })?;
         Ok(NonSendMut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: ComponentTicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
+            ticks: ComponentTicksMut::from_tick_cells(
+                ticks,
+                None,
+                system_meta.last_run,
+                change_tick,
+            ),
         })
     }
 }

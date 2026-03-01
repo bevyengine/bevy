@@ -14,13 +14,12 @@ use core::any::Any;
 use core::marker::PhantomData;
 
 use crate::{
-    component::{ComponentCloneBehavior, ComponentId, Mutable, StorageType},
+    component::{ChangeMode, ComponentCloneBehavior, ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
     event::EventKey,
     lifecycle::{ComponentHook, HookContext},
     observer::{
-        condition::{ObserverCondition, ObserverWithCondition, ObserverWithConditionMarker},
-        observer_system_runner, ObserverRunner,
+        ObserverRunner, condition::{ObserverCondition, ObserverWithCondition, ObserverWithConditionMarker}, observer_system_runner
     },
     prelude::*,
     system::{IntoObserverSystem, ObserverSystem},
@@ -365,6 +364,7 @@ impl Observer {
 
 impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    const CHANGE_MODE: ChangeMode = ChangeMode::Default;
     type Mutability = Mutable;
     fn on_add() -> Option<ComponentHook> {
         Some(|world, context| {
@@ -511,6 +511,7 @@ impl ObservedBy {
 
 impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    const CHANGE_MODE: ChangeMode = ChangeMode::Default;
     type Mutability = Mutable;
 
     fn on_remove() -> Option<ComponentHook> {

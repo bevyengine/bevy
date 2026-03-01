@@ -218,7 +218,11 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline]
-            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
+            unsafe fn set_table<'w, 's>(
+                fetch: &mut Self::Fetch<'w>,
+                state: &'s Self::State,
+                table: &'w Table
+            ) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.

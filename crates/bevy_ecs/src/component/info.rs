@@ -15,7 +15,7 @@ use indexmap::IndexSet;
 use crate::{
     archetype::ArchetypeFlags,
     component::{
-        Component, ComponentCloneBehavior, ComponentMutability, QueuedComponents,
+        ChangeMode, Component, ComponentCloneBehavior, ComponentMutability, QueuedComponents,
         RequiredComponents, StorageType,
     },
     lifecycle::ComponentHooks,
@@ -92,6 +92,11 @@ impl ComponentInfo {
     #[inline]
     pub fn storage_type(&self) -> StorageType {
         self.descriptor.storage_type
+    }
+
+    #[inline]
+    pub fn change_mode(&self) -> ChangeMode {
+        self.descriptor.change_mode
     }
 
     /// Returns `true` if the underlying component type can be freely shared between threads.
@@ -216,6 +221,7 @@ pub struct ComponentDescriptor {
     // SAFETY: This must remain private. It must match the statically known StorageType of the
     // associated rust component type if one exists.
     storage_type: StorageType,
+    change_mode: ChangeMode,
     // SAFETY: This must remain private. It must only be set to "true" if this component is
     // actually Send + Sync
     is_send_and_sync: bool,
@@ -262,6 +268,7 @@ impl ComponentDescriptor {
         Self {
             name: DebugName::type_name::<T>(),
             storage_type: T::STORAGE_TYPE,
+            change_mode: T::CHANGE_MODE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
@@ -281,6 +288,7 @@ impl ComponentDescriptor {
     pub unsafe fn new_with_layout(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
+        change_mode: ChangeMode,
         layout: Layout,
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
         mutable: bool,
@@ -290,6 +298,7 @@ impl ComponentDescriptor {
         Self {
             name: name.into().into(),
             storage_type,
+            change_mode,
             is_send_and_sync: true,
             type_id: None,
             layout,
@@ -312,6 +321,7 @@ impl ComponentDescriptor {
         Self {
             name: DebugName::type_name::<T>(),
             storage_type,
+            change_mode: ChangeMode::Default,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
@@ -326,6 +336,11 @@ impl ComponentDescriptor {
     #[inline]
     pub fn storage_type(&self) -> StorageType {
         self.storage_type
+    }
+
+    #[inline]
+    pub fn change_mode(&self) -> ChangeMode {
+        self.change_mode
     }
 
     /// Returns the [`TypeId`] of the underlying component type.

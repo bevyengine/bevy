@@ -91,6 +91,7 @@ use core::slice;
 ///
 /// [`Relationship`]: crate::relationship::Relationship
 #[derive(Component, Clone, PartialEq, Eq, Debug)]
+#[component(change = "indexed")]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",

@@ -5,7 +5,9 @@ use crate::{
         ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
         ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, MaybeLocation, Tick,
     },
-    component::{Component, ComponentId, Components, Mutable, StorageType},
+    component::{
+        ChangeIndex, ChangeMode, Component, ComponentId, Components, Mutable, StorageType,
+    },
     entity::{Entities, Entity, EntityLocation},
     query::{
         access_iter::{EcsAccessLevel, EcsAccessType},
@@ -2242,6 +2244,7 @@ pub struct WriteFetch<'w, T: Component> {
     >,
     last_run: Tick,
     this_run: Tick,
+    change_index: Option<&'w ChangeIndex>,
 }
 
 impl<T: Component> Clone for WriteFetch<'_, T> {
@@ -2285,6 +2288,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             ),
             last_run,
             this_run,
+            change_index: None,
         }
     }
 
@@ -2331,6 +2335,11 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.components.set_table(table_data) };
+
+        fetch.change_index = match T::CHANGE_MODE {
+            ChangeMode::Default => None,
+            ChangeMode::Indexed => table.change_index(),
+        };
     }
 
     fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
@@ -2402,6 +2411,9 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                         changed_by: caller.map(|caller| caller.deref_mut()),
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
+                        change_index: fetch
+                            .change_index
+                            .map(|change_index| (change_index, table_row)),
                     },
                 }
             },
@@ -2418,6 +2430,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                     value: component.assert_unique().deref_mut(),
                     ticks: ComponentTicksMut::from_tick_cells(
                         ticks,
+                        None,
                         fetch.last_run,
                         fetch.this_run,
                     ),

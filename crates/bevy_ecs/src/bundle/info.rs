@@ -13,7 +13,8 @@ use crate::{
     bundle::{Bundle, DynamicBundle},
     change_detection::{MaybeLocation, Tick},
     component::{
-        ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor, StorageType,
+        ChangeMode, ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
+        StorageType,
     },
     entity::Entity,
     query::DebugCheckedUnwrap as _,
@@ -240,6 +241,7 @@ impl BundleInfo {
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
+        archetype: &mut Archetype,
         bundle_component_status: &S,
         required_components: impl Iterator<Item = &'a RequiredComponentConstructor>,
         entity: Entity,
@@ -252,10 +254,12 @@ impl BundleInfo {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        T::get_components(bundle, &mut |storage_type, component_ptr| {
+        let mut any_indexed = false;
+        T::get_components(bundle, &mut |storage_type, change_mode, component_ptr| {
             let component_id = *self
                 .contributed_component_ids
                 .get_unchecked(bundle_component);
+            any_indexed = any_indexed || matches!(change_mode, ChangeMode::Indexed);
             // SAFETY: bundle_component is a valid index for this bundle
             let status = unsafe { bundle_component_status.get_status(bundle_component) };
             match storage_type {
@@ -295,13 +299,19 @@ impl BundleInfo {
                     }
                 }
             }
+
             bundle_component += 1;
         });
+
+        if any_indexed && let Some(change_index) = table.change_index_mut() {
+            change_index.note_added(table_row, change_tick);
+        }
 
         for required_component in required_components {
             required_component.initialize(
                 table,
                 sparse_sets,
+                archetype,
                 change_tick,
                 table_row,
                 entity,
@@ -332,6 +342,7 @@ impl BundleInfo {
         storage_type: StorageType,
         component_ptr: OwningPtr,
         caller: MaybeLocation,
+        component_change_mode: ChangeMode,
     ) {
         {
             match storage_type {
@@ -350,6 +361,12 @@ impl BundleInfo {
                     sparse_set.insert(entity, component_ptr, change_tick, caller);
                 }
             }
+        }
+
+        if matches!(component_change_mode, ChangeMode::Indexed)
+            && let Some(change_index) = table.change_index_mut()
+        {
+            change_index.note_added(table_row, change_tick);
         }
     }
 }

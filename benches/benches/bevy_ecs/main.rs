@@ -21,6 +21,7 @@ mod world;
 criterion_main!(
     bundles::benches,
     change_detection::benches,
+    change_detection::distributions::benches,
     components::benches,
     empty_archetypes::benches,
     entity_cloning::benches,

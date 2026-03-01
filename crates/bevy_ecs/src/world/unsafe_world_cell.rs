@@ -8,7 +8,7 @@ use crate::{
         ComponentTickCells, ComponentTicks, ComponentTicksMut, ComponentTicksRef, MaybeLocation,
         MutUntyped, Tick,
     },
-    component::{ComponentId, Components, Mutable, StorageType},
+    component::{ChangeIndex, ComponentId, Components, Mutable, StorageType},
     entity::{
         ContainsEntity, Entities, Entity, EntityAllocator, EntityLocation, EntityNotSpawnedError,
     },
@@ -438,7 +438,7 @@ impl<'w> UnsafeWorldCell<'w> {
 
         // SAFETY: caller ensures `self` has permission to access the resource
         // caller also ensures that no mutable reference to the resource exists
-        let (ptr, ticks) = unsafe { self.get_resource_with_ticks(component_id)? };
+        let (ptr, ticks, _) = unsafe { self.get_resource_with_ticks(component_id)? };
 
         // SAFETY: `component_id` was obtained from the type ID of `R`
         let value = unsafe { ptr.deref::<R>() };
@@ -658,7 +658,8 @@ impl<'w> UnsafeWorldCell<'w> {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
-            unsafe { ComponentTicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
+            unsafe { ComponentTicksMut::from_tick_cells(ticks,
+                None, self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
@@ -676,7 +677,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub(crate) unsafe fn get_resource_with_ticks(
         self,
         component_id: ComponentId,
-    ) -> Option<(Ptr<'w>, ComponentTickCells<'w>)> {
+    ) -> Option<(Ptr<'w>, ComponentTickCells<'w>, Option<&'w ChangeIndex>)> {
         // SAFETY: We have permission to access the resource of `component_id`.
         let entity = unsafe { self.resource_entities() }.get(component_id)?;
         let storage_type = self.components().get_info(component_id)?.storage_type();
@@ -896,7 +897,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| Ref {
+            .map(|(value, cells, _)| Ref {
                 // SAFETY: returned component is of type T
                 value: value.deref::<T>(),
                 ticks: ComponentTicksRef::from_tick_cells(cells, last_change_tick, change_tick),
@@ -1037,10 +1038,17 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| Mut {
-                // SAFETY: returned component is of type T
-                value: value.assert_unique().deref_mut::<T>(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, last_change_tick, change_tick),
+            .map(|(value, cells, change_index)| {
+                Mut {
+                    // SAFETY: returned component is of type T
+                    value: value.assert_unique().deref_mut::<T>(),
+                    ticks: ComponentTicksMut::from_tick_cells(
+                        cells,
+                        change_index.map(|change_index| (change_index, self.location.table_row)),
+                        last_change_tick,
+                        change_tick,
+                    ),
+                }
             })
         }
     }
@@ -1158,10 +1166,17 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
-                value: value.assert_unique(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+            .map(|(value, cells, change_index)| {
+                MutUntyped {
+                    // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                    value: value.assert_unique(),
+                    ticks: ComponentTicksMut::from_tick_cells(
+                        cells,
+                        change_index.map(|change_index| (change_index, self.location.table_row)),
+                        self.last_run,
+                        self.this_run,
+                    ),
+                }
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
@@ -1201,10 +1216,18 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
-                value: value.assert_unique(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+            .map(|(value, cells, change_index)| {
+                MutUntyped {
+                    // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                    value: value.assert_unique(),
+                    // TODO: Fetch the change index!
+                    ticks: ComponentTicksMut::from_tick_cells(
+                        cells,
+                        change_index.map(|change_index| (change_index, self.location.table_row)),
+                        self.last_run,
+                        self.this_run,
+                    ),
+                }
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
@@ -1310,7 +1333,7 @@ unsafe fn get_component_and_ticks(
     storage_type: StorageType,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(Ptr<'_>, ComponentTickCells<'_>)> {
+) -> Option<(Ptr<'_>, ComponentTickCells<'_>, Option<&'_ ChangeIndex>)> {
     match storage_type {
         StorageType::Table => {
             let table = world.fetch_table(location)?;
@@ -1329,9 +1352,15 @@ unsafe fn get_component_and_ticks(
                         .get_changed_by(component_id, location.table_row)
                         .map(|changed_by| changed_by.debug_checked_unwrap()),
                 },
+                table.change_index(),
             ))
         }
-        StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_with_ticks(entity),
+        StorageType::SparseSet => {
+            let (ptr, tick_cells) = world
+                .fetch_sparse_set(component_id)?
+                .get_with_ticks(entity)?;
+            Some((ptr, tick_cells, None))
+        }
     }
 }
 

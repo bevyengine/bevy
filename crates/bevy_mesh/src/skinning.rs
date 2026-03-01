@@ -11,6 +11,7 @@ use core::ops::Deref;
 use thiserror::Error;
 
 #[derive(Component, Debug, Default, Clone, Reflect)]
+#[component(change = "indexed")]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,

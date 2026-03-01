@@ -14,7 +14,7 @@
 //!   between components (like hierarchies or parent-child links) and need to maintain correctness.
 
 use bevy::{
-    ecs::component::{Mutable, StorageType},
+    ecs::component::{ChangeMode, Mutable, StorageType},
     ecs::lifecycle::{ComponentHook, HookContext},
     prelude::*,
 };
@@ -31,6 +31,7 @@ struct MyComponent(KeyCode);
 
 impl Component for MyComponent {
     const STORAGE_TYPE: StorageType = StorageType::Table;
+    const CHANGE_MODE: ChangeMode = ChangeMode::Default;
     type Mutability = Mutable;
 
     /// Hooks can also be registered during component initialization by

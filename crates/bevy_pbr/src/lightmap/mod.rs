@@ -39,7 +39,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     lifecycle::RemovedComponents,
-    query::{Changed, Or},
+    query::Changed,
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -85,6 +85,7 @@ pub struct LightmapPlugin;
 /// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]
+#[component(change = "indexed")]
 pub struct Lightmap {
     /// The lightmap texture.
     pub image: Handle<Image>,
@@ -203,10 +204,7 @@ impl Plugin for LightmapPlugin {
 fn extract_lightmaps(
     render_lightmaps: ResMut<RenderLightmaps>,
     changed_lightmaps_query: Extract<
-        Query<
-            (Entity, &ViewVisibility, &Lightmap),
-            Or<(Changed<ViewVisibility>, Changed<Lightmap>)>,
-        >,
+        Query<(Entity, &ViewVisibility, &Lightmap), Changed<ViewVisibility>>,
     >,
     mut removed_lightmaps_query: Extract<RemovedComponents<Lightmap>>,
     images: Res<RenderAssets<GpuImage>>,

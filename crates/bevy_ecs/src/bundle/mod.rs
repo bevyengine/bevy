@@ -77,7 +77,7 @@ pub use info::*;
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
-    component::{ComponentId, Components, ComponentsRegistrator, StorageType},
+    component::{ChangeMode, ComponentId, Components, ComponentsRegistrator, StorageType},
     world::EntityWorldMut,
 };
 use bevy_ptr::OwningPtr;
@@ -269,7 +269,7 @@ pub trait DynamicBundle: Sized {
     // information.
     unsafe fn get_components(
         ptr: MovingPtr<'_, Self>,
-        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+        func: &mut impl FnMut(StorageType, ChangeMode, OwningPtr<'_>),
     );
 
     /// Applies the after-effects of spawning this bundle.
