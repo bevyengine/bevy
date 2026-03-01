@@ -129,6 +129,12 @@ pub struct EasyScreenRecordPlugin {
     pub tune: Tune,
     /// target frame time
     pub frame_time: Duration,
+    /// Output directory for recorded video files.
+    ///
+    /// When `None`, recordings are saved in the current working directory.
+    /// When `Some(path)`, recordings are saved in the specified directory.
+    /// The directory will be created if it does not exist.
+    pub output_dir: Option<std::path::PathBuf>,
 }
 
 #[cfg(feature = "screenrecording")]
@@ -139,6 +145,7 @@ impl Default for EasyScreenRecordPlugin {
             preset: Preset::Medium,
             tune: Tune::Animation,
             frame_time: Duration::from_millis(33),
+            output_dir: None,
         }
     }
 }
@@ -189,7 +196,7 @@ impl Plugin for EasyScreenRecordPlugin {
             use x264::{Colorspace, Encoder, Setup};
 
             enum RecordCommand {
-                Start(String, Preset, Tune),
+                Start(std::path::PathBuf, Preset, Tune),
                 Stop,
                 Frame(Image),
             }
@@ -208,9 +215,12 @@ impl Plugin for EasyScreenRecordPlugin {
                         break;
                     };
                     match next {
-                        RecordCommand::Start(name, preset, tune) => {
-                            info!("starting recording at {}", name);
-                            file = Some(File::create(name).unwrap());
+                        RecordCommand::Start(path, preset, tune) => {
+                            if let Some(parent) = path.parent() {
+                                std::fs::create_dir_all(parent).unwrap();
+                            }
+                            info!("starting recording at {}", path.display());
+                            file = Some(File::create(path).unwrap());
                             setup = Some(Setup::preset(preset, tune, false, true).high());
                         }
                         RecordCommand::Stop => {
@@ -263,6 +273,7 @@ impl Plugin for EasyScreenRecordPlugin {
             });
 
             let frame_time = self.frame_time;
+            let output_dir = self.output_dir.clone();
 
             app.add_message::<RecordScreen>().add_systems(
                 Update,
@@ -297,7 +308,11 @@ impl Plugin for EasyScreenRecordPlugin {
                                     window.title,
                                     since_the_epoch.as_millis(),
                                 );
-                                tx.send(RecordCommand::Start(filename, preset, tune))
+                                let path = match &output_dir {
+                                    Some(dir) => dir.join(&filename),
+                                    None => std::path::PathBuf::from(&filename),
+                                };
+                                tx.send(RecordCommand::Start(path, preset, tune))
                                     .unwrap();
                                 *recording = true;
                                 virtual_time.pause();

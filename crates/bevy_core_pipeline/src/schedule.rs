@@ -98,6 +98,10 @@ impl Core2d {
     }
 }
 
+/// Holds the entity of windows that are a render target for a camera
+#[derive(Resource)]
+struct CameraWindows(HashSet<Entity>);
+
 /// The default entry point for camera driven rendering added to the root [`bevy_render::renderer::RenderGraph`]
 /// schedule. This system iterates over all cameras in the world, executing their associated
 /// rendering schedules defined by the [`bevy_render::camera::CameraRenderGraph`] component.
@@ -154,13 +158,12 @@ pub fn camera_driver(world: &mut World) {
             world.run_schedule(schedule);
         }
     }
-
-    submit_pending_command_buffers(world);
     world.remove_resource::<CurrentView>();
-    handle_uncovered_swap_chains(world, &camera_windows);
+
+    world.insert_resource(CameraWindows(camera_windows));
 }
 
-fn submit_pending_command_buffers(world: &mut World) {
+pub(crate) fn submit_pending_command_buffers(world: &mut World) {
     let mut pending = world.resource_mut::<PendingCommandBuffers>();
     let buffer_count = pending.len();
     let buffers = pending.take();
@@ -172,15 +175,17 @@ fn submit_pending_command_buffers(world: &mut World) {
     }
 }
 
-fn handle_uncovered_swap_chains(world: &mut World, camera_windows: &HashSet<Entity>) {
+pub(crate) fn handle_uncovered_swap_chains(world: &mut World) {
     let windows_to_clear: Vec<_> = {
         let clear_color = world.resource::<ClearColor>().0.to_linear();
+        let Some(camera_windows) = world.remove_resource::<CameraWindows>() else {
+            return;
+        };
         let windows = world.resource::<ExtractedWindows>();
-
         windows
             .iter()
             .filter_map(|(window_entity, window)| {
-                if camera_windows.contains(window_entity) {
+                if camera_windows.0.contains(window_entity) {
                     return None;
                 }
                 let swap_chain_texture = window.swap_chain_texture_view.as_ref()?;

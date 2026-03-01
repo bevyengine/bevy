@@ -405,7 +405,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
-            let mut batch_shader_handle = AssetId::invalid();
+            let mut batch_shader_handle = None;
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
@@ -416,11 +416,11 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                 {
                     let mut existing_batch = batches
                         .last_mut()
-                        .filter(|_| batch_shader_handle == extracted_uinode.material);
+                        .filter(|_| batch_shader_handle == Some(extracted_uinode.material));
 
                     if existing_batch.is_none() {
                         batch_item_index = item_index;
-                        batch_shader_handle = extracted_uinode.material;
+                        batch_shader_handle = Some(extracted_uinode.material);
 
                         let new_batch = UiMaterialBatch {
                             range: index..index,
@@ -473,8 +473,10 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         positions[3] + positions_diff[3].extend(0.),
                     ];
 
-                    let transformed_rect_size =
-                        extracted_uinode.transform.transform_vector2(rect_size);
+                    let transformed_rect_size = extracted_uinode
+                        .transform
+                        .transform_vector2(rect_size)
+                        .abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -529,7 +531,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                     existing_batch.unwrap().1.range.end = index;
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else {
-                    batch_shader_handle = AssetId::invalid();
+                    batch_shader_handle = None;
                 }
             }
         }
@@ -632,7 +634,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
             );
         }
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),

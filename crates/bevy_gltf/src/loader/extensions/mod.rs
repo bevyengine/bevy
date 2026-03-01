@@ -119,6 +119,37 @@ pub trait GltfExtensionHandler: Send + Sync {
     ) {
     }
 
+    /// Called when an individual glTF primitive is processed
+    /// glTF primitives are what become a Bevy `Mesh`
+    ///
+    /// `buffer_data` is the raw buffer data from the glTF file, where each `Vec<u8>` represents
+    /// a buffer containing geometry data such as vertex attributes and indices. Extensions can
+    /// read this data to process compressed or encoded primitive data.
+    ///
+    /// `out_doc` allows extensions to provide a modified or
+    /// replacement glTF document. If set, the loader will use this modified document for subsequent
+    /// primitive processing. This is useful for extensions that need to decompress or transform
+    /// the glTF structure before it is processed.
+    ///
+    /// `out_data` allows extensions to provide modified or
+    /// replacement buffer data. If set, the loader will use this modified buffer data instead of
+    /// the original `buffer_data`. This is useful for extensions like `EXT_meshopt_compression`
+    /// that need to decompress buffer data before the primitive is processed.
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
+    fn on_gltf_primitive(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_document: &gltf::Gltf,
+        gltf_primitive: &gltf::Primitive,
+        buffer_data: &[Vec<u8>],
+        out_doc: &mut Option<gltf::Document>,
+        out_data: &mut Option<Vec<Vec<u8>>>,
+    ) {
+    }
+
     /// Called when an individual glTF Mesh is processed
     #[expect(
         unused,

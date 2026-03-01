@@ -17,7 +17,7 @@ use bevy::{
     tasks::{futures::check_ready, AsyncComputeTaskPool, Task},
 };
 use futures_timer::Delay;
-use rand::Rng;
+use rand::RngExt;
 use std::time::Duration;
 
 fn main() {

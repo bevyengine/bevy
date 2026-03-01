@@ -8,9 +8,9 @@ use bevy_ecs::{
     system::{Query, SystemState},
     world::{EntityMut, World},
 };
+use chacha20::ChaCha8Rng;
 use criterion::Criterion;
 use rand::{prelude::SliceRandom, SeedableRng};
-use rand_chacha::ChaCha8Rng;
 use seq_macro::seq;
 
 #[derive(Component, Default)]

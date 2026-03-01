@@ -176,17 +176,13 @@ impl AssetSaver for ManyBoxesSaver {
             .boxes
             .iter()
             .map(|handle| {
-                // TODO: We should have a better to get the asset for a subasset handle.
-                let label = handle
-                    .path()
-                    .and_then(|path| path.label())
-                    .ok_or_else(|| format!("Failed to get label for handle {handle:?}"))?;
                 asset
-                    .get_labeled::<OneBox>(label)
-                    .map(|subasset| subasset.get().clone())
-                    .ok_or_else(|| format!("Failed to find labeled asset for label {label}"))
+                    .get_labeled_by_id::<OneBox>(handle)
+                    .unwrap()
+                    .get()
+                    .clone()
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect();
 
         // Note: serializing to string isn't ideal since we can't do a streaming write, but this is
         // fine for an example.

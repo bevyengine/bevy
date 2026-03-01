@@ -13,12 +13,16 @@
 use std::ops::Range;
 
 use bevy::camera::Viewport;
+use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::math::Affine3Ext;
-use bevy::pbr::{SetMeshViewEmptyBindGroup, ViewKeyCache};
+use bevy::pbr::{MeshPipelineSet, SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
     core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
-    ecs::system::{lifetimeless::SRes, SystemParamItem},
+    ecs::{
+        entity::EntityHash,
+        system::{lifetimeless::SRes, SystemParamItem},
+    },
     math::FloatOrd,
     mesh::MeshVertexBufferLayoutRef,
     pbr::{
@@ -35,7 +39,7 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData,
         },
-        camera::ExtractedCamera,
+        camera::{DirtySpecializations, ExtractedCamera, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
@@ -56,6 +60,7 @@ use bevy::{
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
+use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 
 const SHADER_ASSET_PATH: &str = "shaders/custom_stencil.wgsl";
@@ -125,7 +130,8 @@ impl Plugin for MeshStencilPhasePlugin {
             .init_resource::<DrawFunctions<Stencil3d>>()
             .add_render_command::<Stencil3d, DrawMesh3dStencil>()
             .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
-            .add_systems(RenderStartup, init_stencil_pipeline)
+            .init_resource::<PendingCustomMeshQueues>()
+            .add_systems(RenderStartup, init_stencil_pipeline.after(MeshPipelineSet))
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
                 Render,
@@ -248,7 +254,10 @@ type DrawMesh3dStencil = (
 // If you want to see how a batched phase implementation looks, you should look at the Opaque2d
 // phase.
 struct Stencil3d {
-    pub sort_key: FloatOrd,
+    /// Information needed to sort the objects in the phase by distance to the
+    /// view.
+    pub sorting_info: TransparentSortingInfo3d,
+    pub distance: FloatOrd,
     pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -302,15 +311,23 @@ impl SortedPhaseItem for Stencil3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
+        self.distance
     }
 
     #[inline]
-    fn sort(items: &mut [Self]) {
-        // bevy normally uses radsort instead of the std slice::sort_by_key
-        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
-        // Since it is not re-exported by bevy, we just use the std sort for the purpose of the example
-        items.sort_by_key(SortedPhaseItem::sort_key);
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), Stencil3d, EntityHash>) {
+        items.sort_by_key(|_, phase_item: &Stencil3d| phase_item.distance);
+    }
+
+    fn recalculate_sort_keys(
+        items: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        view: &ExtractedView,
+    ) {
+        // Determine the distance to the view for each phase item.
+        let rangefinder = view.rangefinder3d();
+        for item in items.values_mut() {
+            item.distance = FloatOrd(item.sorting_info.sort_distance(&rangefinder));
+        }
     }
 
     #[inline]
@@ -348,7 +365,7 @@ impl GetBatchData for StencilPipeline {
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
         let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
@@ -367,7 +384,7 @@ impl GetBatchData for StencilPipeline {
                 current_skin_index: u32::MAX,
                 material_and_lightmap_bind_group_slot: 0,
                 tag: 0,
-                pad: 0,
+                morph_descriptor_index: u32::MAX,
             }
         };
         Some((mesh_uniform, None))
@@ -391,10 +408,10 @@ impl GetFullBatchData for StencilPipeline {
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((
-            mesh_instance.current_uniform_index,
+            NonMaxU32::new(mesh_instance.gpu_specific.current_uniform_index())?,
             mesh_instance
                 .should_batch()
-                .then_some(mesh_instance.mesh_asset_id),
+                .then_some(mesh_instance.mesh_asset_id()),
         ))
     }
 
@@ -410,7 +427,7 @@ impl GetFullBatchData for StencilPipeline {
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
         let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
@@ -418,7 +435,8 @@ impl GetFullBatchData for StencilPipeline {
         Some(MeshUniform::new(
             &mesh_instance.transforms,
             first_vertex_index,
-            mesh_instance.material_bindings_index.slot,
+            mesh_instance.material_bindings_index().slot,
+            None,
             None,
             None,
             None,
@@ -478,13 +496,20 @@ fn extract_camera_phases(
         // This is the main camera, so we use the first subview index (0)
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
-        stencil_phases.insert_or_clear(retained_view_entity);
+        stencil_phases.prepare_for_new_frame(retained_view_entity);
         live_entities.insert(retained_view_entity);
     }
 
     // Clear out all dead views.
     stencil_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
+
+/// A resource that stores meshes that couldn't be specialized yet because their
+/// materials hadn't loaded.
+///
+/// See the documentation for [`PendingQueues`] for more information.
+#[derive(Default, Deref, DerefMut, Resource)]
+struct PendingCustomMeshQueues(pub PendingQueues);
 
 // This is a very important step when writing a custom phase.
 //
@@ -499,6 +524,8 @@ fn queue_custom_meshes(
     mut custom_render_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
+    dirty_specializations: Res<DirtySpecializations>,
+    mut pending_custom_mesh_queues: ResMut<PendingCustomMeshQueues>,
     has_marker: Query<(), With<DrawStencil>>,
 ) {
     for (view, visible_entities) in &mut views {
@@ -511,18 +538,41 @@ fn queue_custom_meshes(
             continue;
         };
 
-        let rangefinder = view.rangefinder3d();
         // Since our phase can work on any 3d mesh we can reuse the default mesh 3d filter
-        for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
+        let Some(render_visible_mesh_entities) = visible_entities.get::<Mesh3d>() else {
+            continue;
+        };
+
+        let view_pending_custom_mesh_queues =
+            pending_custom_mesh_queues.prepare_for_new_frame(view.retained_view_entity);
+
+        // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
+        for &main_entity in dirty_specializations
+            .iter_to_dequeue(view.retained_view_entity, render_visible_mesh_entities)
+        {
+            custom_phase.remove(Entity::PLACEHOLDER, main_entity);
+        }
+
+        for (render_entity, visible_entity) in dirty_specializations.iter_to_queue(
+            view.retained_view_entity,
+            render_visible_mesh_entities,
+            &view_pending_custom_mesh_queues.prev_frame,
+        ) {
             // We only want meshes with the marker component to be queued to our phase.
             if has_marker.get(*render_entity).is_err() {
                 continue;
             }
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
+                // We couldn't fetch the mesh, probably because it hasn't been
+                // loaded yet. Add the entity to the list of pending custom mesh
+                // queues and bail.
+                view_pending_custom_mesh_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
 
@@ -545,13 +595,15 @@ fn queue_custom_meshes(
                     continue;
                 }
             };
-            let distance = rangefinder.distance(&mesh_instance.center);
             // At this point we have all the data we need to create a phase item and add it to our
             // phase
             custom_phase.add(Stencil3d {
-                // Sort the data based on the distance to the view
-                sort_key: FloatOrd(distance),
-                entity: (*render_entity, *visible_entity),
+                sorting_info: TransparentSortingInfo3d::Sorted {
+                    mesh_center: mesh_instance.center,
+                    depth_bias: 0.0,
+                },
+                distance: FloatOrd(0.0),
+                entity: (Entity::PLACEHOLDER, *visible_entity),
                 pipeline: pipeline_id,
                 draw_function: draw_custom,
                 // Sorted phase items aren't batched

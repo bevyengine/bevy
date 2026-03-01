@@ -292,7 +292,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     // Determine which cluster we're in. We'll need this to find the right
     // reflection probe.
-    let cluster_index = clustered_forward::fragment_cluster_index(
+    let cluster_index = clustered_forward::view_fragment_cluster_index(
         frag_coord.xy, frag_coord.z, false);
     var clusterable_object_index_ranges =
         clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
