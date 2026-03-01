@@ -1,6 +1,6 @@
 ---
 title: Resources as Components
-pull_requests: [20934]
+pull_requests: [20934, 22910, 22911, 22919, 22930]
 ---
 
 ## `#[derive(Resource)]` implements the `Component` trait
@@ -33,6 +33,35 @@ Consequently, `UiDebugOverlay` is split into `GlobalUiDebugOverlay` (resource) a
 The `ReflectResource` is a ZST (zero-sized type) in 0.19 and only functions to signify that the trait is reflected.
 Instead, `#[reflect(Resource)]` also reflects the `Component` trait, so use `ReflectComponent` instead.
 This is likely to show up in code that uses reflection, like BRP (Bevy Reflect Protocol) and `bevy_scene`.
+
+## Broad Queries and System Conflicts
+
+Now that resources are components, they can be queried using 'broad' queries. These are queries that query all entities. Examples include:
+
+- `Query<()>`
+- `Query<Entity>`
+- `Query<EntityMut>`
+- `Query<EntityRef>`
+- `Query<EntityMutExcept>`
+- `Query<EntityRefExcept>`
+- `Query<Option<&T>>`
+
+These should rarely come up in real games, but if they do, they might conflict with resource access, i.e.
+
+```rust
+fn system(entity_query: Query<EntityMut>, some_resource: Res<MyResource>) {} // err! entity_query conflicts with some_resource
+```
+
+To fix this, you can narrow down the query by using either the `Without<MyResource>` or `Without<IsResource>` filter.
+The `IsResource` marker is attached to all resource entities, so it always filters them out.
+
+The same is true for non-send data:
+
+```rust
+fn system(entity_query: Query<EntityMut>, some_non_send: NonSend<MyNonSend>) {} // err! entity_query conflicts with some_resource
+```
+
+This can be fixed by adding a `Without<MyNonSend>` filter to the query.
 
 ## Renaming Non-Send Resources to Non-Send Data
 
@@ -107,6 +136,9 @@ Resources were also removed from `Access`, which keeps track what data any given
 - `FilteredAccess::write_all_components` was deprecated in favor of `FilteredAccess::write_all`.
 - `FilteredAccessSet::add_unfiltered_resource_read` was deprecated in favor of `FilteredAccessSet::add_resource_read`.
 - `FilteredAccessSet::add_unfiltered_resource_write` was deprecated in favor of `FilteredAccessSet::add_resource_write`.
+
+Due to the split storage it used to be possible to both access an entity and a resource in a `WorldQuery` implementor.
+This is no longer valid. In order to access multiple different entities for a `WorldQuery` implementation, use `WorldQuery::init_nested_access`.
 
 ## Miscellaneous
 
