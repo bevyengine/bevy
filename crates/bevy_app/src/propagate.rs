@@ -192,7 +192,7 @@ pub fn on_r_inserted<
 >(
     event: On<Insert, R>,
     mut commands: Commands,
-    query: Query<(&R, Has<&Inherited<C>>), (Without<Propagate<C>>, F)>,
+    query: Query<(&R, Has<Inherited<C>>), (Without<Propagate<C>>, F)>,
     relations: Query<&Inherited<C>, Without<PropagateStop<C>>>,
 ) {
     let Ok((relation, has_inherited)) = query.get(event.entity) else {
