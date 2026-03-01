@@ -192,15 +192,15 @@ pub fn on_r_inserted<
 >(
     event: On<Insert, R>,
     mut commands: Commands,
-    query: Query<(&R, Option<&Inherited<C>>), (Without<Propagate<C>>, F)>,
+    query: Query<(&R, Has<&Inherited<C>>), (Without<Propagate<C>>, F)>,
     relations: Query<&Inherited<C>, Without<PropagateStop<C>>>,
 ) {
-    let Ok((relation, maybe_inherited)) = query.get(event.entity) else {
+    let Ok((relation, has_inherited)) = query.get(event.entity) else {
         return;
     };
     if let Ok(inherited) = relations.get(relation.get()) {
         commands.entity(event.entity).try_insert(inherited.clone());
-    } else if maybe_inherited.is_some() {
+    } else if has_inherited {
         commands.entity(event.entity).try_remove::<Inherited<C>>();
     }
 }
