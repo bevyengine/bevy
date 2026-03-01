@@ -1,6 +1,6 @@
 ---
 title: "`ui` feature is now no longer implied by the `3d` or `2d` features"
-pull_requests: [TODO]
+pull_requests: [23180]
 ---
 
 Swapping the UI framework for your Bevy project is a common form of customization.
