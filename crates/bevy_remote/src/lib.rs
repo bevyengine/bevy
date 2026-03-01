@@ -876,7 +876,7 @@ pub struct BrpRequest {
     pub params: Option<Value>,
 }
 
-// BRP uses json-rpc 2.0, so we need to include `"jsonrpc":"2.0"` in the json outout
+// BRP uses json-rpc 2.0, so we need to include `"jsonrpc":"2.0"` in the json output
 // and check for it's presence in the input.
 // This is is similar to the inverse of `#[serde(skip)]`, but serde doesn't provide
 // an attribute for this behavior so we need a manual ser/de implementation.
