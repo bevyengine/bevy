@@ -168,7 +168,7 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
             .try_insert(Inherited(source.0.clone()));
     }
 
-    // set `Inherited::<C>` base d on ancestry when `Propagate::<C>` is removed
+    // set `Inherited::<C>` based on ancestry when `Propagate::<C>` is removed
     for removed in removed.read() {
         if let Ok(mut commands) = commands.get_entity(removed) {
             if let Some(inherited) = relationship
