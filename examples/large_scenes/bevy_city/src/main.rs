@@ -1,7 +1,10 @@
 //! A procedurally generated city
 
+use crate::settings::Settings;
+use crate::{generate_city::spawn_city, settings::setup_settings_ui};
 use argh::FromArgs;
 use assets::{load_assets, CityAssets};
+use bevy::post_process::motion_blur::MotionBlur;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::{Exposure, Hdr},
@@ -18,9 +21,6 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
-
-use crate::settings::Settings;
-use crate::{generate_city::spawn_city, settings::setup_settings_ui};
 
 mod assets;
 mod generate_city;
@@ -47,7 +47,7 @@ fn main() {
                 primary_window: Some(Window {
                     title: "bevy_city".into(),
                     resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
-                    present_mode: PresentMode::AutoNoVsync,
+                    // present_mode: PresentMode::AutoNoVsync,
                     ..default()
                 }),
                 ..default()
@@ -98,6 +98,7 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
         Msaa::Off,
         TemporalAntiAliasing::default(),
         ContactShadows::default(),
+        MotionBlur::default(),
     ));
 
     commands.spawn((

@@ -15,6 +15,7 @@ pub mod mip_generation;
 pub mod oit;
 pub mod prepass;
 pub mod schedule;
+pub mod skybox;
 pub mod tonemapping;
 pub mod upscaling;
 
@@ -24,7 +25,6 @@ pub use fullscreen_vertex_shader::FullscreenShader;
 pub use schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
 
 mod fullscreen_vertex_shader;
-mod skybox;
 
 use crate::schedule::{
     camera_driver, handle_uncovered_swap_chains, submit_pending_command_buffers,
