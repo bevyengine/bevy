@@ -263,10 +263,11 @@ fn sample_visible_ggx(
     let y = sin_theta * sin(phi);
     let c_std = vec3f(x, y, z);
 
-    // Reflect the sample so that the normal aligns with +Z
-    let up = vec3f(0.0, 0.0, 1.0);
-    let wr = n + up;
-    let c = dot(wr, c_std) * wr / wr.z - c_std;
+    // Rotate the sample so that the normal aligns with +Z
+    let up = select(vec3f(0.0, 0.0, 1.0), vec3f(1.0, 0.0, 0.0), abs(n.z) > 0.999);
+    let tangent_x = normalize(cross(up, n));
+    let tangent_y = cross(n, tangent_x);
+    let c = tangent_x * c_std.x + tangent_y * c_std.y + n * c_std.z;
 
     // Half-vector in the standard frame
     let wm_std = c + wi_std;
