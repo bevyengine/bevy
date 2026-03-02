@@ -255,7 +255,7 @@ fn build_light_basis(light_dir: vec3<f32>) -> LightBasis {
 }
 
 /// Helper for cloud shadow PCF: evaluates transmittance from shadow map data.
-fn cloud_shadow_eval_transmittance(data: vec3<f32>, d_sample: f32) -> f32 {
+fn cloud_shadow_transmittance(data: vec3<f32>, d_sample: f32) -> f32 {
     let front_depth = data.r * 1000.0;
     let mean_ext = data.g;
     let max_optical_depth = data.b;
@@ -263,6 +263,12 @@ fn cloud_shadow_eval_transmittance(data: vec3<f32>, d_sample: f32) -> f32 {
     var tau = mean_ext * delta;
     tau = min(tau, max_optical_depth);
     return exp(-tau);
+}
+
+/// Ground illuminance variant: uses only the stored optical depth (B channel), ignoring front depth.
+fn cloud_shadow_optical_depth(data: vec3<f32>) -> f32 {
+    let optical_depth = data.b;
+    return exp(-optical_depth);
 }
 
 fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, size: vec2<u32>) -> vec3<f32> {
@@ -291,7 +297,10 @@ fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, 
 /// For a world-space sample point, we compute:
 ///   tau = mean_ext * (d_sample - d_front), clamped by max_optical_depth
 ///   T = exp(-tau)
-fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>) -> f32 {
+///
+/// When `use_optical_depth_only` is true (e.g. for ground illuminance), front depth is ignored
+/// and transmittance is computed from the stored optical depth only: T = exp(-optical_depth).
+fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>, use_optical_depth_only: bool) -> f32 {
     // Only meaningful in raymarched mode.
     if (settings.rendering_method != 1u) {
         return 1.0;
@@ -331,6 +340,13 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>) 
 
     let uv = vec2(x, y) / (2.0 * extent) + vec2(0.5);
 
+    #ifdef CLOUD_SHADOW_SIMPLE_SAMPLING
+    let d = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv, 0.0).rgb;
+    if (use_optical_depth_only) {
+        return cloud_shadow_optical_depth(d);
+    }
+    return cloud_shadow_transmittance(d, d_sample);
+    #else
     // 4-tap PCF (2x2 half-texel) to reduce aliasing and soften shadow edges.
     // Samples are offset by ±0.25 texels so the 2x2 footprint covers the sampling area.
     let size = vec2<f32>(settings.cloud_shadow_map_size);
@@ -342,12 +358,13 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>) 
     let d01 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(-o.x, o.y), 0.0).rgb;
     let d11 = textureSampleLevel(cloud_shadow_map, atmosphere_lut_sampler, uv + vec2(o.x, o.y), 0.0).rgb;
 
-    let t00 = cloud_shadow_eval_transmittance(d00, d_sample);
-    let t10 = cloud_shadow_eval_transmittance(d10, d_sample);
-    let t01 = cloud_shadow_eval_transmittance(d01, d_sample);
-    let t11 = cloud_shadow_eval_transmittance(d11, d_sample);
+    let t00 = select(cloud_shadow_transmittance(d00, d_sample), cloud_shadow_optical_depth(d00), use_optical_depth_only);
+    let t10 = select(cloud_shadow_transmittance(d10, d_sample), cloud_shadow_optical_depth(d10), use_optical_depth_only);
+    let t01 = select(cloud_shadow_transmittance(d01, d_sample), cloud_shadow_optical_depth(d01), use_optical_depth_only);
+    let t11 = select(cloud_shadow_transmittance(d11, d_sample), cloud_shadow_optical_depth(d11), use_optical_depth_only);
 
     return (t00 + t10 + t01 + t11) * 0.25;
+    #endif
 }
 #endif
 
@@ -387,7 +404,7 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         // NUBIS: Add volumetric cloud scattering with proper physical integration
         // Clouds contribute to inscattering via Henyey-Greenstein phase function
         // Compute volumetric shadow from clouds via the cloud shadow map (stable at grazing angles).
-        shadow_factor *= sample_cloud_shadow_map(world_pos, (*light).direction_to_light);
+        shadow_factor *= sample_cloud_shadow_map(world_pos, (*light).direction_to_light, false);
         
         // Cloud scattering coefficient: σ_s_cloud = density * scattering_coeff
         // Using physically correct coefficients (units: m^-1 per unit density)
@@ -836,7 +853,10 @@ fn raymarch_atmosphere(
             let sphere_normal = normalize(sphere_point);
             let mu_light = dot(light_dir, sphere_normal);
             let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
-            let light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
+            var light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
+            #ifdef CLOUDS_ENABLED
+            light_luminance *= sample_cloud_shadow_map(sphere_point, light_dir, true);
+            #endif
             // Normalized Lambert BRDF
             let ground_luminance = transmittance_to_ground * atmosphere.ground_albedo / PI;
             result.inscattering += ground_luminance * light_luminance;

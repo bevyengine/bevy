@@ -188,7 +188,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             let stbn_layers = textureNumLayers(stbn_texture);
             let stbn_layer = i32(view.frame_count % u32(stbn_layers));
             let stbn_noise = textureLoad(stbn_texture, vec2<i32>(gid.xy) % vec2<i32>(stbn_dims), stbn_layer, 0);
-            j = fract(stbn_noise.r + f32(i) * 0.618033988749895);
+            // j = fract(stbn_noise.r + f32(i) * 0.618033988749895);
+            j = fract(0.0 + f32(i) * 0.618033988749895);
         } else {
             j = hash_2d_to_01(gid.xy, 0x1000u + i);
         }

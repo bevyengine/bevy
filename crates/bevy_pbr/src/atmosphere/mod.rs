@@ -95,8 +95,10 @@ use tracing::warn;
 use crate::resources::{init_atmosphere_buffer, write_atmosphere_buffer};
 
 use self::resources::{
-    prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-    AtmosphereLutPipelines, AtmosphereSampler, CloudNoiseSampler,
+    prepare_atmosphere_bind_groups, prepare_atmosphere_textures,
+    prepare_cloud_shadow_temporal_params, AtmosphereBindGroupLayouts, AtmosphereLutPipelines,
+    AtmosphereSampler, CloudNoiseSampler, CloudShadowTemporalParamsBuffer,
+    CloudShadowTemporalState,
 };
 
 #[doc(hidden)]
@@ -120,6 +122,7 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "perlin_worley_noise_3d.wgsl");
         embedded_asset!(app, "cloud_shadow_map.wgsl");
         embedded_asset!(app, "cloud_shadow_filter.wgsl");
+        embedded_asset!(app, "cloud_shadow_temporal.wgsl");
 
         app.add_plugins((
             ExtractComponentPlugin::<GpuAtmosphereSettings>::default(),
@@ -185,6 +188,8 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<PerlinWorleyNoiseBindGroupLayout>()
             .init_resource::<PerlinWorleyNoisePipeline>()
             .init_resource::<PerlinWorleyNoiseGenerated>()
+            .init_resource::<CloudShadowTemporalState>()
+            .init_resource::<CloudShadowTemporalParamsBuffer>()
             .add_systems(
                 RenderStartup,
                 (
@@ -212,6 +217,9 @@ impl Plugin for AtmospherePlugin {
                         .before(RenderSystems::PrepareResources),
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
+                    prepare_cloud_shadow_temporal_params
+                        .in_set(RenderSystems::PrepareBindGroups)
+                        .before(prepare_atmosphere_bind_groups),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_fbm_noise_bind_group.in_set(RenderSystems::PrepareBindGroups),
                     prepare_perlin_worley_noise_bind_group.in_set(RenderSystems::PrepareBindGroups),
@@ -368,6 +376,24 @@ pub struct AtmosphereSettings {
     /// This is the main knob to trade performance for stability once the shadow map uses jittered sampling.
     /// Values above 4 are usually not worth it.
     pub cloud_shadow_map_spatial_filter_iterations: u32,
+
+    /// Enable temporal filtering for the cloud shadow map to reduce edge flickering.
+    ///
+    /// When enabled, the shadow map is blended with the previous frame's result,
+    /// stabilizing edges over time. Based on Unreal's approach.
+    pub cloud_shadow_temporal_enabled: bool,
+
+    /// Weight of the current frame in the temporal blend (0.0–1.0).
+    ///
+    /// Lower values (e.g. 0.1–0.2) produce more stable shadows but slower convergence.
+    /// Higher values (e.g. 0.5) converge faster but may retain more flicker.
+    pub cloud_shadow_temporal_alpha: f32,
+
+    /// Light rotation threshold (degrees) beyond which history is invalidated.
+    ///
+    /// When the sun moves more than this angle, temporal accumulation is reset
+    /// to avoid ghosting. Unreal uses 10°.
+    pub cloud_shadow_temporal_light_rotation_cut_deg: f32,
 }
 
 impl Default for AtmosphereSettings {
@@ -392,7 +418,10 @@ impl Default for AtmosphereSettings {
             cloud_shadow_map_extent: 64_000.0,
             cloud_shadow_map_samples: 48,
             cloud_shadow_map_strength: 1.0,
-            cloud_shadow_map_spatial_filter_iterations: 2,
+            cloud_shadow_map_spatial_filter_iterations: 0,
+            cloud_shadow_temporal_enabled: false,
+            cloud_shadow_temporal_alpha: 0.15,
+            cloud_shadow_temporal_light_rotation_cut_deg: 10.0,
         }
     }
 }
@@ -418,6 +447,9 @@ pub struct GpuAtmosphereSettings {
     pub cloud_shadow_map_samples: u32,
     pub cloud_shadow_map_strength: f32,
     pub cloud_shadow_map_spatial_filter_iterations: u32,
+    pub cloud_shadow_temporal_enabled: u32,
+    pub cloud_shadow_temporal_alpha: f32,
+    pub cloud_shadow_temporal_light_rotation_cut_deg: f32,
 }
 
 impl Default for GpuAtmosphereSettings {
@@ -448,6 +480,10 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
             cloud_shadow_map_strength: s.cloud_shadow_map_strength,
             cloud_shadow_map_spatial_filter_iterations: s
                 .cloud_shadow_map_spatial_filter_iterations,
+            cloud_shadow_temporal_enabled: s.cloud_shadow_temporal_enabled as u32,
+            cloud_shadow_temporal_alpha: s.cloud_shadow_temporal_alpha,
+            cloud_shadow_temporal_light_rotation_cut_deg: s
+                .cloud_shadow_temporal_light_rotation_cut_deg,
         }
     }
 }

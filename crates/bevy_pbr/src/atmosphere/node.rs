@@ -1,5 +1,6 @@
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::system::Res;
+use bevy_image::ToExtents;
 use bevy_math::{UVec2, Vec3Swizzles};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -13,8 +14,8 @@ use crate::{resources::GpuAtmosphere, ViewLightsUniformOffset};
 
 use super::{
     resources::{
-        AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTransformsOffset,
-        RenderSkyPipelineId,
+        AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTextures,
+        AtmosphereTransformsOffset, RenderSkyPipelineId,
     },
     CloudLayer, GpuAtmosphereSettings,
 };
@@ -23,6 +24,7 @@ pub fn atmosphere_luts(
     view: ViewQuery<(
         &GpuAtmosphereSettings,
         &AtmosphereBindGroups,
+        &AtmosphereTextures,
         &DynamicUniformIndex<GpuAtmosphere>,
         &DynamicUniformIndex<GpuAtmosphereSettings>,
         &AtmosphereTransformsOffset,
@@ -37,6 +39,7 @@ pub fn atmosphere_luts(
     let (
         settings,
         bind_groups,
+        textures,
         atmosphere_uniforms_offset,
         settings_uniforms_offset,
         atmosphere_transforms_offset,
@@ -60,13 +63,21 @@ pub fn atmosphere_luts(
         return;
     };
 
-    let (cloud_shadow_map_pipeline, cloud_shadow_filter_pipeline) = (
+    let (cloud_shadow_map_pipeline, cloud_shadow_filter_pipeline, cloud_shadow_temporal_pipeline) = (
         pipeline_cache.get_compute_pipeline(pipelines.cloud_shadow_map),
         pipeline_cache.get_compute_pipeline(pipelines.cloud_shadow_filter),
+        pipeline_cache.get_compute_pipeline(pipelines.cloud_shadow_temporal),
     );
 
     fn dispatch_2d(compute_pass: &mut ComputePass, size: UVec2) {
         const WORKGROUP_SIZE: u32 = 16;
+        let workgroups_x = size.x.div_ceil(WORKGROUP_SIZE);
+        let workgroups_y = size.y.div_ceil(WORKGROUP_SIZE);
+        compute_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1);
+    }
+
+    fn dispatch_2d_temporal(compute_pass: &mut ComputePass, size: UVec2) {
+        const WORKGROUP_SIZE: u32 = 8;
         let workgroups_x = size.x.div_ceil(WORKGROUP_SIZE);
         let workgroups_y = size.y.div_ceil(WORKGROUP_SIZE);
         compute_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1);
@@ -198,6 +209,34 @@ pub fn atmosphere_luts(
                 dispatch_2d(&mut filter_pass, settings.cloud_shadow_map_size);
             }
         }
+    }
+
+    // Temporal filter: blend current (tmp) with history, write to cloud_shadow_map.
+    // Then copy cloud_shadow_map -> history for next frame.
+    if settings.rendering_method == 1
+        && settings.cloud_shadow_temporal_enabled != 0
+        && cloud_layer_uniforms_offset.is_some()
+    {
+        if let (Some(temporal_pipeline), Some(temporal_bg)) = (
+            cloud_shadow_temporal_pipeline,
+            bind_groups.cloud_shadow_temporal.as_ref(),
+        ) {
+            let mut temporal_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: Some("cloud_shadow_temporal"),
+                timestamp_writes: None,
+            });
+            temporal_pass.set_pipeline(temporal_pipeline);
+            temporal_pass.set_bind_group(0, temporal_bg, &[]);
+            dispatch_2d_temporal(&mut temporal_pass, settings.cloud_shadow_map_size);
+        }
+
+        // Copy cloud_shadow_map to history for next frame.
+        let copy_size = settings.cloud_shadow_map_size.to_extents();
+        command_encoder.copy_texture_to_texture(
+            textures.cloud_shadow_map.texture.as_image_copy(),
+            textures.cloud_shadow_map_history.texture.as_image_copy(),
+            copy_size,
+        );
     }
 }
 
