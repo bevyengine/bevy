@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2024"
 description = "Bevy Engine's entity component system"
 homepage = "https://bevy.org"

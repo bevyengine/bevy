@@ -1,6 +1,6 @@
 [package]
 name = "bevy_light"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2024"
 description = "Keeps the lights on at Bevy Engine"
 homepage = "https://bevy.org"

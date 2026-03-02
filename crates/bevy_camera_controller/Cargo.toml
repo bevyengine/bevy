@@ -1,6 +1,6 @@
 [package]
 name = "bevy_camera_controller"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2024"
 description = "Premade camera controllers for Bevy"
 homepage = "https://bevy.org"

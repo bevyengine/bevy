@@ -1,6 +1,6 @@
 [package]
 name = "bevy_picking"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2024"
 description = "Provides screen picking functionality for Bevy Engine"
 homepage = "https://bevy.org"

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_post_process"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2024"
 description = "Provides post process effects for Bevy Engine."
 homepage = "https://bevy.org"

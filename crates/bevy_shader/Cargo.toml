@@ -1,6 +1,6 @@
 [package]
 name = "bevy_shader"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2024"
 description = "Provides shader asset types and import resolution for Bevy"
 homepage = "https://bevy.org"

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_winit"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2024"
 description = "A winit window and input backend for Bevy Engine"
 homepage = "https://bevy.org"

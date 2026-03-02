@@ -1,6 +1,6 @@
 [package]
 name = "bevy_animation_macros"
-version = "0.18.0"
+version = "0.18.1"
 description = "Macros for bevy_animation"
 edition = "2024"
 license = "MIT OR Apache-2.0"

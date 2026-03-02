@@ -1,6 +1,6 @@
 [package]
 name = "bevy_dylib"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2024"
 description = "Force the Bevy Engine to be dynamically linked for faster linking"
 homepage = "https://bevy.org"
