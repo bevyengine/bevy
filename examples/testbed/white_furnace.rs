@@ -72,6 +72,10 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
 ) {
     let sphere_mesh = meshes.add(Sphere::new(0.45));
+
+    // Light should come from the environment map only
+    commands.insert_resource(GlobalAmbientLight::NONE);
+
     // add entities to the world
     for y in -2..=2 {
         for x in -5..=5 {

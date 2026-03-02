@@ -537,6 +537,7 @@ mod texture_atlas_builder {
                                 * (Vec3::Y * IMAGE_SIZE.y as f32 + anchor.as_vec().extend(0.)),
                     ),
                     anchor,
+                    DespawnOnExit(super::Scene::TextureAtlasBuilder),
                 ));
             }
         }
