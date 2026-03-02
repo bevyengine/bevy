@@ -1,5 +1,5 @@
 ---
-title: `StaticTransformOptimizations` no longer stores a threshold for dynamic toggling
+title: "`StaticTransformOptimizations` no longer stores a threshold for dynamic toggling"
 pull_requests: [23193]
 ---
 
