@@ -158,8 +158,8 @@ where
 /// A [`Command`] that runs the given system with the given input value,
 /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
 ///
-/// To use the supplied input, the system should have a [`SystemInput`](bevy_ecs::system::input::SystemInput) as the first parameter.
-/// Consider using an [`Event`](bevy_ecs::event::Event) if multiple systems are to be run with this input
+/// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
+/// Consider using an [`Event`] if multiple systems are to be run with this input
 ///
 pub fn run_system_cached_with<I, M, S>(system: S, input: I::Inner<'static>) -> impl Command<Result>
 where

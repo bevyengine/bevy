@@ -341,8 +341,8 @@ impl World {
     /// Before running a system, it must first be registered.
     /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
     ///
-    /// To use the supplied input, the system should have a [`SystemInput`](bevy_ecs::system::input::SystemInput) as the first parameter.
-    /// Consider using an [`Event`](bevy_ecs::event::Event) if multiple systems are to be run with this input
+    /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
+    /// Consider using an [`Event`] if multiple systems are to be run with this input
     ///
     /// Also runs any queued-up commands.
     ///
@@ -513,8 +513,8 @@ impl World {
 
     /// Runs a cached system with an input, registering it if necessary.
     ///
-    /// To use the supplied input, the system should have a [`SystemInput`](bevy_ecs::system::input::SystemInput) as the first parameter.
-    /// Consider using an [`Event`](bevy_ecs::event::Event) if multiple systems are to be run with this input
+    /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
+    /// Consider using an [`Event`] if multiple systems are to be run with this input
     ///
     /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached_with<I, O, M, S>(
