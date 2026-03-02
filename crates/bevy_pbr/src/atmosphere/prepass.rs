@@ -1,8 +1,8 @@
 //! Motion vector prepass support for atmosphere rendering.
 //!
-//! When a camera has both [`Atmosphere`](ExtractedAtmosphere) and [`MotionVectorPrepass`] but no
-//! [`Skybox`], this module writes motion vectors for sky pixels (depth == 0) so that effects like
-//! TAA and motion blur work correctly on the atmospheric sky.
+//! When a camera has both [`ExtractedAtmosphere`] and [`MotionVectorPrepass`] but no [`Skybox`],
+//! this module writes motion vectors for sky pixels (depth == 0) so that effects like TAA and
+//! motion blur work correctly on the atmospheric sky.
 //!
 //! The pipeline is structurally identical to [`SkyboxPrepassPipeline`]. Both compute camera
 //! relative motion vectors because the sky is at infinity.
@@ -41,8 +41,8 @@ use bevy_utils::prelude::default;
 
 use super::ExtractedAtmosphere;
 
-/// Pipeline for writing motion vectors to the prepass for cameras with [`Atmosphere`] but no
-/// [`Skybox`].
+/// Pipeline for writing motion vectors to the prepass for cameras with [`ExtractedAtmosphere`] but
+/// no [`Skybox`].
 ///
 /// When a [`Skybox`] is also present, the existing [`SkyboxPrepassPipeline`] already covers
 /// sky-pixel motion vectors, so this pipeline is skipped.
@@ -112,11 +112,12 @@ impl SpecializedRenderPipeline for AtmospherePrepassPipeline {
     }
 }
 
-/// Specialize and cache the [`AtmospherePrepassPipeline`] for each camera that has [`Atmosphere`]
-/// and [`MotionVectorPrepass`] but no [`Skybox`] (the skybox prepass already covers that case).
+/// Specialize and cache the [`AtmospherePrepassPipeline`] for each camera that has
+/// [`ExtractedAtmosphere`] and [`MotionVectorPrepass`] but no [`Skybox`] (the skybox prepass
+/// already covers that case).
 ///
-/// The resulting [`CachedRenderPipelineId`] is stored as a [`RenderSkyboxPrepassPipeline`]
-/// component, so the existing prepass node picks it up without any changes to `bevy_core_pipeline`.
+/// The resulting pipeline ID is stored as a [`RenderSkyboxPrepassPipeline`] component, so the
+/// existing prepass node picks it up without any changes to `bevy_core_pipeline`.
 pub fn prepare_atmosphere_prepass_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
