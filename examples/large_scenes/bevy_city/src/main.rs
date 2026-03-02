@@ -66,6 +66,8 @@ fn main() {
             default_color: WHITE.into(),
             ..default()
         })
+        // Like in many realistic large scenes, many of the objects don't move
+        // We can accelerate transform propagation by optimizing for this case
         .insert_resource(StaticTransformOptimizations::enabled())
         .add_systems(
             Startup,
