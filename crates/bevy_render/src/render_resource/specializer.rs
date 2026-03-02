@@ -5,6 +5,7 @@ use bevy_material::descriptor::{
 
 use super::{ComputePipeline, PipelineCache, RenderPipeline};
 use bevy_ecs::error::BevyError;
+use bevy_log::error;
 use bevy_platform::{
     collections::{
         hash_map::{Entry, VacantEntry},
@@ -13,7 +14,6 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use core::{hash::Hash, marker::PhantomData};
-use tracing::error;
 use variadics_please::all_tuples;
 
 pub use bevy_render_macros::{Specializer, SpecializerKey};

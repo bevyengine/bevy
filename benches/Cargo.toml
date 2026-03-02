@@ -30,12 +30,12 @@ bevy_platform = { path = "../crates/bevy_platform", default-features = false, fe
 ] }
 
 # Other crates
-glam = { version = "0.30.7", default-features = false, features = [
+glam = { version = "0.32.0", default-features = false, features = [
   "std",
   "rand",
 ] }
-rand = "0.9"
-rand_chacha = "0.9"
+rand = "0.10"
+chacha20 = { version = "0.10.0", default-features = false, features = ["rng"] }
 nonmax = { version = "0.5", default-features = false }
 
 [lints.clippy]

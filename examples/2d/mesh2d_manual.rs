@@ -26,7 +26,7 @@ use bevy::{
             SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
             VertexFormat, VertexState, VertexStepMode,
         },
-        sync_component::SyncComponentPlugin,
+        sync_component::{SyncComponent, SyncComponentPlugin},
         sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderStartup, RenderSystems,
@@ -124,6 +124,10 @@ fn star(
 /// A marker component for colored 2d meshes
 #[derive(Component, Default)]
 pub struct ColoredMesh2d;
+
+impl SyncComponent for ColoredMesh2d {
+    type Out = Self;
+}
 
 /// Custom pipeline for 2d meshes with vertex colors
 #[derive(Resource)]
@@ -353,7 +357,7 @@ pub fn extract_colored_mesh2d(
         }
 
         let transforms = Mesh2dTransforms {
-            world_from_local: (&transform.affine()).into(),
+            world_from_local: transform.affine().into(),
             flags: MeshFlags::empty().bits(),
         };
 
@@ -400,7 +404,10 @@ pub fn queue_colored_mesh2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
-        for (render_entity, visible_entity) in visible_entities.iter::<Mesh2d>() {
+        let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {
+            continue;
+        };
+        for (render_entity, visible_entity) in visible_entities.entities.iter() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
                 let mesh2d_handle = mesh_instance.mesh_asset_id;
                 let mesh2d_transforms = &mesh_instance.transforms;

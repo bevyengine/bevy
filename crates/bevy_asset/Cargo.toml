@@ -63,11 +63,14 @@ ron = { version = "0.12", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
-uuid = { version = "1.13.1", default-features = false, features = [
+uuid = { version = "1.21.0", default-features = false, features = [
   "v4",
   "serde",
 ] }
 tracing = { version = "0.1", default-features = false }
+
+[target.'cfg(not(any(target_os = "windows", target_arch = "wasm32")))'.dependencies]
+async-io = "2.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_android = { path = "../bevy_android", version = "0.19.0-dev", default-features = false }
@@ -82,7 +85,7 @@ web-sys = { version = "0.3", features = [
 ] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-uuid = { version = "1.13.1", default-features = false, features = ["js"] }
+uuid = { version = "1.21.0", default-features = false, features = ["js"] }
 bevy_app = { path = "../bevy_app", version = "0.19.0-dev", default-features = false, features = [
   "web",
 ] }
@@ -91,7 +94,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.19.0-dev", default-featu
 ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-notify-debouncer-full = { version = "0.6.0", default-features = false, optional = true }
+notify-debouncer-full = { version = "0.7.0", default-features = false, optional = true }
 # updating ureq: while ureq is semver stable, it depends on rustls which is not, meaning unlikely but possible breaking changes on minor releases. https://github.com/bevyengine/bevy/pull/16366#issuecomment-2572890794
 ureq = { version = "3", optional = true, default-features = false }
 blocking = { version = "1.6", optional = true }
@@ -100,5 +103,9 @@ blocking = { version = "1.6", optional = true }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
 all-features = true

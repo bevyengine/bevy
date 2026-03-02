@@ -1,5 +1,4 @@
 use core::mem::{self, size_of};
-use std::sync::OnceLock;
 
 use bevy_asset::{prelude::AssetChanged, Assets};
 use bevy_camera::visibility::ViewVisibility;
@@ -116,8 +115,7 @@ pub struct SkinUniforms {
     total_joints: usize,
 }
 
-pub fn skin_uniforms_from_world(world: &mut World) {
-    let device = world.resource::<RenderDevice>();
+pub fn skin_uniforms_from_world(device: Res<RenderDevice>, mut commands: Commands) {
     let buffer_usages = (if skins_use_uniform_buffers(&device.limits()) {
         BufferUsages::UNIFORM
     } else {
@@ -150,7 +148,7 @@ pub fn skin_uniforms_from_world(world: &mut World) {
         total_joints: 0,
     };
 
-    world.insert_resource(res);
+    commands.insert_resource(res);
 }
 
 impl SkinUniforms {
@@ -192,8 +190,7 @@ impl SkinUniformInfo {
 /// Returns true if skinning must use uniforms (and dynamic offsets) because
 /// storage buffers aren't supported on the current platform.
 pub fn skins_use_uniform_buffers(limits: &WgpuLimits) -> bool {
-    static SKINS_USE_UNIFORM_BUFFERS: OnceLock<bool> = OnceLock::new();
-    *SKINS_USE_UNIFORM_BUFFERS.get_or_init(|| limits.max_storage_buffers_per_shader_stage == 0)
+    bevy_render::storage_buffers_are_unsupported(limits)
 }
 
 /// Uploads the buffers containing the joints to the GPU.

@@ -5,6 +5,7 @@ use bevy_material::descriptor::{
 
 use crate::render_resource::PipelineCache;
 use bevy_ecs::resource::Resource;
+use bevy_log::error;
 use bevy_material::specialize::SpecializedMeshPipelineError;
 use bevy_mesh::{MeshVertexBufferLayoutRef, VertexBufferLayout};
 use bevy_platform::{
@@ -16,7 +17,6 @@ use bevy_platform::{
 };
 use bevy_utils::default;
 use core::hash::Hash;
-use tracing::error;
 
 /// A trait that allows constructing different variants of a render pipeline from a key.
 ///

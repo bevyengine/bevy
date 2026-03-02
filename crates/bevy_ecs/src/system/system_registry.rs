@@ -405,9 +405,7 @@ impl World {
         #[cfg(feature = "hotpatching")]
         if self
             .get_resource_ref::<HotPatchChanges>()
-            .map(|r| r.last_changed())
-            .unwrap_or_default()
-            .is_newer_than(system.get_last_run(), self.change_tick())
+            .is_none_or(|r| r.is_changed_after(system.get_last_run()))
         {
             system.refresh_hotpatch();
         }

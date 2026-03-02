@@ -29,15 +29,18 @@ pub mod circles;
 pub mod config;
 pub mod cross;
 pub mod curves;
+pub mod frustum;
 pub mod gizmos;
 mod global;
 pub mod grid;
 pub mod primitives;
 pub mod retained;
 pub mod rounded_box;
+mod simplex_stroke_font;
+pub mod stroke_text;
 
-#[cfg(feature = "bevy_light")]
-pub mod light;
+#[cfg(feature = "bevy_mesh")]
+pub mod skinned_mesh_bounds;
 
 /// The gizmos prelude.
 ///
@@ -45,6 +48,13 @@ pub mod light;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::aabb::{AabbGizmoConfigGroup, ShowAabbGizmo};
+    pub use crate::frustum::{FrustumGizmoConfigGroup, ShowFrustumGizmo};
+
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_mesh")]
+    pub use crate::skinned_mesh_bounds::{
+        ShowSkinnedMeshBoundsGizmo, SkinnedMeshBoundsGizmoConfigGroup,
+    };
 
     #[doc(hidden)]
     pub use crate::{
@@ -58,15 +68,13 @@ pub mod prelude {
         retained::Gizmo,
         AppGizmoBuilder, GizmoAsset,
     };
-
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_light")]
-    pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
+use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
+    prelude::Entity,
     resource::Resource,
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Res, ResMut},
@@ -80,8 +88,9 @@ use bevy_utils::TypeIdMap;
 use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore};
 use core::{any::TypeId, marker::PhantomData, mem};
 use gizmos::{GizmoStorage, Swap};
-#[cfg(feature = "bevy_light")]
-use light::LightGizmoPlugin;
+
+#[cfg(feature = "bevy_mesh")]
+use crate::skinned_mesh_bounds::SkinnedMeshBoundsGizmoPlugin;
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 #[derive(Default)]
@@ -94,10 +103,14 @@ impl Plugin for GizmoPlugin {
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
 
-        app.add_plugins((aabb::AabbGizmoPlugin, global::GlobalGizmosPlugin));
+        app.add_plugins((
+            aabb::AabbGizmoPlugin,
+            frustum::FrustumGizmoPlugin,
+            global::GlobalGizmosPlugin,
+        ));
 
-        #[cfg(feature = "bevy_light")]
-        app.add_plugins(LightGizmoPlugin);
+        #[cfg(feature = "bevy_mesh")]
+        app.add_plugins(SkinnedMeshBoundsGizmoPlugin);
     }
 }
 
@@ -274,7 +287,7 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
         handles.handles.insert(TypeId::of::<Config>(), None);
     } else if let Some(handle) = handles.handles.get_mut(&TypeId::of::<Config>()) {
         if let Some(handle) = handle {
-            let gizmo = gizmo_assets.get_mut(handle.id()).unwrap();
+            let mut gizmo = gizmo_assets.get_mut(handle.id()).unwrap();
 
             gizmo.buffer.list_positions = mem::take(&mut storage.list_positions);
             gizmo.buffer.list_colors = mem::take(&mut storage.list_colors);
@@ -334,4 +347,9 @@ impl Default for GizmoAsset {
     fn default() -> Self {
         GizmoAsset::new()
     }
+}
+
+/// Generates a random, well-dispersed color seeded by the provided `Entity`.
+pub fn color_from_entity(entity: Entity) -> Color {
+    Oklcha::sequential_dispersed(entity.index_u32()).into()
 }

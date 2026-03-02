@@ -6,9 +6,10 @@ use std::{
 };
 
 use bevy::{
+    camera::Hdr,
     light::CascadeShadowConfigBuilder,
     prelude::*,
-    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
+    render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
 };
 use std::fmt::Display;
 
@@ -311,7 +312,7 @@ fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
         Text::new(label),
         TextFont {
             font: font.into(),
-            font_size: 15.0,
+            font_size: FontSize::Px(15.0),
             ..default()
         },
         TextColor(color),

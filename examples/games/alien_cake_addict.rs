@@ -3,8 +3,9 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum GameState {
@@ -109,7 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         // This isn't strictly required in practical use unless you need your app to be deterministic.
         ChaCha8Rng::seed_from_u64(19878367467713)
     } else {
-        ChaCha8Rng::from_os_rng()
+        rand::make_rng()
     };
 
     // reset the game state
@@ -180,7 +181,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         DespawnOnExit(GameState::Playing),
         Text::new("Score:"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -400,7 +401,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
         children![(
             Text::new(format!("Cake eaten: {}", game.cake_eaten)),
             TextFont {
-                font_size: 67.0,
+                font_size: FontSize::Px(67.0),
                 ..default()
             },
             TextColor(Color::srgb(0.5, 0.5, 1.0)),

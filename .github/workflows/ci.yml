@@ -32,10 +32,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
@@ -49,7 +49,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
       - name: Install Linux dependencies
@@ -64,10 +64,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
@@ -81,7 +81,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
           components: rustfmt, clippy
@@ -91,6 +91,7 @@ jobs:
           wayland: true
           xkb: true
           x264: true
+          fontconfig: true
       - name: CI job
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
@@ -99,10 +100,10 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
@@ -116,7 +117,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
@@ -137,10 +138,10 @@ jobs:
     timeout-minutes: 30
     needs: ci
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
@@ -154,7 +155,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
       - name: Install Linux dependencies
@@ -168,10 +169,10 @@ jobs:
     timeout-minutes: 30
     needs: ci
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-x86_64-unknown-none-${{ hashFiles('**/Cargo.toml') }}-
@@ -185,7 +186,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
           targets: x86_64-unknown-none
@@ -193,16 +194,21 @@ jobs:
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
         run: cargo check -p bevy --no-default-features --features default_no_std --target x86_64-unknown-none
+      # Check for regression in "web" feature breaking no_std builds.
+      # This is not a separate CI job because the added feature should mostly have no effect
+      # and be able to reuse the prior build.
+      - name: Check Compile with --features=web
+        run: cargo check -p bevy --no-default-features --features default_no_std,web --target x86_64-unknown-none
 
   check-compiles-no-std-portable-atomic:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: ci
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-thumbv6m-none-eabi-${{ hashFiles('**/Cargo.toml') }}-
@@ -216,7 +222,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
           targets: thumbv6m-none-eabi
@@ -230,10 +236,10 @@ jobs:
     timeout-minutes: 30
     needs: ci
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-x86_64-unknown-none-${{ hashFiles('**/Cargo.toml') }}-
@@ -247,7 +253,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
           targets: x86_64-unknown-none
@@ -261,10 +267,10 @@ jobs:
     timeout-minutes: 30
     needs: build
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
@@ -278,7 +284,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
           target: wasm32-unknown-unknown
@@ -292,10 +298,10 @@ jobs:
     timeout-minutes: 30
     needs: build
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}-wasm32-unknown-unknown-${{ hashFiles('**/Cargo.toml') }}-
@@ -309,7 +315,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           targets: wasm32-unknown-unknown
@@ -325,24 +331,25 @@ jobs:
     needs: check-missing-features-in-docs
     if: always()
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
           persist-credentials: false
       - name: Run Markdown Lint
-        uses: super-linter/super-linter/slim@d5b0a2ab116623730dd094f15ddc1b6b25bf7b99 # v8.3.2
+        uses: super-linter/super-linter/slim@12562e48d7059cf666c43a4ecb0d3b5a2b31bd9e # v8.4.0
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_MARKDOWN: true
           DEFAULT_BRANCH: main
+          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
 
   toml:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Install taplo
@@ -363,11 +370,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Check for typos
-        uses: crate-ci/typos@bb4666ad77b539a6b4ce4eda7ebb6de553704021 # v1.42.0
+        uses: crate-ci/typos@57b11c6b7e54c402ccd9cda953f1072ec4f78e33 # v1.43.5
       - name: Typos info
         if: failure()
         run: |
@@ -381,10 +388,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
@@ -398,7 +405,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
       - name: Install Linux dependencies
@@ -407,6 +414,7 @@ jobs:
           wayland: true
           xkb: true
           x264: true
+          fontconfig: true
       - name: Build and check doc
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- doc
@@ -424,10 +432,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
       - name: check for missing metadata
@@ -463,10 +471,10 @@ jobs:
     timeout-minutes: 30
     needs: check-missing-examples-in-docs
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
       - name: check for missing features
@@ -502,10 +510,10 @@ jobs:
     timeout-minutes: 30
     needs: build
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
       - name: get MSRV
@@ -513,10 +521,10 @@ jobs:
         run: |
           msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
           echo "msrv=$msrv" >> $GITHUB_OUTPUT
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: ${{ steps.msrv.outputs.msrv }}
-      - uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           # key won't match, will rely on restore-keys
           key: ${{ runner.os }}-${{ steps.msrv.outputs.msrv }}--${{ hashFiles('**/Cargo.toml') }}-
@@ -550,7 +558,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Check for internal Bevy imports
@@ -574,10 +582,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
       - name: Check Release Content

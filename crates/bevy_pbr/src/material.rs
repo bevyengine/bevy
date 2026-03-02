@@ -6,19 +6,17 @@ use alloc::sync::Arc;
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{Asset, AssetEventSystems, AssetId, AssetServer, UntypedAssetId};
 use bevy_camera::visibility::ViewVisibility;
-use bevy_camera::ScreenSpaceTransmissionQuality;
+use bevy_core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
 use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
 use bevy_core_pipeline::{
-    core_3d::{
-        AlphaMask3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, Transmissive3d, Transparent3d,
-    },
+    core_3d::{AlphaMask3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, Transparent3d},
     prepass::{OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey},
     tonemapping::Tonemapping,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::change_detection::Tick;
-use bevy_ecs::system::{SystemChangeTick, SystemParam};
+use bevy_ecs::system::SystemParam;
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -39,7 +37,7 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::camera::extract_cameras;
+use bevy_render::camera::{DirtySpecializationSystems, DirtySpecializations, PendingQueues};
 use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
@@ -178,7 +176,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     }
 
     #[inline]
-    /// Returns whether the material would like to read from [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
+    /// Returns whether the material would like to read from [`ViewTransmissionTexture`].
     ///
     /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
     /// rendering to take place in a separate [`Transmissive3d`] pass.
@@ -290,26 +288,30 @@ impl Plugin for MaterialsPlugin {
         app.add_plugins((PrepassPipelinePlugin, PrepassPlugin::new(self.debug_flags)));
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<EntitySpecializationTicks>()
                 .init_resource::<SpecializedMaterialPipelineCache>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipelineSpecializer>>()
                 .init_resource::<LightKeyCache>()
-                .init_resource::<LightSpecializationTicks>()
                 .init_resource::<SpecializedShadowMaterialPipelineCache>()
                 .init_resource::<DrawFunctions<Shadow>>()
                 .init_resource::<RenderMaterialInstances>()
+                .allow_ambiguous_resource::<RenderMaterialInstances>()
                 .init_resource::<MaterialBindGroupAllocators>()
+                .allow_ambiguous_resource::<MaterialBindGroupAllocators>()
+                .init_resource::<PendingMeshMaterialQueues>()
+                .allow_ambiguous_resource::<PendingMeshMaterialQueues>()
+                .init_resource::<PendingShadowQueues>()
+                .allow_ambiguous_resource::<PendingShadowQueues>()
                 .add_render_command::<Shadow, DrawPrepass>()
-                .add_render_command::<Transmissive3d, DrawMaterial>()
+                .add_render_command::<Shadow, DrawDepthOnlyPrepass>()
                 .add_render_command::<Transparent3d, DrawMaterial>()
                 .add_render_command::<Opaque3d, DrawMaterial>()
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
-                .add_systems(RenderStartup, init_material_pipeline)
+                .add_systems(RenderStartup, init_material_pipeline.after(MeshPipelineSet))
                 .add_systems(
                     Render,
                     (
                         specialize_material_meshes
-                            .in_set(RenderSystems::PrepareMeshes)
+                            .in_set(RenderSystems::Specialize)
                             .after(prepare_assets::<RenderMesh>)
                             .after(collect_meshes_for_gpu_building)
                             .after(set_mesh_motion_vector_flags),
@@ -330,9 +332,9 @@ impl Plugin for MaterialsPlugin {
                     (
                         check_views_lights_need_specialization.in_set(RenderSystems::PrepareAssets),
                         // specialize_shadows also needs to run after prepare_assets::<PreparedMaterial>,
-                        // which is fine since ManageViews is after PrepareAssets
+                        // which is fine since PrepareViews is after PrepareAssets
                         specialize_shadows
-                            .in_set(RenderSystems::ManageViews)
+                            .in_set(RenderSystems::Specialize)
                             .after(prepare_lights),
                         queue_shadows.in_set(RenderSystems::QueueMeshes),
                     ),
@@ -376,14 +378,6 @@ where
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
 
-        if M::enable_shadows() {
-            app.add_systems(
-                PostUpdate,
-                check_light_entities_needing_specialization::<M>
-                    .after(check_entities_needing_specialization::<M>),
-            );
-        }
-
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_systems(RenderStartup, add_material_bind_group_allocator::<M>)
@@ -394,16 +388,10 @@ where
                         early_sweep_material_instances::<M>
                             .after(MaterialExtractionSystems)
                             .before(late_sweep_material_instances),
-                        // See the comments in
-                        // `sweep_entities_needing_specialization` for an
-                        // explanation of why the systems are ordered this way.
                         extract_entities_needs_specialization::<M>
-                            .in_set(MaterialExtractEntitiesNeedingSpecializationSystems),
-                        sweep_entities_needing_specialization::<M>
-                            .after(MaterialExtractEntitiesNeedingSpecializationSystems)
-                            .after(MaterialExtractionSystems)
-                            .after(extract_cameras)
-                            .before(late_sweep_material_instances),
+                            .in_set(DirtySpecializationSystems::CheckForChanges),
+                        extract_entities_that_need_specializations_removed::<M>
+                            .in_set(DirtySpecializationSystems::CheckForRemovals),
                     ),
                 );
         }
@@ -613,11 +601,6 @@ pub struct RenderMaterialInstance {
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct MaterialExtractionSystems;
 
-/// A [`SystemSet`] that contains all `extract_entities_needs_specialization`
-/// systems.
-#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct MaterialExtractEntitiesNeedingSpecializationSystems;
-
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
@@ -649,25 +632,6 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineK
     }
 }
 
-pub const fn screen_space_specular_transmission_pipeline_key(
-    screen_space_transmissive_blur_quality: ScreenSpaceTransmissionQuality,
-) -> MeshPipelineKey {
-    match screen_space_transmissive_blur_quality {
-        ScreenSpaceTransmissionQuality::Low => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_LOW
-        }
-        ScreenSpaceTransmissionQuality::Medium => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM
-        }
-        ScreenSpaceTransmissionQuality::High => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH
-        }
-        ScreenSpaceTransmissionQuality::Ultra => {
-            MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA
-        }
-    }
-}
-
 /// A system that ensures that
 /// [`crate::render::mesh::extract_meshes_for_gpu_building`] re-extracts meshes
 /// whose materials changed.
@@ -690,9 +654,9 @@ fn mark_meshes_as_changed_if_their_materials_changed<M>(
 ) where
     M: Material,
 {
-    for mut mesh in &mut changed_meshes_query {
+    changed_meshes_query.par_iter_mut().for_each(|mut mesh| {
         mesh.set_changed();
-    }
+    });
 }
 
 /// Fills the [`RenderMaterialInstances`] resources from the meshes in the
@@ -787,168 +751,57 @@ pub fn late_sweep_material_instances(
 
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
-    render_material_instances: Res<RenderMaterialInstances>,
-    ticks: SystemChangeTick,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
 ) where
     M: Material,
 {
-    for entity in entities_needing_specialization.iter() {
-        // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks.insert(
-            (*entity).into(),
-            EntitySpecializationTickPair {
-                system_tick: ticks.this_run(),
-                material_instances_tick: render_material_instances.current_change_tick,
-            },
-        );
+    // Drain the list of entities needing specialization from the main world
+    // into the render-world `DirtySpecializations` table.
+    for entity in entities_needing_specialization.changed.iter() {
+        dirty_specializations
+            .changed_renderables
+            .insert(MainEntity::from(*entity));
     }
 }
 
-/// A system that runs after all instances of
-/// [`extract_entities_needs_specialization`] in order to delete specialization
-/// ticks for entities that are no longer renderable.
-///
-/// We delete entities from the [`EntitySpecializationTicks`] table *after*
-/// updating it with newly-discovered renderable entities in order to handle the
-/// case in which a single entity changes material types. If we naïvely removed
-/// entities from that table when their [`MeshMaterial3d<M>`] components were
-/// removed, and an entity changed material types, we might end up adding a new
-/// set of [`EntitySpecializationTickPair`] for the new material and then
-/// deleting it upon detecting the removed component for the old material.
-/// Deferring [`sweep_entities_needing_specialization`] to the end allows us to
-/// detect the case in which another material type updated the entity
-/// specialization ticks this frame and avoid deleting it if so.
-pub fn sweep_entities_needing_specialization<M>(
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
-    mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial3d<M>>>,
-    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
-    mut specialized_prepass_material_pipeline_cache: Option<
-        ResMut<SpecializedPrepassMaterialPipelineCache>,
-    >,
-    mut specialized_shadow_material_pipeline_cache: Option<
-        ResMut<SpecializedShadowMaterialPipelineCache>,
-    >,
-    render_material_instances: Res<RenderMaterialInstances>,
-    views: Query<&ExtractedView>,
+/// A system that adds entities that were judged to need their specializations
+/// removed to the appropriate table in [`DirtySpecializations`].
+pub fn extract_entities_that_need_specializations_removed<M>(
+    entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
 ) where
     M: Material,
 {
-    // Clean up any despawned entities, we do this first in case the removed material was re-added
-    // the same frame, thus will appear both in the removed components list and have been added to
-    // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
-    //
-    // Additionally, we need to make sure that we are careful about materials
-    // that could have changed type, e.g. from a `StandardMaterial` to a
-    // `CustomMaterial`, as this will also appear in the removed components
-    // list. As such, we make sure that this system runs after
-    // `extract_entities_needs_specialization` so that the entity specialization
-    // tick bookkeeping has already been done, and we can check if the entity's
-    // tick was updated this frame.
-    for entity in removed_mesh_material_components.read() {
-        // If the entity's specialization tick was updated this frame, that
-        // means that that entity changed materials this frame. Don't remove the
-        // entity from the table in that case.
-        if entity_specialization_ticks
-            .get(&MainEntity::from(entity))
-            .is_some_and(|ticks| {
-                ticks.material_instances_tick == render_material_instances.current_change_tick
-            })
-        {
-            continue;
-        }
-
-        entity_specialization_ticks.remove(&MainEntity::from(entity));
-        for view in views {
-            if let Some(cache) =
-                specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
-            {
-                cache.remove(&MainEntity::from(entity));
-            }
-            if let Some(cache) = specialized_prepass_material_pipeline_cache
-                .as_mut()
-                .and_then(|c| c.get_mut(&view.retained_view_entity))
-            {
-                cache.remove(&MainEntity::from(entity));
-            }
-            if let Some(cache) = specialized_shadow_material_pipeline_cache
-                .as_mut()
-                .and_then(|c| c.get_mut(&view.retained_view_entity))
-            {
-                cache.remove(&MainEntity::from(entity));
-            }
-        }
+    for entity in entities_needing_specialization.removed.iter() {
+        dirty_specializations
+            .removed_renderables
+            .insert(MainEntity::from(*entity));
     }
 }
 
-#[derive(Resource, Deref, DerefMut, Clone, Debug)]
+/// Temporarily stores entities that were determined to either need their
+/// specialized pipelines updated or to have their specialized pipelines
+/// removed.
+#[derive(Resource, Clone, Debug)]
 pub struct EntitiesNeedingSpecialization<M> {
-    #[deref]
-    pub entities: Vec<Entity>,
+    /// Entities that need to have their pipelines updated.
+    pub changed: Vec<Entity>,
+    /// Entities that need to have their pipelines removed, *unless* they also
+    /// appear in [`Self::changed`].
+    ///
+    /// We can't determine which entities truly need to have their pipelines removed until all
+    pub removed: Vec<Entity>,
     _marker: PhantomData<M>,
 }
 
 impl<M> Default for EntitiesNeedingSpecialization<M> {
     fn default() -> Self {
         Self {
-            entities: Default::default(),
+            changed: Default::default(),
+            removed: Default::default(),
             _marker: Default::default(),
         }
     }
-}
-
-/// Stores ticks specifying the last time Bevy specialized the pipelines of each
-/// entity.
-///
-/// Every entity that has a mesh and material must be present in this table,
-/// even if that mesh isn't visible.
-#[derive(Resource, Deref, DerefMut, Default, Clone, Debug)]
-pub struct EntitySpecializationTicks {
-    /// A mapping from each main entity to ticks that specify the last time this
-    /// entity's pipeline was specialized.
-    ///
-    /// Every entity that has a mesh and material must be present in this table,
-    /// even if that mesh isn't visible.
-    #[deref]
-    pub entities: MainEntityHashMap<EntitySpecializationTickPair>,
-}
-
-/// Ticks that specify the last time an entity's pipeline was specialized.
-///
-/// We need two different types of ticks here for a subtle reason. First, we
-/// need the [`Self::system_tick`], which maps to Bevy's [`SystemChangeTick`],
-/// because that's what we use in `specialize_material_meshes` to check
-/// whether pipelines need specialization. But we also need
-/// [`Self::material_instances_tick`], which maps to the
-/// [`RenderMaterialInstances::current_change_tick`]. That's because the latter
-/// only changes once per frame, which is a guarantee we need to handle the
-/// following case:
-///
-/// 1. The app removes material A from a mesh and replaces it with material B.
-///    Both A and B are of different [`Material`] types entirely.
-///
-/// 2. [`extract_entities_needs_specialization`] runs for material B and marks
-///    the mesh as up to date by recording the current tick.
-///
-/// 3. [`sweep_entities_needing_specialization`] runs for material A and checks
-///    to ensure it's safe to remove the [`EntitySpecializationTickPair`] for the mesh
-///    from the [`EntitySpecializationTicks`]. To do this, it needs to know
-///    whether [`extract_entities_needs_specialization`] for some *different*
-///    material (in this case, material B) ran earlier in the frame and updated the
-///    change tick, and to skip removing the [`EntitySpecializationTickPair`] if so.
-///    It can't reliably use the [`Self::system_tick`] to determine this because
-///    the [`SystemChangeTick`] can be updated multiple times in the same frame.
-///    Instead, it needs a type of tick that's updated only once per frame, after
-///    all materials' versions of [`sweep_entities_needing_specialization`] have
-///    run. The [`RenderMaterialInstances`] tick satisfies this criterion, and so
-///    that's what [`sweep_entities_needing_specialization`] uses.
-#[derive(Clone, Copy, Debug)]
-pub struct EntitySpecializationTickPair {
-    /// The standard Bevy system tick.
-    pub system_tick: Tick,
-    /// The tick in [`RenderMaterialInstances`], which is updated in
-    /// `late_sweep_material_instances`.
-    pub material_instances_tick: Tick,
 }
 
 /// Stores the [`SpecializedMaterialViewPipelineCache`] for each view.
@@ -965,9 +818,11 @@ pub struct SpecializedMaterialPipelineCache {
 pub struct SpecializedMaterialViewPipelineCache {
     // material entity -> (tick, pipeline_id)
     #[deref]
-    map: MainEntityHashMap<(Tick, CachedRenderPipelineId)>,
+    map: MainEntityHashMap<CachedRenderPipelineId>,
 }
 
+/// Finds 3D entities that have changed in such a way as to potentially require
+/// specialization and adds them to the [`EntitiesNeedingSpecialization`] list.
 pub fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
@@ -983,16 +838,34 @@ pub fn check_entities_needing_specialization<M>(
     >,
     mut par_local: Local<Parallel<Vec<Entity>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
+    mut removed_mesh_3d_components: RemovedComponents<Mesh3d>,
+    mut removed_mesh_material_3d_components: RemovedComponents<MeshMaterial3d<M>>,
 ) where
     M: Material,
 {
-    entities_needing_specialization.clear();
+    entities_needing_specialization.changed.clear();
+    entities_needing_specialization.removed.clear();
 
+    // Gather all entities that need their specializations regenerated.
     needs_specialization
         .par_iter()
         .for_each(|entity| par_local.borrow_local_mut().push(entity));
+    par_local.drain_into(&mut entities_needing_specialization.changed);
 
-    par_local.drain_into(&mut entities_needing_specialization);
+    // All entities that removed their `Mesh3d` or `MeshMaterial3d` components
+    // need to have their specializations removed as well.
+    //
+    // It's possible that `Mesh3d` was removed and re-added in the same frame,
+    // but we don't have to handle that situation specially here, because
+    // `specialize_material_meshes` processes specialization removals before
+    // additions. So, if the pipeline specialization gets spuriously removed,
+    // it'll just be immediately re-added again, which is harmless.
+    for entity in removed_mesh_3d_components
+        .read()
+        .chain(removed_mesh_material_3d_components.read())
+    {
+        entities_needing_specialization.removed.push(entity);
+    }
 }
 
 pub(crate) struct SpecializationWorkItem {
@@ -1003,6 +876,13 @@ pub(crate) struct SpecializationWorkItem {
     properties: Arc<MaterialProperties>,
     material_type_id: TypeId,
 }
+
+/// Holds all entities with mesh materials that couldn't be specialized and/or
+/// queued because their materials hadn't loaded yet.
+///
+/// See the [`PendingQueues`] documentation for more information.
+#[derive(Default, Deref, DerefMut, Resource)]
+pub struct PendingMeshMaterialQueues(pub PendingQueues);
 
 #[derive(SystemParam)]
 pub(crate) struct SpecializeMaterialMeshesSystemParam<'w, 's> {
@@ -1018,10 +898,9 @@ pub(crate) struct SpecializeMaterialMeshesSystemParam<'w, 's> {
     transparent_render_phases: Res<'w, ViewSortedRenderPhases<Transparent3d>>,
     views: Query<'w, 's, (&'static ExtractedView, &'static RenderVisibleEntities)>,
     view_key_cache: Res<'w, ViewKeyCache>,
-    entity_specialization_ticks: Res<'w, EntitySpecializationTicks>,
-    view_specialization_ticks: Res<'w, ViewSpecializationTicks>,
-    specialized_material_pipeline_cache: Res<'w, SpecializedMaterialPipelineCache>,
-    this_run: SystemChangeTick,
+    specialized_material_pipeline_cache: ResMut<'w, SpecializedMaterialPipelineCache>,
+    pending_mesh_material_queues: ResMut<'w, PendingMeshMaterialQueues>,
+    dirty_specializations: Res<'w, DirtySpecializations>,
 }
 
 pub(crate) fn specialize_material_meshes(
@@ -1032,8 +911,6 @@ pub(crate) fn specialize_material_meshes(
 ) {
     work_items.clear();
     all_views.clear();
-
-    let this_run;
 
     {
         let SpecializeMaterialMeshesSystemParam {
@@ -1049,13 +926,10 @@ pub(crate) fn specialize_material_meshes(
             transparent_render_phases,
             views,
             view_key_cache,
-            entity_specialization_ticks,
-            view_specialization_ticks,
-            specialized_material_pipeline_cache,
-            this_run: system_change_tick,
-        } = state.get(world);
-
-        this_run = system_change_tick.this_run();
+            mut specialized_material_pipeline_cache,
+            mut pending_mesh_material_queues,
+            dirty_specializations,
+        } = state.get_mut(world);
 
         for (view, visible_entities) in &views {
             all_views.insert(view.retained_view_entity);
@@ -1072,41 +946,80 @@ pub(crate) fn specialize_material_meshes(
                 continue;
             };
 
-            let view_tick = view_specialization_ticks
-                .get(&view.retained_view_entity)
-                .unwrap();
-            let view_specialized_material_pipeline_cache =
-                specialized_material_pipeline_cache.get(&view.retained_view_entity);
+            let Some(render_visible_mesh_entities) = visible_entities.get::<Mesh3d>() else {
+                continue;
+            };
 
-            for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
+            let mut maybe_specialized_material_pipeline_cache =
+                specialized_material_pipeline_cache.get_mut(&view.retained_view_entity);
+
+            // Remove cached pipeline IDs corresponding to entities that either
+            // have been removed or need to be re-specialized.
+            if let Some(ref mut specialized_material_pipeline_cache) =
+                maybe_specialized_material_pipeline_cache
+            {
+                if dirty_specializations
+                    .must_wipe_specializations_for_view(view.retained_view_entity)
+                {
+                    specialized_material_pipeline_cache.clear();
+                } else {
+                    for &renderable_entity in dirty_specializations.iter_to_despecialize() {
+                        specialized_material_pipeline_cache.remove(&renderable_entity);
+                    }
+                }
+            }
+
+            // Initialize the pending queues.
+            let view_pending_mesh_material_queues =
+                pending_mesh_material_queues.prepare_for_new_frame(view.retained_view_entity);
+
+            // Now process all meshes that need to be specialized.
+            for (render_entity, visible_entity) in dirty_specializations.iter_to_specialize(
+                view.retained_view_entity,
+                render_visible_mesh_entities,
+                &view_pending_mesh_material_queues.prev_frame,
+            ) {
+                if maybe_specialized_material_pipeline_cache
+                    .as_ref()
+                    .is_some_and(|specialized_material_pipeline_cache| {
+                        specialized_material_pipeline_cache.contains_key(visible_entity)
+                    })
+                {
+                    continue;
+                }
+
                 let Some(material_instance) =
                     render_material_instances.instances.get(visible_entity)
                 else {
+                    // We couldn't fetch the material instance, probably because
+                    // the material hasn't been loaded yet. Add the entity to
+                    // the list of pending mesh materials and bail.
+                    view_pending_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(*visible_entity)
                 else {
+                    // We couldn't fetch the mesh, probably because it hasn't
+                    // been loaded yet. Add the entity to the list of pending
+                    // mesh materials and bail.
+                    view_pending_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
-                let entity_tick = entity_specialization_ticks
-                    .get(visible_entity)
-                    .unwrap()
-                    .system_tick;
-                let last_specialized_tick = view_specialized_material_pipeline_cache
-                    .and_then(|cache| cache.get(visible_entity))
-                    .map(|(tick, _)| *tick);
-                let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                    view_tick.is_newer_than(tick, this_run)
-                        || entity_tick.is_newer_than(tick, this_run)
-                });
-                if !needs_specialization {
-                    continue;
-                }
-                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
+                    // We couldn't fetch the material, probably because the
+                    // material hasn't been loaded yet. Add the entity to the
+                    // list of pending mesh materials and bail.
+                    view_pending_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
 
@@ -1136,13 +1049,13 @@ pub(crate) fn specialize_material_meshes(
 
                 if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
                     if mesh_instance
-                        .flags
+                        .flags()
                         .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
                     {
                         mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
                     }
                     if mesh_instance
-                        .flags
+                        .flags()
                         .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
                     {
                         mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
@@ -1159,6 +1072,8 @@ pub(crate) fn specialize_material_meshes(
                 });
             }
         }
+
+        pending_mesh_material_queues.expire_stale_views(&all_views);
     }
 
     for item in work_items.drain(..) {
@@ -1177,7 +1092,7 @@ pub(crate) fn specialize_material_meshes(
                     .resource_mut::<SpecializedMaterialPipelineCache>()
                     .entry(item.retained_view_entity)
                     .or_default()
-                    .insert(item.visible_entity, (this_run, pipeline_id));
+                    .insert(item.visible_entity, pipeline_id);
             }
             Err(err) => error!("{}", err),
         }
@@ -1200,8 +1115,10 @@ pub fn queue_material_meshes(
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
+    mut pending_mesh_material_queues: ResMut<PendingMeshMaterialQueues>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
+    dirty_specializations: Res<DirtySpecializations>,
 ) {
     for (view, visible_entities) in &views {
         let (
@@ -1225,41 +1142,78 @@ pub fn queue_material_meshes(
             continue;
         };
 
-        let rangefinder = view.rangefinder3d();
-        for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let Some((current_change_tick, pipeline_id)) = view_specialized_material_pipeline_cache
+        let Some(render_visible_mesh_entities) = visible_entities.get::<Mesh3d>() else {
+            continue;
+        };
+
+        // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
+        for &main_entity in dirty_specializations
+            .iter_to_dequeue(view.retained_view_entity, render_visible_mesh_entities)
+        {
+            opaque_phase.remove(main_entity);
+            alpha_mask_phase.remove(main_entity);
+            transmissive_phase.remove(Entity::PLACEHOLDER, main_entity);
+            transparent_phase.remove(Entity::PLACEHOLDER, main_entity);
+        }
+
+        // Fetch the pending mesh material queues for this view.
+        let view_pending_mesh_material_queues = pending_mesh_material_queues
+            .get_mut(&view.retained_view_entity)
+            .expect(
+                "View pending mesh material queues should have been created in \
+                 `specialize_material_meshes`",
+            );
+
+        // Now iterate through all newly-visible entities and those needing respecialization.
+        for (render_entity, visible_entity) in dirty_specializations.iter_to_queue(
+            view.retained_view_entity,
+            render_visible_mesh_entities,
+            &view_pending_mesh_material_queues.prev_frame,
+        ) {
+            let Some(pipeline_id) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
-                .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
+                .copied()
             else {
                 continue;
             };
 
-            // Skip the entity if it's cached in a bin and up to date.
-            if opaque_phase.validate_cached_entity(*visible_entity, current_change_tick)
-                || alpha_mask_phase.validate_cached_entity(*visible_entity, current_change_tick)
-            {
-                continue;
-            }
-
             let Some(material_instance) = render_material_instances.instances.get(visible_entity)
             else {
+                // We couldn't fetch the material, probably because the material
+                // hasn't been loaded yet. Add the entity to the list of pending
+                // mesh materials and bail.
+                view_pending_mesh_material_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
+                // We couldn't fetch the mesh, probably because it hasn't been
+                // loaded yet. Add the entity to the list of pending mesh
+                // materials and bail.
+                view_pending_mesh_material_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
             let Some(material) = render_materials.get(material_instance.asset_id) else {
+                // We couldn't fetch the material, probably because the material
+                // hasn't been loaded yet. Add the entity to the list of pending
+                // mesh materials and bail.
+                view_pending_mesh_material_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
 
             // Fetch the slabs that this mesh resides in.
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id()) else {
+                continue;
+            };
 
             match material.properties.render_phase_type {
                 RenderPhaseType::Transmissive => {
-                    let distance = rangefinder.distance(&mesh_instance.center)
-                        + material.properties.depth_bias;
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassTransmissiveDrawFunction)
@@ -1267,13 +1221,18 @@ pub fn queue_material_meshes(
                         continue;
                     };
                     transmissive_phase.add(Transmissive3d {
-                        entity: (*render_entity, *visible_entity),
+                        sorting_info: TransparentSortingInfo3d::Sorted {
+                            mesh_center: mesh_instance.center,
+                            depth_bias: material.properties.depth_bias,
+                        },
+                        entity: (Entity::PLACEHOLDER, *visible_entity),
                         draw_function,
                         pipeline: pipeline_id,
-                        distance,
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
-                        indexed: index_slab.is_some(),
+                        indexed: mesh_slabs.index_slab_id.is_some(),
+                        // Filled in later.
+                        distance: 0.0,
                     });
                 }
                 RenderPhaseType::Opaque => {
@@ -1282,7 +1241,7 @@ pub fn queue_material_meshes(
                         // a bin, we still want to update its cache entry. That
                         // way, we know we don't need to re-examine it in future
                         // frames.
-                        opaque_phase.update_cache(*visible_entity, None, current_change_tick);
+                        opaque_phase.update_cache(*visible_entity, None);
                         continue;
                     }
                     let Some(draw_function) = material
@@ -1295,23 +1254,24 @@ pub fn queue_material_meshes(
                         pipeline: pipeline_id,
                         draw_function,
                         material_bind_group_index: Some(material.binding.group.0),
-                        vertex_slab: vertex_slab.unwrap_or_default(),
-                        index_slab,
-                        lightmap_slab: mesh_instance.shared.lightmap_slab_index.map(|index| *index),
+                        slabs: mesh_slabs,
+                        lightmap_slab: mesh_instance
+                            .shared
+                            .lightmap_slab_index()
+                            .map(|index| *index),
                     };
                     let bin_key = Opaque3dBinKey {
-                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        asset_id: mesh_instance.mesh_asset_id().into(),
                     };
                     opaque_phase.add(
                         batch_set_key,
                         bin_key,
-                        (*render_entity, *visible_entity),
+                        (Entity::PLACEHOLDER, *visible_entity),
                         mesh_instance.current_uniform_index,
                         BinnedRenderPhaseType::mesh(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
                         ),
-                        current_change_tick,
                     );
                 }
                 // Alpha mask
@@ -1326,27 +1286,23 @@ pub fn queue_material_meshes(
                         draw_function,
                         pipeline: pipeline_id,
                         material_bind_group_index: Some(material.binding.group.0),
-                        vertex_slab: vertex_slab.unwrap_or_default(),
-                        index_slab,
+                        slabs: mesh_slabs,
                     };
                     let bin_key = OpaqueNoLightmap3dBinKey {
-                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        asset_id: mesh_instance.mesh_asset_id().into(),
                     };
                     alpha_mask_phase.add(
                         batch_set_key,
                         bin_key,
-                        (*render_entity, *visible_entity),
+                        (Entity::PLACEHOLDER, *visible_entity),
                         mesh_instance.current_uniform_index,
                         BinnedRenderPhaseType::mesh(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
                         ),
-                        current_change_tick,
                     );
                 }
                 RenderPhaseType::Transparent => {
-                    let distance = rangefinder.distance(&mesh_instance.center)
-                        + material.properties.depth_bias;
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassTransparentDrawFunction)
@@ -1354,13 +1310,18 @@ pub fn queue_material_meshes(
                         continue;
                     };
                     transparent_phase.add(Transparent3d {
-                        entity: (*render_entity, *visible_entity),
+                        sorting_info: TransparentSortingInfo3d::Sorted {
+                            mesh_center: mesh_instance.center,
+                            depth_bias: material.properties.depth_bias,
+                        },
+                        entity: (Entity::PLACEHOLDER, *visible_entity),
                         draw_function,
                         pipeline: pipeline_id,
-                        distance,
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
-                        indexed: index_slab.is_some(),
+                        indexed: mesh_slabs.index_slab_id.is_some(),
+                        // Filled in later.
+                        distance: 0.0,
                     });
                 }
             }
@@ -1431,6 +1392,8 @@ pub struct MainPassTransparentDrawFunction;
 pub struct PrepassOpaqueDrawFunction;
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct PrepassAlphaMaskDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct PrepassOpaqueDepthOnlyDrawFunction;
 
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct DeferredOpaqueDrawFunction;
@@ -1439,6 +1402,8 @@ pub struct DeferredAlphaMaskDrawFunction;
 
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct ShadowsDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct ShadowsDepthOnlyDrawFunction;
 
 /// A resource that maps each untyped material ID to its binding.
 ///
@@ -1454,7 +1419,7 @@ pub struct PreparedMaterial {
     pub properties: Arc<MaterialProperties>,
 }
 
-fn base_specialize(
+pub fn base_specialize(
     world: &mut World,
     key: ErasedMaterialPipelineKey,
     layout: &MeshVertexBufferLayoutRef,
@@ -1567,6 +1532,64 @@ where
             material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
+        let material_layout = M::bind_group_layout_descriptor(render_device);
+        let actual_material_layout = pipeline_cache.get_bind_group_layout(&material_layout);
+
+        let binding = match material.unprepared_bind_group(
+            &actual_material_layout,
+            render_device,
+            material_param,
+            false,
+        ) {
+            Ok(unprepared) => {
+                let bind_group_allocator =
+                    bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
+                // Allocate or update the material.
+                match render_material_bindings.entry(material_id.into()) {
+                    Entry::Occupied(mut occupied_entry) => {
+                        // TODO: Have a fast path that doesn't require
+                        // recreating the bind group if only buffer contents
+                        // change. For now, we just delete and recreate the bind
+                        // group.
+                        bind_group_allocator.free(*occupied_entry.get());
+                        let new_binding =
+                            bind_group_allocator.allocate_unprepared(unprepared, &material_layout);
+                        *occupied_entry.get_mut() = new_binding;
+                        new_binding
+                    }
+                    Entry::Vacant(vacant_entry) => *vacant_entry.insert(
+                        bind_group_allocator.allocate_unprepared(unprepared, &material_layout),
+                    ),
+                }
+            }
+            Err(AsBindGroupError::RetryNextUpdate) => {
+                return Err(PrepareAssetError::RetryNextUpdate(material))
+            }
+            Err(AsBindGroupError::CreateBindGroupDirectly) => {
+                match material.as_bind_group(
+                    &material_layout,
+                    render_device,
+                    pipeline_cache,
+                    material_param,
+                ) {
+                    Ok(prepared_bind_group) => {
+                        let bind_group_allocator =
+                            bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
+                        // Store the resulting bind group directly in the slot.
+                        let material_binding_id =
+                            bind_group_allocator.allocate_prepared(prepared_bind_group);
+                        render_material_bindings.insert(material_id.into(), material_binding_id);
+                        material_binding_id
+                    }
+                    Err(AsBindGroupError::RetryNextUpdate) => {
+                        return Err(PrepareAssetError::RetryNextUpdate(material))
+                    }
+                    Err(other) => return Err(PrepareAssetError::AsBindGroupError(other)),
+                }
+            }
+            Err(other) => return Err(PrepareAssetError::AsBindGroupError(other)),
+        };
+
         let shadows_enabled = M::enable_shadows();
         let prepass_enabled = M::enable_prepass();
 
@@ -1576,11 +1599,15 @@ where
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial>();
         let draw_opaque_prepass = opaque_prepass_draw_functions.read().id::<DrawPrepass>();
         let draw_alpha_mask_prepass = alpha_mask_prepass_draw_functions.read().id::<DrawPrepass>();
+        let draw_opaque_prepass_depth_only = opaque_prepass_draw_functions
+            .read()
+            .id::<DrawDepthOnlyPrepass>();
         let draw_opaque_deferred = opaque_deferred_draw_functions.read().id::<DrawPrepass>();
         let draw_alpha_mask_deferred = alpha_mask_deferred_draw_functions
             .read()
             .id::<DrawPrepass>();
         let draw_shadows = shadow_draw_functions.read().id::<DrawPrepass>();
+        let draw_shadows_depth_only = shadow_draw_functions.read().id::<DrawDepthOnlyPrepass>();
 
         let draw_functions = SmallVec::from_iter([
             (MainPassOpaqueDrawFunction.intern(), draw_opaque_pbr),
@@ -1598,12 +1625,20 @@ where
                 PrepassAlphaMaskDrawFunction.intern(),
                 draw_alpha_mask_prepass,
             ),
+            (
+                PrepassOpaqueDepthOnlyDrawFunction.intern(),
+                draw_opaque_prepass_depth_only,
+            ),
             (DeferredOpaqueDrawFunction.intern(), draw_opaque_deferred),
             (
                 DeferredAlphaMaskDrawFunction.intern(),
                 draw_alpha_mask_deferred,
             ),
             (ShadowsDrawFunction.intern(), draw_shadows),
+            (
+                ShadowsDepthOnlyDrawFunction.intern(),
+                draw_shadows_depth_only,
+            ),
         ]);
 
         let render_method = match material.opaque_render_method() {
@@ -1673,115 +1708,27 @@ where
         let bind_group_data = material.bind_group_data();
         let material_key = ErasedMaterialKey::new(bind_group_data);
 
-        let material_layout = M::bind_group_layout_descriptor(render_device);
-        let actual_material_layout = pipeline_cache.get_bind_group_layout(&material_layout);
-
-        match material.unprepared_bind_group(
-            &actual_material_layout,
-            render_device,
-            material_param,
-            false,
-        ) {
-            Ok(unprepared) => {
-                let bind_group_allocator =
-                    bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
-                // Allocate or update the material.
-                let binding = match render_material_bindings.entry(material_id.into()) {
-                    Entry::Occupied(mut occupied_entry) => {
-                        // TODO: Have a fast path that doesn't require
-                        // recreating the bind group if only buffer contents
-                        // change. For now, we just delete and recreate the bind
-                        // group.
-                        bind_group_allocator.free(*occupied_entry.get());
-                        let new_binding =
-                            bind_group_allocator.allocate_unprepared(unprepared, &material_layout);
-                        *occupied_entry.get_mut() = new_binding;
-                        new_binding
-                    }
-                    Entry::Vacant(vacant_entry) => *vacant_entry.insert(
-                        bind_group_allocator.allocate_unprepared(unprepared, &material_layout),
-                    ),
-                };
-
-                Ok(PreparedMaterial {
-                    binding,
-                    properties: Arc::new(MaterialProperties {
-                        alpha_mode: material.alpha_mode(),
-                        depth_bias: material.depth_bias(),
-                        reads_view_transmission_texture,
-                        render_phase_type,
-                        render_method,
-                        mesh_pipeline_key_bits,
-                        material_layout: Some(material_layout),
-                        draw_functions,
-                        shaders,
-                        bindless,
-                        base_specialize: Some(base_specialize),
-                        prepass_specialize: Some(prepass_specialize),
-                        user_specialize: Some(user_specialize::<M>),
-                        material_key,
-                        shadows_enabled,
-                        prepass_enabled,
-                    }),
-                })
-            }
-
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                Err(PrepareAssetError::RetryNextUpdate(material))
-            }
-
-            Err(AsBindGroupError::CreateBindGroupDirectly) => {
-                // This material has opted out of automatic bind group creation
-                // and is requesting a fully-custom bind group. Invoke
-                // `as_bind_group` as requested, and store the resulting bind
-                // group in the slot.
-                match material.as_bind_group(
-                    &material_layout,
-                    render_device,
-                    pipeline_cache,
-                    material_param,
-                ) {
-                    Ok(prepared_bind_group) => {
-                        let bind_group_allocator =
-                            bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
-                        // Store the resulting bind group directly in the slot.
-                        let material_binding_id =
-                            bind_group_allocator.allocate_prepared(prepared_bind_group);
-                        render_material_bindings.insert(material_id.into(), material_binding_id);
-
-                        Ok(PreparedMaterial {
-                            binding: material_binding_id,
-                            properties: Arc::new(MaterialProperties {
-                                alpha_mode: material.alpha_mode(),
-                                depth_bias: material.depth_bias(),
-                                reads_view_transmission_texture,
-                                render_phase_type,
-                                render_method,
-                                mesh_pipeline_key_bits,
-                                material_layout: Some(material_layout),
-                                draw_functions,
-                                shaders,
-                                bindless,
-                                base_specialize: Some(base_specialize),
-                                prepass_specialize: Some(prepass_specialize),
-                                user_specialize: Some(user_specialize::<M>),
-                                material_key,
-                                shadows_enabled,
-                                prepass_enabled,
-                            }),
-                        })
-                    }
-
-                    Err(AsBindGroupError::RetryNextUpdate) => {
-                        Err(PrepareAssetError::RetryNextUpdate(material))
-                    }
-
-                    Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
-                }
-            }
-
-            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
-        }
+        Ok(PreparedMaterial {
+            binding,
+            properties: Arc::new(MaterialProperties {
+                alpha_mode: material.alpha_mode(),
+                depth_bias: material.depth_bias(),
+                reads_view_transmission_texture,
+                render_phase_type,
+                render_method,
+                mesh_pipeline_key_bits,
+                material_layout: Some(material_layout),
+                draw_functions,
+                shaders,
+                bindless,
+                base_specialize: Some(base_specialize),
+                prepass_specialize: Some(prepass_specialize),
+                user_specialize: Some(user_specialize::<M>),
+                material_key,
+                shadows_enabled,
+                prepass_enabled,
+            }),
+        })
     }
 
     fn unload_asset(
