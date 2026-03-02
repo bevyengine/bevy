@@ -1,13 +1,6 @@
 use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
 
-use alloc::vec::Vec;
-use core::ops::AddAssign;
-use core::sync::atomic::Ordering;
-
 use bevy_ecs::prelude::*;
-use bevy_log::info_span;
-use bevy_log::tracing::Instrument;
-use bevy_tasks::ComputeTaskPool;
 
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
@@ -121,8 +114,10 @@ pub fn mark_dirty_trees(
     parents: Query<&ChildOf>,
     mut static_optimizations: ResMut<StaticTransformOptimizations>,
     // Cached allocations for std-only parallel implementation
-    #[cfg(feature = "std")] mut shared_bitset: Local<Vec<core::sync::atomic::AtomicU64>>,
-    #[cfg(feature = "std")] mut local_bitset: Local<bevy_utils::Parallel<Vec<u64>>>,
+    #[cfg(feature = "std")] mut shared_bitset: Local<
+        alloc::vec::Vec<core::sync::atomic::AtomicU64>,
+    >,
+    #[cfg(feature = "std")] mut local_bitset: Local<bevy_utils::Parallel<alloc::vec::Vec<u64>>>,
     #[cfg(feature = "std")] mut output_channel: Local<bevy_utils::BufferedChannel<Entity>>,
     #[cfg(feature = "std")] mut input_channel: Local<bevy_utils::BufferedChannel<Entity>>,
 ) {
@@ -133,10 +128,11 @@ pub fn mark_dirty_trees(
         _ => {
             static_optimizations.enabled = true;
             let total = transforms.iter().len() as f32;
-            let dyn_threshold = (total * threshold).ceil() as usize;
+            let dyn_threshold = (total * threshold) as usize;
             let n_changed: usize;
             #[cfg(feature = "std")]
             {
+                use core::ops::AddAssign;
                 let mut par = bevy_utils::Parallel::<usize>::default();
                 changed.par_iter().for_each_init(
                     || par.borrow_local_mut(),
@@ -192,6 +188,11 @@ pub fn mark_dirty_trees(
     // each stage serially with inner parallelism.
     #[cfg(feature = "std")]
     {
+        use bevy_log::info_span;
+        use bevy_log::tracing::Instrument;
+        use bevy_tasks::ComputeTaskPool;
+        use core::sync::atomic::Ordering;
+
         ComputeTaskPool::get().scope(|scope| {
             input_channel.chunk_size = 1024;
             output_channel.chunk_size = 1024;
