@@ -45,9 +45,8 @@ impl AssetLoader for ExrTextureLoader {
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
         debug_assert_eq!(
-            format
-                .pixel_size()
-                .expect("`Rgba32Float` is not a compressed format"),
+            // `Rgba32Float` will always return a valid pixel size
+            format.pixel_size().unwrap(),
             4 * 4,
             "Format should have 32bit x 4 size"
         );

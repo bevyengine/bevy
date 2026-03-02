@@ -41,9 +41,8 @@ impl AssetLoader for HdrTextureLoader {
         _load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
-        let pixel_size = format
-            .pixel_size()
-            .expect("`Rgba32Float` is not a compressed format");
+        // `Rgba32Float` will always return a valid pixel size
+        let pixel_size = format.pixel_size().unwrap();
         debug_assert_eq!(pixel_size, 4 * 4, "Format should have 32bit x 4 size");
 
         let mut bytes = Vec::new();
