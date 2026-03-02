@@ -47,54 +47,29 @@ pub fn sync_simple_transforms(
 /// [`Transform`]s and skip these during the expensive transform propagation step. If your scene is
 /// very dynamic, the cost of tracking these trees can exceed the performance benefits. By default,
 /// static scene optimization is disabled for worlds with more than 30% of its entities moving.
-///
-/// This resource allows you to configure that threshold at runtime.
 #[derive(Resource, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct StaticTransformOptimizations {
-    /// If the percentage of moving objects exceeds this value, skip dirty tree marking.
-    threshold: f32,
     /// Updated every frame by [`mark_dirty_trees`].
     enabled: bool,
 }
 
 impl StaticTransformOptimizations {
-    /// If the percentage of moving objects exceeds this threshold, disable static [`Transform`]
-    /// optimizations. This is done because the scene is so dynamic that the cost of tracking static
-    /// trees exceeds the performance benefit of skipping propagation for these trees.
-    ///
-    /// - Setting this to `0.0` will result in never running static scene tracking.
-    /// - Setting this to `1.0` will result in always tracking static transform trees.
-    pub fn from_threshold(threshold: f32) -> Self {
-        Self {
-            threshold,
-            enabled: true,
-        }
-    }
-
     /// Unconditionally disable static scene optimizations.
     pub fn disabled() -> Self {
-        Self {
-            threshold: 0.0,
-            enabled: false,
-        }
+        Self { enabled: false }
     }
 
     /// Unconditionally enable static scene optimizations.
     pub fn enabled() -> Self {
-        Self {
-            threshold: 1.0,
-            enabled: true,
-        }
+        Self { enabled: true }
     }
 }
 
 impl Default for StaticTransformOptimizations {
     fn default() -> Self {
         Self {
-            // Scenes with more than 30% moving objects are considered dynamic enough to skip static
-            // optimizations.
-            threshold: 0.3,
+            // By default we enable static scene optimizations
             enabled: true,
         }
     }
@@ -114,21 +89,8 @@ pub fn mark_dirty_trees(
     mut orphaned: RemovedComponents<ChildOf>,
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
-    mut static_optimizations: ResMut<StaticTransformOptimizations>,
+    static_optimizations: ResMut<StaticTransformOptimizations>,
 ) {
-    let threshold = static_optimizations.threshold.clamp(0.0, 1.0);
-    match threshold {
-        0.0 => static_optimizations.enabled = false,
-        1.0 => static_optimizations.enabled = true,
-        _ => {
-            static_optimizations.enabled = true;
-            let n_dyn = changed_transforms.count() as f32;
-            let total = transforms.count() as f32;
-            if n_dyn / total > threshold {
-                static_optimizations.enabled = false;
-            }
-        }
-    }
     if !static_optimizations.enabled {
         return;
     }
