@@ -44,7 +44,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_component::{SyncComponent, SyncComponentPlugin},
-    sync_world::RenderEntity,
+    sync_world::SubEntity,
     texture::{FallbackImage, GpuImage},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -76,7 +76,7 @@ pub struct RenderClusteredDecals {
     texture_to_binding_index: HashMap<AssetId<Image>, i32>,
     /// The information concerning each decal that we provide to the shader.
     decals: Vec<RenderClusteredDecal>,
-    /// Maps the [`bevy_render::sync_world::RenderEntity`] of each decal to the
+    /// Maps the [`bevy_render::sync_world::SubEntity`] of each decal to the
     /// index of that decal in the [`Self::decals`] list.
     entity_to_decal_index: EntityHashMap<usize>,
 }
@@ -179,7 +179,7 @@ impl SyncComponent<RenderApp, ClusteredDecalPlugin> for ClusteredDecal {
 fn extract_clustered_decal(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(RenderEntity, &ClusteredDecal)>>,
+    query: Extract<Query<(SubEntity, &ClusteredDecal)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
@@ -221,7 +221,7 @@ pub struct RenderClusteredDecal {
 pub fn extract_decals(
     decals: Extract<
         Query<(
-            RenderEntity,
+            SubEntity,
             &ClusteredDecal,
             &GlobalTransform,
             &ViewVisibility,
@@ -229,7 +229,7 @@ pub fn extract_decals(
     >,
     spot_light_textures: Extract<
         Query<(
-            RenderEntity,
+            SubEntity,
             &SpotLightTexture,
             &GlobalTransform,
             &ViewVisibility,
@@ -237,7 +237,7 @@ pub fn extract_decals(
     >,
     point_light_textures: Extract<
         Query<(
-            RenderEntity,
+            SubEntity,
             &PointLightTexture,
             &GlobalTransform,
             &ViewVisibility,
@@ -245,7 +245,7 @@ pub fn extract_decals(
     >,
     directional_light_textures: Extract<
         Query<(
-            RenderEntity,
+            SubEntity,
             &DirectionalLightTexture,
             &GlobalTransform,
             &ViewVisibility,
@@ -267,7 +267,7 @@ pub fn extract_decals(
 fn extract_clustered_decals(
     decals: &Extract<
         Query<(
-            RenderEntity,
+            SubEntity,
             &ClusteredDecal,
             &GlobalTransform,
             &ViewVisibility,
@@ -306,7 +306,7 @@ fn extract_clustered_decals(
 fn extract_spot_light_textures(
     spot_light_textures: &Extract<
         Query<(
-            RenderEntity,
+            SubEntity,
             &SpotLightTexture,
             &GlobalTransform,
             &ViewVisibility,
@@ -334,7 +334,7 @@ fn extract_spot_light_textures(
 fn extract_point_light_textures(
     point_light_textures: &Extract<
         Query<(
-            RenderEntity,
+            SubEntity,
             &PointLightTexture,
             &GlobalTransform,
             &ViewVisibility,
@@ -362,7 +362,7 @@ fn extract_point_light_textures(
 fn extract_directional_light_textures(
     directional_light_textures: &Extract<
         Query<(
-            RenderEntity,
+            SubEntity,
             &DirectionalLightTexture,
             &GlobalTransform,
             &ViewVisibility,

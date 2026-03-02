@@ -33,7 +33,7 @@ use bevy_render::{
         *,
     },
     renderer::{RenderDevice, RenderQueue},
-    sync_world::RenderEntity,
+    sync_world::SubEntity,
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract,
@@ -336,7 +336,7 @@ pub fn extract_sprites(
     sprite_query: Extract<
         Query<(
             Entity,
-            RenderEntity,
+            SubEntity,
             &ViewVisibility,
             &Sprite,
             &GlobalTransform,

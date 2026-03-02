@@ -52,7 +52,7 @@ use bevy_render::{
 };
 use bevy_render::{
     mesh::allocator::SlabId,
-    sync_world::{MainEntity, RenderEntity},
+    sync_world::{MainEntity, SubEntity},
 };
 use bevy_render::{
     mesh::RenderMesh,
@@ -244,7 +244,7 @@ pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDev
 pub fn extract_shadow_filtering_method(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(RenderEntity, &ShadowFilteringMethod)>>,
+    query: Extract<Query<(SubEntity, &ShadowFilteringMethod)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
@@ -277,7 +277,7 @@ pub fn extract_ambient_light_resource(
 pub fn extract_ambient_light(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(RenderEntity, &AmbientLight)>>,
+    query: Extract<Query<(SubEntity, &AmbientLight)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
@@ -295,7 +295,7 @@ pub fn extract_lights(
         Query<
             (
                 Entity,
-                RenderEntity,
+                SubEntity,
                 &PointLight,
                 &CubemapVisibleEntities,
                 &GlobalTransform,
@@ -317,7 +317,7 @@ pub fn extract_lights(
         Query<
             (
                 Entity,
-                RenderEntity,
+                SubEntity,
                 &SpotLight,
                 &VisibleMeshEntities,
                 &GlobalTransform,
@@ -339,7 +339,7 @@ pub fn extract_lights(
         Query<
             (
                 Entity,
-                RenderEntity,
+                SubEntity,
                 &DirectionalLight,
                 &CascadesVisibleEntities,
                 &Cascades,
@@ -370,7 +370,7 @@ pub fn extract_lights(
             ),
         >,
     >,
-    mapper: Extract<Query<RenderEntity>>,
+    mapper: Extract<Query<SubEntity>>,
     mut existing_render_cascades_visible_entities: Query<&mut RenderCascadesVisibleEntities>,
     mut existing_render_cubemap_visible_entities: Query<&mut RenderCubemapVisibleEntities>,
     mut existing_render_visible_mesh_entities: Query<&mut RenderVisibleMeshEntities>,
@@ -704,7 +704,7 @@ pub fn extract_lights(
     // same frame.
     fn remove_components<MC, RWC>(
         commands: &mut Commands,
-        mapper: &Query<RenderEntity>,
+        mapper: &Query<SubEntity>,
         removed_components: &mut RemovedComponents<MC>,
         seen_entities: &MainEntityHashSet,
     ) where

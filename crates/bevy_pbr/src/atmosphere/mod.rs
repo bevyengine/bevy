@@ -60,7 +60,7 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderDevice},
     sync_component::SyncComponent,
-    sync_world::RenderEntity,
+    sync_world::SubEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -203,7 +203,7 @@ impl Plugin for AtmospherePlugin {
 pub fn extract_atmosphere(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(RenderEntity, &Atmosphere), With<Camera3d>>>,
+    query: Extract<Query<(SubEntity, &Atmosphere), With<Camera3d>>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, item) in &query {

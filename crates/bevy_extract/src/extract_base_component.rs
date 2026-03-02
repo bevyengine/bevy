@@ -1,6 +1,6 @@
 use crate::{
     sync_component::{SyncComponent, SyncComponentPlugin},
-    sync_world::RenderEntity,
+    sync_world::SubEntity,
     Extract, ExtractSchedule,
 };
 use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
@@ -13,9 +13,9 @@ use core::marker::PhantomData;
 
 pub use bevy_extract_macros::ExtractBaseComponent;
 
-/// Describes how a component gets extracted for rendering.
+/// Describes how a component gets extracted for sub world.
 ///
-/// Therefore the component is transferred from the "app world" into the "render
+/// Therefore the component is transferred from the "app world" into the "sub
 /// world" in the [`ExtractSchedule`] step. This functionality is enabled by
 /// adding [`ExtractBaseComponentPlugin`] with the component type.
 ///
@@ -32,11 +32,11 @@ pub trait ExtractComponent<L: AppLabel + Default, F: 'static + Send + Sync = ()>
     /// Filters the entities with additional constraints.
     type QueryFilter: QueryFilter;
 
-    /// Defines how the component is transferred into the "render world".
+    /// Defines how the component is transferred into the "sub world".
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out>;
 }
 
-/// This plugin extracts the components into the render world for synced
+/// This plugin extracts the components into the sub world for synced
 /// entities. To do so, it sets up the [`ExtractSchedule`] step for the
 /// specified [`ExtractBaseComponent`].
 ///
@@ -88,17 +88,17 @@ impl<L: AppLabel + Default + Clone, C: ExtractComponent<L, F>, F: 'static + Send
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncComponentPlugin::<L, C, F>::default());
 
-        if let Some(render_app) = app.get_sub_app_mut(self.app_label) {
+        if let Some(sub_app) = app.get_sub_app_mut(self.app_label) {
             if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible_components::<L, C, F>);
+                sub_app.add_systems(ExtractSchedule, extract_visible_components::<L, C, F>);
             } else {
-                render_app.add_systems(ExtractSchedule, extract_components::<L, C, F>);
+                sub_app.add_systems(ExtractSchedule, extract_components::<L, C, F>);
             }
         }
     }
 }
 
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToSubWorld`].
 fn extract_components<
     L: AppLabel + Default,
     C: ExtractComponent<L, F>,
@@ -106,7 +106,7 @@ fn extract_components<
 >(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(SubEntity, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
@@ -120,7 +120,7 @@ fn extract_components<
     commands.try_insert_batch(values);
 }
 
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToSubWorld`].
 fn extract_visible_components<
     L: AppLabel + Default,
     C: ExtractComponent<L, F>,
@@ -128,7 +128,7 @@ fn extract_visible_components<
 >(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(SubEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {

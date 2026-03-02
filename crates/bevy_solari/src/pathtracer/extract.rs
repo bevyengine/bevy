@@ -5,13 +5,13 @@ use bevy_ecs::{
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_render::{sync_world::RenderEntity, Extract};
+use bevy_render::{sync_world::SubEntity, Extract};
 use bevy_transform::components::GlobalTransform;
 
 pub fn extract_pathtracer(
     cameras_3d: Extract<
         Query<(
-            RenderEntity,
+            SubEntity,
             &Camera,
             Ref<GlobalTransform>,
             Option<&Pathtracer>,

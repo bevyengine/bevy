@@ -45,7 +45,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
     sync_component::{SyncComponent, SyncComponentPlugin},
-    sync_world::RenderEntity,
+    sync_world::SubEntity,
     texture::{CachedTexture, TextureCache},
     view::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
@@ -667,7 +667,7 @@ impl SyncComponent<RenderApp> for DepthOfField {
 /// Extracts all [`DepthOfField`] components into the render world.
 fn extract_depth_of_field_settings(
     mut commands: Commands,
-    mut query: Extract<Query<(RenderEntity, &DepthOfField, &Projection)>>,
+    mut query: Extract<Query<(SubEntity, &DepthOfField, &Projection)>>,
 ) {
     if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
         once!(info!(

@@ -4,7 +4,7 @@ use bevy_ecs::{
     query::{Has, With},
     system::{Commands, Query, ResMut},
 };
-use bevy_render::{sync_world::RenderEntity, MainWorld};
+use bevy_render::{sync_world::SubEntity, MainWorld};
 
 pub fn extract_dlss<F: DlssFeature>(
     mut commands: Commands,
@@ -12,7 +12,7 @@ pub fn extract_dlss<F: DlssFeature>(
     cleanup_query: Query<Has<Dlss<F>>>,
 ) {
     let mut cameras_3d = main_world
-        .query_filtered::<(RenderEntity, &Camera, &Projection, Option<&mut Dlss<F>>), With<Hdr>>();
+        .query_filtered::<(SubEntity, &Camera, &Projection, Option<&mut Dlss<F>>), With<Hdr>>();
 
     for (entity, camera, camera_projection, mut dlss) in cameras_3d.iter_mut(&mut main_world) {
         let mut entity_commands = commands

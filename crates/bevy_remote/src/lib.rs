@@ -242,8 +242,8 @@
 //!          }
 //!        },
 //!        "bevy_camera::primitives::Frustum": {},
-//!     "bevy_render::sync_world::RenderEntity": 4294967291,
-//!        "bevy_render::sync_world::SyncToRenderWorld": {},
+//!     "bevy_render::sync_world::SubEntity": 4294967291,
+//!        "bevy_render::sync_world::SyncToSubWorld": {},
 //!        "bevy_render::view::Msaa": "Sample4",
 //!        "bevy_camera::visibility::InheritedVisibility": true,
 //!        "bevy_camera::visibility::ViewVisibility": false,

@@ -60,7 +60,7 @@ use {
             Buffer, BufferInitDescriptor, BufferUsages, ShaderStages, ShaderType, VertexFormat,
         },
         renderer::RenderDevice,
-        sync_world::{MainEntity, TemporaryRenderEntity},
+        sync_world::{MainEntity, TemporarySubEntity},
         Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
     },
     bytemuck::cast_slice,
@@ -211,7 +211,7 @@ fn extract_gizmo_data(
             // The immediate mode API does not have a main world entity to refer to,
             // but we do need MainEntity on this render entity for the systems to find it.
             MainEntity::from(Entity::PLACEHOLDER),
-            TemporaryRenderEntity,
+            TemporarySubEntity,
         ));
     }
 }

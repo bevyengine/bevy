@@ -36,7 +36,7 @@ use bevy_render::{
         TextureSampleType, TextureUsages, VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
-    sync_world::RenderEntity,
+    sync_world::SubEntity,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Extract,
@@ -255,9 +255,9 @@ pub fn init_volumetric_fog_pipeline(
 /// from the main world to the render world.
 pub fn extract_volumetric_fog(
     mut commands: Commands,
-    view_targets: Extract<Query<(RenderEntity, &VolumetricFog)>>,
-    fog_volumes: Extract<Query<(RenderEntity, &FogVolume, &GlobalTransform)>>,
-    volumetric_lights: Extract<Query<(RenderEntity, &VolumetricLight)>>,
+    view_targets: Extract<Query<(SubEntity, &VolumetricFog)>>,
+    fog_volumes: Extract<Query<(SubEntity, &FogVolume, &GlobalTransform)>>,
+    volumetric_lights: Extract<Query<(SubEntity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
         // TODO: needs better way to handle clean up in render world

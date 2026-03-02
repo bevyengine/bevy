@@ -41,7 +41,7 @@ use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_mesh::Mesh2d;
 use bevy_render::{
     batching::sort_binned_render_phase, render_phase::AddRenderCommand,
-    render_resource::SpecializedRenderPipelines, sync_world::SyncToRenderWorld, ExtractSchedule,
+    render_resource::SpecializedRenderPipelines, sync_world::SyncToSubWorld, ExtractSchedule,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::Sprite;
@@ -86,7 +86,7 @@ impl Plugin for SpriteRenderPlugin {
                 .in_set(SpriteSystems::ComputeSlices),
         );
 
-        app.register_required_components::<Sprite, SyncToRenderWorld<RenderApp>>();
+        app.register_required_components::<Sprite, SyncToSubWorld<RenderApp>>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

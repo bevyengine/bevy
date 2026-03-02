@@ -6,9 +6,9 @@ use bevy_ecs::{
     component::Component,
 };
 
-use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
+use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToSubWorld};
 
-/// Plugin that registers a component for automatic sync to the render world. See [`SyncWorldPlugin`] for more information.
+/// Plugin that registers a component for automatic sync to the sub world. See [`SyncWorldPlugin`] for more information.
 ///
 /// This plugin is automatically added by [`ExtractBaseComponentPlugin`], and only needs to be added for manual extraction implementations.
 ///
@@ -18,8 +18,8 @@ use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
 ///
 /// # Implementation details
 ///
-/// It adds [`SyncToRenderWorld`] as a required component to make the [`SyncWorldPlugin`] aware of the component, and
-/// handles cleanup of the component in the render world when it is removed from an entity.
+/// It adds [`SyncToSubWorld`] as a required component to make the [`SyncWorldPlugin`] aware of the component, and
+/// handles cleanup of the component in the sub world when it is removed from an entity.
 ///
 /// [`ExtractBaseComponentPlugin`]: crate::extract_base_component::ExtractBaseComponentPlugin
 /// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
@@ -38,7 +38,7 @@ impl<L: AppLabel + Default, C: SyncComponent<L, F>, F: 'static + Send + Sync> De
 }
 
 /// Trait that links components from the main world with output components in
-/// the render world. It is used by [`SyncComponentPlugin`].
+/// the sub world. It is used by [`SyncComponentPlugin`].
 ///
 /// This trait is a subtrait of [`ExtractBaseComponent`], which uses it to determine
 /// which components to extract.
@@ -49,7 +49,7 @@ impl<L: AppLabel + Default, C: SyncComponent<L, F>, F: 'static + Send + Sync> De
 ///
 /// [`ExtractBaseComponent`]: crate::extract_base_component::ExtractBaseComponent
 pub trait SyncComponent<L: AppLabel + Default, F: 'static + Send + Sync = ()>: Component {
-    /// Describes what components should be removed from the render world if the
+    /// Describes what components should be removed from the sub world if the
     /// implementing component is removed.
     ///
     /// It is also used by the [`ExtractBaseComponent`] trait to determine which
@@ -65,7 +65,7 @@ impl<L: AppLabel + Default + Clone, C: SyncComponent<L, F>, F: Send + Sync + 'st
     for SyncComponentPlugin<L, C, F>
 {
     fn build(&self, app: &mut App) {
-        app.register_required_components::<C, SyncToRenderWorld<L>>();
+        app.register_required_components::<C, SyncToSubWorld<L>>();
 
         app.world_mut()
             .register_component_hooks::<C>()

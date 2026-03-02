@@ -7,7 +7,7 @@ use crate::{
     render_asset::RenderAssets,
     render_resource::TextureView,
     sync_component::SyncComponent,
-    sync_world::{MainEntity, MainEntityHashSet, RenderEntity, SyncToRenderWorld},
+    sync_world::{MainEntity, MainEntityHashSet, SubEntity, SyncToSubWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
@@ -61,7 +61,7 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.register_required_components::<Camera, Msaa>()
-            .register_required_components::<Camera, SyncToRenderWorld<RenderApp>>()
+            .register_required_components::<Camera, SyncToSubWorld<RenderApp>>()
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
             .add_plugins((
@@ -460,7 +460,7 @@ pub fn extract_cameras(
     query: Extract<
         Query<(
             Entity,
-            RenderEntity,
+            SubEntity,
             &Camera,
             &RenderTarget,
             &CameraRenderGraph,
@@ -482,7 +482,7 @@ pub fn extract_cameras(
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     mut existing_render_visible_entities: Query<&mut RenderVisibleEntities>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
-    mapper: Extract<Query<RenderEntity>>,
+    mapper: Extract<Query<SubEntity>>,
 ) {
     let primary_window = primary_window.iter().next();
     type ExtractedCameraComponents = (

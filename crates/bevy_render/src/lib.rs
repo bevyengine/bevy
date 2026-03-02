@@ -89,8 +89,8 @@ pub mod sync_component {
 }
 pub mod sync_world {
     pub use bevy_extract::sync_world::{
-        MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity, SyncToRenderWorld,
-        TemporaryRenderEntity,
+        MainEntity, MainEntityHashMap, MainEntityHashSet, SubEntity, SyncToSubWorld,
+        TemporarySubEntity,
     };
 
     pub type SyncWorldPlugin = bevy_extract::sync_world::SyncWorldPlugin<crate::RenderApp>;
@@ -212,7 +212,7 @@ pub enum RenderSystems {
     /// Cleanup render resources here.
     Cleanup,
     /// Final cleanup occurs: any entities with
-    /// [`TemporaryRenderEntity`](sync_world::TemporaryRenderEntity) will be despawned.
+    /// [`TemporarySubEntity`](sync_world::TemporarySubEntity) will be despawned.
     ///
     /// Runs after [`Cleanup`](RenderSystems::Cleanup).
     PostCleanup,
