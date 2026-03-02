@@ -8,11 +8,12 @@ use bevy_log::tracing::Instrument;
 use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "std")]
 use bevy_utils::{BufferedChannel, Parallel};
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::Ordering;
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
 #[cfg(not(feature = "std"))]
 pub use serial::propagate_parent_transforms;
+use std::ops::AddAssign;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
@@ -133,14 +134,27 @@ pub fn mark_dirty_trees(
         _ => {
             static_optimizations.enabled = true;
             let total = transforms.iter().len() as f32;
-            let dyn_threshold = total * threshold;
-            let n_changed = AtomicU32::new(0);
-            changed.par_iter().for_each(|_| {
-                // Changed<> requires table scans that can be very slow, if there are many entities
-                // and none that have moved, it can take a while to scan them all serially.
-                n_changed.fetch_add(1, Ordering::Relaxed);
-            });
-            static_optimizations.enabled = (n_changed.into_inner() as f32) < dyn_threshold;
+            let dyn_threshold = (total * threshold).ceil() as usize;
+            let n_changed: usize;
+            #[cfg(feature = "std")]
+            {
+                let mut par = Parallel::<usize>::default();
+                changed.par_iter().for_each_init(
+                    || par.borrow_local_mut(),
+                    |par, _| {
+                        // Changed<> requires table scans that can be very slow, if there are many
+                        // entities and none that have moved, it can take a while to scan them all
+                        // serially.
+                        par.add_assign(1);
+                    },
+                );
+                n_changed = par.iter_mut().map(|n| *n).sum();
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                n_changed = changed.count();
+            }
+            static_optimizations.enabled = n_changed < dyn_threshold;
         }
     }
     if !static_optimizations.enabled {
