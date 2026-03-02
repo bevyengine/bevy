@@ -741,7 +741,8 @@ pub fn prepare_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
             entries = entries.extend_with_indices(((19, lut_bindings.0), (20, lut_bindings.1)));
 
-            // When using WebGL, we can't have a depth texture with multisampling
+            // When using WebGL, we can't have a multisampled texture with `TEXTURE_BINDING`
+            // See https://github.com/gfx-rs/wgpu/issues/5263
             let prepass_bindings;
             if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) || msaa.samples() == 1 {
                 prepass_bindings = prepass::get_bindings(prepass_textures);
