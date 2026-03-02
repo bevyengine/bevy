@@ -2912,7 +2912,10 @@ impl Display for SystemParamValidationError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::query::Without;
+    use crate::resource::IsResource;
     use crate::system::assert_is_system;
+    use crate::world::EntityMut;
     use core::cell::RefCell;
 
     #[test]
@@ -2929,6 +2932,44 @@ mod tests {
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems(my_system);
         schedule.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn non_send_and_entities() {
+        #[derive(Resource)]
+        struct A(usize);
+        fn my_system(mut ns: NonSendMut<A>, _: Query<EntityMut>) {
+            ns.0 += 1;
+        }
+        assert_is_system(my_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn res_and_entities() {
+        #[derive(Resource)]
+        struct A(usize);
+        fn my_system(mut res: ResMut<A>, _: Query<EntityMut>) {
+            res.0 += 1;
+        }
+        assert_is_system(my_system);
+    }
+
+    #[test]
+    fn res_and_entities_filtered() {
+        #[derive(Resource)]
+        struct A(usize);
+        fn res_system(mut res: ResMut<A>, _: Query<EntityMut, Without<IsResource>>) {
+            res.0 += 1;
+        }
+        assert_is_system(res_system);
+
+        fn non_send_system(mut ns: NonSendMut<A>, _: Query<EntityMut, Without<A>>) {
+            ns.0 += 1;
+        }
+
+        assert_is_system(non_send_system);
     }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
