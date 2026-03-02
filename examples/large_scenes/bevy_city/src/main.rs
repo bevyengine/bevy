@@ -1,7 +1,5 @@
 //! A procedurally generated city
 
-use crate::settings::Settings;
-use crate::{generate_city::spawn_city, settings::setup_settings_ui};
 use argh::FromArgs;
 use assets::{load_assets, CityAssets};
 use bevy::{
@@ -20,6 +18,9 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
+
+use crate::settings::Settings;
+use crate::{generate_city::spawn_city, settings::setup_settings_ui};
 
 mod assets;
 mod generate_city;
