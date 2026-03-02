@@ -4,7 +4,7 @@ use bevy_mesh::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
 use gltf::Node;
 use serde::{Deserialize, Serialize};
 
-use bevy_math::{Quat, Vec3, Vec4};
+use bevy_math::{vec3, Quat, Vec3, Vec4};
 use bevy_transform::components::Transform;
 use thiserror::Error;
 
@@ -156,8 +156,214 @@ pub(crate) fn attribute_coordinate_conversion(
     }
 }
 
-// Helper for apply a local rotation conversions to nodes in a hierarchy without
-// causing children to inherit their parent's conversion.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Axis {
+    X,
+    Y,
+    Z,
+}
+
+impl Axis {
+    fn from_index(index: usize) -> Option<Self> {
+        match index {
+            0 => Some(Self::X),
+            1 => Some(Self::Y),
+            2 => Some(Self::Z),
+            _ => None,
+        }
+    }
+
+    fn from_index_unchecked(index: usize) -> Self {
+        Self::from_index(index).unwrap()
+    }
+
+    fn index(&self) -> usize {
+        match self {
+            Self::X => 0,
+            Self::Y => 1,
+            Self::Z => 2,
+        }
+    }
+}
+
+impl From<Axis> for Vec3 {
+    fn from(value: Axis) -> Self {
+        match value {
+            Axis::X => vec3(1.0, 0.0, 0.0),
+            Axis::Y => vec3(0.0, 1.0, 0.0),
+            Axis::Z => vec3(0.0, 0.0, 1.0),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Sign {
+    Positive,
+    Negative,
+}
+
+impl Sign {
+    fn flip(&self) -> Sign {
+        match self {
+            Self::Positive => Self::Negative,
+            Self::Negative => Self::Positive,
+        }
+    }
+
+    fn is_positive(&self) -> bool {
+        *self == Self::Positive
+    }
+
+    fn is_negative(&self) -> bool {
+        *self == Self::Negative
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SignedAxis {
+    pub(crate) sign: Sign,
+    pub(crate) axis: Axis,
+}
+
+impl SignedAxis {
+    const POSITIVE_X: Self = Self {
+        sign: Sign::Positive,
+        axis: Axis::X,
+    };
+    const POSITIVE_Y: Self = Self {
+        sign: Sign::Positive,
+        axis: Axis::Y,
+    };
+    const POSITIVE_Z: Self = Self {
+        sign: Sign::Positive,
+        axis: Axis::Z,
+    };
+    const NEGATIVE_X: Self = Self {
+        sign: Sign::Negative,
+        axis: Axis::X,
+    };
+    const NEGATIVE_Y: Self = Self {
+        sign: Sign::Negative,
+        axis: Axis::Y,
+    };
+    const NEGATIVE_Z: Self = Self {
+        sign: Sign::Negative,
+        axis: Axis::Z,
+    };
+
+    fn from_positive(axis: Axis) -> Self {
+        Self {
+            sign: Sign::Positive,
+            axis,
+        }
+    }
+
+    fn from_negative(axis: Axis) -> Self {
+        Self {
+            sign: Sign::Negative,
+            axis,
+        }
+    }
+
+    fn flip(&self) -> SignedAxis {
+        Self {
+            sign: self.sign.flip(),
+            axis: self.axis,
+        }
+    }
+
+    fn is_positive(&self) -> bool {
+        self.sign.is_positive()
+    }
+
+    fn is_negative(&self) -> bool {
+        self.sign.is_negative()
+    }
+}
+
+impl From<SignedAxis> for Vec3 {
+    fn from(value: SignedAxis) -> Self {
+        match value.sign {
+            Sign::Positive => Vec3::from(value.axis),
+            Sign::Negative => -Vec3::from(value.axis),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub(crate) struct Semantics {
+    forward: SignedAxis,
+    up: SignedAxis,
+    right: SignedAxis,
+}
+
+impl Semantics {
+    fn from_forward_up(forward: SignedAxis, up: SignedAxis) -> Option<Self> {
+        if forward.axis == up.axis {
+            return None;
+        }
+
+        // right = forward.cross(up)
+
+        let winding = (forward.axis.index() + 1).rem_euclid(3) == up.axis.index();
+
+        let right = SignedAxis {
+            sign: match winding ^ forward.sign.is_positive() ^ up.sign.is_positive() {
+                true => Sign::Positive,
+                false => Sign::Negative,
+            },
+            axis: Axis::from_index_unchecked(3 - (forward.axis.index() + up.axis.index())),
+        };
+
+        Some(Self { forward, up, right })
+    }
+
+    fn forward(&self) -> SignedAxis {
+        self.forward
+    }
+
+    fn back(&self) -> SignedAxis {
+        self.forward.flip()
+    }
+
+    fn up(&self) -> SignedAxis {
+        self.up
+    }
+
+    fn down(&self) -> SignedAxis {
+        self.up.flip()
+    }
+
+    fn right(&self) -> SignedAxis {
+        self.right
+    }
+
+    fn left(&self) -> SignedAxis {
+        self.right.flip()
+    }
+
+    const BEVY: Self = Self {
+        forward: SignedAxis::NEGATIVE_Z,
+        up: SignedAxis::POSITIVE_Y,
+        right: SignedAxis::POSITIVE_X,
+    };
+
+    const GLTF: Self = Self {
+        forward: SignedAxis::POSITIVE_Z,
+        up: SignedAxis::POSITIVE_Y,
+        right: SignedAxis::NEGATIVE_X,
+    };
+}
+
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct Conversion {
+    rotation: Quat,
+    swap_axes: [Axis; 3],
+    flip_axes: [f32; 3],
+}
+
+// Helper for applying a local rotation conversion to nodes in a hierarchy without
+// causing them to inherit their parent's conversion.
 #[derive(Copy, Clone, Default, Debug)]
 pub(crate) struct HierarchyConversion {
     local: Quat,
@@ -191,5 +397,35 @@ impl HierarchyConversion {
         Transform::from_translation(self.translation(t.translation))
             .with_rotation(self.rotation(t.rotation))
             .with_scale(self.scale(t.scale))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn semantics() {
+        let signed_axes = [
+            SignedAxis::POSITIVE_X,
+            SignedAxis::POSITIVE_Y,
+            SignedAxis::POSITIVE_Z,
+            SignedAxis::NEGATIVE_X,
+            SignedAxis::NEGATIVE_Y,
+            SignedAxis::NEGATIVE_Z,
+        ];
+
+        for forward in signed_axes {
+            for up in signed_axes {
+                if let Some(semantics) = Semantics::from_forward_up(forward, up) {
+                    let right = Vec3::from(semantics.right());
+                    let cross = Vec3::cross(forward.into(), up.into());
+
+                    assert_eq!(right, cross, "{semantics:?}");
+                } else {
+                    assert!(forward.axis == up.axis);
+                }
+            }
+        }
     }
 }
