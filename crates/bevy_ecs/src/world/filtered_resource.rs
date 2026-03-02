@@ -220,10 +220,7 @@ impl<'w, 's> From<&'w FilteredResourcesMut<'_, 's>> for FilteredResources<'w, 's
 
 impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
     fn from(value: &'w World) -> Self {
-        const READ_ALL_RESOURCES: &Access = {
-            const ACCESS: Access = Access::new_read_all();
-            &ACCESS
-        };
+        const READ_ALL_RESOURCES: &Access = const { &Access::new_read_all() };
 
         let last_run = value.last_change_tick();
         let this_run = value.read_change_tick();
@@ -506,10 +503,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
 
 impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
     fn from(value: &'w mut World) -> Self {
-        const WRITE_ALL_RESOURCES: &Access = {
-            const ACCESS: Access = Access::new_write_all();
-            &ACCESS
-        };
+        const WRITE_ALL_RESOURCES: &Access = const { &Access::new_write_all() };
 
         let last_run = value.last_change_tick();
         let this_run = value.change_tick();

@@ -766,7 +766,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         if !accesses.is_empty() {
             accesses.push(' ');
         }
-        panic!("error[B0002]: Res<{}> in system {} conflicts with a previous system parameter. Consider using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
+        panic!("error[B0002]: Res<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
     }
 
     #[inline]
@@ -848,7 +848,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         if !accesses.is_empty() {
             accesses.push(' ');
         }
-        panic!("error[B0002]: ResMut<{}> in system {} conflicts with a previous system parameter. Consider using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
+        panic!("error[B0002]: ResMut<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access or using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
     }
 
     #[inline]

@@ -125,9 +125,10 @@ Resources were also removed from `Access`, which keeps track what data any given
 - `Access::has_write_all_components` was deprecated in favor of `Access::has_write_all`.
 - `Access::has_read_all_resources` and `Access::has_write_all_resources` were removed.
 - `Access::is_components_compatible` was deprecated in favor of `Access::is_compatible`.
-- `Access::is_resource_compatible` was removed.
+- `Access::is_resources_compatible` was removed.
 - `Access::is_subset_components` was deprecated in favor of `Access::is_subset`.
 - `Access::is_subset_resources` was removed.
+- `Access::resource_reads_and_writes`, `Access::resource_reads`, `Access::resource_writes` were removed.
 - `Access::try_iter_component_access` was deprecated in favor of `Access::try_iter_access`.
 - `FilteredAccess::add_component_read` was deprecated in favor of `FilteredAccess::add_read`.
 - `FilteredAccess::add_component_write` was deprecated in favor of `FilteredAccess::add_write`.
@@ -139,6 +140,7 @@ Resources were also removed from `Access`, which keeps track what data any given
 
 Due to the split storage it used to be possible to both access an entity and a resource in a `WorldQuery` implementor.
 This is no longer valid. In order to access multiple different entities for a `WorldQuery` implementation, use `WorldQuery::init_nested_access`.
+See the implementation of `WorldQuery` for `AssetChanged` for an example of how this can be done correctly.
 
 ## Miscellaneous
 
