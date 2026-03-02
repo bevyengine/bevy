@@ -2172,10 +2172,32 @@ bitflags::bitflags! {
         /// No support for compressed textures.
         const NONE     = 0;
         /// Support for Adaptive Scalable Texture Compression.
+        ///
+        /// For more information see:
+        /// - [`Features::TEXTURE_COMPRESSION_ASTC`]
+        /// - [ASTC Format Specification]
+        ///
+        /// [ASTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#ASTC
         const ASTC_LDR = 1 << 0;
         /// Support for Block Compressed textures.
+        ///
+        /// For more information see:
+        /// - [`Features::TEXTURE_COMPRESSION_BC`]
+        /// - [S3TC Format Specification] (BC1, BC2, BC3)
+        /// - [RGTC Format Specification] (BC4, BC5)
+        /// - [BPTC Format Specification] (BC6, BC7)
+        ///
+        /// [S3TC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#S3TC
+        /// [RGTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#RGTC
+        /// [BPTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#BPTC
         const BC       = 1 << 1;
         /// Support for Ericsson Texture Compression.
+        ///
+        /// For more information see:
+        /// - [`Features::TEXTURE_COMPRESSION_ETC2`]
+        /// - [ETC2 Format Specification]
+        ///
+        /// [ETC2 Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#ETC2
         const ETC2     = 1 << 2;
     }
 }
