@@ -1,19 +1,18 @@
 use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
+
 use alloc::vec::Vec;
-#[cfg(not(feature = "std"))]
-use bevy_ecs::entity::Entities;
+use core::ops::AddAssign;
+use core::sync::atomic::Ordering;
+
 use bevy_ecs::prelude::*;
 use bevy_log::info_span;
 use bevy_log::tracing::Instrument;
 use bevy_tasks::ComputeTaskPool;
-#[cfg(feature = "std")]
-use bevy_utils::{BufferedChannel, Parallel};
-use core::sync::atomic::Ordering;
+
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
 #[cfg(not(feature = "std"))]
 pub use serial::propagate_parent_transforms;
-use std::ops::AddAssign;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
@@ -122,10 +121,10 @@ pub fn mark_dirty_trees(
     parents: Query<&ChildOf>,
     mut static_optimizations: ResMut<StaticTransformOptimizations>,
     // Cached allocations for std-only parallel implementation
-    #[cfg(feature = "std")] mut shared_bitset: Local<Vec<std::sync::atomic::AtomicU64>>,
-    #[cfg(feature = "std")] mut local_bitset: Local<Parallel<Vec<u64>>>,
-    #[cfg(feature = "std")] mut output_channel: Local<BufferedChannel<Entity>>,
-    #[cfg(feature = "std")] mut input_channel: Local<BufferedChannel<Entity>>,
+    #[cfg(feature = "std")] mut shared_bitset: Local<Vec<core::sync::atomic::AtomicU64>>,
+    #[cfg(feature = "std")] mut local_bitset: Local<bevy_utils::Parallel<Vec<u64>>>,
+    #[cfg(feature = "std")] mut output_channel: Local<bevy_utils::BufferedChannel<Entity>>,
+    #[cfg(feature = "std")] mut input_channel: Local<bevy_utils::BufferedChannel<Entity>>,
 ) {
     let threshold = static_optimizations.threshold.clamp(0.0, 1.0);
     match threshold {
@@ -138,7 +137,7 @@ pub fn mark_dirty_trees(
             let n_changed: usize;
             #[cfg(feature = "std")]
             {
-                let mut par = Parallel::<usize>::default();
+                let mut par = bevy_utils::Parallel::<usize>::default();
                 changed.par_iter().for_each_init(
                     || par.borrow_local_mut(),
                     |par, _| {
@@ -312,9 +311,8 @@ pub fn mark_dirty_trees(
             local_bitset.clear();
         }
 
-        // Reset the bitset for the next frame. store(0) keeps the Vec length so the shared
-        // capacity is preserved — changed_bitset.clear() would shrink len to 0 and force
-        // every entity through the overflow path on the next frame.
+        // Reset the bitset for the next frame while preserving the `Vec` length. Using `clear()`
+        // would shrink the length to 0 and force every entity through the overflow path next frame.
         for w in shared_bitset.iter() {
             w.store(0, Ordering::Relaxed);
         }
