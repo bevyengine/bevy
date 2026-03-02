@@ -120,9 +120,7 @@ pub fn mark_dirty_trees(
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
     mut static_optimizations: ResMut<StaticTransformOptimizations>,
-    // Used only in the no_std path to resolve entity indices back to live entities.
-    #[cfg(not(feature = "std"))] entities: &Entities,
-    #[cfg(not(feature = "std"))] mut changed_bitset: Local<Vec<u64>>,
+    // Shared atomic bitset used to early exit hierarchy traversal across threads.
     #[cfg(feature = "std")] mut shared_bitset: Local<Vec<AtomicU64>>,
     // Per-thread overflow bitset: used only when an entity index exceeds the current capacity of
     // the shared bitset.  At steady-state this stays empty.  After the parallel phase the overflow
@@ -151,17 +149,43 @@ pub fn mark_dirty_trees(
         return;
     }
 
-    // Each worker walks its changed entity up to the root, recording each newly marked entity in
-    // the shared atomic bitset. The bitset provides cross-thread early exit: if an entity has
-    // already been visited, the worker can stop traversing the hierarchy. Entities are sent through
-    // the channel the first time they are visited, to call set_changed() concurrently.
+    // Simple serial implementation that iterates changed entities and traverses the tree.
+    #[cfg(not(feature = "std"))]
+    for entity in changed.iter().chain(orphaned.read()) {
+        let mut next = entity;
+        while let Ok(mut tree) = transforms.get_mut(next) {
+            if tree.is_changed() && !tree.is_added() {
+                // If the component was changed, this part of the tree has already been processed.
+                // Ignore this if the change was caused by the component being added.
+                break;
+            }
+            tree.set_changed();
+            if let Ok(parent) = parents.get(next).map(ChildOf::parent) {
+                next = parent;
+            } else {
+                break;
+            };
+        }
+    }
+
+    // Concurrent and parallel implementation with three sets of asynchronous workers:
+    //
+    // - producer: (single) finds all changed or orphaned entities and sends a message in a channel
+    // - traversal: (many) read incoming messages from producer, traverse hierarchy using atomics to
+    //      cooperatively early exit across threads, send newly changed entities to consumer.
+    // - consumer: (single) read incoming messages from traversal
+    //
+    // These workers are all running both parallelly and concurrently. They are spawned at the start
+    // of the scope and asynchronously await incoming batches of work. This allows the entire
+    // pipeline to start working as soon as there is available work to process, instead of running
+    // each stage serially with inner parallelism.
     #[cfg(feature = "std")]
     {
         ComputeTaskPool::get().scope(|scope| {
             input_channel.chunk_size = 1024;
             output_channel.chunk_size = 1024;
             let (input_rx, mut input_tx) = input_channel.unbounded();
-            let (output_rx, output_tx) = output_channel.unbounded();
+            let (output_rx, mut output_tx) = output_channel.unbounded();
             let shared_bitset: &[AtomicU64] = &shared_bitset;
             let local_bitset = &*local_bitset;
             let parents_ref = &parents;
@@ -177,18 +201,19 @@ pub fn mark_dirty_trees(
                         }
                     }
                 }
-                .instrument(info_span!("mark_dirty_consumer")),
+                .instrument(info_span!("consumer_mark_dirty")),
             );
 
             // Producers: each task loops until the input channel is exhausted, walking each
             // entity's ancestor chain and forwarding newly marked entities to the consumer task.
-            for _ in 0..ComputeTaskPool::get().thread_num().max(1) {
+            for _ in 0..(ComputeTaskPool::get().thread_num() - 1).max(1) {
                 let input_rx = input_rx.clone();
                 let mut output_tx = output_tx.clone();
                 scope.spawn(
                     async move {
                         while let Ok(mut chunk) = input_rx.recv().await {
                             for mut entity in chunk.drain() {
+                                let mut first_iteration = true;
                                 'traverse_hierarchy: loop {
                                     let idx = entity.index().index() as usize;
                                     let word = idx / 64;
@@ -204,12 +229,11 @@ pub fn mark_dirty_trees(
                                             != 0
                                     {
                                         // Common path: atomic OR into the shared bitset.
-                                        // If the bit was already set, another thread already walked
-                                        // up from here — stop climbing.
+                                        // If the entity was already visited, we can stop climbing.
                                         break 'traverse_hierarchy;
                                     } else {
-                                        // Overflow: entity index exceeds shared bitset capacity. Use a
-                                        // per-task local bitset for intra-task early exit.
+                                        // Overflow: entity index exceeds shared bitset capacity.
+                                        // Use a per-task local bitset for intra-task early exit.
                                         let overflow = &mut *local_bitset.borrow_local_mut();
                                         if word < overflow.len() && overflow[word] & bit != 0 {
                                             break 'traverse_hierarchy;
@@ -221,8 +245,14 @@ pub fn mark_dirty_trees(
                                     }
 
                                     // If we have not hit a break yet, it's the first time we've
-                                    // hit this entity, and it should be sent to the consumer task.
-                                    let _ = output_tx.send(entity).await;
+                                    // seen this entity, so it should be sent to the consumer.
+                                    if first_iteration {
+                                        first_iteration = false
+                                    } else {
+                                        // The first iteration (leaf) has already been sent to the
+                                        // consumer by the producer; we don't need to send it again.
+                                        output_tx.send(entity).await.ok();
+                                    }
 
                                     match parents_ref.get(entity).ok().map(ChildOf::parent) {
                                         Some(parent) => entity = parent,
@@ -232,18 +262,20 @@ pub fn mark_dirty_trees(
                             }
                         }
                     }
-                    .instrument(info_span!("mark_dirty_producer")),
+                    .instrument(info_span!("par_traversal_mark_dirty")),
                 );
             }
-            // Drop the original output sender; each producer holds a clone and will drop it when
-            // the input is exhausted, which closes the output channel and lets the consumer exit.
-            drop(output_tx);
 
-            // Feed changed entities and orphans into producer tasks. The sender is dropped at the
-            // end of this closure, closing the channel and allowing the producer tasks to exit.
-            info_span!("mark_dirty_inputs").in_scope(move || {
+            // Feed changed entities and orphans into producer tasks. The senders are dropped at the
+            // end of this closure, closing the channel and allowing the other tasks to exit.
+            //
+            // Note that we send the entity directly to the consumer as well, we do this to start
+            // feeding it work as soon as possible. The traversal worker should skip sending these
+            // leaves to the consumer because it has already been sent here.
+            info_span!("producer_mark_dirty").in_scope(move || {
                 for entity in orphaned.read().chain(changed.iter()) {
                     let _ = input_tx.send_blocking(entity);
+                    let _ = output_tx.send_blocking(entity);
                 }
             });
         });
@@ -265,70 +297,6 @@ pub fn mark_dirty_trees(
         // every entity through the overflow path on the next frame.
         for w in shared_bitset.iter() {
             w.store(0, Ordering::Relaxed);
-        }
-    }
-
-    #[cfg(not(feature = "std"))]
-    {
-        for mut entity in changed.iter() {
-            loop {
-                let idx = entity.index().index() as usize;
-                let word = idx / 64;
-                let bit = 1u64 << (idx % 64);
-                if word >= shared_bitset.len() {
-                    shared_bitset.resize(word + 1, 0u64);
-                }
-                if shared_bitset[word] & bit != 0 {
-                    break;
-                }
-                shared_bitset[word] |= bit;
-                match parents.get(entity).ok().map(ChildOf::parent) {
-                    Some(parent) => entity = parent,
-                    None => break,
-                }
-            }
-        }
-
-        // Handle orphaned entities: walk their ancestor chain, dedup via bitset.
-        for entity in orphaned.read() {
-            let mut current = Some(entity);
-            while let Some(e) = current {
-                let idx = e.index().index() as usize;
-                let word = idx / 64;
-                let bit = 1u64 << (idx % 64);
-                if word >= shared_bitset.len() {
-                    shared_bitset.resize(word + 1, 0u64);
-                }
-                if shared_bitset[word] & bit != 0 {
-                    break;
-                }
-                shared_bitset[word] |= bit;
-                current = parents.get(e).ok().map(ChildOf::parent);
-            }
-        }
-
-        // Scan bitset, call set_changed() for each marked entity, and reset inline.
-        for (word_idx, word) in shared_bitset.iter_mut().enumerate() {
-            let w = core::mem::replace(word, 0);
-            if w == 0 {
-                continue;
-            }
-            let mut bits = w;
-            while bits != 0 {
-                let bit = bits.trailing_zeros() as usize;
-                bits &= bits - 1;
-                let entity_idx = word_idx * 64 + bit;
-                let Some(probe) = u32::try_from(entity_idx)
-                    .ok()
-                    .and_then(Entity::from_raw_u32)
-                else {
-                    continue;
-                };
-                let entity = entities.resolve_from_index(probe.index());
-                if let Ok(mut tree) = transforms.get_mut(entity) {
-                    tree.set_changed();
-                }
-            }
         }
     }
 }
