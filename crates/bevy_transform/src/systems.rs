@@ -123,14 +123,14 @@ pub fn mark_dirty_trees(
     // Used only in the no_std path to resolve entity indices back to live entities.
     #[cfg(not(feature = "std"))] entities: &Entities,
     #[cfg(not(feature = "std"))] mut changed_bitset: Local<Vec<u64>>,
-    #[cfg(feature = "std")] mut changed_bitset: Local<Vec<AtomicU64>>,
+    #[cfg(feature = "std")] mut shared_bitset: Local<Vec<AtomicU64>>,
     // Per-thread overflow bitset: used only when an entity index exceeds the current capacity of
     // the shared bitset.  At steady-state this stays empty.  After the parallel phase the overflow
     // bitsets are merged into the primary bitset, growing it to accommodate the new indices.
-    #[cfg(feature = "std")] mut overflow_bitset: Local<Parallel<Vec<u64>>>,
+    #[cfg(feature = "std")] mut local_bitset: Local<Parallel<Vec<u64>>>,
     // Reusable channel for streaming newly-marked entities from parallel producers to the serial
     // consumer that calls set_changed().  Allocations are pooled and reused each frame.
-    #[cfg(feature = "std")] output_channel: Local<BufferedChannel<Entity>>,
+    #[cfg(feature = "std")] mut output_channel: Local<BufferedChannel<Entity>>,
     #[cfg(feature = "std")] mut input_channel: Local<BufferedChannel<Entity>>,
 ) {
     let threshold = static_optimizations.threshold.clamp(0.0, 1.0);
@@ -141,11 +141,10 @@ pub fn mark_dirty_trees(
             static_optimizations.enabled = true;
             let total = transforms.iter().len() as f32;
             let dyn_threshold = total * threshold;
-            static_optimizations.enabled = changed
+            static_optimizations.enabled = !changed
                 .iter()
                 .enumerate()
-                .find(|(i, ..)| *i as f32 > dyn_threshold) // Break if we hit the threshold
-                .is_none(); // Enable static optimizations only if we *don't* hit the threshold
+                .any(|(i, ..)| i as f32 > dyn_threshold); // Break if we hit the threshold
         }
     }
     if !static_optimizations.enabled {
@@ -158,15 +157,16 @@ pub fn mark_dirty_trees(
     // the channel the first time they are visited, to call set_changed() concurrently.
     #[cfg(feature = "std")]
     {
-        input_channel.chunk_size = 256;
         ComputeTaskPool::get().scope(|scope| {
+            input_channel.chunk_size = 1024;
+            output_channel.chunk_size = 1024;
             let (input_rx, mut input_tx) = input_channel.unbounded();
             let (output_rx, output_tx) = output_channel.unbounded();
-            let shared: &[AtomicU64] = &*changed_bitset;
-            let overflow_ref = &*overflow_bitset;
+            let shared_bitset: &[AtomicU64] = &shared_bitset;
+            let local_bitset = &*local_bitset;
             let parents_ref = &parents;
 
-            // Consumer: drain the channel and call set_changed() for every newly-marked entity.
+            // Consumer: drain the channel of moved entities and call set_changed() on the marker.
             scope.spawn(
                 async move {
                     while let Ok(mut chunk) = output_rx.recv().await {
@@ -177,44 +177,57 @@ pub fn mark_dirty_trees(
                         }
                     }
                 }
-                .instrument(info_span!("mark_dirty_apply")),
+                .instrument(info_span!("mark_dirty_consumer")),
             );
 
-            // Producer: in parallel, read changed entities, traverse the hierarchy and send out
-            // entities that should be marked dirty for the consumer.
-            for _ in 0..ComputeTaskPool::get().thread_num() - 1 {
+            // Producers: each task loops until the input channel is exhausted, walking each
+            // entity's ancestor chain and forwarding newly marked entities to the consumer task.
+            for _ in 0..ComputeTaskPool::get().thread_num().max(1) {
                 let input_rx = input_rx.clone();
                 let mut output_tx = output_tx.clone();
                 scope.spawn(
                     async move {
-                        for mut entity in input_rx.recv().await.iter().flatten().copied() {
-                            // Walk ancestors with early exit.
-                            'traversal: loop {
-                                let idx = entity.index().index() as usize;
-                                let word = idx / 64;
-                                let bit = 1u64 << (idx % 64);
-                                if word < shared.len()
-                                    && shared[word].fetch_or(bit, Ordering::Relaxed) & bit != 0
-                                {
-                                    break; // The entity has already been visited by some thread.
-                                } else {
-                                    // We have encountered an entity with an ID larger than our shared
-                                    // bitset, so we need to use a thread-local overflow bitset.
-                                    let mut overflow = overflow_ref.borrow_local_mut();
-                                    if word < overflow.len() && overflow[word] & bit != 0 {
-                                        break; // The entity has already been visited by this thread.
-                                    }
-                                    if word >= overflow.len() {
-                                        overflow.resize(word + 1, 0u64);
-                                    }
-                                    overflow[word] |= bit;
-                                }
-                                // First to mark this ancestor — send it to the consumer.
-                                let _ = output_tx.send(entity).await;
+                        while let Ok(mut chunk) = input_rx.recv().await {
+                            for mut entity in chunk.drain() {
+                                'traverse_hierarchy: loop {
+                                    let idx = entity.index().index() as usize;
+                                    let word = idx / 64;
+                                    let bit = 1u64 << (idx % 64);
 
-                                match parents_ref.get(entity).ok().map(ChildOf::parent) {
-                                    Some(parent) => entity = parent,
-                                    None => break 'traversal,
+                                    #[expect(
+                                        clippy::redundant_else,
+                                        reason = "Without the else, fails to compile due to async"
+                                    )]
+                                    if word < shared_bitset.len()
+                                        && shared_bitset[word].fetch_or(bit, Ordering::Relaxed)
+                                            & bit
+                                            != 0
+                                    {
+                                        // Common path: atomic OR into the shared bitset.
+                                        // If the bit was already set, another thread already walked
+                                        // up from here — stop climbing.
+                                        break 'traverse_hierarchy;
+                                    } else {
+                                        // Overflow: entity index exceeds shared bitset capacity. Use a
+                                        // per-task local bitset for intra-task early exit.
+                                        let overflow = &mut *local_bitset.borrow_local_mut();
+                                        if word < overflow.len() && overflow[word] & bit != 0 {
+                                            break 'traverse_hierarchy;
+                                        }
+                                        if word >= overflow.len() {
+                                            overflow.resize(word + 1, 0u64);
+                                        }
+                                        overflow[word] |= bit;
+                                    }
+
+                                    // If we have not hit a break yet, it's the first time we've
+                                    // hit this entity, and it should be sent to the consumer task.
+                                    let _ = output_tx.send(entity).await;
+
+                                    match parents_ref.get(entity).ok().map(ChildOf::parent) {
+                                        Some(parent) => entity = parent,
+                                        None => break 'traverse_hierarchy,
+                                    }
                                 }
                             }
                         }
@@ -222,63 +235,57 @@ pub fn mark_dirty_trees(
                     .instrument(info_span!("mark_dirty_producer")),
                 );
             }
+            // Drop the original output sender; each producer holds a clone and will drop it when
+            // the input is exhausted, which closes the output channel and lets the consumer exit.
+            drop(output_tx);
 
-            // Up to this point, we have only spawned producer and consumer tasks; they won't do
-            // anything until we start feeding them data:
+            // Feed changed entities and orphans into producer tasks. The sender is dropped at the
+            // end of this closure, closing the channel and allowing the producer tasks to exit.
             info_span!("mark_dirty_inputs").in_scope(move || {
-                changed.par_iter().for_each_init(
-                    || input_tx.clone(),
-                    |input_tx, entity| {
-                        let _ = input_tx.send_blocking(entity);
-                    },
-                );
-                for entity in orphaned.read() {
+                for entity in orphaned.read().chain(changed.iter()) {
                     let _ = input_tx.send_blocking(entity);
                 }
             });
-            // Drop the senders so the tasks can exit once they have drained all items.
-            drop(output_tx);
         });
 
-        // Merge overflow bitsets into the shared bitset (grows it to cover new indices).
-        // Once steady-state is reached, the overflow stays empty, so this loop body never executes.
-        for overflow in overflow_bitset.iter_mut() {
-            if overflow.len() > changed_bitset.len() {
-                changed_bitset.resize_with(overflow.len(), Default::default);
+        // Merge thread-local bitsets into the shared bitset, growing it to accommodate the largest
+        // entity index we have encountered so far. At steady-state, these local bitsets stay empty.
+        for local_bitset in local_bitset.iter_mut() {
+            if local_bitset.is_empty() {
+                continue;
             }
-            overflow.clear();
+            if local_bitset.len() > shared_bitset.len() {
+                shared_bitset.resize_with(local_bitset.len(), Default::default);
+            }
+            local_bitset.clear();
         }
 
-        // Reset the bitset for the next frame.
-        changed_bitset.clear();
+        // Reset the bitset for the next frame. store(0) keeps the Vec length so the shared
+        // capacity is preserved — changed_bitset.clear() would shrink len to 0 and force
+        // every entity through the overflow path on the next frame.
+        for w in shared_bitset.iter() {
+            w.store(0, Ordering::Relaxed);
+        }
     }
 
     #[cfg(not(feature = "std"))]
     {
-        for (entity, child_of) in changed.iter() {
-            let leaf_idx = entity.index().index() as usize;
-            let leaf_word = leaf_idx / 64;
-            let leaf_bit = 1u64 << (leaf_idx % 64);
-            if leaf_word >= changed_bitset.len() {
-                changed_bitset.resize(leaf_word + 1, 0u64);
-            }
-            if changed_bitset[leaf_word] & leaf_bit != 0 {
-                continue;
-            }
-            changed_bitset[leaf_word] |= leaf_bit;
-            let mut current = child_of.map(ChildOf::parent);
-            while let Some(e) = current {
-                let idx = e.index().index() as usize;
+        for mut entity in changed.iter() {
+            loop {
+                let idx = entity.index().index() as usize;
                 let word = idx / 64;
                 let bit = 1u64 << (idx % 64);
-                if word >= changed_bitset.len() {
-                    changed_bitset.resize(word + 1, 0u64);
+                if word >= shared_bitset.len() {
+                    shared_bitset.resize(word + 1, 0u64);
                 }
-                if changed_bitset[word] & bit != 0 {
+                if shared_bitset[word] & bit != 0 {
                     break;
                 }
-                changed_bitset[word] |= bit;
-                current = parents.get(e).ok().map(ChildOf::parent);
+                shared_bitset[word] |= bit;
+                match parents.get(entity).ok().map(ChildOf::parent) {
+                    Some(parent) => entity = parent,
+                    None => break,
+                }
             }
         }
 
@@ -289,19 +296,19 @@ pub fn mark_dirty_trees(
                 let idx = e.index().index() as usize;
                 let word = idx / 64;
                 let bit = 1u64 << (idx % 64);
-                if word >= changed_bitset.len() {
-                    changed_bitset.resize(word + 1, 0u64);
+                if word >= shared_bitset.len() {
+                    shared_bitset.resize(word + 1, 0u64);
                 }
-                if changed_bitset[word] & bit != 0 {
+                if shared_bitset[word] & bit != 0 {
                     break;
                 }
-                changed_bitset[word] |= bit;
+                shared_bitset[word] |= bit;
                 current = parents.get(e).ok().map(ChildOf::parent);
             }
         }
 
         // Scan bitset, call set_changed() for each marked entity, and reset inline.
-        for (word_idx, word) in changed_bitset.iter_mut().enumerate() {
+        for (word_idx, word) in shared_bitset.iter_mut().enumerate() {
             let w = core::mem::replace(word, 0);
             if w == 0 {
                 continue;
