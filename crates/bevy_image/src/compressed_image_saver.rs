@@ -5,7 +5,7 @@ use bevy_reflect::TypePath;
 use futures_lite::AsyncWriteExt;
 use thiserror::Error;
 
-/// An [`AssetSaver`] that writes compressed basis universal files.
+/// An [`AssetSaver`] that writes compressed basis universal (.ktx2) files.
 #[derive(TypePath)]
 pub struct CompressedImageSaver;
 

@@ -1996,7 +1996,9 @@ impl Image {
     }
 }
 
-/// A UASTC texture channel layout
+/// A [UASTC] texture channel layout
+///
+/// [UASTC]: https://github.com/BinomialLLC/basis_universal/wiki/UASTC-Texture-Specification/b624c07ad3c659e7b0f0badcb36e9a6b8820a99d
 #[derive(Clone, Copy, Debug)]
 pub enum DataFormat {
     /// 3-color
