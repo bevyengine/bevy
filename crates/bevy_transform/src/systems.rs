@@ -8,7 +8,7 @@ use bevy_log::tracing::Instrument;
 use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "std")]
 use bevy_utils::{BufferedChannel, Parallel};
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{AtomicU32, Ordering};
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
 #[cfg(not(feature = "std"))]
@@ -120,14 +120,9 @@ pub fn mark_dirty_trees(
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
     mut static_optimizations: ResMut<StaticTransformOptimizations>,
-    // Shared atomic bitset used to early exit hierarchy traversal across threads.
-    #[cfg(feature = "std")] mut shared_bitset: Local<Vec<AtomicU64>>,
-    // Per-thread overflow bitset: used only when an entity index exceeds the current capacity of
-    // the shared bitset.  At steady-state this stays empty.  After the parallel phase the overflow
-    // bitsets are merged into the primary bitset, growing it to accommodate the new indices.
+    // Cached allocations for std-only parallel implementation
+    #[cfg(feature = "std")] mut shared_bitset: Local<Vec<std::sync::atomic::AtomicU64>>,
     #[cfg(feature = "std")] mut local_bitset: Local<Parallel<Vec<u64>>>,
-    // Reusable channel for streaming newly-marked entities from parallel producers to the serial
-    // consumer that calls set_changed().  Allocations are pooled and reused each frame.
     #[cfg(feature = "std")] mut output_channel: Local<BufferedChannel<Entity>>,
     #[cfg(feature = "std")] mut input_channel: Local<BufferedChannel<Entity>>,
 ) {
@@ -139,10 +134,13 @@ pub fn mark_dirty_trees(
             static_optimizations.enabled = true;
             let total = transforms.iter().len() as f32;
             let dyn_threshold = total * threshold;
-            static_optimizations.enabled = !changed
-                .iter()
-                .enumerate()
-                .any(|(i, ..)| i as f32 > dyn_threshold); // Break if we hit the threshold
+            let n_changed = AtomicU32::new(0);
+            changed.par_iter().for_each(|_| {
+                // Changed<> requires table scans that can be very slow, if there are many entities
+                // and none that have moved, it can take a while to scan them all serially.
+                n_changed.fetch_add(1, Ordering::Relaxed);
+            });
+            static_optimizations.enabled = (n_changed.into_inner() as f32) < dyn_threshold;
         }
     }
     if !static_optimizations.enabled {
@@ -186,7 +184,7 @@ pub fn mark_dirty_trees(
             output_channel.chunk_size = 1024;
             let (input_rx, mut input_tx) = input_channel.unbounded();
             let (output_rx, mut output_tx) = output_channel.unbounded();
-            let shared_bitset: &[AtomicU64] = &shared_bitset;
+            let shared_bitset: &[core::sync::atomic::AtomicU64] = &shared_bitset;
             let local_bitset = &*local_bitset;
             let parents_ref = &parents;
 
@@ -247,7 +245,7 @@ pub fn mark_dirty_trees(
                                     // If we have not hit a break yet, it's the first time we've
                                     // seen this entity, so it should be sent to the consumer.
                                     if first_iteration {
-                                        first_iteration = false
+                                        first_iteration = false;
                                     } else {
                                         // The first iteration (leaf) has already been sent to the
                                         // consumer by the producer; we don't need to send it again.
@@ -273,10 +271,18 @@ pub fn mark_dirty_trees(
             // feeding it work as soon as possible. The traversal worker should skip sending these
             // leaves to the consumer because it has already been sent here.
             info_span!("producer_mark_dirty").in_scope(move || {
-                for entity in orphaned.read().chain(changed.iter()) {
+                for entity in orphaned.read() {
                     let _ = input_tx.send_blocking(entity);
                     let _ = output_tx.send_blocking(entity);
                 }
+                // Changed<> table scans are slow, so we parallelize them to improve performance.
+                changed.par_iter().for_each_init(
+                    || (input_tx.clone(), output_tx.clone()),
+                    |(input_tx, output_tx), entity| {
+                        let _ = input_tx.send_blocking(entity);
+                        let _ = output_tx.send_blocking(entity);
+                    },
+                );
             });
         });
 
