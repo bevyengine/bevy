@@ -46,33 +46,15 @@ pub fn sync_simple_transforms(
 /// For scenes with many static entities, it is much faster to track trees of unchanged
 /// [`Transform`]s and skip these during the expensive transform propagation step. If your scene is
 /// very dynamic, the cost of tracking these trees can exceed the performance benefits. By default,
-/// static scene optimization is disabled for worlds with more than 30% of its entities moving.
-#[derive(Resource, Debug)]
+/// static scene optimization is enabled.
+#[derive(Resource, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct StaticTransformOptimizations {
-    /// Updated every frame by [`mark_dirty_trees`].
-    enabled: bool,
-}
-
-impl StaticTransformOptimizations {
-    /// Unconditionally disable static scene optimizations.
-    pub fn disabled() -> Self {
-        Self { enabled: false }
-    }
-
-    /// Unconditionally enable static scene optimizations.
-    pub fn enabled() -> Self {
-        Self { enabled: true }
-    }
-}
-
-impl Default for StaticTransformOptimizations {
-    fn default() -> Self {
-        Self {
-            // By default we enable static scene optimizations
-            enabled: true,
-        }
-    }
+pub enum StaticTransformOptimizations {
+    /// Enable static scene optimizations.
+    #[default]
+    Enabled,
+    /// Disable static scene optimizations.
+    Disabled,
 }
 
 /// Optimization for static scenes.
@@ -91,7 +73,7 @@ pub fn mark_dirty_trees(
     parents: Query<&ChildOf>,
     static_optimizations: ResMut<StaticTransformOptimizations>,
 ) {
-    if !static_optimizations.enabled {
+    if *static_optimizations == StaticTransformOptimizations::Disabled {
         return;
     }
 
@@ -330,7 +312,9 @@ mod parallel {
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children, transform_tree)| {
-                if static_optimizations.enabled && !transform_tree.is_changed() {
+                if *static_optimizations == StaticTransformOptimizations::Enabled
+                    && !transform_tree.is_changed()
+                {
                     // Early exit if the subtree is static and the optimization is enabled.
                     return;
                 }
@@ -514,7 +498,7 @@ mod parallel {
             let mut last_child = None;
             let new_children = children_iter.filter_map(
                 |(child, (transform, mut global_transform, tree), (children, child_of))| {
-                    if static_optimizations.enabled
+                    if *static_optimizations == StaticTransformOptimizations::Enabled
                         && !tree.is_changed()
                         && !p_global_transform.is_changed()
                     {
