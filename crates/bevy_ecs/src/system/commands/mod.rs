@@ -1125,6 +1125,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Unlike [`Commands::run_system_with`], this method does not require manual registration.
     ///
+    /// To use the supplied input, the system should have a [`SystemInput`](bevy_ecs::system::input::SystemInput) as the first parameter.
+    /// Consider using an [`Event`](bevy_ecs::event::Event) if multiple systems are to be run with this input
+    ///
+    ///
     /// The first time this method is called for a particular system,
     /// it will register the system and store its [`SystemId`] in a
     /// [`CachedSystemId`](crate::system::CachedSystemId) resource for later.
