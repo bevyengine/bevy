@@ -43,7 +43,6 @@ mod pipeline;
 mod text;
 mod text_access;
 
-use bevy_asset::AssetEventSystems;
 pub use bounds::*;
 pub use error::*;
 pub use font::*;
