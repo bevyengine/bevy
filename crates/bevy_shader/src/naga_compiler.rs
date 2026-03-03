@@ -4,7 +4,7 @@ use crate::compiler::{
     CompileRequest, CompiledShader, ShaderCompileError, ShaderCompiler, ShaderSourceRef,
 };
 
-/// The default [`ShaderCompiler`](crate::ShaderCompiler) backed by naga.
+/// The default [`ShaderCompiler`] backed by naga.
 ///
 /// Handles naga IR passthrough (or WGSL emission with `decoupled_naga`),
 /// WGSL text passthrough, and SPIR-V binary passthrough.

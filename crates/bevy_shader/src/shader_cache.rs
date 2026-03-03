@@ -19,7 +19,7 @@ use wgpu_types::{DownlevelFlags, Features};
 /// Fully compiled shader source, ready to be turned into a GPU shader module.
 ///
 /// This is roughly equivalent to [`wgpu::ShaderSource`](https://docs.rs/wgpu/latest/wgpu/enum.ShaderSource.html),
-/// but with less variants and more concrete types instead of [`Cow`](alloc::borrow::Cow).
+/// but with less variants and more concrete types instead of [`Cow`].
 ///
 /// This source will be parsed and validated by the renderer.
 ///
@@ -170,7 +170,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
     ///
     /// Registers default resolvers and compilers for built-in languages:
     /// - WGSL and GLSL share a [`NagaOilImportResolver`] and [`NagaShaderCompiler`].
-    /// - WESL uses a [`WeslImportResolver`](crate::WeslImportResolver) and [`NagaShaderCompiler`].
+    /// - WESL uses a [`WeslImportResolver`] and [`NagaShaderCompiler`].
     /// - SPIR-V uses [`NagaShaderCompiler`] with no import resolver (passthrough).
     pub fn new(
         device: RenderDevice,

@@ -182,7 +182,7 @@ impl Shader {
     /// Creates a new shader in a custom (user-defined) language.
     ///
     /// The `language` must match the key used when registering a [`ShaderCompiler`](crate::ShaderCompiler)
-    /// via [`PipelineCache::register_shader_compiler`](bevy_render::render_resource::PipelineCache::register_shader_compiler).
+    /// via `PipelineCache::register_shader_compiler`.
     ///
     /// Custom shaders do not support Bevy's `#import` directive system by default —
     /// the source is passed as-is to the registered compiler. To add import support,
