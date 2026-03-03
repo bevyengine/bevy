@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    animation::AnimationTargetId,
+    animation::{AnimationEvent, AnimationTargetId},
     asset::LoadContext,
     ecs::entity::EntityHashSet,
     gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers},
@@ -12,7 +12,6 @@ use bevy::{
     prelude::*,
     scene::SceneInstanceReady,
 };
-use bevy_animation::AnimationEvent;
 use chacha20::ChaCha8Rng;
 use rand::{RngExt, SeedableRng};
 
