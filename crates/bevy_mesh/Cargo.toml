@@ -37,6 +37,7 @@ thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 encase = "0.12"
+glam = { version = "0.32.0", default-features = false, optional = true }
 
 [dev-dependencies]
 approx = "0.5"
@@ -46,7 +47,7 @@ serde_json = "1.0.140"
 default = []
 ## Adds serialization support through `serde`.
 serialize = ["dep:serde", "wgpu-types/serde"]
-morph = ["dep:bevy_image"]
+morph = ["dep:bevy_image", "glam/encase"]
 
 [lints]
 workspace = true
