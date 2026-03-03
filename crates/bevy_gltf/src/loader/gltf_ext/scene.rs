@@ -11,7 +11,7 @@ use itertools::Itertools;
 use bevy_platform::collections::{HashMap, HashSet};
 
 use crate::{
-    convert_coordinates::{GltfConvertCoordinates, HierarchyConversion},
+    convert_coordinates::{HierarchyConverter, ResolvedConvertCoordinates},
     GltfError,
 };
 
@@ -29,7 +29,7 @@ pub(crate) fn node_name(node: &Node) -> Name {
 /// on [`Node::transform()`](gltf::Node::transform) directly because it uses optimized glam types and
 /// if `libm` feature of `bevy_math` crate is enabled also handles cross
 /// platform determinism properly.
-fn node_transform(node: &Node, conversion: &HierarchyConversion) -> Transform {
+fn node_transform(node: &Node, conversion: &HierarchyConverter) -> Transform {
     let unconverted = match node.transform() {
         gltf::scene::Transform::Matrix { matrix } => {
             Transform::from_matrix(Mat4::from_cols_array_2d(&matrix))
@@ -50,8 +50,8 @@ fn node_transform(node: &Node, conversion: &HierarchyConversion) -> Transform {
 
 pub(crate) fn node_transforms_and_conversions(
     gltf: &Gltf,
-    convert_coordinates: &GltfConvertCoordinates,
-) -> (Vec<Transform>, Vec<HierarchyConversion>) {
+    convert_coordinates: &ResolvedConvertCoordinates,
+) -> (Vec<Transform>, Vec<HierarchyConverter>) {
     let mut parent_indices = vec![Option::<usize>::None; gltf.nodes().len()];
 
     for node in gltf.nodes() {
@@ -67,7 +67,7 @@ pub(crate) fn node_transforms_and_conversions(
             let parent = parent_index.and_then(|parent_index| gltf.nodes().nth(parent_index));
             convert_coordinates.node_hierarchy_conversion(&node, parent.as_ref())
         })
-        .collect::<Vec<HierarchyConversion>>();
+        .collect::<Vec<HierarchyConverter>>();
 
     let transforms = gltf
         .nodes()

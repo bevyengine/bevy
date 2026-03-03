@@ -1,10 +1,11 @@
 //! Utilities for converting from glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
 //! to Bevy's.
 use bevy_mesh::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
+use core::fmt::Debug;
 use gltf::Node;
 use serde::{Deserialize, Serialize};
 
-use bevy_math::{vec3, Quat, Vec3, Vec4};
+use bevy_math::{bounding::Aabb3d, vec3, Mat4, Quat, Vec3, Vec4};
 use bevy_transform::components::Transform;
 use thiserror::Error;
 
@@ -67,53 +68,74 @@ pub struct GltfConvertCoordinates {
     pub rotate_meshes: bool,
 }
 
-impl GltfConvertCoordinates {
-    const GLTF_TO_BEVY: Quat = Quat::from_xyzw(0.0, 1.0, 0.0, 0.0);
+#[derive(Debug)]
+pub(crate) struct ResolvedConvertCoordinates {
+    scene: Converter,
+    node: Converter,
+    mesh: Converter,
+}
 
-    fn conversion_rotation(convert: bool) -> Quat {
-        if convert {
-            Self::GLTF_TO_BEVY
-        } else {
-            Quat::IDENTITY
+impl ResolvedConvertCoordinates {
+    pub(crate) fn resolve(input: GltfConvertCoordinates) -> Self {
+        let gltf_to_bevy = Converter::from_source_target(Semantics::GLTF, Semantics::BEVY);
+
+        Self {
+            scene: if input.rotate_scene {
+                gltf_to_bevy
+            } else {
+                Converter::IDENTITY
+            },
+            node: if input.rotate_nodes {
+                gltf_to_bevy
+            } else {
+                Converter::IDENTITY
+            },
+            mesh: if input.rotate_meshes {
+                gltf_to_bevy
+            } else {
+                Converter::IDENTITY
+            },
         }
     }
 
-    pub(crate) fn node_rotation(&self, node: &Node) -> Quat {
-        Self::conversion_rotation(
-            self.rotate_nodes && node.camera().is_none() && node.light().is_none(),
-        )
+    pub(crate) fn scene(&self) -> Converter {
+        self.scene
     }
 
-    pub(crate) fn scene_rotation(&self) -> Quat {
-        Self::conversion_rotation(self.rotate_scene)
+    pub(crate) fn node(&self, node: &Node) -> Converter {
+        if node.camera().is_none() && node.light().is_none() {
+            self.node
+        } else {
+            Converter::IDENTITY
+        }
     }
 
-    pub(crate) fn mesh_rotation(&self) -> Quat {
-        Self::conversion_rotation(self.rotate_meshes)
+    pub(crate) fn mesh(&self) -> Converter {
+        self.mesh
     }
 
     pub(crate) fn node_hierarchy_conversion(
         &self,
         node: &Node,
         parent_node: Option<&Node>,
-    ) -> HierarchyConversion {
-        let parent_conversion = if let Some(parent_node) = parent_node {
-            self.node_rotation(parent_node)
+    ) -> HierarchyConverter {
+        let parent_converter = if let Some(parent_node) = parent_node {
+            self.node(parent_node)
         } else {
-            self.scene_rotation()
+            self.scene
         };
 
-        let local_conversion = self.node_rotation(node);
+        let local_converter = self.node(node);
 
-        HierarchyConversion::from_local_and_parent(local_conversion, parent_conversion)
+        HierarchyConverter::from_local_and_parent(local_converter, parent_converter)
     }
 
-    pub(crate) fn mesh_hierarchy_conversion(&self, node: &Node) -> HierarchyConversion {
-        HierarchyConversion::from_local_and_parent(self.mesh_rotation(), self.node_rotation(node))
+    pub(crate) fn mesh_hierarchy_conversion(&self, node: &Node) -> HierarchyConverter {
+        HierarchyConverter::from_local_and_parent(self.mesh, self.node(node))
     }
 
-    pub(crate) fn mesh_vertex_rotation(&self) -> Quat {
-        self.mesh_rotation().inverse()
+    pub(crate) fn mesh_vertex_converter(&self) -> RemappingConverter {
+        self.mesh.remap_inverse()
     }
 }
 
@@ -126,21 +148,24 @@ pub(crate) enum CoordinateConversionAttributeError {
 pub(crate) fn attribute_coordinate_conversion(
     attribute: MeshVertexAttribute,
     values: VertexAttributeValues,
-    rotation: Quat,
+    converter: RemappingConverter,
 ) -> Result<VertexAttributeValues, CoordinateConversionAttributeError> {
     match attribute {
         Mesh::ATTRIBUTE_POSITION | Mesh::ATTRIBUTE_NORMAL | Mesh::ATTRIBUTE_TANGENT => match values
         {
             VertexAttributeValues::Float32x3(mut values) => {
                 for value in &mut values {
-                    *value = (rotation * Vec3::from_array(*value)).to_array();
+                    *value = converter
+                        .convert_translation(Vec3::from_array(*value))
+                        .to_array();
                 }
                 Ok(VertexAttributeValues::Float32x3(values))
             }
 
             VertexAttributeValues::Float32x4(mut values) => {
                 for value in &mut values {
-                    *value = (rotation * Vec4::from_array(*value).truncate())
+                    *value = converter
+                        .convert_translation(Vec4::from_array(*value).truncate())
                         .extend(value[3])
                         .to_array();
                 }
@@ -217,9 +242,16 @@ impl Sign {
     fn is_negative(&self) -> bool {
         *self == Self::Negative
     }
+
+    fn multiplier(&self) -> f32 {
+        match self {
+            Self::Positive => 1.0,
+            Self::Negative => -1.0,
+        }
+    }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) struct SignedAxis {
     pub(crate) sign: Sign,
     pub(crate) axis: Axis,
@@ -281,6 +313,16 @@ impl SignedAxis {
     }
 }
 
+impl Debug for SignedAxis {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self.sign {
+            Sign::Positive => "+",
+            Sign::Negative => "-",
+        })?;
+        self.axis.fmt(f)
+    }
+}
+
 impl From<SignedAxis> for Vec3 {
     fn from(value: SignedAxis) -> Self {
         match value.sign {
@@ -290,6 +332,10 @@ impl From<SignedAxis> for Vec3 {
     }
 }
 
+/// Defines axis aligned forward/up/right semantics for a coordinate system.
+///
+/// Guaranteed to be valid - each semantic is a different axis, and the right
+/// is the cross product of forward and up.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub(crate) struct Semantics {
     forward: SignedAxis,
@@ -356,47 +402,170 @@ impl Semantics {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct Conversion {
+pub(crate) struct RemappingConverter {
+    axis: [Axis; 3],
+    flip: Vec3,
+}
+
+impl RemappingConverter {
+    const IDENTITY: RemappingConverter = RemappingConverter {
+        axis: [Axis::X, Axis::Y, Axis::Z],
+        flip: Vec3::ONE,
+    };
+
+    pub(crate) fn from_source_target(source: Semantics, target: Semantics) -> RemappingConverter {
+        let (sf, su, sr) = (source.forward(), source.up(), source.right());
+        let (tf, tu, tr) = (target.forward(), target.up(), target.right());
+
+        let mut axis = [Axis::X; 3];
+
+        axis[tf.axis.index()] = sf.axis;
+        axis[tu.axis.index()] = su.axis;
+        axis[tr.axis.index()] = sr.axis;
+
+        let mut flip = Vec3::ZERO;
+
+        flip[tf.axis.index()] = tf.sign.multiplier() * sf.sign.multiplier();
+        flip[tu.axis.index()] = tu.sign.multiplier() * su.sign.multiplier();
+        flip[tr.axis.index()] = tr.sign.multiplier() * sr.sign.multiplier();
+
+        Self { axis, flip }
+    }
+
+    pub(crate) fn convert_translation(&self, source: Vec3) -> Vec3 {
+        Vec3::new(
+            source[self.axis[0].index()],
+            source[self.axis[1].index()],
+            source[self.axis[2].index()],
+        ) * self.flip
+    }
+
+    pub(crate) fn convert_scale(&self, source: Vec3) -> Vec3 {
+        Vec3::new(
+            source[self.axis[0].index()],
+            source[self.axis[1].index()],
+            source[self.axis[2].index()],
+        )
+    }
+
+    pub(crate) fn convert_aabb(&self, source: Aabb3d) -> Aabb3d {
+        let min = self.convert_translation(source.min.into());
+        let max = self.convert_translation(source.max.into());
+
+        Aabb3d::from_min_max(min.min(max), min.max(max))
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct Converter {
     rotation: Quat,
-    swap_axes: [Axis; 3],
-    flip_axes: [f32; 3],
+    matrix: Mat4,
+    remap: RemappingConverter,
+    remap_inverse: RemappingConverter,
+}
+
+impl Converter {
+    const IDENTITY: Converter = Converter {
+        rotation: Quat::IDENTITY,
+        matrix: Mat4::IDENTITY,
+        remap: RemappingConverter::IDENTITY,
+        remap_inverse: RemappingConverter::IDENTITY,
+    };
+
+    pub(crate) fn from_source_target(source: Semantics, target: Semantics) -> Converter {
+        let remap = RemappingConverter::from_source_target(source, target);
+        let remap_inverse = RemappingConverter::from_source_target(target, source);
+
+        let matrix = Mat4::from_cols(
+            remap.convert_translation(vec3(1.0, 0.0, 0.0)).extend(0.0),
+            remap.convert_translation(vec3(0.0, 1.0, 0.0)).extend(0.0),
+            remap.convert_translation(vec3(0.0, 0.0, 1.0)).extend(0.0),
+            Vec4::new(0.0, 0.0, 0.0, 1.0),
+        );
+
+        // TODO: Mat4 to Quat is a bit brute force. Is there a better way?
+        let rotation = Quat::from_mat4(&matrix);
+
+        Self {
+            rotation,
+            matrix,
+            remap,
+            remap_inverse,
+        }
+    }
+
+    pub(crate) fn rotation(&self) -> Quat {
+        self.rotation
+    }
+
+    pub(crate) fn matrix(&self) -> Mat4 {
+        self.matrix
+    }
+
+    pub(crate) fn remap(&self) -> RemappingConverter {
+        self.remap
+    }
+
+    pub(crate) fn remap_inverse(&self) -> RemappingConverter {
+        self.remap_inverse
+    }
+
+    pub(crate) fn convert_translation(&self, source: Vec3) -> Vec3 {
+        self.remap.convert_translation(source)
+    }
+
+    pub(crate) fn inverse_convert_translation(&self, target: Vec3) -> Vec3 {
+        self.remap_inverse.convert_translation(target)
+    }
+
+    pub(crate) fn convert_rotation(&self, source: Quat) -> Quat {
+        source * self.rotation
+    }
+
+    pub(crate) fn convert_scale(&self, source: Vec3) -> Vec3 {
+        self.remap.convert_scale(source)
+    }
+
+    pub(crate) fn inverse_convert_scale(&self, target: Vec3) -> Vec3 {
+        self.remap_inverse.convert_scale(target)
+    }
 }
 
 // Helper for applying a local rotation conversion to nodes in a hierarchy without
 // causing them to inherit their parent's conversion.
-#[derive(Copy, Clone, Default, Debug)]
-pub(crate) struct HierarchyConversion {
-    local: Quat,
-    parent: Quat,
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct HierarchyConverter {
+    local: Converter,
+    parent: Converter,
 }
 
-impl HierarchyConversion {
-    pub(crate) fn from_local_and_parent(local: Quat, parent: Quat) -> Self {
+impl HierarchyConverter {
+    pub(crate) fn from_local_and_parent(local: Converter, parent: Converter) -> Self {
         Self { local, parent }
     }
 
-    pub(crate) fn local(&self) -> Quat {
+    pub(crate) fn local(&self) -> Converter {
         self.local
     }
 
-    pub(crate) fn translation(&self, t: Vec3) -> Vec3 {
-        self.parent.inverse() * t
+    pub(crate) fn convert_translation(&self, t: Vec3) -> Vec3 {
+        self.parent.inverse_convert_translation(t)
     }
 
-    pub(crate) fn rotation(&self, r: Quat) -> Quat {
-        self.parent.inverse() * r * self.local
+    pub(crate) fn convert_rotation(&self, r: Quat) -> Quat {
+        // XXX TODO: Feels odd looking at parent rotation directly? But also not
+        // clear how to abstract it.
+        self.parent.rotation().inverse() * self.local.convert_rotation(r)
     }
 
-    pub(crate) fn scale(&self, s: Vec3) -> Vec3 {
-        // XXX TODO
-        //self.local.inverse() * s
-        s
+    pub(crate) fn convert_scale(&self, s: Vec3) -> Vec3 {
+        self.local.inverse_convert_scale(s)
     }
 
     pub(crate) fn transform(&self, t: Transform) -> Transform {
-        Transform::from_translation(self.translation(t.translation))
-            .with_rotation(self.rotation(t.rotation))
-            .with_scale(self.scale(t.scale))
+        Transform::from_translation(self.convert_translation(t.translation))
+            .with_rotation(self.convert_rotation(t.rotation))
+            .with_scale(self.convert_scale(t.scale))
     }
 }
 
@@ -404,27 +573,119 @@ impl HierarchyConversion {
 mod tests {
     use super::*;
 
+    const SIGNED_AXES: [SignedAxis; 6] = [
+        SignedAxis::POSITIVE_X,
+        SignedAxis::POSITIVE_Y,
+        SignedAxis::POSITIVE_Z,
+        SignedAxis::NEGATIVE_X,
+        SignedAxis::NEGATIVE_Y,
+        SignedAxis::NEGATIVE_Z,
+    ];
+
+    fn semantics_permutations() -> impl Iterator<Item = Semantics> {
+        SIGNED_AXES
+            .iter()
+            .flat_map(|forward| {
+                SIGNED_AXES
+                    .iter()
+                    .map(|up| Semantics::from_forward_up(*forward, *up))
+            })
+            .flatten()
+    }
+
     #[test]
     fn semantics() {
-        let signed_axes = [
-            SignedAxis::POSITIVE_X,
-            SignedAxis::POSITIVE_Y,
-            SignedAxis::POSITIVE_Z,
-            SignedAxis::NEGATIVE_X,
-            SignedAxis::NEGATIVE_Y,
-            SignedAxis::NEGATIVE_Z,
-        ];
+        for semantics in semantics_permutations() {
+            let forward = Vec3::from(semantics.forward());
+            let up = Vec3::from(semantics.up());
+            let right = Vec3::from(semantics.right());
+            let cross = Vec3::cross(forward, up);
 
-        for forward in signed_axes {
-            for up in signed_axes {
-                if let Some(semantics) = Semantics::from_forward_up(forward, up) {
-                    let right = Vec3::from(semantics.right());
-                    let cross = Vec3::cross(forward.into(), up.into());
+            assert_eq!(right, cross, "{semantics:?}");
+        }
 
-                    assert_eq!(right, cross, "{semantics:?}");
-                } else {
-                    assert!(forward.axis == up.axis);
-                }
+        assert_eq!(
+            Some(Semantics::BEVY),
+            Semantics::from_forward_up(SignedAxis::NEGATIVE_Z, SignedAxis::POSITIVE_Y)
+        );
+
+        assert_eq!(
+            Some(Semantics::GLTF),
+            Semantics::from_forward_up(SignedAxis::POSITIVE_Z, SignedAxis::POSITIVE_Y)
+        );
+    }
+
+    #[derive(Debug)]
+    struct Directions {
+        forward: Vec3,
+        up: Vec3,
+        right: Vec3,
+        diagonal: Vec3,
+    }
+
+    impl Directions {
+        fn new(semantics: Semantics) -> Directions {
+            let forward = Vec3::from(semantics.forward());
+            let up = Vec3::from(semantics.up());
+            let right = Vec3::from(semantics.right());
+            let diagonal = forward + (2.0 * up) + (3.0 * right);
+
+            Directions {
+                forward,
+                up,
+                right,
+                diagonal,
+            }
+        }
+
+        fn remap(&self, converter: RemappingConverter) -> Directions {
+            Directions {
+                forward: converter.convert_translation(self.forward),
+                up: converter.convert_translation(self.up),
+                right: converter.convert_translation(self.right),
+                diagonal: converter.convert_translation(self.diagonal),
+            }
+        }
+
+        fn rotation(&self, converter: Quat) -> Directions {
+            Directions {
+                forward: converter * self.forward,
+                up: converter * self.up,
+                right: converter * self.right,
+                diagonal: converter * self.diagonal,
+            }
+        }
+    }
+
+    impl PartialEq for Directions {
+        fn eq(&self, other: &Self) -> bool {
+            self.forward.abs_diff_eq(other.forward, 1e-6)
+                && self.up.abs_diff_eq(other.up, 1e-6)
+                && self.right.abs_diff_eq(other.right, 1e-6)
+                && self.diagonal.abs_diff_eq(other.diagonal, 1e-6)
+        }
+    }
+
+    #[test]
+    fn converter() {
+        for source_semantics in semantics_permutations() {
+            for target_semantics in semantics_permutations() {
+                let converter = Converter::from_source_target(source_semantics, target_semantics);
+                let source_directions = Directions::new(source_semantics);
+                let target_directions = Directions::new(target_semantics);
+
+                let remap_directions = source_directions.remap(converter.remap());
+                let rotation_directions = source_directions.rotation(converter.rotation());
+
+                assert_eq!(
+                    remap_directions, target_directions,
+                    "\nsource_semantics: {source_semantics:?}\ntarget_semantics: {target_semantics:?}\nconverter: {converter:?}\nsource_directions: {source_directions:?}"
+                );
+
+                assert_eq!(
+                    rotation_directions, target_directions,
+                    "\nsource_semantics: {source_semantics:?}\ntarget_semantics: {target_semantics:?}\nconverter: {converter:?}\nsource_directions: {source_directions:?}"
+                );
             }
         }
     }

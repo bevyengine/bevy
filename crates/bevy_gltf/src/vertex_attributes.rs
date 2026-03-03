@@ -1,4 +1,3 @@
-use bevy_math::Quat;
 use bevy_mesh::{Mesh, MeshVertexAttribute, VertexAttributeValues as Values, VertexFormat};
 use bevy_platform::collections::HashMap;
 use gltf::{
@@ -8,7 +7,7 @@ use gltf::{
 use thiserror::Error;
 
 use crate::convert_coordinates::{
-    attribute_coordinate_conversion, CoordinateConversionAttributeError,
+    attribute_coordinate_conversion, CoordinateConversionAttributeError, RemappingConverter,
 };
 
 /// Represents whether integer data requires normalization
@@ -259,7 +258,7 @@ pub(crate) fn convert_attribute(
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
     custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
-    convert_coordinates: Quat,
+    convert_coordinates: RemappingConverter,
 ) -> Result<(MeshVertexAttribute, Values), ConvertAttributeError> {
     if let Some((attribute, conversion)) = match &semantic {
         gltf::Semantic::Positions => Some((Mesh::ATTRIBUTE_POSITION, ConversionMode::Any)),

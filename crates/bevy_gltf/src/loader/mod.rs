@@ -26,10 +26,7 @@ use bevy_image::{
     ImageType, TextureError,
 };
 use bevy_light::{DirectionalLight, PointLight, SpotLight};
-use bevy_math::{
-    bounding::{Aabb3d, BoundingVolume},
-    Mat4, Quat, Vec3,
-};
+use bevy_math::{bounding::Aabb3d, Mat4, Quat, Vec3};
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_mesh::UvChannel;
 use bevy_mesh::{
@@ -58,6 +55,7 @@ use tracing::{error, info_span, warn};
 use wgpu_types::Face;
 
 use crate::{
+    convert_coordinates::RemappingConverter,
     loader::gltf_ext::scene::node_transforms_and_conversions, vertex_attributes::convert_attribute,
     Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
     GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin,
@@ -79,7 +77,7 @@ use self::{
         texture::{texture_sampler, texture_transform_to_affine2},
     },
 };
-use crate::convert_coordinates::GltfConvertCoordinates;
+use crate::convert_coordinates::{GltfConvertCoordinates, ResolvedConvertCoordinates};
 
 /// Must match [`MAX_JOINTS`](https://docs.rs/bevy/latest/bevy/pbr/constant.MAX_JOINTS.html)
 pub const MAX_JOINTS: usize = 256;
@@ -290,10 +288,11 @@ impl GltfLoader {
             Default::default()
         };
 
-        let convert_coordinates = match settings.convert_coordinates {
-            Some(convert_coordinates) => convert_coordinates,
-            None => loader.default_convert_coordinates,
-        };
+        let convert_coordinates =
+            ResolvedConvertCoordinates::resolve(match settings.convert_coordinates {
+                Some(convert_coordinates) => convert_coordinates,
+                None => loader.default_convert_coordinates,
+            });
 
         let (node_transforms, node_conversions) =
             node_transforms_and_conversions(&gltf, &convert_coordinates);
@@ -349,7 +348,7 @@ impl GltfLoader {
                                 let translation_property = animated_field!(Transform::translation);
                                 let translations: Vec<Vec3> = tr
                                     .map(Vec3::from)
-                                    .map(|t| conversion.translation(t))
+                                    .map(|t| conversion.convert_translation(t))
                                     .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
@@ -409,7 +408,7 @@ impl GltfLoader {
                                 let rotations: Vec<Quat> = rots
                                     .into_f32()
                                     .map(Quat::from_array)
-                                    .map(|r| conversion.rotation(r))
+                                    .map(|r| conversion.convert_rotation(r))
                                     .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
@@ -466,8 +465,10 @@ impl GltfLoader {
                             }
                             ReadOutputs::Scales(scale) => {
                                 let scale_property = animated_field!(Transform::scale);
-                                let scales: Vec<Vec3> =
-                                    scale.map(Vec3::from).map(|s| conversion.scale(s)).collect();
+                                let scales: Vec<Vec3> = scale
+                                    .map(Vec3::from)
+                                    .map(|s| conversion.convert_scale(s))
+                                    .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         scale_property,
@@ -789,7 +790,7 @@ impl GltfLoader {
                 };
 
                 // XXX TODO: Duplicated elsewhere.
-                let convert_mesh_vertex_rotation = convert_coordinates.mesh_rotation().inverse();
+                let convert_mesh_vertex_rotation = convert_coordinates.mesh_vertex_converter();
 
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
@@ -953,9 +954,9 @@ impl GltfLoader {
                                 // The inverse bindpose is a mapping from mesh-space
                                 // to joint-space, so it's affected by the conversion
                                 // of both meshes and joint nodes.
-                                Mat4::from_quat(node_conversions[node.index()].local().inverse())
+                                node_conversions[node.index()].local().matrix().transpose()
                                     * Mat4::from_cols_array_2d(&mat)
-                                    * Mat4::from_quat(convert_coordinates.mesh_rotation())
+                                    * convert_coordinates.mesh().matrix()
                             })
                             .collect()
                     })
@@ -1571,7 +1572,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     textures: &[Handle<Image>],
-    convert_coordinates: &GltfConvertCoordinates,
+    convert_coordinates: &ResolvedConvertCoordinates,
     extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
     skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 ) -> Result<(), GltfError> {
@@ -1717,10 +1718,11 @@ fn load_node(
                     convert_coordinates.mesh_hierarchy_conversion(gltf_node);
 
                 // XXX TODO: Explain.
-                let convert_mesh_vertex_coordinates = convert_coordinates.mesh_vertex_rotation();
+                let convert_mesh_vertex_coordinates = convert_coordinates.mesh_vertex_converter();
 
-                let mesh_entity_transform =
-                    Transform::from_rotation(convert_mesh_coordinates.rotation(Quat::IDENTITY));
+                let mesh_entity_transform = Transform::from_rotation(
+                    convert_mesh_coordinates.convert_rotation(Quat::IDENTITY),
+                );
 
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
@@ -1747,14 +1749,10 @@ fn load_node(
                     mesh_entity.insert(MeshMorphWeights::Reference(parent_entity));
                 }
 
-                let mut aabb = Aabb3d::from_min_max(
+                let aabb = convert_mesh_vertex_coordinates.convert_aabb(Aabb3d::from_min_max(
                     Vec3::from_slice(&bounds.min),
                     Vec3::from_slice(&bounds.max),
-                );
-
-                if convert_coordinates.rotate_meshes {
-                    aabb = aabb.rotated_by(convert_mesh_vertex_coordinates);
-                }
+                ));
 
                 mesh_entity.insert(Aabb::from(aabb));
 
@@ -2085,7 +2083,7 @@ impl ImageOrPath {
 }
 
 struct PrimitiveMorphAttributesIter<'s> {
-    convert_coordinates: Quat,
+    convert_coordinates: RemappingConverter,
     positions: Option<Iter<'s, [f32; 3]>>,
     normals: Option<Iter<'s, [f32; 3]>>,
     tangents: Option<Iter<'s, [f32; 3]>>,
@@ -2105,15 +2103,15 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
         let attributes = MorphAttributes {
             position: position
                 .map(Vec3::from_array)
-                .map(|p: Vec3| self.convert_coordinates * p)
+                .map(|p: Vec3| self.convert_coordinates.convert_translation(p))
                 .unwrap_or(Vec3::ZERO),
             normal: normal
                 .map(Vec3::from_array)
-                .map(|n| self.convert_coordinates * n)
+                .map(|n| self.convert_coordinates.convert_translation(n))
                 .unwrap_or(Vec3::ZERO),
             tangent: tangent
                 .map(Vec3::from_array)
-                .map(|t| self.convert_coordinates * t)
+                .map(|t| self.convert_coordinates.convert_translation(t))
                 .unwrap_or(Vec3::ZERO),
         };
 
