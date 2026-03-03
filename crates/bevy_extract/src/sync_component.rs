@@ -4,6 +4,9 @@ use bevy_app::{App, AppLabel, Plugin};
 use bevy_ecs::{
     bundle::{Bundle, NoBundleEffect},
     component::Component,
+    lifecycle::Remove,
+    observer::On,
+    system::ResMut,
 };
 
 use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToSubWorld};
@@ -67,16 +70,17 @@ impl<L: AppLabel + Default + Clone, C: SyncComponent<L, F>, F: Send + Sync + 'st
     fn build(&self, app: &mut App) {
         app.register_required_components::<C, SyncToSubWorld<L>>();
 
-        app.world_mut()
-            .register_component_hooks::<C>()
-            .on_remove(|mut world, context| {
-                let mut pending = world.resource_mut::<PendingSyncEntity>();
+        app.add_observer(
+            |remove: On<Remove, C>,
+             mut pending: ResMut<PendingSyncEntity>| {
+                
                 pending.push(EntityRecord::ComponentRemoved(
-                    context.entity,
+                    remove.entity,
                     |mut entity| {
                         entity.remove::<C::Out>();
                     },
                 ));
-            });
+            },
+        );
     }
 }
