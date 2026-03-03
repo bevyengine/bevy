@@ -65,7 +65,7 @@ impl ShaderCompiler for ShadercHlslCompiler {
         };
 
         let compiler = shaderc::Compiler::new().ok_or_else(|| ShaderCompileError {
-            message: "Failed to initialise shaderc compiler".to_string(),
+            message: "Failed to initialize shaderc compiler".to_string(),
         })?;
 
         let mut options = shaderc::CompileOptions::new().ok_or_else(|| ShaderCompileError {
@@ -123,7 +123,7 @@ impl AssetLoader for HlslShaderLoader {
         load_context: &mut LoadContext<'_>,
     ) -> Result<Shader, Self::Error> {
         let path = load_context.path().to_string();
-        // Normalise path separators on Windows
+        // Normalize path separators on Windows
         let path = path.replace(std::path::MAIN_SEPARATOR, "/");
 
         let mut bytes = Vec::new();
