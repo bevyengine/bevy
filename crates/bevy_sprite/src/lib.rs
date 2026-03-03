@@ -90,12 +90,17 @@ impl Plugin for SpritePlugin {
             (
                 bevy_text::detect_text_needs_rerender::<Text2d>,
                 update_text2d_layout.after(bevy_camera::CameraUpdateSystems),
-                calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
             )
                 .chain()
                 .after(bevy_text::load_font_assets_into_font_collection)
-                .in_set(bevy_text::Text2dUpdateSystems)
+                .before(bevy_asset::AssetEventSystems)
                 .after(bevy_app::AnimationSystems),
+        )
+        .add_systems(
+            PostUpdate,
+            calculate_bounds_text2d
+                .in_set(VisibilitySystems::CalculateBounds)
+                .after(update_text2d_layout),
         );
 
         #[cfg(feature = "bevy_picking")]

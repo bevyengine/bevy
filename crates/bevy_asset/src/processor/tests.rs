@@ -1694,7 +1694,7 @@ fn only_reprocesses_wrong_hash_on_startup() {
 }
 
 #[test]
-fn writes_default_meta_for_processor() {
+fn writes_short_default_meta_for_processor() {
     let AppWithProcessor {
         mut app,
         default_source_dirs: ProcessingDirs { source, .. },
@@ -1712,6 +1712,76 @@ fn writes_default_meta_for_processor() {
         CoolTextSaver,
     ))
     .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+    const ASSET_PATH: &str = "abc.cool.ron";
+    source.insert_asset_text(Path::new(ASSET_PATH), &serialize_as_cool_text("blah"));
+
+    let processor = app.world().resource::<AssetProcessor>().clone();
+    bevy_tasks::block_on(processor.write_default_meta_file_for_path(ASSET_PATH)).unwrap();
+
+    assert_eq!(
+        read_meta_as_string(&source, Path::new(ASSET_PATH)),
+        r#"(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "LoadTransformAndSave<CoolTextLoader, RootAssetTransformer<AddText, CoolText>, CoolTextSaver>",
+        settings: (
+            loader_settings: (),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)"#
+    );
+}
+
+mod ambiguous {
+    use super::{CoolText, MutateAsset, TypePath};
+
+    /// This is ambiguous with [`super::AddText`] for short-type paths.
+    #[derive(TypePath)]
+    pub(crate) struct AddText;
+
+    // Add a dummy MutateAsset impl so we can use it as a processor.
+    impl MutateAsset<CoolText> for AddText {
+        fn mutate(&self, _: &mut CoolText) {}
+    }
+}
+
+#[test]
+fn writes_long_default_meta_for_ambiguous_processor() {
+    let AppWithProcessor {
+        mut app,
+        default_source_dirs: ProcessingDirs { source, .. },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    type CoolTextProcessor1 = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+    type CoolTextProcessor2 = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<ambiguous::AddText, CoolText>,
+        CoolTextSaver,
+    >;
+    // Verify that these two processors actually have the same short_type_path.
+    assert_eq!(
+        CoolTextProcessor1::short_type_path(),
+        CoolTextProcessor2::short_type_path()
+    );
+
+    app.register_asset_processor(CoolTextProcessor1::new(
+        RootAssetTransformer::new(AddText("blah".to_string())),
+        CoolTextSaver,
+    ))
+    .set_default_asset_processor::<CoolTextProcessor1>("cool.ron")
+    // Add another processor with the same short type path to make the short type name ambiguous.
+    .register_asset_processor(CoolTextProcessor2::new(
+        RootAssetTransformer::new(ambiguous::AddText),
+        CoolTextSaver,
+    ));
 
     const ASSET_PATH: &str = "abc.cool.ron";
     source.insert_asset_text(Path::new(ASSET_PATH), &serialize_as_cool_text("blah"));

@@ -31,7 +31,7 @@ use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::CameraRenderGraph,
-    mesh::allocator::SlabId,
+    mesh::allocator::MeshSlabs,
     occlusion_culling::OcclusionCulling,
     render_phase::{PhaseItemBatchSetKey, ViewRangefinder3d},
     texture::CachedTexture,
@@ -195,16 +195,13 @@ pub struct Opaque3dBatchSetKey {
     /// In the case of PBR, this is the `MaterialBindGroupIndex`.
     pub material_bind_group_index: Option<u32>,
 
-    /// The ID of the slab of GPU memory that contains vertex data.
+    /// The IDs of the slabs of GPU memory in the mesh allocator that contain
+    /// the mesh data.
     ///
-    /// For non-mesh items, you can fill this with 0 if your items can be
-    /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
-
-    /// The ID of the slab of GPU memory that contains index data, if present.
-    ///
-    /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
+    /// For non-mesh items, you can fill the [`MeshSlabs::vertex_slab_id`] with
+    /// 0 if your items can be multi-drawn, or with a unique value if they
+    /// can't.
+    pub slabs: MeshSlabs,
 
     /// Index of the slab that the lightmap resides in, if a lightmap is
     /// present.
@@ -213,7 +210,7 @@ pub struct Opaque3dBatchSetKey {
 
 impl PhaseItemBatchSetKey for Opaque3dBatchSetKey {
     fn indexed(&self) -> bool {
-        self.index_slab.is_some()
+        self.slabs.index_slab_id.is_some()
     }
 }
 
