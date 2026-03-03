@@ -33,7 +33,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_light::{ClusteredDecal, DirectionalLightTexture, PointLightTexture, SpotLightTexture};
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Vec3};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     render_asset::RenderAssets,
@@ -96,6 +96,8 @@ impl RenderClusteredDecals {
         entity: Entity,
         images: [Option<AssetId<Image>>; IMAGES_PER_DECAL],
         local_from_world: Mat4,
+        world_position: Vec3,
+        bounding_sphere_radius: f32,
         tag: u32,
     ) {
         let image_indices = images.map(|maybe_image_id| match maybe_image_id {
@@ -106,6 +108,8 @@ impl RenderClusteredDecals {
         self.decals.push(RenderClusteredDecal {
             local_from_world,
             image_indices,
+            world_position,
+            bounding_sphere_radius,
             tag,
             pad_a: 0,
             pad_b: 0,
@@ -116,6 +120,16 @@ impl RenderClusteredDecals {
 
     pub fn get(&self, entity: Entity) -> Option<usize> {
         self.entity_to_decal_index.get(&entity).copied()
+    }
+
+    /// Returns the number of clustered decals in the scene.
+    pub fn len(&self) -> usize {
+        self.decals.len()
+    }
+
+    /// Returns true if there are no clustered decals in the scene.
+    pub fn is_empty(&self) -> bool {
+        self.decals.is_empty()
     }
 }
 
@@ -207,6 +221,8 @@ pub struct RenderClusteredDecal {
     /// If the decal doesn't have a texture assigned to a slot, the index at
     /// that slot will be -1.
     image_indices: [i32; 4],
+    world_position: Vec3,
+    bounding_sphere_radius: f32,
     /// A custom tag available for application-defined purposes.
     tag: u32,
     /// Padding.
@@ -253,7 +269,7 @@ pub fn extract_decals(
     >,
     mut render_decals: ResMut<RenderClusteredDecals>,
 ) {
-    // Clear out the `RenderDecals` in preparation for a new frame.
+    // Clear out the `RenderClusteredDecals` in preparation for a new frame.
     render_decals.clear();
 
     extract_clustered_decals(&decals, &mut render_decals);
@@ -296,6 +312,8 @@ fn extract_clustered_decals(
                 clustered_decal.emissive_texture.as_ref().map(Handle::id),
             ],
             global_transform.affine().inverse().into(),
+            global_transform.translation(),
+            (global_transform.scale() * Vec3::ONE).length(),
             clustered_decal.tag,
         );
     }
@@ -324,6 +342,8 @@ fn extract_spot_light_textures(
             decal_entity,
             [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
+            global_transform.translation(),
+            (global_transform.scale() * Vec3::ONE).length(),
             0,
         );
     }
@@ -352,6 +372,8 @@ fn extract_point_light_textures(
             decal_entity,
             [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
+            global_transform.translation(),
+            (global_transform.scale() * Vec3::ONE).length(),
             texture.cubemap_layout as u32,
         );
     }
@@ -380,6 +402,8 @@ fn extract_directional_light_textures(
             decal_entity,
             [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
+            global_transform.translation(),
+            (global_transform.scale() * Vec3::ONE).length(),
             if texture.tiled { 1 } else { 0 },
         );
     }

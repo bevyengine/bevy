@@ -22,6 +22,7 @@ use bevy::{
     render::{
         camera::{DirtySpecializations, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
+        mesh::allocator::MeshSlabs,
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
             RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
@@ -296,8 +297,7 @@ fn queue_custom_phase_item(
                     pipeline: pipeline_id,
                     material_bind_group_index: None,
                     lightmap_slab: None,
-                    vertex_slab: default(),
-                    index_slab: None,
+                    slabs: MeshSlabs::default(),
                 },
                 Opaque3dBinKey {
                     asset_id: AssetId::<Mesh>::invalid().untyped(),

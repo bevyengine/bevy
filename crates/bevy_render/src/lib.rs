@@ -108,7 +108,7 @@ use crate::{
     render_asset::prepare_assets,
     render_resource::PipelineCache,
     renderer::{render_system, RenderAdapterInfo, RenderGraph},
-    settings::RenderCreation,
+    settings::{RenderCreation, WgpuLimits},
     storage::StoragePlugin,
     texture::TexturePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -132,7 +132,7 @@ use render_asset::{
     RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
 };
 use settings::RenderResources;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -498,4 +498,11 @@ pub fn get_mali_driver_version(adapter_info: &RenderAdapterInfo) -> Option<u32> 
     }
 
     None
+}
+
+/// Returns true if storage buffers are unsupported on this platform or false
+/// if they are supported.
+pub fn storage_buffers_are_unsupported(limits: &WgpuLimits) -> bool {
+    static STORAGE_BUFFERS_UNSUPPORTED: OnceLock<bool> = OnceLock::new();
+    *STORAGE_BUFFERS_UNSUPPORTED.get_or_init(|| limits.max_storage_buffers_per_shader_stage == 0)
 }
