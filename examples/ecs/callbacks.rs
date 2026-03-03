@@ -21,21 +21,21 @@ struct Callback {
 fn setup_callbacks(mut commands: Commands) {
     let trivial_callback = Callback {
         system_id: commands.register_system(|| {
-            println!("This is a trivial callback.");
+            println!("This is the trivial callback system");
         }),
     };
 
     let ordinary_system_callback = Callback {
         system_id: commands.register_system(|query: Query<&Callback>| {
             let n_callbacks = query.iter().len();
-            println!("This is an ordinary callback. There are currently {n_callbacks} callbacks in the world.");
+            println!("This is the ordinary callback system. There are currently {n_callbacks} callbacks in the world.");
         }),
     };
 
     let exclusive_callback = Callback {
         system_id: commands.register_system(|world: &mut World| {
             let n_entities = world.entities().len();
-            println!("This is an exclusive callback. There are currently {n_entities} entities in the world.");
+            println!("This is the exclusive callback system. There are currently {n_entities} entities in the world.");
         }),
     };
 
