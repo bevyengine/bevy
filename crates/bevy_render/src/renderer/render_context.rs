@@ -249,7 +249,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        component_access_set.add_unfiltered_resource_read(state.resource_id);
+        component_access_set.add_resource_read(state.resource_id);
 
         <Query<'_, '_, D, F> as SystemParam>::init_access(
             &state.query_state,

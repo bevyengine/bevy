@@ -29,7 +29,7 @@ fn fragment(
     let view_z = clustered::get_view_z(in.world_position.xyz);
     let is_orthographic = clustered::view_is_orthographic();
     let cluster_index =
-        clustered_forward::fragment_cluster_index(in.position.xy, view_z, is_orthographic);
+        clustered_forward::view_fragment_cluster_index(in.position.xy, view_z, is_orthographic);
     var clusterable_object_index_ranges =
         clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
     var decal_iterator = clustered::clustered_decal_iterator_new(
