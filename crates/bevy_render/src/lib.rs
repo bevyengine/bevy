@@ -93,7 +93,7 @@ pub mod sync_world {
     };
 
     pub type RenderEntity = bevy_extract::sync_world::SubEntity;
-    pub type TemporaryRenderEntity = bevy_extract::sync_world::TemporarySubEntity;
+    pub type TemporaryRenderEntity = TemporarySubEntity;
     pub type SyncToRenderWorld = bevy_extract::sync_world::SyncToSubWorld<crate::RenderApp>;
 
     pub type SyncWorldPlugin = bevy_extract::sync_world::SyncWorldPlugin<crate::RenderApp>;
