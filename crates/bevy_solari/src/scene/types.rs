@@ -4,7 +4,7 @@ use bevy_ecs::{component::Component, prelude::ReflectComponent};
 use bevy_mesh::Mesh;
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::{sync_world::SyncToRenderWorld, RenderApp};
+use bevy_render::sync_world::SyncToRenderWorld;
 use bevy_transform::components::Transform;
 use derive_more::derive::From;
 
