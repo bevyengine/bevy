@@ -71,9 +71,7 @@ impl<L: AppLabel + Default + Clone, C: SyncComponent<L, F>, F: Send + Sync + 'st
         app.register_required_components::<C, SyncToSubWorld<L>>();
 
         app.add_observer(
-            |remove: On<Remove, C>,
-             mut pending: ResMut<PendingSyncEntity>| {
-                
+            |remove: On<Remove, C>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::ComponentRemoved(
                     remove.entity,
                     |mut entity| {
