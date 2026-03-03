@@ -744,14 +744,16 @@ impl GltfLoader {
                 let mut out_doc: Option<gltf::Document> = None;
                 let mut out_data: Option<Vec<Vec<u8>>> = None;
                 for extension in extensions.iter_mut() {
-                    extension.on_gltf_primitive(
-                        load_context,
-                        &gltf,
-                        &primitive,
-                        &buffer_data,
-                        &mut out_doc,
-                        &mut out_data,
-                    );
+                    extension
+                        .on_gltf_primitive(
+                            load_context,
+                            &gltf,
+                            &primitive,
+                            &buffer_data,
+                            &mut out_doc,
+                            &mut out_data,
+                        )
+                        .await;
                 }
 
                 // if there is a `gltf::Document`, then we have transformed
@@ -2827,11 +2829,12 @@ mod test {
         #[derive(Default, Clone)]
         struct PrimitiveExtension {}
 
+        #[async_trait::async_trait]
         impl GltfExtensionHandler for PrimitiveExtension {
             fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
                 Box::new((*self).clone())
             }
-            fn on_gltf_primitive(
+            async fn on_gltf_primitive(
                 &mut self,
                 _load_context: &mut LoadContext<'_>,
                 _gltf_document: &gltf::Gltf,
@@ -2863,11 +2866,12 @@ mod test {
         #[derive(Default, Clone)]
         struct PrimitiveExtension {}
 
+        #[async_trait::async_trait]
         impl GltfExtensionHandler for PrimitiveExtension {
             fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
                 Box::new((*self).clone())
             }
-            fn on_gltf_primitive(
+            async fn on_gltf_primitive(
                 &mut self,
                 _load_context: &mut LoadContext<'_>,
                 _gltf_document: &gltf::Gltf,
@@ -2904,11 +2908,12 @@ mod test {
         #[derive(Default, Clone)]
         struct PrimitiveExtension {}
 
+        #[async_trait::async_trait]
         impl GltfExtensionHandler for PrimitiveExtension {
             fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
                 Box::new((*self).clone())
             }
-            fn on_gltf_primitive(
+            async fn on_gltf_primitive(
                 &mut self,
                 _load_context: &mut LoadContext<'_>,
                 _gltf_document: &gltf::Gltf,
