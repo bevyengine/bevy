@@ -605,8 +605,7 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 # Enable support for shaders in WESL
 shader_format_wesl = ["bevy_internal/shader_format_wesl"]
 
-# Enable the shaderc-based HLSL compiler (used by the shader_material_hlsl example).
-# Requires the shaderc system library and a C++ toolchain.
+# Enable the shaderc-based HLSL compiler (used by the shader_material_hlsl example)
 shader_compiler_shaderc = ["dep:shaderc"]
 
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
