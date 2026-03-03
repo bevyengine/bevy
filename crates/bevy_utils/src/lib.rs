@@ -62,6 +62,7 @@ mod bloom_filter;
 pub use bloom_filter::*;
 mod debug_info;
 mod default;
+mod lru_cache;
 mod once;
 
 #[doc(hidden)]
@@ -70,6 +71,8 @@ pub use once::OnceFlag;
 pub use default::default;
 
 use core::mem::ManuallyDrop;
+
+pub use lru_cache::LRUCache;
 
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.
