@@ -1,7 +1,7 @@
 //! Sometimes, you want an extremely flexible way to store logic associated with an entity.
 //! This example demonstrates how to store arbitrary systems in components and run them on demand.
 //!
-//! This pattern will be relatively slow, but it can work well for things like cutscenes, scripted events,
+//! This pattern trades some performance for flexibility and works well for things like cutscenes, scripted events,
 //! or one-off UI-driven interactions that don't need to run every frame.
 
 use bevy::{ecs::system::SystemId, prelude::*};
