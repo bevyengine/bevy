@@ -321,6 +321,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Callbacks](../examples/ecs/callbacks.rs) | Store arbitrary systems in components and run them on demand
 [Change Detection](../examples/ecs/change_detection.rs) | Change detection on components and resources
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
 [Contiguous Query](../examples/ecs/contiguous_query.rs) | Demonstrates contiguous queries
