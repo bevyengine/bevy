@@ -57,6 +57,14 @@ pub enum StaticTransformOptimizations {
     Disabled,
 }
 
+impl StaticTransformOptimizations {
+    /// Returns `true` if static scene optimizations are enabled.
+    #[inline]
+    pub fn is_enabled(&self) -> bool {
+        *self == StaticTransformOptimizations::Enabled
+    }
+}
+
 /// Optimization for static scenes.
 ///
 /// Propagates a "dirty bit" up the hierarchy towards ancestors. Transform propagation can ignore
@@ -73,7 +81,7 @@ pub fn mark_dirty_trees(
     parents: Query<&ChildOf>,
     static_optimizations: ResMut<StaticTransformOptimizations>,
 ) {
-    if *static_optimizations == StaticTransformOptimizations::Disabled {
+    if !static_optimizations.is_enabled() {
         return;
     }
 
@@ -312,9 +320,7 @@ mod parallel {
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children, transform_tree)| {
-                if *static_optimizations == StaticTransformOptimizations::Enabled
-                    && !transform_tree.is_changed()
-                {
+                if static_optimizations.is_enabled() && !transform_tree.is_changed() {
                     // Early exit if the subtree is static and the optimization is enabled.
                     return;
                 }
