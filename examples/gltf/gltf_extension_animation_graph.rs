@@ -316,7 +316,7 @@ impl FromWorld for ParticleAssets {
         Self {
             mesh: world.add_asset::<Mesh>(Sphere::new(10.0)),
             material: world.add_asset::<StandardMaterial>(StandardMaterial {
-                base_color: Color::WHITE.into(),
+                base_color: Color::WHITE,
                 ..Default::default()
             }),
         }
