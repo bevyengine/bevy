@@ -605,6 +605,10 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 # Enable support for shaders in WESL
 shader_format_wesl = ["bevy_internal/shader_format_wesl"]
 
+# Enable the shaderc-based HLSL compiler (used by the shader_material_hlsl example).
+# Requires the shaderc system library and a C++ toolchain.
+shader_compiler_shaderc = ["dep:shaderc"]
+
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
@@ -727,6 +731,7 @@ debug = ["bevy_internal/debug"]
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.19.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
+shaderc = { version = "0.8", optional = true }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
@@ -3078,6 +3083,18 @@ name = "Material - WESL"
 description = "A shader that uses WESL"
 category = "Shaders"
 wasm = true
+
+[[example]]
+name = "shader_material_hlsl"
+path = "examples/shader/shader_material_hlsl.rs"
+doc-scrape-examples = true
+required-features = ["shader_format_spirv", "shader_compiler_shaderc"]
+
+[package.metadata.example.shader_material_hlsl]
+name = "Material - HLSL"
+description = "A material that uses an HLSL shader compiled at runtime to SPIR-V via shaderc"
+category = "Shaders"
+wasm = false
 
 [[example]]
 name = "automatic_instancing"

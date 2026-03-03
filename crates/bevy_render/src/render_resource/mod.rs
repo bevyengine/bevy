@@ -72,6 +72,11 @@ pub use self::encase::{ShaderSize, ShaderType};
 
 pub use naga::ShaderStage;
 
+pub use bevy_shader::{
+    CompileRequest, CompiledShader, NagaOilImportResolver, NagaShaderCompiler, ShaderCompileError,
+    ShaderCompiler, ShaderComposeError, ShaderImportResolver, ShaderLanguage,
+};
+
 pub use bevy_material::{
     bind_group_layout_entries::{
         binding_types, BindGroupLayoutEntries, BindGroupLayoutEntryBuilder,

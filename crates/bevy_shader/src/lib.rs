@@ -2,8 +2,15 @@
 
 extern crate alloc;
 
+mod compiler;
+mod import_resolver;
+mod naga_compiler;
 mod shader;
 mod shader_cache;
+
+pub use compiler::*;
+pub use import_resolver::*;
+pub use naga_compiler::*;
 pub use shader::*;
 pub use shader_cache::*;
 
