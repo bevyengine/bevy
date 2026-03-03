@@ -38,7 +38,7 @@ use thiserror::Error;
 use super::Populated;
 use variadics_please::{all_tuples, all_tuples_enumerated};
 
-/// A parameter that can be used in a [`System`](super::System).
+/// A parameter that can be used in a [`System`].
 ///
 /// # Derive
 ///
@@ -280,7 +280,7 @@ pub unsafe trait SystemParam: Sized {
     /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
     /// the validity of the param may change.
     ///
-    /// [`System::validate_param`](super::system::System::validate_param),
+    /// [`System::validate_param`],
     /// calls this method for each supplied system param.
     ///
     /// # Safety
