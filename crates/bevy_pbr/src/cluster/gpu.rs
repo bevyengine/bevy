@@ -1705,7 +1705,7 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
         .retain(|view_main_entity, _| all_view_main_entities.contains(view_main_entity));
 }
 
-impl ExtractResource<GpuClusteringPlugin> for GlobalClusterSettings {
+impl ExtractResource<RenderApp, GpuClusteringPlugin> for GlobalClusterSettings {
     type Source = GlobalClusterSettings;
 
     fn extract_resource(source: &Self::Source) -> Self {
