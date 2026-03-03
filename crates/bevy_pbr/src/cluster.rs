@@ -13,7 +13,7 @@ use bevy_render::{
         StorageBuffer, UniformBuffer,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    sync_world::{MainEntity, SubEntity},
+    sync_world::{MainEntity, RenderEntity},
     Extract,
 };
 use bytemuck::{Pod, Zeroable};
@@ -290,11 +290,11 @@ impl GpuClusteredLights {
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(SubEntity, &Clusters, &Camera)>>,
+    views: Extract<Query<(RenderEntity, &Clusters, &Camera)>>,
     mapper: Extract<
         Query<
             (
-                Option<&SubEntity>,
+                Option<&RenderEntity>,
                 Has<PointLight>,
                 Has<SpotLight>,
                 Has<EnvironmentMapLight>,

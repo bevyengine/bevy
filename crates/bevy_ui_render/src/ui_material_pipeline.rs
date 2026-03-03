@@ -18,7 +18,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{MainEntity, TemporarySubEntity},
+    sync_world::MainEntity,
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };

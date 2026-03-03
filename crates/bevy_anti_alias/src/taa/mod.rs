@@ -33,7 +33,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
     sync_component::{SyncComponent, SyncComponentPlugin},
-    sync_world::SubEntity,
+    sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
@@ -335,7 +335,7 @@ impl Specializer<RenderPipeline> for TaaPipelineSpecializer {
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
     let mut cameras_3d =
-        main_world.query::<(SubEntity, &Camera, Option<&mut TemporalAntiAliasing>)>();
+        main_world.query::<(RenderEntity, &Camera, Option<&mut TemporalAntiAliasing>)>();
 
     for (entity, camera, taa_settings) in cameras_3d.iter_mut(&mut main_world) {
         let mut entity_commands = commands

@@ -23,6 +23,7 @@ use bevy_camera::visibility::InheritedVisibility;
 use bevy_camera::{Camera, Camera2d, Camera3d, Hdr, RenderTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::sync_world::TemporarySubEntity;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
@@ -49,7 +50,7 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{MainEntity, SubEntity, TemporarySubEntity},
+    sync_world::{MainEntity, RenderEntity},
     texture::GpuImage,
     view::{ExtractedView, RetainedViewEntity, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
@@ -268,7 +269,7 @@ impl Plugin for UiRenderPlugin {
 
 #[derive(SystemParam)]
 pub struct UiCameraMap<'w, 's> {
-    mapping: Query<'w, 's, SubEntity>,
+    mapping: Query<'w, 's, RenderEntity>,
 }
 
 impl<'w, 's> UiCameraMap<'w, 's> {
@@ -287,7 +288,7 @@ impl<'w, 's> UiCameraMap<'w, 's> {
 /// Helper for mapping UI target camera entities to their corresponding render entities,
 /// with caching to avoid repeated lookups for the same camera.
 pub struct UiCameraMapper<'w, 's> {
-    mapping: &'w Query<'w, 's, SubEntity>,
+    mapping: &'w Query<'w, 's, RenderEntity>,
     /// Cached camera entity from the last successful `map` call.
     camera_entity: Entity,
     /// Cached camera entity from the last successful `map` call.
@@ -736,7 +737,7 @@ pub fn extract_ui_camera_view(
         Query<
             (
                 Entity,
-                SubEntity,
+                RenderEntity,
                 &Camera,
                 Has<Hdr>,
                 Option<&UiAntiAlias>,

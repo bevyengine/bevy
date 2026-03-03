@@ -19,7 +19,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    sync_world::SubEntity,
+    sync_world::RenderEntity,
     texture::GpuImage,
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
@@ -75,7 +75,7 @@ impl Plugin for SkyboxPlugin {
 pub fn extract_skybox(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(SubEntity, &Skybox, Option<&Exposure>)>>,
+    query: Extract<Query<(RenderEntity, &Skybox, Option<&Exposure>)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, skybox, exposure) in &query {

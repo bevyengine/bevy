@@ -46,8 +46,7 @@ use bevy_render::{
         PhaseItemBatchSetKey, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
         SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
     },
-    render_resource::binding_types::*,
-    render_resource::*,
+    render_resource::{binding_types::*, *},
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::{MainEntity, MainEntityHashMap},
     view::{

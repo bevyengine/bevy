@@ -27,7 +27,7 @@ use bevy::{
             VertexFormat, VertexState, VertexStepMode,
         },
         sync_component::{SyncComponent, SyncComponentPlugin},
-        sync_world::{MainEntityHashMap, SubEntity},
+        sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
     },
@@ -340,7 +340,7 @@ pub fn extract_colored_mesh2d(
         Query<
             (
                 Entity,
-                SubEntity,
+                RenderEntity,
                 &ViewVisibility,
                 &GlobalTransform,
                 &Mesh2d,

@@ -7,13 +7,15 @@ use bevy_ecs::{
 };
 use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
 use bevy_platform::collections::HashMap;
-use bevy_render::{extract_resource::ExtractResource, sync_world::SubEntity, Extract, RenderApp};
+use bevy_render::{
+    extract_resource::ExtractResource, sync_world::RenderEntity, Extract, RenderApp,
+};
 use bevy_transform::components::GlobalTransform;
 
 pub fn extract_raytracing_scene(
     instances: Extract<
         Query<(
-            SubEntity,
+            RenderEntity,
             &RaytracingMesh3d,
             &MeshMaterial3d<StandardMaterial>,
             &GlobalTransform,

@@ -62,7 +62,7 @@ use bevy_render::{
         CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
     renderer::RenderDevice,
-    sync_world::{MainEntity, SubEntity},
+    sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -543,7 +543,7 @@ pub fn extract_camera_prepass_phase(
         Query<
             (
                 Entity,
-                SubEntity,
+                RenderEntity,
                 &Camera,
                 Has<NoIndirectDrawing>,
                 Has<DepthPrepass>,

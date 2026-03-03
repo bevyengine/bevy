@@ -90,6 +90,14 @@ where
     L: AppLabel + Default,
     EI: ExtractInstance,
 {
+    pub fn new() -> Self {
+        Self {
+            only_extract_visible: false,
+            marker: PhantomData,
+            app_label: L::default().intern(),
+        }
+    }
+
     /// Creates a new [`ExtractInstancesPlugin`] that extracts to the sub world
     /// if and only if the entity it's attached to is visible.
     pub fn extract_visible(app_label: InternedAppLabel) -> Self {

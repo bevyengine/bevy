@@ -39,7 +39,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_component::{SyncComponent, SyncComponentPlugin},
-    sync_world::SubEntity,
+    sync_world::RenderEntity,
     texture::{CachedTexture, GpuImage, TextureCache},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -435,7 +435,7 @@ pub fn initialize_generated_environment_map_resources(
 pub fn extract_generated_environment_map_entities(
     query: Extract<
         Query<(
-            SubEntity,
+            RenderEntity,
             &GeneratedEnvironmentMapLight,
             &EnvironmentMapLight,
         )>,

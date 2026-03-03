@@ -36,7 +36,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    sync_world::SubEntity,
+    sync_world::RenderEntity,
     view::{
         ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
         ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
@@ -647,7 +647,7 @@ impl PrepassPipeline {
 // Extract the render phases for the prepass
 pub fn extract_camera_previous_view_data(
     mut commands: Commands,
-    cameras_3d: Extract<Query<(SubEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(RenderEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
 ) {
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         let mut entity = commands

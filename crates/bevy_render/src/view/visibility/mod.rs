@@ -5,7 +5,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::TypeIdMap;
 
 use crate::{
-    sync_world::{MainEntity, SubEntity},
+    sync_world::{MainEntity, RenderEntity},
     Extract,
 };
 
@@ -61,7 +61,7 @@ impl RenderVisibleMeshEntities {
     /// of newly-added and newly-removed entities as it goes.
     pub fn update_from(
         &mut self,
-        mapper: &Extract<Query<SubEntity>>,
+        mapper: &Extract<Query<RenderEntity>>,
         visible_mesh_entities: &[Entity],
     ) {
         let old_entities = mem::take(&mut self.entities);

@@ -24,7 +24,7 @@ use bevy_render::{
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
     settings::WgpuFeatures,
-    sync_world::{MainEntity, MainEntityHashMap, SubEntity},
+    sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
     texture::{FallbackImage, GpuImage},
     view::ExtractedView,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -379,7 +379,7 @@ impl Plugin for LightProbePlugin {
 
         app.add_plugins((
             EnvironmentMapGenerationPlugin,
-            ExtractInstancesPlugin::<EnvironmentMapIds>::default(),
+            ExtractInstancesPlugin::<EnvironmentMapIds>::new(),
         ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -411,7 +411,7 @@ impl Plugin for LightProbePlugin {
 /// Compared to the `ExtractComponentPlugin`, this implementation will create a default instance
 /// if one does not already exist.
 fn gather_environment_map_uniform(
-    view_query: Extract<Query<(SubEntity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
+    view_query: Extract<Query<(RenderEntity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
     mut commands: Commands,
 ) {
     for (view_entity, environment_map_light) in view_query.iter() {
@@ -439,7 +439,7 @@ fn gather_light_probes<C>(
     view_query: Extract<
         Query<
             (
-                SubEntity,
+                RenderEntity,
                 &GlobalTransform,
                 &VisibleClusterableObjects,
                 Option<&C>,
