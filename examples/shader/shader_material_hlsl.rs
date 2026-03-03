@@ -219,14 +219,7 @@ fn rotate_cube(time: Res<Time>, mut query: Query<&mut Transform, With<Mesh3d>>) 
     }
 }
 
-/// A simple material that reads a uniform color and multiplies it by a texture sample.
-///
-/// The shaders are compiled from HLSL to SPIR-V at runtime by [`ShadercHlslCompiler`].
-///
-/// Bind group layout (slot = MATERIAL_BIND_GROUP, defaults to 3):
-/// - binding 0: `material_color` (`vec4<f32>` uniform)
-/// - binding 1: `material_color_texture` (Texture2D)
-/// - binding 2: `material_color_sampler` (Sampler)
+/// A simple material that reads a uniform color and multiplies it by a texture sample
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 struct HlslMaterial {
     #[uniform(0)]
