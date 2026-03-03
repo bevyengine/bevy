@@ -315,9 +315,11 @@ fn environment_map_light(
     // Unpack.
     let roughness = (*input).layers[LAYER_BASE].roughness;
     let diffuse_color = (*input).diffuse_color;
+    let metallic = (*input).metallic;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F_ab = (*input).F_ab;
-    let F0 = (*input).F0_;
+    let F0_dielectric = (*input).F0_dielectric;
+    let F0_metallic = (*input).F0_metallic;
     let world_position = (*input).P;
 
     var out: EnvironmentMapLight;
@@ -338,18 +340,29 @@ fn environment_map_light(
     // No real world material has specular values under 0.02, so we use this range as a
     // "pre-baked specular occlusion" that extinguishes the fresnel term, for artistic control.
     // See: https://google.github.io/filament/Filament.html#specularocclusion
+    let F0 = mix(F0_dielectric, F0_metallic, metallic);
     let specular_occlusion = saturate(dot(F0, vec3(50.0 * 0.33)));
 
     // Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
+    // Compute per-material (dielectric and metallic separately) then mix the results. 
+    // We can't use F0 directly as the FmsEms multiscattering term is nonlinear.
+    //
     // We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
     // Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
-    let FssEss = (F0 * F_ab.x + F_ab.y) * specular_occlusion;
     let Ems = 1.0 - (F_ab.x + F_ab.y);
-    let Favg = F0 + (1.0 - F0) / 21.0;
-    let Fms = FssEss * Favg / (1.0 - Ems * Favg);
-    let FmsEms = Fms * Ems;
-    let Edss = 1.0 - (FssEss + FmsEms);
-    let kD = diffuse_color * Edss;
+
+    let FssEss_dielectric = (F0_dielectric * F_ab.x + F_ab.y) * specular_occlusion;
+    let Favg_dielectric = F0_dielectric + (1.0 - F0_dielectric) / 21.0;
+    let FmsEms_dielectric = FssEss_dielectric * Favg_dielectric / (1.0 - Ems * Favg_dielectric) * Ems;
+    let Edss_dielectric = 1.0 - (FssEss_dielectric + FmsEms_dielectric);
+
+    let FssEss_metallic = (F0_metallic * F_ab.x + F_ab.y) * specular_occlusion;
+    let Favg_metallic = F0_metallic + (1.0 - F0_metallic) / 21.0;
+    let FmsEms_metallic = FssEss_metallic * Favg_metallic / (1.0 - Ems * Favg_metallic) * Ems;
+
+    let FssEss = mix(FssEss_dielectric, FssEss_metallic, metallic);
+    let FmsEms = mix(FmsEms_dielectric, FmsEms_metallic, metallic);
+    let kD = diffuse_color * Edss_dielectric;
 
     if (!found_diffuse_indirect) {
         out.diffuse = (FmsEms + kD) * radiances.irradiance;

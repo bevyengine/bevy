@@ -78,10 +78,13 @@ struct LightingInput {
     // The diffuse color of the material.
     diffuse_color: vec3<f32>,
 
+    // The 0-1 metallic factor of the material.
+    metallic: f32,
+
     // Specular reflectance at the normal incidence angle.
-    //
-    // This should be read F₀, but due to Naga limitations we can't name it that.
-    F0_: vec3<f32>,
+    F0_dielectric: vec3<f32>,
+    F0_metallic: vec3<f32>,
+    
     // Constants for the BRDF approximation.
     //
     // See `EnvBRDFApprox` in
@@ -401,7 +404,7 @@ fn specular(
 ) -> vec3<f32> {
     // Unpack.
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
-    let F0 = (*input).F0_;
+    let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
     let NdotL = (*derived_input).NdotL;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
@@ -457,7 +460,7 @@ fn specular_anisotropy(
     // Unpack.
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let V = (*input).V;
-    let F0 = (*input).F0_;
+    let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
     let anisotropy = (*input).anisotropy;
     let Ta = (*input).Ta;
     let Ba = (*input).Ba;
