@@ -43,7 +43,6 @@ mod pipeline;
 mod text;
 mod text_access;
 
-use bevy_asset::AssetEventSystems;
 pub use bounds::*;
 pub use error::*;
 pub use font::*;
@@ -102,7 +101,7 @@ impl Plugin for TextPlugin {
                 PostUpdate,
                 (
                     detect_text_needs_rerender,
-                    load_font_assets_into_font_collection.after(AssetEventSystems),
+                    load_font_assets_into_font_collection,
                 )
                     .chain(),
             )

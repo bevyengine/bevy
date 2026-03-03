@@ -12,10 +12,13 @@ use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 use crate::{Image, TextureAccessError, TextureFormatPixelInfo};
 use crate::{TextureAtlasLayout, TextureAtlasSources};
 
+/// Errors returned by [`TextureAtlasBuilder`].
 #[derive(Debug, Error)]
 pub enum TextureAtlasBuilderError {
+    /// The atlas texture wasn't large enough to fit the texture
     #[error("could not pack textures into an atlas within the given bounds")]
     NotEnoughSpace,
+    /// Attempted to add a texture with a different format
     #[error("added a texture with the wrong format in an atlas")]
     WrongFormat,
     /// Attempted to add a texture to an uninitialized atlas
@@ -61,6 +64,7 @@ impl Default for TextureAtlasBuilder<'_> {
     }
 }
 
+/// The [`Result`] type used by [`TextureAtlasBuilder`].
 pub type TextureAtlasBuilderResult<T> = Result<T, TextureAtlasBuilderError>;
 
 impl<'a> TextureAtlasBuilder<'a> {
@@ -198,7 +202,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// be returned. It is then recommended to make a larger sprite sheet.
     pub fn build(
         &mut self,
-    ) -> Result<(TextureAtlasLayout, TextureAtlasSources, Image), TextureAtlasBuilderError> {
+    ) -> TextureAtlasBuilderResult<(TextureAtlasLayout, TextureAtlasSources, Image)> {
         let max_width = self.max_size.x;
         let max_height = self.max_size.y;
 

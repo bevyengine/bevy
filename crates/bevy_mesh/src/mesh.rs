@@ -8,14 +8,12 @@ use super::{
     MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
     VertexAttributeValues, VertexBufferLayout,
 };
+#[cfg(feature = "morph")]
+use crate::morph::MorphAttributes;
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
-#[cfg(feature = "morph")]
-use bevy_asset::Handle;
 use bevy_asset::{Asset, RenderAssetUsages};
-#[cfg(feature = "morph")]
-use bevy_image::Image;
 use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
 use bevy_platform::collections::{hash_map, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -237,7 +235,7 @@ pub struct Mesh {
     attributes: MeshExtractableData<BTreeMap<MeshVertexAttributeId, MeshAttributeData>>,
     indices: MeshExtractableData<Indices>,
     #[cfg(feature = "morph")]
-    morph_targets: MeshExtractableData<Handle<Image>>,
+    morph_targets: MeshExtractableData<Vec<MorphAttributes>>,
     #[cfg(feature = "morph")]
     morph_target_names: MeshExtractableData<Vec<String>>,
     pub asset_usage: RenderAssetUsages,
@@ -854,6 +852,20 @@ impl Mesh {
             Indices::U16(indices) => cast_slice(&indices[..]),
             Indices::U32(indices) => cast_slice(&indices[..]),
         })
+    }
+
+    /// If any morph displacements are present, returns them as a
+    /// [`MorphAttributes`] array.
+    ///
+    /// # Panics
+    /// Panics when the mesh data has already been extracted to the render
+    /// world.
+    #[cfg(feature = "morph")]
+    pub fn get_morph_targets(&self) -> Option<&[MorphAttributes]> {
+        self.morph_targets
+            .as_ref_option()
+            .expect(MESH_EXTRACTED_ERROR)
+            .map(|morph_attributes| &morph_attributes[..])
     }
 
     /// Get this `Mesh`'s [`MeshVertexBufferLayout`], used in `SpecializedMeshPipeline`.
@@ -2346,76 +2358,82 @@ impl Mesh {
         Ok(self.morph_targets.as_ref_option()?.is_some())
     }
 
-    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    /// Set the [morph target] displacements for this mesh.
     ///
-    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    /// [morph target]: https://en.wikipedia.org/wiki/Morph_target_animation
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
     /// this as an error use [`Mesh::try_set_morph_targets`]
-    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
+    #[cfg(feature = "morph")]
+    pub fn set_morph_targets(&mut self, morph_targets: Vec<MorphAttributes>) {
         self.try_set_morph_targets(morph_targets)
             .expect(MESH_EXTRACTED_ERROR);
     }
 
-    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    /// Set the [morph target] displacements for this mesh.
     ///
     /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    #[cfg(feature = "morph")]
     pub fn try_set_morph_targets(
         &mut self,
-        morph_targets: Handle<Image>,
+        morph_targets: Vec<MorphAttributes>,
     ) -> Result<(), MeshAccessError> {
         self.morph_targets.replace(Some(morph_targets))?;
         Ok(())
     }
 
-    /// Retrieve the morph targets for this mesh, or None if there are no morph targets.
+    /// Retrieve the morph target displacements for this mesh, or None if there
+    /// are no morph targets.
+    ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
     /// this as an error use [`Mesh::try_morph_targets`]
-    pub fn morph_targets(&self) -> Option<&Handle<Image>> {
+    #[cfg(feature = "morph")]
+    pub fn morph_targets(&self) -> Option<&Vec<MorphAttributes>> {
         self.morph_targets
             .as_ref_option()
             .expect(MESH_EXTRACTED_ERROR)
     }
 
-    /// Retrieve the morph targets for this mesh, or None if there are no morph targets.
+    /// Retrieve the morph displacements for this mesh, or None if there are no
+    /// morph targets.
     ///
     /// Returns an error if the mesh data has been extracted to `RenderWorld`or
     /// if the morph targets do not exist.
-    pub fn try_morph_targets(&self) -> Result<&Handle<Image>, MeshAccessError> {
+    #[cfg(feature = "morph")]
+    pub fn try_morph_targets(&self) -> Result<&Vec<MorphAttributes>, MeshAccessError> {
         self.morph_targets.as_ref()
     }
 
-    /// Consumes the mesh and returns a mesh with the given [morph targets].
-    ///
-    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    /// Consumes the mesh and returns a mesh with the given [morph target]
+    /// displacements.
     ///
     /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
     ///
-    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    /// [morph target]: https://en.wikipedia.org/wiki/Morph_target_animation
     ///
     /// # Panics
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
     /// this as an error use [`Mesh::try_with_morph_targets`]
     #[must_use]
-    pub fn with_morph_targets(mut self, morph_targets: Handle<Image>) -> Self {
+    #[cfg(feature = "morph")]
+    pub fn with_morph_targets(mut self, morph_targets: Vec<MorphAttributes>) -> Self {
         self.set_morph_targets(morph_targets);
         self
     }
 
     /// Consumes the mesh and returns a mesh with the given [morph targets].
     ///
-    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
-    ///
     /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
     ///
     /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
     ///
     /// Returns an error if the mesh data has been extracted to `RenderWorld`.
+    #[cfg(feature = "morph")]
     pub fn try_with_morph_targets(
         mut self,
-        morph_targets: Handle<Image>,
+        morph_targets: Vec<MorphAttributes>,
     ) -> Result<Self, MeshAccessError> {
         self.try_set_morph_targets(morph_targets)?;
         Ok(self)
