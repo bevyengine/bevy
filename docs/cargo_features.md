@@ -165,7 +165,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |reflect_documentation|Enables bevy_reflect to access documentation comments of rust code at runtime|
 |reflect_functions|Enable function reflection|
 |serialize|Enable serialization support through serde|
-|shader_compiler_shaderc|Enable the shaderc-based HLSL compiler (used by the shader_material_hlsl example). Requires the shaderc system library and a C++ toolchain.|
+|shader_compiler_shaderc|Enable the shaderc-based HLSL compiler (used by the shader_material_hlsl example).
+# Requires the shaderc system library and a C++ toolchain.|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
 |shader_format_wesl|Enable support for shaders in WESL|
