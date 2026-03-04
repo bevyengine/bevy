@@ -450,32 +450,21 @@ fn derive_system_param_impl(
                 }
 
                 #[inline]
-                unsafe fn validate_param<'w, 's>(
-                    state: &'s mut Self::State,
-                    _system_meta: &#path::system::SystemMeta,
-                    _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
-                ) -> Result<(), #path::system::SystemParamValidationError> {
-                    let #state_struct_name { state: (#(#tuple_patterns,)*) } = state;
-                    #(
-                        <#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)
-                            .map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
-                    )*
-                    Result::Ok(())
-                }
-
-                #[inline]
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                     change_tick: #path::change_detection::Tick,
-                ) -> Self::Item<'w, 's> {
-                    let (#(#tuple_patterns,)*) = <
-                        (#(#tuple_types,)*) as #path::system::SystemParam
-                    >::get_param(&mut state.state, system_meta, world, change_tick);
-                    #struct_name {
+                ) -> Result<Self::Item<'w, 's>, #path::system::SystemParamValidationError> {
+                    let (#(#tuple_patterns,)*) = &mut state.state;
+                    #(
+                        let #field_locals = unsafe {
+                            <#field_types as #path::system::SystemParam>::get_param(#field_locals, system_meta, world, change_tick)
+                        }.map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
+                    )*
+                    Result::Ok(#struct_name {
                         #(#field_members: #field_locals,)*
-                    }
+                    })
                 }
             }
 

@@ -2,7 +2,10 @@ use crate::{
     change_detection::Tick,
     prelude::World,
     query::FilteredAccessSet,
-    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
+    system::{
+        ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam,
+        SystemParamValidationError,
+    },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_utils::prelude::DebugName;
@@ -65,8 +68,8 @@ unsafe impl SystemParam for SystemName {
         system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        SystemName(system_meta.name.clone())
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(SystemName(system_meta.name.clone()))
     }
 }
 

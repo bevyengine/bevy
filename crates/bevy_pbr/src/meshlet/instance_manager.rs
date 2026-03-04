@@ -220,7 +220,7 @@ pub fn extract_meshlet_mesh_entities(
     }
     let system_state = system_state.as_mut().unwrap();
     let (instances_query, asset_server, mut assets, mut asset_events) =
-        system_state.get_mut(&mut main_world);
+        system_state.get_mut(&mut main_world).unwrap();
 
     // Reset per-frame data
     instance_manager.reset(render_entities);
@@ -228,7 +228,7 @@ pub fn extract_meshlet_mesh_entities(
     // Free GPU buffer space for any modified or dropped MeshletMesh assets
     for asset_event in asset_events.read() {
         if let AssetEvent::Unused { id } | AssetEvent::Modified { id } = asset_event {
-            meshlet_mesh_manager.remove(id);
+            meshlet_mesh_manager.remove(&id);
         }
     }
 

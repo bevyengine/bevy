@@ -108,9 +108,7 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
         };
 
         if let Err(RunSystemError::Failed(err)) = (*system)
-            .validate_param_unsafe(world)
-            .map_err(From::from)
-            .and_then(|()| (*system).run_unsafe(on, world))
+            .run_unsafe(on, world)
         {
             let handler = state
                 .error_handler
