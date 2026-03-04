@@ -460,7 +460,10 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let mut create_monitor = SystemState::<CreateMonitorParams>::from_world(self.world_mut());
-        create_monitors(event_loop, create_monitor.get_mut(self.world_mut()).unwrap());
+        create_monitors(
+            event_loop,
+            create_monitor.get_mut(self.world_mut()).unwrap(),
+        );
         create_monitor.apply(self.world_mut());
 
         // TODO: This is a workaround for https://github.com/bevyengine/bevy/issues/17488

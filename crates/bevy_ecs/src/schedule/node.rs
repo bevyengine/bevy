@@ -24,10 +24,7 @@ use crate::{
         BoxedCondition, InternedSystemSet, ScheduleGraph,
     },
     storage::SparseSetIndex,
-    system::{
-        ReadOnlySystem, RunSystemError, ScheduleSystem, System,
-        SystemStateFlags,
-    },
+    system::{ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 

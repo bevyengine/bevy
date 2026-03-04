@@ -107,9 +107,7 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
             (*system).refresh_hotpatch();
         };
 
-        if let Err(RunSystemError::Failed(err)) = (*system)
-            .run_unsafe(on, world)
-        {
+        if let Err(RunSystemError::Failed(err)) = (*system).run_unsafe(on, world) {
             let handler = state
                 .error_handler
                 .unwrap_or_else(|| world.default_error_handler());

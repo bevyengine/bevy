@@ -86,7 +86,10 @@ impl ExclusiveSystemParam for WorldId {
         world.id()
     }
 
-    fn get_param<'s>(state: &'s mut Self::State, _system_meta: &SystemMeta) -> Result<Self::Item<'s>, SystemParamValidationError> {
+    fn get_param<'s>(
+        state: &'s mut Self::State,
+        _system_meta: &SystemMeta,
+    ) -> Result<Self::Item<'s>, SystemParamValidationError> {
         Ok(*state)
     }
 }

@@ -279,12 +279,9 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 
         // SAFETY: Query state access is properly registered in init_access.
         // The caller ensures the world matches the one used in init_state.
-        let item = unsafe { state.query_state.get_unchecked(world, entity) }
-            .map_err(|_| {
-                SystemParamValidationError::skipped::<Self>(
-                    "Current view entity does not match query",
-                )
-            })?;
+        let item = unsafe { state.query_state.get_unchecked(world, entity) }.map_err(|_| {
+            SystemParamValidationError::skipped::<Self>("Current view entity does not match query")
+        })?;
 
         Ok(ViewQuery {
             entity,
