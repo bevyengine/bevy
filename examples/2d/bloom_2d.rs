@@ -110,6 +110,7 @@ fn update_bloom_settings(
                 bloom.prefilter.threshold_softness
             ));
             text.push_str(&format!("(I/K) Horizontal Scale: {:.2}\n", bloom.scale.x));
+            text.push_str(&format!("(O/L) Max mipmaps: {:.2}\n", bloom.max_mip_count));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(camera_entity).remove::<Bloom>();
@@ -180,6 +181,14 @@ fn update_bloom_settings(
                 bloom.scale.x += dt * 2.0;
             }
             bloom.scale.x = bloom.scale.x.clamp(0.0, 16.0);
+
+            if keycode.just_pressed(KeyCode::KeyL) {
+                bloom.max_mip_count -= 1;
+            }
+            if keycode.just_pressed(KeyCode::KeyO) {
+                bloom.max_mip_count += 1;
+            }
+            bloom.max_mip_count = bloom.max_mip_count.clamp(1, 10);
         }
 
         None => {
@@ -191,8 +200,8 @@ fn update_bloom_settings(
         }
     }
 
-    text.push_str(&format!("(O) Tonemapping: {tonemapping:?}\n"));
-    if keycode.just_pressed(KeyCode::KeyO) {
+    text.push_str(&format!("(P) Tonemapping: {tonemapping:?}\n"));
+    if keycode.just_pressed(KeyCode::KeyP) {
         commands
             .entity(camera_entity)
             .insert(next_tonemap(tonemapping));
