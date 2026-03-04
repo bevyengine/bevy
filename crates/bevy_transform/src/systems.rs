@@ -118,8 +118,8 @@ pub fn mark_dirty_trees(
         alloc::vec::Vec<core::sync::atomic::AtomicU64>,
     >,
     #[cfg(feature = "std")] mut local_bitset: Local<bevy_utils::Parallel<alloc::vec::Vec<u64>>>,
-    #[cfg(feature = "std")] mut output_channel: Local<bevy_utils::BufferedChannel<Entity>>,
-    #[cfg(feature = "std")] mut input_channel: Local<bevy_utils::BufferedChannel<Entity>>,
+    #[cfg(feature = "std")] mut consumer_channels: Local<bevy_utils::BufferedChannel<Entity>>,
+    #[cfg(feature = "std")] mut traversal_channels: Local<bevy_utils::BufferedChannel<Entity>>,
 ) {
     let threshold = static_optimizations.threshold.clamp(0.0, 1.0);
     match threshold {
@@ -194,10 +194,10 @@ pub fn mark_dirty_trees(
         use core::sync::atomic::Ordering;
 
         ComputeTaskPool::get().scope(|scope| {
-            input_channel.chunk_size = 1024;
-            output_channel.chunk_size = 1024;
-            let (input_rx, mut input_tx) = input_channel.unbounded();
-            let (output_rx, mut output_tx) = output_channel.unbounded();
+            traversal_channels.chunk_size = 1024;
+            consumer_channels.chunk_size = 1024;
+            let (traversal_rx, mut traversal_tx) = traversal_channels.unbounded();
+            let (consumer_rx, mut consumer_tx) = consumer_channels.unbounded();
             let shared_bitset: &[core::sync::atomic::AtomicU64] = &shared_bitset;
             let local_bitset = &*local_bitset;
             let parents_ref = &parents;
@@ -205,7 +205,7 @@ pub fn mark_dirty_trees(
             // Consumer: drain the channel of moved entities and call set_changed() on the marker.
             scope.spawn(
                 async move {
-                    while let Ok(mut chunk) = output_rx.recv().await {
+                    while let Ok(mut chunk) = consumer_rx.recv().await {
                         for entity in chunk.drain() {
                             if let Ok(mut tree) = transforms.get_mut(entity) {
                                 tree.set_changed();
@@ -216,14 +216,14 @@ pub fn mark_dirty_trees(
                 .instrument(info_span!("consumer_mark_dirty")),
             );
 
-            // Producers: each task loops until the input channel is exhausted, walking each
+            // Traversal: each task loops until the producer channel is exhausted, walking each
             // entity's ancestor chain and forwarding newly marked entities to the consumer task.
             for _ in 0..(ComputeTaskPool::get().thread_num() - 1).max(1) {
-                let input_rx = input_rx.clone();
-                let mut output_tx = output_tx.clone();
+                let traversal_rx = traversal_rx.clone();
+                let mut consumer_tx = consumer_tx.clone();
                 scope.spawn(
                     async move {
-                        while let Ok(mut chunk) = input_rx.recv().await {
+                        while let Ok(mut chunk) = traversal_rx.recv().await {
                             for mut entity in chunk.drain() {
                                 let mut first_iteration = true;
                                 'traverse_hierarchy: loop {
@@ -263,7 +263,7 @@ pub fn mark_dirty_trees(
                                     } else {
                                         // The first iteration (leaf) has already been sent to the
                                         // consumer by the producer; we don't need to send it again.
-                                        output_tx.send(entity).await.ok();
+                                        consumer_tx.send(entity).await.ok();
                                     }
 
                                     match parents_ref.get(entity).ok().map(ChildOf::parent) {
@@ -278,23 +278,24 @@ pub fn mark_dirty_trees(
                 );
             }
 
-            // Feed changed entities and orphans into producer tasks. The senders are dropped at the
-            // end of this closure, closing the channel and allowing the other tasks to exit.
+            // Producer: Feed changed entities and orphans into producer tasks. The senders are
+            // dropped at the end of this closure, closing the channel and allowing the other tasks
+            // to exit.
             //
             // Note that we send the entity directly to the consumer as well, we do this to start
             // feeding it work as soon as possible. The traversal worker should skip sending these
             // leaves to the consumer because it has already been sent here.
             info_span!("producer_mark_dirty").in_scope(move || {
                 for entity in orphaned.read() {
-                    let _ = input_tx.send_blocking(entity);
-                    let _ = output_tx.send_blocking(entity);
+                    let _ = traversal_tx.send_blocking(entity);
+                    let _ = consumer_tx.send_blocking(entity);
                 }
                 // Changed<> table scans are slow, so we parallelize them to improve performance.
                 changed.par_iter().for_each_init(
-                    || (input_tx.clone(), output_tx.clone()),
-                    |(input_tx, output_tx), entity| {
-                        let _ = input_tx.send_blocking(entity);
-                        let _ = output_tx.send_blocking(entity);
+                    || (traversal_tx.clone(), consumer_tx.clone()),
+                    |(traversal_tx, consumer_tx), entity| {
+                        let _ = traversal_tx.send_blocking(entity);
+                        let _ = consumer_tx.send_blocking(entity);
                     },
                 );
             });
