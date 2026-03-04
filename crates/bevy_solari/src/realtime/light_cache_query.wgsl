@@ -64,6 +64,7 @@ fn load_light_cache_cell(rng: ptr<function, u32>, pixel_id: vec2<u32>) -> Loaded
         let temporal_depth = textureLoad(previous_depth_buffer, pixel_id, 0);
         let temporal_surface = gpixel_resolve(textureLoad(previous_gbuffer, pixel_id, 0), temporal_depth, pixel_id, view.main_pass_viewport.zw, previous_view.world_from_clip);
         if pixel_dissimilar(depth, surface.world_position, temporal_surface.world_position, surface.world_normal, temporal_surface.world_normal, view) {
+            sel_pixel_id_float = pixel_id_float;
             exploratory_sample_ratio = LIGHT_CACHE_EXPLORATORY_SAMPLE_RATIO_MAX;
         }
     }
@@ -93,34 +94,42 @@ fn load_light_cache_cell(rng: ptr<function, u32>, pixel_id: vec2<u32>) -> Loaded
 
 var<workgroup> weighted_lights: array<u64, 64>;
 
+fn compare_and_swap(i: u32, j: u32) {
+    if weighted_lights[i] < weighted_lights[j] {
+        let temp = weighted_lights[i];
+        weighted_lights[i] = weighted_lights[j];
+        weighted_lights[j] = temp;
+    }
+}
+
+fn flip(t: u32, h: u32) {
+    let q = ((2 * t) / h) * h;
+    compare_and_swap(q + t % h, q + h - (t % h));
+}
+
+fn disperse(t: u32, h: u32) {
+    let q = ((2 * t) / h) * h;
+    compare_and_swap(q + (t % h), q + (t % h) + h >> 1);
+}
+
 fn write_light_cache_cell(pixel_id: vec2<u32>, local_index: u32, light: WeightedLight) {
     let data = u64(bitcast<u32>(max(light.weight, 0.0))) << 32u | u64(light.light);
     weighted_lights[local_index] = data;
-    workgroupBarrier();
 
     if local_index >= 32 {
         return;
     }
 
-    for (var i = 0u; i < 64u; i++) {
-        var a = local_index * 2 + 1;
-        var b = a + 1;
-        if weighted_lights[a] < weighted_lights[b] {
-            let temp = weighted_lights[a];
-            weighted_lights[a] = weighted_lights[b];
-            weighted_lights[b] = temp;
-        }
+    for (var h = 2u; h <= 64u; h <<= 1u) {
         workgroupBarrier();
-
-        a = local_index * 2;
-        b = a + 1;
-        if weighted_lights[a] < weighted_lights[b] {
-            let temp = weighted_lights[a];
-            weighted_lights[a] = weighted_lights[b];
-            weighted_lights[b] = temp;
+        flip(local_index, h);
+        for (var hh = h >> 1u; hh > 1u; hh >>= 1u) {
+            workgroupBarrier();
+            disperse(local_index, hh);
         }
-        workgroupBarrier();
     }
+    workgroupBarrier();
+
     if local_index != 0u {
         return;
     }
@@ -132,7 +141,7 @@ fn write_light_cache_cell(pixel_id: vec2<u32>, local_index: u32, light: Weighted
         let light = u32(data);
         let weight = bitcast<f32>(u32(data >> 32u));
         var already_exists = false;
-        for (var j = 0u; j < #{LIGHT_CACHE_LIGHTS_PER_CELL}; j++) {
+        for (var j = 0u; j < light_count; j++) {
             if light == lights[j].light {
                 already_exists = true;
                 break;
@@ -186,7 +195,6 @@ fn evaluate_lighting(
     let random_sample_count = u32(round(mix(f32(LIGHT_CACHE_NEW_LIGHTS_SEARCH_COUNT_MAX), f32(LIGHT_CACHE_NEW_LIGHTS_SEARCH_COUNT_MIN), cell_confidence)));
     let random_selected_light = select_light_random(rng, cell, world_position, world_normal, wo, material, random_sample_count);
 
-
     let cell_weight = cell_selected_light.weight_sum;
     let random_weight = min(mix(random_selected_light.weight_sum, exploratory_sample_ratio * cell_weight, cell_confidence), random_selected_light.weight_sum);
     let weight_sum = cell_weight + random_weight;
@@ -210,7 +218,7 @@ fn evaluate_lighting(
     let brdf = evaluate_brdf(world_normal, wo, direct_lighting.wi, material);
     let visibility = trace_light_visibility(world_position, resolved_light_sample.world_position);
     let radiance = direct_lighting.radiance * brdf;
-    let inverse_pdf = ucw * direct_lighting.inverse_pdf * visibility;
+    let inverse_pdf = ucw * visibility;
     let data = WeightedLight(sel, sel_weight * visibility);
     write_light_cache_cell(pixel_id, local_index, data);
 

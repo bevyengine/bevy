@@ -37,13 +37,19 @@ fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin
     let wo = normalize(view.world_position - surface.world_position);
 
     var initial_reservoir: Reservoir;
-    if global_id.x > u32(view.main_pass_viewport.z) >> 1u {
-        evaluate_lighting(&rng, global_id.xy, local_index, surface.world_position, surface.world_normal, wo, surface.material);
-        initial_reservoir = generate_initial_reservoir(surface.world_position, surface.world_normal, evaluate_diffuse_brdf(surface.world_normal, wo, surface.material.base_color, surface.material.metallic), workgroup_id.xy, &rng);
-    } else {
+    // if global_id.x > u32(view.main_pass_viewport.z) >> 1u {
+    //     evaluate_lighting(&rng, global_id.xy, local_index, surface.world_position, surface.world_normal, wo, surface.material);
+    //     initial_reservoir = generate_initial_reservoir(surface.world_position, surface.world_normal, evaluate_diffuse_brdf(surface.world_normal, wo, surface.material.base_color, surface.material.metallic), workgroup_id.xy, &rng);
+    // } else {
         let lighting = evaluate_lighting(&rng, global_id.xy, local_index, surface.world_position, surface.world_normal, wo, surface.material);
-        initial_reservoir =  Reservoir(lighting.light_sample, 1.0, lighting.inverse_pdf);
-    }
+
+        // var pixel_color = lighting.radiance * lighting.inverse_pdf;
+        // pixel_color += surface.material.emissive;
+        // pixel_color *= view.exposure;
+        // textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
+        // return;
+        initial_reservoir = Reservoir(lighting.light_sample, 1.0, lighting.inverse_pdf);
+    // }
     let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
     let merge_result = merge_reservoirs(
         initial_reservoir, surface.world_position, surface.world_normal, wo, surface.material,

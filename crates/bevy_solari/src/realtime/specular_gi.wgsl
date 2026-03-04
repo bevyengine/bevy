@@ -17,7 +17,7 @@ enable wgpu_ray_query;
 #endif
 
 const DIFFUSE_GI_REUSE_ROUGHNESS_THRESHOLD: f32 = 0.4;
-const SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD: f32 = 0.0225;
+const SPECULAR_GI_FOR_DI_ROUGHNESS_THRESHOLD: f32 = 0.0016;
 
 @compute @workgroup_size(8, 8, 1)
 fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
