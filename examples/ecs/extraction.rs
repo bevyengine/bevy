@@ -4,7 +4,7 @@
 //! Each component contains the current elapsed time, updated each frame on the Main World.
 
 use bevy::prelude::*;
-use bevy_render::{
+use bevy::render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     sync_world::{RenderEntity, SyncToRenderWorld},
     Extract, Render, RenderApp,

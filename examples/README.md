@@ -50,6 +50,7 @@ git checkout v0.4.0
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Embedded](#embedded)
+  - [Extraction](#extraction)
   - [Games](#games)
   - [Gizmos](#gizmos)
   - [Helpers](#helpers)
@@ -361,6 +362,12 @@ Example | Description
 Example | Description
 --- | ---
 [`no_std` Compatible Library](../examples/no_std/library/src/lib.rs) | Example library compatible with `std` and `no_std` targets
+
+### Extraction
+
+Example | Description
+--- | ---
+[Custom Schedule](../examples/ecs/extraction.rs) | Demonstrates different ways to extract components
 
 ### Games
 
