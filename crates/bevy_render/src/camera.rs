@@ -11,7 +11,7 @@ use crate::{
     texture::{GpuImage, ManualTextureViews},
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
-        RenderVisibleEntities, RenderVisibleEntitiesClass, RenderVisibleEntitiesCpuCulling,
+        RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
         RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -438,6 +438,7 @@ pub fn camera_system(
 }
 
 #[derive(Component, Debug)]
+#[require(RenderVisibleEntities)]
 pub struct ExtractedCamera {
     pub target: Option<NormalizedRenderTarget>,
     pub physical_viewport_size: Option<UVec2>,
@@ -479,7 +480,7 @@ pub fn extract_cameras(
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     mut existing_render_visible_entities_cpu_culling: Query<
-        &mut RenderVisibleEntitiesCpuCulling,
+        &mut RenderExtractedVisibleEntities,
         With<RenderVisibleEntities>,
     >,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
@@ -546,13 +547,12 @@ pub fn extract_cameras(
                 continue;
             }
 
-            let (mut render_visible_entities_cpu_culling, view_is_new) =
+            let mut render_visible_entities_cpu_culling =
                 match existing_render_visible_entities_cpu_culling.get_mut(render_entity) {
-                    Ok(ref mut existing_render_visible_entities_cpu_culling) => (
-                        mem::take(&mut **existing_render_visible_entities_cpu_culling),
-                        false,
-                    ),
-                    Err(_) => (RenderVisibleEntitiesCpuCulling::default(), true),
+                    Ok(ref mut existing_render_visible_entities_cpu_culling) => {
+                        mem::take(&mut **existing_render_visible_entities_cpu_culling)
+                    }
+                    Err(_) => RenderExtractedVisibleEntities::default(),
                 };
 
             for (visibility_class, visible_mesh_entities) in visible_entities.entities.iter() {
@@ -615,11 +615,6 @@ pub fn extract_cameras(
                 render_visible_entities_cpu_culling,
                 *frustum,
             ));
-
-            // FIXME: try required components on the cpu version of this?
-            if view_is_new {
-                commands.insert(RenderVisibleEntities::default());
-            }
 
             if let Some(temporal_jitter) = temporal_jitter {
                 commands.insert(temporal_jitter.clone());
@@ -817,7 +812,7 @@ impl DirtySpecializations {
 
         // Check entities that opted out of CPU culling.
         if let Some(entity) = render_visible_mesh_entities
-            .entities_no_cpu_culling
+            .entities_gpu_culling
             .get(main_entity)
         {
             return Some((entity, main_entity));

@@ -947,9 +947,7 @@ pub(crate) fn specialize_material_meshes(
                 continue;
             };
 
-            let Some(render_visible_mesh_entities) =
-                visible_entities.classes.get(&TypeId::of::<Mesh3d>())
-            else {
+            let Some(render_visible_mesh_entities) = visible_entities.get::<Mesh3d>() else {
                 continue;
             };
 

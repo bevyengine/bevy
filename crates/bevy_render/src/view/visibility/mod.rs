@@ -25,31 +25,64 @@ mod range;
 use bevy_camera::visibility::*;
 pub use range::*;
 
-/// Collection of entities visible from the current view.
+/// Stores a list of all entities that are visible from a single view or
+/// subview, as well as the change lists.
 ///
-/// This component is extracted from [`VisibleEntities`].
+/// This component is only placed directly on camera entities. Lights instead
+/// have a [`RenderShadowMapVisibleEntities`] component that contains one or
+/// more [`RenderVisibleEntities`] components, one for each cascade or cubemap
+/// side.
+///
+/// The [`crate::camera::extract_cameras`] and `extract_lights` systems create
+/// this object, but they don't populate it. Instead, the
+/// [`collect_visible_cpu_culled_entities`] and
+/// `collect_gpu_culled_meshes` systems are responsible for
+/// updating this component from the lists of entities in
+/// [`RenderExtractedVisibleEntities`] and `RenderGpuCulledEntities`,
+/// respectively.
+#[derive(Clone, Component, Default, Debug)]
+pub struct RenderVisibleEntities {
+    /// Entities visible from this view or subview, sorted by
+    /// [`VisibilityClass`].
+    pub classes: TypeIdMap<RenderVisibleEntitiesClass>,
+}
+
+/// Collection of entities visible from a single light.
+///
+/// This component contains one [`RenderVisibleEntities`] object per subview.
+/// Directional lights have one subview per cascade, point lights have one
+/// subview per cubemap face, and spot lights only have a single subview.
+///
+/// The `extract_lights` system creates this component, but it doesn't populate
+/// it. Instead, the [`collect_visible_cpu_culled_entities`] and
+/// `collect_gpu_culled_meshes` systems are responsible for
+/// updating this component from the lists of entities in
+/// [`RenderExtractedShadowMapVisibleEntities`] and `RenderGpuCulledEntities`,
+/// respectively.
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct RenderShadowMapVisibleEntities {
+    /// A mapping from each subview (cascade or cubemap face) to the entities
+    /// visible from it.
     #[reflect(ignore, clone)]
     pub subviews: HashMap<RetainedViewEntity, RenderVisibleEntities>,
 }
 
-#[derive(Clone, Component, Default, Debug)]
-pub struct RenderVisibleEntities {
-    pub classes: TypeIdMap<RenderVisibleEntitiesClass>,
-}
-
-/// Stores a list of all entities that are visible from this view, as well as
-/// the change lists.
+/// Stores a list of all entities that are visible from a single view for a
+/// single [`VisibilityClass`], as well as the change lists.
 ///
 /// Note that all lists in this component are guaranteed to be sorted. Thus you
 /// can test for the presence of an entity in these lists via binary search.
 ///
 /// Note also that, for 3D meshes, the render-world [`Entity`] values will
 /// always be [`Entity::PLACEHOLDER`]. The render-world entities are kept for
-/// legacy passes that still need to process visibility of render-world
+/// legacy systems that still need to process visibility of render-world
 /// entities.
+///
+/// The [`collect_visible_cpu_culled_entities`] and `collect_gpu_culled_meshes`
+/// systems populate this object from the corresponding
+/// [`RenderExtractedVisibleEntitiesClass`] object and the
+/// `RenderGpuCulledEntities` resource, respectively.
 #[derive(Clone, Debug, Default, Reflect)]
 #[reflect(Debug, Default, Clone)]
 pub struct RenderVisibleEntitiesClass {
@@ -57,45 +90,83 @@ pub struct RenderVisibleEntitiesClass {
     /// components and are visible from this view.
     #[reflect(ignore, clone)]
     pub entities_cpu_culling: Vec<(Entity, MainEntity)>,
+
     /// A table of all entities that have [`NoCpuCulling`] components and have
     /// [`bevy_camera::visibility::InheritedVisibility`] set to true.
-    pub entities_no_cpu_culling: MainEntityHashMap<Entity>,
+    ///
+    /// The `collect_gpu_culled_meshes` system keeps this up to date.
+    pub entities_gpu_culling: MainEntityHashMap<Entity>,
+
     /// A sorted list of all entities that were invisible last frame (including
     /// ones that didn't exist at all last frame) and became visible this frame.
     added_entities: Vec<(Entity, MainEntity)>,
+
     /// A sorted list of all entities that were visible last frame and became
     /// invisible this frame, including those that were despawned this frame.
     pub removed_entities: Vec<(Entity, MainEntity)>,
 }
 
-#[derive(Component, Default)]
-pub struct RenderShadowMapVisibleEntitiesCpuCulling {
-    pub subviews: HashMap<RetainedViewEntity, RenderVisibleEntitiesCpuCulling>,
-}
-
+/// The entities that the CPU has determined are visible from a single view or
+/// subview.
+///
+/// This component is only placed directly on camera entities. Lights instead
+/// have a [`RenderExtractedShadowMapVisibleEntities`] component that contains
+/// one or more [`RenderExtractedVisibleEntities`] components, one for each
+/// cascade or cubemap side.
+///
+/// Mesh entities with [`NoCpuCulling`] aren't present in this table. Instead,
+/// `collect_gpu_culled_meshes` fetches them directly from the
+/// `RenderGpuCulledEntities` list.
+///
+/// The [`crate::camera::extract_cameras`] and `extract_lights` systems populate
+/// this object, and the [`collect_visible_cpu_culled_entities`] system reads it.
 #[derive(Component, Clone, Default, Debug)]
-pub struct RenderVisibleEntitiesCpuCulling {
-    pub classes: TypeIdMap<RenderVisibleEntitiesClassCpuCulling>,
+pub struct RenderExtractedVisibleEntities {
+    /// Entities that the CPU has determined to be visible from this view or
+    /// subview, sorted by [`VisibilityClass`].
+    pub classes: TypeIdMap<RenderExtractedVisibleEntitiesClass>,
 }
 
+/// The entities that the CPU has determined are visible from a single
+/// shadow-casting light.
+///
+/// This component contains one [`RenderExtractedVisibleEntities`] object per
+/// subview.  Directional lights have one subview per cascade, point lights have
+/// one subview per cubemap face, and spot lights only have a single subview.
+///
+/// Mesh entities that have [`NoCpuCulling`] components aren't in this list.
+/// Instead, `collect_gpu_culled_meshes` fetches them directly
+/// from the `RenderGpuCulledEntities` table.
+///
+/// The `extract_lights` system populates this component, and the
+/// [`collect_visible_cpu_culled_entities`] system reads it.
+#[derive(Component, Default)]
+pub struct RenderExtractedShadowMapVisibleEntities {
+    /// A mapping from the subview to the list of entities that the CPU has
+    /// determined are visible from it.
+    pub subviews: HashMap<RetainedViewEntity, RenderExtractedVisibleEntities>,
+}
+
+/// The entities that the CPU has determined are visible from a single view or
+/// subview, for a single [`VisibilityClass`].
+///
+/// Mesh entities that have [`NoCpuCulling`] components aren't in this list.
+/// Instead, `collect_gpu_culled_meshes` fetches them directly
+/// from the `RenderGpuCulledEntities` table in order to update the
+/// [`RenderVisibleEntitiesClass`].
+///
+/// The [`crate::camera::extract_cameras`] and `extract_lights` systems populate
+/// this object, and the [`collect_visible_cpu_culled_entities`] system reads it.
 #[derive(Clone, Default, Debug)]
-pub struct RenderVisibleEntitiesClassCpuCulling {
+pub struct RenderExtractedVisibleEntitiesClass {
+    /// A sorted list of entities that don't have [`NoCpuCulling`] components
+    /// and are visible from this view or subview.
     pub entities: Vec<(Entity, MainEntity)>,
 }
 
-/*
-#[derive(Resource, Default)]
-pub struct RenderVisibleEntitiesGpuCulling {
-    pub entities: TypeIdMap<RenderViewEntitiesGpuCulling>,
-}
-
-pub struct RenderViewEntitiesGpuCulling {
-    pub added_entities: Vec<(Entity, MainEntity)>,
-    pub removed_entities: Vec<(Entity, MainEntity)>,
-}
-*/
-
 impl RenderVisibleEntities {
+    /// Returns the [`RenderVisibleEntitiesClass`] corresponding to the given
+    /// [`VisibilityClass`].
     pub fn get<QF>(&self) -> Option<&RenderVisibleEntitiesClass>
     where
         QF: 'static,
@@ -105,6 +176,8 @@ impl RenderVisibleEntities {
 }
 
 impl RenderVisibleEntitiesClass {
+    /// Clears out the lists of added and removed entities in preparation for a
+    /// new frame.
     fn prepare_for_new_frame(&mut self) {
         self.added_entities.clear();
         self.removed_entities.clear();
@@ -113,11 +186,12 @@ impl RenderVisibleEntitiesClass {
     /// Processes a list of visible entities for a new frame, computing the set
     /// of newly-added and newly-removed entities as it goes.
     ///
-    /// Entities that participated in CPU culling are in the
-    /// `visible_mesh_entities_cpu_culling` list. Entities that opted out of CPU
-    /// culling are fetched from the ECS via the
-    /// `PreparedVisibilityExtractionSystemParam`.
-    fn update_from_cpu(&mut self, visible_mesh_entities_cpu_culling: &[(Entity, MainEntity)]) {
+    /// This function only handles entities that are culled on CPU (i.e. don't
+    /// have `NoCpuCulling` components). Entities that use only GPU culling are
+    /// instead fetched from the main world via the
+    /// [`PreparedVisibilityExtractionSystemParam`] and added to the
+    /// `RenderGpuCulledEntities` table.
+    fn update_cpu_culled_entities(&mut self, visible_mesh_entities_cpu_culling: &[(Entity, MainEntity)]) {
         let _update_from = info_span!("update_from", name = "update_from").entered();
 
         let old_entities_cpu_culling = mem::take(&mut self.entities_cpu_culling);
@@ -170,10 +244,16 @@ impl RenderVisibleEntitiesClass {
         }
     }
 
+    /// Adds a new entity to the [`Self::added_entities`] list.
+    ///
+    /// After calling this method one or more times, you must call
+    /// [`Self::sort_added_entities`] to ensure the [`Self::added_entities`]
+    /// list is sorted.
     pub fn add_entity(&mut self, pair: (Entity, MainEntity)) {
         self.added_entities.push(pair);
     }
 
+    /// Returns the list of newly-added entities.
     pub fn added_entities(&self) -> &[(Entity, MainEntity)] {
         &self.added_entities
     }
@@ -187,7 +267,7 @@ impl RenderVisibleEntitiesClass {
             .binary_search(&(entity, main_entity))
             .is_ok()
             || self
-                .entities_no_cpu_culling
+                .entities_gpu_culling
                 .get(&main_entity)
                 .is_some_and(|that_entity| *that_entity == entity)
     }
@@ -201,12 +281,16 @@ impl RenderVisibleEntitiesClass {
             .iter()
             .map(|(entity, main_entity)| (entity, main_entity))
             .chain(
-                self.entities_no_cpu_culling
+                self.entities_gpu_culling
                     .iter()
                     .map(|(main_entity, entity)| (entity, main_entity)),
             )
     }
 
+    /// Sorts the [`Self::added_entities`] list.
+    ///
+    /// You must call this after adding entities to the list via
+    /// [`Self::add_entity`].
     pub fn sort_added_entities(&mut self) {
         self.added_entities
             .sort_unstable_by_key(|(_, main_entity)| *main_entity);
@@ -244,15 +328,21 @@ pub type VisibilityExtractionNoCpuCullingChangedQuery = SQuery<
     ),
 >;
 
-pub fn collect_render_visible_entities(
+/// Updates the [`RenderVisibleEntities`] and [`RenderShadowMapVisibleEntities`]
+/// components with the contents of the [`RenderExtractedVisibleEntities`] and
+/// the [`RenderExtractedShadowMapVisibleEntities`] components respectively.
+///
+/// This system only handles CPU-culled entities (i.e. those without
+/// [`NoCpuCulling`] components). The `collect_gpu_culled_meshes` system in
+/// `bevy_pbr` handles GPU-culled entities.
+pub fn collect_visible_cpu_culled_entities(
     mut cameras: Query<(
         &mut RenderVisibleEntities,
-        Option<&mut RenderVisibleEntitiesCpuCulling>,
+        Option<&mut RenderExtractedVisibleEntities>,
     )>,
     mut lights: Query<(
-        &MainEntity,
         &mut RenderShadowMapVisibleEntities,
-        Option<&mut RenderShadowMapVisibleEntitiesCpuCulling>,
+        Option<&mut RenderExtractedShadowMapVisibleEntities>,
     )>,
     mut visibility_classes: Local<HashSet<TypeId>>,
 ) {
@@ -262,7 +352,7 @@ pub fn collect_render_visible_entities(
     {
         let mut maybe_render_subview_visible_entities_cpu_culling =
             maybe_render_visible_entities_cpu_culling.as_deref_mut();
-        collect_render_visible_entities_for_subview(
+        collect_visible_cpu_culled_entities_for_subview(
             &mut render_visible_entities,
             &mut maybe_render_subview_visible_entities_cpu_culling,
             &mut visibility_classes,
@@ -271,7 +361,6 @@ pub fn collect_render_visible_entities(
 
     // Collect shadow maps.
     for (
-        main_light_entity,
         mut render_shadow_map_visible_entities,
         mut maybe_render_shadow_map_visible_entities_cpu_culling,
     ) in lights.iter_mut()
@@ -287,7 +376,7 @@ pub fn collect_render_visible_entities(
                             .subviews
                             .get_mut(subview)
                     });
-            collect_render_visible_entities_for_subview(
+            collect_visible_cpu_culled_entities_for_subview(
                 render_visible_entities,
                 &mut maybe_render_subview_visible_entities_cpu_culling,
                 &mut visibility_classes,
@@ -296,26 +385,26 @@ pub fn collect_render_visible_entities(
     }
 }
 
-fn collect_render_visible_entities_for_subview(
+/// Updates the [`RenderVisibleEntities`] list for a single subview from the
+/// applicable [`RenderExtractedVisibleEntities`].
+///
+/// This only handles CPU-culled entities. The corresponding function for
+/// GPU-called entities is `collect_gpu_culled_meshes_for_subview` in
+/// `bevy_pbr`.
+fn collect_visible_cpu_culled_entities_for_subview(
     render_visible_entities: &mut RenderVisibleEntities,
-    maybe_render_subview_visible_entities_cpu_culling: &mut Option<
-        &mut RenderVisibleEntitiesCpuCulling,
-    >,
+    maybe_render_subview_visible_entities: &mut Option<&mut RenderExtractedVisibleEntities>,
     visibility_classes: &mut HashSet<TypeId>,
 ) {
+    // Gather up all visibility classes. We need to make sure that the
+    // `RenderVisibleEntities` has an entry for each one.
     visibility_classes.clear();
     visibility_classes.extend(render_visible_entities.classes.keys().copied());
-    if let Some(ref mut render_subview_visible_entities_cpu_culling) =
-        *maybe_render_subview_visible_entities_cpu_culling
-    {
-        visibility_classes.extend(
-            render_subview_visible_entities_cpu_culling
-                .classes
-                .keys()
-                .copied(),
-        );
+    if let Some(ref mut render_subview_visible_entities) = *maybe_render_subview_visible_entities {
+        visibility_classes.extend(render_subview_visible_entities.classes.keys().copied());
     }
 
+    // Update the tables of each visibility class.
     for visibility_class in visibility_classes.iter() {
         let entities = render_visible_entities
             .classes
@@ -324,20 +413,24 @@ fn collect_render_visible_entities_for_subview(
 
         entities.prepare_for_new_frame();
 
-        let Some(ref mut render_subview_visible_entities_cpu_culling) =
-            *maybe_render_subview_visible_entities_cpu_culling
+        // Fetch the visibility class's entity table.
+        let Some(ref mut render_subview_visible_entities) = *maybe_render_subview_visible_entities
         else {
             continue;
         };
-        let Some(render_view_entities_cpu_culling) = render_subview_visible_entities_cpu_culling
+        let Some(render_view_entities) = render_subview_visible_entities
             .classes
             .get_mut(visibility_class)
         else {
             continue;
         };
-        render_view_entities_cpu_culling
+
+        // Make sure the entity list is sorted, as this is a requirement for
+        // [`RenderVisibleEntitiesClass::update_from_cpu`].
+        render_view_entities
             .entities
             .sort_unstable_by_key(|(_, main_entity)| *main_entity);
-        entities.update_from_cpu(&render_view_entities_cpu_culling.entities);
+
+        entities.update_cpu_culled_entities(&render_view_entities.entities);
     }
 }

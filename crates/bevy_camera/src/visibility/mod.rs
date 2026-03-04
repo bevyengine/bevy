@@ -492,10 +492,7 @@ impl Plugin for VisibilityPlugin {
                         .in_set(CalculateBounds),
                     (visibility_propagate_system, reset_view_visibility)
                         .in_set(VisibilityPropagate),
-                    (
-                        check_visibility_cpu_culling,
-                        check_visibility_no_cpu_culling,
-                    )
+                    (check_visibility_cpu_culling, check_visibility_gpu_culling)
                         .in_set(CheckVisibility),
                     mark_newly_hidden_entities_invisible.in_set(MarkNewlyHiddenEntitiesInvisible),
                 ),
@@ -825,7 +822,7 @@ pub fn check_visibility_cpu_culling(
 /// to its [`InheritedVisibility`], as the CPU has been instructed to perform no
 /// other checks. For performance, we avoid examining any entity that hasn't
 /// changed its inherited visibility.
-pub fn check_visibility_no_cpu_culling(
+pub fn check_visibility_gpu_culling(
     mut query: Query<
         (&mut ViewVisibility, &InheritedVisibility),
         (

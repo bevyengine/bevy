@@ -46,8 +46,8 @@ use bevy_render::occlusion_culling::{
 use bevy_render::sync_world::{MainEntity, RenderEntity};
 use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_render::view::{
-    RenderShadowMapVisibleEntities, RenderShadowMapVisibleEntitiesCpuCulling,
-    RenderVisibleEntities, VisibilityExtractionSystemParam,
+    RenderExtractedShadowMapVisibleEntities, RenderShadowMapVisibleEntities, RenderVisibleEntities,
+    VisibilityExtractionSystemParam,
 };
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -374,7 +374,7 @@ pub fn extract_lights(
     >,
     visibility_extraction_system_param: VisibilityExtractionSystemParam,
     mut existing_render_shadow_map_visible_entities: Query<(
-        &mut RenderShadowMapVisibleEntitiesCpuCulling,
+        &mut RenderExtractedShadowMapVisibleEntities,
         &mut RenderShadowMapVisibleEntities,
     )>,
     (mut removed_point_lights, mut removed_spot_lights, mut removed_directional_lights): (
@@ -431,20 +431,22 @@ pub fn extract_lights(
         }
 
         // Initialize the visible entities for each cubemap face.
-        let (mut render_visible_entities_cpu_culling, mut render_visible_entities) =
-            match existing_render_shadow_map_visible_entities.get_mut(render_entity) {
-                Ok((
-                    ref mut existing_visible_entities_cpu_culling,
-                    ref mut existing_visible_entities,
-                )) => (
-                    mem::take(&mut **existing_visible_entities_cpu_culling),
-                    mem::take(&mut **existing_visible_entities),
-                ),
-                Err(_) => (
-                    RenderShadowMapVisibleEntitiesCpuCulling::default(),
-                    RenderShadowMapVisibleEntities::default(),
-                ),
-            };
+        let (
+            mut render_extracted_shadow_map_visible_entities,
+            mut render_shadow_map_visible_entities,
+        ) = match existing_render_shadow_map_visible_entities.get_mut(render_entity) {
+            Ok((
+                ref mut existing_extracted_shadow_map_visible_entities,
+                ref mut existing_shadow_map_visible_entities,
+            )) => (
+                mem::take(&mut **existing_extracted_shadow_map_visible_entities),
+                mem::take(&mut **existing_shadow_map_visible_entities),
+            ),
+            Err(_) => (
+                RenderExtractedShadowMapVisibleEntities::default(),
+                RenderShadowMapVisibleEntities::default(),
+            ),
+        };
 
         for face_index in 0..6 {
             let retained_view_entity = RetainedViewEntity {
@@ -452,13 +454,13 @@ pub fn extract_lights(
                 auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
                 subview_index: face_index,
             };
-            render_visible_entities
+            render_shadow_map_visible_entities
                 .subviews
                 .entry(retained_view_entity)
                 .or_default();
 
             // Extract the visible entities to the list for this face.
-            let entities_cpu_culling = &mut render_visible_entities_cpu_culling
+            let extracted_entities = &mut render_extracted_shadow_map_visible_entities
                 .subviews
                 .entry(retained_view_entity)
                 .or_default()
@@ -466,9 +468,9 @@ pub fn extract_lights(
                 .entry(TypeId::of::<Mesh3d>())
                 .or_default()
                 .entities;
-            entities_cpu_culling.clear();
+            extracted_entities.clear();
             let visible_mesh_entities = cubemap_visible_entities.get(face_index as usize);
-            entities_cpu_culling.extend(visible_mesh_entities.entities.iter().map(|main_entity| {
+            extracted_entities.extend(visible_mesh_entities.entities.iter().map(|main_entity| {
                 let render_entity = match mapper.get(*main_entity) {
                     Ok(render_entity) => **render_entity,
                     Err(_) => Entity::PLACEHOLDER,
@@ -476,20 +478,6 @@ pub fn extract_lights(
                 (render_entity, MainEntity::from(*main_entity))
             }));
         }
-
-        // Calculate the added and removed entities for each face.
-        // TODO
-        /*for (render_visible_mesh_entities, visible_mesh_entities) in render_cubemap_visible_entities
-            .iter_mut()
-            .zip(cubemap_visible_entities.iter())
-        {
-            render_visible_mesh_entities.update_from(
-                &prepared_visibility_extraction_system_param,
-                &visible_mesh_entities.entities,
-                TypeId::of::<Mesh3d>(),
-                render_entity,
-            );
-        }*/
 
         let mut entity_commands = commands.entity(render_entity);
         let extracted_point_light = ExtractedPointLight {
@@ -519,8 +507,8 @@ pub fn extract_lights(
         };
         entity_commands.insert((
             extracted_point_light,
-            render_visible_entities_cpu_culling,
-            render_visible_entities,
+            render_extracted_shadow_map_visible_entities,
+            render_shadow_map_visible_entities,
             (*frusta).clone(),
             MainEntity::from(main_entity),
         ));
@@ -546,33 +534,35 @@ pub fn extract_lights(
             continue;
         }
 
-        let (mut render_visible_entities_cpu_culling, mut render_visible_entities) =
-            match existing_render_shadow_map_visible_entities.get_mut(render_entity) {
-                Ok((
-                    ref mut existing_visible_entities_cpu_culling,
-                    ref mut existing_visible_entities,
-                )) => (
-                    mem::take(&mut **existing_visible_entities_cpu_culling),
-                    mem::take(&mut **existing_visible_entities),
-                ),
-                Err(_) => (
-                    RenderShadowMapVisibleEntitiesCpuCulling::default(),
-                    RenderShadowMapVisibleEntities::default(),
-                ),
-            };
+        let (
+            mut render_extracted_shadow_map_visible_entities,
+            mut render_shadow_map_visible_entities,
+        ) = match existing_render_shadow_map_visible_entities.get_mut(render_entity) {
+            Ok((
+                ref mut existing_extracted_shadow_map_visible_entities,
+                ref mut existing_shadow_map_visible_entities,
+            )) => (
+                mem::take(&mut **existing_extracted_shadow_map_visible_entities),
+                mem::take(&mut **existing_shadow_map_visible_entities),
+            ),
+            Err(_) => (
+                RenderExtractedShadowMapVisibleEntities::default(),
+                RenderShadowMapVisibleEntities::default(),
+            ),
+        };
 
         let retained_view_entity = RetainedViewEntity {
             main_entity: MainEntity::from(main_entity),
             auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
             subview_index: 0,
         };
-        render_visible_entities
+        render_shadow_map_visible_entities
             .subviews
             .entry(retained_view_entity)
             .or_default();
 
         // Extract the visible CPU culled entities to the list.
-        let entities_cpu_culling = &mut render_visible_entities_cpu_culling
+        let entities_cpu_culling = &mut render_extracted_shadow_map_visible_entities
             .subviews
             .entry(retained_view_entity)
             .or_default()
@@ -623,8 +613,8 @@ pub fn extract_lights(
         };
         entity_commands.insert((
             extracted_spot_light,
-            render_visible_entities_cpu_culling,
-            render_visible_entities,
+            render_extracted_shadow_map_visible_entities,
+            render_shadow_map_visible_entities,
             *frustum,
             MainEntity::from(main_entity),
         ));
@@ -654,7 +644,7 @@ pub fn extract_lights(
                 .expect("Light entity wasn't synced.")
                 .remove::<(
                     ExtractedDirectionalLight,
-                    RenderShadowMapVisibleEntitiesCpuCulling,
+                    RenderExtractedShadowMapVisibleEntities,
                 )>();
             continue;
         }
@@ -664,20 +654,22 @@ pub fn extract_lights(
         let mut extracted_frusta = EntityHashMap::default();
 
         // Initialize the visible entities set for each cascade.
-        let (mut cascade_visible_entities_cpu_culling, mut cascade_visible_entities) =
-            match existing_render_shadow_map_visible_entities.get_mut(entity) {
-                Ok((
-                    ref mut existing_visible_entities_cpu_culling,
-                    ref mut existing_visible_entities,
-                )) => (
-                    mem::take(&mut **existing_visible_entities_cpu_culling),
-                    mem::take(&mut **existing_visible_entities),
-                ),
-                Err(_) => (
-                    RenderShadowMapVisibleEntitiesCpuCulling::default(),
-                    RenderShadowMapVisibleEntities::default(),
-                ),
-            };
+        let (
+            mut existing_extracted_shadow_map_visible_entities,
+            mut existing_shadow_map_visible_entities,
+        ) = match existing_render_shadow_map_visible_entities.get_mut(entity) {
+            Ok((
+                ref mut existing_extracted_shadow_map_visible_entities,
+                ref mut existing_shadow_map_visible_entities,
+            )) => (
+                mem::take(&mut **existing_extracted_shadow_map_visible_entities),
+                mem::take(&mut **existing_shadow_map_visible_entities),
+            ),
+            Err(_) => (
+                RenderExtractedShadowMapVisibleEntities::default(),
+                RenderShadowMapVisibleEntities::default(),
+            ),
+        };
 
         for (e, v) in cascades.cascades.iter() {
             if let Ok(entity) = mapper.get(*e) {
@@ -705,13 +697,13 @@ pub fn extract_lights(
                 };
                 all_cascades_seen.insert(retained_view_entity);
 
-                cascade_visible_entities
+                existing_shadow_map_visible_entities
                     .subviews
                     .entry(retained_view_entity)
                     .or_default();
 
                 // Extract the visible CPU culled entities to the list.
-                let entities_cpu_culling = &mut cascade_visible_entities_cpu_culling
+                let extracted_entities = &mut existing_extracted_shadow_map_visible_entities
                     .subviews
                     .entry(retained_view_entity)
                     .or_default()
@@ -719,13 +711,13 @@ pub fn extract_lights(
                     .entry(TypeId::of::<Mesh3d>())
                     .or_default()
                     .entities;
-                entities_cpu_culling.clear();
+                extracted_entities.clear();
                 let Some(visible_mesh_entities) =
                     visible_mesh_entities_list.get(subview_index as usize)
                 else {
                     continue;
                 };
-                entities_cpu_culling.extend(visible_mesh_entities.entities.iter().map(
+                extracted_entities.extend(visible_mesh_entities.entities.iter().map(
                     |main_entity| {
                         let render_entity = match mapper.get(*main_entity) {
                             Ok(render_entity) => **render_entity,
@@ -739,10 +731,10 @@ pub fn extract_lights(
 
         // Clear out visible entity lists corresponding to cascades that no
         // longer exist.
-        cascade_visible_entities_cpu_culling
+        existing_extracted_shadow_map_visible_entities
             .subviews
             .retain(|cascade_entity, _| all_cascades_seen.contains(cascade_entity));
-        cascade_visible_entities
+        existing_shadow_map_visible_entities
             .subviews
             .retain(|cascade_entity, _| all_cascades_seen.contains(cascade_entity));
 
@@ -775,8 +767,8 @@ pub fn extract_lights(
             .expect("Light entity wasn't synced.");
         entity_commands.insert((
             extracted_directional_light,
-            cascade_visible_entities_cpu_culling,
-            cascade_visible_entities,
+            existing_extracted_shadow_map_visible_entities,
+            existing_shadow_map_visible_entities,
             MainEntity::from(main_entity),
         ));
     }
@@ -2099,8 +2091,7 @@ pub(crate) fn specialize_shadows(
                 // NOTE: Lights with shadow mapping disabled will have no visible entities
                 // so no meshes will be queued
 
-                let Some(visible_entities) = visible_entities.classes.get(&TypeId::of::<Mesh3d>())
-                else {
+                let Some(visible_entities) = visible_entities.get::<Mesh3d>() else {
                     continue;
                 };
 
@@ -2305,8 +2296,7 @@ pub fn queue_shadows(
                 extracted_view_light,
             );
 
-            let Some(visible_entities) = visible_entities.classes.get(&TypeId::of::<Mesh3d>())
-            else {
+            let Some(visible_entities) = visible_entities.get::<Mesh3d>() else {
                 continue;
             };
 
@@ -2588,16 +2578,15 @@ fn point_or_spot_light_to_clusterable(point_light: &ExtractedPointLight) -> Clus
     }
 }
 
+/// Returns the [`RenderShadowMapVisibleEntities`] table corresponding to the
+/// given [`LightEntity`].
 fn get_shadow_map_visible_entities<'w, 's: 'w>(
     shadow_map_visible_entities_query: &'w Query<'w, 's, &'_ RenderShadowMapVisibleEntities>,
     light_entity: &'_ LightEntity,
     extracted_view_light: &'_ ExtractedView,
 ) -> &'w RenderVisibleEntities {
     match light_entity {
-        LightEntity::Directional {
-            light_entity,
-            ..
-        } => {
+        LightEntity::Directional { light_entity, .. } => {
             let retained_view_entity = extracted_view_light.retained_view_entity;
             shadow_map_visible_entities_query
                 .get(*light_entity)

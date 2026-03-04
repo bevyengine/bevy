@@ -18,7 +18,11 @@ use std::f32::consts::PI;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::{
-    asset::RenderAssetUsages, camera::visibility::NoCpuCulling, color::palettes::basic::SILVER, input::common_conditions::{input_just_pressed, input_toggle_active}, prelude::*, render::render_resource::{Extent3d, TextureDimension, TextureFormat}
+    asset::RenderAssetUsages,
+    color::palettes::basic::SILVER,
+    input::common_conditions::{input_just_pressed, input_toggle_active},
+    prelude::*,
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 
 fn main() {
@@ -128,7 +132,6 @@ fn setup(
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
             Row::Front,
-            NoCpuCulling,
         ));
     }
 
@@ -147,7 +150,6 @@ fn setup(
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
             Row::Middle,
-            NoCpuCulling,
         ));
     }
 
@@ -166,7 +168,6 @@ fn setup(
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
             Row::Rear,
-            NoCpuCulling,
         ));
     }
 

@@ -318,7 +318,11 @@ pub enum SimulationLightSystems {
     CheckLightVisibility,
 }
 
-/// Updates the visibility for [`DirectionalLight`]s so that shadow map rendering can work.
+/// Updates the visibility for [`DirectionalLight`]s so that shadow map
+/// rendering can work.
+///
+/// This only processes entities without [`NoCpuCulling`]. Entities with
+/// [`NoCpuCulling`] receive no view-specific processing in the main world.
 pub fn check_dir_light_mesh_visibility(
     mut commands: Commands,
     mut directional_lights: Query<
@@ -482,8 +486,11 @@ pub fn check_dir_light_mesh_visibility(
     });
 }
 
-/// Updates the visibility for [`PointLight`]s and [`SpotLight`]s so that
-/// shadow map rendering can work.
+/// Updates the visibility for [`PointLight`]s and [`SpotLight`]s so that shadow
+/// map rendering can work.
+///
+/// This only processes entities without [`NoCpuCulling`]. Entities with
+/// [`NoCpuCulling`] receive no view-specific processing in the main world.
 pub fn check_point_light_mesh_visibility(
     visible_point_lights: Query<&VisibleEntities>,
     mut point_lights: Query<(
