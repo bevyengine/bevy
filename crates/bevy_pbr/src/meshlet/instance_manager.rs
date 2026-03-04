@@ -228,7 +228,7 @@ pub fn extract_meshlet_mesh_entities(
     // Free GPU buffer space for any modified or dropped MeshletMesh assets
     for asset_event in asset_events.read() {
         if let AssetEvent::Unused { id } | AssetEvent::Modified { id } = asset_event {
-            meshlet_mesh_manager.remove(&id);
+            meshlet_mesh_manager.remove(id);
         }
     }
 
