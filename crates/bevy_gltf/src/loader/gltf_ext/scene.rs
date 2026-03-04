@@ -45,7 +45,7 @@ fn node_transform(node: &Node, conversion: &HierarchyConverter) -> Transform {
         },
     };
 
-    conversion.transform(unconverted)
+    conversion.convert_transform(unconverted)
 }
 
 pub(crate) fn node_transforms_and_conversions(

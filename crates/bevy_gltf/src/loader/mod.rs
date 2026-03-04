@@ -954,9 +954,9 @@ impl GltfLoader {
                                 // The inverse bindpose is a mapping from mesh-space
                                 // to joint-space, so it's affected by the conversion
                                 // of both meshes and joint nodes.
-                                node_conversions[node.index()].local().matrix().transpose()
+                                node_conversions[node.index()].local().matrix()
                                     * Mat4::from_cols_array_2d(&mat)
-                                    * convert_coordinates.mesh().matrix()
+                                    * convert_coordinates.mesh().matrix().transpose()
                             })
                             .collect()
                     })

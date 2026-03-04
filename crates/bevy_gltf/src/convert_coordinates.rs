@@ -135,7 +135,7 @@ impl ResolvedConvertCoordinates {
     }
 
     pub(crate) fn mesh_vertex_converter(&self) -> RemappingConverter {
-        self.mesh.remap_inverse()
+        self.mesh.remap()
     }
 }
 
@@ -314,7 +314,7 @@ impl SignedAxis {
 }
 
 impl Debug for SignedAxis {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(match self.sign {
             Sign::Positive => "+",
             Sign::Negative => "-",
@@ -461,7 +461,6 @@ pub(crate) struct Converter {
     rotation: Quat,
     matrix: Mat4,
     remap: RemappingConverter,
-    remap_inverse: RemappingConverter,
 }
 
 impl Converter {
@@ -469,12 +468,10 @@ impl Converter {
         rotation: Quat::IDENTITY,
         matrix: Mat4::IDENTITY,
         remap: RemappingConverter::IDENTITY,
-        remap_inverse: RemappingConverter::IDENTITY,
     };
 
     pub(crate) fn from_source_target(source: Semantics, target: Semantics) -> Converter {
         let remap = RemappingConverter::from_source_target(source, target);
-        let remap_inverse = RemappingConverter::from_source_target(target, source);
 
         let matrix = Mat4::from_cols(
             remap.convert_translation(vec3(1.0, 0.0, 0.0)).extend(0.0),
@@ -490,7 +487,6 @@ impl Converter {
             rotation,
             matrix,
             remap,
-            remap_inverse,
         }
     }
 
@@ -506,16 +502,8 @@ impl Converter {
         self.remap
     }
 
-    pub(crate) fn remap_inverse(&self) -> RemappingConverter {
-        self.remap_inverse
-    }
-
     pub(crate) fn convert_translation(&self, source: Vec3) -> Vec3 {
         self.remap.convert_translation(source)
-    }
-
-    pub(crate) fn inverse_convert_translation(&self, target: Vec3) -> Vec3 {
-        self.remap_inverse.convert_translation(target)
     }
 
     pub(crate) fn convert_rotation(&self, source: Quat) -> Quat {
@@ -524,10 +512,6 @@ impl Converter {
 
     pub(crate) fn convert_scale(&self, source: Vec3) -> Vec3 {
         self.remap.convert_scale(source)
-    }
-
-    pub(crate) fn inverse_convert_scale(&self, target: Vec3) -> Vec3 {
-        self.remap_inverse.convert_scale(target)
     }
 }
 
@@ -549,20 +533,18 @@ impl HierarchyConverter {
     }
 
     pub(crate) fn convert_translation(&self, t: Vec3) -> Vec3 {
-        self.parent.inverse_convert_translation(t)
+        self.parent.convert_translation(t)
     }
 
     pub(crate) fn convert_rotation(&self, r: Quat) -> Quat {
-        // XXX TODO: Feels odd looking at parent rotation directly? But also not
-        // clear how to abstract it.
-        self.parent.rotation().inverse() * self.local.convert_rotation(r)
+        self.parent.rotation() * r * self.local.rotation().inverse()
     }
 
     pub(crate) fn convert_scale(&self, s: Vec3) -> Vec3 {
-        self.local.inverse_convert_scale(s)
+        self.local.convert_scale(s)
     }
 
-    pub(crate) fn transform(&self, t: Transform) -> Transform {
+    pub(crate) fn convert_transform(&self, t: Transform) -> Transform {
         Transform::from_translation(self.convert_translation(t.translation))
             .with_rotation(self.convert_rotation(t.rotation))
             .with_scale(self.convert_scale(t.scale))
@@ -572,6 +554,9 @@ impl HierarchyConverter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_transform::components::GlobalTransform;
+    use core::iter;
+    use rand::{distr::Distribution, rngs::StdRng, seq::IndexedRandom, Rng, RngExt, SeedableRng};
 
     const SIGNED_AXES: [SignedAxis; 6] = [
         SignedAxis::POSITIVE_X,
@@ -686,6 +671,105 @@ mod tests {
                     rotation_directions, target_directions,
                     "\nsource_semantics: {source_semantics:?}\ntarget_semantics: {target_semantics:?}\nconverter: {converter:?}\nsource_directions: {source_directions:?}"
                 );
+            }
+        }
+    }
+
+    // A distribution of random transforms within a fairly narrow range. This
+    // keeps the error bounds small enough that we can use a simple
+    // `abs_diff_eq` and fixed epsilon.
+    struct RandomSmallTransforms;
+
+    impl Distribution<Transform> for RandomSmallTransforms {
+        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Transform {
+            let signs = [1.0, -1.0];
+
+            Transform::from_xyz(
+                rng.random_range(-2.0..2.0),
+                rng.random_range(-2.0..2.0),
+                rng.random_range(-2.0..2.0),
+            )
+            .with_rotation(rng.random())
+            .with_scale(vec3(
+                rng.random_range(0.5..1.5) * signs.choose(rng).unwrap(),
+                rng.random_range(0.5..1.5) * signs.choose(rng).unwrap(),
+                rng.random_range(0.5..1.5) * signs.choose(rng).unwrap(),
+            ))
+        }
+    }
+
+    struct RandomSemantics(Vec<Semantics>);
+
+    impl Distribution<Semantics> for RandomSemantics {
+        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Semantics {
+            *self.0.choose(rng).unwrap()
+        }
+    }
+
+    struct RandomConverters(RandomSemantics);
+
+    impl Distribution<Converter> for RandomConverters {
+        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Converter {
+            Converter::from_source_target(self.0.sample(rng), self.0.sample(rng))
+        }
+    }
+
+    fn scenespace_transform(input: Transform, hierarchy: &[Transform]) -> GlobalTransform {
+        hierarchy
+            .iter()
+            .rev()
+            .fold(GlobalTransform::from(input), |a, &t| {
+                GlobalTransform::from(t) * a
+            })
+    }
+
+    #[test]
+    fn hierarchy() {
+        let mut rng = StdRng::seed_from_u64(1234);
+
+        let random_converters =
+            RandomConverters(RandomSemantics(semantics_permutations().collect()));
+
+        for _ in 0..10 {
+            const DEPTH: usize = 3;
+
+            let converters = (&random_converters)
+                .sample_iter(&mut rng)
+                .take(DEPTH - 1)
+                // Keep the leaf node's local-space the same. This means that
+                // a transform within the node's local-space should be the same
+                // in scene-space before and after hierarchy conversion.
+                .chain(iter::once(Converter::IDENTITY))
+                .collect::<Vec<_>>();
+
+            let original_hierarchy = RandomSmallTransforms
+                .sample_iter(&mut rng)
+                .take(DEPTH)
+                .collect::<Vec<_>>();
+
+            let mut converted_hierarchy = Vec::<Transform>::new();
+
+            for i in 0..DEPTH {
+                let local_converter = converters[i];
+
+                let parent_converter = if i > 0 {
+                    converters[i - 1]
+                } else {
+                    Converter::IDENTITY
+                };
+
+                let converter =
+                    HierarchyConverter::from_local_and_parent(local_converter, parent_converter);
+
+                converted_hierarchy.push(converter.convert_transform(original_hierarchy[i]));
+            }
+
+            for _ in 0..10 {
+                let local = RandomSmallTransforms.sample(&mut rng);
+                let original = scenespace_transform(local, &original_hierarchy);
+                let converted = scenespace_transform(local, &converted_hierarchy);
+
+                assert!(original.affine().abs_diff_eq(converted.affine(), 1e-4));
             }
         }
     }
