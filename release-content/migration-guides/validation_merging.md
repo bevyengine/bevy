@@ -117,9 +117,13 @@ impl ExclusiveSystemParam for MyExclusiveParam {
 
 If you have a custom `System` implementation, remove the `validate_param_unsafe` method. Parameter validation should now occur inside `run_unsafe` by propagating errors from `SystemParam::get_param`.
 
-### `MultithreadedExecutor` behavior change
+### `MultithreadedExecutor` performance changes
 
-For the parallel `MultithreadedExecutor`, validation was previously done while checking run conditions.
+For the parallel `MultithreadedExecutor`, validation was previously done as a cheap pre-validation step,
+while checking run conditions.
 Now, tasks will be spawned for systems which would fail or are skipped during validation.
+
+In most cases, avoiding the extra overhead of looking up the required data twice should dominate.
+However, this change may negatively affect systems which are frequently skipped (e.g. due to `Single`).
 If you find that this is a significant performance overhead for your use case,
 the previous behavior can be recovered by adding run conditions.
