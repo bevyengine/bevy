@@ -419,7 +419,7 @@ macro_rules! load_internal_binary_asset {
 
 #[cfg(test)]
 mod tests {
-    use super::{EmbeddedAssetRegistry, _embedded_asset_path};
+    use super::{_embedded_asset_path, EmbeddedAssetRegistry};
     use std::path::Path;
 
     // Relative paths show up if this macro is being invoked by a local crate.
