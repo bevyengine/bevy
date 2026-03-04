@@ -1419,8 +1419,8 @@ fn prepare_cluster_dummy_textures(
                 // against the risk of thrashing between different sizes,
                 // especially if the auto-resize feature is on.
                 size: Extent3d {
-                    width: round_up(view_cluster_config.dimensions.x),
-                    height: round_up(view_cluster_config.dimensions.y),
+                    width: view_cluster_config.dimensions.x.next_multiple_of(32),
+                    height: view_cluster_config.dimensions.y.next_multiple_of(32),
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
@@ -1434,11 +1434,6 @@ fn prepare_cluster_dummy_textures(
         commands
             .entity(view_entity)
             .insert(ViewClusteringDummyTexture(dummy_texture));
-    }
-
-    /// Rounds the given value up to the nearest multiple of 32.
-    fn round_up(length: u32) -> u32 {
-        (length + 31) & !31
     }
 }
 
