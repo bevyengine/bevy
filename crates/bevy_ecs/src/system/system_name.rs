@@ -82,8 +82,11 @@ impl ExclusiveSystemParam for SystemName {
 
     fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
-    fn get_param<'s>(_state: &'s mut Self::State, system_meta: &SystemMeta) -> Self::Item<'s> {
-        SystemName(system_meta.name.clone())
+    fn get_param<'s>(
+        _state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+    ) -> Result<Self::Item<'s>, SystemParamValidationError> {
+        Ok(SystemName(system_meta.name.clone()))
     }
 }
 

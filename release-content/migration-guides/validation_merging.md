@@ -84,6 +84,35 @@ unsafe impl SystemParam for MyParam<'_> {
 }
 ```
 
+### Custom `ExclusiveSystemParam` implementations
+
+Similarly, `ExclusiveSystemParam::get_param` now returns a `Result<Self::Item<'s>, SystemParamValidationError>` instead of `Self::Item<'s>`.
+Existing implementations should wrap their return value in `Ok(...)` and return an appropriate `SystemParamValidationError` if validation fails.
+
+```rust
+// Before
+impl ExclusiveSystemParam for MyExclusiveParam {
+    // ...
+    fn get_param<'s>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+    ) -> Self::Item<'s> {
+        MyExclusiveParam { /* ... */ }
+    }
+}
+
+// After
+impl ExclusiveSystemParam for MyExclusiveParam {
+    // ...
+    fn get_param<'s>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+    ) -> Result<Self::Item<'s>, SystemParamValidationError> {
+        Ok(MyExclusiveParam { /* ... */ })
+    }
+}
+```
+
 ### Custom `System` implementations
 
 If you have a custom `System` implementation, remove the `validate_param_unsafe` method. Parameter validation should now occur inside `run_unsafe` by propagating errors from `SystemParam::get_param`.

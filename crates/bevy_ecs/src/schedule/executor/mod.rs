@@ -559,8 +559,9 @@ mod validation_tests {
         prelude::{Component, In, IntoSystem, Resource, Schedule},
         schedule::ExecutorKind,
         system::{
-            DynParamBuilder, DynSystemParam, ParamBuilder, Res, ResMut, RunSystemError,
-            RunSystemOnce, Single, SystemParamBuilder,
+            DynParamBuilder, DynSystemParam, ExclusiveSystemParam, Local, ParamBuilder, Res,
+            ResMut, RunSystemError, RunSystemOnce, Single, SystemMeta, SystemParamBuilder,
+            SystemParamValidationError,
         },
         world::World,
     };
@@ -577,6 +578,25 @@ mod validation_tests {
     // A resource that won't be inserted, causing validation to fail.
     #[derive(Resource)]
     struct MissingResource;
+
+    /// An [`ExclusiveSystemParam`] that always fails validation.
+    struct AlwaysInvalid;
+
+    impl ExclusiveSystemParam for AlwaysInvalid {
+        type State = ();
+        type Item<'s> = AlwaysInvalid;
+
+        fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+
+        fn get_param<'s>(
+            _state: &'s mut Self::State,
+            _system_meta: &SystemMeta,
+        ) -> Result<Self::Item<'s>, SystemParamValidationError> {
+            Err(SystemParamValidationError::invalid::<Self>(
+                "always invalid",
+            ))
+        }
+    }
 
     #[test]
     fn function_system_validation_failure_is_error() {
@@ -746,6 +766,30 @@ mod validation_tests {
         assert!(
             result.is_ok(),
             "Expected Ok from DynSystemParam system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn exclusive_system_validation_failure() {
+        fn system(_world: &mut World, _param: AlwaysInvalid) {}
+
+        let mut world = World::new();
+        let result = world.run_system_once(system);
+        assert!(
+            matches!(result, Err(RunSystemError::Failed(_))),
+            "Expected Failed from exclusive system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn exclusive_system_validation_success() {
+        fn system(_world: &mut World, mut _local: Local<u32>) {}
+
+        let mut world = World::new();
+        let result = world.run_system_once(system);
+        assert!(
+            result.is_ok(),
+            "Expected Ok from exclusive system, got {result:?}"
         );
     }
 

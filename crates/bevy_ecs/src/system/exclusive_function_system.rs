@@ -117,7 +117,7 @@ where
             let params = F::Param::get_param(
                 self.param_state.as_mut().expect(PARAM_MESSAGE),
                 &self.system_meta,
-            );
+            )?;
 
             #[cfg(feature = "hotpatching")]
             let out = {
