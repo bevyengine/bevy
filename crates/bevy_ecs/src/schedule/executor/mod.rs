@@ -552,3 +552,226 @@ mod tests {
         assert_eq!(counter.0, 0);
     }
 }
+
+#[cfg(test)]
+mod validation_tests {
+    use crate::{
+        prelude::{Component, In, IntoSystem, Resource, Schedule},
+        schedule::ExecutorKind,
+        system::{
+            DynParamBuilder, DynSystemParam, ParamBuilder, Res, ResMut, RunSystemError,
+            RunSystemOnce, Single, SystemParamBuilder,
+        },
+        world::World,
+    };
+
+    #[derive(Component)]
+    struct TestComponent;
+
+    const EXECUTORS: [ExecutorKind; 2] =
+        [ExecutorKind::SingleThreaded, ExecutorKind::MultiThreaded];
+
+    #[derive(Resource, Default)]
+    struct Counter(u8);
+
+    // A resource that won't be inserted, causing validation to fail.
+    #[derive(Resource)]
+    struct MissingResource;
+
+    #[test]
+    fn function_system_validation_failure_is_error() {
+        fn system(_res: Res<MissingResource>) {}
+
+        let mut world = World::new();
+        let result = world.run_system_once(system);
+        assert!(
+            matches!(result, Err(RunSystemError::Failed(_))),
+            "Expected Failed, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn function_system_validation_skip() {
+        fn system(_single: Single<&TestComponent>) {}
+
+        let mut world = World::new();
+        let result = world.run_system_once(system);
+        assert!(
+            matches!(result, Err(RunSystemError::Skipped(_))),
+            "Expected Skipped, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn function_system_validation_success() {
+        fn system(_res: Res<Counter>) {}
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let result = world.run_system_once(system);
+        assert!(result.is_ok(), "Expected Ok, got {result:?}");
+    }
+
+    #[test]
+    fn adapter_system_validation_failure() {
+        fn system(_res: Res<MissingResource>) -> u32 {
+            42
+        }
+
+        let mut world = World::new();
+        let result = world.run_system_once(system.map(|_x| {}));
+        assert!(
+            matches!(result, Err(RunSystemError::Failed(_))),
+            "Expected Failed from adapter system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn adapter_system_validation_skip() {
+        fn system(_single: Single<&TestComponent>) -> u32 {
+            42
+        }
+
+        let mut world = World::new();
+        let result = world.run_system_once(system.map(|_x| {}));
+        assert!(
+            matches!(result, Err(RunSystemError::Skipped(_))),
+            "Expected Skipped from adapter system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn pipe_system_validation_failure_in_first() {
+        fn first(_res: Res<MissingResource>) -> u32 {
+            42
+        }
+        fn second(_input: In<u32>) {}
+
+        let mut world = World::new();
+        let result = world.run_system_once(first.pipe(second));
+        assert!(
+            matches!(result, Err(RunSystemError::Failed(_))),
+            "Expected Failed from pipe first system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn pipe_system_validation_failure_in_second() {
+        fn first() -> u32 {
+            42
+        }
+        fn second(_input: In<u32>, _res: Res<MissingResource>) {}
+
+        let mut world = World::new();
+        let result = world.run_system_once(first.pipe(second));
+        assert!(
+            matches!(result, Err(RunSystemError::Failed(_))),
+            "Expected Failed from pipe second system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn pipe_system_validation_skip_in_first() {
+        fn first(_single: Single<&TestComponent>) -> u32 {
+            42
+        }
+        fn second(_input: In<u32>) {}
+
+        let mut world = World::new();
+        let result = world.run_system_once(first.pipe(second));
+        assert!(
+            matches!(result, Err(RunSystemError::Skipped(_))),
+            "Expected Skipped from pipe first system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn builder_system_validation_failure() {
+        fn system(_res: Res<MissingResource>) {}
+
+        let mut world = World::new();
+        let result = world.run_system_once(ParamBuilder.build_system(system));
+        assert!(
+            matches!(result, Err(RunSystemError::Failed(_))),
+            "Expected Failed from builder system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn builder_system_validation_skip() {
+        fn system(_single: Single<&TestComponent>) {}
+
+        let mut world = World::new();
+        let result = world.run_system_once(ParamBuilder.build_system(system));
+        assert!(
+            matches!(result, Err(RunSystemError::Skipped(_))),
+            "Expected Skipped from builder system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn dyn_system_param_validation_failure() {
+        let mut world = World::new();
+        let system = (DynParamBuilder::new::<Res<MissingResource>>(ParamBuilder),)
+            .build_state(&mut world)
+            .build_system(|_param: DynSystemParam| {});
+        let result = world.run_system_once(system);
+        assert!(
+            matches!(result, Err(RunSystemError::Failed(_))),
+            "Expected Failed from DynSystemParam system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn dyn_system_param_validation_skip() {
+        let mut world = World::new();
+        let system = (DynParamBuilder::new::<Single<&TestComponent>>(ParamBuilder),)
+            .build_state(&mut world)
+            .build_system(|_param: DynSystemParam| {});
+        let result = world.run_system_once(system);
+        assert!(
+            matches!(result, Err(RunSystemError::Skipped(_))),
+            "Expected Skipped from DynSystemParam system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn dyn_system_param_validation_success() {
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let system = (DynParamBuilder::new::<Res<Counter>>(ParamBuilder),)
+            .build_state(&mut world)
+            .build_system(|_param: DynSystemParam| {});
+        let result = world.run_system_once(system);
+        assert!(
+            result.is_ok(),
+            "Expected Ok from DynSystemParam system, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn validation_skips_system_in_schedule() {
+        // Ensure the executor properly handles validation failures by skipping
+        // and not running the system body.
+        fn skippable_system(_single: Single<&TestComponent>, mut counter: ResMut<Counter>) {
+            counter.0 += 1;
+        }
+
+        for executor in EXECUTORS {
+            let mut world = World::new();
+            world.init_resource::<Counter>();
+
+            let mut schedule = Schedule::default();
+            schedule.set_executor_kind(executor);
+            schedule.add_systems(skippable_system);
+
+            // No TestComponent entity exists, so the system should be skipped.
+            schedule.run(&mut world);
+            assert_eq!(
+                world.resource::<Counter>().0,
+                0,
+                "System should have been skipped with {executor:?}"
+            );
+        }
+    }
+}
