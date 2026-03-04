@@ -11,7 +11,7 @@ use bevy::render::{
 };
 
 // The A component is extracted automatically through `ExtractComponentPlugin`. For this,
-// it is required to implement `ExtractComponent`. You can do a custom implenetation if you wish to
+// it is required to implement `ExtractComponent`. You can do a custom implementation if you wish to
 // do a custom extraction instead of just cloning the entire component.
 //
 // To be noted that the `SyncToRenderWorld` component, which spawns the corresponding entity on the Render World,
