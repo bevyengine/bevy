@@ -35,7 +35,6 @@
 
 mod environment;
 mod node;
-mod prepass;
 pub mod resources;
 
 use bevy_app::{App, Plugin, Update};
@@ -104,7 +103,6 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "sky_view_lut.wgsl");
         embedded_asset!(app, "aerial_view_lut.wgsl");
         embedded_asset!(app, "render_sky.wgsl");
-        embedded_asset!(app, "atmosphere_prepass.wgsl");
         embedded_asset!(app, "environment.wgsl");
 
         app.add_plugins((
@@ -162,14 +160,12 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
-            .init_resource::<SpecializedRenderPipelines<prepass::AtmospherePrepassPipeline>>()
             .add_systems(
                 RenderStartup,
                 (
                     init_atmosphere_probe_layout,
                     init_atmosphere_probe_pipeline,
                     init_atmosphere_buffer,
-                    prepass::init_atmosphere_prepass_pipeline,
                 )
                     .chain(),
             )
@@ -178,7 +174,6 @@ impl Plugin for AtmospherePlugin {
                 (
                     configure_camera_depth_usages.in_set(RenderSystems::PrepareViews),
                     queue_render_sky_pipelines.in_set(RenderSystems::Queue),
-                    prepass::prepare_atmosphere_prepass_pipelines.in_set(RenderSystems::Prepare),
                     prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
                     prepare_probe_textures
                         .in_set(RenderSystems::PrepareResources)
@@ -187,8 +182,6 @@ impl Plugin for AtmospherePlugin {
                         .in_set(RenderSystems::Prepare)
                         .before(RenderSystems::PrepareResources),
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                    prepass::prepare_atmosphere_prepass_bind_groups
-                        .in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     write_atmosphere_buffer.in_set(RenderSystems::PrepareResources),

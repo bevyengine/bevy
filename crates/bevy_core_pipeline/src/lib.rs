@@ -32,7 +32,8 @@ use crate::schedule::{
 use crate::{
     blit::BlitPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin, mip_generation::MipGenerationPlugin,
-    tonemapping::TonemappingPlugin, upscaling::UpscalingPlugin,
+    prepass::BackgroundMotionVectorsPlugin, tonemapping::TonemappingPlugin,
+    upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
@@ -54,6 +55,7 @@ impl Plugin for CorePipelinePlugin {
                 UpscalingPlugin,
                 OrderIndependentTransparencyPlugin,
                 MipGenerationPlugin,
+                BackgroundMotionVectorsPlugin,
             ));
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
