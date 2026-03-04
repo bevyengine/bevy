@@ -13,6 +13,7 @@ use bevy::{
         ShaderSourceRef, ShaderStage,
     },
 };
+use bevy_asset::AsyncReadExt;
 
 const VERTEX_HLSL: &str = "shaders/custom_material.vert.hlsl";
 const FRAGMENT_HLSL: &str = "shaders/custom_material.frag.hlsl";
@@ -27,7 +28,7 @@ fn main() {
             MaterialPlugin::<HlslMaterial>::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, rotate_cube)
+        // .add_systems(Update, rotate_cube)
         .run();
 }
 
@@ -64,13 +65,14 @@ impl ShaderCompiler for ShadercHlslCompiler {
             }
         };
 
-        let compiler = shaderc::Compiler::new().ok_or_else(|| ShaderCompileError {
-            message: "Failed to initialize shaderc compiler".to_string(),
+        let compiler = shaderc::Compiler::new().map_err(|err| ShaderCompileError {
+            message: format!("Failed to initialize shaderc compiler: {err}"),
         })?;
 
-        let mut options = shaderc::CompileOptions::new().ok_or_else(|| ShaderCompileError {
-            message: "Failed to create shaderc compile options".to_string(),
+        let mut options = shaderc::CompileOptions::new().map_err(|err| ShaderCompileError {
+            message: format!("Failed to create shaderc compile options: {err}"),
         })?;
+
         options.set_source_language(shaderc::SourceLanguage::HLSL);
         options.set_target_env(
             shaderc::TargetEnv::Vulkan,
@@ -123,26 +125,20 @@ impl AssetLoader for HlslShaderLoader {
         load_context: &mut LoadContext<'_>,
     ) -> Result<Shader, Self::Error> {
         let path = load_context.path().to_string();
-        // Normalize path separators on Windows
-        let path = path.replace(std::path::MAIN_SEPARATOR, "/");
 
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-        let source = String::from_utf8(bytes)?;
+        let mut source = String::new();
+        reader.read_to_string(&mut source).await?;
 
-        // Determine stage from file extension:
-        //   *.vert.hlsl → vertex
-        //   *.frag.hlsl → fragment
         let stage = if path.contains(".vert.") {
             ShaderStage::Vertex
         } else {
             ShaderStage::Fragment
         };
 
-        Ok(Shader::from_custom_with_stage(
+        Ok(Shader::from_custom(
             source,
             ShaderLanguage::Custom("hlsl".into()),
-            stage,
+            Some(stage),
             path,
         ))
     }
@@ -189,22 +185,22 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(HlslMaterial {
-            color: LinearRgba::rgb(0.2, 0.6, 1.0),
+            color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
         })),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
 
-    // light
-    commands.spawn((
-        DirectionalLight {
-            illuminance: 3000.0,
-            shadow_maps_enabled: true,
-            ..default()
-        },
-        Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.5, 0.5, 0.0)),
-    ));
+    // // light
+    // commands.spawn((
+    //     DirectionalLight {
+    //         illuminance: 3000.0,
+    //         shadow_maps_enabled: true,
+    //         ..default()
+    //     },
+    //     Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.5, 0.5, 0.0)),
+    // ));
 
     // camera
     commands.spawn((
@@ -213,11 +209,11 @@ fn setup(
     ));
 }
 
-fn rotate_cube(time: Res<Time>, mut query: Query<&mut Transform, With<Mesh3d>>) {
-    for mut transform in &mut query {
-        transform.rotate_y(time.delta_secs() * 0.8);
-    }
-}
+// fn rotate_cube(time: Res<Time>, mut query: Query<&mut Transform, With<Mesh3d>>) {
+//     for mut transform in &mut query {
+//         transform.rotate_y(time.delta_secs() * 0.8);
+//     }
+// }
 
 /// A simple material that reads a uniform color and multiplies it by a texture sample
 #[derive(Asset, TypePath, AsBindGroup, Clone)]

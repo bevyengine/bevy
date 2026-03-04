@@ -605,7 +605,7 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 # Enable support for shaders in WESL
 shader_format_wesl = ["bevy_internal/shader_format_wesl"]
 
-# Enable the shaderc-based HLSL compiler (used by the shader_material_hlsl example)
+# Enable the shaderc compiler (used by the shader_material_hlsl example)
 shader_compiler_shaderc = ["dep:shaderc"]
 
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
@@ -730,7 +730,7 @@ debug = ["bevy_internal/debug"]
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.19.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
-shaderc = { version = "0.8", optional = true }
+shaderc = { version = "0.10", optional = true }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]

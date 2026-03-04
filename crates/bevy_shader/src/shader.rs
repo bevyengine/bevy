@@ -165,8 +165,6 @@ impl Shader {
 
         let import_path = ShaderImport::AssetPath(import_path_str.to_string());
 
-        // WESL resolves imports lazily during compilation via the WeslImportResolver
-        // so we don't extract imports here.
         Shader {
             path,
             imports: Vec::new(),
@@ -180,16 +178,10 @@ impl Shader {
     }
 
     /// Creates a new shader in a custom (user-defined) language.
-    ///
-    /// The `language` must match the key used when registering a [`ShaderCompiler`](crate::ShaderCompiler)
-    /// via `PipelineCache::register_shader_compiler`.
-    ///
-    /// Custom shaders do not support Bevy's `#import` directive system by default —
-    /// the source is passed as-is to the registered compiler. To add import support,
-    /// register a [`ShaderImportResolver`](crate::ShaderImportResolver) for the language.
     pub fn from_custom(
         source: impl Into<Cow<'static, str>>,
         language: ShaderLanguage,
+        stage: Option<ShaderStage>,
         path: impl Into<String>,
     ) -> Shader {
         let path = path.into();
@@ -200,35 +192,7 @@ impl Shader {
             source: Source::Custom {
                 code: source.into(),
                 language,
-                stage: None,
-            },
-            additional_imports: Default::default(),
-            shader_defs: Default::default(),
-            file_dependencies: Default::default(),
-            validate_shader: ValidateShader::Disabled,
-        }
-    }
-
-    /// Creates a new shader in a custom language with an explicit pipeline stage.
-    ///
-    /// This is the same as [`from_custom`](Self::from_custom) but also associates
-    /// a [`ShaderStage`] so that compilers receive it via
-    /// [`CompileRequest::stage`](crate::CompileRequest::stage).
-    pub fn from_custom_with_stage(
-        source: impl Into<Cow<'static, str>>,
-        language: ShaderLanguage,
-        stage: ShaderStage,
-        path: impl Into<String>,
-    ) -> Shader {
-        let path = path.into();
-        Shader {
-            path: path.clone(),
-            imports: Vec::new(),
-            import_path: ShaderImport::AssetPath(path),
-            source: Source::Custom {
-                code: source.into(),
-                language,
-                stage: Some(stage),
+                stage,
             },
             additional_imports: Default::default(),
             shader_defs: Default::default(),
@@ -329,10 +293,6 @@ impl Source {
     }
 
     /// Returns the pipeline stage this shader targets, if applicable.
-    ///
-    /// Returns `Some` for stage-specific languages like GLSL or custom shaders
-    /// created with [`Shader::from_custom_with_stage`]. Returns `None` for
-    /// stage-agnostic languages like WGSL.
     pub fn stage(&self) -> Option<ShaderStage> {
         match self {
             Source::Glsl(_, stage) => Some((*stage).into()),

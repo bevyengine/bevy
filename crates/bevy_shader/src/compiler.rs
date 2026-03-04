@@ -35,13 +35,11 @@ impl core::fmt::Display for ShaderLanguage {
 }
 
 /// Shader pipeline stage.
+#[expect(missing_docs, reason = "Enum variants are self-explanatory")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ShaderStage {
-    /// Vertex shader stage.
     Vertex,
-    /// Fragment shader stage.
     Fragment,
-    /// Compute shader stage.
     Compute,
 }
 
@@ -76,15 +74,14 @@ impl From<naga::ShaderStage> for ShaderStage {
     }
 }
 
-/// The output of a shader compiler — an intermediate representation
-/// ready to be turned into a GPU shader module.
+/// The output of a shader compiler.
 #[derive(Clone, Debug)]
 pub enum CompiledShader {
     /// SPIR-V binary data.
     SpirV(Vec<u8>),
-    /// WGSL source string (native for wgpu).
+    /// WGSL source string.
     Wgsl(String),
-    /// A naga IR module — the most common output from the default naga compiler.
+    /// A naga IR module.
     #[cfg(not(feature = "decoupled_naga"))]
     Naga(Box<naga::Module>),
 }
@@ -95,7 +92,7 @@ pub struct CompileRequest<'a> {
     pub source: ShaderSourceRef<'a>,
     /// Preprocessor defines to apply.
     pub shader_defs: &'a [ShaderDefVal],
-    /// The pipeline stage this shader targets (e.g. vertex, fragment).
+    /// The pipeline stage this shader targets.
     ///
     /// `None` for stage-agnostic languages like WGSL where a single source
     /// can contain multiple entry points.
@@ -118,9 +115,9 @@ pub enum ShaderSourceRef<'a> {
         /// The language of the binary data.
         language: &'a ShaderLanguage,
     },
-    /// A naga IR module produced by the import resolver.
+    /// A naga IR module.
     Naga {
-        /// The composed naga IR module.
+        /// The naga IR module.
         module: &'a naga::Module,
     },
 }
@@ -138,6 +135,6 @@ pub struct ShaderCompileError {
 /// Registered per-[`ShaderLanguage`] in [`ShaderCache`](crate::ShaderCache).
 /// The default implementation is [`NagaShaderCompiler`](crate::NagaShaderCompiler).
 pub trait ShaderCompiler: Send + Sync + 'static {
-    /// Compile a shader from its final composed source.
+    /// Compile a shader from its source.
     fn compile(&self, request: &CompileRequest) -> Result<CompiledShader, ShaderCompileError>;
 }

@@ -18,8 +18,7 @@ use wgpu_types::{DownlevelFlags, Features};
 
 /// Fully compiled shader source, ready to be turned into a GPU shader module.
 ///
-/// This is roughly equivalent to [`wgpu::ShaderSource`](https://docs.rs/wgpu/latest/wgpu/enum.ShaderSource.html),
-/// but with less variants and more concrete types instead of [`Cow`].
+/// This is roughly equivalent to [`wgpu::ShaderSource`](https://docs.rs/wgpu/latest/wgpu/enum.ShaderSource.html).
 ///
 /// This source will be parsed and validated by the renderer.
 ///
@@ -34,7 +33,7 @@ use wgpu_types::{DownlevelFlags, Features};
 )]
 #[derive(Clone, Debug)]
 pub enum ShaderCacheSource<'a> {
-    /// SPIR-V module as owned bytes.
+    /// SPIR-V module represented as a slice of words.
     SpirV(Cow<'a, [u8]>),
     /// WGSL module as a string.
     Wgsl(String),
@@ -315,13 +314,10 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
 
         data.pipelines.insert(pipeline);
 
-        // Fast path: return cached module if we've already compiled this
-        // shader with these exact shader_defs.
         if let Some(module) = data.processed_shaders.get(shader_defs) {
             return Ok(module.clone());
         }
 
-        // Cache miss — resolve imports and compile.
         debug!(
             "processing shader {}, with shader defs {:?}",
             id, shader_defs
@@ -340,8 +336,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         Ok(module)
     }
 
-    /// Resolve imports and compile a shader source into a [`ShaderCacheSource`]
-    /// ready to be loaded as a GPU module.
+    /// Resolve imports and compile a shader source into a [`ShaderCacheSource`].
     fn resolve_and_compile(
         &mut self,
         id: AssetId<Shader>,

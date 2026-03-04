@@ -25,10 +25,6 @@ pub struct ShaderComposeError {
 }
 
 /// Trait for resolving shader imports and composing final shader source.
-///
-/// Import resolution is separated from compilation so that different
-/// languages can use different module/import systems while sharing
-/// the same compilation pipeline.
 pub trait ShaderImportResolver: Send + Sync + 'static {
     /// Extract import information from shader source code.
     ///
@@ -60,8 +56,7 @@ pub trait ShaderImportResolver: Send + Sync + 'static {
 
 /// The default import resolver backed by `naga_oil`'s Composer.
 ///
-/// This handles WGSL and GLSL shader import resolution and composition,
-/// including Bevy's `#import` directive system.
+/// This handles WGSL and GLSL shader import resolution and composition.
 pub struct NagaOilImportResolver {
     /// The underlying `naga_oil` Composer.
     pub composer: naga_oil::compose::Composer,
@@ -159,10 +154,7 @@ impl ShaderImportResolver for NagaOilImportResolver {
     }
 }
 
-/// Import resolver for WESL (WebGPU Extended Shading Language).
-///
-/// WESL resolves imports lazily during compilation. This resolver stores
-/// shader sources and builds a [`wesl::Resolver`] adapter on [`compose`](ShaderImportResolver::compose).
+/// Import resolver for WESL.
 #[cfg(feature = "shader_format_wesl")]
 pub struct WeslImportResolver {
     /// Stored shader sources keyed by module path.
@@ -171,7 +163,7 @@ pub struct WeslImportResolver {
 
 #[cfg(feature = "shader_format_wesl")]
 impl WeslImportResolver {
-    /// Create a new empty WESL import resolver.
+    /// Create a new WESL import resolver.
     pub fn new() -> Self {
         Self {
             sources: std::collections::HashMap::new(),
@@ -194,7 +186,7 @@ impl ShaderImportResolver for WeslImportResolver {
         path: &'a str,
     ) -> (ShaderImport, Vec<ShaderImport>) {
         // WESL resolves imports lazily during compilation, so we don't
-        // need to enumerate them upfront. Return the asset path as the
+        // need to enumerate them upfront. Thus return the asset path as the
         // import path with no declared imports.
         (ShaderImport::AssetPath(path.to_owned()), vec![])
     }
