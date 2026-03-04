@@ -71,10 +71,10 @@ fn main() {
 }
 
 // Spawns the components on the Main World. Runs on Startup.
-fn setup(mut commands: Commands) {
-    commands.spawn(A(0.0));
-    commands.spawn(B(0.0));
-    commands.spawn(C(0.0));
+fn setup(mut commands: Commands, time: Res<Time>) {
+    commands.spawn(A(time.elapsed_secs()));
+    commands.spawn(B(time.elapsed_secs()));
+    commands.spawn(C(time.elapsed_secs()));
 }
 
 // Sets the elapsed time on each of the components on the Main World. Runs each frame.
@@ -109,7 +109,7 @@ fn trigger_extraction(mut writer: MessageWriter<ExtractMessage>, keys: Res<Butto
 fn extract_components(
     b: Extract<Query<(RenderEntity, &B)>>,
     c: Extract<Query<(RenderEntity, &C)>>,
-    reader: Extract<MessageReader<ExtractMessage>>,
+    mut reader: Extract<MessageReader<ExtractMessage>>,
     mut commands: Commands,
 ) {
     for (entity, b) in &b {
@@ -120,5 +120,6 @@ fn extract_components(
         for (entity, c) in &c {
             commands.entity(entity).insert(c.clone());
         }
+        reader.clear();
     }
 }
