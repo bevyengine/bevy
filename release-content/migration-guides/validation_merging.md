@@ -30,7 +30,7 @@ Instead, validation has been moved to be part of the trait implementation for `S
 All implementations of the `System` trait should validate that their parameters are valid during this method,
 bubbling up any errors originating in `SystemParam::get_param`.
 
-### Custom `SystemParam` implementations
+## Custom `SystemParam` implementations
 
 If you have a custom `SystemParam` implementation, you need to:
 
@@ -84,7 +84,7 @@ unsafe impl SystemParam for MyParam<'_> {
 }
 ```
 
-### Custom `ExclusiveSystemParam` implementations
+## Custom `ExclusiveSystemParam` implementations
 
 Similarly, `ExclusiveSystemParam::get_param` now returns a `Result<Self::Item<'s>, SystemParamValidationError>` instead of `Self::Item<'s>`.
 Existing implementations should wrap their return value in `Ok(...)` and return an appropriate `SystemParamValidationError` if validation fails.
@@ -113,11 +113,11 @@ impl ExclusiveSystemParam for MyExclusiveParam {
 }
 ```
 
-### Custom `System` implementations
+## Custom `System` implementations
 
 If you have a custom `System` implementation, remove the `validate_param_unsafe` method. Parameter validation should now occur inside `run_unsafe` by propagating errors from `SystemParam::get_param`.
 
-### `MultithreadedExecutor` performance changes
+## `MultithreadedExecutor` performance changes
 
 For the parallel `MultithreadedExecutor`, validation was previously done as a cheap pre-validation step,
 while checking run conditions.
