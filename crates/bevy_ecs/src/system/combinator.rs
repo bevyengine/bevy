@@ -168,7 +168,7 @@ where
             world: &mut PrivateUnsafeWorldCell,
         ) -> Result<S::Out, RunSystemError> {
             // SAFETY: see comment on `Func::combine` call
-            match (|| unsafe { system.run_unsafe(input, world.0) })() {
+            match unsafe { system.run_unsafe(input, world.0) } {
                 // let the world's default error handler handle the error if `Failed(_)`
                 Err(RunSystemError::Failed(err)) => {
                     // SAFETY: We registered access to DefaultErrorHandler in `initialize`.
