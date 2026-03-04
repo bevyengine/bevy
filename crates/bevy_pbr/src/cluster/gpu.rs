@@ -255,7 +255,9 @@ pub struct ClusterMetadata {
     ///
     /// This is set to 0 by the CPU, and the GPU updates it with the computed
     /// value.
-    farthest_z: f32,
+    ///
+    /// This is a float encoded by `f32_bits_to_sortable_u32`. Decode with `sortable_u32_to_f32_bits`.
+    farthest_z: u32,
 }
 
 /// Indirect draw parameters for the raster dispatch phase, built partially by
@@ -431,9 +433,23 @@ impl ViewClusteringReadbackData {
         // Record the statistics we just received.
         self.last_frame_statistics = Some(ViewClusteringLastFrameStatistics {
             index_list_size: gpu_clustering_metadata.index_list_capacity,
-            farthest_z: gpu_clustering_metadata.farthest_z,
+            farthest_z: f32::from_bits(sortable_u32_to_f32_bits(
+                gpu_clustering_metadata.farthest_z,
+            )),
         });
     }
+}
+
+/// Decodes a u32 produced by `f32_bits_to_sortable_u32` (in
+/// `cluster_z_slice.wgsl`) back into f32 bits.
+///
+/// The encode flips the sign bit for positive floats and all bits for
+/// negative floats, so the decode must inspect the *encoded* sign bit
+/// (which is inverted relative to the original) and apply the
+/// complementary mask.
+fn sortable_u32_to_f32_bits(bits: u32) -> u32 {
+    let mask = (!((bits as i32) >> 31)) as u32 | 0x80000000;
+    bits ^ mask
 }
 
 /// Global data relating to the `cluster_raster.wgsl` shader.
@@ -1665,7 +1681,7 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             decal_count,
             index_list_capacity: view_clustering_buffer_size_data.max_index_list_capacity as u32,
             z_slice_list_capacity: view_clustering_buffer_size_data.z_slice_list_capacity as u32,
-            farthest_z: 0.0,
+            farthest_z: 0,
         };
 
         // Allocate Z slices.
