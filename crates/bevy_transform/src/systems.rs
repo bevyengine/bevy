@@ -79,7 +79,7 @@ pub fn mark_dirty_trees(
     mut orphaned: RemovedComponents<ChildOf>,
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
-    static_optimizations: ResMut<StaticTransformOptimizations>,
+    static_optimizations: Res<StaticTransformOptimizations>,
 ) {
     if !static_optimizations.is_enabled() {
         return;
