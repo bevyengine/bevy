@@ -5,7 +5,7 @@
 extern crate alloc;
 
 use bevy_app::{App, Plugin, PostUpdate, Update};
-use bevy_asset::AssetApp;
+use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
@@ -79,7 +79,7 @@ pub mod prelude {
 }
 
 use crate::{
-    atmosphere::ScatteringMedium,
+    atmosphere::{extract_chromatic_phase_textures, ScatteringMedium},
     cluster::{add_light_probe_and_decal_aabbs, ClusterVisibilityClass, Clusters},
     directional_light::validate_shadow_map_size,
     point_light::update_point_light_bounding_spheres,
@@ -229,6 +229,7 @@ impl Plugin for LightPlugin {
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystems::Propagate)
                         .after(CameraUpdateSystems),
+                    extract_chromatic_phase_textures.after(AssetEventSystems),
                 ),
             );
 

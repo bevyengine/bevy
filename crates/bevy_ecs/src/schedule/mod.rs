@@ -1012,8 +1012,8 @@ mod tests {
 
             let _ = schedule.initialize(&mut world);
 
-            // this should fail, since resources are components
-            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
+            // this should fail, since resources are components and non_sends also do access with components
+            assert_eq!(schedule.graph().conflicting_systems().len(), 2);
 
             schedule = Schedule::default();
             schedule.add_systems((

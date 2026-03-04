@@ -15,7 +15,7 @@
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 #import bevy_pbr::atmosphere::{
-    functions::calculate_visible_sun_ratio,
+    functions::{calculate_visible_sun_ratio, clamp_to_surface},
     bruneton_functions::transmittance_lut_r_mu_to_uv,
 }
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
@@ -314,8 +314,9 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 let P_scaled = P * vec3(atmosphere_data.settings.scene_units_to_m);
                 let O = vec3(0.0, atmosphere_data.atmosphere.bottom_radius, 0.0);
                 let P_as = P_scaled + O;
-                let r = length(P_as);
-                let local_up = normalize(P_as);
+                let P_clamped = clamp_to_surface(atmosphere_data.atmosphere, P_as);
+                let r = length(P_clamped);
+                let local_up = normalize(P_clamped);
                 let mu_light = dot(L, local_up);
 
                 let transmittance = sample_transmittance_lut(r, mu_light);
