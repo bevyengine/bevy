@@ -1,6 +1,6 @@
 ---
 title: "`SystemParam` validation is now done when fetching the data"
-pull_requests: [TODO]
+pull_requests: [23225]
 ---
 
 In an effort to improve performance by reducing redundant data fetches and simplify internals,
