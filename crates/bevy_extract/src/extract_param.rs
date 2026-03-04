@@ -34,13 +34,16 @@ use core::ops::{Deref, DerefMut};
 /// ## Examples
 ///
 /// ```
+/// use bevy_app::AppLabel;
 /// use bevy_ecs::prelude::*;
 /// use bevy_extract::Extract;
 /// use bevy_extract::sync_world::SubEntity;
+/// # #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+/// # struct ExtractApp;
 /// # #[derive(Component)]
 /// // Do make sure to sync the cloud entities before extracting them.
 /// # struct Cloud;
-/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<SubEntity, With<Cloud>>>) {
+/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<SubEntity<ExtractApp>, With<Cloud>>>) {
 ///     for cloud in &clouds {
 ///         commands.entity(cloud).insert(Cloud);
 ///     }
