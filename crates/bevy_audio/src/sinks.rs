@@ -4,7 +4,7 @@ use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
 use core::time::Duration;
 pub use rodio::source::SeekError;
-use rodio::{Sink, SpatialSink};
+use rodio::{Player, SpatialPlayer};
 
 /// Common interactions with an audio sink.
 pub trait AudioSinkPlayback {
@@ -137,7 +137,7 @@ pub trait AudioSinkPlayback {
 /// that source is unchanged, that translates to the audio restarting.
 #[derive(Component)]
 pub struct AudioSink {
-    pub(crate) sink: Sink,
+    pub(crate) sink: Player,
 
     /// Managed volume allows the sink to be muted without losing the user's
     /// intended volume setting.
@@ -155,7 +155,7 @@ pub struct AudioSink {
 
 impl AudioSink {
     /// Create a new audio sink.
-    pub fn new(sink: Sink) -> Self {
+    pub fn new(sink: Player) -> Self {
         Self {
             sink,
             managed_volume: None,
@@ -241,7 +241,7 @@ impl AudioSinkPlayback for AudioSink {
 /// that source is unchanged, that translates to the audio restarting.
 #[derive(Component)]
 pub struct SpatialAudioSink {
-    pub(crate) sink: SpatialSink,
+    pub(crate) sink: SpatialPlayer,
 
     /// Managed volume allows the sink to be muted without losing the user's
     /// intended volume setting.
@@ -259,7 +259,7 @@ pub struct SpatialAudioSink {
 
 impl SpatialAudioSink {
     /// Create a new spatial audio sink.
-    pub fn new(sink: SpatialSink) -> Self {
+    pub fn new(sink: SpatialPlayer) -> Self {
         Self {
             sink,
             managed_volume: None,
@@ -356,7 +356,7 @@ impl SpatialAudioSink {
 
 #[cfg(test)]
 mod tests {
-    use rodio::Sink;
+    use rodio::Player;
 
     use super::*;
 
@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_audio_sink() {
-        let (sink, _queue_rx) = Sink::new_idle();
+        let (sink, _queue_rx) = Player::new();
         let audio_sink = AudioSink::new(sink);
         test_audio_sink_playback(audio_sink);
     }
