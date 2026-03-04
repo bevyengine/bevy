@@ -3091,7 +3091,7 @@ required-features = ["shader_format_spirv", "shader_compiler_shaderc"]
 
 [package.metadata.example.shader_material_hlsl]
 name = "Material - HLSL"
-description = "A material that uses an HLSL shader compiled at runtime to SPIR-V via shaderc"
+description = "A material that uses an HLSL shader with a custom compiler"
 category = "Shaders"
 wasm = false
 

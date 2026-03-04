@@ -2,18 +2,16 @@
 
 use std::sync::Arc;
 
-use bevy::shader::ShaderRef;
 use bevy::{
-    asset::{io::Reader, AssetLoader, LoadContext},
+    asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, PipelineCache, ShaderLanguage},
     shader::{
-        CompileRequest, CompiledShader, Shader, ShaderCompileError, ShaderCompiler,
+        CompileRequest, CompiledShader, Shader, ShaderCompileError, ShaderCompiler, ShaderRef,
         ShaderSourceRef, ShaderStage,
     },
 };
-use bevy_asset::AsyncReadExt;
 
 const VERTEX_HLSL: &str = "shaders/custom_material.vert.hlsl";
 const FRAGMENT_HLSL: &str = "shaders/custom_material.frag.hlsl";
