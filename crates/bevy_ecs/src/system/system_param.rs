@@ -1917,6 +1917,12 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
 impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
     /// Accesses the parameter at the given index.
     /// No other parameters may be accessed while this one is active.
+    ///
+    /// # Panics
+    ///
+    /// If system parameter validation fails, a panic will occur.
+    /// This most commonly occurs when the world is not in the expected state,
+    /// such as a resource that was removed or never initialized.
     pub fn get_mut(&mut self, index: usize) -> T::Item<'_, '_> {
         // SAFETY:
         // - We initialized the access for each parameter, so the caller ensures we have access to any world data needed by any param.
@@ -1929,7 +1935,7 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
                 self.world,
                 self.change_tick,
             )
-            .expect("ParamSet parameter validation failed")
+            .unwrap()
         }
     }
 
