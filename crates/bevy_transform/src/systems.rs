@@ -504,7 +504,7 @@ mod parallel {
             let mut last_child = None;
             let new_children = children_iter.filter_map(
                 |(child, (transform, mut global_transform, tree), (children, child_of))| {
-                    if *static_optimizations == StaticTransformOptimizations::Enabled
+                    if static_optimizations.is_enabled()
                         && !tree.is_changed()
                         && !p_global_transform.is_changed()
                     {
