@@ -10,6 +10,6 @@ Bevy used to fail this test, meaning something was wrong with our shader math. T
 - Seams were visible when using `GeneratedEnvironmentMapLight` for certain surface orientations.
 - Partially metallic materials absorbed energy, appearing darker than they should be.
 
-After fixing those, Bevy passes the test. That means your materials will behave more correctly under image-based lighting. 
+After fixing those, Bevy passes the test. That means your materials will behave more correctly under image-based lighting.
 
 A gray image has never been so exciting!
