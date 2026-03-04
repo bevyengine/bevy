@@ -6,7 +6,7 @@
     atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
     atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
 }
-#import bevy_render::maths::PI
+#import bevy_render::maths::{PI, orthonormalize}
 
 const LAYER_BASE: u32 = 0;
 const LAYER_CLEARCOAT: u32 = 1;
@@ -263,10 +263,9 @@ fn sample_visible_ggx(
     let y = sin_theta * sin(phi);
     let c_std = vec3f(x, y, z);
 
-    // Reflect the sample so that the normal aligns with +Z
-    let up = vec3f(0.0, 0.0, 1.0);
-    let wr = n + up;
-    let c = dot(wr, c_std) * wr / wr.z - c_std;
+    // Rotate the sample so that the normal aligns with +Z
+    let TBN = orthonormalize(n);
+    let c = TBN * c_std;
 
     // Half-vector in the standard frame
     let wm_std = c + wi_std;
