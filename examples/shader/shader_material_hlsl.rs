@@ -190,28 +190,12 @@ fn setup(
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
 
-    // // light
-    // commands.spawn((
-    //     DirectionalLight {
-    //         illuminance: 3000.0,
-    //         shadow_maps_enabled: true,
-    //         ..default()
-    //     },
-    //     Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.5, 0.5, 0.0)),
-    // ));
-
     // camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
-
-// fn rotate_cube(time: Res<Time>, mut query: Query<&mut Transform, With<Mesh3d>>) {
-//     for mut transform in &mut query {
-//         transform.rotate_y(time.delta_secs() * 0.8);
-//     }
-// }
 
 /// A simple material that reads a uniform color and multiplies it by a texture sample
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
