@@ -12,6 +12,7 @@ To be more precise:
   - If validation passes, the item should be returned wrapped in `Ok`
 - `SystemParam::validate_params` has been removed
   - All logic that's currently done in this methods should be moved to the `get_param` method of that type
+- `SystemState::fetch`, `get_unchecked`, `get` and `get_mut` now return a `Result` which may hold a `SystemParamValidationError`. In most prior cases, this would panic if validation would have failed.
 
 When executing systems, we no longer check for system validation before running the systems.
 As a result of these changes, `System::validate_param` and `System::validate_param_unsafe` have been removed.
