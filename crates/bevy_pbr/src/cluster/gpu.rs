@@ -255,7 +255,7 @@ pub struct ClusterMetadata {
     ///
     /// This is set to 0 by the CPU, and the GPU updates it with the computed
     /// value.
-    /// 
+    ///
     /// This is a float encoded by `f32_bits_to_sortable_u32`. Decode with `sortable_u32_to_f32_bits`.
     farthest_z: u32,
 }
