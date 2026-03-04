@@ -52,7 +52,7 @@ impl<L: AppLabel + Default> ExtractPlugin<L> {
     }
 }
 
-impl<L: AppLabel + Default + Clone> Plugin for ExtractPlugin<L> {
+impl<L: AppLabel + Default + Clone + Eq + Copy> Plugin for ExtractPlugin<L> {
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncWorldPlugin::<L>::default());
         app.init_resource::<ScratchMainWorld>();
@@ -88,7 +88,7 @@ impl<L: AppLabel + Default + Clone> Plugin for ExtractPlugin<L> {
             {
                 #[cfg(feature = "trace")]
                 let _stage_span = bevy_log::info_span!("entity_sync").entered();
-                entity_sync_system(main_world, sub_world);
+                entity_sync_system::<L>(main_world, sub_world);
             }
 
             // run extract schedule
@@ -396,7 +396,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn dual_extraction_works() {
         let mut app = App::new();
 

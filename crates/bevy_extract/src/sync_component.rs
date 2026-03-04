@@ -64,15 +64,18 @@ pub trait SyncComponent<L: AppLabel + Default, F: 'static + Send + Sync = ()>: C
     // type Out: Component = Self;
 }
 
-impl<L: AppLabel + Default + Clone, C: SyncComponent<L, F>, F: Send + Sync + 'static> Plugin
-    for SyncComponentPlugin<L, C, F>
+impl<
+        L: AppLabel + Default + Clone + Eq + Copy,
+        C: SyncComponent<L, F>,
+        F: Send + Sync + 'static,
+    > Plugin for SyncComponentPlugin<L, C, F>
 {
     fn build(&self, app: &mut App) {
         app.register_required_components::<C, SyncToSubWorld<L>>();
 
         app.add_observer(
-            |remove: On<Remove, C>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::ComponentRemoved(
+            |remove: On<Remove, C>, mut pending: ResMut<PendingSyncEntity<L>>| {
+                pending.push(EntityRecord::<L>::ComponentRemoved(
                     remove.entity,
                     |mut entity| {
                         entity.remove::<C::Out>();

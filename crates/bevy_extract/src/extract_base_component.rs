@@ -82,8 +82,11 @@ impl<L: AppLabel + Default, C: ExtractComponent<L, F>, F: 'static + Send + Sync>
     }
 }
 
-impl<L: AppLabel + Default + Clone, C: ExtractComponent<L, F>, F: 'static + Send + Sync> Plugin
-    for ExtractBaseComponentPlugin<L, C, F>
+impl<
+        L: AppLabel + Default + Clone + Eq + Copy,
+        C: ExtractComponent<L, F>,
+        F: 'static + Send + Sync,
+    > Plugin for ExtractBaseComponentPlugin<L, C, F>
 {
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncComponentPlugin::<L, C, F>::default());
@@ -100,13 +103,13 @@ impl<L: AppLabel + Default + Clone, C: ExtractComponent<L, F>, F: 'static + Send
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToSubWorld`].
 fn extract_components<
-    L: AppLabel + Default,
+    L: AppLabel + Default + Clone + Eq + Copy,
     C: ExtractComponent<L, F>,
     F: 'static + Send + Sync,
 >(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(SubEntity, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(SubEntity<L>, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
@@ -122,13 +125,13 @@ fn extract_components<
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToSubWorld`].
 fn extract_visible_components<
-    L: AppLabel + Default,
+    L: AppLabel + Default + Clone + Eq + Copy,
     C: ExtractComponent<L, F>,
     F: 'static + Send + Sync,
 >(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(SubEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(SubEntity<L>, &ViewVisibility, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {
