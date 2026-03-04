@@ -5031,14 +5031,6 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
-name = "testbed_white_furnace"
-path = "examples/testbed/white_furnace.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.testbed_white_furnace]
-hidden = true
-
-[[example]]
 name = "tab_navigation"
 path = "examples/ui/widgets/tab_navigation.rs"
 doc-scrape-examples = true
