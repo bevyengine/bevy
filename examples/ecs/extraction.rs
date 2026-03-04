@@ -90,15 +90,11 @@ fn display_state(
     b: Option<Single<&B>>,
     c: Option<Single<&C>>,
 
-    // Resource we inserted to debug the name of the World.
+    // Resource inserted to debug the name of the World.
     world_name: Res<WorldName>,
 ) {
-    info!("State of Components in World {}:", world_name.0);
-
-    info!("A: {:?}", a.map(|a| a.0));
-    info!("B: {:?}", b.map(|b| b.0));
-    info!("C: {:?}", c.map(|c| c.0));
-    info!("");
+    let (a, b, c) = (a.map(|a| a.0), b.map(|b| b.0), c.map(|c| c.0));
+    info!(?a, ?b, ?c, "{}", world_name.0);
 }
 
 // Writes a message when the Space key is pressed, which is later read by the `extract_components` system.
