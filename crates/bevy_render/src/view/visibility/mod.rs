@@ -276,7 +276,7 @@ pub fn collect_render_visible_entities(
         mut maybe_render_shadow_map_visible_entities_cpu_culling,
     ) in lights.iter_mut()
     {
-        for (subview, mut render_visible_entities) in
+        for (subview, render_visible_entities) in
             render_shadow_map_visible_entities.subviews.iter_mut()
         {
             let mut maybe_render_subview_visible_entities_cpu_culling =

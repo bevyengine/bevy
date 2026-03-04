@@ -25,8 +25,12 @@ pub struct StrokeFont<'a> {
 }
 
 impl<'a> StrokeFont<'a> {
-    /// Builds a `StrokeTextLayout` for `text` at the requested `font_size`.
-    pub fn layout(&'a self, text: &'a str, font_size: f32) -> StrokeTextLayout<'a> {
+    /// Builds a `StrokeTextLayout` for `sections` at the requested `font_size`.
+    pub fn layout(
+        &'a self,
+        sections: &'a [(&'a str, Color)],
+        font_size: f32,
+    ) -> StrokeTextLayout<'a> {
         let scale = font_size / SIMPLEX_CAP_HEIGHT;
         let glyph_height = SIMPLEX_HEIGHT * scale;
         let line_height = LINE_HEIGHT * glyph_height;
@@ -34,11 +38,11 @@ impl<'a> StrokeFont<'a> {
         let space_advance = SIMPLEX_GLYPHS[0].0 as f32 * scale;
         StrokeTextLayout {
             font: self,
+            sections,
             scale,
             line_height,
             margin_top,
             space_advance,
-            text,
         }
     }
 
@@ -66,8 +70,8 @@ impl<'a> StrokeFont<'a> {
 pub struct StrokeTextLayout<'a> {
     /// The unscaled font
     font: &'a StrokeFont<'a>,
-    /// The text
-    text: &'a str,
+    /// The text sections with per-section colors.
+    sections: &'a [(&'a str, Color)],
     /// Scale applied to the raw glyph positions.
     scale: f32,
     /// Height of each line of text.
@@ -79,15 +83,14 @@ pub struct StrokeTextLayout<'a> {
 }
 
 impl<'a> StrokeTextLayout<'a> {
-    /// Computes the width and height of a text layout with this font and
-    /// the given text.
+    /// Computes the width and height of the text layout.
     ///
     /// Returns the layout size in pixels.
     pub fn measure(&self) -> Vec2 {
         let mut layout_size = vec2(0., self.line_height);
 
         let mut line_width = 0.;
-        for c in self.text.chars() {
+        for (c, _) in colored_chars(self.sections) {
             if c == '\n' {
                 layout_size.x = layout_size.x.max(line_width);
                 line_width = 0.;
@@ -106,14 +109,15 @@ impl<'a> StrokeTextLayout<'a> {
         layout_size
     }
 
-    /// Returns an iterator over the font strokes for this text layout,
-    /// grouped into polylines of `Vec2` points.
-    pub fn render(&'a self) -> impl Iterator<Item = impl Iterator<Item = Vec2>> + 'a {
-        let mut chars = self.text.chars();
-        let mut x = 0.0;
+    /// Returns an iterator over the font strokes for this text layout, grouped into polylines
+    /// of `Vec2` points, each paired with its color from the text sections.
+    pub fn render(&'a self) -> impl Iterator<Item = (Color, impl Iterator<Item = Vec2> + 'a)> + 'a {
+        let mut chars = colored_chars(self.sections);
+        let mut x = 0.0_f32;
         let mut y = -self.margin_top;
         let mut current_strokes: Range<usize> = 0..0;
-        let mut current_x = 0.0;
+        let mut current_x = 0.0_f32;
+        let mut current_color = Color::WHITE;
 
         core::iter::from_fn(move || loop {
             for stroke_index in current_strokes.by_ref() {
@@ -127,16 +131,21 @@ impl<'a> StrokeTextLayout<'a> {
                     == self.font.positions[stroke.end - 1])
                     .then_some(stroke.start + 1);
 
-                return Some(stroke.chain(join.into_iter()).map(move |index| {
-                    let [p, q] = self.font.positions[index];
-                    Vec2::new(
-                        current_x + self.scale * p as f32,
-                        y - self.scale * (self.font.cap_height - q as f32),
-                    )
-                }));
+                let color = current_color;
+                return Some((
+                    color,
+                    stroke.chain(join.into_iter()).map(move |index| {
+                        let [p, q] = self.font.positions[index];
+                        Vec2::new(
+                            current_x + self.scale * p as f32,
+                            y - self.scale * (self.font.cap_height - q as f32),
+                        )
+                    }),
+                ));
             }
 
-            let c = chars.next()?;
+            let (c, char_color) = chars.next()?;
+
             if c == '\n' {
                 x = 0.0;
                 y -= self.line_height;
@@ -147,6 +156,7 @@ impl<'a> StrokeTextLayout<'a> {
                 x += self.space_advance;
                 continue;
             };
+            current_color = char_color;
             current_strokes = strokes;
             current_x = x;
 
@@ -192,11 +202,51 @@ where
         anchor: Vec2,
         color: impl Into<Color>,
     ) {
+        let color: Color = color.into();
+        self.text_sections(isometry, &[(text, color)], font_size, anchor);
+    }
+
+    /// Draw text using a stroke font with the given isometry applied, coloring each section
+    /// independently.
+    ///
+    /// Only ASCII characters in the range 32–126 are supported.
+    ///
+    /// # Arguments
+    ///
+    /// - `isometry`: defines the translation and rotation of the text.
+    /// - `sections`: a slice of `(text, color)` pairs. Each section's characters are drawn
+    ///   in its color. Sections are concatenated left-to-right on the same baseline.
+    /// - `font_size`: the size of the text in pixels.
+    /// - `anchor`: normalized anchor point relative to the combined text bounds,
+    ///   where `(0, 0)` is centered, `(-0.5, 0.5)` is top-left,
+    ///   and `(0.5, -0.5)` is bottom-right.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::Color;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.text_sections(
+    ///         Isometry3d::IDENTITY,
+    ///         &[("Hello ", Color::WHITE), ("World!", Color::srgb(1., 0.3, 0.))],
+    ///         25.,
+    ///         Vec2::ZERO,
+    ///     );
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn text_sections(
+        &mut self,
+        isometry: impl Into<Isometry3d>,
+        sections: &[(&str, Color)],
+        font_size: f32,
+        anchor: Vec2,
+    ) {
         let isometry: Isometry3d = isometry.into();
-        let color = color.into();
-        let layout = SIMPLEX_STROKE_FONT.layout(text, font_size);
+        let layout = SIMPLEX_STROKE_FONT.layout(sections, font_size);
         let layout_anchor = layout.measure() * (vec2(-0.5, 0.5) - anchor);
-        for points in layout.render() {
+        for (color, points) in layout.render() {
             self.linestrip(
                 points.map(|point| isometry * (layout_anchor + point).extend(0.)),
                 color,
@@ -236,15 +286,62 @@ where
         anchor: Vec2,
         color: impl Into<Color>,
     ) {
+        let color: Color = color.into();
+        self.text_sections_2d(isometry, &[(text, color)], font_size, anchor);
+    }
+
+    /// Draw text using a stroke font in 2d with the given isometry applied, coloring each section
+    /// independently.
+    ///
+    /// Only ASCII characters in the range 32–126 are supported.
+    ///
+    /// # Arguments
+    ///
+    /// - `isometry`: defines the translation and rotation of the text.
+    /// - `sections`: a slice of `(text, color)` pairs. Each section's characters are drawn
+    ///   in its color. Sections are concatenated left-to-right on the same baseline.
+    /// - `font_size`: the size of the text.
+    /// - `anchor`: normalized anchor point relative to the combined text bounds,
+    ///   where `(0., 0.)` is centered, `(-0.5, 0.5)` is top-left,
+    ///   and `(0.5, -0.5)` is bottom-right.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::Color;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.text_sections_2d(
+    ///         Isometry2d::IDENTITY,
+    ///         &[("Hello ", Color::WHITE), ("World!", Color::srgb(1., 0.3, 0.))],
+    ///         25.,
+    ///         Vec2::ZERO,
+    ///     );
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn text_sections_2d(
+        &mut self,
+        isometry: impl Into<Isometry2d>,
+        sections: &[(&str, Color)],
+        font_size: f32,
+        anchor: Vec2,
+    ) {
         let isometry: Isometry2d = isometry.into();
-        let color = color.into();
-        let layout = SIMPLEX_STROKE_FONT.layout(text, font_size);
+        let layout = SIMPLEX_STROKE_FONT.layout(sections, font_size);
         let layout_anchor = layout.measure() * (vec2(-0.5, 0.5) - anchor);
-        for points in layout.render() {
+        for (color, points) in layout.render() {
             self.linestrip_2d(
                 points.map(|point| isometry * (layout_anchor + point)),
                 color,
             );
         }
     }
+}
+
+/// Iterates the characters across all sections, each paired with its section color.
+fn colored_chars<'a>(sections: &'a [(&'a str, Color)]) -> impl Iterator<Item = (char, Color)> + 'a {
+    sections
+        .iter()
+        .flat_map(|&(text, color)| text.chars().map(move |c| (c, color)))
 }
