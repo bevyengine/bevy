@@ -113,6 +113,7 @@ impl Shader {
     }
 
     /// Creates a new GLSL shader.
+    #[cfg(feature = "shader_format_glsl")]
     pub fn from_glsl(
         source: impl Into<Cow<'static, str>>,
         stage: naga::ShaderStage,
@@ -134,6 +135,7 @@ impl Shader {
     }
 
     /// Creates a new SPIR-V shader.
+    #[cfg(feature = "shader_format_spirv")]
     pub fn from_spirv(source: impl Into<Cow<'static, [u8]>>, path: impl Into<String>) -> Shader {
         let path = path.into();
         Shader {
@@ -178,6 +180,9 @@ impl Shader {
     }
 
     /// Creates a new shader in a custom (user-defined) language.
+    //
+    // custom shaders work through spirv, thus feature `shader_format_spirv` is required
+    #[cfg(feature = "shader_format_spirv")]
     pub fn from_custom(
         source: impl Into<Cow<'static, str>>,
         language: ShaderLanguage,
@@ -260,8 +265,11 @@ pub enum Source {
     Wgsl(Cow<'static, str>),
     #[cfg(feature = "shader_format_wesl")]
     Wesl(Cow<'static, str>),
+    #[cfg(feature = "shader_format_glsl")]
     Glsl(Cow<'static, str>, naga::ShaderStage),
+    #[cfg(feature = "shader_format_spirv")]
     SpirV(Cow<'static, [u8]>),
+    #[cfg(feature = "shader_format_spirv")]
     Custom {
         code: Cow<'static, str>,
         language: ShaderLanguage,
@@ -273,10 +281,15 @@ impl Source {
     /// The underlying source code string, unless it is binary.
     pub fn as_str(&self) -> &str {
         match self {
-            Source::Wgsl(s) | Source::Glsl(s, _) | Source::Custom { code: s, .. } => s,
+            Source::Wgsl(s) => s,
+            #[cfg(feature = "shader_format_glsl")]
+            Source::Glsl(s, _) => s,
             #[cfg(feature = "shader_format_wesl")]
             Source::Wesl(s) => s,
+            #[cfg(feature = "shader_format_spirv")]
             Source::SpirV(_) => panic!("spirv not yet implemented"),
+            #[cfg(feature = "shader_format_spirv")]
+            Source::Custom { code: s, .. } => s,
         }
     }
 
@@ -286,8 +299,11 @@ impl Source {
             Source::Wgsl(_) => ShaderLanguage::Wgsl,
             #[cfg(feature = "shader_format_wesl")]
             Source::Wesl(_) => ShaderLanguage::Wesl,
+            #[cfg(feature = "shader_format_glsl")]
             Source::Glsl(_, _) => ShaderLanguage::Glsl,
+            #[cfg(feature = "shader_format_spirv")]
             Source::SpirV(_) => ShaderLanguage::SpirV,
+            #[cfg(feature = "shader_format_spirv")]
             Source::Custom { language, .. } => language.clone(),
         }
     }
@@ -295,7 +311,9 @@ impl Source {
     /// Returns the pipeline stage this shader targets, if applicable.
     pub fn stage(&self) -> Option<ShaderStage> {
         match self {
+            #[cfg(feature = "shader_format_glsl")]
             Source::Glsl(_, stage) => Some((*stage).into()),
+            #[cfg(feature = "shader_format_spirv")]
             Source::Custom { stage, .. } => *stage,
             _ => None,
         }
@@ -304,6 +322,7 @@ impl Source {
     /// Returns the binary data if this is a SPIR-V source, `None` otherwise.
     pub fn as_binary(&self) -> Option<&[u8]> {
         match self {
+            #[cfg(feature = "shader_format_spirv")]
             Source::SpirV(data) => Some(data),
             _ => None,
         }
@@ -316,13 +335,11 @@ impl From<&Source> for naga_oil::compose::ShaderLanguage {
             Source::Wgsl(_) => naga_oil::compose::ShaderLanguage::Wgsl,
             #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
             Source::Glsl(_, _) => naga_oil::compose::ShaderLanguage::Glsl,
-            #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
-            Source::Glsl(_, _) => panic!(
-                "GLSL is not supported in this configuration; use the feature `shader_format_glsl`"
-            ),
+            #[cfg(feature = "shader_format_spirv")]
             Source::SpirV(_) => panic!("spirv not yet implemented"),
             #[cfg(feature = "shader_format_wesl")]
             Source::Wesl(_) => panic!("wesl not yet implemented"),
+            #[cfg(feature = "shader_format_spirv")]
             Source::Custom { language, .. } => panic!(
                 "Custom shader language `{language}` cannot be used with the naga_oil composer; \
                  register a ShaderCompiler for this language via PipelineCache::register_shader_compiler"
@@ -335,7 +352,7 @@ impl From<&Source> for naga_oil::compose::ShaderType {
     fn from(value: &Source) -> Self {
         match value {
             Source::Wgsl(_) => naga_oil::compose::ShaderType::Wgsl,
-            #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+            #[cfg(feature = "shader_format_glsl")]
             Source::Glsl(_, shader_stage) => match shader_stage {
                 naga::ShaderStage::Vertex => naga_oil::compose::ShaderType::GlslVertex,
                 naga::ShaderStage::Fragment => naga_oil::compose::ShaderType::GlslFragment,
@@ -343,13 +360,11 @@ impl From<&Source> for naga_oil::compose::ShaderType {
                 naga::ShaderStage::Task => panic!("task shaders not yet implemented"),
                 naga::ShaderStage::Mesh => panic!("mesh shaders not yet implemented"),
             },
-            #[cfg(all(not(feature = "shader_format_glsl"), not(target_arch = "wasm32")))]
-            Source::Glsl(_, _) => panic!(
-                "GLSL is not supported in this configuration; use the feature `shader_format_glsl`"
-            ),
+            #[cfg(feature = "shader_format_spirv")]
             Source::SpirV(_) => panic!("spirv not yet implemented"),
             #[cfg(feature = "shader_format_wesl")]
             Source::Wesl(_) => panic!("wesl not yet implemented"),
+            #[cfg(feature = "shader_format_spirv")]
             Source::Custom { language, .. } => panic!(
                 "Custom shader language `{language}` cannot be used with the naga_oil composer; \
                  register a ShaderCompiler for this language via PipelineCache::register_shader_compiler"
@@ -410,16 +425,20 @@ impl AssetLoader for ShaderLoader {
             );
         }
         let mut shader = match ext {
+            #[cfg(feature = "shader_format_spirv")]
             "spv" => Shader::from_spirv(bytes, load_context.path().path().to_string_lossy()),
             "wgsl" => Shader::from_wgsl_with_defs(
                 String::from_utf8(bytes)?,
                 path,
                 settings.shader_defs.clone(),
             ),
+            #[cfg(feature = "shader_format_glsl")]
             "vert" => Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Vertex, path),
+            #[cfg(feature = "shader_format_glsl")]
             "frag" => {
                 Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Fragment, path)
             }
+            #[cfg(feature = "shader_format_glsl")]
             "comp" => {
                 Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Compute, path)
             }

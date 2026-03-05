@@ -19,7 +19,7 @@ use bevy_log::error;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_shader::{
     CachedPipelineId, Shader, ShaderCache, ShaderCacheError, ShaderCacheSource, ShaderCompiler,
-    ShaderDefVal, ShaderImportResolver, ShaderLanguage, ValidateShader,
+    ShaderDefVal, ShaderLanguage, ValidateShader,
 };
 use bevy_tasks::Task;
 use bevy_utils::default;
@@ -284,27 +284,17 @@ impl PipelineCache {
     }
 
     /// Register a shader compiler for a specific shader language.
-    pub fn register_shader_compiler(
+    pub fn register_shader_compiler<Compiler>(
         &mut self,
         language: ShaderLanguage,
-        compiler: Arc<dyn ShaderCompiler>,
-    ) {
+        compiler: Compiler,
+    ) where
+        Compiler: ShaderCompiler,
+    {
         self.shader_cache
             .lock()
             .unwrap()
             .register_compiler(language, compiler);
-    }
-
-    /// Register an import resolver for a specific shader language.
-    pub fn register_import_resolver(
-        &mut self,
-        language: ShaderLanguage,
-        resolver: Arc<Mutex<dyn ShaderImportResolver>>,
-    ) {
-        self.shader_cache
-            .lock()
-            .unwrap()
-            .register_import_resolver(language, resolver);
     }
 
     /// Get the state of a cached render pipeline.
@@ -731,18 +721,14 @@ impl PipelineCache {
                     error!("failed to create shader module: {}", description);
                     return;
                 }
-                ShaderCacheError::ComposeError(description) => {
+                ShaderCacheError::CompileError(description) => {
                     let description = mem::take(description);
                     if std::env::var("VERBOSE_SHADER_ERROR")
                         .is_ok_and(|v| !(v.is_empty() || v == "0" || v == "false"))
                     {
                         error!("{}", pipeline_error_context(cached_pipeline));
                     }
-                    error!("failed to compose shader:\n{}", description);
-                    return;
-                }
-                ShaderCacheError::CompileError(description) => {
-                    error!("failed to compile shader: {}", description);
+                    error!("failed to compile shader:\n{}", description);
                     return;
                 }
             },

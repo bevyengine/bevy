@@ -1,15 +1,13 @@
 //! A custom material that uses an HLSL shader compiled at runtime with `shaderc`.
 
-use std::sync::Arc;
-
 use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, PipelineCache, ShaderLanguage},
     shader::{
-        CompileRequest, CompiledShader, Shader, ShaderCompileError, ShaderCompiler, ShaderRef,
-        ShaderSourceRef, ShaderStage,
+        CompiledShader, Shader, ShaderCompileError, ShaderCompiler, ShaderDefVal, ShaderRef,
+        ShaderStage,
     },
 };
 
@@ -29,31 +27,54 @@ fn main() {
             MaterialPlugin::<HlslMaterial>::default(),
         ))
         .add_systems(Startup, setup)
-        // .add_systems(Update, rotate_cube)
         .run();
 }
 
 /// A [`ShaderCompiler`] that compiles HLSL source to SPIR-V using `shaderc`.
-struct ShadercHlslCompiler;
+struct ShadercHlslCompiler {
+    compiler: shaderc::Compiler,
+}
+
+#[derive(Debug, thiserror::Error)]
+enum HlslShaderCompilerError {
+    #[error("Failed to initialize shaderc compiler: {0}")]
+    Initialize(shaderc::Error),
+    #[error("Failed to create shaderc compile options: {0}")]
+    CreateOptions(shaderc::Error),
+}
+
+impl ShadercHlslCompiler {
+    fn new() -> Result<Self, HlslShaderCompilerError> {
+        Ok(Self {
+            compiler: shaderc::Compiler::new().map_err(HlslShaderCompilerError::CreateOptions)?,
+        })
+    }
+
+    fn options() -> Result<shaderc::CompileOptions<'static>, HlslShaderCompilerError> {
+        let mut options =
+            shaderc::CompileOptions::new().map_err(HlslShaderCompilerError::Initialize)?;
+
+        options.set_source_language(shaderc::SourceLanguage::HLSL);
+        options.set_target_env(
+            shaderc::TargetEnv::Vulkan,
+            shaderc::EnvVersion::Vulkan1_1 as u32,
+        );
+        options.set_optimization_level(shaderc::OptimizationLevel::Performance);
+
+        Ok(options)
+    }
+}
 
 impl ShaderCompiler for ShadercHlslCompiler {
-    fn compile(&self, request: &CompileRequest) -> Result<CompiledShader, ShaderCompileError> {
-        let source_text = match &request.source {
-            ShaderSourceRef::Text { code, .. } => *code,
-            ShaderSourceRef::Binary { .. } => {
-                return Err(ShaderCompileError {
-                    message: "ShadercHlslCompiler expects text source, not binary".to_string(),
-                });
-            }
-            ShaderSourceRef::Naga { .. } => {
-                return Err(ShaderCompileError {
-                    message: "ShadercHlslCompiler expects text source, not naga ir".to_string(),
-                });
-            }
-        };
+    fn compile(
+        &mut self,
+        shader: &Shader,
+        _shader_defs: &[ShaderDefVal],
+    ) -> Result<CompiledShader, ShaderCompileError> {
+        let source_text = shader.source.as_str();
 
-        // Read the pipeline stage from the compile request.
-        let shader_kind = match request.stage {
+        // Read the pipeline stage from the shader source.
+        let shader_kind = match shader.source.stage() {
             Some(ShaderStage::Vertex) => shaderc::ShaderKind::Vertex,
             Some(ShaderStage::Fragment) => shaderc::ShaderKind::Fragment,
             Some(ShaderStage::Compute) => shaderc::ShaderKind::Compute,
@@ -66,28 +87,16 @@ impl ShaderCompiler for ShadercHlslCompiler {
             }
         };
 
-        let compiler = shaderc::Compiler::new().map_err(|err| ShaderCompileError {
-            message: format!("Failed to initialize shaderc compiler: {err}"),
-        })?;
-
-        let mut options = shaderc::CompileOptions::new().map_err(|err| ShaderCompileError {
-            message: format!("Failed to create shaderc compile options: {err}"),
-        })?;
-
-        options.set_source_language(shaderc::SourceLanguage::HLSL);
-        options.set_target_env(
-            shaderc::TargetEnv::Vulkan,
-            shaderc::EnvVersion::Vulkan1_1 as u32,
-        );
-        options.set_optimization_level(shaderc::OptimizationLevel::Performance);
-
-        let artifact = compiler
+        let artifact = self
+            .compiler
             .compile_into_spirv(
                 source_text,
                 shader_kind,
                 "hlsl_shader",
                 "main",
-                Some(&options),
+                Some(&Self::options().map_err(|e| ShaderCompileError {
+                    message: format!("shaderc options error: {e}"),
+                })?),
             )
             .map_err(|e| ShaderCompileError {
                 message: format!("shaderc compilation error: {e}"),
@@ -96,10 +105,6 @@ impl ShaderCompiler for ShadercHlslCompiler {
         Ok(CompiledShader::SpirV(artifact.as_binary_u8().to_vec()))
     }
 }
-
-/// Settings for the HLSL asset loader.
-#[derive(serde::Serialize, serde::Deserialize, Debug, Default)]
-struct HlslShaderSettings;
 
 /// [`AssetLoader`] for `.vert.hlsl` and `.frag.hlsl` files.
 #[derive(Default, TypePath)]
@@ -116,7 +121,7 @@ enum HlslShaderLoaderError {
 
 impl AssetLoader for HlslShaderLoader {
     type Asset = Shader;
-    type Settings = HlslShaderSettings;
+    type Settings = ();
     type Error = HlslShaderLoaderError;
 
     async fn load(
@@ -168,10 +173,14 @@ impl Plugin for HlslShaderPlugin {
         let render_app = app.sub_app_mut(bevy::render::RenderApp);
         let mut pipeline_cache = render_app.world_mut().resource_mut::<PipelineCache>();
 
-        pipeline_cache.register_shader_compiler(
-            ShaderLanguage::Custom("hlsl".into()),
-            Arc::new(ShadercHlslCompiler),
-        );
+        match ShadercHlslCompiler::new() {
+            Ok(compiler) => {
+                pipeline_cache.register_shader_compiler(ShaderLanguage::Custom("hlsl"), compiler)
+            }
+            Err(err) => {
+                bevy::log::error!("Failed to create ShadercHlslCompiler compiler: {err:?}")
+            }
+        }
     }
 }
 

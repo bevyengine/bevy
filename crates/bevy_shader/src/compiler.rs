@@ -1,3 +1,19 @@
+//! Abstract shader compiler trait and types
+//!
+//! Default [`ShaderCompiler`] implementations:
+/// - [`NagaOilCompiler`] for WGSL
+/// - [`NagaOilCompiler`] for GLSL (requires `shader_format_glsl` feature)
+/// - [`WeslCompiler`](crate::WeslCompiler) for WESL (requires `shader_format_wesl` feature)
+/// - [`SpirVPassthroughCompiler`] for SPIR-V (requires `shader_format_spirv` feature)
+mod naga_compiler;
+pub use naga_compiler::*;
+
+#[cfg(feature = "shader_format_wesl")]
+mod wesl_compiler;
+#[cfg(feature = "shader_format_wesl")]
+pub use wesl_compiler::*;
+
+use crate::shader::Shader;
 use crate::ShaderDefVal;
 
 /// Identifies the language of a shader source.
@@ -8,15 +24,18 @@ pub enum ShaderLanguage {
     /// WebGPU Shading Language.
     Wgsl,
     /// OpenGL Shading Language.
+    #[cfg(feature = "shader_format_glsl")]
     Glsl,
-    /// Pre-compiled SPIR-V binary.
-    SpirV,
     /// WebGPU Extended Shading Language.
     #[cfg(feature = "shader_format_wesl")]
     Wesl,
+    /// Pre-compiled SPIR-V binary.
+    #[cfg(feature = "shader_format_spirv")]
+    SpirV,
     /// A user-defined or plugin-provided language.
     ///
     /// The string should be a unique identifier for the language.
+    #[cfg(feature = "shader_format_spirv")]
     Custom(&'static str),
 }
 
@@ -24,10 +43,13 @@ impl core::fmt::Display for ShaderLanguage {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ShaderLanguage::Wgsl => write!(f, "wgsl"),
+            #[cfg(feature = "shader_format_glsl")]
             ShaderLanguage::Glsl => write!(f, "glsl"),
-            ShaderLanguage::SpirV => write!(f, "spirv"),
             #[cfg(feature = "shader_format_wesl")]
             ShaderLanguage::Wesl => write!(f, "wesl"),
+            #[cfg(feature = "shader_format_spirv")]
+            ShaderLanguage::SpirV => write!(f, "spirv"),
+            #[cfg(feature = "shader_format_spirv")]
             ShaderLanguage::Custom(name) => write!(f, "{name}"),
         }
     }
@@ -85,42 +107,6 @@ pub enum CompiledShader {
     Naga(Box<naga::Module>),
 }
 
-/// A request to compile a shader.
-pub struct CompileRequest<'a> {
-    /// The shader source code or binary.
-    pub source: ShaderSourceRef<'a>,
-    /// Preprocessor defines to apply.
-    pub shader_defs: &'a [ShaderDefVal],
-    /// The pipeline stage this shader targets.
-    ///
-    /// `None` for stage-agnostic languages like WGSL where a single source
-    /// can contain multiple entry points.
-    pub stage: Option<ShaderStage>,
-}
-
-/// A reference to shader source material.
-pub enum ShaderSourceRef<'a> {
-    /// Text-based shader source with a language tag.
-    Text {
-        /// The source code.
-        code: &'a str,
-        /// The language of the source code.
-        language: &'a ShaderLanguage,
-    },
-    /// Binary shader source (e.g. SPIR-V).
-    Binary {
-        /// The binary data.
-        data: &'a [u8],
-        /// The language of the binary data.
-        language: &'a ShaderLanguage,
-    },
-    /// A naga IR module.
-    Naga {
-        /// The naga IR module.
-        module: &'a naga::Module,
-    },
-}
-
 /// Error type for shader compilation failures.
 #[derive(Debug, thiserror::Error)]
 #[error("Shader compilation error: {message}")]
@@ -132,8 +118,58 @@ pub struct ShaderCompileError {
 /// Compiles shader source into [`CompiledShader`] output.
 ///
 /// Registered per-[`ShaderLanguage`] in [`ShaderCache`](crate::ShaderCache).
-/// The default implementation is [`NagaShaderCompiler`](crate::NagaShaderCompiler).
+#[expect(
+    unused_variables,
+    reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+)]
 pub trait ShaderCompiler: Send + Sync + 'static {
-    /// Compile a shader from its source.
-    fn compile(&self, request: &CompileRequest) -> Result<CompiledShader, ShaderCompileError>;
+    /// Register a shader module so it can be imported by other shaders.
+    ///
+    /// Called by [`ShaderCache`](crate::ShaderCache) when a shader is added.
+    /// Implementations without an import system should return `Ok(())`.
+    fn add_import(&mut self, shader: &Shader) -> Result<(), ShaderCompileError> {
+        Ok(())
+    }
+
+    /// Remove a previously registered import module.
+    ///
+    /// Implementations without an import system should no-op.
+    fn remove_import(&mut self, import_path: &str) {}
+
+    /// Check if a module with the given import name is already registered.
+    ///
+    /// Implementations without an import system should return `false`.
+    fn contains_module(&self, module_name: &str) -> bool {
+        false
+    }
+
+    /// Compile a shader: resolve imports, preprocess, and produce final output.
+    fn compile(
+        &mut self,
+        shader: &Shader,
+        shader_defs: &[ShaderDefVal],
+    ) -> Result<CompiledShader, ShaderCompileError>;
+}
+
+/// A passthrough [`ShaderCompiler`] for pre-compiled SPIR-V shaders.
+///
+/// Returns the SPIR-V binary data as-is with no import resolution or processing.
+#[cfg(feature = "shader_format_spirv")]
+pub struct SpirVPassthroughCompiler;
+
+#[cfg(feature = "shader_format_spirv")]
+impl ShaderCompiler for SpirVPassthroughCompiler {
+    fn compile(
+        &mut self,
+        shader: &Shader,
+        _shader_defs: &[ShaderDefVal],
+    ) -> Result<CompiledShader, ShaderCompileError> {
+        let data = shader
+            .source
+            .as_binary()
+            .ok_or_else(|| ShaderCompileError {
+                message: "SpirVPassthroughCompiler expects binary SPIR-V source".to_string(),
+            })?;
+        Ok(CompiledShader::SpirV(data.to_vec()))
+    }
 }

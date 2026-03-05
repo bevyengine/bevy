@@ -1,11 +1,11 @@
-use crate::compiler::{
-    CompileRequest, CompiledShader, ShaderCompiler, ShaderLanguage, ShaderSourceRef,
-};
-#[cfg(feature = "shader_format_wesl")]
-use crate::import_resolver::WeslImportResolver;
-use crate::import_resolver::{ComposedSource, NagaOilImportResolver, ShaderImportResolver};
-use crate::naga_compiler::NagaShaderCompiler;
+use crate::compiler::{CompiledShader, NagaOilCompiler, ShaderCompiler, ShaderLanguage};
 use crate::shader::*;
+
+#[cfg(feature = "shader_format_spirv")]
+use crate::compiler::SpirVPassthroughCompiler;
+#[cfg(feature = "shader_format_wesl")]
+use crate::compiler::WeslCompiler;
+
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::AssetId;
 use bevy_platform::collections::{HashMap, HashSet};
@@ -49,32 +49,6 @@ impl<'a> From<CompiledShader> for ShaderCacheSource<'a> {
             CompiledShader::Wgsl(src) => ShaderCacheSource::Wgsl(src),
             #[cfg(not(feature = "decoupled_naga"))]
             CompiledShader::Naga(module) => ShaderCacheSource::Naga(*module),
-        }
-    }
-}
-
-/// Owned shader source after import resolution, borrowable as [`ShaderSourceRef`].
-enum ResolvedSource {
-    /// A naga module from `naga_oil` composition.
-    Naga(Box<naga::Module>),
-    /// Text source (e.g. composed WGSL text, or raw custom source).
-    Text {
-        code: String,
-        language: ShaderLanguage,
-    },
-    /// Binary source (e.g. raw SPIR-V).
-    Binary {
-        data: Cow<'static, [u8]>,
-        language: ShaderLanguage,
-    },
-}
-
-impl ResolvedSource {
-    fn as_source_ref(&self) -> ShaderSourceRef<'_> {
-        match self {
-            ResolvedSource::Naga(module) => ShaderSourceRef::Naga { module },
-            ResolvedSource::Text { code, language } => ShaderSourceRef::Text { code, language },
-            ResolvedSource::Binary { data, language } => ShaderSourceRef::Binary { data, language },
         }
     }
 }
@@ -137,11 +111,13 @@ impl ShaderDefVal {
 /// A cache for shaders and shader imports, with asset state-tracking for
 /// waiting to load shaders until all imports are resolved.
 ///
-/// The cache supports pluggable shader compilers via the [`ShaderCompiler`] trait
-/// and pluggable import resolvers via the [`ShaderImportResolver`] trait.
+/// The cache supports pluggable shader compilers via the [`ShaderCompiler`] trait.
 ///
-/// By default, it uses [`NagaOilImportResolver`] for WGSL/GLSL import resolution
-/// and [`NagaShaderCompiler`] for compilation.
+/// By default, it uses:
+/// - [`NagaOilCompiler`] for WGSL
+/// - [`NagaOilCompiler`] for GLSL (requires `shader_format_glsl` feature)
+/// - [`WeslCompiler`](crate::WeslCompiler) for WESL (requires `shader_format_wesl` feature)
+/// - [`SpirVPassthroughCompiler`] for SPIR-V (requires `shader_format_spirv` feature)
 ///
 /// Note that the `RenderDevice` generic parameter is a means by which
 /// to avoid a cyclic dependency with `bevy_render`, while also permitting
@@ -155,8 +131,7 @@ pub struct ShaderCache<ShaderModule, RenderDevice> {
         ShaderCacheSource,
         &ValidateShader,
     ) -> Result<ShaderModule, ShaderCacheError>,
-    resolvers: HashMap<ShaderLanguage, Arc<Mutex<dyn ShaderImportResolver>>>,
-    compilers: HashMap<ShaderLanguage, Arc<dyn ShaderCompiler>>,
+    compilers: HashMap<ShaderLanguage, Arc<Mutex<dyn ShaderCompiler>>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
@@ -166,11 +141,6 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
     /// Creates a new [`ShaderCache`] with the given features and shader
     /// module loading function. `load_module` is responsible for actually
     /// compiling shader source into a module usable by the render device.
-    ///
-    /// Registers default resolvers and compilers for built-in languages:
-    /// - WGSL and GLSL share a [`NagaOilImportResolver`] and [`NagaShaderCompiler`].
-    /// - WESL uses a [`WeslImportResolver`] and [`NagaShaderCompiler`].
-    /// - SPIR-V uses [`NagaShaderCompiler`] with no import resolver (passthrough).
     pub fn new(
         device: RenderDevice,
         features: Features,
@@ -187,35 +157,26 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         #[cfg(not(debug_assertions))]
         let validating = false;
 
-        let mut resolvers =
-            HashMap::<ShaderLanguage, Arc<Mutex<dyn ShaderImportResolver>>>::default();
+        let mut compilers = HashMap::<ShaderLanguage, Arc<Mutex<dyn ShaderCompiler>>>::default();
 
-        let naga_oil = Arc::new(Mutex::new(NagaOilImportResolver::new(
-            capabilities,
-            validating,
-        )));
-        resolvers.insert(ShaderLanguage::Wgsl, naga_oil.clone());
+        let naga_oil = Arc::new(Mutex::new(NagaOilCompiler::new(capabilities, validating)));
+
+        compilers.insert(ShaderLanguage::Wgsl, naga_oil.clone());
         #[cfg(feature = "shader_format_glsl")]
-        resolvers.insert(ShaderLanguage::Glsl, naga_oil.clone());
+        compilers.insert(ShaderLanguage::Glsl, naga_oil.clone());
         #[cfg(feature = "shader_format_wesl")]
-        resolvers.insert(
+        compilers.insert(
             ShaderLanguage::Wesl,
-            Arc::new(Mutex::new(WeslImportResolver::new())),
+            Arc::new(Mutex::new(WeslCompiler::new())),
         );
-
-        let mut compilers = HashMap::<ShaderLanguage, Arc<dyn ShaderCompiler>>::default();
-
-        let naga_compiler = Arc::new(NagaShaderCompiler::new(capabilities));
-        compilers.insert(ShaderLanguage::Wgsl, naga_compiler.clone());
-        compilers.insert(ShaderLanguage::SpirV, naga_compiler.clone());
-        #[cfg(feature = "shader_format_glsl")]
-        compilers.insert(ShaderLanguage::Glsl, naga_compiler.clone());
-        #[cfg(feature = "shader_format_wesl")]
-        compilers.insert(ShaderLanguage::Wesl, naga_compiler.clone());
+        #[cfg(feature = "shader_format_spirv")]
+        compilers.insert(
+            ShaderLanguage::SpirV,
+            Arc::new(Mutex::new(SpirVPassthroughCompiler)),
+        );
 
         Self {
             device,
-            resolvers,
             compilers,
             load_module,
             data: Default::default(),
@@ -228,33 +189,22 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
     /// Register a shader compiler for a specific language.
     ///
     /// Overwrites any existing compiler for that language, including built-in defaults.
-    pub fn register_compiler(
-        &mut self,
-        language: ShaderLanguage,
-        compiler: Arc<dyn ShaderCompiler>,
-    ) {
-        self.compilers.insert(language, compiler);
+    pub fn register_compiler<Compiler>(&mut self, language: ShaderLanguage, compiler: Compiler)
+    where
+        Compiler: ShaderCompiler,
+    {
+        self.compilers
+            .insert(language, Arc::new(Mutex::new(compiler)));
     }
 
-    /// Register an import resolver for a specific language.
-    ///
-    /// Overwrites any existing resolver for that language, including built-in defaults.
-    pub fn register_import_resolver(
-        &mut self,
-        language: ShaderLanguage,
-        resolver: Arc<Mutex<dyn ShaderImportResolver>>,
-    ) {
-        self.resolvers.insert(language, resolver);
-    }
-
-    fn add_import_to_resolver(
-        import_resolver: &mut dyn ShaderImportResolver,
+    fn add_import_to_compiler(
+        compiler: &mut dyn ShaderCompiler,
         import_path_shaders: &HashMap<ShaderImport, AssetId<Shader>>,
         shaders: &HashMap<AssetId<Shader>, Shader>,
         import: &ShaderImport,
     ) -> Result<(), ShaderCacheError> {
         // Early out if we've already imported this module
-        if import_resolver.contains_module(&import.module_name()) {
+        if compiler.contains_module(&import.module_name()) {
             return Ok(());
         }
 
@@ -266,12 +216,12 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
 
         // Recurse down to ensure all import dependencies are met
         for import in &shader.imports {
-            Self::add_import_to_resolver(import_resolver, import_path_shaders, shaders, import)?;
+            Self::add_import_to_compiler(compiler, import_path_shaders, shaders, import)?;
         }
 
-        import_resolver
+        compiler
             .add_import(shader)
-            .map_err(|e| ShaderCacheError::ComposeError(e.message))?;
+            .map_err(|e| ShaderCacheError::CompileError(e.message))?;
 
         Ok(())
     }
@@ -322,9 +272,10 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
             "processing shader {}, with shader defs {:?}",
             id, shader_defs
         );
+        let (shader_source, validate_shader) = self.compile_shader(id, shader_defs)?;
+
         let load_module = self.load_module;
-        let (shader_source, validate_shader) = self.resolve_and_compile(id, shader_defs)?;
-        let shader_module = (load_module)(&self.device, shader_source, &validate_shader)?;
+        let shader_module = load_module(&self.device, shader_source, &validate_shader)?;
         let module = Arc::new(shader_module);
 
         self.data
@@ -336,8 +287,8 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         Ok(module)
     }
 
-    /// Resolve imports and compile a shader source into a [`ShaderCacheSource`].
-    fn resolve_and_compile(
+    /// Compile a shader source into a [`ShaderCacheSource`].
+    fn compile_shader(
         &mut self,
         id: AssetId<Shader>,
         shader_defs: &[ShaderDefVal],
@@ -348,63 +299,30 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
             .ok_or(ShaderCacheError::ShaderNotLoaded(id))?;
         let validate_shader = shader.validate_shader.clone();
         let language = shader.language();
-        let stage = shader.source.stage();
 
-        let resolver = self.resolvers.get(&language).cloned();
-
-        let resolved = if let Some(resolver) = resolver {
-            let mut guard = resolver.lock().unwrap();
-
-            for import in shader.imports.iter() {
-                Self::add_import_to_resolver(
-                    &mut *guard,
-                    &self.import_path_shaders,
-                    &self.shaders,
-                    import,
-                )?;
-            }
-            let composed = guard
-                .compose(shader, shader_defs)
-                .map_err(|e| ShaderCacheError::ComposeError(e.message))?;
-            match composed {
-                ComposedSource::Naga(module) => ResolvedSource::Naga(module),
-                ComposedSource::Text { code, language } => ResolvedSource::Text { code, language },
-            }
-        } else {
-            Self::resolve_passthrough(shader)?
-        };
-
-        let compiler = self.compilers.get(&language).ok_or_else(|| {
+        let compiler = self.compilers.get(&language).cloned().ok_or_else(|| {
             ShaderCacheError::CompileError(format!(
                 "No ShaderCompiler registered for language `{language}`. \
                  Call PipelineCache::register_shader_compiler to add one."
             ))
         })?;
 
-        let request = CompileRequest {
-            source: resolved.as_source_ref(),
-            shader_defs,
-            stage,
-        };
-        compiler
-            .compile(&request)
-            .map(|compiled| (ShaderCacheSource::from(compiled), validate_shader))
-            .map_err(|e| ShaderCacheError::CompileError(e.message))
-    }
+        let mut guard = compiler.lock().unwrap();
 
-    fn resolve_passthrough(shader: &Shader) -> Result<ResolvedSource, ShaderCacheError> {
-        let language = shader.language();
-        if let Some(data) = shader.source.as_binary() {
-            Ok(ResolvedSource::Binary {
-                data: Cow::Owned(data.to_vec()),
-                language,
-            })
-        } else {
-            Ok(ResolvedSource::Text {
-                code: shader.source.as_str().to_string(),
-                language,
-            })
+        for import in shader.imports.iter() {
+            Self::add_import_to_compiler(
+                &mut *guard,
+                &self.import_path_shaders,
+                &self.shaders,
+                import,
+            )?;
         }
+
+        let compiled = guard
+            .compile(shader, shader_defs)
+            .map_err(|e| ShaderCacheError::CompileError(e.message))?;
+
+        Ok((ShaderCacheSource::from(compiled), validate_shader))
     }
 
     fn clear(&mut self, id: AssetId<Shader>) -> Vec<CachedPipelineId> {
@@ -418,8 +336,8 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
 
                 if let Some(shader) = self.shaders.get(&handle) {
                     let language = shader.language();
-                    if let Some(resolver) = self.resolvers.get(&language) {
-                        resolver
+                    if let Some(compiler) = self.compilers.get(&language) {
+                        compiler
                             .lock()
                             .unwrap()
                             .remove_import(&shader.import_path.module_name());
@@ -465,8 +383,8 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         }
 
         let language = shader.language();
-        if let Some(resolver) = self.resolvers.get(&language) {
-            resolver.lock().unwrap().add_import(&shader).ok();
+        if let Some(compiler) = self.compilers.get(&language) {
+            compiler.lock().unwrap().add_import(&shader).ok();
         }
 
         self.shaders.insert(id, shader);
@@ -499,8 +417,6 @@ pub enum ShaderCacheError {
     ShaderImportNotYetAvailable,
     #[error("Could not create shader module: {0}")]
     CreateShaderModule(String),
-    #[error("Shader composition error: {0}")]
-    ComposeError(String),
     #[error("Shader compilation error: {0}")]
     CompileError(String),
 }
