@@ -2,10 +2,7 @@
 //!
 //! Add the [`MotionBlur`] component to a camera to enable motion blur.
 
-use crate::{
-    bloom::bloom,
-    motion_blur::pipeline::{MotionBlurPipeline, MotionBlurPipelineId},
-};
+use crate::motion_blur::pipeline::{MotionBlurPipeline, MotionBlurPipelineId};
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_camera::Camera;
@@ -167,10 +164,7 @@ impl Plugin for MotionBlurPlugin {
                 pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
             );
 
-        render_app.add_systems(
-            Core3d,
-            motion_blur.before(bloom).in_set(Core3dSystems::PostProcess),
-        );
+        render_app.add_systems(Core3d, motion_blur.in_set(Core3dSystems::EarlyPostProcess));
     }
 }
 
