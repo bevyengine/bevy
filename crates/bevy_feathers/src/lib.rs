@@ -21,10 +21,10 @@
 use bevy_app::{
     HierarchyPropagatePlugin, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate, PropagateSet,
 };
-use bevy_asset::embedded_asset;
+use bevy_asset::{embedded_asset, load_internal_binary_asset};
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
 use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin};
-use bevy_text::{TextColor, TextFont};
+use bevy_text::{Font, TextColor, TextFont};
 use bevy_ui::UiSystems;
 use bevy_ui_render::UiMaterialPlugin;
 use bevy_ui_widgets::UiWidgetsPlugins;
@@ -42,7 +42,6 @@ pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
 pub mod font_styles;
-pub mod handle_or_path;
 pub mod palette;
 pub mod rounded_corners;
 pub mod theme;
@@ -55,12 +54,40 @@ impl Plugin for FeathersPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<UiTheme>();
 
-        // Embedded font
-        embedded_asset!(app, "assets/fonts/FiraSans-Bold.ttf");
-        embedded_asset!(app, "assets/fonts/FiraSans-BoldItalic.ttf");
-        embedded_asset!(app, "assets/fonts/FiraSans-Regular.ttf");
-        embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
-        embedded_asset!(app, "assets/fonts/FiraMono-Medium.ttf");
+        // Embedded fonts
+        fn load_font(bytes: &[u8], path: String) -> Font {
+            Font::try_from_bytes(bytes.to_vec(), &path)
+        }
+        load_internal_binary_asset!(
+            app,
+            constants::fonts::BOLD,
+            "assets/fonts/FiraSans-Bold.ttf",
+            load_font
+        );
+        load_internal_binary_asset!(
+            app,
+            constants::fonts::BOLD_ITALIC,
+            "assets/fonts/FiraSans-BoldItalic.ttf",
+            load_font
+        );
+        load_internal_binary_asset!(
+            app,
+            constants::fonts::REGULAR,
+            "assets/fonts/FiraSans-Regular.ttf",
+            load_font
+        );
+        load_internal_binary_asset!(
+            app,
+            constants::fonts::ITALIC,
+            "assets/fonts/FiraSans-Italic.ttf",
+            load_font
+        );
+        load_internal_binary_asset!(
+            app,
+            constants::fonts::MONO,
+            "assets/fonts/FiraMono-Medium.ttf",
+            load_font
+        );
 
         // Embedded shader
         embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");
