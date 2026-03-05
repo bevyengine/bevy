@@ -5,6 +5,8 @@ use core::{
 };
 use thiserror::Error;
 
+use crate::VariantAccess;
+
 use super::{Access, ReflectPathError};
 
 /// An error that occurs when parsing reflect path strings.
@@ -88,11 +90,58 @@ impl<'a> PathParser<'a> {
             Token::Dot => Ok(self.next_ident()?.field()),
             Token::Pound => self.next_ident()?.field_index(),
             Token::Ident(ident) => Ok(ident.field()),
-            Token::CloseBracket => Err(Error::CloseBeforeOpen),
+            Token::CloseBracket | Token::CloseCurly => Err(Error::CloseBeforeOpen),
             Token::OpenBracket => {
                 let index_ident = self.next_ident()?.list_index()?;
                 match self.next_token() {
                     Some(Token::CloseBracket) => Ok(index_ident),
+                    Some(other) => Err(Error::BadClose(other)),
+                    None => Err(Error::Unclosed),
+                }
+            }
+            Token::OpenCurly => {
+                let index_ident = self.next_ident()?.variant_index()?;
+                let vindex = (match index_ident {
+                    // "Safety" here depends on variant_index only returning Unit
+                    Access::Variant(VariantAccess::Unit(v)) => Some(v),
+                    _ => None,
+                })
+                .expect("unreachable");
+                match self.next_token() {
+                    //This is a unit variant, form: {1}
+                    Some(Token::CloseCurly) => Ok(index_ident),
+                    //This is a field variant, form {1.field}
+                    Some(Token::Dot) => {
+                        let val_ident = self.next_ident()?.field();
+                        match self.next_token() {
+                            Some(Token::CloseCurly) => match val_ident {
+                                Access::Field(cow) => {
+                                    Ok(Access::Variant(VariantAccess::Field(vindex, cow)))
+                                }
+                                Access::TupleIndex(idx) => {
+                                    Ok(Access::Variant(VariantAccess::TupleIndex(vindex, idx)))
+                                }
+                                // "Safety" here depends on Ident::field only returning Field/TupleIndex
+                                _ => panic!("unreachable"),
+                            },
+                            _ => Err(Error::Unclosed),
+                        }
+                    }
+                    //this is an index variant, form {1#2}
+                    Some(Token::Pound) => {
+                        let val_ident = self.next_ident()?.field_index()?;
+                        let val = (match val_ident {
+                            Access::FieldIndex(val) => Some(val),
+                            _ => None,
+                        })
+                        .expect("unreachable");
+                        match self.next_token() {
+                            Some(Token::CloseCurly) => {
+                                Ok(Access::Variant(VariantAccess::FieldIndex(vindex, val)))
+                            }
+                            _ => Err(Error::Unclosed),
+                        }
+                    }
                     Some(other) => Err(Error::BadClose(other)),
                     None => Err(Error::Unclosed),
                 }
@@ -137,6 +186,9 @@ impl<'a> Ident<'a> {
     fn list_index(self) -> Result<Access<'a>, Error<'a>> {
         Ok(Access::ListIndex(self.0.parse()?))
     }
+    fn variant_index(self) -> Result<Access<'a>, Error<'a>> {
+        Ok(Access::Variant(VariantAccess::Unit(self.0.parse()?)))
+    }
 }
 
 // NOTE: We use repr(u8) so that the `match byte` in `Token::symbol_from_byte`
@@ -149,6 +201,8 @@ enum Token<'a> {
     Pound = b'#',
     OpenBracket = b'[',
     CloseBracket = b']',
+    OpenCurly = b'{',
+    CloseCurly = b'}',
     Ident(Ident<'a>),
 }
 
@@ -159,19 +213,23 @@ impl fmt::Display for Token<'_> {
             Token::Pound => f.write_char('#'),
             Token::OpenBracket => f.write_char('['),
             Token::CloseBracket => f.write_char(']'),
+            Token::OpenCurly => f.write_char('{'),
+            Token::CloseCurly => f.write_char('}'),
             Token::Ident(ident) => f.write_str(ident.0),
         }
     }
 }
 
 impl<'a> Token<'a> {
-    const SYMBOLS: &'static [u8] = b".#[]";
+    const SYMBOLS: &'static [u8] = b".#[]{}";
     fn symbol_from_byte(byte: u8) -> Option<Self> {
         match byte {
             b'.' => Some(Self::Dot),
             b'#' => Some(Self::Pound),
             b'[' => Some(Self::OpenBracket),
             b']' => Some(Self::CloseBracket),
+            b'{' => Some(Self::OpenCurly),
+            b'}' => Some(Self::CloseCurly),
             _ => None,
         }
     }

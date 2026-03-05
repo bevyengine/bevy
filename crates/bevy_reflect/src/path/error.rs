@@ -1,7 +1,7 @@
 use core::fmt;
 
 use super::Access;
-use crate::{enums::VariantType, ReflectKind};
+use crate::{enums::VariantType, ReflectKind, VariantAccess};
 
 /// The kind of [`AccessError`], along with some kind-specific information.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -26,6 +26,14 @@ pub enum AccessErrorKind {
         expected: VariantType,
         /// The actual [`VariantType`] that was found.
         actual: VariantType,
+    },
+    /// An error that occurs when using an [`Access`] on the wrong enum variant index.
+    /// (ex: attempting to access `{3}` on `Option<u32>`)
+    IncorrectEnumVariantIndex {
+        /// The variant index that was expected based on the [`Access`]
+        expected: usize,
+        /// The actual index of the enum variant
+        actual: usize,
     },
 }
 
@@ -91,6 +99,7 @@ impl fmt::Display for AccessError<'_> {
 
         match kind {
             AccessErrorKind::MissingField(type_accessed) => {
+                use VariantAccess::*;
                 match access {
                     Access::Field(field) => write!(
                         f,
@@ -111,9 +120,28 @@ impl fmt::Display for AccessError<'_> {
                         f,
                         "The {type_accessed} accessed doesn't have index `{}`",
                         access.display_value()
-                    )
+                    ),
+                    Access::Variant(v_access) => match v_access {
+                        // It ~should~ be syntactically impossible to express the access of a field on a unit variant,
+                        // (eg, you should be getting a IncompatibleEnumVariantType error instead)
+                        // but if we manage to break this in the future this error will be a breadcrumb.
+                        Unit(_index) => write!(f, "You have attempted to access a field on a unit Enum Variant"),
+                        Field(index, field) => write!(
+                            f,
+                            "The {type_accessed} variant at index {} doesn't have {} `{}` field",
+                            index,
+                            if let Some("a" | "e" | "i" | "o" | "u") = field.get(0..1) {
+                                "an"
+                            } else {
+                                "a"
+                            },
+                            access.display_value()
+                        ),
+                        FieldIndex(index, _) => write!(f, "The {type_accessed} variant at index {} doesn't have field index `{}`",index, access.display_value()),
+                        TupleIndex(index, _) => write!(f,"The {type_accessed} variant at index {}, doesn't have tuple index `{}`",index,access.display_value()),
+                    }
                 }
-            }
+            },
             AccessErrorKind::IncompatibleTypes { expected, actual } => write!(
                 f,
                 "Expected {} access to access a {expected}, found a {actual} instead.",
@@ -124,6 +152,7 @@ impl fmt::Display for AccessError<'_> {
                 "Expected variant {} access to access a {expected:?} variant, found a {actual:?} variant instead.",
                 access.kind()
             ),
+            AccessErrorKind::IncorrectEnumVariantIndex { expected, actual } => write!(f, "Expected to access variant {} at index {expected:?}, found variant with index {actual:?} instead.", access.kind()),
         }
     }
 }

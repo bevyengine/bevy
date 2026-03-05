@@ -309,7 +309,7 @@
 //!   value: vec![None, None, Some(123)],
 //! };
 //! assert_eq!(
-//!   my_struct.path::<u32>(".value[2].0").unwrap(),
+//!   my_struct.path::<u32>(".value[2]{1.0}").unwrap(),
 //!   &123,
 //! );
 //! ```
