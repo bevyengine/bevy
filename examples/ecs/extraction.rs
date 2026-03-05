@@ -94,7 +94,7 @@ fn display_state(
         b.map(Single::into_inner),
         c.map(Single::into_inner),
     );
-    info!(?a, ?b, ?c, "{}", world_name.0);
+    info!(?a, ?b, ?c, "{: >12}", world_name.0);
 }
 
 // Writes a message when the `Space` key is pressed, which is later read by the `extract_components` system.
