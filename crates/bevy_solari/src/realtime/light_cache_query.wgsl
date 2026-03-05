@@ -92,43 +92,47 @@ fn load_light_cache_cell(rng: ptr<function, u32>, pixel_id: vec2<u32>) -> Loaded
     return LoadedCell(cell, exploratory_sample_ratio);
 }
 
-var<workgroup> weighted_lights: array<u64, 64>;
+var<workgroup> sort_temp: array<u64, 64>;
 
-fn compare_and_swap(i: u32, j: u32) {
-    if weighted_lights[i] < weighted_lights[j] {
-        let temp = weighted_lights[i];
-        weighted_lights[i] = weighted_lights[j];
-        weighted_lights[j] = temp;
+fn compare_and_swap(local_index: u32, idx: vec2<u32>) {
+    if sort_temp[idx.x] < sort_temp[idx.y] && local_index < 32u {
+        let temp = sort_temp[idx.x];
+        sort_temp[idx.x] = sort_temp[idx.y];
+        sort_temp[idx.y] = temp;
     }
 }
 
 fn flip(t: u32, h: u32) {
-    let q = ((2 * t) / h) * h;
-    compare_and_swap(q + t % h, q + h - (t % h));
+    let q = ((t << 1u) >> h) << h;
+    let m = (1u << h) - 1u ;
+    let b = t & m;
+    compare_and_swap(t, q + vec2<u32>(b, (1u << h) - b));
 }
 
 fn disperse(t: u32, h: u32) {
-    let q = ((2 * t) / h) * h;
-    compare_and_swap(q + (t % h), q + (t % h) + h >> 1);
+    let q = ((t << 1u) >> h) << h;
+    let m = (1u << h) - 1u;
+    let b = t & m;
+    compare_and_swap(t, q + vec2<u32>(b, b + (1u << (h - 1u))));
+}
+
+fn sort(local_index: u32, data: u64) {
+    sort_temp[local_index] = data;
+    workgroupBarrier();
+
+    for (var h = 1u; h <= 6u; h += 1u) {
+        flip(local_index, h);
+        workgroupBarrier();
+        for (var hh = h - 1u; hh > 0u; hh -= 1u) {
+            disperse(local_index, hh);
+            workgroupBarrier();
+        }
+    }
 }
 
 fn write_light_cache_cell(pixel_id: vec2<u32>, local_index: u32, light: WeightedLight) {
     let data = u64(bitcast<u32>(max(light.weight, 0.0))) << 32u | u64(light.light);
-    weighted_lights[local_index] = data;
-
-    if local_index >= 32 {
-        return;
-    }
-
-    for (var h = 2u; h <= 64u; h <<= 1u) {
-        workgroupBarrier();
-        flip(local_index, h);
-        for (var hh = h >> 1u; hh > 1u; hh >>= 1u) {
-            workgroupBarrier();
-            disperse(local_index, hh);
-        }
-    }
-    workgroupBarrier();
+    sort(local_index, data);
 
     if local_index != 0u {
         return;
@@ -137,7 +141,7 @@ fn write_light_cache_cell(pixel_id: vec2<u32>, local_index: u32, light: Weighted
     var light_count = 0u;
     var lights: array<WeightedLight, #{LIGHT_CACHE_LIGHTS_PER_CELL}>;
     for (var i = 0u; i < 64; i++) {
-        let data = weighted_lights[i];
+        let data = sort_temp[i];
         let light = u32(data);
         let weight = bitcast<f32>(u32(data >> 32u));
         var already_exists = false;
