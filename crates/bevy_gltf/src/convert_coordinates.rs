@@ -54,7 +54,7 @@ pub struct GltfConvertCoordinates {
     /// This option only changes the transform of the scene entity. It does not
     /// directly change the transforms of node entities - it only changes them
     /// indirectly through transform inheritance.
-    pub rotate_scene: bool,
+    pub rotate_scenes: bool,
 
     /// XXX TODO: Documentation.
     pub rotate_nodes: bool,
@@ -66,6 +66,58 @@ pub struct GltfConvertCoordinates {
     /// This option only changes mesh assets and the transforms of entities that
     /// instance meshes through [`Mesh3d`](bevy_mesh::Mesh3d).
     pub rotate_meshes: bool,
+
+    /// The semantics conversion to use if any of `rotate_scenes`, `rotate_nodes`
+    /// or `rotate_meshes` are enabled. Defaults to `GLTF_TO_BEVY`.
+    pub semantics: GltfSemanticsConversion,
+}
+
+/// The semantics conversion used by `GltfCoordinateConversion`.
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub enum GltfSemanticsConversion {
+    /// Use one semantics conversion for scenes, nodes and meshes.
+    All(SemanticsConversion),
+    /// Use different semantics conversions for scenes, nodes and meshes.
+    Flexible {
+        /// The semantics conversion for scenes. Will only be applied if
+        /// `GltfConvertCoordinates::rotate_scenes` is true.
+        scenes: SemanticsConversion,
+        /// The semantics conversion for scenes. Will only be applied if
+        /// `GltfConvertCoordinates::rotate_nodes` is true.
+        nodes: SemanticsConversion,
+        /// The semantics conversion for scenes. Will only be applied if
+        /// `GltfConvertCoordinates::rotate_meshes` is true.
+        meshes: SemanticsConversion,
+    },
+}
+
+impl GltfSemanticsConversion {
+    fn scenes(&self) -> SemanticsConversion {
+        match self {
+            Self::All(all) => *all,
+            Self::Flexible { scenes, .. } => *scenes,
+        }
+    }
+
+    fn nodes(&self) -> SemanticsConversion {
+        match self {
+            Self::All(all) => *all,
+            Self::Flexible { nodes, .. } => *nodes,
+        }
+    }
+
+    fn meshes(&self) -> SemanticsConversion {
+        match self {
+            Self::All(all) => *all,
+            Self::Flexible { meshes, .. } => *meshes,
+        }
+    }
+}
+
+impl Default for GltfSemanticsConversion {
+    fn default() -> Self {
+        GltfSemanticsConversion::All(SemanticsConversion::GLTF_TO_BEVY)
+    }
 }
 
 /// A `GltfConvertCoordinates` that's been resolved to converters.
@@ -77,26 +129,24 @@ pub(crate) struct ResolvedConvertCoordinates {
 }
 
 impl ResolvedConvertCoordinates {
-    pub(crate) fn resolve(input: GltfConvertCoordinates) -> Self {
-        let gltf_to_bevy = Converter::from_source_target(Semantics::GLTF, Semantics::BEVY);
-
-        Self {
-            scene: if input.rotate_scene {
-                gltf_to_bevy
+    pub(crate) fn resolve(input: GltfConvertCoordinates) -> Result<Self, SemanticsError> {
+        Ok(Self {
+            scene: if input.rotate_scenes {
+                input.semantics.scenes().try_into()?
             } else {
                 Converter::IDENTITY
             },
             node: if input.rotate_nodes {
-                gltf_to_bevy
+                input.semantics.nodes().try_into()?
             } else {
                 Converter::IDENTITY
             },
             mesh: if input.rotate_meshes {
-                gltf_to_bevy
+                input.semantics.meshes().try_into()?
             } else {
                 Converter::IDENTITY
             },
-        }
+        })
     }
 
     pub(crate) fn scene(&self) -> Converter {
@@ -184,7 +234,7 @@ pub(crate) fn attribute_coordinate_conversion(
 
 /// A axis in a 3d cartesian coordinate system.
 #[expect(missing_docs, reason = "The variants are self-explanatory")]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Axis {
     X,
     Y,
@@ -226,7 +276,7 @@ impl From<Axis> for Vec3 {
 
 /// A positive or negative sign. Used by [`SignedAxis`].
 #[expect(missing_docs, reason = "The variants are self-explanatory")]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Sign {
     Positive,
     Negative,
@@ -254,7 +304,7 @@ impl Sign {
 
 /// A signed 3D axis, e.g. "+X", "-Z".
 #[expect(missing_docs, reason = "The members are self-explanatory")]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignedAxis {
     pub sign: Sign,
     pub axis: Axis,
@@ -317,6 +367,35 @@ impl From<SignedAxis> for Vec3 {
     }
 }
 
+/// Defines forward/up/right semantics for a cartesian coordinate system, with
+/// the right axis implicit.
+///
+/// Not guarantee to be valid. See `Semantics` for explicit and validated
+/// semantics.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct PartialSemantics {
+    /// The forward axis.
+    pub forward: SignedAxis,
+
+    /// The up axis.
+    pub up: SignedAxis,
+}
+
+impl PartialSemantics {
+    /// Standard Bevy semantics.
+    pub const BEVY: Self = Self {
+        forward: SignedAxis::NEGATIVE_Z,
+        up: SignedAxis::POSITIVE_Y,
+    };
+
+    /// [Standard glTF semantics](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
+    /// (excluding cameras and lights, which are -Z forward).
+    pub const GLTF: Self = Self {
+        forward: SignedAxis::POSITIVE_Z,
+        up: SignedAxis::POSITIVE_Y,
+    };
+}
+
 /// Defines forward/up/right semantics for a cartesian coordinate system.
 ///
 /// Guaranteed to be valid - each semantic is a different axis, and the right
@@ -330,24 +409,8 @@ pub struct Semantics {
 
 impl Semantics {
     /// Create semantics from forward and up axes. The right axis is implicit.
-    pub fn from_forward_up(forward: SignedAxis, up: SignedAxis) -> Option<Self> {
-        if forward.axis == up.axis {
-            return None;
-        }
-
-        // right = forward.cross(up)
-
-        let winding = (forward.axis.index() + 1).rem_euclid(3) == up.axis.index();
-
-        let right = SignedAxis {
-            sign: match winding ^ forward.sign.is_positive() ^ up.sign.is_positive() {
-                true => Sign::Positive,
-                false => Sign::Negative,
-            },
-            axis: Axis::from_index_unchecked(3 - (forward.axis.index() + up.axis.index())),
-        };
-
-        Some(Self { forward, up, right })
+    pub fn from_forward_up(forward: SignedAxis, up: SignedAxis) -> Result<Self, SemanticsError> {
+        TryFrom::try_from(PartialSemantics { forward, up })
     }
 
     /// Returns the forward axis.
@@ -378,6 +441,59 @@ impl Semantics {
         forward: SignedAxis::POSITIVE_Z,
         up: SignedAxis::POSITIVE_Y,
         right: SignedAxis::NEGATIVE_X,
+    };
+}
+
+impl TryFrom<PartialSemantics> for Semantics {
+    type Error = SemanticsError;
+
+    fn try_from(value: PartialSemantics) -> Result<Self, Self::Error> {
+        let forward = value.forward;
+        let up = value.up;
+
+        if forward.axis == up.axis {
+            return Err(SemanticsError::ForwardAndUpAreSameAxis(value.forward.axis));
+        }
+
+        // right = forward.cross(up)
+
+        let winding = (forward.axis.index() + 1).rem_euclid(3) == up.axis.index();
+
+        let right = SignedAxis {
+            sign: match winding ^ forward.sign.is_positive() ^ up.sign.is_positive() {
+                true => Sign::Positive,
+                false => Sign::Negative,
+            },
+            axis: Axis::from_index_unchecked(3 - (forward.axis.index() + up.axis.index())),
+        };
+
+        Ok(Self { forward, up, right })
+    }
+}
+
+/// Errors from converting `PartialSemantics` to `Semantics`.
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum SemanticsError {
+    /// Forward and up are the same axis.
+    #[error("Forward and up are the same axis: {0:?}.")]
+    ForwardAndUpAreSameAxis(Axis),
+}
+
+/// Describes a conversion from source to target `Semantics`.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SemanticsConversion {
+    /// The semantics to convert from.
+    pub source: PartialSemantics,
+
+    /// The semantics to convert to.
+    pub target: PartialSemantics,
+}
+
+impl SemanticsConversion {
+    /// Converts from glTF to Bevy semantics.
+    const GLTF_TO_BEVY: Self = Self {
+        source: PartialSemantics::GLTF,
+        target: PartialSemantics::BEVY,
     };
 }
 
@@ -443,6 +559,17 @@ pub(crate) struct Converter {
     rotation: Quat,
     matrix: Mat4,
     remapping: RemappingConverter,
+}
+
+impl TryFrom<SemanticsConversion> for Converter {
+    type Error = SemanticsError;
+
+    fn try_from(value: SemanticsConversion) -> Result<Self, Self::Error> {
+        Ok(Self::from_source_target(
+            value.source.try_into()?,
+            value.target.try_into()?,
+        ))
+    }
 }
 
 impl Converter {
@@ -555,14 +682,12 @@ mod tests {
     ];
 
     fn semantics_permutations() -> impl Iterator<Item = Semantics> {
-        SIGNED_AXES
-            .iter()
-            .flat_map(|forward| {
-                SIGNED_AXES
-                    .iter()
-                    .map(|up| Semantics::from_forward_up(*forward, *up))
-            })
-            .flatten()
+        SIGNED_AXES.iter().flat_map(|forward| {
+            SIGNED_AXES
+                .iter()
+                .filter(|up| forward.axis != up.axis)
+                .map(|up| Semantics::from_forward_up(*forward, *up).unwrap())
+        })
     }
 
     // Test that all combinations of semantics are valid.
@@ -575,19 +700,27 @@ mod tests {
 
             assert_eq!(right, Vec3::cross(forward, up), "{semantics:?}");
         }
+
+        assert_eq!(
+            Err(SemanticsError::ForwardAndUpAreSameAxis(Axis::Z)),
+            Semantics::try_from(PartialSemantics {
+                forward: SignedAxis::POSITIVE_Z,
+                up: SignedAxis::NEGATIVE_Z
+            })
+        );
     }
 
-    // Test that our const semantics are valid.
+    // Test that our named semantics are valid.
     #[test]
-    fn const_semantics() {
+    fn named_semantics() {
         assert_eq!(
-            Some(Semantics::BEVY),
-            Semantics::from_forward_up(SignedAxis::NEGATIVE_Z, SignedAxis::POSITIVE_Y)
+            Semantics::BEVY,
+            Semantics::try_from(PartialSemantics::BEVY).unwrap()
         );
 
         assert_eq!(
-            Some(Semantics::GLTF),
-            Semantics::from_forward_up(SignedAxis::POSITIVE_Z, SignedAxis::POSITIVE_Y)
+            Semantics::GLTF,
+            Semantics::try_from(PartialSemantics::GLTF).unwrap()
         );
     }
 

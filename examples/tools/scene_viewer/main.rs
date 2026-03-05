@@ -102,9 +102,10 @@ fn main() {
             })
             .set(GltfPlugin {
                 convert_coordinates: GltfConvertCoordinates {
-                    rotate_scene: args.convert_scene_coordinates == Some(true),
+                    rotate_scenes: args.convert_scene_coordinates == Some(true),
                     rotate_nodes: args.convert_node_coordinates == Some(true),
                     rotate_meshes: args.convert_mesh_coordinates == Some(true),
+                    ..Default::default()
                 },
                 ..default()
             }),

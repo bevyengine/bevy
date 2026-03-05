@@ -55,8 +55,9 @@ use tracing::{error, info_span, warn};
 use wgpu_types::Face;
 
 use crate::{
-    convert_coordinates::RemappingConverter,
-    loader::gltf_ext::scene::node_transforms_and_conversions, vertex_attributes::convert_attribute,
+    convert_coordinates::{RemappingConverter, SemanticsError},
+    loader::gltf_ext::scene::node_transforms_and_conversions,
+    vertex_attributes::convert_attribute,
     Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
     GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin,
     GltfSkinnedMeshBoundsPolicy,
@@ -139,6 +140,9 @@ pub enum GltfError {
     /// Failed to load a file.
     #[error("failed to load file: {0}")]
     Io(#[from] Error),
+    /// The `GltfConvertCoordinates::semantics` were invalid.
+    #[error(transparent)]
+    CoordinateConversionSemantics(#[from] SemanticsError),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -292,7 +296,7 @@ impl GltfLoader {
             ResolvedConvertCoordinates::resolve(match settings.convert_coordinates {
                 Some(convert_coordinates) => convert_coordinates,
                 None => loader.default_convert_coordinates,
-            });
+            })?;
 
         let (node_transforms, node_conversions) =
             node_transforms_and_conversions(&gltf, &convert_coordinates);
