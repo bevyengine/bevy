@@ -78,7 +78,7 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         TabIndex(0),
         ThemeFontColor(tokens::CHECKBOX_TEXT),
         InheritableFont(TextFont {
-            font: fonts::REGULAR.into(),
+            font: fonts::REGULAR,
             font_size: FontSize::Px(14.0),
             ..Default::default()
         }),

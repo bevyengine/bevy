@@ -120,7 +120,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             },
             ThemeFontColor(tokens::SLIDER_TEXT),
             InheritableFont(TextFont {
-                font: fonts::MONO.into(),
+                font: fonts::MONO,
                 font_size: FontSize::Px(12.0),
                 ..Default::default()
             }),

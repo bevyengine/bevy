@@ -21,10 +21,10 @@
 use bevy_app::{
     HierarchyPropagatePlugin, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate, PropagateSet,
 };
-use bevy_asset::{embedded_asset, load_internal_binary_asset};
+use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
 use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin};
-use bevy_text::{Font, TextColor, TextFont};
+use bevy_text::{embedded_font, TextColor, TextFont};
 use bevy_ui::UiSystems;
 use bevy_ui_render::UiMaterialPlugin;
 use bevy_ui_widgets::UiWidgetsPlugins;
@@ -55,39 +55,11 @@ impl Plugin for FeathersPlugin {
         app.init_resource::<UiTheme>();
 
         // Embedded fonts
-        fn load_font(bytes: &[u8], path: String) -> Font {
-            Font::try_from_bytes(bytes.to_vec(), &path)
-        }
-        load_internal_binary_asset!(
-            app,
-            constants::fonts::BOLD,
-            "assets/fonts/FiraSans-Bold.ttf",
-            load_font
-        );
-        load_internal_binary_asset!(
-            app,
-            constants::fonts::BOLD_ITALIC,
-            "assets/fonts/FiraSans-BoldItalic.ttf",
-            load_font
-        );
-        load_internal_binary_asset!(
-            app,
-            constants::fonts::REGULAR,
-            "assets/fonts/FiraSans-Regular.ttf",
-            load_font
-        );
-        load_internal_binary_asset!(
-            app,
-            constants::fonts::ITALIC,
-            "assets/fonts/FiraSans-Italic.ttf",
-            load_font
-        );
-        load_internal_binary_asset!(
-            app,
-            constants::fonts::MONO,
-            "assets/fonts/FiraMono-Medium.ttf",
-            load_font
-        );
+        embedded_font!(app, "assets/fonts/FiraSans-Bold.ttf");
+        embedded_font!(app, "assets/fonts/FiraSans-BoldItalic.ttf");
+        embedded_font!(app, "assets/fonts/FiraSans-Regular.ttf");
+        embedded_font!(app, "assets/fonts/FiraSans-Italic.ttf");
+        embedded_font!(app, "assets/fonts/FiraMono-Medium.ttf");
 
         // Embedded shader
         embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");

@@ -85,7 +85,7 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         ThemeBackgroundColor(tokens::BUTTON_BG),
         ThemeFontColor(tokens::BUTTON_TEXT),
         InheritableFont(TextFont {
-            font: fonts::REGULAR.into(),
+            font: fonts::REGULAR,
             font_size: FontSize::Px(14.0),
             ..Default::default()
         }),
