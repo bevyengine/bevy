@@ -13,10 +13,7 @@ impl PreferencesStore {
     /// Construct a new filesystem preferences store.
     ///
     /// # Arguments
-    /// * `app_name` - The name of the application. This is used to uniquely identify the
-    ///   preferences directory so as not to confuse it with other applications' preferences.
-    ///   To ensure global uniqueness, it is recommended to use a reverse domain name, e.g.
-    ///   "com.example.myapp".
+    /// * `app_name` - The name of the application. See [`crate::PreferencesPlugin`] for usage.
     pub(crate) fn new(app_name: &str) -> Self {
         Self {
             base_path: if let Some(base_dir) = preferences_dir() {

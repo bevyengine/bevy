@@ -22,7 +22,6 @@ fn main() {
             ..default()
         }))
         .add_plugins(PreferencesPlugin::new("org.bevy.examples.prefs_window"))
-        // .add_plugins(AutosavePrefsPlugin)
         .add_systems(Startup, setup)
         .add_systems(
             Update,

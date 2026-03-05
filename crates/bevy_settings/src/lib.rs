@@ -42,7 +42,17 @@ use store_fs::PreferencesStore;
 #[cfg(target_arch = "wasm32")]
 use store_wasm::PreferencesStore;
 
-/// Plugin to orchestrate loading and saving of preferences.
+/// Plugin to orchestrate loading and saving of user preferences.
+///
+/// You are required to provide a unique application name, so that your preferences don't overwrite
+/// those of other apps. To ensure global uniqueness, it is recommended to use a reverse domain
+/// name, e.g. "com.example.myapp". The plugin will create a directory with that name in the
+/// appropriate filesystem location (depending on platform) for app preferences. For platforms
+/// without filesystems, other storage mechanisms will be used.
+///
+/// If you are in the unfortunate position where you do not have a domain name and cannot
+/// afford one, use a reverse domain based on the URL of your repo (GitHub, GitLab, Codeberg
+/// and so on).
 ///
 /// Adding this plugin causes an immediate load of preferences (from either the filesystem or
 /// browser local storage, depending on platform).
@@ -73,20 +83,12 @@ use store_wasm::PreferencesStore;
 /// will not be corrupted (it writes to a temporary file first, then uses atomic operations to
 /// replace the previous file).
 pub struct PreferencesPlugin {
-    /// The name of the application. This is used to uniquely identify the preferences directory
-    /// so as not to confuse it with other applications' preferences. To ensure global uniqueness,
-    /// it is recommended to use a reverse domain name, e.g. "com.example.myapp".
-    ///
-    /// If you are in the unfortunate position where you do not have a domain name and cannot
-    /// afford one, use a reverse domain based on the URL of your repo (GitHub, GitLab, Codeberg
-    /// and so on).
+    /// The unique name of the application.
     pub app_name: String,
 }
 
 impl PreferencesPlugin {
-    /// Construct a new `PreferencesPlugin` for the givn application name. To ensure global
-    /// uniqueness and avoid overwriting settings for other apps, it is recommended to use a
-    /// reverse domain name, e.g. "com.example.myapp".
+    /// Construct a new `PreferencesPlugin` for the given application name.
     pub fn new(app_name: &str) -> Self {
         Self {
             app_name: app_name.to_string(),
@@ -96,7 +98,6 @@ impl PreferencesPlugin {
 
 impl Plugin for PreferencesPlugin {
     fn build(&self, app: &mut App) {
-        // Find the plugin so we can get the app name.
         let app_name = self.app_name.clone();
         let world = app.world();
         let last_save = world.read_change_tick();
@@ -130,6 +131,11 @@ impl Plugin for PreferencesPlugin {
 /// You can override the name of the section with `settings_group(group = "<name>")`.
 /// If there is a collision between names (multiple resources have the same name) then
 /// the resulting properties will be merged into a single section.
+///
+/// You can also control which file the type gets saved to via
+/// `settings_group(file = "<filename>")`. This should be the base name of the file without the
+/// extension. The default name is `settings`, which will cause the preferences to be written out
+/// to `settings.toml` in the app's preferences directory.
 pub trait SettingsGroup: Resource {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
@@ -188,7 +194,7 @@ struct PreferencesFileRegistry {
 /// is complete.
 #[derive(Default, PartialEq)]
 pub enum SavePreferencesSync {
-    /// Save preferences only if they have changed (based on [`PreferencesChanged` resource]).
+    /// Save preferences only if they have changed since the most recent load or save.
     #[default]
     IfChanged,
     /// Save preferences unconditionally.
@@ -204,7 +210,7 @@ impl Command for SavePreferencesSync {
 /// A Command which saves preferences to disk. Actual FS operations happen in another thread.
 #[derive(Default, PartialEq)]
 pub enum SavePreferences {
-    /// Save preferences only if they have changed (based on [`PreferencesChanged` resource]).
+    /// Save preferences only if they have changed since the most recent load or save.
     #[default]
     IfChanged,
     /// Save preferences unconditionally.
