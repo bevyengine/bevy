@@ -50,7 +50,6 @@ git checkout v0.4.0
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Embedded](#embedded)
-  - [Extraction](#extraction)
   - [Games](#games)
   - [Gizmos](#gizmos)
   - [Helpers](#helpers)
@@ -333,6 +332,7 @@ Example | Description
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
 [Error handling](../examples/ecs/error_handling.rs) | How to return and handle errors across the ECS
+[Extraction](../examples/ecs/extraction.rs) | Demonstrates different ways to extract components
 [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
@@ -362,12 +362,6 @@ Example | Description
 Example | Description
 --- | ---
 [`no_std` Compatible Library](../examples/no_std/library/src/lib.rs) | Example library compatible with `std` and `no_std` targets
-
-### Extraction
-
-Example | Description
---- | ---
-[Custom Schedule](../examples/ecs/extraction.rs) | Demonstrates different ways to extract components
 
 ### Games
 

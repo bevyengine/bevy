@@ -43,27 +43,23 @@ fn main() {
     let mut app = App::new();
 
     // Main World
-    app.insert_resource(WorldName("Main World".into()));
-
-    app.add_systems(Startup, setup)
+    app.insert_resource(WorldName("Main World".into()))
+        .add_plugins((
+            DefaultPlugins,
+            // Plugin for automatically extracting A.
+            ExtractComponentPlugin::<A>::default(),
+        ))
+        .add_message::<ExtractMessage>()
+        .add_systems(Startup, setup)
         .add_systems(Update, (set_time, trigger_extraction, display_state));
-
-    app.add_plugins((
-        DefaultPlugins,
-        // Plugin for automatically extracting A.
-        ExtractComponentPlugin::<A>::default(),
-    ));
-
-    app.add_message::<ExtractMessage>();
 
     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;
     };
 
     // Render World
-    render_app.insert_resource(WorldName("Render World".into()));
-
     render_app
+        .insert_resource(WorldName("Render World".into()))
         .add_systems(ExtractSchedule, extract_components)
         .add_systems(Render, display_state);
 
@@ -86,9 +82,9 @@ fn set_time(mut a: Single<&mut A>, mut b: Single<&mut B>, mut c: Single<&mut C>,
 
 // Displays the values from each of the components. The same system is used for both Worlds.
 fn display_state(
-    a: Option<Single<&A>>,
-    b: Option<Single<&B>>,
-    c: Option<Single<&C>>,
+    a: Option<Single<(Entity, &A)>>,
+    b: Option<Single<(Entity, &B)>>,
+    c: Option<Single<(Entity, &C)>>,
 
     // Resource used to debug the name of the World.
     world_name: Res<WorldName>,

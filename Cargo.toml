@@ -2320,9 +2320,9 @@ path = "examples/ecs/extraction.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.extraction]
-name = "Custom Schedule"
+name = "Extraction"
 description = "Demonstrates different ways to extract components"
-category = "Extraction"
+category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
