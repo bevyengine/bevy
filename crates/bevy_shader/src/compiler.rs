@@ -1,5 +1,4 @@
 use crate::ShaderDefVal;
-use alloc::sync::Arc;
 
 /// Identifies the language of a shader source.
 ///
@@ -17,8 +16,8 @@ pub enum ShaderLanguage {
     Wesl,
     /// A user-defined or plugin-provided language.
     ///
-    /// The string should be a unique identifier for the language (e.g. `"hlsl"`).
-    Custom(Arc<str>),
+    /// The string should be a unique identifier for the language.
+    Custom(&'static str),
 }
 
 impl core::fmt::Display for ShaderLanguage {
