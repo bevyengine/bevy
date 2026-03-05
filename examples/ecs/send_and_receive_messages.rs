@@ -108,7 +108,7 @@ fn debug_messages(mut messages: MessageReader<DebugMessage>) {
 fn send_and_receive_param_set(
     mut param_set: ParamSet<(MessageReader<DebugMessage>, MessageWriter<DebugMessage>)>,
     frame_count: Res<FrameCount>,
-) {
+) -> Result {
     println!(
         "Sending and receiving messages for frame {} with a `ParamSet`",
         frame_count.0
@@ -118,7 +118,7 @@ fn send_and_receive_param_set(
     let mut messages_to_resend = Vec::new();
 
     // This is p0, as the first parameter in the `ParamSet` is the reader.
-    for message in param_set.p0().read() {
+    for message in param_set.try_p0()?.read() {
         if message.resend_from_param_set {
             messages_to_resend.push(message.clone());
         }
@@ -127,8 +127,9 @@ fn send_and_receive_param_set(
     // This is p1, as the second parameter in the `ParamSet` is the writer.
     for mut message in messages_to_resend {
         message.times_sent += 1;
-        param_set.p1().write(message);
+        param_set.try_p1()?.write(message);
     }
+    Ok(())
 }
 
 /// A system that both sends and receives messages using a [`Local`] [`MessageCursor`].

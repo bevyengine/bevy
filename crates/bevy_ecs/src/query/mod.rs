@@ -774,7 +774,7 @@ mod tests {
 
         // system param
         let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
-        let q = q.get_mut(&mut world).unwrap();
+        let q = q.get_mut(&mut world);
         let _: Option<&Foo> = q.iter().next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>().next();
         let _: Option<&Foo> = q.iter_many([e]).next();

@@ -1223,7 +1223,7 @@ mod tests {
                     let local = *p0.downcast_mut::<Local<usize>>().unwrap();
                     let query_count = p1.downcast_mut::<Query<()>>().unwrap().iter().count();
                     let _entities = p2.downcast_mut::<&Entities>().unwrap();
-                    assert!(p0.downcast_mut::<Query<()>>().is_none());
+                    assert!(p0.downcast_mut::<Query<()>>().is_err());
                     local + query_count
                 },
             );

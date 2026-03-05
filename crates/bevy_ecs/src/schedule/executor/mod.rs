@@ -588,7 +588,7 @@ mod validation_tests {
 
         fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
-        fn get_param<'s>(
+        fn try_get_param<'s>(
             _state: &'s mut Self::State,
             _system_meta: &SystemMeta,
         ) -> Result<Self::Item<'s>, SystemParamValidationError> {
@@ -750,8 +750,11 @@ mod validation_tests {
         let mut world = World::new();
         let system = (DynParamBuilder::new::<Res<MissingResource>>(ParamBuilder),)
             .build_state(&mut world)
-            .build_system(|_param: DynSystemParam| {});
-        let result = world.run_system_once(system);
+            .build_system(|param: DynSystemParam| -> Result<(), RunSystemError> {
+                param.downcast::<Res<MissingResource>>()?;
+                Ok(())
+            });
+        let result: Result<(), _> = world.run_system_once(system);
         assert!(
             matches!(result, Err(RunSystemError::Failed(_))),
             "Expected Failed from DynSystemParam system, got {result:?}"
@@ -763,8 +766,11 @@ mod validation_tests {
         let mut world = World::new();
         let system = (DynParamBuilder::new::<Single<&TestComponent>>(ParamBuilder),)
             .build_state(&mut world)
-            .build_system(|_param: DynSystemParam| {});
-        let result = world.run_system_once(system);
+            .build_system(|param: DynSystemParam| -> Result<(), RunSystemError> {
+                param.downcast::<Single<&TestComponent>>()?;
+                Ok(())
+            });
+        let result: Result<(), _> = world.run_system_once(system);
         assert!(
             matches!(result, Err(RunSystemError::Skipped(_))),
             "Expected Skipped from DynSystemParam system, got {result:?}"
@@ -777,8 +783,11 @@ mod validation_tests {
         world.init_resource::<Counter>();
         let system = (DynParamBuilder::new::<Res<Counter>>(ParamBuilder),)
             .build_state(&mut world)
-            .build_system(|_param: DynSystemParam| {});
-        let result = world.run_system_once(system);
+            .build_system(|param: DynSystemParam| -> Result<(), RunSystemError> {
+                param.downcast::<Res<Counter>>()?;
+                Ok(())
+            });
+        let result: Result<(), _> = world.run_system_once(system);
         assert!(
             result.is_ok(),
             "Expected Ok from DynSystemParam system, got {result:?}"
@@ -839,10 +848,13 @@ mod validation_tests {
     fn param_set_validation_skip() {
         // A system using ParamSet with a Single sub-param should be skipped
         // when the Single has no matching entities, rather than panicking.
-        fn system(mut _set: ParamSet<(Single<&TestComponent>,)>) {}
+        fn system(mut set: ParamSet<(Single<&TestComponent>,)>) -> Result<(), RunSystemError> {
+            set.try_p0()?;
+            Ok(())
+        }
 
         let mut world = World::new();
-        let result = world.run_system_once(system);
+        let result: Result<(), _> = world.run_system_once(system);
         assert!(
             matches!(result, Err(RunSystemError::Skipped(_))),
             "Expected Skipped from ParamSet with invalid Single, got {result:?}"
@@ -853,10 +865,15 @@ mod validation_tests {
     fn param_set_validation_failure() {
         // A system using ParamSet with a Res sub-param should fail validation
         // when the resource does not exist.
-        fn system(mut _set: ParamSet<(Query<&TestComponent>, Res<MissingResource>)>) {}
+        fn system(
+            mut set: ParamSet<(Query<&TestComponent>, Res<MissingResource>)>,
+        ) -> Result<(), RunSystemError> {
+            set.try_p1()?;
+            Ok(())
+        }
 
         let mut world = World::new();
-        let result = world.run_system_once(system);
+        let result: Result<(), _> = world.run_system_once(system);
         assert!(
             matches!(result, Err(RunSystemError::Failed(_))),
             "Expected Failed from ParamSet with missing resource, got {result:?}"
@@ -866,13 +883,16 @@ mod validation_tests {
     #[test]
     fn param_set_validation_success() {
         // A system using ParamSet with valid sub-params should succeed.
-        fn system(mut set: ParamSet<(Query<&TestComponent>, Res<Counter>)>) {
-            let _q = set.p0();
+        fn system(
+            mut set: ParamSet<(Query<&TestComponent>, Res<Counter>)>,
+        ) -> Result<(), RunSystemError> {
+            set.try_p1()?;
+            Ok(())
         }
 
         let mut world = World::new();
         world.init_resource::<Counter>();
-        let result = world.run_system_once(system);
+        let result: Result<(), _> = world.run_system_once(system);
         assert!(
             result.is_ok(),
             "Expected Ok from ParamSet with valid params, got {result:?}"

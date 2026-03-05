@@ -148,7 +148,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Calling this method implies mutable access to the *whole* world (see first point on safety section
     /// below), which includes all entities, components, and resources. Notably, calling this on
     /// [`WorldQuery::init_fetch`](crate::query::WorldQuery::init_fetch) and
-    /// [`SystemParam::get_param`](crate::system::SystemParam::get_param) are most likely *unsound* unless
+    /// [`SystemParam::try_get_param`](crate::system::SystemParam::try_get_param) are most likely *unsound* unless
     /// you can prove that the underlying [`World`] is exclusive, which in normal circumstances is not.
     ///
     /// # Safety

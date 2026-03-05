@@ -3,7 +3,7 @@ use crate::{
     query::FilteredAccessSet,
     storage::SparseSetIndex,
     system::{
-        ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam,
+        ExclusiveSystemParam, InfallibleSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam,
         SystemParamValidationError,
     },
     world::{FromWorld, World},
@@ -68,13 +68,26 @@ unsafe impl SystemParam for WorldId {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for WorldId {
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         _: &'state mut Self::State,
         _: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         _: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        Ok(world.id())
+    ) -> Self::Item<'world, 'state> {
+        world.id()
     }
 }
 
@@ -86,7 +99,7 @@ impl ExclusiveSystemParam for WorldId {
         world.id()
     }
 
-    fn get_param<'s>(
+    fn try_get_param<'s>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
     ) -> Result<Self::Item<'s>, SystemParamValidationError> {

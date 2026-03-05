@@ -2,7 +2,7 @@ use bevy_color::Color;
 use bevy_ecs::{
     component::Mutable,
     prelude::*,
-    system::{Query, SystemParam},
+    system::{InfallibleSystemParam, Query, SystemParam},
 };
 
 use crate::{LineHeight, TextColor, TextFont, TextSpan};
@@ -47,7 +47,7 @@ impl TextIterScratch {
 /// System parameter for reading text spans in a text block.
 ///
 /// `R` is the root text component.
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct TextReader<'w, 's, R: TextRoot> {
     // This is a local to avoid system ambiguities when TextReaders run in parallel.
     scratch: Local<'s, TextIterScratch>,

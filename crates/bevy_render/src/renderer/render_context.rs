@@ -260,7 +260,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     }
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
+    unsafe fn try_get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,

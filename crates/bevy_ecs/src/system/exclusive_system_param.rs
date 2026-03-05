@@ -27,7 +27,7 @@ pub trait ExclusiveSystemParam: Sized {
     /// Creates a parameter to be passed into an [`ExclusiveSystemParamFunction`].
     ///
     /// [`ExclusiveSystemParamFunction`]: super::ExclusiveSystemParamFunction
-    fn get_param<'s>(
+    fn try_get_param<'s>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
     ) -> Result<Self::Item<'s>, SystemParamValidationError>;
@@ -47,7 +47,7 @@ impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> ExclusiveSystemParam
         QueryState::new(world)
     }
 
-    fn get_param<'s>(
+    fn try_get_param<'s>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
     ) -> Result<Self::Item<'s>, SystemParamValidationError> {
@@ -63,7 +63,7 @@ impl<'a, P: SystemParam + 'static> ExclusiveSystemParam for &'a mut SystemState<
         SystemState::new(world)
     }
 
-    fn get_param<'s>(
+    fn try_get_param<'s>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
     ) -> Result<Self::Item<'s>, SystemParamValidationError> {
@@ -79,7 +79,7 @@ impl<'_s, T: FromWorld + Send + 'static> ExclusiveSystemParam for Local<'_s, T> 
         SyncCell::new(T::from_world(world))
     }
 
-    fn get_param<'s>(
+    fn try_get_param<'s>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
     ) -> Result<Self::Item<'s>, SystemParamValidationError> {
@@ -93,7 +93,7 @@ impl<S: ?Sized> ExclusiveSystemParam for PhantomData<S> {
 
     fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
-    fn get_param<'s>(
+    fn try_get_param<'s>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
     ) -> Result<Self::Item<'s>, SystemParamValidationError> {
@@ -127,7 +127,7 @@ macro_rules! impl_exclusive_system_param_tuple {
             }
 
             #[inline]
-            fn get_param<'s>(
+            fn try_get_param<'s>(
                 state: &'s mut Self::State,
                 system_meta: &SystemMeta,
             ) -> Result<Self::Item<'s>, SystemParamValidationError> {
@@ -136,7 +136,7 @@ macro_rules! impl_exclusive_system_param_tuple {
                     clippy::unused_unit,
                     reason = "Zero-length tuples won't have any params to get."
                 )]
-                Ok(($($param::get_param($param, system_meta)?,)*))
+                Ok(($($param::try_get_param($param, system_meta)?,)*))
             }
         }
     };

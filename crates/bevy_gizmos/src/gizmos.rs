@@ -229,7 +229,7 @@ where
     }
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
+    unsafe fn try_get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
@@ -237,7 +237,7 @@ where
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
         let (mut f0, f1) = unsafe {
-            GizmosState::<Config, Clear>::get_param(
+            GizmosState::<Config, Clear>::try_get_param(
                 &mut state.state,
                 system_meta,
                 world,

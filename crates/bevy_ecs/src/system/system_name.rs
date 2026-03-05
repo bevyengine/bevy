@@ -3,7 +3,7 @@ use crate::{
     prelude::World,
     query::FilteredAccessSet,
     system::{
-        ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam,
+        ExclusiveSystemParam, InfallibleSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam,
         SystemParamValidationError,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -63,13 +63,26 @@ unsafe impl SystemParam for SystemName {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for SystemName {
+    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        Ok(SystemName(system_meta.name.clone()))
+    ) -> Self::Item<'w, 's> {
+        SystemName(system_meta.name.clone())
     }
 }
 
@@ -82,7 +95,7 @@ impl ExclusiveSystemParam for SystemName {
 
     fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
-    fn get_param<'s>(
+    fn try_get_param<'s>(
         _state: &'s mut Self::State,
         system_meta: &SystemMeta,
     ) -> Result<Self::Item<'s>, SystemParamValidationError> {

@@ -22,7 +22,7 @@ use crate::{
     },
 };
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
-pub use bevy_ecs_macros::SystemParam;
+pub use bevy_ecs_macros::{InfallibleSystemParam, SystemParam};
 use bevy_platform::cell::SyncCell;
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::prelude::DebugName;
@@ -211,7 +211,7 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 ///
 /// The implementor must ensure the following is true.
 /// - [`SystemParam::init_access`] correctly registers all [`World`] accesses used
-///   by [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
+///   by [`SystemParam::try_get_param`] with the provided [`system_meta`](SystemMeta).
 /// - None of the world accesses may conflict with any prior accesses registered
 ///   on `system_meta`.
 pub unsafe trait SystemParam: Sized {
@@ -275,7 +275,7 @@ pub unsafe trait SystemParam: Sized {
     ///   If `Self` is `ReadOnlySystemParam`, the access is read-only and can never conflict.
     ///   Otherwise, [`SystemParam::init_access`] must be called to ensure it does not panic.
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    unsafe fn get_param<'world, 'state>(
+    unsafe fn try_get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
@@ -283,10 +283,46 @@ pub unsafe trait SystemParam: Sized {
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError>;
 }
 
+/// A [`SystemParam`] that is always valid.
+///
+/// Infallible system parameters can be obtained from methods like [`SystemState::get`](crate::system::SystemState::get) and [`ParamSet::p0`]
+/// without needing any error handling.
+///
+/// For example, [`Query`] implements this trait.
+/// It is always possible to create a query, even if it would not match anything.
+///
+/// In contrast, [`Res`] and [`ResMut`] are fallible because the resource may not exist,
+/// as are types like [`MessageReader`] that use resources internally.
+///
+/// # Derive
+///
+/// This trait can be derived with the [`derive@super::InfallibleSystemParam`] macro.
+/// It has the same restrictions as deriving [`SystemParam`], with the additional requirement that all fields implement `InfallibleSystemParam`.
+pub trait InfallibleSystemParam: SystemParam {
+    /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
+    ///
+    /// This is an infallible version of [`SystemParam::try_get_param`] available for implementations that always return `Ok`.
+    ///
+    /// # Safety
+    ///
+    /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
+    ///   in [`init_access`](SystemParam::init_access).
+    /// - [`SystemParam::init_access`] must not request conflicting access.
+    ///   If `Self` is `ReadOnlySystemParam`, the access is read-only and can never conflict.
+    ///   Otherwise, [`SystemParam::init_access`] must be called to ensure it does not panic.
+    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state>;
+}
+
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
 /// # Safety
-/// This must only be implemented for [`SystemParam`] impls that exclusively read the World passed in to [`SystemParam::get_param`]
+/// This must only be implemented for [`SystemParam`] impls that exclusively read the World passed in to [`SystemParam::try_get_param`]
 pub unsafe trait ReadOnlySystemParam: SystemParam {}
 
 /// Shorthand way of accessing the associated type [`SystemParam::Item`] for a given [`SystemParam`].
@@ -321,17 +357,32 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
+    unsafe fn try_get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl<D: QueryData + 'static, F: QueryFilter + 'static> InfallibleSystemParam
+    for Query<'_, '_, D, F>
+{
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
         // The caller ensures the world matches the one used in init_state.
-        Ok(unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) })
+        unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) }
     }
 }
 
@@ -357,7 +408,7 @@ unsafe impl<'a, 'b, D: IterQueryData + 'static, F: QueryFilter + 'static> System
     }
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
+    unsafe fn try_get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
@@ -410,14 +461,14 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     }
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
+    unsafe fn try_get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: Delegate to existing `SystemParam` implementations.
-        let query = unsafe { Query::get_param(state, system_meta, world, change_tick) }?;
+        let query = unsafe { Query::get_param(state, system_meta, world, change_tick) };
         if query.is_empty() {
             Err(SystemParamValidationError::skipped::<Self>(
                 "No matching entities",
@@ -514,6 +565,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::SystemParamValidationError;
 /// #
 /// # #[derive(Message)]
 /// # struct MyMessage;
@@ -534,18 +586,19 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 ///         // using the other mutable parameters.
 ///         &World,
 ///     )>,
-/// ) {
-///     for message in set.p0().read() {
+/// ) -> Result<()> {
+///     for message in set.try_p0()?.read() {
 ///         // ...
 ///         # let _message = message;
 ///     }
-///     set.p1().write(MyMessage::new());
+///     set.try_p1()?.write(MyMessage::new());
 ///
 ///     let entities = set.p2().entities();
 ///     // ...
 ///     # let _entities = entities;
+///     Ok(())
 /// }
-/// # bevy_ecs::system::assert_is_system(message_system);
+/// # bevy_ecs::system::assert_is_system::<(), (), _>(message_system);
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
@@ -555,7 +608,7 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
 }
 
 macro_rules! impl_param_set {
-    ($(($index: tt, $param: ident, $fn_name: ident)),*) => {
+    ($(($index: tt, $param: ident, $fn_name: ident, $try_fn_name: ident)),*) => {
         // SAFETY: All parameters are constrained to ReadOnlySystemParam, so World is only read
         unsafe impl<'w, 's, $($param,)*> ReadOnlySystemParam for ParamSet<'w, 's, ($($param,)*)>
         where $($param: ReadOnlySystemParam,)*
@@ -613,28 +666,32 @@ macro_rules! impl_param_set {
             }
 
             #[inline]
-            unsafe fn get_param<'w, 's>(
+            unsafe fn try_get_param<'w, 's>(
                 state: &'s mut Self::State,
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
                 change_tick: Tick,
             ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-                // Validate each sub-param eagerly so that the system is correctly
-                // skipped by the executor when any sub-param is unavailable.
-                // PERF: the sub-params will be fetched again lazily when accessed through
-                // the ParamSet, but this is no worse than the previous
-                // validate_param + get_param pattern.
-                $(
-                    // SAFETY: Upheld by caller.
-                    drop(unsafe { $param::get_param(&mut state.$index, system_meta, world, change_tick) }?);
-                )*
+                // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+                Ok( unsafe { Self::get_param(state, system_meta, world, change_tick) })
+            }
+        }
 
-                Ok(ParamSet {
+        impl<'_w, '_s, $($param: SystemParam,)*> InfallibleSystemParam for ParamSet<'_w, '_s, ($($param,)*)>
+        {
+            #[inline]
+            unsafe fn get_param<'w, 's>(
+                state: &'s mut Self::State,
+                system_meta: &SystemMeta,
+                world: UnsafeWorldCell<'w>,
+                change_tick: Tick,
+            ) -> Self::Item<'w, 's> {
+                ParamSet {
                     param_states: state,
                     system_meta: system_meta.clone(),
                     world,
                     change_tick,
-                })
+                }
             }
         }
 
@@ -645,21 +702,45 @@ macro_rules! impl_param_set {
                 #[doc = stringify!($index)]
                 /// in this [`ParamSet`].
                 /// No other parameters may be accessed while this one is active.
-                pub fn $fn_name<'a>(&'a mut self) -> SystemParamItem<'a, 'a, $param> {
+                ///
+                ///
+                /// To obtain the value of an [`InfallibleSystemParam`]
+                /// without needing to unwrap a result, instead call
+                #[doc = concat!("[`Self::", stringify!($fn_name), "`].")]
+                pub fn $try_fn_name<'a>(&'a mut self) -> Result<SystemParamItem<'a, 'a, $param>, SystemParamValidationError> {
+                    // SAFETY: systems run without conflicts with other systems.
+                    // Conflicting params in ParamSet are not accessible at the same time
+                    // ParamSets are guaranteed to not conflict with other SystemParams
+                    unsafe {
+                        $param::try_get_param(&mut self.param_states.$index, &self.system_meta, self.world, self.change_tick)
+                    }
+                }
+
+                /// Gets exclusive access to the parameter at index
+                #[doc = stringify!($index)]
+                /// in this [`ParamSet`].
+                /// No other parameters may be accessed while this one is active.
+                ///
+                /// To obtain the value of a fallible [`SystemParam`],
+                /// instead call
+                #[doc = concat!("[`Self::", stringify!($try_fn_name), "`].")]
+                pub fn $fn_name<'a>(&'a mut self) -> SystemParamItem<'a, 'a, $param>
+                where
+                    $param: InfallibleSystemParam
+                {
                     // SAFETY: systems run without conflicts with other systems.
                     // Conflicting params in ParamSet are not accessible at the same time
                     // ParamSets are guaranteed to not conflict with other SystemParams
                     unsafe {
                         $param::get_param(&mut self.param_states.$index, &self.system_meta, self.world, self.change_tick)
                     }
-                    .unwrap_or_else(|err| panic!("ParamSet parameter validation failed: {err}"))
                 }
             )*
         }
     }
 }
 
-all_tuples_enumerated!(impl_param_set, 1, 8, P, p);
+all_tuples_enumerated!(impl_param_set, 1, 8, P, p, try_p);
 
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
@@ -699,7 +780,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     }
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
+    unsafe fn try_get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
@@ -756,7 +837,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     }
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
+    unsafe fn try_get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
@@ -807,19 +888,32 @@ unsafe impl SystemParam for &'_ World {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for &'_ World {
+    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+    ) -> Self::Item<'w, 's> {
         // SAFETY: Read-only access to the entire world was registered in `init_state`.
-        Ok(unsafe { world.world() })
+        unsafe { world.world() }
     }
 }
 
 // SAFETY: `DeferredWorld` can read all components and resources but cannot be used to gain any other mutable references.
-unsafe impl<'w> SystemParam for DeferredWorld<'w> {
+unsafe impl SystemParam for DeferredWorld<'_> {
     type State = ();
     type Item<'world, 'state> = DeferredWorld<'world>;
 
@@ -839,14 +933,27 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         component_access_set.write_all();
     }
 
+    #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for DeferredWorld<'_> {
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+    ) -> Self::Item<'world, 'state> {
         // SAFETY: Upheld by caller
-        Ok(unsafe { world.into_deferred() })
+        unsafe { world.into_deferred() }
     }
 }
 
@@ -1030,13 +1137,26 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl<'a, T: FromWorld + Send + 'static> InfallibleSystemParam for Local<'a, T> {
+    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        Ok(Local(state.get()))
+    ) -> Self::Item<'w, 's> {
+        Local(state.get())
     }
 }
 
@@ -1234,13 +1354,26 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl<T: SystemBuffer> InfallibleSystemParam for Deferred<'_, T> {
+    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        Ok(Deferred(state.get()))
+    ) -> Self::Item<'w, 's> {
+        Deferred(state.get())
     }
 }
 
@@ -1265,13 +1398,26 @@ unsafe impl SystemParam for ExclusiveMarker {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for ExclusiveMarker {
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        Ok(Self(PhantomData))
+    ) -> Self::Item<'world, 'state> {
+        Self(PhantomData)
     }
 }
 
@@ -1299,13 +1445,26 @@ unsafe impl SystemParam for NonSendMarker {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for NonSendMarker {
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        Ok(Self(PhantomData))
+    ) -> Self::Item<'world, 'state> {
+        Self(PhantomData)
     }
 }
 
@@ -1344,7 +1503,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     }
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
+    unsafe fn try_get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
@@ -1392,7 +1551,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     }
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
+    unsafe fn try_get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
@@ -1427,13 +1586,26 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for &Archetypes {
+    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        Ok(world.archetypes())
+    ) -> Self::Item<'w, 's> {
+        world.archetypes()
     }
 }
 
@@ -1456,13 +1628,26 @@ unsafe impl<'a> SystemParam for &'a Components {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for &Components {
+    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        Ok(world.components())
+    ) -> Self::Item<'w, 's> {
+        world.components()
     }
 }
 
@@ -1485,13 +1670,26 @@ unsafe impl<'a> SystemParam for &'a Entities {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for &Entities {
+    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        Ok(world.entities())
+    ) -> Self::Item<'w, 's> {
+        world.entities()
     }
 }
 
@@ -1514,13 +1712,26 @@ unsafe impl<'a> SystemParam for &'a EntityAllocator {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for &EntityAllocator {
+    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        Ok(world.entity_allocator())
+    ) -> Self::Item<'w, 's> {
+        world.entity_allocator()
     }
 }
 
@@ -1543,13 +1754,26 @@ unsafe impl<'a> SystemParam for &'a Bundles {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for &Bundles {
+    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        Ok(world.bundles())
+    ) -> Self::Item<'w, 's> {
+        world.bundles()
     }
 }
 
@@ -1601,16 +1825,29 @@ unsafe impl SystemParam for SystemChangeTick {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for SystemChangeTick {
+    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        Ok(SystemChangeTick {
+    ) -> Self::Item<'w, 's> {
+        SystemChangeTick {
             last_run: system_meta.last_run,
             this_run: change_tick,
-        })
+        }
     }
 }
 
@@ -1634,14 +1871,14 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
     }
 
     #[inline]
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        // SAFETY: Upheld by caller
-        Ok(unsafe { T::get_param(state, system_meta, world, change_tick) }.ok())
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1650,6 +1887,19 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
+    }
+}
+
+impl<T: SystemParam> InfallibleSystemParam for Option<T> {
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        // SAFETY: Upheld by caller
+        unsafe { T::try_get_param(state, system_meta, world, change_tick) }.ok()
     }
 }
 
@@ -1676,14 +1926,14 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
     }
 
     #[inline]
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        // SAFETY: Upheld by caller
-        Ok(unsafe { T::get_param(state, system_meta, world, change_tick) })
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1692,6 +1942,19 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
+    }
+}
+
+impl<T: SystemParam> InfallibleSystemParam for Result<T, SystemParamValidationError> {
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        // SAFETY: Upheld by caller
+        unsafe { T::try_get_param(state, system_meta, world, change_tick) }
     }
 }
 
@@ -1771,14 +2034,14 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
     }
 
     #[inline]
-    unsafe fn get_param<'world, 'state>(
+    unsafe fn try_get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: Upheld by caller.
-        unsafe { T::get_param(state, system_meta, world, change_tick) }
+        unsafe { T::try_get_param(state, system_meta, world, change_tick) }
             .map(If)
             .map_err(|mut e| {
                 e.skipped = true;
@@ -1792,6 +2055,19 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
+    }
+}
+
+impl<T: InfallibleSystemParam> InfallibleSystemParam for If<T> {
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        // SAFETY: Upheld by caller.
+        If(unsafe { T::get_param(state, system_meta, world, change_tick) })
     }
 }
 
@@ -1821,7 +2097,7 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
     }
 
     #[inline]
-    unsafe fn get_param<'world, 'state>(
+    unsafe fn try_get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
@@ -1832,7 +2108,7 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
             // SAFETY:
             // - We initialized the access for each parameter in `init_access`, so the caller ensures we have access to any world data needed by each param.
             // - The caller ensures this was the world used to initialize our state, and we used that world to initialize parameter states
-            .map(|state| unsafe { T::get_param(state, system_meta, world, change_tick) })
+            .map(|state| unsafe { T::try_get_param(state, system_meta, world, change_tick) })
             .collect()
     }
 
@@ -1846,6 +2122,24 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         for state in state {
             T::queue(state, system_meta, world.reborrow());
         }
+    }
+}
+
+impl<T: InfallibleSystemParam> InfallibleSystemParam for Vec<T> {
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        state
+            .iter_mut()
+            // SAFETY:
+            // - We initialized the access for each parameter in `init_access`, so the caller ensures we have access to any world data needed by each param.
+            // - The caller ensures this was the world used to initialize our state, and we used that world to initialize parameter states
+            .map(|state| unsafe { T::get_param(state, system_meta, world, change_tick) })
+            .collect()
     }
 }
 
@@ -1882,28 +2176,14 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
     }
 
     #[inline]
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        // Validate each sub-param eagerly so that the system is correctly
-        // skipped by the executor when any sub-param is unavailable.
-        // PERF: the sub-params will be fetched again lazily when accessed through
-        // the ParamSet, but this is no worse than the previous
-        // validate_param + get_param pattern.
-        for s in state.iter_mut() {
-            // SAFETY: Upheld by caller.
-            drop(unsafe { T::get_param(s, system_meta, world, change_tick) }?);
-        }
-
-        Ok(ParamSet {
-            param_states: state,
-            system_meta: system_meta.clone(),
-            world,
-            change_tick,
-        })
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1919,9 +2199,29 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
     }
 }
 
-impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
+impl<T: SystemParam> InfallibleSystemParam for ParamSet<'_, '_, Vec<T>> {
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        ParamSet {
+            param_states: state,
+            system_meta: system_meta.clone(),
+            world,
+            change_tick,
+        }
+    }
+}
+
+impl<T: InfallibleSystemParam> ParamSet<'_, '_, Vec<T>> {
     /// Accesses the parameter at the given index.
     /// No other parameters may be accessed while this one is active.
+    ///
+    /// To obtain the value of a fallible [`SystemParam`],
+    /// instead call [`Self::try_get_mut`].
     pub fn get_mut(&mut self, index: usize) -> T::Item<'_, '_> {
         // SAFETY:
         // - We initialized the access for each parameter, so the caller ensures we have access to any world data needed by any param.
@@ -1934,7 +2234,6 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
                 self.world,
                 self.change_tick,
             )
-            .unwrap()
         }
     }
 
@@ -1946,10 +2245,34 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
                 // - We initialized the access for each parameter, so the caller ensures we have access to any world data needed by any param.
                 //   We have mutable access to the ParamSet, so no other params in the set are active.
                 // - The caller of `get_param` ensured that this was the world used to initialize our state, and we used that world to initialize parameter states
-                unsafe { T::get_param(state, &self.system_meta, self.world, self.change_tick) }
-                    .unwrap_or_else(|err| panic!("ParamSet parameter validation failed: {err}")),
+                unsafe { T::get_param(state, &self.system_meta, self.world, self.change_tick) },
             );
         });
+    }
+}
+
+impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
+    /// Accesses the parameter at the given index.
+    /// No other parameters may be accessed while this one is active.
+    ///
+    /// To obtain the value of an in fallible [`SystemParam`]
+    /// without needing to unwrap a result, instead call [`Self::get_mut`].
+    pub fn try_get_mut(
+        &mut self,
+        index: usize,
+    ) -> Result<T::Item<'_, '_>, SystemParamValidationError> {
+        // SAFETY:
+        // - We initialized the access for each parameter, so the caller ensures we have access to any world data needed by any param.
+        //   We have mutable access to the ParamSet, so no other params in the set are active.
+        // - The caller of `get_param` ensured that this was the world used to initialize our state, and we used that world to initialize parameter states
+        unsafe {
+            T::try_get_param(
+                &mut self.param_states[index],
+                &self.system_meta,
+                self.world,
+                self.change_tick,
+            )
+        }
     }
 }
 
@@ -2005,7 +2328,7 @@ macro_rules! impl_system_param_tuple {
 
             #[inline]
             #[track_caller]
-            unsafe fn get_param<'w, 's>(
+            unsafe fn try_get_param<'w, 's>(
                 state: &'s mut Self::State,
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
@@ -2023,7 +2346,48 @@ macro_rules! impl_system_param_tuple {
                         clippy::unused_unit,
                         reason = "Zero-length tuples won't have any params to get."
                     )]
-                    Ok(($($param::get_param($param, system_meta, world, change_tick)?,)*))
+                    Ok(($($param::try_get_param($param, system_meta, world, change_tick)?,)*))
+                }
+            }
+        }
+
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is in a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use some of the parameters."
+        )]
+        #[allow(clippy::unused_unit, reason = "Zero length tuple is unit.")]
+        $(#[$meta])*
+        // SAFETY: implementers of each `SystemParam` in the tuple have validated their impls
+        impl<$($param: InfallibleSystemParam),*> InfallibleSystemParam for ($($param,)*) {
+            #[inline]
+            #[track_caller]
+            unsafe fn get_param<'w, 's>(
+                state: &'s mut Self::State,
+                system_meta: &SystemMeta,
+                world: UnsafeWorldCell<'w>,
+                change_tick: Tick,
+            ) -> Self::Item<'w, 's> {
+                let ($($param,)*) = state;
+
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples won't have any params to validate."
+                )]
+                // SAFETY: Upheld by caller
+                unsafe {
+                    #[allow(
+                        clippy::unused_unit,
+                        reason = "Zero-length tuples won't have any params to get."
+                    )]
+                    ($($param::get_param($param, system_meta, world, change_tick),)*)
                 }
             }
         }
@@ -2172,14 +2536,27 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: Defer to the safety of P::SystemParam
+        unsafe { P::try_get_param(state, system_meta, world, change_tick) }.map(StaticSystemParam)
+    }
+}
+
+impl<P: InfallibleSystemParam + 'static> InfallibleSystemParam for StaticSystemParam<'_, '_, P> {
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+    ) -> Self::Item<'world, 'state> {
         // SAFETY: Defer to the safety of P::SystemParam
-        unsafe { P::get_param(state, system_meta, world, change_tick) }.map(StaticSystemParam)
+        StaticSystemParam(unsafe { P::get_param(state, system_meta, world, change_tick) })
     }
 }
 
@@ -2199,13 +2576,26 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl<T: ?Sized> InfallibleSystemParam for PhantomData<T> {
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        Ok(PhantomData)
+    ) -> Self::Item<'world, 'state> {
+        PhantomData
     }
 }
 
@@ -2249,7 +2639,7 @@ unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 ///     // They will return `None` if the type does not match.
 ///     assert!(param.is::<Res<A>>());
 ///     assert!(!param.is::<Res<B>>());
-///     assert!(param.downcast_mut::<Res<B>>().is_none());
+///     assert!(param.downcast_mut::<Res<B>>().is_err());
 ///     let res = param.downcast_mut::<Res<A>>().unwrap();
 ///     // The type parameter can be left out if it can be determined from use.
 ///     let res: Res<A> = param.downcast().unwrap();
@@ -2308,9 +2698,13 @@ impl<'w, 's> DynSystemParam<'w, 's> {
         self.state.is::<ParamState<T::Item<'static, 'static>>>()
     }
 
-    /// Returns the inner system param if it is the correct type.
+    /// Returns the inner system param if it is the correct type and is valid.
+    ///
+    /// Returns an error if the inner system param is the wrong type,
+    /// or returns the error from the inner system param if it is invalid.
+    ///
     /// This consumes the dyn param, so the returned param can have its original world and state lifetimes.
-    pub fn downcast<T: SystemParam>(self) -> Option<T>
+    pub fn downcast<T: SystemParam>(self) -> Result<T, SystemParamValidationError>
     // See downcast() function for an explanation of the where clause
     where
         T::Item<'static, 'static>: SystemParam<Item<'w, 's> = T> + 'static,
@@ -2322,9 +2716,13 @@ impl<'w, 's> DynSystemParam<'w, 's> {
         unsafe { downcast::<T>(self.state, &self.system_meta, self.world, self.change_tick) }
     }
 
-    /// Returns the inner system parameter if it is the correct type.
+    /// Returns the inner system parameter if it is the correct type and is valid.
+    ///
+    /// Returns an error if the inner system param is the wrong type,
+    /// or returns the error from the inner system param if it is invalid.
+    ///
     /// This borrows the dyn param, so the returned param is only valid for the duration of that borrow.
-    pub fn downcast_mut<'a, T: SystemParam>(&'a mut self) -> Option<T>
+    pub fn downcast_mut<'a, T: SystemParam>(&'a mut self) -> Result<T, SystemParamValidationError>
     // See downcast() function for an explanation of the where clause
     where
         T::Item<'static, 'static>: SystemParam<Item<'a, 'a> = T> + 'static,
@@ -2336,12 +2734,18 @@ impl<'w, 's> DynSystemParam<'w, 's> {
         unsafe { downcast::<T>(self.state, &self.system_meta, self.world, self.change_tick) }
     }
 
-    /// Returns the inner system parameter if it is the correct type.
+    /// Returns the inner system parameter if it is the correct type and is valid.
+    ///
+    /// Returns an error if the inner system param is the wrong type,
+    /// or returns the error from the inner system param if it is invalid.
+    ///
     /// This borrows the dyn param, so the returned param is only valid for the duration of that borrow,
     /// but since it only performs read access it can keep the original world lifetime.
     /// This can be useful with methods like [`Query::iter_inner()`] or [`Res::into_inner()`]
     /// to obtain references with the original world lifetime.
-    pub fn downcast_mut_inner<'a, T: ReadOnlySystemParam>(&'a mut self) -> Option<T>
+    pub fn downcast_mut_inner<'a, T: ReadOnlySystemParam>(
+        &'a mut self,
+    ) -> Result<T, SystemParamValidationError>
     // See downcast() function for an explanation of the where clause
     where
         T::Item<'static, 'static>: SystemParam<Item<'w, 'a> = T> + 'static,
@@ -2365,7 +2769,7 @@ unsafe fn downcast<'w, 's, T: SystemParam>(
     system_meta: &SystemMeta,
     world: UnsafeWorldCell<'w>,
     change_tick: Tick,
-) -> Option<T>
+) -> Result<T, SystemParamValidationError>
 // We need a 'static version of the SystemParam to use with `Any::downcast_mut()`,
 // and we need a <'w, 's> version to actually return.
 // The type parameter T must be the one we return in order to get type inference from the return value.
@@ -2379,12 +2783,13 @@ where
 {
     state
         .downcast_mut::<ParamState<T::Item<'static, 'static>>>()
+        .ok_or_else(|| SystemParamValidationError::invalid::<T>("`DynSystemParam` had wrong type"))
         .and_then(|state| {
             // SAFETY:
             // - The caller ensures the world has access for the underlying system param,
             //   and since the downcast succeeded, the underlying system param is T.
             // - The caller ensures the `world` matches.
-            unsafe { T::Item::get_param(&mut state.0, system_meta, world, change_tick) }.ok()
+            unsafe { T::Item::try_get_param(&mut state.0, system_meta, world, change_tick) }
         })
 }
 
@@ -2415,17 +2820,6 @@ trait DynParamState: Sync + Send + Any {
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     );
-
-    /// Validates the inner parameter by calling [`SystemParam::get_param`] and discarding the value.
-    ///
-    /// # Safety
-    /// Refer to [`SystemParam::get_param`].
-    unsafe fn validate(
-        &mut self,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-        change_tick: Tick,
-    ) -> Result<(), SystemParamValidationError>;
 }
 
 /// A wrapper around a [`SystemParam::State`] that can be used as a trait object in a [`DynSystemParam`].
@@ -2447,16 +2841,6 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         world: &mut World,
     ) {
         T::init_access(&self.0, system_meta, component_access_set, world);
-    }
-
-    unsafe fn validate(
-        &mut self,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-        change_tick: Tick,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Upheld by caller.
-        unsafe { T::get_param(&mut self.0, system_meta, world, change_tick) }.map(drop)
     }
 }
 
@@ -2482,24 +2866,14 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     }
 
     #[inline]
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
+        world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        // Validate the inner parameter eagerly so that systems using DynSystemParam
-        // are correctly skipped by the executor when the inner param is unavailable.
-        // SAFETY: Upheld by caller.
-        unsafe { state.0.validate(system_meta, world, change_tick) }?;
-        // SAFETY:
-        // - `state.0` is a boxed `ParamState<T>`.
-        // - `init_access` calls `DynParamState::init_access`, which calls `init_access` on the inner parameter,
-        //   so the caller ensures the world has the necessary access.
-        // - The caller ensures that the provided world is the same and has the required access.
-        Ok(unsafe {
-            DynSystemParam::new(state.0.as_mut(), world, system_meta.clone(), change_tick)
-        })
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2508,6 +2882,23 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         state.0.queue(system_meta, world);
+    }
+}
+
+impl InfallibleSystemParam for DynSystemParam<'_, '_> {
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        // SAFETY:
+        // - `state.0` is a boxed `ParamState<T>`.
+        // - `init_access` calls `DynParamState::init_access`, which calls `init_access` on the inner parameter,
+        //   so the caller ensures the world has the necessary access.
+        // - The caller ensures that the provided world is the same and has the required access.
+        unsafe { DynSystemParam::new(state.0.as_mut(), world, system_meta.clone(), change_tick) }
     }
 }
 
@@ -2542,15 +2933,28 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         component_access_set.add(filter);
     }
 
+    #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for FilteredResources<'_, '_> {
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+    ) -> Self::Item<'world, 'state> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
         // and we registered all resource access in `state``.
-        Ok(unsafe { FilteredResources::new(world, state, system_meta.last_run, change_tick) })
+        unsafe { FilteredResources::new(world, state, system_meta.last_run, change_tick) }
     }
 }
 
@@ -2588,22 +2992,35 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         component_access_set.add(filter);
     }
 
+    #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for FilteredResourcesMut<'_, '_> {
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+    ) -> Self::Item<'world, 'state> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
         // and we registered all resource access in `state``.
-        Ok(unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) })
+        unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
     }
 }
 
 /// An error that occurs when a system parameter is not valid,
 /// used by system executors to determine what to do with a system.
 ///
-/// Returned as an error from [`SystemParam::get_param`],
+/// Returned as an error from [`SystemParam::try_get_param`],
 /// and handled using the unified error handling mechanisms defined in [`bevy_ecs::error`].
 #[derive(Debug, PartialEq, Eq, Clone, Error)]
 pub struct SystemParamValidationError {
@@ -2692,7 +3109,7 @@ mod tests {
     use super::*;
     use crate::query::Without;
     use crate::resource::IsResource;
-    use crate::system::assert_is_system;
+    use crate::system::{assert_is_system, RunSystemError};
     use crate::world::EntityMut;
     use core::cell::RefCell;
 
@@ -2943,9 +3360,12 @@ mod tests {
     // Regression test for https://github.com/bevyengine/bevy/issues/10207.
     #[test]
     fn param_set_non_send_first() {
-        fn non_send_param_set(mut p: ParamSet<(NonSend<*mut u8>, ())>) {
-            let _ = p.p0();
+        fn non_send_param_set(
+            mut p: ParamSet<(NonSend<*mut u8>, ())>,
+        ) -> Result<(), RunSystemError> {
+            let _ = p.try_p0()?;
             p.p1();
+            Ok(())
         }
 
         let mut world = World::new();
@@ -2958,9 +3378,12 @@ mod tests {
     // Regression test for https://github.com/bevyengine/bevy/issues/10207.
     #[test]
     fn param_set_non_send_second() {
-        fn non_send_param_set(mut p: ParamSet<((), NonSendMut<*mut u8>)>) {
+        fn non_send_param_set(
+            mut p: ParamSet<((), NonSendMut<*mut u8>)>,
+        ) -> Result<(), RunSystemError> {
             p.p0();
-            let _ = p.p1();
+            let _ = p.try_p1()?;
+            Ok(())
         }
 
         let mut world = World::new();

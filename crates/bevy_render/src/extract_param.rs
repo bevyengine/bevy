@@ -95,7 +95,7 @@ where
     }
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
+    unsafe fn try_get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
@@ -105,14 +105,14 @@ where
         // - The caller ensures that `world` is the same one that `init_state` was called with.
         // - The caller ensures that no other `SystemParam`s will conflict with the accesses we have registered.
         let main_world = unsafe {
-            Res::<MainWorld>::get_param(
+            Res::<MainWorld>::try_get_param(
                 &mut state.main_world_state,
                 system_meta,
                 world,
                 change_tick,
             )?
         };
-        let item = state.state.get(main_world.into_inner())?;
+        let item = state.state.try_get(main_world.into_inner())?;
         Ok(Extract { item })
     }
 }

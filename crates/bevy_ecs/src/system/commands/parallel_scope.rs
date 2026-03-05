@@ -3,7 +3,7 @@ use bevy_utils::Parallel;
 use crate::{
     entity::{Entities, EntityAllocator},
     prelude::World,
-    system::{Deferred, SystemBuffer, SystemMeta, SystemParam},
+    system::{Deferred, InfallibleSystemParam, SystemBuffer, SystemMeta, SystemParam},
     world::DeferredWorld,
 };
 
@@ -49,7 +49,7 @@ struct ParallelCommandQueue {
 /// }
 /// # bevy_ecs::system::assert_is_system(parallel_command_system);
 /// ```
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct ParallelCommands<'w, 's> {
     state: Deferred<'s, ParallelCommandQueue>,
     allocator: &'w EntityAllocator,

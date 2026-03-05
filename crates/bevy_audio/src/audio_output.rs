@@ -3,7 +3,10 @@ use crate::{
     SpatialAudioSink, SpatialListener,
 };
 use bevy_asset::{Asset, Assets};
-use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::{
+    prelude::*,
+    system::{InfallibleSystemParam, SystemParam},
+};
 use bevy_math::Vec3;
 use bevy_transform::prelude::GlobalTransform;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
@@ -53,7 +56,7 @@ pub struct PlaybackDespawnMarker;
 #[derive(Component, Default)]
 pub struct PlaybackRemoveMarker;
 
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub(crate) struct EarPositions<'w, 's> {
     pub(crate) query: Query<'w, 's, (Entity, &'static GlobalTransform, &'static SpatialListener)>,
 }

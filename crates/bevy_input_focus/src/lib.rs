@@ -35,7 +35,11 @@ pub use autofocus::*;
 use bevy_app::PreUpdate;
 use bevy_app::{App, Plugin, PostStartup};
 use bevy_ecs::{
-    entity::Entities, prelude::*, query::QueryData, system::SystemParam, traversal::Traversal,
+    entity::Entities,
+    prelude::*,
+    query::QueryData,
+    system::{InfallibleSystemParam, SystemParam},
+    traversal::Traversal,
 };
 #[cfg(feature = "gamepad")]
 use bevy_input::gamepad::GamepadButtonChangedEvent;
@@ -341,7 +345,7 @@ pub trait IsFocused {
 /// A system param that helps get information about the current focused entity.
 ///
 /// When working with the entire [`World`], consider using the [`IsFocused`] instead.
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct IsFocusedHelper<'w, 's> {
     parent_query: Query<'w, 's, &'static ChildOf>,
     input_focus: Option<Res<'w, InputFocus>>,

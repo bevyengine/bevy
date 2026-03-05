@@ -91,7 +91,7 @@ fn spawn_tasks(mut commands: Commands) {
                                 Res<BoxMaterialHandle>,
                             )>::new(world);
                             let (box_mesh_handle, box_material_handle) =
-                                system_state.get_mut(world).unwrap();
+                                system_state.try_get_mut(world).unwrap();
 
                             (box_mesh_handle.clone(), box_material_handle.clone())
                         };

@@ -5,7 +5,10 @@ use crate::ui_node::ComputedUiTargetCamera;
 use crate::Node;
 #[cfg(feature = "ghost_nodes")]
 use bevy_camera::visibility::Visibility;
-use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::{
+    prelude::*,
+    system::{InfallibleSystemParam, SystemParam},
+};
 #[cfg(feature = "ghost_nodes")]
 use bevy_reflect::prelude::*;
 #[cfg(feature = "ghost_nodes")]
@@ -28,7 +31,7 @@ pub struct GhostNode;
 /// System param that allows iteration of all UI root nodes.
 ///
 /// A UI root node is either a [`Node`] without a [`ChildOf`], or with only [`GhostNode`] ancestors.
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct UiRootNodes<'w, 's> {
     root_node_query: Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>,
     root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<ChildOf>)>,
@@ -53,7 +56,7 @@ impl<'w, 's> UiRootNodes<'w, 's> {
 
 #[cfg(feature = "ghost_nodes")]
 /// System param that gives access to UI children utilities, skipping over [`GhostNode`].
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct UiChildren<'w, 's> {
     ui_children_query: Query<
         'w,
@@ -69,7 +72,7 @@ pub struct UiChildren<'w, 's> {
 
 #[cfg(not(feature = "ghost_nodes"))]
 /// System param that gives access to UI children utilities.
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct UiChildren<'w, 's> {
     ui_children_query: Query<'w, 's, Option<&'static Children>, With<Node>>,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
@@ -230,7 +233,7 @@ mod tests {
         });
 
         let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
-        let (ui_root_nodes, a_query) = system_state.get(world).unwrap();
+        let (ui_root_nodes, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query.iter_many(ui_root_nodes.iter()).collect();
 
@@ -263,7 +266,7 @@ mod tests {
         world.entity_mut(n9).add_children(&[n10]);
 
         let mut system_state = SystemState::<(UiChildren, Query<&A>)>::new(world);
-        let (ui_children, a_query) = system_state.get(world).unwrap();
+        let (ui_children, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query
             .iter_many(ui_children.iter_ui_children(n1))
