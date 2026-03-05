@@ -706,6 +706,22 @@ mod validation_tests {
     }
 
     #[test]
+    fn pipe_system_validation_skip_in_second() {
+        fn first() -> u32 {
+            42
+        }
+
+        fn second(_input: In<u32>, _single: Single<&TestComponent>) {}
+
+        let mut world = World::new();
+        let result = world.run_system_once(first.pipe(second));
+        assert!(
+            matches!(result, Err(RunSystemError::Skipped(_))),
+            "Expected Skipped from pipe second system, got {result:?}"
+        );
+    }
+
+    #[test]
     fn builder_system_validation_failure() {
         fn system(_res: Res<MissingResource>) {}
 
