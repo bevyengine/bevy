@@ -13,6 +13,9 @@ use bevy::{
     },
 };
 
+// Required shaderc lib to be available on your system
+use shaderc_dyn as shaderc;
+
 const VERTEX_HLSL: &str = "shaders/custom_material.vert.hlsl";
 const FRAGMENT_HLSL: &str = "shaders/custom_material.frag.hlsl";
 
