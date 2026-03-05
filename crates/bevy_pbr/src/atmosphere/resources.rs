@@ -800,37 +800,37 @@ pub(crate) struct AtmosphereData {
     pub settings: GpuAtmosphereSettings,
 }
 
-pub fn init_atmosphere_buffer(mut commands: Commands) {
-    commands.insert_resource(AtmosphereBuffer {
-        buffer: StorageBuffer::from(AtmosphereData {
-            atmosphere: GpuAtmosphere {
-                ground_albedo: Vec3::ZERO,
-                bottom_radius: 0.0,
-                top_radius: 0.0,
-            },
-            settings: GpuAtmosphereSettings::default(),
-        }),
-    });
-}
-
-#[derive(Resource)]
+#[derive(Component)]
 pub struct AtmosphereBuffer {
     pub(crate) buffer: StorageBuffer<AtmosphereData>,
 }
 
-pub(crate) fn write_atmosphere_buffer(
+pub(crate) fn prepare_atmosphere_buffers(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    atmosphere_entity: Query<(&GpuAtmosphere, &GpuAtmosphereSettings), With<Camera3d>>,
-    mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
+    mut views: Query<
+        (
+            Entity,
+            &GpuAtmosphere,
+            &GpuAtmosphereSettings,
+            Option<&mut AtmosphereBuffer>,
+        ),
+        With<ExtractedAtmosphere>,
+    >,
+    mut commands: Commands,
 ) {
-    let Ok((atmosphere, settings)) = atmosphere_entity.single() else {
-        return;
-    };
-
-    atmosphere_buffer.buffer.set(AtmosphereData {
-        atmosphere: atmosphere.clone(),
-        settings: settings.clone(),
-    });
-    atmosphere_buffer.buffer.write_buffer(&device, &queue);
+    for (entity, atmosphere, settings, existing_buffer) in &mut views {
+        let data = AtmosphereData {
+            atmosphere: atmosphere.clone(),
+            settings: settings.clone(),
+        };
+        if let Some(mut atmosphere_buffer) = existing_buffer {
+            atmosphere_buffer.buffer.set(data);
+            atmosphere_buffer.buffer.write_buffer(&device, &queue);
+        } else {
+            let mut buffer = StorageBuffer::from(data);
+            buffer.write_buffer(&device, &queue);
+            commands.entity(entity).insert(AtmosphereBuffer { buffer });
+        }
+    }
 }
