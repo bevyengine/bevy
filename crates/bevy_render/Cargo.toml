@@ -50,27 +50,24 @@ detailed_trace = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.1" }
-bevy_asset = { path = "../bevy_asset", version = "0.16.1" }
-bevy_color = { path = "../bevy_color", version = "0.16.2", features = [
-  "serialize",
-  "wgpu-types",
-] }
-bevy_derive = { path = "../bevy_derive", version = "0.16.1" }
-bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.16.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.1" }
-bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.16.1" }
-bevy_math = { path = "../bevy_math", version = "0.16.1" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.1" }
-bevy_render_macros = { path = "macros", version = "0.16.1" }
-bevy_time = { path = "../bevy_time", version = "0.16.1" }
-bevy_transform = { path = "../bevy_transform", version = "0.16.1" }
-bevy_window = { path = "../bevy_window", version = "0.16.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.1" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.1" }
-bevy_image = { path = "../bevy_image", version = "0.16.1" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.16.1" }
-bevy_platform = { path = "../bevy_platform", version = "0.16.1", default-features = false, features = [
+bevy_app = { version = "0.16.1" }
+bevy_asset = { version = "0.16.1" }
+bevy_color = { version = "0.16.2", features = ["serialize", "wgpu-types"] }
+bevy_derive = { version = "0.16.1" }
+bevy_diagnostic = { version = "0.16.1" }
+bevy_ecs = { version = "0.16.1" }
+bevy_encase_derive = { version = "0.16.1" }
+bevy_math = { version = "0.16.1" }
+bevy_reflect = { version = "0.16.1" }
+bevy_render_macros = { version = "0.16.1" }
+bevy_time = { version = "0.16.1" }
+bevy_transform = { version = "0.16.1" }
+bevy_window = { version = "0.16.1" }
+bevy_utils = { version = "0.16.1" }
+bevy_tasks = { version = "0.16.1" }
+bevy_image = { version = "0.16.1" }
+bevy_mesh = { version = "0.16.1" }
+bevy_platform = { version = "0.16.1", default-features = false, features = [
   "std",
   "serialize",
 ] }
@@ -139,16 +136,14 @@ web-sys = { version = "0.3.67", features = [
 ] }
 wasm-bindgen = "0.2"
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
-bevy_app = { path = "../bevy_app", version = "0.16.1", default-features = false, features = [
+bevy_app = { version = "0.16.1", default-features = false, features = ["web"] }
+bevy_tasks = { version = "0.16.1", default-features = false, features = [
   "web",
 ] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.1", default-features = false, features = [
+bevy_platform = { version = "0.16.1", default-features = false, features = [
   "web",
 ] }
-bevy_platform = { path = "../bevy_platform", version = "0.16.1", default-features = false, features = [
-  "web",
-] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.1", default-features = false, features = [
+bevy_reflect = { version = "0.16.1", default-features = false, features = [
   "web",
 ] }
 

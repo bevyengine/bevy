@@ -264,11 +264,11 @@ pub fn prepare_windows(
                 };
                 window.set_swapchain_texture(frame);
             }
-            #[cfg(target_os = "linux")]
-            Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
+            //#[cfg(target_os = "linux")]
+            Err(wgpu::SurfaceError::Timeout) => {
                 tracing::trace!(
                     "Couldn't get swap chain texture. This is probably a quirk \
-                        of your Linux GPU driver, so it can be safely ignored."
+                        of your GPU driver, so it can be safely ignored."
                 );
             }
             Err(err) => {
