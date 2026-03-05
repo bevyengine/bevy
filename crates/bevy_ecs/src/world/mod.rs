@@ -51,10 +51,13 @@ use crate::{
     entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
-    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
+    lifecycle::{
+        ComponentHooks, RemovedComponentMessages, ADD, AFTER_REMOVE, BEFORE_ADD, DESPAWN, DISCARD,
+        INSERT, REMOVE,
+    },
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    prelude::{Add, Despawn, DetectChangesMut, Discard, Insert, Remove},
+    prelude::{Add, AfterRemove, BeforeAdd, Despawn, DetectChangesMut, Discard, Insert, Remove},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
@@ -174,6 +177,12 @@ impl World {
 
         let on_despawn = self.register_event_key::<Despawn>();
         assert_eq!(DESPAWN, on_despawn);
+
+        let before_add = self.register_event_key::<BeforeAdd>();
+        assert_eq!(BEFORE_ADD, before_add);
+
+        let after_remove = self.register_event_key::<AfterRemove>();
+        assert_eq!(AFTER_REMOVE, after_remove);
 
         let is_resource = self.register_component::<IsResource>();
         assert_eq!(IS_RESOURCE, is_resource);

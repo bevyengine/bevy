@@ -13,21 +13,24 @@
 //!
 //! # Types of lifecycle events
 //!
-//! There are five types of lifecycle events, split into two categories. First, we have lifecycle events that are triggered
+//! There are seven types of lifecycle events, split into two categories. First, we have lifecycle events that are triggered
 //! when a component is added to an entity:
 //!
+//! - [`BeforeAdd`]: Triggered before a component is added to an entity that did not already have it. Component data is **not** yet accessible.
 //! - [`Add`]: Triggered when a component is added to an entity that did not already have it.
 //! - [`Insert`]: Triggered when a component is added to an entity, regardless of whether it already had it.
 //!
-//! When both events occur, [`Add`] hooks are evaluated before [`Insert`].
+//! When all events occur, [`BeforeAdd`] hooks are evaluated first, then [`Add`], then [`Insert`].
 //!
 //! Next, we have lifecycle events that are triggered when a component is removed from an entity:
 //!
 //! - [`Discard`]: Triggered when a component is removed from an entity, regardless if it is then replaced with a new value.
 //! - [`Remove`]: Triggered when a component is removed from an entity and not replaced, before the component is removed.
 //! - [`Despawn`]: Triggered for each component on an entity when it is despawned.
+//! - [`AfterRemove`]: Triggered after a component has been removed from an entity. Component data is **no longer** accessible.
 //!
-//! [`Discard`] hooks are evaluated before [`Remove`], then finally [`Despawn`] hooks are evaluated.
+//! When a component is removed (without despawning), [`Discard`] hooks are evaluated first, then [`Remove`], then [`AfterRemove`].
+//! When an entity is despawned, [`Despawn`] hooks are evaluated first, followed by [`Discard`], then [`Remove`], then [`AfterRemove`].
 //!
 //! [`Add`] and [`Remove`] are counterparts: they are only triggered when a component is added or removed
 //! from an entity in such a way as to cause a change in the component's presence on that entity.
@@ -76,7 +79,8 @@ use core::{
     option,
 };
 
-/// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`.
+/// The type used for [`Component`] lifecycle hooks such as `before_add`, `on_add`, `on_insert`,
+/// `on_discard`, `on_remove`, `on_despawn`, or `after_remove`.
 pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, HookContext);
 
 /// Context provided to a [`ComponentHook`].
@@ -147,15 +151,20 @@ pub struct HookContext {
 /// ```
 #[derive(Debug, Clone, Default)]
 pub struct ComponentHooks {
+    pub(crate) before_add: Option<ComponentHook>,
     pub(crate) on_add: Option<ComponentHook>,
     pub(crate) on_insert: Option<ComponentHook>,
     pub(crate) on_discard: Option<ComponentHook>,
     pub(crate) on_remove: Option<ComponentHook>,
     pub(crate) on_despawn: Option<ComponentHook>,
+    pub(crate) after_remove: Option<ComponentHook>,
 }
 
 impl ComponentHooks {
     pub(crate) fn update_from_component<C: Component + ?Sized>(&mut self) -> &mut Self {
+        if let Some(hook) = C::before_add() {
+            self.before_add(hook);
+        }
         if let Some(hook) = C::on_add() {
             self.on_add(hook);
         }
@@ -171,8 +180,30 @@ impl ComponentHooks {
         if let Some(hook) = C::on_despawn() {
             self.on_despawn(hook);
         }
+        if let Some(hook) = C::after_remove() {
+            self.after_remove(hook);
+        }
 
         self
+    }
+
+    /// Register a [`ComponentHook`] that will be run before a component is added to an entity.
+    /// A `before_add` hook will always run before `on_add` hooks.
+    /// Spawning an entity counts as adding all of its components.
+    ///
+    /// At the time this hook runs, the component data has **not** yet been written to the entity.
+    ///
+    /// For **insert**, the entity is in its old archetype and can be queried normally
+    /// (it just doesn't have the new component yet).
+    /// For **spawn**, the entity has no location or components yet, so attempting to
+    /// access the entity through the world will fail.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the component already has a `before_add` hook
+    pub fn before_add(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_before_add(hook)
+            .expect("Component already has a before_add hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
@@ -248,6 +279,35 @@ impl ComponentHooks {
             .expect("Component already has an on_despawn hook")
     }
 
+    /// Register a [`ComponentHook`] that will be run after a component has been removed from an entity.
+    /// An `after_remove` hook runs after `on_remove` hooks and after the component data has been dropped.
+    /// Despawning an entity counts as removing all of its components.
+    ///
+    /// At the time this hook runs, the component data is **no longer** accessible on the entity.
+    /// During despawn, the entity's location has also been cleared, so
+    /// [`World::get_entity`](crate::world::World::get_entity) will return `Err` for the entity.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the component already has an `after_remove` hook
+    pub fn after_remove(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_after_remove(hook)
+            .expect("Component already has an after_remove hook")
+    }
+
+    /// Attempt to register a [`ComponentHook`] that will be run before a component is added to an entity.
+    ///
+    /// This is a fallible version of [`Self::before_add`].
+    ///
+    /// Returns `None` if the component already has a `before_add` hook.
+    pub fn try_before_add(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.before_add.is_some() {
+            return None;
+        }
+        self.before_add = Some(hook);
+        Some(self)
+    }
+
     /// Attempt to register a [`ComponentHook`] that will be run when this component is added to an entity.
     ///
     /// This is a fallible version of [`Self::on_add`].
@@ -312,8 +372,23 @@ impl ComponentHooks {
         self.on_despawn = Some(hook);
         Some(self)
     }
+
+    /// Attempt to register a [`ComponentHook`] that will be run after a component has been removed from an entity.
+    ///
+    /// This is a fallible version of [`Self::after_remove`].
+    ///
+    /// Returns `None` if the component already has an `after_remove` hook.
+    pub fn try_after_remove(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.after_remove.is_some() {
+            return None;
+        }
+        self.after_remove = Some(hook);
+        Some(self)
+    }
 }
 
+/// [`EventKey`] for [`BeforeAdd`]
+pub const BEFORE_ADD: EventKey = EventKey(ComponentId::new(crate::component::BEFORE_ADD));
 /// [`EventKey`] for [`Add`]
 pub const ADD: EventKey = EventKey(ComponentId::new(crate::component::ADD));
 /// [`EventKey`] for [`Insert`]
@@ -324,6 +399,24 @@ pub const DISCARD: EventKey = EventKey(ComponentId::new(crate::component::DISCAR
 pub const REMOVE: EventKey = EventKey(ComponentId::new(crate::component::REMOVE));
 /// [`EventKey`] for [`Despawn`]
 pub const DESPAWN: EventKey = EventKey(ComponentId::new(crate::component::DESPAWN));
+/// [`EventKey`] for [`AfterRemove`]
+pub const AFTER_REMOVE: EventKey = EventKey(ComponentId::new(crate::component::AFTER_REMOVE));
+
+/// Trigger emitted before a component is added to an entity that does not already have it.
+/// Runs before `Add` and before the component data is written.
+///
+/// For **insert**, the entity is in its old archetype and can be queried normally.
+/// For **spawn**, the entity has no location or components yet.
+///
+/// See [`ComponentHooks::before_add`](`crate::lifecycle::ComponentHooks::before_add`) for more information.
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
+pub struct BeforeAdd {
+    /// The entity this component is about to be added to.
+    pub entity: Entity,
+}
 
 /// Trigger emitted when a component is inserted onto an entity that does not already have that
 /// component. Runs before `Insert`.
@@ -390,6 +483,18 @@ pub struct Remove {
 #[doc(alias = "OnDespawn")]
 pub struct Despawn {
     /// The entity that held this component before it was despawned.
+    pub entity: Entity,
+}
+
+/// Trigger emitted after a component has been removed from an entity.
+/// Runs after `Remove` and after the component data has been dropped.
+/// See [`ComponentHooks::after_remove`](`crate::lifecycle::ComponentHooks::after_remove`) for more information.
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
+pub struct AfterRemove {
+    /// The entity this component was removed from.
     pub entity: Entity,
 }
 

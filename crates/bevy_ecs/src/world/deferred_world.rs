@@ -616,6 +616,40 @@ impl<'w> DeferredWorld<'w> {
             .ok()
     }
 
+    /// Triggers all `before_add` hooks for [`ComponentId`] in target.
+    ///
+    /// The `archetype` parameter should be the **new** archetype (the one containing
+    /// the components being added), since the components don't exist in the old archetype.
+    ///
+    /// # Safety
+    /// Caller must ensure [`ComponentId`] in target exist in self.
+    #[inline]
+    pub(crate) unsafe fn trigger_before_add(
+        &mut self,
+        archetype: &Archetype,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+        caller: MaybeLocation,
+    ) {
+        if archetype.has_before_add_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.before_add {
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            caller,
+                            relationship_hook_mode: RelationshipHookMode::Run,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
     /// Triggers all `on_add` hooks for [`ComponentId`] in target.
     ///
     /// # Safety
@@ -759,6 +793,40 @@ impl<'w> DeferredWorld<'w> {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_despawn {
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            caller,
+                            relationship_hook_mode: RelationshipHookMode::Run,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    /// Triggers all `after_remove` hooks for [`ComponentId`] in target.
+    ///
+    /// The `archetype` parameter should be the **old** archetype (the one that contained
+    /// the removed components), since the components no longer exist in the new archetype.
+    ///
+    /// # Safety
+    /// Caller must ensure [`ComponentId`] in target exist in self.
+    #[inline]
+    pub(crate) unsafe fn trigger_after_remove(
+        &mut self,
+        archetype: &Archetype,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+        caller: MaybeLocation,
+    ) {
+        if archetype.has_after_remove_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.after_remove {
                     hook(
                         DeferredWorld { world: self.world },
                         HookContext {

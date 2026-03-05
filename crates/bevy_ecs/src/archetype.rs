@@ -371,6 +371,10 @@ bitflags::bitflags! {
         const ON_DISCARD_OBSERVER = (1 << 7);
         const ON_REMOVE_OBSERVER = (1 << 8);
         const ON_DESPAWN_OBSERVER = (1 << 9);
+        const ON_BEFORE_ADD_HOOK     = (1 << 10);
+        const ON_AFTER_REMOVE_HOOK   = (1 << 11);
+        const ON_BEFORE_ADD_OBSERVER = (1 << 12);
+        const ON_AFTER_REMOVE_OBSERVER = (1 << 13);
     }
 }
 
@@ -736,6 +740,28 @@ impl Archetype {
     #[inline]
     pub fn has_despawn_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_DESPAWN_OBSERVER)
+    }
+
+    /// Returns true if any of the components in this archetype have a `before_add` hook.
+    pub fn has_before_add_hook(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_BEFORE_ADD_HOOK)
+    }
+
+    /// Returns true if any of the components in this archetype have an `after_remove` hook.
+    pub fn has_after_remove_hook(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_AFTER_REMOVE_HOOK)
+    }
+
+    /// Returns true if any of the components in this archetype are watched by a `BeforeAdd` observer.
+    pub fn has_before_add_observer(&self) -> bool {
+        self.flags()
+            .contains(ArchetypeFlags::ON_BEFORE_ADD_OBSERVER)
+    }
+
+    /// Returns true if any of the components in this archetype are watched by an `AfterRemove` observer.
+    pub fn has_after_remove_observer(&self) -> bool {
+        self.flags()
+            .contains(ArchetypeFlags::ON_AFTER_REMOVE_OBSERVER)
     }
 }
 
