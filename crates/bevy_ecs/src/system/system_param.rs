@@ -375,7 +375,7 @@ unsafe impl<'a, 'b, D: IterQueryData + 'static, F: QueryFilter + 'static> System
                 SystemParamValidationError::skipped::<Self>("No matching entities"),
             ),
             Err(QuerySingleError::MultipleEntities(_)) => Err(
-                SystemParamValidationError::invalid::<Self>("Multiple matching entities"),
+                SystemParamValidationError::skipped::<Self>("Multiple matching entities"),
             ),
         }
     }
