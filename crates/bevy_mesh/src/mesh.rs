@@ -286,7 +286,7 @@ impl Mesh {
     /// one color, for example a logo, and you want to "extend" those borders.
     ///
     /// For different mapping outside of `0..=1` range,
-    /// see [`ImageAddressMode`](bevy_image::ImageAddressMode).
+    /// see [`ImageAddressMode`](https://docs.rs/bevy_image/latest/bevy_image/enum.ImageAddressMode.html).
     ///
     /// The format of this attribute is [`VertexFormat::Float32x2`].
     pub const ATTRIBUTE_UV_0: MeshVertexAttribute =

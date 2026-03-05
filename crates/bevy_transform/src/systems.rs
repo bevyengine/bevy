@@ -47,57 +47,22 @@ pub fn sync_simple_transforms(
 /// For scenes with many static entities, it is much faster to track trees of unchanged
 /// [`Transform`]s and skip these during the expensive transform propagation step. If your scene is
 /// very dynamic, the cost of tracking these trees can exceed the performance benefits. By default,
-/// static scene optimization is disabled for worlds with more than 30% of its entities moving.
-///
-/// This resource allows you to configure that threshold at runtime.
-#[derive(Resource, Debug)]
+/// static scene optimization is enabled.
+#[derive(Resource, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct StaticTransformOptimizations {
-    /// If the percentage of moving objects exceeds this value, skip dirty tree marking.
-    threshold: f32,
-    /// Updated every frame by [`mark_dirty_trees`].
-    enabled: bool,
+pub enum StaticTransformOptimizations {
+    /// Enable static scene optimizations.
+    #[default]
+    Enabled,
+    /// Disable static scene optimizations.
+    Disabled,
 }
 
 impl StaticTransformOptimizations {
-    /// If the percentage of moving objects exceeds this threshold, disable static [`Transform`]
-    /// optimizations. This is done because the scene is so dynamic that the cost of tracking static
-    /// trees exceeds the performance benefit of skipping propagation for these trees.
-    ///
-    /// - Setting this to `0.0` will result in never running static scene tracking.
-    /// - Setting this to `1.0` will result in always tracking static transform trees.
-    pub fn from_threshold(threshold: f32) -> Self {
-        Self {
-            threshold,
-            enabled: true,
-        }
-    }
-
-    /// Unconditionally disable static scene optimizations.
-    pub fn disabled() -> Self {
-        Self {
-            threshold: 0.0,
-            enabled: false,
-        }
-    }
-
-    /// Unconditionally enable static scene optimizations.
-    pub fn enabled() -> Self {
-        Self {
-            threshold: 1.0,
-            enabled: true,
-        }
-    }
-}
-
-impl Default for StaticTransformOptimizations {
-    fn default() -> Self {
-        Self {
-            // Scenes with more than 30% moving objects are considered dynamic enough to skip static
-            // optimizations.
-            threshold: 0.3,
-            enabled: true,
-        }
+    /// Returns `true` if static scene optimizations are enabled.
+    #[inline]
+    pub fn is_enabled(&self) -> bool {
+        *self == StaticTransformOptimizations::Enabled
     }
 }
 
@@ -112,7 +77,7 @@ pub fn mark_dirty_trees(
     mut orphaned: RemovedComponents<ChildOf>,
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
-    mut static_optimizations: ResMut<StaticTransformOptimizations>,
+    static_optimizations: Res<StaticTransformOptimizations>,
     // Cached allocations for std-only parallel implementation
     #[cfg(feature = "std")] mut shared_bitset: Local<
         alloc::vec::Vec<core::sync::atomic::AtomicU64>,
@@ -121,38 +86,7 @@ pub fn mark_dirty_trees(
     #[cfg(feature = "std")] mut consumer_channels: Local<bevy_utils::BufferedChannel<Entity>>,
     #[cfg(feature = "std")] mut traversal_channels: Local<bevy_utils::BufferedChannel<Entity>>,
 ) {
-    let threshold = static_optimizations.threshold.clamp(0.0, 1.0);
-    match threshold {
-        0.0 => static_optimizations.enabled = false,
-        1.0 => static_optimizations.enabled = true,
-        _ => {
-            static_optimizations.enabled = true;
-            let total = transforms.iter().len() as f32;
-            let dyn_threshold = (total * threshold) as usize;
-            let n_changed: usize;
-            #[cfg(feature = "std")]
-            {
-                use core::ops::AddAssign;
-                let mut par = bevy_utils::Parallel::<usize>::default();
-                changed.par_iter().for_each_init(
-                    || par.borrow_local_mut(),
-                    |par, _| {
-                        // Changed<> requires table scans that can be very slow, if there are many
-                        // entities and none that have moved, it can take a while to scan them all
-                        // serially.
-                        par.add_assign(1);
-                    },
-                );
-                n_changed = par.iter_mut().map(|n| *n).sum();
-            }
-            #[cfg(not(feature = "std"))]
-            {
-                n_changed = changed.count();
-            }
-            static_optimizations.enabled = n_changed < dyn_threshold;
-        }
-    }
-    if !static_optimizations.enabled {
+    if !static_optimizations.is_enabled() {
         return;
     }
 
@@ -538,7 +472,7 @@ mod parallel {
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children, transform_tree)| {
-                if static_optimizations.enabled && !transform_tree.is_changed() {
+                if static_optimizations.is_enabled() && !transform_tree.is_changed() {
                     // Early exit if the subtree is static and the optimization is enabled.
                     return;
                 }
@@ -722,7 +656,7 @@ mod parallel {
             let mut last_child = None;
             let new_children = children_iter.filter_map(
                 |(child, (transform, mut global_transform, tree), (children, child_of))| {
-                    if static_optimizations.enabled
+                    if static_optimizations.is_enabled()
                         && !tree.is_changed()
                         && !p_global_transform.is_changed()
                     {

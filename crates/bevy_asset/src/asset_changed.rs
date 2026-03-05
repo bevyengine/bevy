@@ -246,28 +246,16 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         component_access_set: &mut FilteredAccessSet,
         _world: UnsafeWorldCell,
     ) {
-        let combined_access = component_access_set.combined_access();
-        assert!(
-            !combined_access.has_resource_write(state.resource_id),
-            "error[B0002]: AssetChanged<{}> in system {:?} conflicts with a previous system param. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<A>(),
-            system_name,
-        );
-
         let mut filter = FilteredAccess::default();
-        filter.add_component_read(state.resource_id);
-        filter.add_resource_read(state.resource_id);
+        filter.add_read(state.resource_id);
         filter.and_with(IS_RESOURCE);
 
-        assert!(component_access_set
-            .get_conflicts_single(&filter)
-            .is_empty(),
-            "error[B0002]: AssetChanged<{}> in system {:?} conflicts with a previous system param. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<A>(),
-            system_name,
-        );
-
-        component_access_set.add(filter);
+        let conflicts = component_access_set.get_conflicts_single(&filter);
+        if conflicts.is_empty() {
+            component_access_set.add(filter);
+            return;
+        }
+        panic!("error[B0002]: AssetChanged<{}> in system {:?} conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<A>(), system_name);
     }
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {
@@ -326,6 +314,7 @@ mod tests {
     use crate::tests::create_app;
     use crate::{AssetEventSystems, Handle};
     use alloc::{vec, vec::Vec};
+    use bevy_ecs::system::assert_is_system;
     use core::num::NonZero;
     use std::println;
 
@@ -336,7 +325,7 @@ mod tests {
         component::Component,
         message::MessageWriter,
         resource::Resource,
-        system::{assert_is_system, Commands, IntoSystem, Local, Query, Res, ResMut},
+        system::{Commands, IntoSystem, Local, Query, Res, ResMut},
     };
     use bevy_reflect::TypePath;
 
