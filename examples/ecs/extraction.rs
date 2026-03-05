@@ -90,9 +90,9 @@ fn display_state(
     world_name: Res<WorldName>,
 ) {
     let (a, b, c) = (
-        a.map(|a| a.into_inner()),
-        b.map(|b| b.into_inner()),
-        c.map(|c| c.into_inner()),
+        a.map(Single::into_inner),
+        b.map(Single::into_inner),
+        c.map(Single::into_inner),
     );
     info!(?a, ?b, ?c, "{}", world_name.0);
 }
