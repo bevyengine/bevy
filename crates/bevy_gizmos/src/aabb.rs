@@ -26,7 +26,11 @@ pub struct AabbGizmoPlugin;
 
 impl Plugin for AabbGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.init_gizmo_group::<AabbGizmoConfigGroup>().add_systems(
+        // Due to system ordering between `VisibilitySystems` and
+        // `AssetEventSystems` that would cause a cycle,
+        // aabb's must start to be rendered with one frame delay. Since aabb's are expected
+        // to be rendered for multiple frames, this should not be a problem.
+        app.init_gizmo_group_delayed_render::<AabbGizmoConfigGroup>().add_systems(
             PostUpdate,
             (
                 draw_aabbs,
