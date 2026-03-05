@@ -221,7 +221,7 @@ fn evaluate_lighting(
     let direct_lighting = calculate_resolved_light_contribution(resolved_light_sample, world_position, world_normal);
     let brdf = evaluate_brdf(world_normal, wo, direct_lighting.wi, material);
     let visibility = trace_light_visibility(world_position, resolved_light_sample.world_position);
-    let radiance = direct_lighting.radiance * brdf;
+    let radiance = direct_lighting.radiance;
     let inverse_pdf = ucw * visibility;
     let data = WeightedLight(sel, sel_weight * visibility);
     write_light_cache_cell(pixel_id, local_index, data);

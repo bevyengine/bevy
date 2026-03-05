@@ -22,7 +22,7 @@ const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 20.0;
 
 @compute @workgroup_size(8, 8, 1)
-fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invocation_index) local_index: u32) {
+fn initial(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invocation_index) local_index: u32) {
     if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
@@ -36,20 +36,26 @@ fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
     let wo = normalize(view.world_position - surface.world_position);
 
-    var initial_reservoir: Reservoir;
-    // if global_id.x > u32(view.main_pass_viewport.z) >> 1u {
-    //     evaluate_lighting(&rng, global_id.xy, local_index, surface.world_position, surface.world_normal, wo, surface.material);
-    //     initial_reservoir = generate_initial_reservoir(surface.world_position, surface.world_normal, evaluate_diffuse_brdf(surface.world_normal, wo, surface.material.base_color, surface.material.metallic), workgroup_id.xy, &rng);
-    // } else {
-        let lighting = evaluate_lighting(&rng, global_id.xy, local_index, surface.world_position, surface.world_normal, wo, surface.material);
+    let lighting = evaluate_lighting(&rng, global_id.xy, local_index, surface.world_position, surface.world_normal, wo, surface.material);
 
-        // var pixel_color = lighting.radiance * lighting.inverse_pdf;
-        // pixel_color += surface.material.emissive;
-        // pixel_color *= view.exposure;
-        // textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
-        // return;
-        initial_reservoir = Reservoir(lighting.light_sample, 1.0, lighting.inverse_pdf);
-    // }
+    store_reservoir_b(global_id.xy, Reservoir(lighting.light_sample, 1.0, lighting.inverse_pdf));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
+
+    let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
+    var rng = pixel_index + constants.frame_index;
+
+    let depth = textureLoad(depth_buffer, global_id.xy, 0);
+    if depth == 0.0 {
+        return;
+    }
+    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
+    let wo = normalize(view.world_position - surface.world_position);
+
+    let initial_reservoir = load_reservoir_b(global_id.xy);
     let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
     let merge_result = merge_reservoirs(
         initial_reservoir, surface.world_position, surface.world_normal, wo, surface.material,
@@ -62,6 +68,7 @@ fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin
 
 @compute @workgroup_size(8, 8, 1)
 fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invocation_index) local_index: u32) {
+    // return;
     if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);

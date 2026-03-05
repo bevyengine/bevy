@@ -43,7 +43,8 @@ pub struct SolariLightingPipelines {
     sample_gi_for_world_cache_pipeline: CachedComputePipelineId,
     blend_new_world_cache_samples_pipeline: CachedComputePipelineId,
     presample_light_tiles_pipeline: CachedComputePipelineId,
-    di_initial_and_temporal_pipeline: CachedComputePipelineId,
+    di_initial_pipeline: CachedComputePipelineId,
+    di_temporal_pipeline: CachedComputePipelineId,
     di_spatial_and_shade_pipeline: CachedComputePipelineId,
     gi_initial_and_temporal_pipeline: CachedComputePipelineId,
     gi_spatial_and_shade_pipeline: CachedComputePipelineId,
@@ -129,7 +130,8 @@ pub fn solari_lighting(
         Some(sample_gi_for_world_cache_pipeline),
         Some(blend_new_world_cache_samples_pipeline),
         Some(presample_light_tiles_pipeline),
-        Some(di_initial_and_temporal_pipeline),
+        Some(di_initial_pipeline),
+        Some(di_temporal_pipeline),
         Some(di_spatial_and_shade_pipeline),
         Some(gi_initial_and_temporal_pipeline),
         Some(gi_spatial_and_shade_pipeline),
@@ -152,7 +154,8 @@ pub fn solari_lighting(
         pipeline_cache.get_compute_pipeline(pipelines.sample_gi_for_world_cache_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.blend_new_world_cache_samples_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.presample_light_tiles_pipeline),
-        pipeline_cache.get_compute_pipeline(pipelines.di_initial_and_temporal_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.di_initial_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.di_temporal_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.di_spatial_and_shade_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.gi_initial_and_temporal_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.gi_spatial_and_shade_pipeline),
@@ -335,7 +338,14 @@ pub fn solari_lighting(
 
     let d = diagnostics.time_span(&mut pass, "solari_lighting/direct_lighting");
 
-    pass.set_pipeline(di_initial_and_temporal_pipeline);
+    pass.set_pipeline(di_initial_pipeline);
+    pass.set_immediates(
+        0,
+        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+    );
+    pass.dispatch_workgroups(dx, dy, 1);
+
+    pass.set_pipeline(di_temporal_pipeline);
     pass.set_immediates(
         0,
         bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
@@ -550,9 +560,16 @@ pub fn init_solari_lighting_pipelines(
             None,
             vec![],
         ),
-        di_initial_and_temporal_pipeline: create_pipeline(
+        di_initial_pipeline: create_pipeline(
             "solari_lighting_di_initial_and_temporal_pipeline",
-            "initial_and_temporal",
+            "initial",
+            load_embedded_asset!(asset_server.as_ref(), "restir_di.wgsl"),
+            None,
+            vec![],
+        ),
+        di_temporal_pipeline: create_pipeline(
+            "solari_lighting_di_initial_and_temporal_pipeline",
+            "temporal",
             load_embedded_asset!(asset_server.as_ref(), "restir_di.wgsl"),
             None,
             vec![],
