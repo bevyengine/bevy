@@ -9,9 +9,10 @@ use crate::{
     query::{FilteredAccessSet, QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
-        DynSystemParam, DynSystemParamState, FromInput, FunctionSystem, If, IntoResult, IntoSystem,
-        Local, ParamSet, Query, ReadOnlySystem, System, SystemInput, SystemMeta, SystemParam,
-        SystemParamFunction, SystemParamValidationError,
+        BoxedSystem, DynSystemParam, DynSystemParamState, FromInput, FunctionSystem, If,
+        IntoResult, IntoSystem, Local, ParamSet, Query, ReadOnlySystem, System, SystemInput,
+        SystemMeta, SystemParam, SystemParamFunction, SystemParamValidationError, SystemRunner,
+        SystemRunnerState,
     },
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources,
@@ -19,6 +20,7 @@ use crate::{
         World,
     },
 };
+use alloc::borrow::Cow;
 use core::{fmt::Debug, marker::PhantomData, mem};
 
 use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
@@ -246,6 +248,29 @@ impl ParamBuilder {
     ) -> impl SystemParamBuilder<Query<'w, 's, D, F>> {
         Self
     }
+
+    /// Helper method for adding a [`SystemRunner`] as a param, equivalent to [`SystemRunnerBuilder::new`]
+    pub fn system<'w, 's, In, Out, Marker, Sys>(
+        system: Sys,
+    ) -> impl SystemParamBuilder<SystemRunner<'w, 's, In, Out, Sys::System>>
+    where
+        In: SystemInput,
+        Sys: IntoSystem<In, Out, Marker>,
+    {
+        SystemRunnerBuilder::new(IntoSystem::into_system(system))
+    }
+
+    /// Helper method for adding a [`SystemRunner`] as a param, equivalent to [`SystemRunnerBuilder::boxed`]
+    pub fn dyn_system<'w, 's, In, Out, Marker, Sys>(
+        system: Sys,
+    ) -> impl SystemParamBuilder<SystemRunner<'w, 's, In, Out, dyn System<In = In, Out = Out>>>
+    where
+        In: SystemInput + 'static,
+        Out: 'static,
+        Sys: IntoSystem<In, Out, Marker>,
+    {
+        SystemRunnerBuilder::boxed(Box::new(IntoSystem::into_system(system)))
+    }
 }
 
 /// A marker type used to distinguish builder systems from plain function systems.
@@ -309,6 +334,7 @@ where
     Func: SystemParamFunction<Marker>,
     Builder: SystemParamBuilder<Func::Param>,
 {
+    #[inline]
     /// Returns a new `BuilderSystem` given a system param builder and a system function
     pub fn new(builder: Builder, func: Func) -> Self {
         Self {
@@ -318,6 +344,17 @@ where
                 meta: SystemMeta::new::<Func>(),
             },
         }
+    }
+
+    #[inline]
+    /// Returns this `BuilderSystem` with a custom name.
+    pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+        if let BuilderSystemInner::Uninitialized { meta, .. } = &mut self.inner {
+            meta.set_name(name);
+        } else {
+            panic!("Called with_name() on an already initialized BuilderSystem");
+        }
+        self
     }
 }
 
@@ -908,6 +945,37 @@ pub struct IfBuilder<T>(T);
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<If<P>> for IfBuilder<B> {
     fn build(self, world: &mut World) -> <If<P> as SystemParam>::State {
         self.0.build(world)
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`SystemRunner`]
+pub struct SystemRunnerBuilder<Sys: System + ?Sized>(Box<Sys>);
+
+impl<Sys: System> SystemRunnerBuilder<Sys> {
+    /// Returns a `SystemRunnerBuilder` created from a given system.
+    pub fn new(system: Sys) -> Self {
+        Self(Box::new(system))
+    }
+}
+
+impl<In: SystemInput + 'static, Out: 'static> SystemRunnerBuilder<dyn System<In = In, Out = Out>> {
+    /// Returns a `SystemRunnerBuilder` created from a boxed system.
+    pub fn boxed(system: BoxedSystem<In, Out>) -> Self {
+        Self(system)
+    }
+}
+
+// SAFETY: the state returned is always valid. In particular the access always
+// matches the contained system.
+unsafe impl<'w, 's, Sys: System + ?Sized>
+    SystemParamBuilder<SystemRunner<'w, 's, Sys::In, Sys::Out, Sys>> for SystemRunnerBuilder<Sys>
+{
+    fn build(mut self, world: &mut World) -> SystemRunnerState<Sys> {
+        let access = self.0.initialize(world);
+        SystemRunnerState {
+            system: Some(self.0),
+            access,
+        }
     }
 }
 
