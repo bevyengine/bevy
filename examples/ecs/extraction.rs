@@ -16,18 +16,18 @@ use bevy::render::{
 //
 // To be noted that the `SyncToRenderWorld` component, which spawns the corresponding entity on the Render World,
 // is automatically added as a requirement through the `ExtractComponentPlugin`.
-#[derive(Component, Clone, ExtractComponent)]
+#[derive(Component, Clone, ExtractComponent, Debug)]
 struct A(pub f32);
 
 // The B component is extracted manually inside the `extract_components` system.
 // `SyncToRenderWorld` ensures that an equivalent entity will be spawned in the Render World
 // and the two will be associated in the Extract schedule through the `RenderEntity` component.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Debug)]
 #[require(SyncToRenderWorld)]
 struct B(pub f32);
 
 // The C component is the same B, but it only extracts when the `Space` key is pressed.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Debug)]
 #[require(SyncToRenderWorld)]
 struct C(pub f32);
 
@@ -89,7 +89,11 @@ fn display_state(
     // Resource used to debug the name of the World.
     world_name: Res<WorldName>,
 ) {
-    let (a, b, c) = (a.map(|a| a.0), b.map(|b| b.0), c.map(|c| c.0));
+    let (a, b, c) = (
+        a.map(|a| a.into_inner()),
+        b.map(|b| b.into_inner()),
+        c.map(|c| c.into_inner()),
+    );
     info!(?a, ?b, ?c, "{}", world_name.0);
 }
 
