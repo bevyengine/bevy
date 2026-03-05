@@ -1413,6 +1413,35 @@ mod tests {
     }
 
     #[test]
+    fn single_entity_table_does_not_move() {
+        let mut world = World::new();
+
+        // This is the only entity in its table
+        let mut entity = world.spawn(A(0));
+        let id = entity.id();
+        let a_ptr_1 = core::ptr::from_ref(entity.get::<A>().unwrap());
+
+        // Moving the only entity should move the entire column,
+        // preserving the address of the component
+        entity.insert(B(0));
+        let a_ptr_2 = core::ptr::from_ref(entity.get::<A>().unwrap());
+        assert_eq!(a_ptr_1, a_ptr_2);
+
+        entity.remove::<B>();
+        let a_ptr_2 = core::ptr::from_ref(entity.get::<A>().unwrap());
+        assert_eq!(a_ptr_1, a_ptr_2);
+
+        // Adding a second entity to the table will prevent the optimization,
+        // and the component data will need to be copied to the new column
+        world.spawn(A(1));
+        let mut entity = world.get_entity_mut(id).unwrap();
+        let a_ptr_1 = core::ptr::from_ref(entity.get::<A>().unwrap());
+        entity.insert(B(0));
+        let a_ptr_2 = core::ptr::from_ref(entity.get::<A>().unwrap());
+        assert_ne!(a_ptr_1, a_ptr_2);
+    }
+
+    #[test]
     fn non_send() {
         let mut world = World::default();
         world.insert_non_send(123i32);

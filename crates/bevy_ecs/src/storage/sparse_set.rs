@@ -3,7 +3,7 @@ use crate::{
     component::{ComponentId, ComponentInfo},
     entity::{Entity, EntityIndex},
     query::DebugCheckedUnwrap,
-    storage::{AbortOnPanic, Column, TableRow, VecExtensions},
+    storage::{thin_array_ptr::ThinArrayPtr, AbortOnPanic, Column, TableRow, VecExtensions},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
@@ -12,14 +12,6 @@ use nonmax::{NonMaxU32, NonMaxUsize};
 
 #[derive(Debug)]
 pub(crate) struct SparseArray<I, V = I> {
-    values: Vec<Option<V>>,
-    marker: PhantomData<I>,
-}
-
-/// A space-optimized version of [`SparseArray`] that cannot be changed
-/// after construction.
-#[derive(Debug)]
-pub(crate) struct ImmutableSparseArray<I, V = I> {
     values: Box<[Option<V>]>,
     marker: PhantomData<I>,
 }
@@ -32,40 +24,43 @@ impl<I: SparseSetIndex, V> Default for SparseArray<I, V> {
 
 impl<I, V> SparseArray<I, V> {
     #[inline]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            values: Vec::new(),
+            values: Box::new([]),
             marker: PhantomData,
         }
     }
 }
 
-macro_rules! impl_sparse_array {
-    ($ty:ident) => {
-        impl<I: SparseSetIndex, V> $ty<I, V> {
-            /// Returns `true` if the collection contains a value for the specified `index`.
-            #[inline]
-            pub fn contains(&self, index: I) -> bool {
-                let index = index.sparse_set_index();
-                self.values.get(index).is_some_and(Option::is_some)
-            }
-
-            /// Returns a reference to the value at `index`.
-            ///
-            /// Returns `None` if `index` does not have a value or if `index` is out of bounds.
-            #[inline]
-            pub fn get(&self, index: I) -> Option<&V> {
-                let index = index.sparse_set_index();
-                self.values.get(index).and_then(Option::as_ref)
-            }
-        }
-    };
-}
-
-impl_sparse_array!(SparseArray);
-impl_sparse_array!(ImmutableSparseArray);
-
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
+    pub fn with_max_index(max_index: Option<I>) -> Self {
+        let len = max_index
+            .map(|index| index.sparse_set_index() + 1)
+            .unwrap_or_default();
+        let mut values = Vec::with_capacity(len);
+        values.resize_with(values.capacity(), || None);
+        Self {
+            values: values.into(),
+            marker: PhantomData,
+        }
+    }
+
+    /// Returns `true` if the collection contains a value for the specified `index`.
+    #[inline]
+    pub fn contains(&self, index: I) -> bool {
+        let index = index.sparse_set_index();
+        self.values.get(index).is_some_and(Option::is_some)
+    }
+
+    /// Returns a reference to the value at `index`.
+    ///
+    /// Returns `None` if `index` does not have a value or if `index` is out of bounds.
+    #[inline]
+    pub fn get(&self, index: I) -> Option<&V> {
+        let index = index.sparse_set_index();
+        self.values.get(index).and_then(Option::as_ref)
+    }
+
     /// Inserts `value` at `index` in the array.
     ///
     /// # Panics
@@ -77,7 +72,13 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     pub fn insert(&mut self, index: I, value: V) {
         let index = index.sparse_set_index();
         if index >= self.values.len() {
-            self.values.resize_with(index + 1, || None);
+            // Convert the boxed slice back to a `Vec` to reallocate it.
+            let mut values = core::mem::take(&mut self.values).into_vec();
+            values.resize_with(index + 1, || None);
+            // Increase the length to equal the capacity so we can
+            // convert back to a boxed slice without reallocating.
+            values.resize_with(values.capacity(), || None);
+            self.values = values.into();
         }
         self.values[index] = Some(value);
     }
@@ -102,15 +103,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 
     /// Removes all of the values stored within.
     pub fn clear(&mut self) {
-        self.values.clear();
-    }
-
-    /// Converts the [`SparseArray`] into an immutable variant.
-    pub(crate) fn into_immutable(self) -> ImmutableSparseArray<I, V> {
-        ImmutableSparseArray {
-            values: self.values.into_boxed_slice(),
-            marker: PhantomData,
-        }
+        self.values.fill_with(|| None);
     }
 }
 
@@ -450,86 +443,102 @@ impl Drop for ComponentSparseSet {
 /// `I` is the type of the indices, while `V` is the type of data stored in the dense storage.
 #[derive(Debug)]
 pub struct SparseSet<I, V: 'static> {
-    dense: Vec<V>,
-    indices: Vec<I>,
+    /// The initialized length of both `dense` and `indices`.
+    length: usize,
+    /// The allocated capacity of both `dense` and `indices`.
+    capacity: usize,
+    /// A dense array of values, indexed by the values in `sparse`.
+    /// This is stored as a `ThinArrayPtr` to share
+    /// `length` and `capacity` with `indices`.
+    dense: ThinArrayPtr<V>,
+    /// The indices of the corresponding values in `dense`.
+    /// This is stored as a `ThinArrayPtr` to share
+    /// `length` and `capacity` with `dense`.
+    indices: ThinArrayPtr<I>,
     sparse: SparseArray<I, NonMaxUsize>,
 }
 
-/// A space-optimized version of [`SparseSet`] that cannot be changed
-/// after construction.
-#[derive(Debug)]
-pub(crate) struct ImmutableSparseSet<I, V: 'static> {
-    dense: Box<[V]>,
-    indices: Box<[I]>,
-    sparse: ImmutableSparseArray<I, NonMaxUsize>,
-}
-
-macro_rules! impl_sparse_set {
-    ($ty:ident) => {
-        impl<I: SparseSetIndex, V> $ty<I, V> {
-            /// Returns the number of elements in the sparse set.
-            #[inline]
-            pub fn len(&self) -> usize {
-                self.dense.len()
-            }
-
-            /// Returns `true` if the sparse set contains a value for `index`.
-            #[inline]
-            pub fn contains(&self, index: I) -> bool {
-                self.sparse.contains(index)
-            }
-
-            /// Returns a reference to the value for `index`.
-            ///
-            /// Returns `None` if `index` does not have a value in the sparse set.
-            pub fn get(&self, index: I) -> Option<&V> {
-                self.sparse.get(index).map(|dense_index| {
-                    // SAFETY: if the sparse index points to something in the dense vec, it exists
-                    unsafe { self.dense.get_unchecked(dense_index.get()) }
-                })
-            }
-
-            /// Returns a mutable reference to the value for `index`.
-            ///
-            /// Returns `None` if `index` does not have a value in the sparse set.
-            pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
-                let dense = &mut self.dense;
-                self.sparse.get(index).map(move |dense_index| {
-                    // SAFETY: if the sparse index points to something in the dense vec, it exists
-                    unsafe { dense.get_unchecked_mut(dense_index.get()) }
-                })
-            }
-
-            /// Returns an iterator visiting all keys (indices) in arbitrary order.
-            pub fn indices(&self) -> &[I] {
-                &self.indices
-            }
-
-            /// Returns an iterator visiting all values in arbitrary order.
-            pub fn values(&self) -> impl Iterator<Item = &V> {
-                self.dense.iter()
-            }
-
-            /// Returns an iterator visiting all values mutably in arbitrary order.
-            pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
-                self.dense.iter_mut()
-            }
-
-            /// Returns an iterator visiting all key-value pairs in arbitrary order, with references to the values.
-            pub fn iter(&self) -> impl Iterator<Item = (&I, &V)> {
-                self.indices.iter().zip(self.dense.iter())
-            }
-
-            /// Returns an iterator visiting all key-value pairs in arbitrary order, with mutable references to the values.
-            pub fn iter_mut(&mut self) -> impl Iterator<Item = (&I, &mut V)> {
-                self.indices.iter().zip(self.dense.iter_mut())
-            }
+impl<I, V> Drop for SparseSet<I, V> {
+    fn drop(&mut self) {
+        // SAFETY: `capacity` and `length` are correct.
+        // `dense` and `indices` are never accessed again after this call.
+        unsafe {
+            self.dense.drop(self.capacity, self.length);
+            self.indices.drop(self.capacity, self.length);
         }
-    };
+    }
 }
 
-impl_sparse_set!(SparseSet);
-impl_sparse_set!(ImmutableSparseSet);
+impl<I: SparseSetIndex, V> SparseSet<I, V> {
+    /// Returns the number of elements in the sparse set.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.length
+    }
+
+    /// Returns `true` if the sparse set contains a value for `index`.
+    #[inline]
+    pub fn contains(&self, index: I) -> bool {
+        self.sparse.contains(index)
+    }
+
+    /// Returns a reference to the value for `index`.
+    ///
+    /// Returns `None` if `index` does not have a value in the sparse set.
+    pub fn get(&self, index: I) -> Option<&V> {
+        self.sparse.get(index).map(|dense_index| {
+            // SAFETY: if the sparse index points to something in the dense vec, it exists
+            unsafe { self.dense.get_unchecked(dense_index.get()) }
+        })
+    }
+
+    /// Returns a mutable reference to the value for `index`.
+    ///
+    /// Returns `None` if `index` does not have a value in the sparse set.
+    pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
+        let dense = &mut self.dense;
+        self.sparse.get(index).map(move |dense_index| {
+            // SAFETY: if the sparse index points to something in the dense vec, it exists
+            unsafe { dense.get_unchecked_mut(dense_index.get()) }
+        })
+    }
+
+    /// Returns an iterator visiting all keys (indices) in arbitrary order.
+    pub fn indices(&self) -> &[I] {
+        // SAFETY: `length` is the length of `indices`.
+        unsafe { self.indices.as_slice(self.length) }
+    }
+
+    /// Returns an iterator visiting all values in arbitrary order.
+    pub fn values(&self) -> impl Iterator<Item = &V> {
+        // SAFETY: `length` is the length of `dense`.
+        unsafe { self.dense.as_slice(self.length) }.iter()
+    }
+
+    /// Returns an iterator visiting all values mutably in arbitrary order.
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
+        // SAFETY: `length` is the length of `dense`.
+        unsafe { self.dense.as_slice_mut(self.length) }.iter_mut()
+    }
+
+    /// Returns an iterator visiting all key-value pairs in arbitrary order, with references to the values.
+    pub fn iter(&self) -> impl Iterator<Item = (&I, &V)> {
+        // SAFETY: `length` is the length of `indices`.
+        let indices = unsafe { self.indices.as_slice(self.length) };
+        // SAFETY: `length` is the length of `dense`.
+        let dense = unsafe { self.dense.as_slice(self.length) };
+        indices.iter().zip(dense.iter())
+    }
+
+    /// Returns an iterator visiting all key-value pairs in arbitrary order, with mutable references to the values.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&I, &mut V)> {
+        // SAFETY: `length` is the length of `indices`.
+        let indices = unsafe { self.indices.as_slice(self.length) };
+        // SAFETY: `length` is the length of `dense`.
+        let dense = unsafe { self.dense.as_slice_mut(self.length) };
+        indices.iter().zip(dense.iter_mut())
+    }
+}
 
 impl<I: SparseSetIndex, V> Default for SparseSet<I, V> {
     fn default() -> Self {
@@ -537,35 +546,31 @@ impl<I: SparseSetIndex, V> Default for SparseSet<I, V> {
     }
 }
 
-impl<I, V> SparseSet<I, V> {
-    /// Creates a new [`SparseSet`].
-    pub const fn new() -> Self {
-        Self {
-            dense: Vec::new(),
-            indices: Vec::new(),
-            sparse: SparseArray::new(),
-        }
-    }
-}
-
 impl<I: SparseSetIndex, V> SparseSet<I, V> {
+    /// Creates a new [`SparseSet`].
+    pub fn new() -> Self {
+        Self::with_capacity(0, None)
+    }
+
     /// Creates a new [`SparseSet`] with a specified initial capacity.
     ///
     /// # Panics
     /// - Panics if the new capacity of the allocation overflows `isize::MAX` bytes.
     /// - Panics if the new allocation causes an out-of-memory error.
-    pub fn with_capacity(capacity: usize) -> Self {
+    pub fn with_capacity(capacity: usize, max_index: Option<I>) -> Self {
         Self {
-            dense: Vec::with_capacity(capacity),
-            indices: Vec::with_capacity(capacity),
-            sparse: Default::default(),
+            capacity,
+            length: 0,
+            dense: ThinArrayPtr::with_capacity(capacity),
+            indices: ThinArrayPtr::with_capacity(capacity),
+            sparse: SparseArray::with_max_index(max_index),
         }
     }
 
     /// Returns the total number of elements the [`SparseSet`] can hold without needing to reallocate.
     #[inline]
     pub fn capacity(&self) -> usize {
-        self.dense.capacity()
+        self.capacity
     }
 
     /// Inserts `value` at `index`.
@@ -583,9 +588,17 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
             }
         } else {
             self.sparse
-                .insert(index.clone(), NonMaxUsize::new(self.dense.len()).unwrap());
-            self.indices.push(index);
-            self.dense.push(value);
+                .insert(index.clone(), NonMaxUsize::new(self.length).unwrap());
+            if self.length == self.capacity {
+                self.grow();
+            }
+            // SAFETY: The call to `grow` ensures that `length < capacity`.
+            // `length` is updated after the values are initialized
+            unsafe {
+                self.indices.initialize_unchecked(self.length, index);
+                self.dense.initialize_unchecked(self.length, value);
+            }
+            self.length += 1;
         }
     }
 
@@ -601,20 +614,55 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
             unsafe { self.dense.get_unchecked_mut(dense_index.get()) }
         } else {
             let value = func();
-            let dense_index = self.dense.len();
+            let dense_index = self.length;
             self.sparse
                 .insert(index.clone(), NonMaxUsize::new(dense_index).unwrap());
-            self.indices.push(index);
-            self.dense.push(value);
+            if self.length == self.capacity {
+                self.grow();
+            }
+            // SAFETY: The call to `grow` ensures that `length < capacity`.
+            // `length` is updated after the values are initialized
+            unsafe {
+                self.indices.initialize_unchecked(self.length, index);
+                self.dense.initialize_unchecked(self.length, value);
+            }
+            self.length += 1;
             // SAFETY: dense index was just populated above
             unsafe { self.dense.get_unchecked_mut(dense_index) }
+        }
+    }
+
+    fn grow(&mut self) {
+        if let Some(old_capacity) = NonZero::new(self.capacity) {
+            // SAFETY: `capacity` is not zero, so `capacity * 2` is not zero unless there is overflow.
+            // Because `realloc` did not panic previously, `self.capacity` must be `<= isize::MAX`,
+            // which means `self.capacity * 2` will not overflow `usize`.
+            let new_capacity = unsafe { NonZero::new_unchecked(self.capacity * 2) };
+            // If any of the following operations panic due to an allocation error, the state
+            // of the `SparseSet` will be left in an invalid state and potentially cause UB.
+            // We create an AbortOnPanic guard to force panics to terminate the process if this occurs.
+            let _guard = AbortOnPanic;
+
+            // SAFETY: `capacity` is correct, and was not zero.
+            // `capacity` is updated after the reallocations are complete
+            unsafe {
+                self.indices.realloc(old_capacity, new_capacity);
+                self.dense.realloc(old_capacity, new_capacity);
+            }
+            self.capacity = new_capacity.get();
+            core::mem::forget(_guard);
+        } else {
+            let new_capacity = NonZero::new(4).unwrap();
+            self.indices.alloc(new_capacity);
+            self.dense.alloc(new_capacity);
+            self.capacity = new_capacity.get();
         }
     }
 
     /// Returns `true` if the sparse set contains no elements.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.dense.len() == 0
+        self.length == 0
     }
 
     /// Removes and returns the value for `index`.
@@ -623,13 +671,24 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn remove(&mut self, index: I) -> Option<V> {
         self.sparse.remove(index).map(|dense_index| {
             let index = dense_index.get();
-            let is_last = index == self.dense.len() - 1;
-            let value = self.dense.swap_remove(index);
-            self.indices.swap_remove(index);
+            let is_last = index == self.length - 1;
+            // If any of the following operations panic due to an allocation error, the state
+            // of the `SparseSet` will be left in an invalid state and potentially cause UB.
+            // We create an AbortOnPanic guard to force panics to terminate the process if this occurs.
+            let _guard = AbortOnPanic;
+            // SAFETY: indexes in `sparse` are always less than `self.length`, and `self.length - 1` is as well.
+            // The length is updated so that the last element can be left uninitialized.
+            let value = unsafe { self.dense.swap_remove_unchecked(index, self.length - 1) };
+            // SAFETY: indexes in `sparse` are always less than `self.length`, and `self.length - 1` is as well.
+            // The length is updated so that the last element can be left uninitialized.
+            unsafe { self.indices.swap_remove_unchecked(index, self.length - 1) };
+            self.length -= 1;
             if !is_last {
-                let swapped_index = self.indices[index].clone();
+                // SAFETY: indexes in `sparse` are always less than `self.length`
+                let swapped_index = unsafe { self.indices.get_unchecked(index) }.clone();
                 *self.sparse.get_mut(swapped_index).unwrap() = dense_index;
             }
+            core::mem::forget(_guard);
             value
         })
     }
@@ -639,17 +698,16 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     /// # Panics
     /// - Panics if any of the keys or values implements [`Drop`] and any of those panic.
     pub fn clear(&mut self) {
-        self.dense.clear();
-        self.indices.clear();
+        let length = self.length;
+        // Clear `sparse` first so that it does not contain invalid indexes if there is a panic
         self.sparse.clear();
-    }
-
-    /// Converts the sparse set into its immutable variant.
-    pub(crate) fn into_immutable(self) -> ImmutableSparseSet<I, V> {
-        ImmutableSparseSet {
-            dense: self.dense.into_boxed_slice(),
-            indices: self.indices.into_boxed_slice(),
-            sparse: self.sparse.into_immutable(),
+        // Zero the length before clearing the elements so that we just leak them if there is a panic
+        self.length = 0;
+        // SAFETY: `length` was the correct length of both `dense` and `indices`,
+        // and we updated it to zero to treat the elements as uninitialized.
+        unsafe {
+            self.dense.clear_elements(length);
+            self.indices.clear_elements(length);
         }
     }
 }

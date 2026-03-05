@@ -288,7 +288,11 @@ impl<'w> BundleInserter<'w> {
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
-                let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
+                let move_result = table.move_to_superset_unchecked(
+                    result.table_row,
+                    new_table,
+                    archetype_after_insert.added(),
+                );
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
                 entities.update_existing_location(entity.index(), Some(new_location));
 

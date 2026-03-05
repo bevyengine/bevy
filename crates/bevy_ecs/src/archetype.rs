@@ -26,7 +26,7 @@ use crate::{
     event::Event,
     observer::Observers,
     query::DebugCheckedUnwrap,
-    storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
+    storage::{SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
@@ -385,7 +385,7 @@ pub struct Archetype {
     table_id: TableId,
     edges: Edges,
     entities: Vec<ArchetypeEntity>,
-    components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
+    components: SparseSet<ComponentId, ArchetypeComponentInfo>,
     pub(crate) flags: ArchetypeFlags,
 }
 
@@ -397,14 +397,19 @@ impl Archetype {
         observers: &Observers,
         id: ArchetypeId,
         table_id: TableId,
-        table_components: impl Iterator<Item = ComponentId>,
-        sparse_set_components: impl Iterator<Item = ComponentId>,
+        table_components: &[ComponentId],
+        sparse_set_components: &[ComponentId],
     ) -> Self {
-        let (min_table, _) = table_components.size_hint();
-        let (min_sparse, _) = sparse_set_components.size_hint();
+        let max_component_id = table_components
+            .last()
+            .max(sparse_set_components.last())
+            .copied();
         let mut flags = ArchetypeFlags::empty();
-        let mut archetype_components = SparseSet::with_capacity(min_table + min_sparse);
-        for (idx, component_id) in table_components.enumerate() {
+        let mut archetype_components = SparseSet::with_capacity(
+            table_components.len() + sparse_set_components.len(),
+            max_component_id,
+        );
+        for (idx, &component_id) in table_components.iter().enumerate() {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -424,7 +429,7 @@ impl Archetype {
                 .insert(id, ArchetypeRecord { column: Some(idx) });
         }
 
-        for component_id in sparse_set_components {
+        for &component_id in sparse_set_components {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -444,7 +449,7 @@ impl Archetype {
             id,
             table_id,
             entities: Vec::new(),
-            components: archetype_components.into_immutable(),
+            components: archetype_components,
             edges: Default::default(),
             flags,
         }
@@ -919,8 +924,8 @@ impl Archetypes {
                     observers,
                     id,
                     table_id,
-                    table_components.iter().copied(),
-                    sparse_set_components.iter().copied(),
+                    table_components,
+                    sparse_set_components,
                 ));
                 vacant.insert(id);
                 (id, true)

@@ -228,7 +228,7 @@ impl<T> ThinArrayPtr<T> {
     /// - ensure that `current_len` is indeed the len of the array
     #[inline]
     unsafe fn last_element(&mut self, current_len: usize) -> Option<*mut T> {
-        (current_len != 0).then_some(self.data.as_ptr().add(current_len - 1))
+        (current_len != 0).then(|| self.data.as_ptr().add(current_len - 1))
     }
 
     /// Clears the array, removing (and dropping) Note that this method has no effect on the allocated capacity of the vector.
@@ -273,5 +273,18 @@ impl<T> ThinArrayPtr<T> {
         // - non-null and well-aligned
         // - we have a shared reference to self - the data will not be mutated during 'a
         unsafe { core::slice::from_raw_parts(self.data.as_ptr(), slice_len) }
+    }
+
+    /// Get the [`ThinArrayPtr`] as a slice with a given length.
+    ///
+    /// # Safety
+    /// - `slice_len` must match the actual length of the array
+    #[inline]
+    pub unsafe fn as_slice_mut(&mut self, slice_len: usize) -> &mut [T] {
+        // SAFETY:
+        // - the data is valid - allocated with the same allocator
+        // - non-null and well-aligned
+        // - we have a shared reference to self - the data will not be mutated during 'a
+        unsafe { core::slice::from_raw_parts_mut(self.data.as_ptr(), slice_len) }
     }
 }
