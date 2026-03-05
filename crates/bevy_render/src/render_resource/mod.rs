@@ -74,7 +74,6 @@ pub use naga::ShaderStage;
 
 pub use bevy_shader::{
     CompiledShader, NagaOilCompiler, ShaderCompileError, ShaderCompiler, ShaderLanguage,
-    SpirVPassthroughCompiler,
 };
 
 pub use bevy_material::{

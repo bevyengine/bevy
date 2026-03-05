@@ -1,5 +1,5 @@
 use super::ShaderDefVal;
-use crate::compiler::{ShaderLanguage, ShaderStage};
+use crate::compiler::{ShaderKind, ShaderLanguage};
 use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
@@ -186,7 +186,7 @@ impl Shader {
     pub fn from_custom(
         source: impl Into<Cow<'static, str>>,
         language: ShaderLanguage,
-        stage: Option<ShaderStage>,
+        stage: Option<ShaderKind>,
         path: impl Into<String>,
     ) -> Shader {
         let path = path.into();
@@ -273,7 +273,7 @@ pub enum Source {
     Custom {
         code: Cow<'static, str>,
         language: ShaderLanguage,
-        stage: Option<ShaderStage>,
+        stage: Option<ShaderKind>,
     },
 }
 
@@ -309,7 +309,7 @@ impl Source {
     }
 
     /// Returns the pipeline stage this shader targets, if applicable.
-    pub fn stage(&self) -> Option<ShaderStage> {
+    pub fn stage(&self) -> Option<ShaderKind> {
         match self {
             #[cfg(feature = "shader_format_glsl")]
             Source::Glsl(_, stage) => Some((*stage).into()),

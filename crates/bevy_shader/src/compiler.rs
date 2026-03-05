@@ -58,38 +58,38 @@ impl core::fmt::Display for ShaderLanguage {
 /// Shader pipeline stage.
 #[expect(missing_docs, reason = "Enum variants are self-explanatory")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ShaderStage {
+pub enum ShaderKind {
     Vertex,
     Fragment,
     Compute,
 }
 
-impl core::fmt::Display for ShaderStage {
+impl core::fmt::Display for ShaderKind {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            ShaderStage::Vertex => write!(f, "vertex"),
-            ShaderStage::Fragment => write!(f, "fragment"),
-            ShaderStage::Compute => write!(f, "compute"),
+            ShaderKind::Vertex => write!(f, "vertex"),
+            ShaderKind::Fragment => write!(f, "fragment"),
+            ShaderKind::Compute => write!(f, "compute"),
         }
     }
 }
 
-impl From<ShaderStage> for naga::ShaderStage {
-    fn from(stage: ShaderStage) -> Self {
+impl From<ShaderKind> for naga::ShaderStage {
+    fn from(stage: ShaderKind) -> Self {
         match stage {
-            ShaderStage::Vertex => naga::ShaderStage::Vertex,
-            ShaderStage::Fragment => naga::ShaderStage::Fragment,
-            ShaderStage::Compute => naga::ShaderStage::Compute,
+            ShaderKind::Vertex => naga::ShaderStage::Vertex,
+            ShaderKind::Fragment => naga::ShaderStage::Fragment,
+            ShaderKind::Compute => naga::ShaderStage::Compute,
         }
     }
 }
 
-impl From<naga::ShaderStage> for ShaderStage {
+impl From<naga::ShaderStage> for ShaderKind {
     fn from(stage: naga::ShaderStage) -> Self {
         match stage {
-            naga::ShaderStage::Vertex => ShaderStage::Vertex,
-            naga::ShaderStage::Fragment => ShaderStage::Fragment,
-            naga::ShaderStage::Compute => ShaderStage::Compute,
+            naga::ShaderStage::Vertex => ShaderKind::Vertex,
+            naga::ShaderStage::Fragment => ShaderKind::Fragment,
+            naga::ShaderStage::Compute => ShaderKind::Compute,
             _ => panic!("unsupported naga shader stage: {stage:?}"),
         }
     }
