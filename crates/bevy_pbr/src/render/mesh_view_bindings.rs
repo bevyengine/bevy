@@ -367,9 +367,8 @@ pub fn layout_entries(
     ));
 
     // Prepass
-    if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32")))
-        || (cfg!(all(feature = "webgl", target_arch = "wasm32"))
-            && !layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED))
+    if cfg!(any(feature = "webgpu", not(target_arch = "wasm32")))
+        || !layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED)
     {
         for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
             .iter()
@@ -742,10 +741,10 @@ pub fn prepare_mesh_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
             entries = entries.extend_with_indices(((19, lut_bindings.0), (20, lut_bindings.1)));
 
-            // When using WebGL, we can't have a depth texture with multisampling
+            // When using WebGL, we can't have a multisampled texture with `TEXTURE_BINDING`
+            // See https://github.com/gfx-rs/wgpu/issues/5263
             let prepass_bindings;
-            if cfg!(any(not(feature = "webgl"), not(target_arch = "wasm32"))) || msaa.samples() == 1
-            {
+            if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) || msaa.samples() == 1 {
                 prepass_bindings = prepass::get_bindings(prepass_textures);
                 for (binding, index) in prepass_bindings
                     .iter()
