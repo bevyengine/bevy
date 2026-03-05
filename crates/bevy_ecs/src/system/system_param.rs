@@ -21,7 +21,7 @@ use crate::{
         FromWorld, World,
     },
 };
-use alloc::{borrow::Cow, boxed::Box, format, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
 use bevy_ptr::UnsafeCellDeref;
@@ -694,13 +694,9 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        let (ptr, ticks) = world.get_resource_with_ticks(component_id).ok_or_else(|| {
-            SystemParamValidationError::invalid::<Self>(format!(
-                "Resource requested by {} does not exist: {}",
-                system_meta.name,
-                DebugName::type_name::<T>()
-            ))
-        })?;
+        let (ptr, ticks) = world
+            .get_resource_with_ticks(component_id)
+            .ok_or_else(|| SystemParamValidationError::invalid::<Self>("Resource not found"))?;
         Ok(Res {
             value: ptr.deref(),
             ticks: ComponentTicksRef {
@@ -755,13 +751,9 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        let value = world.get_resource_mut_by_id(component_id).ok_or_else(|| {
-            SystemParamValidationError::invalid::<Self>(format!(
-                "Resource requested by {} does not exist: {}",
-                system_meta.name,
-                DebugName::type_name::<T>()
-            ))
-        })?;
+        let value = world
+            .get_resource_mut_by_id(component_id)
+            .ok_or_else(|| SystemParamValidationError::invalid::<Self>("Resource not found"))?;
         Ok(ResMut {
             value: value.value.deref_mut::<T>(),
             ticks: ComponentTicksMut {
@@ -1348,11 +1340,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         let (ptr, ticks) = world.get_non_send_with_ticks(component_id).ok_or_else(|| {
-            SystemParamValidationError::invalid::<Self>(format!(
-                "Non-send resource requested by {} does not exist: {}",
-                system_meta.name,
-                DebugName::type_name::<T>()
-            ))
+            SystemParamValidationError::invalid::<Self>("Non-send data not found")
         })?;
         Ok(NonSend {
             value: ptr.deref(),
@@ -1400,11 +1388,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         let (ptr, ticks) = world.get_non_send_with_ticks(component_id).ok_or_else(|| {
-            SystemParamValidationError::invalid::<Self>(format!(
-                "Non-send resource requested by {} does not exist: {}",
-                system_meta.name,
-                DebugName::type_name::<T>()
-            ))
+            SystemParamValidationError::invalid::<Self>("Non-send data not found")
         })?;
         Ok(NonSendMut {
             value: ptr.assert_unique().deref_mut(),
