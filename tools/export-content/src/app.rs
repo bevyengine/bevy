@@ -1,4 +1,4 @@
-#![expect(
+#![allow(
     unused_assignments,
     reason = "Warnings from inside miette due to a rustc bug: https://github.com/rust-lang/rust/issues/147648"
 )]
