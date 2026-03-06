@@ -1,7 +1,11 @@
-//! Demonstrates different ways to extract components to another world.
+//! Demonstrates different ways of extracting components from the main world to the render world.
 //!
-//! Multiple entities are spawned, each with a different marker component: A, B, C.
-//! Each component contains the current elapsed time, updated each frame on the Main World.
+//! This is usually done as an intermediary step for transferring data to the GPU, making
+//! it accessible inside shaders.  
+//!
+//! In this example, multiple entities are spawned, each with a different marker component: A, B, C.
+//! Each component contains the current elapsed time, updated each frame on the Main World, and is
+//! extracted to the render world in a different way.
 
 use bevy::prelude::*;
 use bevy::render::{

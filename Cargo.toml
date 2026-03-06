@@ -2321,7 +2321,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.extraction]
 name = "Extraction"
-description = "Demonstrates different ways to extract components"
+description = "Demonstrates different ways of extracting components, copying them from the main world to the render world"
 category = "ECS (Entity Component System)"
 wasm = false
 
