@@ -459,6 +459,7 @@ mod tests {
                 camera,
                 position: None,
                 normal: None,
+                extra: None,
             },
         );
         hover_map.insert(PointerId::Mouse, entity_map);
@@ -511,6 +512,7 @@ mod tests {
                 camera,
                 position: None,
                 normal: None,
+                extra: None,
             },
         );
         hover_map.insert(PointerId::Mouse, entity_map);
@@ -576,6 +578,7 @@ mod tests {
                 camera,
                 position: None,
                 normal: None,
+                extra: None,
             },
         );
         hover_map.insert(PointerId::Mouse, entity_map);
