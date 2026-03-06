@@ -4967,10 +4967,6 @@ inherits = "release"
 lto = "fat"
 panic = "abort"
 
-[profile.rel-with-deb-info]
-inherits = "release"
-debug = 1
-
 [package.metadata.docs.rs]
 # This cfg is needed so that #[doc(fake_variadic)] is correctly propagated for
 # impls for re-exported traits. See https://github.com/rust-lang/cargo/issues/8811

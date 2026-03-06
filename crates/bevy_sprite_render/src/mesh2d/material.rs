@@ -47,7 +47,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
-    view::{ExtractedView, RenderShadowMapVisibleEntities},
+    view::ExtractedView,
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{Shader, ShaderDefVal, ShaderRef};
@@ -751,7 +751,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
     transparent_render_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_render_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     alpha_mask_render_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
-    views: Query<(&MainEntity, &ExtractedView, &RenderShadowMapVisibleEntities)>,
+    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_mesh_material2d_queues: ResMut<PendingMeshMaterial2dQueues>,
@@ -779,10 +779,6 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             .entry(*view_entity)
             .or_default();
 
-        let Some(visible_entities) = visible_entities.subviews.get(&view.retained_view_entity)
-        else {
-            continue;
-        };
         let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {
             continue;
         };
