@@ -14,7 +14,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::{FontSize, TextFont};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
 use bevy_ui_widgets::Button;
 
@@ -22,7 +22,6 @@ use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
     font_styles::InheritableFont,
-    handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
     theme::{ThemeBackgroundColor, ThemeFontColor},
     tokens,
@@ -85,11 +84,11 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         TabIndex(0),
         ThemeBackgroundColor(tokens::BUTTON_BG),
         ThemeFontColor(tokens::BUTTON_TEXT),
-        InheritableFont {
-            font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
+        InheritableFont(TextFont {
+            font: fonts::REGULAR,
             font_size: FontSize::Px(14.0),
-            weight: FontWeight::NORMAL,
-        },
+            ..Default::default()
+        }),
         overrides,
         Children::spawn(children),
     )

@@ -1,17 +1,29 @@
 //! Various non-themable constants for the Feathers look and feel.
 
-/// Font asset paths
+/// Font sources
 pub mod fonts {
-    /// Default regular font path
-    pub const REGULAR: &str = "embedded://bevy_feathers/assets/fonts/FiraSans-Regular.ttf";
-    /// Regular italic font path
-    pub const ITALIC: &str = "embedded://bevy_feathers/assets/fonts/FiraSans-Italic.ttf";
-    /// Bold font path
-    pub const BOLD: &str = "embedded://bevy_feathers/assets/fonts/FiraSans-Bold.ttf";
-    /// Bold italic font path
-    pub const BOLD_ITALIC: &str = "embedded://bevy_feathers/assets/fonts/FiraSans-BoldItalic.ttf";
-    /// Monospace font path
-    pub const MONO: &str = "embedded://bevy_feathers/assets/fonts/FiraMono-Medium.ttf";
+    use bevy_text::FontSource;
+    use smol_str::SmolStr;
+
+    /// Default regular font
+    pub const REGULAR: FontSource =
+        new_static("embedded://bevy_feathers/assets/fonts/FiraSans-Regular.ttf");
+    /// Regular italic font
+    pub const ITALIC: FontSource =
+        new_static("embedded://bevy_feathers/assets/fonts/FiraSans-Italic.ttf");
+    /// Bold font
+    pub const BOLD: FontSource =
+        new_static("embedded://bevy_feathers/assets/fonts/FiraSans-Bold.ttf");
+    /// Bold italic font
+    pub const BOLD_ITALIC: FontSource =
+        new_static("embedded://bevy_feathers/assets/fonts/FiraSans-BoldItalic.ttf");
+    /// Monospace font
+    pub const MONO: FontSource =
+        new_static("embedded://bevy_feathers/assets/fonts/FiraMono-Medium.ttf");
+
+    const fn new_static(path: &'static str) -> FontSource {
+        FontSource::Family(SmolStr::new_static(path))
+    }
 }
 
 /// Size constants
