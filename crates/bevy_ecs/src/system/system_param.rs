@@ -618,6 +618,16 @@ macro_rules! impl_param_set {
                 world: UnsafeWorldCell<'w>,
                 change_tick: Tick,
             ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+                // Validate each sub-param eagerly so that the system is correctly
+                // skipped by the executor when any sub-param is unavailable.
+                // PERF: the sub-params will be fetched again lazily when accessed through
+                // the ParamSet, but this is no worse than the previous
+                // validate_param + get_param pattern.
+                $(
+                    // SAFETY: Upheld by caller.
+                    drop(unsafe { $param::get_param(&mut state.$index, system_meta, world, change_tick) }?);
+                )*
+
                 Ok(ParamSet {
                     param_states: state,
                     system_meta: system_meta.clone(),
@@ -1877,6 +1887,16 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        // Validate each sub-param eagerly so that the system is correctly
+        // skipped by the executor when any sub-param is unavailable.
+        // PERF: the sub-params will be fetched again lazily when accessed through
+        // the ParamSet, but this is no worse than the previous
+        // validate_param + get_param pattern.
+        for s in state.iter_mut() {
+            // SAFETY: Upheld by caller.
+            drop(unsafe { T::get_param(s, system_meta, world, change_tick) }?);
+        }
+
         Ok(ParamSet {
             param_states: state,
             system_meta: system_meta.clone(),
