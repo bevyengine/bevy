@@ -2,8 +2,8 @@
 //!
 //! Default [`ShaderCompiler`] implementations:
 /// - [`NagaOilCompiler`] for WGSL
-/// - [`NagaOilCompiler`] for GLSL (requires `shader_format_glsl` feature)
-/// - [`WeslCompiler`](crate::WeslCompiler) for WESL (requires `shader_format_wesl` feature)
+/// - [`NagaOilCompiler`] for GLSL
+/// - [`WeslCompiler`] for WESL (requires `shader_format_wesl` feature)
 /// - [`SpirVPassthroughCompiler`] for SPIR-V (requires `shader_format_spirv` feature)
 mod naga_compiler;
 pub use naga_compiler::*;
