@@ -40,6 +40,9 @@ pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
 /// Amount of entries in the world cache (must be a power of 2, and >= 2^10)
 pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 
+/// Number of lights cached per screen-space light cache cell
+pub const LIGHT_CACHE_LIGHTS_PER_CELL: u64 = 8;
+
 /// Internal rendering resources used for Solari lighting.
 #[derive(Component)]
 pub struct SolariLightingResources {
@@ -60,6 +63,7 @@ pub struct SolariLightingResources {
     pub world_cache_active_cell_indices: Buffer,
     pub world_cache_active_cells_count: Buffer,
     pub world_cache_active_cells_dispatch: Buffer,
+    pub light_cache: Buffer,
     pub view_size: UVec2,
 }
 
@@ -225,6 +229,14 @@ pub fn prepare_solari_lighting_resources(
             mapped_at_creation: false,
         });
 
+        let light_cache = render_device.create_buffer(&BufferDescriptor {
+            label: Some("solari_lighting_light_cache"),
+            size: (view_size.x.div_ceil(8) * view_size.y.div_ceil(8)) as u64
+                * (4 + 8 * LIGHT_CACHE_LIGHTS_PER_CELL),
+            usage: BufferUsages::INDIRECT | BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+
         commands.entity(entity).insert(SolariLightingResources {
             light_tile_samples,
             light_tile_resolved_samples,
@@ -243,6 +255,7 @@ pub fn prepare_solari_lighting_resources(
             world_cache_active_cell_indices,
             world_cache_active_cells_count,
             world_cache_active_cells_dispatch,
+            light_cache,
             view_size,
         });
 

@@ -252,7 +252,7 @@ fn setup_many_lights(
                         },
                     ),
                 ),
-                perceptual_roughness: 0.0,
+                perceptual_roughness: 0.12,
                 ..default()
             })),
         ))

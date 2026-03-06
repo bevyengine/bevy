@@ -35,6 +35,7 @@ enable wgpu_ray_query;
 @group(1) @binding(21) var<storage, read_write> world_cache_b: array<u32, 1024u>;
 @group(1) @binding(22) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(23) var<storage, read_write> world_cache_active_cells_count: u32;
+@group(1) @binding(24) var<storage, read_write> light_cache: array<LightCacheCell>;
 
 #ifdef DLSS_RR_GUIDE_BUFFERS
 @group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
@@ -71,4 +72,14 @@ struct WorldCacheGeometryData {
     padding_a: u32,
     world_normal: vec3<f32>,
     padding_b: u32
+}
+
+struct WeightedLight {
+    light: u32,
+    weight: f32,
+}
+
+struct LightCacheCell {
+    visible_light_count: u32,
+    visible_lights: array<WeightedLight, #{LIGHT_CACHE_LIGHTS_PER_CELL}>,
 }
