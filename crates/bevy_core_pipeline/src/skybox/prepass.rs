@@ -12,9 +12,10 @@ use bevy_light::Skybox;
 use bevy_render::{
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntries, CachedRenderPipelineId, CompareFunction, DepthStencilState,
-        FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor, ShaderStages,
-        SpecializedRenderPipeline, SpecializedRenderPipelines,
+        BindGroupLayoutEntries, CachedRenderPipelineId, ColorWrites, CompareFunction,
+        DepthStencilState, FragmentState, MultisampleState, PipelineCache,
+        RenderPipelineDescriptor, ShaderStages, SpecializedRenderPipeline,
+        SpecializedRenderPipelines,
     },
     renderer::RenderDevice,
     view::{Msaa, ViewUniform, ViewUniforms},
@@ -85,6 +86,11 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
     type Key = SkyboxPrepassPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut targets = prepass_target_descriptors(key.normal_prepass, true, false);
+        if let Some(normal) = &mut targets[0] {
+            // skybox prepass doesn't write normal, set it empty to avoid WebGPU validation error.
+            normal.write_mask = ColorWrites::empty();
+        }
         RenderPipelineDescriptor {
             label: Some("skybox_prepass_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
@@ -103,7 +109,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
             },
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
-                targets: prepass_target_descriptors(key.normal_prepass, true, false),
+                targets,
                 ..default()
             }),
             ..default()
