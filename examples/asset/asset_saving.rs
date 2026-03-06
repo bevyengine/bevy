@@ -98,7 +98,7 @@ fn setup(
     ));
 
     commands.spawn(Text(
-        r"Select a color from the palette at the top
+        r"Select a color from the palette at the bottom
 LMB - Draw with selected color
 F5 - Save image"
             .into(),
@@ -146,7 +146,7 @@ F5 - Save image"
             Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                align_content: AlignContent::End,
+                align_items: AlignItems::End,
                 justify_content: JustifyContent::Center,
                 ..Default::default()
             },
