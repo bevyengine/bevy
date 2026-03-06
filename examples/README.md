@@ -438,6 +438,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Custom Hit Data](../examples/picking/custom_hit_data.rs) | Demonstrates a custom picking backend with custom hit data.
 [Drag and Drop](../examples/picking/dragdrop_picking.rs) | Demonstrates drag and drop using picking events
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
