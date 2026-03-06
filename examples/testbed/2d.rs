@@ -34,6 +34,10 @@ fn main() {
             OnEnter(Scene::TextureAtlasBuilder),
             texture_atlas_builder::setup,
         )
+        .add_systems(
+            OnEnter(Scene::DynamicTextureAtlasBuilder),
+            dynamic_texture_atlas_builder::setup,
+        )
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)));
 
@@ -58,6 +62,7 @@ enum Scene {
     SpriteSlicing,
     Gizmos,
     TextureAtlasBuilder,
+    DynamicTextureAtlasBuilder,
 }
 
 impl std::str::FromStr for Scene {
@@ -84,7 +89,8 @@ impl Next for Scene {
             Scene::Sprite => Scene::SpriteSlicing,
             Scene::SpriteSlicing => Scene::Gizmos,
             Scene::Gizmos => Scene::TextureAtlasBuilder,
-            Scene::TextureAtlasBuilder => Scene::Shapes,
+            Scene::TextureAtlasBuilder => Scene::DynamicTextureAtlasBuilder,
+            Scene::DynamicTextureAtlasBuilder => Scene::Shapes,
         }
     }
 }
@@ -538,6 +544,122 @@ mod texture_atlas_builder {
                     ),
                     anchor,
                     DespawnOnExit(super::Scene::TextureAtlasBuilder),
+                ));
+            }
+        }
+    }
+}
+
+mod dynamic_texture_atlas_builder {
+    use bevy::{
+        asset::RenderAssetUsages,
+        image::{ImageSampler, ToExtents},
+        prelude::*,
+        render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+        sprite::Anchor,
+    };
+
+    const ATLAS_SIZE: UVec2 = UVec2::splat(64);
+    const IMAGE_SIZE: UVec2 = UVec2::splat(28);
+    const PADDING_SIZE: u32 = 2;
+    const ROW_GAP: f32 = 8.;
+    const COLUMN_GAP: f32 = (ATLAS_SIZE.x / 2) as f32;
+    const CASES: [(u32, bool); 3] = [(0, false), (PADDING_SIZE, false), (PADDING_SIZE, true)];
+    const WIDTH: f32 = CASES.len() as f32 * ATLAS_SIZE.x as f32 + (CASES.len()) as f32 * COLUMN_GAP;
+
+    pub fn setup(
+        mut commands: Commands,
+        mut textures: ResMut<Assets<Image>>,
+        mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    ) {
+        commands.spawn((
+            Camera2d,
+            DespawnOnExit(super::Scene::DynamicTextureAtlasBuilder),
+        ));
+
+        // create a test image divided into four equal quarters with colors: red, green, blue and yellow
+        let mut image_data: Vec<u8> =
+            Vec::with_capacity((IMAGE_SIZE.x * IMAGE_SIZE.y * 4) as usize);
+
+        for y in 0..IMAGE_SIZE.y {
+            for x in 0..IMAGE_SIZE.x {
+                let color = match (x < IMAGE_SIZE.x / 2, y < IMAGE_SIZE.x / 2) {
+                    (true, true) => [255, 0, 0, 255],
+                    (false, true) => [0, 255, 0, 255],
+                    (true, false) => [0, 0, 255, 255],
+                    (false, false) => [255, 255, 0, 255],
+                };
+                image_data.extend_from_slice(&color);
+            }
+        }
+
+        let image = Image::new(
+            Extent3d {
+                width: 28,
+                height: 28,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            image_data,
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+        );
+
+        for (i, (padding, extrude_textures)) in CASES.into_iter().enumerate() {
+            let mut dynamic_texture_atlas_builder =
+                DynamicTextureAtlasBuilder::new(ATLAS_SIZE, padding, extrude_textures);
+            let mut atlas_texture = Image::new_fill(
+                ATLAS_SIZE.to_extents(),
+                TextureDimension::D2,
+                &[0, 0, 0, 0],
+                TextureFormat::Rgba8UnormSrgb,
+                // Need to keep this image CPU persistent in order to add additional glyphs later on
+                RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+            );
+            let mut atlas_layout = TextureAtlasLayout::new_empty(ATLAS_SIZE);
+            for _ in 0..4 {
+                dynamic_texture_atlas_builder.add_texture(
+                    &mut atlas_layout,
+                    &image,
+                    &mut atlas_texture,
+                ).expect("The image size and padding is chosen so that all the images should fit the atlas.");
+            }
+
+            let atlas_layout = texture_atlases.add(atlas_layout);
+
+            let mut nearest_atlas_image = atlas_texture.clone();
+            nearest_atlas_image.sampler = ImageSampler::nearest();
+
+            let atlas_handle = textures.add(atlas_texture);
+            let nearest_atlas_handle = textures.add(nearest_atlas_image);
+
+            let position =
+                (-0.5 * WIDTH + (i as f32 * WIDTH / CASES.len() as f32).round()) * Vec3::X;
+
+            commands.spawn((
+                Sprite::from_image(nearest_atlas_handle),
+                Anchor::BOTTOM_CENTER,
+                ShowAabbGizmo {
+                    color: Some(Color::WHITE),
+                },
+                DespawnOnExit(super::Scene::DynamicTextureAtlasBuilder),
+                Transform::from_translation(position),
+            ));
+
+            for index in 0..4 {
+                let sprite_position =
+                    position - Vec3::Y * (ROW_GAP + index as f32 * (ROW_GAP + IMAGE_SIZE.y as f32));
+                commands.spawn((
+                    Sprite::from_atlas_image(
+                        atlas_handle.clone(),
+                        TextureAtlas {
+                            layout: atlas_layout.clone(),
+                            index,
+                        },
+                    ),
+                    Transform::from_translation(sprite_position),
+                    Anchor::TOP_CENTER,
+                    DespawnOnExit(super::Scene::DynamicTextureAtlasBuilder),
                 ));
             }
         }
