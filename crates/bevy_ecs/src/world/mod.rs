@@ -2755,7 +2755,10 @@ impl World {
     /// [`World::clear_resources`] or [`World::clear_all`], the resource will *not* be re-inserted
     /// at the end of the scope.
     #[track_caller]
-    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+    pub fn resource_scope<R: Resource + Component<Mutability = Mutable>, U>(
+        &mut self,
+        f: impl FnOnce(&mut World, Mut<R>) -> U,
+    ) -> U {
         self.try_resource_scope(f)
             .unwrap_or_else(|| panic!("resource does not exist: {}", DebugName::type_name::<R>()))
     }
@@ -2773,7 +2776,7 @@ impl World {
     /// If the world's resource metadata is cleared within the scope, such as by calling
     /// [`World::clear_resources`] or [`World::clear_all`], the resource will *not* be re-inserted
     /// at the end of the scope.
-    pub fn try_resource_scope<R: Resource, U>(
+    pub fn try_resource_scope<R: Resource + Component<Mutability = Mutable>, U>(
         &mut self,
         f: impl FnOnce(&mut World, Mut<R>) -> U,
     ) -> Option<U> {
@@ -2792,7 +2795,7 @@ impl World {
         // the resource is inserted even if the user-provided closure unwinds.
         // this facilitates localized panic recovery and makes app shutdown in response to a panic more graceful
         // by avoiding knock-on errors.
-        struct ReinsertGuard<'a, R: Resource> {
+        struct ReinsertGuard<'a, R: Resource + Component<Mutability = Mutable>> {
             world: &'a mut World,
             entity: Entity,
             component_id: ComponentId,
@@ -2800,7 +2803,7 @@ impl World {
             ticks: ComponentTicks,
             caller: MaybeLocation,
         }
-        impl<R: Resource> Drop for ReinsertGuard<'_, R> {
+        impl<R: Resource + Component<Mutability = Mutable>> Drop for ReinsertGuard<'_, R> {
             fn drop(&mut self) {
                 // take ownership of the value first so it'll get dropped if we return early
                 // SAFETY: drop semantics ensure that `self.value` will never be accessed again after this call
