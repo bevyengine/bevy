@@ -255,7 +255,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
             }
             .build(),
         ))
-        .insert_if(OcclusionCulling, || !args.no_shadow_occlusion_culling);
+        .insert_if(OcclusionCulling, !args.no_shadow_occlusion_culling);
 
     // Camera
     let mut cam = commands.spawn((
@@ -285,13 +285,13 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
         FreeCamera::default(),
         Spin,
     ));
-    cam.insert_if(DepthPrepass, || args.deferred)
-        .insert_if(DeferredPrepass, || args.deferred)
-        .insert_if(OcclusionCulling, || !args.no_view_occlusion_culling)
-        .insert_if(NoFrustumCulling, || args.no_frustum_culling)
-        .insert_if(NoAutomaticBatching, || args.no_automatic_batching)
-        .insert_if(NoIndirectDrawing, || args.no_indirect_drawing)
-        .insert_if(NoCpuCulling, || args.no_cpu_culling);
+    cam.insert_if(DepthPrepass, args.deferred)
+        .insert_if(DeferredPrepass, args.deferred)
+        .insert_if(OcclusionCulling, !args.no_view_occlusion_culling)
+        .insert_if(NoFrustumCulling, args.no_frustum_culling)
+        .insert_if(NoAutomaticBatching, args.no_automatic_batching)
+        .insert_if(NoIndirectDrawing, args.no_indirect_drawing)
+        .insert_if(NoCpuCulling, args.no_cpu_culling);
     if !args.minimal {
         cam.insert((
             Bloom {

@@ -201,8 +201,8 @@ fn setup(
                             .looking_at(Vec3::ZERO, Vec3::Y)
                             .mul_transform(*transform),
                     ))
-                    .insert_if(NoFrustumCulling, || args.no_frustum_culling)
-                    .insert_if(NoAutomaticBatching, || args.no_automatic_batching);
+                    .insert_if(NoFrustumCulling, args.no_frustum_culling)
+                    .insert_if(NoAutomaticBatching, args.no_automatic_batching);
             }
 
             // camera
