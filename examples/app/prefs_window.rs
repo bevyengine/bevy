@@ -2,11 +2,11 @@
 use std::time::Duration;
 
 use bevy::{
-    preferences::{
+    prelude::*,
+    settings::{
         PreferencesPlugin, ReflectSettingsGroup, SavePreferencesDeferred, SavePreferencesSync,
         SettingsGroup,
     },
-    prelude::*,
     window::{ExitCondition, WindowCloseRequested, WindowMode, WindowResized, WindowResolution},
 };
 
@@ -16,7 +16,7 @@ fn main() {
             // We want to intercept the exit so that we can save prefs.
             exit_condition: ExitCondition::DontExit,
             primary_window: Some(Window {
-                title: "Prefs Counter".into(),
+                title: "Prefs Window".into(),
                 ..default()
             }),
             ..default()
@@ -55,6 +55,7 @@ struct WindowSettings {
 #[derive(Component)]
 struct CounterDisplay;
 
+/// A "glue" plugin that copies the window settings to the actual window entity.
 fn init_window_pos(app: &mut App) {
     let world = app.world_mut();
     let Some(window_settings) = world.get_resource::<WindowSettings>() else {

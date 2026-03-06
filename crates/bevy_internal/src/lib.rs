@@ -79,7 +79,7 @@ pub use bevy_render as render;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
 #[cfg(feature = "bevy_settings")]
-pub use bevy_settings as preferences;
+pub use bevy_settings as settings;
 #[cfg(feature = "bevy_shader")]
 pub use bevy_shader as shader;
 #[cfg(feature = "bevy_solari")]

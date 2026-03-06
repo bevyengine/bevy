@@ -2,11 +2,11 @@
 use std::time::Duration;
 
 use bevy::{
-    preferences::{
+    prelude::*,
+    settings::{
         PreferencesPlugin, ReflectSettingsGroup, SavePreferencesDeferred, SavePreferencesSync,
         SettingsGroup,
     },
-    prelude::*,
     window::{ExitCondition, WindowCloseRequested},
 };
 
