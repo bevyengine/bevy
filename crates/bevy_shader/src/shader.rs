@@ -333,7 +333,7 @@ impl From<&Source> for naga_oil::compose::ShaderLanguage {
     fn from(value: &Source) -> Self {
         match value {
             Source::Wgsl(_) => naga_oil::compose::ShaderLanguage::Wgsl,
-            #[cfg(any(feature = "shader_format_glsl", target_arch = "wasm32"))]
+            #[cfg(feature = "shader_format_glsl")]
             Source::Glsl(_, _) => naga_oil::compose::ShaderLanguage::Glsl,
             #[cfg(feature = "shader_format_spirv")]
             Source::SpirV(_) => panic!("spirv not yet implemented"),
