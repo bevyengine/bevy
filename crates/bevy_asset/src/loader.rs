@@ -350,7 +350,7 @@ pub enum LoadDirectError {
     #[error("Failed to load dependency {dependency:?} {error}")]
     LoadError {
         dependency: AssetPath<'static>,
-        error: AssetLoadError,
+        error: Box<AssetLoadError>,
     },
 }
 
@@ -656,7 +656,7 @@ impl<'a> LoadContext<'a> {
             .await
             .map_err(|error| LoadDirectError::LoadError {
                 dependency: path.clone(),
-                error,
+                error: Box::new(error),
             })?;
         let hash = processed_info.map(|i| i.full_hash).unwrap_or_default();
         self.loader_dependencies.insert(path, hash);

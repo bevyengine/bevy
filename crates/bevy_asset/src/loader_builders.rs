@@ -415,7 +415,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
                     .await
                     .map_err(|error| LoadDirectError::LoadError {
                         dependency: path.clone(),
-                        error: error.into(),
+                        error: Box::new(error.into()),
                     })?
             } else {
                 self.load_context
@@ -424,7 +424,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
                     .await
                     .map_err(|error| LoadDirectError::LoadError {
                         dependency: path.clone(),
-                        error: error.into(),
+                        error: Box::new(error.into()),
                     })?
             };
             let meta = loader.default_meta();
@@ -437,7 +437,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
                 .await
                 .map_err(|error| LoadDirectError::LoadError {
                     dependency: path.clone(),
-                    error,
+                    error: Box::new(error),
                 })?;
             (meta, loader, ReaderRef::Boxed(reader))
         };
@@ -483,12 +483,12 @@ impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
                     .downcast::<A>()
                     .map_err(|_| LoadDirectError::LoadError {
                         dependency: path.clone(),
-                        error: AssetLoadError::RequestedHandleTypeMismatch {
+                        error: Box::new(AssetLoadError::RequestedHandleTypeMismatch {
                             path,
                             requested: TypeId::of::<A>(),
                             actual_asset_name: loader.asset_type_name(),
                             loader_name: loader.type_path(),
-                        },
+                        }),
                     })
             })
     }
