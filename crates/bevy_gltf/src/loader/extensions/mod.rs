@@ -121,20 +121,28 @@ pub trait GltfExtensionHandler: Send + Sync {
 
     /// Called when an individual glTF primitive is processed
     /// glTF primitives are what become a Bevy `Mesh`
+    /// This hook is useful for extensions that need to
+    /// decompress or transform primitives and their associated
+    /// glTF data.
     ///
-    /// `buffer_data` is the raw buffer data from the glTF file, where each `Vec<u8>` represents
-    /// a buffer containing geometry data such as vertex attributes and indices. Extensions can
-    /// read this data to process compressed or encoded primitive data.
+    /// `buffer_data` is a reference to all of the buffers from the
+    /// glTF document, in order, after it has been loaded by Bevy. Extensions
+    /// in glTF are allowed to add arbitrary buffers, so while this
+    /// data is often vertex data, it can not be assumed to be
+    /// vertex data.
     ///
-    /// `out_doc` allows extensions to provide a modified or
-    /// replacement glTF document. If set, the loader will use this modified document for subsequent
-    /// primitive processing. This is useful for extensions that need to decompress or transform
-    /// the glTF structure before it is processed.
+    /// `out_doc` is an optional `gltf::Document` which, if set,
+    /// must contain a single `gltf::Mesh` with a single
+    /// `gltf::Primitive`. This document is only used by Bevy for
+    /// the processing of the relevant primitive and can not affect
+    /// other processing.
     ///
-    /// `out_data` allows extensions to provide modified or
-    /// replacement buffer data. If set, the loader will use this modified buffer data instead of
-    /// the original `buffer_data`. This is useful for extensions like `EXT_meshopt_compression`
-    /// that need to decompress buffer data before the primitive is processed.
+    /// `out_data` is a single buffer wrapped in a `Vec`, which mirrors
+    /// the buffer structure of a loaded `gltf::Document`'s buffers, which
+    /// is the same structure as `buffer_data`. The outer `Vec` must
+    /// contain a single `Vec<u8>` of data, as only the first generated
+    /// buffer is used. If set, the loader will use this modified buffer
+    /// data instead of the original `buffer_data` to construct the Mesh.
     #[expect(
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"

@@ -1430,6 +1430,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
 
     let extra_info = world.resource::<crate::schemas::SchemaTypesMetadata>();
     let types = world.resource::<AppTypeRegistry>();
+    let components = world.components();
     let types = types.read();
     let schemas = types
         .iter()
@@ -1447,7 +1448,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     return None;
                 }
             }
-            let (id, schema) = export_type(type_reg, extra_info);
+            let (id, schema) = export_type(type_reg, extra_info, components);
 
             if !filter.type_limit.with.is_empty()
                 && !filter
@@ -1719,6 +1720,7 @@ mod tests {
     }
 
     use super::*;
+    use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind};
     use bevy_ecs::{
         component::Component, event::Event, observer::On, resource::Resource, system::ResMut,
     };
@@ -1782,6 +1784,72 @@ mod tests {
             Ok(Null)
         );
         assert!(world.resource::<TestResult>().0);
+    }
+
+    #[test]
+    fn export_registry_types_with_reliationship() {
+        #[derive(Component, Debug, Reflect)]
+        #[reflect(Component, Debug)]
+        #[require(bevy_ecs::name::Name)]
+        #[relationship(relationship_target = FollowedBy)]
+        struct Following(Entity);
+
+        #[derive(Component, Debug, Reflect)]
+        #[component(storage = "SparseSet")]
+        #[reflect(Component, Debug)]
+        #[relationship_target(relationship = Following)]
+        struct FollowedBy(Vec<Entity>);
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Following>();
+            register.register::<FollowedBy>();
+        }
+
+        let mut world = World::new();
+        world.init_resource::<crate::schemas::SchemaTypesMetadata>();
+        world.insert_resource(atr);
+        world.register_component::<Following>();
+        world.register_component::<FollowedBy>();
+
+        let params = BrpJsonSchemaQueryFilter::default();
+
+        let params_value = In(Some(
+            serde_json::to_value(params).expect("Failed to serialize"),
+        ));
+        let result_value =
+            export_registry_types(params_value, &world).expect("Failed to export registry types");
+
+        let result: HashMap<String, JsonSchemaBevyType> =
+            parse(result_value).expect("Failed to parse exported registry types");
+
+        let actual_following = result
+            .get("bevy_remote::builtin_methods::tests::Following")
+            .expect("Missing Following type in result")
+            .component_info
+            .clone();
+        let expected_following = Some(ComponentMetadata {
+            mutable: false,
+            storage_type: StorageKind::Table,
+            is_send_and_sync: true,
+            required_component_types: vec!["bevy_ecs::name::Name".to_owned()],
+            relationship_kind: Some(RelationshipKind::Relationship),
+        });
+        let actual_followed_by = result
+            .get("bevy_remote::builtin_methods::tests::FollowedBy")
+            .expect("Missing FollowedBy type in result")
+            .component_info
+            .clone();
+        let expected_followed_by = Some(ComponentMetadata {
+            mutable: true,
+            storage_type: StorageKind::SparseSet,
+            is_send_and_sync: true,
+            required_component_types: Vec::new(),
+            relationship_kind: Some(RelationshipKind::RelationshipTarget),
+        });
+        assert_eq!(actual_following, expected_following);
+        assert_eq!(actual_followed_by, expected_followed_by);
     }
 
     #[test]
