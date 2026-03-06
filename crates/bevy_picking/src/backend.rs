@@ -31,8 +31,8 @@
 //! automatically constructs rays in world space for all cameras and pointers, handling details like
 //! viewports and DPI for you.
 
+use alloc::sync::Arc;
 use core::{any::Any, fmt};
-use std::sync::Arc;
 
 use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
