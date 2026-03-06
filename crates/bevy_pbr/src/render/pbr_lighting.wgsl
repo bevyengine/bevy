@@ -332,7 +332,9 @@ fn specular_multiscatter(
     specular_intensity: f32,
 ) -> vec3<f32> {
     var Fr = (specular_intensity * D * V) * F;
-    Fr *= 1.0 + F0 * (1.0 / F_ab.x - 1.0);
+    // Clamp F_ab.x to prevent division by near-zero or negative values
+    // at grazing angles with low roughness.
+    Fr *= 1.0 + F0 * (1.0 / max(F_ab.x, 0.1) - 1.0);
     return Fr;
 }
 
