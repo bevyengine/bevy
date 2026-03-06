@@ -544,7 +544,7 @@ impl MeshPipelineViewLayouts {
 
 /// Generates all possible view layouts for the mesh pipeline, based on all combinations of
 /// [`MeshPipelineViewLayoutKey`] flags.
-#[deprecated(since = "0.16.0", note = "Use `layout_entries` instead")]
+#[deprecated(since = "0.19.0", note = "Use `layout_entries` instead")]
 pub fn generate_view_layouts(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,

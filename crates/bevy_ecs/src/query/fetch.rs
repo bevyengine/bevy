@@ -754,7 +754,14 @@ impl SpawnDetails {
     /// Returns `true` if the entity spawned since the last time this system ran.
     /// Otherwise, returns `false`.
     pub fn is_spawned(self) -> bool {
-        self.spawn_tick.is_newer_than(self.last_run, self.this_run)
+        self.is_spawned_after(self.last_run)
+    }
+
+    /// Returns `true` if the entity spawned after the `other` tick.
+    /// Otherwise, returns `false`.
+    #[inline]
+    pub fn is_spawned_after(self, other: Tick) -> bool {
+        self.spawn_tick.is_newer_than(other, self.this_run)
     }
 
     /// Returns the `Tick` this entity spawned at.
@@ -948,10 +955,10 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess) {
         assert!(
-            !access.access().has_any_component_write(),
+            !access.access().has_any_write(),
             "EntityRef conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
         );
-        access.read_all_components();
+        access.read_all();
     }
 
     fn init_state(_world: &mut World) {}
@@ -1064,10 +1071,10 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess) {
         assert!(
-            !access.access().has_any_component_read(),
+            !access.access().has_any_read(),
             "EntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
         );
-        access.write_all_components();
+        access.write_all();
     }
 
     fn init_state(_world: &mut World) {}
@@ -1442,16 +1449,16 @@ where
 
     fn init_state(world: &mut World) -> Self::State {
         let mut access = Access::new();
-        access.read_all_components();
+        access.read_all();
         for id in B::component_ids(&mut world.components_registrator()) {
-            access.remove_component_read(id);
+            access.remove_read(id);
         }
         access
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
         let mut access = Access::new();
-        access.read_all_components();
+        access.read_all();
         // If the component isn't registered, we don't have a `ComponentId`
         // to use to exclude its access.
         // Rather than fail, just try to take additional access.
@@ -1459,7 +1466,7 @@ where
         // Since the component isn't registered, there are no entities with that
         // component, and the extra access will usually have no effect.
         for id in B::get_component_ids(components).flatten() {
-            access.remove_component_read(id);
+            access.remove_read(id);
         }
         Some(access)
     }
@@ -1565,16 +1572,16 @@ where
 
     fn init_state(world: &mut World) -> Self::State {
         let mut access = Access::new();
-        access.write_all_components();
+        access.write_all();
         for id in B::component_ids(&mut world.components_registrator()) {
-            access.remove_component_read(id);
+            access.remove_read(id);
         }
         access
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
         let mut access = Access::new();
-        access.write_all_components();
+        access.write_all();
         // If the component isn't registered, we don't have a `ComponentId`
         // to use to exclude its access.
         // Rather than fail, just try to take additional access.
@@ -1582,7 +1589,7 @@ where
         // Since the component isn't registered, there are no entities with that
         // component, and the extra access will usually have no effect.
         for id in B::get_component_ids(components).flatten() {
-            access.remove_component_read(id);
+            access.remove_read(id);
         }
         Some(access)
     }
@@ -1834,11 +1841,11 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
         assert!(
-            !access.access().has_component_write(component_id),
+            !access.access().has_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
             DebugName::type_name::<T>(),
         );
-        access.add_component_read(component_id);
+        access.add_read(component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -2058,11 +2065,11 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 
     fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
         assert!(
-            !access.access().has_component_write(component_id),
+            !access.access().has_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
             DebugName::type_name::<T>(),
         );
-        access.add_component_read(component_id);
+        access.add_read(component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -2325,11 +2332,11 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
     fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
         assert!(
-            !access.access().has_component_read(component_id),
+            !access.access().has_read(component_id),
             "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
             DebugName::type_name::<T>(),
         );
-        access.add_component_write(component_id);
+        access.add_write(component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -2532,11 +2539,11 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         // Update component access here instead of in `<&mut T as WorldQuery>` to avoid erroneously referencing
         // `&mut T` in error message.
         assert!(
-            !access.access().has_component_read(component_id),
+            !access.access().has_read(component_id),
             "Mut<{}> conflicts with a previous access in this query. Mutable component access mut be unique.",
             DebugName::type_name::<T>(),
         );
-        access.add_component_write(component_id);
+        access.add_write(component_id);
     }
 
     // Forwarded to `&mut T`

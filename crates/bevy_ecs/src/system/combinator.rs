@@ -252,7 +252,7 @@ where
         // We might need to read the default error handler after the component
         // systems have run to report failures.
         let error_resource = world.register_resource::<crate::error::DefaultErrorHandler>();
-        a_access.add_unfiltered_resource_read(error_resource);
+        a_access.add_resource_read(error_resource);
         a_access
     }
 
