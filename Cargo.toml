@@ -1036,7 +1036,7 @@ wasm = true
 name = "tilemap_chunk_orientation"
 path = "examples/2d/tilemap_chunk_orientation.rs"
 # Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.tilemap_chunk_orientation]
 name = "Tilemap Chunk with Orientations"
@@ -5032,14 +5032,6 @@ path = "examples/testbed/full_ui.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.testbed_full_ui]
-hidden = true
-
-[[example]]
-name = "testbed_white_furnace"
-path = "examples/testbed/white_furnace.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.testbed_white_furnace]
 hidden = true
 
 [[example]]

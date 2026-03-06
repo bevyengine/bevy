@@ -184,20 +184,18 @@ fn accumulate_farthest_z_value(
     }
 
     // Have the first thread update the global farthest-Z value.
-    // We don't have `atomicMax` for floats in WGSL, so we use CAS instead.
-    // Thankfully, we only have a few workgroups, so this shouldn't be terribly
-    // slow.
-    let this_farthest_z = shared_farthest_z[0u];
-    var that_farthest_z = bitcast<f32>(atomicLoad(&cluster_metadata.farthest_z));
-    while (this_farthest_z > that_farthest_z) {
-        let exchange_result = atomicCompareExchangeWeak(
-            &cluster_metadata.farthest_z,
-            bitcast<u32>(that_farthest_z),
-            bitcast<u32>(this_farthest_z)
-        );
-        if (exchange_result.exchanged) {
-            break;
-        }
-        that_farthest_z = bitcast<f32>(exchange_result.old_value);
-    }
+    // WGSL has no `atomicMax` for floats, so we encode into a u32 that
+    // preserves float ordering and use integer `atomicMax` instead.
+    atomicMax(&cluster_metadata.farthest_z, f32_bits_to_sortable_u32(bitcast<u32>(shared_farthest_z[0u])));
+}
+
+// Encodes f32 bits into a u32 whose unsigned ordering matches
+// the float's total order. Positive floats get the sign bit set so they
+// sort above negative floats; negative floats get all bits flipped so
+// their ordering is reversed (more negative -> smaller u32).
+//
+// The CPU decodes with `sortable_u32_to_f32_bits` in `gpu.rs`.
+fn f32_bits_to_sortable_u32(bits: u32) -> u32 {
+    let mask = bitcast<u32>(bitcast<i32>(bits) >> 31) | 0x80000000u;
+    return bits ^ mask;
 }

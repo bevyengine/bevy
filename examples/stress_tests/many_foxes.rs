@@ -59,7 +59,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(StaticTransformOptimizations::disabled())
+        .insert_resource(StaticTransformOptimizations::Disabled)
         .insert_resource(WinitSettings::continuous())
         .insert_resource(Foxes {
             count: args.count,
