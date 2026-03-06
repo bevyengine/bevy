@@ -191,7 +191,10 @@ impl RenderVisibleEntitiesClass {
     /// instead fetched from the main world via the
     /// [`PreparedVisibilityExtractionSystemParam`] and added to the
     /// `RenderGpuCulledEntities` table.
-    fn update_cpu_culled_entities(&mut self, visible_mesh_entities_cpu_culling: &[(Entity, MainEntity)]) {
+    fn update_cpu_culled_entities(
+        &mut self,
+        visible_mesh_entities_cpu_culling: &[(Entity, MainEntity)],
+    ) {
         let _update_from = info_span!("update_from", name = "update_from").entered();
 
         let old_entities_cpu_culling = mem::take(&mut self.entities_cpu_culling);

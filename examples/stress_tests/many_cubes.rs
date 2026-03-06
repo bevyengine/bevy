@@ -266,33 +266,37 @@ fn setup(
                         continue;
                     }
                     // cube
-                    commands.spawn((
-                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
-                    ))
+                    commands
+                        .spawn((
+                            Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                            MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                            Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
+                        ))
                         .insert_if(NoCpuCulling, || args.no_cpu_culling);
-                    commands.spawn((
-                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz(
-                            (x as f32) * scale,
-                            dimensions.y as f32 * scale,
-                            (y as f32) * scale,
-                        ),
-                    ))
+                    commands
+                        .spawn((
+                            Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                            MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                            Transform::from_xyz(
+                                (x as f32) * scale,
+                                dimensions.y as f32 * scale,
+                                (y as f32) * scale,
+                            ),
+                        ))
                         .insert_if(NoCpuCulling, || args.no_cpu_culling);
-                    commands.spawn((
-                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
-                    ))
+                    commands
+                        .spawn((
+                            Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                            MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                            Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
+                        ))
                         .insert_if(NoCpuCulling, || args.no_cpu_culling);
-                    commands.spawn((
-                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
-                    ))
+                    commands
+                        .spawn((
+                            Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                            MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                            Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
+                        ))
                         .insert_if(NoCpuCulling, || args.no_cpu_culling);
                 }
             }
