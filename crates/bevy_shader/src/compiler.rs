@@ -24,7 +24,6 @@ pub enum ShaderLanguage {
     /// WebGPU Shading Language.
     Wgsl,
     /// OpenGL Shading Language.
-    #[cfg(feature = "shader_format_glsl")]
     Glsl,
     /// WebGPU Extended Shading Language.
     #[cfg(feature = "shader_format_wesl")]
@@ -35,7 +34,6 @@ pub enum ShaderLanguage {
     /// A user-defined or plugin-provided language.
     ///
     /// The string should be a unique identifier for the language.
-    #[cfg(feature = "shader_format_spirv")]
     Custom(&'static str),
 }
 
@@ -43,13 +41,11 @@ impl core::fmt::Display for ShaderLanguage {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ShaderLanguage::Wgsl => write!(f, "wgsl"),
-            #[cfg(feature = "shader_format_glsl")]
             ShaderLanguage::Glsl => write!(f, "glsl"),
             #[cfg(feature = "shader_format_wesl")]
             ShaderLanguage::Wesl => write!(f, "wesl"),
             #[cfg(feature = "shader_format_spirv")]
             ShaderLanguage::SpirV => write!(f, "spirv"),
-            #[cfg(feature = "shader_format_spirv")]
             ShaderLanguage::Custom(name) => write!(f, "{name}"),
         }
     }

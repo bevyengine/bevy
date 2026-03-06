@@ -162,7 +162,6 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         let naga_oil = Arc::new(Mutex::new(NagaOilCompiler::new(capabilities, validating)));
 
         compilers.insert(ShaderLanguage::Wgsl, naga_oil.clone());
-        #[cfg(feature = "shader_format_glsl")]
         compilers.insert(ShaderLanguage::Glsl, naga_oil.clone());
         #[cfg(feature = "shader_format_wesl")]
         compilers.insert(
