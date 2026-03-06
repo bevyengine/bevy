@@ -344,6 +344,7 @@ impl<A: Asset> AssetContainer for A {
 /// [`NestedLoader::load`]: crate::NestedLoader::load
 /// [immediately]: crate::Immediate
 #[derive(Error, Debug)]
+#[allow(clippy::result_large_err, reason = "This is only ever constructed on an error path.")]
 pub enum LoadDirectError {
     #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
     RequestedSubasset(AssetPath<'static>),
