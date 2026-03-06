@@ -30,7 +30,7 @@ use bevy_render::{
     },
     extract_resource::ExtractResource,
     mesh::{
-        allocator::{MeshAllocator, SlabId},
+        allocator::{MeshAllocator, MeshSlabs, SlabId},
         RenderMesh,
     },
     prelude::*,
@@ -249,6 +249,7 @@ pub struct Wireframe2dBatchSetKey {
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
+
     /// The ID of the slab of GPU memory that contains vertex data.
     ///
     /// For non-mesh items, you can fill this with 0 if your items can be
@@ -897,7 +898,14 @@ fn queue_wireframes(
             let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
                 continue;
             };
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+            let Some(MeshSlabs {
+                vertex_slab_id: vertex_slab,
+                index_slab_id: index_slab,
+                ..
+            }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id)
+            else {
+                continue;
+            };
             let bin_key = Wireframe2dBinKey {
                 asset_id: mesh_instance.mesh_asset_id.untyped(),
             };
@@ -905,7 +913,7 @@ fn queue_wireframes(
                 pipeline: pipeline_id,
                 asset_id: wireframe_instance.untyped(),
                 draw_function: draw_wireframe,
-                vertex_slab: vertex_slab.unwrap_or_default(),
+                vertex_slab,
                 index_slab,
             };
             wireframe_phase.add(

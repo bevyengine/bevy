@@ -32,6 +32,14 @@ fn main() {
             OnEnter(Scene::GltfCoordinateConversion),
             gltf_coordinate_conversion::setup,
         )
+        .add_systems(
+            OnEnter(Scene::WhiteFurnaceSolidColorLight),
+            white_furnace_solid_color_light::setup,
+        )
+        .add_systems(
+            OnEnter(Scene::WhiteFurnaceEnvironmentMapLight),
+            white_furnace_environment_map_light::setup,
+        )
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)))
         .add_systems(
@@ -60,6 +68,8 @@ enum Scene {
     Animation,
     Gizmos,
     GltfCoordinateConversion,
+    WhiteFurnaceSolidColorLight,
+    WhiteFurnaceEnvironmentMapLight,
 }
 
 impl std::str::FromStr for Scene {
@@ -85,7 +95,9 @@ impl Next for Scene {
             Scene::Gltf => Scene::Animation,
             Scene::Animation => Scene::Gizmos,
             Scene::Gizmos => Scene::GltfCoordinateConversion,
-            Scene::GltfCoordinateConversion => Scene::Light,
+            Scene::GltfCoordinateConversion => Scene::WhiteFurnaceSolidColorLight,
+            Scene::WhiteFurnaceSolidColorLight => Scene::WhiteFurnaceEnvironmentMapLight,
+            Scene::WhiteFurnaceEnvironmentMapLight => Scene::Light,
         }
     }
 }
@@ -467,5 +479,232 @@ mod gltf_coordinate_conversion {
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
         gizmos.axes(Transform::IDENTITY, 1.0);
+    }
+}
+
+mod white_furnace_solid_color_light {
+    use bevy::{
+        asset::RenderAssetUsages,
+        camera::{Hdr, ScalingMode},
+        core_pipeline::tonemapping::Tonemapping,
+        light::Skybox,
+        prelude::*,
+        render::render_resource::{
+            Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+        },
+    };
+
+    const CURRENT_SCENE: super::Scene = super::Scene::WhiteFurnaceSolidColorLight;
+
+    /// Creates a pure white cubemap
+    fn create_white_cubemap(size: u32) -> Image {
+        // f16 bytes for 1.0 (white): [0, 60] in little-endian
+        const WHITE_F16: [u8; 2] = [0, 60];
+        const WHITE_PIXEL: [u8; 8] = [
+            WHITE_F16[0],
+            WHITE_F16[1], // R
+            WHITE_F16[0],
+            WHITE_F16[1], // G
+            WHITE_F16[0],
+            WHITE_F16[1], // B
+            WHITE_F16[0],
+            WHITE_F16[1], // A
+        ];
+
+        let pixel_data: Vec<u8> = (0..6 * size * size).flat_map(|_| WHITE_PIXEL).collect();
+
+        Image {
+            texture_view_descriptor: Some(TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::Cube),
+                ..Default::default()
+            }),
+            ..Image::new(
+                Extent3d {
+                    width: size,
+                    height: size,
+                    depth_or_array_layers: 6,
+                },
+                TextureDimension::D2,
+                pixel_data,
+                TextureFormat::Rgba16Float,
+                RenderAssetUsages::RENDER_WORLD,
+            )
+        }
+    }
+
+    pub fn setup(
+        mut commands: Commands,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
+        mut images: ResMut<Assets<Image>>,
+    ) {
+        let sphere_mesh = meshes.add(Sphere::new(0.45));
+
+        // Light should come from the environment map only
+        commands.insert_resource(GlobalAmbientLight::NONE);
+
+        // add entities to the world
+        for y in -2..=2 {
+            for x in -5..=5 {
+                let x01 = (x + 5) as f32 / 10.0;
+                let y01 = (y + 2) as f32 / 4.0;
+                // sphere
+                commands.spawn((
+                    Mesh3d(sphere_mesh.clone()),
+                    MeshMaterial3d(materials.add(StandardMaterial {
+                        base_color: LinearRgba::WHITE.into(),
+                        // vary key PBR parameters on a grid of spheres to show the effect
+                        metallic: y01,
+                        perceptual_roughness: x01,
+                        ..default()
+                    })),
+                    Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
+                    DespawnOnExit(CURRENT_SCENE),
+                ));
+            }
+        }
+
+        // Create a pure white cubemap
+        let white_cubemap = create_white_cubemap(256);
+        let white_cubemap_handle = images.add(white_cubemap);
+
+        let mut solid_color_light = EnvironmentMapLight::solid_color(&mut images, Color::WHITE);
+        solid_color_light.intensity = 500.0;
+
+        // camera
+        commands.spawn((
+            Camera3d::default(),
+            Hdr,
+            Tonemapping::None,
+            Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
+            Projection::from(OrthographicProjection {
+                scale: 0.01,
+                scaling_mode: ScalingMode::WindowSize,
+                ..OrthographicProjection::default_3d()
+            }),
+            Skybox {
+                image: white_cubemap_handle,
+                // middle gray
+                brightness: 500.0,
+                ..default()
+            },
+            solid_color_light,
+            DespawnOnExit(CURRENT_SCENE),
+        ));
+    }
+}
+
+mod white_furnace_environment_map_light {
+    use bevy::{
+        asset::RenderAssetUsages,
+        camera::{Hdr, ScalingMode},
+        core_pipeline::tonemapping::Tonemapping,
+        light::Skybox,
+        prelude::*,
+        render::render_resource::{
+            Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+        },
+    };
+
+    const CURRENT_SCENE: super::Scene = super::Scene::WhiteFurnaceEnvironmentMapLight;
+
+    /// Creates a pure white cubemap
+    fn create_white_cubemap(size: u32) -> Image {
+        // f16 bytes for 1.0 (white): [0, 60] in little-endian
+        const WHITE_F16: [u8; 2] = [0, 60];
+        const WHITE_PIXEL: [u8; 8] = [
+            WHITE_F16[0],
+            WHITE_F16[1], // R
+            WHITE_F16[0],
+            WHITE_F16[1], // G
+            WHITE_F16[0],
+            WHITE_F16[1], // B
+            WHITE_F16[0],
+            WHITE_F16[1], // A
+        ];
+
+        let pixel_data: Vec<u8> = (0..6 * size * size).flat_map(|_| WHITE_PIXEL).collect();
+
+        Image {
+            texture_view_descriptor: Some(TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::Cube),
+                ..Default::default()
+            }),
+            ..Image::new(
+                Extent3d {
+                    width: size,
+                    height: size,
+                    depth_or_array_layers: 6,
+                },
+                TextureDimension::D2,
+                pixel_data,
+                TextureFormat::Rgba16Float,
+                RenderAssetUsages::RENDER_WORLD,
+            )
+        }
+    }
+
+    pub fn setup(
+        mut commands: Commands,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
+        mut images: ResMut<Assets<Image>>,
+    ) {
+        let sphere_mesh = meshes.add(Sphere::new(0.45));
+
+        // Light should come from the environment map only
+        commands.insert_resource(GlobalAmbientLight::NONE);
+
+        // add entities to the world
+        for y in -2..=2 {
+            for x in -5..=5 {
+                let x01 = (x + 5) as f32 / 10.0;
+                let y01 = (y + 2) as f32 / 4.0;
+                // sphere
+                commands.spawn((
+                    Mesh3d(sphere_mesh.clone()),
+                    MeshMaterial3d(materials.add(StandardMaterial {
+                        base_color: LinearRgba::WHITE.into(),
+                        // vary key PBR parameters on a grid of spheres to show the effect
+                        metallic: y01,
+                        perceptual_roughness: x01,
+                        ..default()
+                    })),
+                    Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
+                    DespawnOnExit(CURRENT_SCENE),
+                ));
+            }
+        }
+
+        // Create a pure white cubemap
+        let white_cubemap = create_white_cubemap(256);
+        let white_cubemap_handle = images.add(white_cubemap);
+
+        let generated_light = GeneratedEnvironmentMapLight {
+            environment_map: white_cubemap_handle.clone(),
+            intensity: 500.0,
+            ..default()
+        };
+
+        // camera
+        commands.spawn((
+            Camera3d::default(),
+            Hdr,
+            Tonemapping::None,
+            Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
+            Projection::from(OrthographicProjection {
+                scale: 0.01,
+                scaling_mode: ScalingMode::WindowSize,
+                ..OrthographicProjection::default_3d()
+            }),
+            Skybox {
+                image: white_cubemap_handle,
+                // middle gray
+                brightness: 500.0,
+                ..default()
+            },
+            generated_light,
+            DespawnOnExit(CURRENT_SCENE),
+        ));
     }
 }

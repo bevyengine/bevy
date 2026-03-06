@@ -131,7 +131,7 @@ unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
 [features]
-default = ["2d", "3d", "ui"]
+default = ["2d", "3d", "ui", "audio"]
 
 # PROFILE: The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.
 2d = [
@@ -140,7 +140,6 @@ default = ["2d", "3d", "ui"]
   "2d_bevy_render",
   "ui",
   "scene",
-  "audio",
   "picking",
 ]
 
@@ -151,7 +150,6 @@ default = ["2d", "3d", "ui"]
   "3d_bevy_render",
   "ui",
   "scene",
-  "audio",
   "picking",
 ]
 
@@ -162,7 +160,6 @@ ui = [
   "ui_api",
   "ui_bevy_render",
   "scene",
-  "audio",
   "picking",
   "bevy_ui_widgets",
 ]
@@ -1039,7 +1036,7 @@ wasm = true
 name = "tilemap_chunk_orientation"
 path = "examples/2d/tilemap_chunk_orientation.rs"
 # Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.tilemap_chunk_orientation]
 name = "Tilemap Chunk with Orientations"
@@ -2282,6 +2279,17 @@ name = "Change Detection"
 description = "Change detection on components and resources"
 category = "ECS (Entity Component System)"
 wasm = false
+
+[[example]]
+name = "callbacks"
+path = "examples/ecs/callbacks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.callbacks]
+name = "Callbacks"
+description = "Store arbitrary systems in components and run them on demand"
+category = "ECS (Entity Component System)"
+wasm = true
 
 [[example]]
 name = "component_hooks"
