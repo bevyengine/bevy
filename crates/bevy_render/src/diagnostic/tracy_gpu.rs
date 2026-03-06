@@ -30,6 +30,16 @@ pub fn new_tracy_gpu_context(
 
 // Code copied from https://github.com/Wumpf/wgpu-profiler/blob/f9de342a62cb75f50904a98d11dd2bbeb40ceab8/src/tracy.rs
 fn initial_timestamp(device: &RenderDevice, queue: &RenderQueue) -> i64 {
+    if cfg!(target_os = "macos") {
+        // On macOS the `.poll(PollType::wait_indefinitely())` will never return
+        // and thus freezes the application before it even gets to start properly.
+        // I suspect this is related to the same root cause that was fixed in
+        // https://github.com/bevyengine/bevy/pull/22365 but I'm not sure.
+        //
+        // 0 is probably not correct, but it works.
+        return 0;
+    }
+
     let query_set = device.wgpu_device().create_query_set(&QuerySetDescriptor {
         label: None,
         ty: QueryType::Timestamp,
