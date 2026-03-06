@@ -35,11 +35,10 @@ use bevy::{
             Variants, VertexAttribute, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        view::{ExtractedView, RenderShadowMapVisibleEntities},
+        view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderSystems,
     },
 };
-use bevy_render::view::RenderVisibleEntities;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using

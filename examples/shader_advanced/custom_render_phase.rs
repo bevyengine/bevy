@@ -56,11 +56,10 @@ use bevy::{
         },
         renderer::{RenderContext, ViewQuery},
         sync_world::MainEntity,
-        view::{ExtractedView, RenderShadowMapVisibleEntities, RetainedViewEntity, ViewTarget},
+        view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
-use bevy_render::view::RenderVisibleEntities;
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 

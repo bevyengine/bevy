@@ -430,7 +430,7 @@ pub fn extract_lights(
             continue;
         }
 
-        // Initialize the visible entities for each cubemap face.
+        // Fetch or create the visible entities for each cubemap face.
         let (
             mut render_extracted_shadow_map_visible_entities,
             mut render_shadow_map_visible_entities,
@@ -534,6 +534,7 @@ pub fn extract_lights(
             continue;
         }
 
+        // Fetch or create the visible entities.
         let (
             mut render_extracted_shadow_map_visible_entities,
             mut render_shadow_map_visible_entities,
@@ -653,7 +654,7 @@ pub fn extract_lights(
         let mut extracted_cascades = EntityHashMap::default();
         let mut extracted_frusta = EntityHashMap::default();
 
-        // Initialize the visible entities set for each cascade.
+        // Fetch or create the visible entities set for each cascade.
         let (
             mut existing_extracted_shadow_map_visible_entities,
             mut existing_shadow_map_visible_entities,
