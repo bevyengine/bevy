@@ -46,9 +46,6 @@ struct TriangleHitInfo {
     triangle_vertices: Option<[Vec3; 3]>,
 }
 
-#[derive(Component)]
-struct Shape;
-
 #[derive(Resource, Default)]
 struct HoveredTriangles(Vec<TriangleOverlay>);
 
@@ -62,7 +59,6 @@ fn custom_backend_system(
     ray_map: Res<RayMap>,
     cameras: Query<&Camera>,
     pickables: Query<&Pickable>,
-    shapes: Query<(), With<Shape>>,
     mut ray_cast: MeshRayCast,
     mut pointer_hits: MessageWriter<PointerHits>,
 ) {
@@ -73,7 +69,7 @@ fn custom_backend_system(
 
         let settings = MeshRayCastSettings {
             visibility: RayCastVisibility::VisibleInView,
-            filter: &|entity| shapes.contains(entity),
+            filter: &|e| pickables.get(e).map_or(false, |p| p.is_hoverable),
             early_exit_test: &|entity_hit| {
                 pickables
                     .get(entity_hit)
@@ -112,36 +108,20 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let shapes: &[(&str, Mesh, Color)] = &[
-        ("Cube", Mesh::from(Cuboid::default()), RED.into()),
-        (
-            "Sphere",
-            Mesh::from(Sphere::default().mesh().ico(2).unwrap()),
-            GREEN.into(),
-        ),
-        (
-            "Cylinder",
-            Mesh::from(Cylinder {
-                half_height: 0.5,
-                radius: 0.5,
-            }),
-            BLUE.into(),
-        ),
+    let shapes: [(Mesh, Color); 3] = [
+        (Cuboid::default().into(), RED.into()),
+        (Sphere::default().mesh().ico(2).unwrap(), GREEN.into()),
+        (Cylinder::default().into(), BLUE.into()),
     ];
 
-    let n = shapes.len() as f32;
-    for (i, (_name, mesh, color)) in shapes.iter().enumerate() {
-        let x = (i as f32 - (n - 1.0) / 2.0) * 2.2;
-        let material = materials.add(StandardMaterial {
-            base_color: *color,
-            ..default()
-        });
+    for (i, (mesh, color)) in shapes.iter().enumerate() {
+        let x = i as f32 * 1.5 - 1.5;
+        let material = materials.add(StandardMaterial::from_color(*color));
 
         commands.spawn((
             Mesh3d(meshes.add(mesh.clone())),
             MeshMaterial3d(material),
             Transform::from_xyz(x, 0.5, 0.0),
-            Shape,
             Pickable::default(),
         ));
     }
@@ -152,14 +132,7 @@ fn setup_scene(
         Pickable::IGNORE,
     ));
 
-    commands.spawn((
-        PointLight {
-            intensity: 3_000_000.0,
-            range: 50.0,
-            ..default()
-        },
-        Transform::from_xyz(0.0, 8.0, 4.0),
-    ));
+    commands.spawn((PointLight::default(), Transform::from_xyz(0.0, 8.0, 4.0)));
 
     commands.spawn((
         Camera3d::default(),
