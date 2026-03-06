@@ -4,6 +4,7 @@ mod render_layers;
 use core::any::TypeId;
 
 use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity_disabling::Disabled;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::world::DeferredWorld;
 use bevy_mesh::skinning::{
@@ -580,10 +581,14 @@ fn visibility_propagate_system(
         (
             With<InheritedVisibility>,
             Or<(Changed<Visibility>, Changed<ChildOf>)>,
+            Allow<Disabled>,
         ),
     >,
-    mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
-    children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
+    mut visibility_query: Query<(&Visibility, &mut InheritedVisibility), Allow<Disabled>>,
+    children_query: Query<
+        &Children,
+        (With<Visibility>, With<InheritedVisibility>, Allow<Disabled>),
+    >,
 ) {
     for (entity, visibility, child_of, children) in &changed {
         let is_visible = match visibility {
@@ -616,8 +621,11 @@ fn visibility_propagate_system(
 fn propagate_recursive(
     parent_is_visible: bool,
     entity: Entity,
-    visibility_query: &mut Query<(&Visibility, &mut InheritedVisibility)>,
-    children_query: &Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
+    visibility_query: &mut Query<(&Visibility, &mut InheritedVisibility), Allow<Disabled>>,
+    children_query: &Query<
+        &Children,
+        (With<Visibility>, With<InheritedVisibility>, Allow<Disabled>),
+    >,
     // BLOCKED: https://github.com/rust-lang/rust/issues/31436
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
