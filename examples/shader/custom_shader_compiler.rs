@@ -35,12 +35,12 @@ impl ShaderCompiler for CustomShaderCompiler {
         shader: &Shader,
         _shader_defs: &[ShaderDefVal],
     ) -> Result<CompiledShader, ShaderCompileError> {
-        let source_text = shader.source.as_str();
+        let _source_text = shader.source.as_str();
 
         // do the compilation here
         // you can use shaderc for this
 
-        Ok(CompiledShader::SpirV(todo!()))
+        Ok(CompiledShader::SpirV(vec![]))
     }
 }
 
@@ -81,7 +81,7 @@ impl AssetLoader for CustomShaderLoader {
 
         Ok(Shader::from_custom(
             source,
-            ShaderLanguage::Custom("custom".into()),
+            ShaderLanguage::Custom("custom"),
             Some(stage),
             path,
         ))
