@@ -69,7 +69,7 @@ fn custom_backend_system(
 
         let settings = MeshRayCastSettings {
             visibility: RayCastVisibility::VisibleInView,
-            filter: &|e| pickables.get(e).map_or(false, |p| p.is_hoverable),
+            filter: &|e| pickables.get(e).is_ok_and(|p| p.is_hoverable),
             early_exit_test: &|entity_hit| {
                 pickables
                     .get(entity_hit)
