@@ -1248,6 +1248,7 @@ mod tests {
                     camera,
                     position: None,
                     normal: None,
+                    extra: None,
                 },
             );
         }

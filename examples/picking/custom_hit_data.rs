@@ -1,0 +1,222 @@
+//! Demonstrates a custom picking backend with custom hit data.
+//!
+//! The backend writes triangle vertices into [`PointerHits`], and a follow-up
+//! system draws an outline around the hovered triangle.
+
+use bevy::{
+    color::palettes::css::*,
+    picking::{
+        backend::{ray::RayMap, HitData, PointerHits},
+        mesh_picking::{
+            ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility},
+            MeshPickingSettings,
+        },
+        prelude::*,
+        PickingSettings, PickingSystems,
+    },
+    prelude::*,
+};
+
+fn main() {
+    App::new()
+        .add_plugins((DefaultPlugins, MeshPickingPlugin))
+        .insert_resource(MeshPickingSettings {
+            require_markers: true,
+            ..default()
+        })
+        .insert_resource(PickingSettings {
+            is_window_picking_enabled: false,
+            ..default()
+        })
+        .init_resource::<HoveredTriangles>()
+        .add_systems(Startup, (setup_gizmos, setup_scene))
+        .add_systems(
+            PreUpdate,
+            (
+                cache_hovered_triangles.after(PickingSystems::Backend),
+                custom_backend_system.in_set(PickingSystems::Backend),
+            ),
+        )
+        .add_systems(Update, draw_hit_gizmos)
+        .run();
+}
+
+#[derive(Clone, Debug)]
+struct TriangleHitInfo {
+    triangle_vertices: Option<[Vec3; 3]>,
+}
+
+#[derive(Component)]
+struct Shape;
+
+#[derive(Resource, Default)]
+struct HoveredTriangles(Vec<TriangleOverlay>);
+
+struct TriangleOverlay {
+    position: Vec3,
+    normal: Vec3,
+    vertices: [Vec3; 3],
+}
+
+fn custom_backend_system(
+    ray_map: Res<RayMap>,
+    cameras: Query<&Camera>,
+    pickables: Query<&Pickable>,
+    shapes: Query<(), With<Shape>>,
+    mut ray_cast: MeshRayCast,
+    mut pointer_hits: MessageWriter<PointerHits>,
+) {
+    for (&ray_id, &ray) in ray_map.iter() {
+        let Ok(camera) = cameras.get(ray_id.camera) else {
+            continue;
+        };
+
+        let settings = MeshRayCastSettings {
+            visibility: RayCastVisibility::VisibleInView,
+            filter: &|entity| shapes.contains(entity),
+            early_exit_test: &|entity_hit| {
+                pickables
+                    .get(entity_hit)
+                    .is_ok_and(|p| p.should_block_lower)
+            },
+        };
+
+        let picks: Vec<(Entity, HitData)> = ray_cast
+            .cast_ray(ray, &settings)
+            .iter()
+            .map(|(entity, hit)| {
+                let extra = TriangleHitInfo {
+                    triangle_vertices: hit.triangle,
+                };
+
+                let hit_data = HitData::new_with_extra(
+                    ray_id.camera,
+                    hit.distance,
+                    Some(hit.point),
+                    Some(hit.normal),
+                    extra,
+                );
+
+                (*entity, hit_data)
+            })
+            .collect();
+
+        if !picks.is_empty() {
+            pointer_hits.write(PointerHits::new(ray_id.pointer, picks, camera.order as f32));
+        }
+    }
+}
+
+fn setup_scene(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let shapes: &[(&str, Mesh, Color)] = &[
+        ("Cube", Mesh::from(Cuboid::default()), RED.into()),
+        (
+            "Sphere",
+            Mesh::from(Sphere::default().mesh().ico(2).unwrap()),
+            GREEN.into(),
+        ),
+        (
+            "Cylinder",
+            Mesh::from(Cylinder {
+                half_height: 0.5,
+                radius: 0.5,
+            }),
+            BLUE.into(),
+        ),
+    ];
+
+    let n = shapes.len() as f32;
+    for (i, (_name, mesh, color)) in shapes.iter().enumerate() {
+        let x = (i as f32 - (n - 1.0) / 2.0) * 2.2;
+        let material = materials.add(StandardMaterial {
+            base_color: *color,
+            ..default()
+        });
+
+        commands.spawn((
+            Mesh3d(meshes.add(mesh.clone())),
+            MeshMaterial3d(material),
+            Transform::from_xyz(x, 0.5, 0.0),
+            Shape,
+            Pickable::default(),
+        ));
+    }
+
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(30.0, 30.0))),
+        MeshMaterial3d(materials.add(Color::from(DARK_GRAY))),
+        Pickable::IGNORE,
+    ));
+
+    commands.spawn((
+        PointLight {
+            intensity: 3_000_000.0,
+            range: 50.0,
+            ..default()
+        },
+        Transform::from_xyz(0.0, 8.0, 4.0),
+    ));
+
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 2.5, 6.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+    ));
+}
+
+fn setup_gizmos(mut config_store: ResMut<GizmoConfigStore>) {
+    let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
+    config.depth_bias = -1.0;
+    config.line.width = 3.0;
+}
+
+fn cache_hovered_triangles(
+    mut pointer_hits: MessageReader<PointerHits>,
+    mut hovered_triangles: ResMut<HoveredTriangles>,
+) {
+    hovered_triangles.0.clear();
+
+    for hits in pointer_hits.read() {
+        for (_, hit) in &hits.picks {
+            let (Some(position), Some(normal)) = (hit.position, hit.normal) else {
+                continue;
+            };
+
+            let Some(info) = hit.extra_as::<TriangleHitInfo>() else {
+                continue;
+            };
+            let Some(vertices) = info.triangle_vertices else {
+                continue;
+            };
+
+            hovered_triangles.0.push(TriangleOverlay {
+                position,
+                normal,
+                vertices,
+            });
+        }
+    }
+}
+
+fn draw_hit_gizmos(hovered_triangles: Res<HoveredTriangles>, mut gizmos: Gizmos) {
+    for triangle in &hovered_triangles.0 {
+        gizmos.arrow(
+            triangle.position,
+            triangle.position + triangle.normal.normalize() * 0.5,
+            WHITE,
+        );
+
+        let vertices = triangle.vertices;
+        let center = (vertices[0] + vertices[1] + vertices[2]) / 3.0;
+        let offset = triangle.normal.normalize_or_zero() * 0.025;
+
+        let outline = vertices.map(|vertex| center + (vertex - center) * 1.05 + offset);
+
+        gizmos.line(outline[0], outline[1], WHITE);
+        gizmos.line(outline[1], outline[2], WHITE);
+        gizmos.line(outline[2], outline[0], WHITE);
+    }
+}
