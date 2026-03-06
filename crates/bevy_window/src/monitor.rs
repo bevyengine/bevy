@@ -1,10 +1,12 @@
 use alloc::{string::String, vec::Vec};
-use bevy_ecs::component::Component;
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+};
 use bevy_math::{IVec2, UVec2};
 
 #[cfg(feature = "bevy_reflect")]
 use {bevy_ecs::prelude::ReflectComponent, bevy_reflect::Reflect};
-
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
@@ -19,6 +21,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// This component is synchronized with `winit` through `bevy_winit`, but is effectively
 /// read-only as `winit` does not support changing monitor properties.
 #[derive(Component, Debug, Clone)]
+#[require(HasWindows)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -54,6 +57,11 @@ pub struct Monitor {
     reflect(Component, Debug, Clone)
 )]
 pub struct PrimaryMonitor;
+
+/// A relationship for all Windows on a specific Monitor.
+#[derive(Component, Debug, Default)]
+#[relationship_target(relationship = crate::window::OnMonitor, linked_spawn)]
+pub struct HasWindows(Vec<Entity>);
 
 impl Monitor {
     /// Returns the physical size of the monitor in pixels
