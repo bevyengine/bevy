@@ -245,7 +245,9 @@ Example | Description
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
 [Render Recovery](../examples/app/render_recovery.rs) | Demonstrates how bevy can recover from rendering failures.
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
+[Save Window Position](../examples/app/prefs_window.rs) | Demonstrates saving window position in preferences
 [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
+[User Preferences](../examples/app/prefs_counter.rs) | Demonstrates persistence of user preferences
 [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
 
 ### Assets
