@@ -14,7 +14,7 @@ use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 /// <https://google.github.io/filament/notes/material_properties.html>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
-/// 
+///
 /// The `StandardMaterial` can be extended with more data and custom
 /// shaders using [`ExtendedMaterial`]. Examples of how to do this can
 /// be found in the Bevy examples.
