@@ -237,7 +237,7 @@ impl SystemMeta {
 /// }
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
-    meta: SystemMeta,
+    pub(crate) meta: SystemMeta,
     param_state: Param::State,
     world_id: WorldId,
 }

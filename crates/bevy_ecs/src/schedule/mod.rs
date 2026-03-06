@@ -4,7 +4,9 @@ mod auto_insert_apply_deferred;
 mod condition;
 mod config;
 mod error;
-mod executor;
+
+/// Bevy executor details
+pub mod executor;
 mod node;
 mod pass;
 mod schedule;
