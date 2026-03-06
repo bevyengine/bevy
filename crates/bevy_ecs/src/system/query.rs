@@ -706,11 +706,37 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// [`iter`](Self::iter) for read-only query items.
     #[inline]
-    pub fn iter_mut(&mut self) -> QueryIter<'_, 's, D, F>
-    where
-        D: IterQueryData,
-    {
-        self.reborrow().into_iter()
+    pub fn iter_mut(&mut self) -> QueryIter<'_, 's, D, F> {
+        self.reborrow().iter_inner()
+    }
+
+    /// Returns an [`Iterator`] over the query items, with the actual "inner" world lifetime.
+    ///
+    /// # Example
+    ///
+    /// Here, the `report_names_system` iterates over the `Player` component of every entity
+    /// that contains it:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Player { name: String }
+    /// #
+    /// fn report_names_system(query: Query<&Player>) {
+    ///     for player in &query {
+    ///         println!("Say hello to {}!", player.name);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(report_names_system);
+    /// ```
+    #[inline]
+    pub fn iter_inner(self) -> QueryIter<'w, 's, D, F> {
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - We consume the query, so mutable queries cannot alias.
+        //   Read-only queries are `Copy`, but may alias themselves.
+        unsafe { QueryIter::new(self.world, self.state, self.last_run, self.this_run) }
     }
 
     /// Returns a [`QueryCombinationIter`] over all combinations of `K` read-only query items without repetition.
@@ -767,9 +793,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_combinations`](Self::iter_combinations) for read-only query item combinations.
     /// - [`iter_combinations_inner`](Self::iter_combinations_inner) for mutable query item combinations with the full `'world` lifetime.
     #[inline]
-    pub fn iter_combinations_mut<const K: usize>(
-        &mut self,
-    ) -> QueryCombinationIter<'_, 's, D, F, K> {
+    pub fn iter_combinations_mut<const K: usize>(&mut self) -> QueryCombinationIter<'_, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().iter_combinations_inner()
     }
 
@@ -798,7 +825,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`iter_combinations`](Self::iter_combinations) for read-only query item combinations.
     /// - [`iter_combinations_mut`](Self::iter_combinations_mut) for mutable query item combinations.
     #[inline]
-    pub fn iter_combinations_inner<const K: usize>(self) -> QueryCombinationIter<'w, 's, D, F, K> {
+    pub fn iter_combinations_inner<const K: usize>(self) -> QueryCombinationIter<'w, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe { QueryCombinationIter::new(self.world, self.state, self.last_run, self.this_run) }
     }
@@ -1139,7 +1169,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub unsafe fn iter_combinations_unsafe<const K: usize>(
         &self,
-    ) -> QueryCombinationIter<'_, 's, D, F, K> {
+    ) -> QueryCombinationIter<'_, 's, D, F, K>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: The caller promises that this will not result in multiple mutable references.
         unsafe { self.reborrow_unsafe() }.iter_combinations_inner()
     }
@@ -2668,11 +2701,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator for Query<'w, 's, D,
     type IntoIter = QueryIter<'w, 's, D, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        // SAFETY:
-        // - `self.world` has permission to access the required components.
-        // - We consume the query, so mutable queries cannot alias.
-        //   Read-only queries are `Copy`, but may alias themselves.
-        unsafe { QueryIter::new(self.world, self.state, self.last_run, self.this_run) }
+        self.iter_inner()
     }
 }
 
@@ -2691,36 +2720,6 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator for &'w mut Query<'_
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
-    }
-}
-
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, D, F> {
-    /// Returns an [`Iterator`] over the query items, with the actual "inner" world lifetime.
-    ///
-    /// This can only return immutable data (mutable data will be cast to an immutable form).
-    /// See [`Self::iter_mut`] for queries that contain at least one mutable component.
-    ///
-    /// # Example
-    ///
-    /// Here, the `report_names_system` iterates over the `Player` component of every entity
-    /// that contains it:
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Component)]
-    /// # struct Player { name: String }
-    /// #
-    /// fn report_names_system(query: Query<&Player>) {
-    ///     for player in &query {
-    ///         println!("Say hello to {}!", player.name);
-    ///     }
-    /// }
-    /// # bevy_ecs::system::assert_is_system(report_names_system);
-    /// ```
-    #[inline]
-    pub fn iter_inner(&self) -> QueryIter<'w, 's, D::ReadOnly, F> {
-        (*self).into_iter()
     }
 }
 
