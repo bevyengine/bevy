@@ -26,17 +26,17 @@ fn main() {
 // the attack it will continue up and hit the goblin.
 fn setup(mut commands: Commands) {
     commands
-        .spawn((Name::new("Goblin"), HitPoints(50)))
+        .spawn((DebugTag::new("Goblin"), HitPoints(50)))
         .observe(take_damage)
         .with_children(|parent| {
             parent
-                .spawn((Name::new("Helmet"), Armor(5)))
+                .spawn((DebugTag::new("Helmet"), Armor(5)))
                 .observe(block_attack);
             parent
-                .spawn((Name::new("Socks"), Armor(10)))
+                .spawn((DebugTag::new("Socks"), Armor(10)))
                 .observe(block_attack);
             parent
-                .spawn((Name::new("Shirt"), Armor(15)))
+                .spawn((DebugTag::new("Shirt"), Armor(15)))
                 .observe(block_attack);
         });
 }
@@ -76,23 +76,23 @@ fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
     }
 }
 
-fn attack_hits(attack: On<Attack>, name: Query<&Name>) {
+fn attack_hits(attack: On<Attack>, name: Query<&DebugTag>) {
     if let Ok(name) = name.get(attack.entity) {
-        info!("Attack hit {}", name);
+        info!("Attack hit {:?}", name);
     }
 }
 
 /// A callback placed on [`Armor`], checking if it absorbed all the [`Attack`] damage.
-fn block_attack(mut attack: On<Attack>, armor: Query<(&Armor, &Name)>) {
+fn block_attack(mut attack: On<Attack>, armor: Query<(&Armor, &DebugTag)>) {
     let (armor, name) = armor.get(attack.entity).unwrap();
     let damage = attack.damage.saturating_sub(**armor);
     if damage > 0 {
-        info!("🩸 {} damage passed through {}", damage, name);
+        info!("🩸 {} damage passed through {:?}", damage, name);
         // The attack isn't stopped by the armor. We reduce the damage of the attack, and allow
         // it to continue on to the goblin.
         attack.damage = damage;
     } else {
-        info!("🛡️  {} damage blocked by {}", attack.damage, name);
+        info!("🛡️  {} damage blocked by {:?}", attack.damage, name);
         // Armor stopped the attack, the event stops here.
         attack.propagate(false);
         info!("(propagation halted early)\n");
@@ -103,7 +103,7 @@ fn block_attack(mut attack: On<Attack>, armor: Query<(&Armor, &Name)>) {
 /// or the wearer is attacked directly.
 fn take_damage(
     attack: On<Attack>,
-    mut hp: Query<(&mut HitPoints, &Name)>,
+    mut hp: Query<(&mut HitPoints, &DebugTag)>,
     mut commands: Commands,
     mut app_exit: MessageWriter<AppExit>,
 ) {
@@ -111,9 +111,9 @@ fn take_damage(
     **hp = hp.saturating_sub(attack.damage);
 
     if **hp > 0 {
-        info!("{} has {:.1} HP", name, hp.0);
+        info!("{:?} has {:.1} HP", name, hp.0);
     } else {
-        warn!("💀 {} has died a gruesome death", name);
+        warn!("💀 {:?} has died a gruesome death", name);
         commands.entity(attack.entity).despawn();
         app_exit.write(AppExit::Success);
     }
