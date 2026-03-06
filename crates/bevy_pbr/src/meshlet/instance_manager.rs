@@ -1,5 +1,4 @@
 use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
-use crate::DUMMY_MESH_MATERIAL;
 use crate::{
     meshlet::asset::MeshletAabb, MaterialBindingId, MeshFlags, MeshTransforms, MeshUniform,
     PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
@@ -116,7 +115,7 @@ impl InstanceManager {
         };
 
         let mesh_material = mesh_material_ids.mesh_material(instance);
-        let mesh_material_binding_id = if mesh_material != DUMMY_MESH_MATERIAL.untyped() {
+        let mesh_material_binding_id = if let Some(mesh_material) = mesh_material {
             render_material_bindings
                 .get(&mesh_material)
                 .cloned()
