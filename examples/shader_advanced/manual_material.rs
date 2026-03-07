@@ -30,7 +30,7 @@ use bevy::{
         renderer::RenderDevice,
         sync_world::MainEntity,
         texture::GpuImage,
-        Extract, RenderApp, RenderStartup,
+        Extract, ExtractSchedule, RenderApp, RenderStartup,
     },
     utils::Parallel,
 };

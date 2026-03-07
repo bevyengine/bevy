@@ -30,7 +30,7 @@ use bevy::{
         },
         renderer::RenderContext,
         texture::GpuImage,
-        Extract, RenderApp,
+        Extract, ExtractSchedule, RenderApp,
     },
     shader::ShaderRef,
     sprite::Text2dShadow,

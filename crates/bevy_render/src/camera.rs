@@ -2,8 +2,8 @@ use core::mem;
 
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    extract_component::ExtractComponentPlugin,
+    extract_resource::ExtractResourcePlugin,
     render_asset::RenderAssets,
     render_resource::TextureView,
     sync_component::SyncComponent,
@@ -41,6 +41,9 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
+use bevy_extract::{
+    extract_base_component::ExtractComponent, extract_base_resource::ExtractResource,
+};
 use bevy_image::Image;
 use bevy_log::warn;
 use bevy_log::warn_once;
@@ -62,8 +65,8 @@ impl Plugin for CameraPlugin {
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
             .add_plugins((
-                ExtractResourcePlugin::<ClearColor>::default(),
-                ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
+                ExtractResourcePlugin::<ClearColor, Self>::default(),
+                ExtractComponentPlugin::<CameraMainTextureUsages, Self>::default(),
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
             .add_systems(
@@ -116,7 +119,7 @@ fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .
     }
 }
 
-impl ExtractResource for ClearColor {
+impl ExtractResource<RenderApp, CameraPlugin> for ClearColor {
     type Source = Self;
 
     fn extract_resource(source: &Self::Source) -> Self {
@@ -124,11 +127,11 @@ impl ExtractResource for ClearColor {
     }
 }
 
-impl SyncComponent for CameraMainTextureUsages {
+impl SyncComponent<RenderApp, CameraPlugin> for CameraMainTextureUsages {
     type Out = Self;
 }
 
-impl ExtractComponent for CameraMainTextureUsages {
+impl ExtractComponent<RenderApp, CameraPlugin> for CameraMainTextureUsages {
     type QueryData = &'static Self;
     type QueryFilter = ();
 
@@ -137,11 +140,11 @@ impl ExtractComponent for CameraMainTextureUsages {
     }
 }
 
-impl SyncComponent for Camera2d {
+impl SyncComponent<RenderApp, CameraPlugin> for Camera2d {
     type Out = Self;
 }
 
-impl ExtractComponent for Camera2d {
+impl ExtractComponent<RenderApp, CameraPlugin> for Camera2d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 
@@ -150,11 +153,11 @@ impl ExtractComponent for Camera2d {
     }
 }
 
-impl SyncComponent for Camera3d {
+impl SyncComponent<RenderApp, CameraPlugin> for Camera3d {
     type Out = Self;
 }
 
-impl ExtractComponent for Camera3d {
+impl ExtractComponent<RenderApp, CameraPlugin> for Camera3d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 

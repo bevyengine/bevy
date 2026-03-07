@@ -67,7 +67,6 @@ use bevy_render::{
     renderer::RenderAdapter,
     Render, RenderApp, RenderSystems,
 };
-
 use bevy_shader::load_shader_library;
 use environment::{
     atmosphere_environment, init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
@@ -372,11 +371,11 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
     }
 }
 
-impl SyncComponent for GpuAtmosphereSettings {
+impl SyncComponent<RenderApp> for GpuAtmosphereSettings {
     type Out = Self;
 }
 
-impl ExtractComponent for GpuAtmosphereSettings {
+impl ExtractComponent<RenderApp> for GpuAtmosphereSettings {
     type QueryData = Read<AtmosphereSettings>;
     type QueryFilter = (With<Camera3d>, With<Atmosphere>);
 

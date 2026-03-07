@@ -25,7 +25,7 @@ use bevy::{
             PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureFormat, TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderGraph, RenderQueue},
-        Extract, Render, RenderApp, RenderSystems,
+        Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
     },
     window::ExitCondition,
     winit::WinitPlugin,

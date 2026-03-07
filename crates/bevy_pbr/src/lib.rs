@@ -381,18 +381,18 @@ pub fn stbn_placeholder() -> Image {
     }
 }
 
-impl SyncComponent<PbrPlugin> for DirectionalLight {
+impl SyncComponent<RenderApp, PbrPlugin> for DirectionalLight {
     type Out = Self;
 }
-impl SyncComponent<PbrPlugin> for PointLight {
+impl SyncComponent<RenderApp, PbrPlugin> for PointLight {
     type Out = Self;
 }
-impl SyncComponent<PbrPlugin> for SpotLight {
+impl SyncComponent<RenderApp, PbrPlugin> for SpotLight {
     type Out = Self;
 }
-impl SyncComponent<PbrPlugin> for AmbientLight {
+impl SyncComponent<RenderApp, PbrPlugin> for AmbientLight {
     type Out = Self;
 }
-impl SyncComponent<PbrPlugin> for ShadowFilteringMethod {
+impl SyncComponent<RenderApp, PbrPlugin> for ShadowFilteringMethod {
     type Out = Self;
 }

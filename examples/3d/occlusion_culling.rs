@@ -25,7 +25,8 @@ use bevy::{
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
         renderer::{RenderContext, RenderDevice},
         settings::WgpuFeatures,
-        Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderStartup, RenderSystems,
+        ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderStartup,
+        RenderSystems,
     },
 };
 use bytemuck::Pod;

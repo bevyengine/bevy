@@ -76,11 +76,11 @@ pub struct CasUniform {
     sharpness: f32,
 }
 
-impl SyncComponent for ContrastAdaptiveSharpening {
+impl SyncComponent<RenderApp> for ContrastAdaptiveSharpening {
     type Out = (DenoiseCas, CasUniform);
 }
 
-impl ExtractComponent for ContrastAdaptiveSharpening {
+impl ExtractComponent<RenderApp> for ContrastAdaptiveSharpening {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 

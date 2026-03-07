@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, sync_component::SyncComponent};
+use bevy_render::{extract_component::ExtractComponent, sync_component::SyncComponent, RenderApp};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
@@ -220,11 +220,11 @@ pub enum BloomCompositeMode {
     Additive,
 }
 
-impl SyncComponent for Bloom {
+impl SyncComponent<RenderApp> for Bloom {
     type Out = (Self, BloomUniforms);
 }
 
-impl ExtractComponent for Bloom {
+impl ExtractComponent<RenderApp> for Bloom {
     type QueryData = (&'static Self, &'static Camera);
     type QueryFilter = With<Hdr>;
 

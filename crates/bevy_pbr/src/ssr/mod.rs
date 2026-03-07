@@ -515,11 +515,11 @@ pub fn prepare_ssr_settings(
     }
 }
 
-impl SyncComponent for ScreenSpaceReflections {
+impl SyncComponent<RenderApp> for ScreenSpaceReflections {
     type Out = ScreenSpaceReflectionsUniform;
 }
 
-impl ExtractComponent for ScreenSpaceReflections {
+impl ExtractComponent<RenderApp> for ScreenSpaceReflections {
     type QueryData = Read<ScreenSpaceReflections>;
     type QueryFilter = ();
 

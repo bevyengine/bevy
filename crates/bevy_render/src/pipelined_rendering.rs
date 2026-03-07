@@ -104,7 +104,7 @@ impl Drop for RenderAppChannels {
 /// - And finally the `main app schedule` is run.
 /// - Once both the `main app schedule` and the `render schedule` are finished running, `extract` is run again.
 ///
-/// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
+/// [`SyncWorldPlugin`]: bevy_extract::sync_world::SyncWorldPlugin
 #[derive(Default)]
 pub struct PipelinedRenderingPlugin;
 

@@ -184,7 +184,7 @@ impl Plugin for ClusteredDecalPlugin {
     }
 }
 
-impl SyncComponent<ClusteredDecalPlugin> for ClusteredDecal {
+impl SyncComponent<RenderApp, ClusteredDecalPlugin> for ClusteredDecal {
     type Out = Self;
 }
 
