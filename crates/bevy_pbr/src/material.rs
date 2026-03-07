@@ -43,6 +43,8 @@ use bevy_render::erased_render_asset::{
 };
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
 use bevy_render::renderer::RenderQueue;
+use bevy_render::texture::FallbackImage;
+use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderStartup;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -57,7 +59,6 @@ use bevy_render::{
     Extract,
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
-use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
 use bevy_shader::ShaderDefVal;
 use bevy_utils::Parallel;
 use core::{
