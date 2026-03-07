@@ -109,6 +109,7 @@ pub struct MeshSlabs {
     pub index_slab_id: Option<MeshSlabId>,
     /// The slab storing the mesh's morph target displacements, if the mesh has
     /// morph targets.
+    #[cfg(feature = "morph")]
     pub morph_target_slab_id: Option<MeshSlabId>,
 }
 
@@ -272,6 +273,7 @@ impl MeshAllocator {
     /// for the mesh with the given ID.
     ///
     /// If the mesh has no morph target data or wasn't allocated, returns None.
+    #[cfg(feature = "morph")]
     pub fn mesh_morph_target_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice<'_>> {
         self.slab_allocation_slice(
             &MeshAllocationKey::new(*mesh_id, ElementClass::MorphTarget),
@@ -289,6 +291,7 @@ impl MeshAllocator {
         Some(MeshSlabs {
             vertex_slab_id: self.mesh_id_to_vertex_slab(mesh_id).cloned()?,
             index_slab_id: self.mesh_id_to_index_slab(mesh_id).cloned(),
+            #[cfg(feature = "morph")]
             morph_target_slab_id: self.mesh_id_to_morph_target_slab(mesh_id).cloned(),
         })
     }
@@ -318,6 +321,7 @@ impl MeshAllocator {
 
     /// Given the ID of a mesh, returns the ID of the slab that contains the
     /// morph target data for that mesh, if it exists.
+    #[cfg(feature = "morph")]
     fn mesh_id_to_morph_target_slab(
         &self,
         mesh_id: &AssetId<Mesh>,
