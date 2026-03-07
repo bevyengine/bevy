@@ -30,7 +30,7 @@ use bevy_render::{
     },
     extract_resource::ExtractResource,
     mesh::{
-        allocator::{MeshAllocator, MeshSlabs, MeshSlabId},
+        allocator::{MeshAllocator, MeshSlabId, MeshSlabs},
         RenderMesh,
     },
     prelude::*,
