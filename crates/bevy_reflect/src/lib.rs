@@ -646,6 +646,7 @@ mod impls {
 pub mod attributes;
 pub mod enums;
 mod generics;
+pub mod macros;
 pub mod serde;
 pub mod std_traits;
 #[cfg(feature = "debug_stack")]
