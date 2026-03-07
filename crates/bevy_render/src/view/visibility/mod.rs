@@ -188,8 +188,7 @@ impl RenderVisibleEntitiesClass {
     ///
     /// This function only handles entities that are culled on CPU (i.e. don't
     /// have `NoCpuCulling` components). Entities that use only GPU culling are
-    /// instead fetched from the main world via the
-    /// [`PreparedVisibilityExtractionSystemParam`] and added to the
+    /// instead fetched from the main world and added to the
     /// `RenderGpuCulledEntities` table.
     fn update_cpu_culled_entities(
         &mut self,
