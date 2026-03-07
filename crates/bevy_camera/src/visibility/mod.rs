@@ -440,8 +440,8 @@ pub enum VisibilitySystems {
     /// [`ChildOf`] / [`Children`] hierarchy.
     VisibilityPropagate,
     /// Label for the [`check_visibility_cpu_culling`] and
-    /// [`check_visibility_no_cpu_culling`] systems updating [`ViewVisibility`]
-    /// of each entity and the [`VisibleEntities`] of each view.
+    /// [`check_visibility_gpu_culling`] systems updating [`ViewVisibility`] of
+    /// each entity and the [`VisibleEntities`] of each view.
     ///
     /// System order ambiguities between systems in this set are ignored: the
     /// order of systems within this set is irrelevant, as

@@ -301,22 +301,9 @@ impl RenderVisibleEntitiesClass {
 }
 
 /// A system parameter that goes on any render-world system that needs to
-/// extract entities into [`RenderVisibleMeshEntities`].
+/// extract entities into [`RenderVisibleEntities`].
 #[derive(SystemParam)]
 pub struct VisibilityExtractionSystemParam<'w, 's> {
-    /// Maps entities in the main world to entities in the render world.
-    pub mapper: Extract<'w, 's, SQuery<Read<RenderEntity>>>,
-}
-
-/// A structure derived from [`VisibilityExtractionSystemParam`] that must be
-/// passed to [`RenderVisibleMeshEntities::update_from`].
-///
-/// This type exists because iterating over [`RemovedComponents`] is destructive
-/// and can only be done once. However,
-/// [`RenderVisibleMeshEntities::update_from`] needs to do it multiple times.
-/// Therefore, we must *prepare* the system parameter, which involves draining
-/// the [`RemovedComponents`] list into a vector.
-pub struct PreparedVisibilityExtractionSystemParam<'w, 's> {
     /// Maps entities in the main world to entities in the render world.
     pub mapper: Extract<'w, 's, SQuery<Read<RenderEntity>>>,
 }

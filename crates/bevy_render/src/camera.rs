@@ -935,8 +935,7 @@ impl DirtySpecializations {
                         // such entities just prior to this and don't want to
                         // yield the same entity twice.
                         // Note that binary searching works because all lists in
-                        // [`RenderVisibleMeshEntities`] are guaranteed to be
-                        // sorted.
+                        // `RenderVisibleEntities` are guaranteed to be sorted.
                         if render_visible_mesh_entities
                             .added_entities()
                             .binary_search_by_key(main_entity, |(_, main_entity)| *main_entity)
