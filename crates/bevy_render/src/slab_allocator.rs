@@ -49,8 +49,8 @@ use crate::{
 /// fill up, up to a maximum size limit. To reduce fragmentation, objects that
 /// are too large bypass this system and receive their own buffers.
 ///
-/// The [`AllocatorSettings`] allows you to tune the behavior of the allocator
-/// for better performance with your use case.
+/// The [`SlabAllocatorSettings`] allows you to tune the behavior of the
+/// allocator for better performance with your use case.
 ///
 /// See [`crate::mesh::allocator::MeshAllocator`] for an example of usage.
 pub struct SlabAllocator<I>
@@ -113,10 +113,6 @@ pub trait SlabItemLayout: Clone + PartialEq + Eq + Hash {
     fn size(&self) -> u64;
 
     /// The number of elements that make up a single slot.
-    ///
-    /// Usually, this is 1, but it can be different if [`ElementLayout::size`]
-    /// isn't divisible by 4. See the comment in [`ElementLayout`] for more
-    /// details.
     fn elements_per_slot(&self) -> u32;
 
     /// The `wgpu` buffer usages that the slab allocator will specify when
@@ -296,8 +292,8 @@ where
 /// A resizable slab that can contain multiple objects.
 ///
 /// This is the normal type of slab used for objects that are below the
-/// [`AllocatorSettings::large_threshold`]. Slabs are divided into *slots*,
-/// which are described in detail in the [`ElementLayout`] documentation.
+/// [`SlabAllocatorSettings::large_threshold`]. Slabs are divided into *slots*,
+/// which are described in detail in the [`SlabItemLayout`] documentation.
 pub struct GeneralSlab<I>
 where
     I: SlabItem,
@@ -333,11 +329,11 @@ where
 /// A slab that contains a single object.
 ///
 /// Typically, this is for objects that exceed the
-/// [`AllocatorSettings::large_threshold`]. Additionally, some uses of the slab
-/// allocator may wish to force objects to possess their own slab. For instance,
-/// due to platform limitations (vertex arrays on WebGL 2), the mesh allocator
-/// sometimes needs to place meshes that would otherwise be allocated together
-/// with other meshes in their own slab.
+/// [`SlabAllocatorSettings::large_threshold`]. Additionally, some uses of the
+/// slab allocator may wish to force objects to possess their own slab. For
+/// instance, due to platform limitations (vertex arrays on WebGL 2), the mesh
+/// allocator sometimes needs to place meshes that would otherwise be allocated
+/// together with other meshes in their own slab.
 pub struct LargeObjectSlab<I>
 where
     I: SlabItem,
@@ -1059,8 +1055,8 @@ where
             return SlabGrowthResult::NoGrowthNeeded;
         }
 
-        // Try to grow in increments of `AllocatorSettings::growth_factor` until
-        // we're big enough.
+        // Try to grow in increments of `SlabAllocatorSettings::growth_factor`
+        // until we're big enough.
         while self.current_slot_capacity < new_size_in_slots {
             let new_slab_slot_capacity =
                 ((self.current_slot_capacity as f64 * settings.growth_factor).ceil() as u32)
