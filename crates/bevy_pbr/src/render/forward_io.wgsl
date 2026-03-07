@@ -24,9 +24,7 @@ struct Vertex {
     @location(6) joint_indices: vec4<u32>,
     @location(7) joint_weights: vec4<f32>,
 #endif
-#ifdef MORPH_TARGETS
     @builtin(vertex_index) index: u32,
-#endif
 };
 
 struct VertexOutput {

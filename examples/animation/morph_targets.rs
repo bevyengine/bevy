@@ -2,20 +2,40 @@
 //!
 //! Also illustrates how to read morph target names in `name_morphs`.
 
-use bevy::{prelude::*, scene::SceneInstanceReady};
+use argh::FromArgs;
+use bevy::{mesh::morph::MeshMorphWeights, pbr::CacheSkin, prelude::*, scene::SceneInstanceReady};
 use std::f32::consts::PI;
 
 const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";
 
+/// plays an animation with morphs
+#[derive(FromArgs, Resource)]
+struct Args {
+    /// enable skin caching
+    #[argh(switch)]
+    cache_skins: bool,
+}
+
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(GlobalAmbientLight {
             brightness: 150.0,
             ..default()
         })
+        .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(Update, name_morphs)
+        .add_systems(
+            Update,
+            mark_skins_as_cached.run_if(|args: Res<Args>| args.cache_skins),
+        )
         .run();
 }
 
@@ -72,6 +92,17 @@ fn play_animation_when_ready(
                     .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
             }
         }
+    }
+}
+
+/// Adds `CacheSkin` components to morphed meshes if skin caching was requested
+/// on the command line.
+fn mark_skins_as_cached(
+    mut commands: Commands,
+    query: Query<Entity, (With<MeshMorphWeights>, Without<CacheSkin>)>,
+) {
+    for entity in &query {
+        commands.entity(entity).insert(CacheSkin);
     }
 }
 
