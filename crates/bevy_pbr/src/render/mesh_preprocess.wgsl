@@ -237,7 +237,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
         let camera_distance = length(position_world_to_view(world_pos));
         // `x` is the minimum range; `w` is the largest range.
-        if (camera_distance <= lod_range.x || camera_distance >= lod_range.w) {
+        if (camera_distance < lod_range.x || camera_distance >= lod_range.w) {
             return;
         }
     }
