@@ -4,7 +4,7 @@ use bevy::{
     asset::{
         io::{Reader, Writer},
         saver::{save_using_saver, AssetSaver, SavedAsset, SavedAssetBuilder},
-        AssetLoader, AsyncWriteExt, LoadContext,
+        AssetLoader, AsyncWriteExt, DefaultAssetSource, LoadContext,
     },
     color::palettes::tailwind,
     input::common_conditions::input_just_pressed,
@@ -18,7 +18,10 @@ fn main() {
         .add_plugins(DefaultPlugins.set(AssetPlugin {
             // This is just overriding the default asset paths to scope this to the correct example
             // folder. You can generally skip this in your own projects.
-            file_path: "examples/asset/saved_assets".to_string(),
+            default_source: DefaultAssetSource::Paths {
+                file_path: "examples/asset/saved_assets".to_string(),
+                processed_file_path: None,
+            },
             ..Default::default()
         }))
         .add_plugins(box_editing_plugin)

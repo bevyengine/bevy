@@ -407,6 +407,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
             .write_infos()
             .stats
             .started_load_tasks += 1;
+        let source;
         let (mut meta, loader, mut reader) = if let Some(reader) = self.mode.reader {
             let loader = if let Some(asset_type_id) = asset_type_id {
                 self.load_context
@@ -430,10 +431,18 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
             let meta = loader.default_meta();
             (meta, loader, ReaderRef::Borrowed(reader))
         } else {
+            source = self
+                .load_context
+                .asset_server
+                .get_source(path.source())
+                .map_err(|err| LoadDirectError::LoadError {
+                    dependency: path.clone(),
+                    error: err.into(),
+                })?;
             let (meta, loader, reader) = self
                 .load_context
                 .asset_server
-                .get_meta_loader_and_reader(path, asset_type_id)
+                .get_meta_loader_and_reader(path, asset_type_id, &source)
                 .await
                 .map_err(|error| LoadDirectError::LoadError {
                     dependency: path.clone(),
