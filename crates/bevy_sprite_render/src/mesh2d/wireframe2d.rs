@@ -30,7 +30,7 @@ use bevy_render::{
     },
     extract_resource::ExtractResource,
     mesh::{
-        allocator::{MeshAllocator, MeshSlabs, SlabId},
+        allocator::{MeshAllocator, MeshSlabId, MeshSlabs},
         RenderMesh,
     },
     prelude::*,
@@ -254,12 +254,12 @@ pub struct Wireframe2dBatchSetKey {
     ///
     /// For non-mesh items, you can fill this with 0 if your items can be
     /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
+    pub vertex_slab: MeshSlabId,
 
     /// The ID of the slab of GPU memory that contains index data, if present.
     ///
     /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
+    pub index_slab: Option<MeshSlabId>,
 }
 
 impl PhaseItemBatchSetKey for Wireframe2dBatchSetKey {
