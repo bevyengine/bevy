@@ -268,7 +268,8 @@ impl Plugin for MeshRenderPlugin {
                         Render,
                         (
                             gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
-                                .in_set(RenderSystems::PrepareResourcesFlush),
+                                .in_set(RenderSystems::PrepareResourcesFlush)
+                                .after(write_mesh_culling_data_buffer),
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
                                 .in_set(RenderSystems::PrepareResources),
                             collect_meshes_for_gpu_building
