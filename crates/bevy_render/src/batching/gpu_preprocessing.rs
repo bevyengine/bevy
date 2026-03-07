@@ -1,6 +1,12 @@
 //! Batching functionality when GPU preprocessing is in use.
 
-use core::{any::TypeId, marker::PhantomData, mem, ops::Range, sync::atomic::{AtomicU32, Ordering}};
+use core::{
+    any::TypeId,
+    marker::PhantomData,
+    mem,
+    ops::Range,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
