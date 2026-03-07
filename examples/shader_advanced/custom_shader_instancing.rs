@@ -7,7 +7,8 @@
 //! implementation using bevy's low level rendering api.
 //! It's generally recommended to try the built-in instancing before going with this approach.
 
-use bevy::pbr::{SetMeshViewBindingArrayBindGroup, ViewKeyCache};
+use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
+use bevy::pbr::{MeshPipelineSet, SetMeshViewBindingArrayBindGroup, ViewKeyCache};
 use bevy::{
     camera::visibility::NoFrustumCulling,
     core_pipeline::core_3d::Transparent3d,
@@ -106,7 +107,7 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_systems(RenderStartup, init_custom_pipeline)
+            .add_systems(RenderStartup, init_custom_pipeline.after(MeshPipelineSet))
             .add_systems(
                 Render,
                 (
@@ -149,13 +150,12 @@ fn queue_custom(
             continue;
         };
 
-        let rangefinder = view.rangefinder3d();
         for (entity, main_entity) in &material_meshes {
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*main_entity)
             else {
                 continue;
             };
-            let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
             let key =
@@ -164,10 +164,14 @@ fn queue_custom(
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();
             transparent_phase.add(Transparent3d {
+                sorting_info: TransparentSortingInfo3d::Sorted {
+                    mesh_center: mesh_instance.center,
+                    depth_bias: 0.0,
+                },
                 entity: (entity, *main_entity),
                 pipeline,
                 draw_function: draw_custom,
-                distance: rangefinder.distance(&mesh_instance.center),
+                distance: 0.0,
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
@@ -283,14 +287,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         else {
             return RenderCommandResult::Skip;
         };
-        let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id) else {
+        let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id()) else {
             return RenderCommandResult::Skip;
         };
         let Some(instance_buffer) = instance_buffer else {
             return RenderCommandResult::Skip;
         };
         let Some(vertex_buffer_slice) =
-            mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)
+            mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id())
         else {
             return RenderCommandResult::Skip;
         };
@@ -304,7 +308,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
                 count,
             } => {
                 let Some(index_buffer_slice) =
-                    mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)
+                    mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id())
                 else {
                     return RenderCommandResult::Skip;
                 };

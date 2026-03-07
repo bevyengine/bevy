@@ -1,10 +1,13 @@
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
 use bevy_camera::{visibility::ViewVisibility, Camera2d};
-use bevy_render::RenderStartup;
+use bevy_render::{camera::DirtySpecializations, RenderStartup};
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
-use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
+use crate::{
+    prepare_pending_mesh_material2d_queues, tonemapping_pipeline_key, Material2dBindGroupId,
+    PendingMeshMaterial2dQueues, RenderMaterial2dBindGroupIds, RenderMaterial2dIds,
+};
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
@@ -13,8 +16,6 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::change_detection::Tick;
-use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -38,8 +39,7 @@ use bevy_render::{
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
-        sweep_old_entities, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
-        TrackedRenderPass,
+        PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, TrackedRenderPass,
     },
     render_resource::{binding_types::uniform_buffer, *},
     renderer::RenderDevice,
@@ -75,8 +75,11 @@ impl Plugin for Mesh2dRenderPlugin {
                 .init_resource::<ViewKeyCache>()
                 .init_resource::<RenderMesh2dInstances>()
                 .allow_ambiguous_resource::<RenderMesh2dInstances>()
+                .init_resource::<RenderMaterial2dBindGroupIds>()
+                .allow_ambiguous_resource::<RenderMaterial2dBindGroupIds>()
+                .init_resource::<RenderMaterial2dIds>()
+                .allow_ambiguous_resource::<RenderMaterial2dIds>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .init_resource::<ViewSpecializationTicks>()
                 .add_systems(
                     RenderStartup,
                     (
@@ -87,15 +90,12 @@ impl Plugin for Mesh2dRenderPlugin {
                 )
                 .allow_ambiguous_resource::<BatchedInstanceBuffer<Mesh2dUniform>>()
                 .add_systems(ExtractSchedule, extract_mesh2d)
+                .init_resource::<PendingMeshMaterial2dQueues>()
                 .add_systems(
                     Render,
                     (
+                        prepare_pending_mesh_material2d_queues.in_set(RenderSystems::Specialize),
                         check_views_need_specialization.in_set(PrepareAssets),
-                        (
-                            sweep_old_entities::<Opaque2d>,
-                            sweep_old_entities::<AlphaMask2d>,
-                        )
-                            .in_set(RenderSystems::QueueSweep),
                         batch_and_prepare_binned_render_phase::<Opaque2d, Mesh2dPipeline>
                             .in_set(RenderSystems::PrepareResources),
                         batch_and_prepare_binned_render_phase::<AlphaMask2d, Mesh2dPipeline>
@@ -118,12 +118,9 @@ impl Plugin for Mesh2dRenderPlugin {
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct ViewKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
 
-#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct ViewSpecializationTicks(MainEntityHashMap<Tick>);
-
 pub fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,
-    mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
     views: Query<(
         &MainEntity,
         &ExtractedView,
@@ -131,7 +128,6 @@ pub fn check_views_need_specialization(
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
-    ticks: SystemChangeTick,
 ) {
     for (view_entity, view, msaa, tonemapping, dither) in &views {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
@@ -152,7 +148,9 @@ pub fn check_views_need_specialization(
             .is_some_and(|current_key| *current_key == view_key)
         {
             view_key_cache.insert(*view_entity, view_key);
-            view_specialization_ticks.insert(*view_entity, ticks.this_run());
+            dirty_specializations
+                .views
+                .insert(view.retained_view_entity);
         }
     }
 }
@@ -250,6 +248,8 @@ pub struct Mesh2dMarker;
 
 pub fn extract_mesh2d(
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
+    render_material_2d_bind_group_ids: Res<RenderMaterial2dBindGroupIds>,
+    render_material_instances: Res<RenderMaterial2dIds>,
     query: Extract<
         Query<(
             Entity,
@@ -267,15 +267,21 @@ pub fn extract_mesh2d(
         if !view_visibility.get() {
             continue;
         }
+        let main_entity = entity.into();
+        let material_bind_group_id = render_material_instances
+            .get(&main_entity)
+            .and_then(|material_id| render_material_2d_bind_group_ids.get(material_id))
+            .copied()
+            .unwrap_or_default();
         render_mesh_instances.insert(
-            entity.into(),
+            main_entity,
             RenderMesh2dInstance {
                 transforms: Mesh2dTransforms {
                     world_from_local: transform.affine().into(),
                     flags: MeshFlags::empty().bits(),
                 },
                 mesh_asset_id: handle.0.id(),
-                material_bind_group_id: Material2dBindGroupId::default(),
+                material_bind_group_id,
                 automatic_batching: !no_automatic_batching,
                 tag: tag.map_or(0, |i| **i),
             },

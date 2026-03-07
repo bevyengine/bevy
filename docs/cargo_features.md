@@ -21,7 +21,7 @@ bevy = { version = "0.18", default-features = false, features = ["2d"] }
 
 |Profile|Description|
 |-|-|
-|default|The full default Bevy experience. This is a combination of the following profiles: 2d, 3d, ui|
+|default|The full default Bevy experience. This is a combination of the following profiles: 2d, 3d, ui, audio|
 |2d|The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.|
 |3d|The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, Bevy UI, scenes, audio, and picking.|
 |ui|The default Bevy UI experience.  This includes the core Bevy framework, Bevy UI, scenes, audio, and picking.|
@@ -102,6 +102,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
+|bevy_ui_widgets|Headless widget collection for Bevy UI.|
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
@@ -118,7 +119,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
 |experimental_bevy_feathers|Feathers widget collection.|
-|experimental_bevy_ui_widgets|Experimental headless widget collection for Bevy UI.|
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |ff|Farbfeld image format support|

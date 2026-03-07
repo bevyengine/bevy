@@ -260,6 +260,7 @@ mod web_asset_cache {
 
         let mut cache_file = async_fs::File::create(&cache_path).await?;
         cache_file.write_all(data).await?;
+        cache_file.close().await?;
 
         Ok(())
     }

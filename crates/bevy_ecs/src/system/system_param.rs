@@ -11,8 +11,8 @@ use crate::{
     component::{ComponentId, Components},
     entity::{Entities, EntityAllocator},
     query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
-        QueryState, ReadOnlyQueryData,
+        Access, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData, QueryFilter,
+        QuerySingleError, QueryState, ReadOnlyQueryData,
     },
     resource::{Resource, IS_RESOURCE},
     storage::NonSendData,
@@ -228,7 +228,9 @@ pub unsafe trait SystemParam: Sized {
     /// Creates a new instance of this param's [`State`](SystemParam::State).
     fn init_state(world: &mut World) -> Self::State;
 
-    /// Registers any [`World`] access used by this [`SystemParam`]
+    /// Registers any [`World`] access used by this [`SystemParam`].
+    ///
+    /// This method must panic if the access would conflict with any existing access in the [`FilteredAccessSet`].
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
@@ -306,6 +308,9 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
     ///   in [`init_access`](SystemParam::init_access).
+    /// - [`SystemParam::init_access`] must not request conflicting access.
+    ///   If `Self` is `ReadOnlySystemParam`, the access is read-only and can never conflict.
+    ///   Otherwise, [`SystemParam::init_access`] must be called to ensure it does not panic.
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
@@ -337,7 +342,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World) -> Self::State {
-        QueryState::new(world)
+        // SAFETY: `SystemParam::init_access` calls `QueryState::init_access`,
+        // `SystemParam::init_access` must be called before `SystemParam::get_param`,
+        // and we only call methods on the `QueryState` in `get_param`.
+        unsafe { QueryState::new_unchecked(world) }
     }
 
     fn init_access(
@@ -346,15 +354,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        assert_component_access_compatibility(
-            &system_meta.name,
-            DebugName::type_name::<D>(),
-            DebugName::type_name::<F>(),
-            component_access_set,
-            &state.component_access,
-            world,
-        );
-        component_access_set.add(state.component_access.clone());
+        state.init_access(Some(system_meta.name()), component_access_set, world.into());
     }
 
     #[inline]
@@ -372,29 +372,9 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 }
 
-fn assert_component_access_compatibility(
-    system_name: &DebugName,
-    query_type: DebugName,
-    filter_type: DebugName,
-    system_access: &FilteredAccessSet,
-    current: &FilteredAccess,
-    world: &World,
-) {
-    let conflicts = system_access.get_conflicts_single(current);
-    if conflicts.is_empty() {
-        return;
-    }
-    let mut accesses = conflicts.format_conflict_list(world);
-    // Access list may be empty (if access to all components requested)
-    if !accesses.is_empty() {
-        accesses.push(' ');
-    }
-    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001", query_type.shortname(), filter_type.shortname());
-}
-
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'a, 'b, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+unsafe impl<'a, 'b, D: IterQueryData + 'static, F: QueryFilter + 'static> SystemParam
     for Single<'a, 'b, D, F>
 {
     type State = QueryState<D, F>;
@@ -769,30 +749,24 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
-        _world: &mut World,
+        world: &mut World,
     ) {
-        let combined_access = component_access_set.combined_access();
-        assert!(
-            !combined_access.has_resource_write(component_id),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<T>(),
-            system_meta.name,
-        );
-
         let mut filter = FilteredAccess::default();
-        filter.add_component_read(component_id);
-        filter.add_resource_read(component_id);
+        filter.add_read(component_id);
         filter.and_with(IS_RESOURCE);
 
-        assert!(component_access_set
-            .get_conflicts_single(&filter)
-            .is_empty(),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<T>(),
-            system_meta.name
-        );
+        let conflicts = component_access_set.get_conflicts_single(&filter);
+        if conflicts.is_empty() {
+            component_access_set.add(filter);
+            return;
+        }
 
-        component_access_set.add(filter);
+        let mut accesses = conflicts.format_conflict_list(world.as_unsafe_world_cell());
+        // Access list may be empty (if access to all components requested)
+        if !accesses.is_empty() {
+            accesses.push(' ');
+        }
+        panic!("error[B0002]: Res<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
     }
 
     #[inline]
@@ -857,33 +831,24 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
-        _world: &mut World,
+        world: &mut World,
     ) {
-        let combined_access = component_access_set.combined_access();
-        if combined_access.has_resource_write(component_id) {
-            panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                DebugName::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_resource_read(component_id) {
-            panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                DebugName::type_name::<T>(), system_meta.name);
-        }
-
         let mut filter = FilteredAccess::default();
-        filter.add_component_write(component_id);
-        filter.add_resource_write(component_id);
+        filter.add_write(component_id);
         filter.and_with(IS_RESOURCE);
 
-        assert!(component_access_set
-            .get_conflicts_single(&filter)
-            .is_empty(),
-            "error[B0002]: ResMut<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<T>(),
-            system_meta.name
-        );
+        let conflicts = component_access_set.get_conflicts_single(&filter);
+        if conflicts.is_empty() {
+            component_access_set.add(filter);
+            return;
+        }
 
-        component_access_set.add(filter);
+        let mut accesses = conflicts.format_conflict_list(world.as_unsafe_world_cell());
+        // Access list may be empty (if access to all components requested)
+        if !accesses.is_empty() {
+            accesses.push(' ');
+        }
+        panic!("error[B0002]: ResMut<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access or using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
     }
 
     #[inline]
@@ -1491,12 +1456,12 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 
         let combined_access = component_access_set.combined_access();
         assert!(
-            !combined_access.has_resource_write(component_id),
+            !combined_access.has_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             DebugName::type_name::<T>(),
             system_meta.name,
         );
-        component_access_set.add_unfiltered_resource_read(component_id);
+        component_access_set.add_unfiltered_component_read(component_id);
     }
 
     #[inline]
@@ -1561,16 +1526,16 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_meta.set_non_send();
 
         let combined_access = component_access_set.combined_access();
-        if combined_access.has_resource_write(component_id) {
+        if combined_access.has_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_resource_read(component_id) {
+        } else if combined_access.has_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
         }
-        component_access_set.add_unfiltered_resource_write(component_id);
+        component_access_set.add_unfiltered_component_write(component_id);
     }
 
     #[inline]
@@ -2788,18 +2753,15 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         let combined_access = component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
+            let accesses = conflicts.format_conflict_list(world.into());
             let system_name = &system_meta.name;
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
-        if access.has_read_all_resources() {
-            component_access_set.add_unfiltered_read_all_resources();
-        } else {
-            for component_id in access.resource_reads_and_writes() {
-                component_access_set.add_unfiltered_resource_read(component_id);
-            }
-        }
+        let mut filter = FilteredAccess::matches_everything();
+        filter.access_mut().extend(access);
+        filter.and_with(IS_RESOURCE);
+        component_access_set.add(filter);
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -2837,26 +2799,15 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         let combined_access = component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
+            let accesses = conflicts.format_conflict_list(world.into());
             let system_name = &system_meta.name;
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
-        if access.has_read_all_resources() {
-            component_access_set.add_unfiltered_read_all_resources();
-        } else {
-            for component_id in access.resource_reads() {
-                component_access_set.add_unfiltered_resource_read(component_id);
-            }
-        }
-
-        if access.has_write_all_resources() {
-            component_access_set.add_unfiltered_write_all_resources();
-        } else {
-            for component_id in access.resource_writes() {
-                component_access_set.add_unfiltered_resource_write(component_id);
-            }
-        }
+        let mut filter = FilteredAccess::matches_everything();
+        filter.access_mut().extend(access);
+        filter.and_with(IS_RESOURCE);
+        component_access_set.add(filter);
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -2961,7 +2912,10 @@ impl Display for SystemParamValidationError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::query::Without;
+    use crate::resource::IsResource;
     use crate::system::assert_is_system;
+    use crate::world::EntityMut;
     use core::cell::RefCell;
 
     #[test]
@@ -2978,6 +2932,44 @@ mod tests {
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems(my_system);
         schedule.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn non_send_and_entities() {
+        #[derive(Resource)]
+        struct A(usize);
+        fn my_system(mut ns: NonSendMut<A>, _: Query<EntityMut>) {
+            ns.0 += 1;
+        }
+        assert_is_system(my_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn res_and_entities() {
+        #[derive(Resource)]
+        struct A(usize);
+        fn my_system(mut res: ResMut<A>, _: Query<EntityMut>) {
+            res.0 += 1;
+        }
+        assert_is_system(my_system);
+    }
+
+    #[test]
+    fn res_and_entities_filtered() {
+        #[derive(Resource)]
+        struct A(usize);
+        fn res_system(mut res: ResMut<A>, _: Query<EntityMut, Without<IsResource>>) {
+            res.0 += 1;
+        }
+        assert_is_system(res_system);
+
+        fn non_send_system(mut ns: NonSendMut<A>, _: Query<EntityMut, Without<A>>) {
+            ns.0 += 1;
+        }
+
+        assert_is_system(non_send_system);
     }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.

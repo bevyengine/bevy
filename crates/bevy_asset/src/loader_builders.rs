@@ -471,6 +471,7 @@ impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
     ///
     /// [`with_dynamic_type`]: Self::with_dynamic_type
     /// [`with_unknown_type`]: Self::with_unknown_type
+    #[expect(clippy::result_large_err, reason = "Asset loading is not a hot path.")]
     pub async fn load<'p, A: Asset>(
         self,
         path: impl Into<AssetPath<'p>>,

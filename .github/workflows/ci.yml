@@ -17,7 +17,7 @@ env:
   CARGO_PROFILE_TEST_DEBUG: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
-  NIGHTLY_TOOLCHAIN: "nightly-2026-02-11"
+  NIGHTLY_TOOLCHAIN: nightly
   RUSTFLAGS: "-D warnings"
 
 concurrency:
@@ -337,7 +337,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Run Markdown Lint
-        uses: super-linter/super-linter/slim@12562e48d7059cf666c43a4ecb0d3b5a2b31bd9e # v8.4.0
+        uses: super-linter/super-linter/slim@61abc07d755095a68f4987d1c2c3d1d64408f1f9 # v8.5.0
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
@@ -374,7 +374,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check for typos
-        uses: crate-ci/typos@ad3053d3adbcce7f2e3c60fd4ddfc239787d1eff # v1.43.2
+        uses: crate-ci/typos@57b11c6b7e54c402ccd9cda953f1072ec4f78e33 # v1.43.5
       - name: Typos info
         if: failure()
         run: |
@@ -460,7 +460,7 @@ jobs:
       - name: log failed task - missing update
         if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
         run: touch ./missing-examples/missing-update
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: missing-examples
@@ -499,7 +499,7 @@ jobs:
       - name: log failed task - missing update
         if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
         run: touch ./missing-features/missing-update
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: missing-features
@@ -548,7 +548,7 @@ jobs:
         run: |
           mkdir -p ./msrv
           echo ${{ github.event.number }} > ./msrv/NR
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
         with:
           name: msrv

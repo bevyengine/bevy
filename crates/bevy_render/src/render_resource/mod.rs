@@ -1,3 +1,4 @@
+mod atomic_pod;
 mod batched_uniform_buffer;
 mod bind_group;
 mod bind_group_entries;
@@ -14,6 +15,7 @@ mod storage_buffer;
 mod texture;
 mod uniform_buffer;
 
+pub use atomic_pod::*;
 pub use bind_group::*;
 pub use bind_group_entries::*;
 pub use bind_group_layout::*;

@@ -21,7 +21,7 @@
 
 use bevy::ecs::error::warn;
 use bevy::prelude::*;
-use rand::Rng;
+use rand::RngExt;
 
 fn main() {
     println!();
