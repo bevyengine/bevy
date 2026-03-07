@@ -126,6 +126,7 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('Cargo.lock') }}-${{ steps.get-date.outputs.date }}
+          lookup-only: true
 
       - name: Install Bevy dependencies
         if: steps.cache.outputs.cache-hit != 'true'
