@@ -5,14 +5,18 @@ use bevy_reflect::TypePath;
 use futures_lite::AsyncWriteExt;
 use thiserror::Error;
 
+/// An [`AssetSaver`] that writes compressed basis universal (.ktx2) files.
 #[derive(TypePath)]
 pub struct CompressedImageSaver;
 
+/// Errors encountered when writing compressed images.
 #[non_exhaustive]
 #[derive(Debug, Error, TypePath)]
 pub enum CompressedImageSaverError {
+    /// I/O error.
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    /// Attempted to save an image with uninitialized data.
     #[error("Cannot compress an uninitialized image")]
     UninitializedImage,
 }

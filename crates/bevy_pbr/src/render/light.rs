@@ -39,9 +39,11 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_render::camera::{DirtySpecializations, PendingQueues};
 use bevy_render::erased_render_asset::ErasedRenderAssets;
+use bevy_render::mesh::allocator::MeshSlabs;
 use bevy_render::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
+use bevy_render::sync_world::{MainEntity, RenderEntity};
 use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_render::view::RenderVisibleMeshEntities;
 use bevy_render::{
@@ -49,10 +51,6 @@ use bevy_render::{
     camera::SortedCameras,
     mesh::allocator::MeshAllocator,
     view::{NoIndirectDrawing, RetainedViewEntity},
-};
-use bevy_render::{
-    mesh::allocator::SlabId,
-    sync_world::{MainEntity, RenderEntity},
 };
 use bevy_render::{
     mesh::RenderMesh,
@@ -125,6 +123,7 @@ bitflags::bitflags! {
         const VOLUMETRIC                        = 1 << 2;
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 3;
         const CONTACT_SHADOWS_ENABLED           = 1 << 4;
+        const SPOT_LIGHT                        = 1 << 5;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -1040,6 +1039,8 @@ pub fn prepare_lights(
 
         let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
             Some((inner, outer)) => {
+                flags |= PointLightFlags::SPOT_LIGHT;
+
                 let light_direction = light.transform.forward();
                 if light_direction.y.is_sign_negative() {
                     flags |= PointLightFlags::SPOT_LIGHT_Y_NEGATIVE;
@@ -1091,7 +1092,7 @@ pub fn prepare_lights(
                     .and_then(|decals| decals.get(entity))
                     .and_then(|index| index.try_into().ok())
                     .unwrap_or(u32::MAX),
-                pad: 0.0,
+                range: light.range,
                 soft_shadow_size: if light.soft_shadows_enabled {
                     light.radius
                 } else {
@@ -2065,12 +2066,12 @@ pub(crate) fn specialize_shadows(
                         continue;
                     }
                     if !mesh_instance
-                        .flags
+                        .flags()
                         .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                     {
                         continue;
                     }
-                    let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                    let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                         continue;
                     };
 
@@ -2268,20 +2269,14 @@ pub fn queue_shadows(
                     continue;
                 };
                 if !mesh_instance
-                    .flags
+                    .flags()
                     .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                 {
                     continue;
                 }
 
-                let mesh_layers = mesh_instance
-                    .shared
-                    .render_layers
-                    .as_ref()
-                    .unwrap_or_default();
-
+                let mesh_layers = mesh_instance.render_layers.as_ref().unwrap_or_default();
                 let camera_layers = camera_layers.unwrap_or_default();
-
                 if !camera_layers.intersects(mesh_layers) {
                     continue;
                 }
@@ -2309,21 +2304,22 @@ pub fn queue_shadows(
                     Some(material.binding.group.0)
                 };
 
-                let (vertex_slab, index_slab) =
-                    mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+                let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())
+                else {
+                    continue;
+                };
 
                 let batch_set_key = ShadowBatchSetKey {
                     pipeline: pipeline_id,
                     draw_function,
                     material_bind_group_index,
-                    vertex_slab: vertex_slab.unwrap_or_default(),
-                    index_slab,
+                    slabs: mesh_slabs,
                 };
 
                 shadow_phase.add(
                     batch_set_key,
                     ShadowBinKey {
-                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        asset_id: mesh_instance.mesh_asset_id().into(),
                     },
                     (*render_entity, *main_entity),
                     mesh_instance.current_uniform_index,
@@ -2368,21 +2364,18 @@ pub struct ShadowBatchSetKey {
     /// In the case of PBR, this is the `MaterialBindGroupIndex`.
     pub material_bind_group_index: Option<u32>,
 
-    /// The ID of the slab of GPU memory that contains vertex data.
+    /// The IDs of the slabs of GPU memory in the mesh allocator that contain
+    /// the mesh data.
     ///
-    /// For non-mesh items, you can fill this with 0 if your items can be
-    /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
-
-    /// The ID of the slab of GPU memory that contains index data, if present.
-    ///
-    /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
+    /// For non-mesh items, you can fill the [`MeshSlabs::vertex_slab_id`] with
+    /// 0 if your items can be multi-drawn, or with a unique value if they
+    /// can't.
+    pub slabs: MeshSlabs,
 }
 
 impl PhaseItemBatchSetKey for ShadowBatchSetKey {
     fn indexed(&self) -> bool {
-        self.index_slab.is_some()
+        self.slabs.index_slab_id.is_some()
     }
 }
 

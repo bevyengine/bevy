@@ -1,10 +1,10 @@
 use crate::{
     render::{PreprocessBindGroups, PreprocessPipelines},
-    DrawMesh, MeshPipeline, MeshPipelineKey, RenderLightmaps, RenderMeshInstanceFlags,
-    RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup,
-    ViewKeyCache,
+    DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet, RenderLightmaps,
+    RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
+    SetMeshViewBindingArrayBindGroup, ViewKeyCache,
 };
-use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
+use bevy_app::{App, Plugin, PostUpdate, Startup};
 use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
     AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
@@ -34,7 +34,7 @@ use bevy_render::{
     },
     extract_resource::ExtractResource,
     mesh::{
-        allocator::{MeshAllocator, SlabId},
+        allocator::{MeshAllocator, MeshSlabs},
         RenderMesh, RenderMeshBufferInfo,
     },
     prelude::*,
@@ -100,7 +100,7 @@ impl Plugin for WireframePlugin {
         .register_type::<WireframeTopology>()
         .add_systems(Startup, setup_global_wireframe_material)
         .add_systems(
-            Update,
+            PostUpdate,
             (
                 wireframe_config_changed.run_if(resource_changed::<WireframeConfig>),
                 wireframe_color_changed,
@@ -149,7 +149,10 @@ impl Plugin for WireframePlugin {
             .init_resource::<WireframeWideBindGroups>()
             .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
             .init_resource::<PendingWireframeQueues>()
-            .add_systems(RenderStartup, init_wireframe_3d_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_wireframe_3d_pipeline.after(MeshPipelineSet),
+            )
             .add_systems(
                 Core3d,
                 wireframe_3d
@@ -279,16 +282,14 @@ pub struct Wireframe3dBatchSetKey {
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
-    /// The ID of the slab of GPU memory that contains vertex data.
-    ///
-    /// For non-mesh items, you can fill this with 0 if your items can be
-    /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
 
-    /// The ID of the slab of GPU memory that contains index data, if present.
+    /// The IDs of the slabs of GPU memory in the mesh allocator that contain
+    /// the mesh data.
     ///
-    /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
+    /// For non-mesh items, you can fill the [`MeshSlabs::vertex_slab_id`] with
+    /// 0 if your items can be multi-drawn, or with a unique value if they
+    /// can't.
+    pub slabs: MeshSlabs,
 
     /// For the wide wireframe path, the mesh asset ID ensures all draws in one
     /// batch set share the same vertex-pull params uniform. `None` for the thin
@@ -298,7 +299,7 @@ pub struct Wireframe3dBatchSetKey {
 
 impl PhaseItemBatchSetKey for Wireframe3dBatchSetKey {
     fn indexed(&self) -> bool {
-        self.index_slab.is_some()
+        self.slabs.index_slab_id.is_some()
     }
 }
 
@@ -440,7 +441,7 @@ pub fn prepare_wireframe_wide_bind_groups(
         let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*entity) else {
             continue;
         };
-        let mesh_id = mesh_instance.mesh_asset_id;
+        let mesh_id = mesh_instance.mesh_asset_id();
         if !seen.insert(mesh_id) {
             continue;
         }
@@ -539,7 +540,7 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dWideBindGroup {
         let Some((bind_group, dynamic_offset)) = wide_bind_groups
             .into_inner()
             .bind_groups
-            .get(&mesh_instance.mesh_asset_id)
+            .get(&mesh_instance.mesh_asset_id())
         else {
             return RenderCommandResult::Skip;
         };
@@ -1423,7 +1424,7 @@ pub fn specialize_wireframes(
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
 
@@ -1437,13 +1438,13 @@ pub fn specialize_wireframes(
             if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
                 // If the previous frame have skins or morph targets, note that.
                 if mesh_instance
-                    .flags
+                    .flags()
                     .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
                 {
                     mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
                 }
                 if mesh_instance
-                    .flags
+                    .flags()
                     .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
                 {
                     mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
@@ -1594,21 +1595,32 @@ fn queue_wireframes(
                 .unwrap_or(false);
             let draw_function = if is_wide { draw_wide } else { draw_thin };
 
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+            let Some(MeshSlabs {
+                vertex_slab_id: vertex_slab,
+                index_slab_id: index_slab,
+                morph_target_slab_id: morph_target_slab,
+            }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())
+            else {
+                continue;
+            };
             let bin_key = Wireframe3dBinKey {
-                asset_id: mesh_instance.mesh_asset_id.untyped(),
+                asset_id: mesh_instance.mesh_asset_id().untyped(),
             };
             let batch_set_key = Wireframe3dBatchSetKey {
                 pipeline: pipeline_id,
                 asset_id: wireframe_instance.untyped(),
                 draw_function,
-                vertex_slab: vertex_slab.unwrap_or_default(),
-                // wide wireframes use non-indexed draws (vertex pulling from storage),
-                // so set index_slab to None to make the preprocessor emit
-                // IndirectParametersNonIndexed instead of IndirectParametersIndexed.
-                index_slab: if is_wide { None } else { index_slab },
+                slabs: MeshSlabs {
+                    vertex_slab_id: vertex_slab,
+                    morph_target_slab_id: morph_target_slab,
+                    // wide wireframes use non-indexed draws (vertex pulling
+                    // from storage), so set index_slab to None to make the
+                    // preprocessor emit IndirectParametersNonIndexed instead of
+                    // IndirectParametersIndexed.
+                    index_slab_id: if is_wide { None } else { index_slab },
+                },
                 mesh_asset_id: if is_wide {
-                    Some(mesh_instance.mesh_asset_id.untyped())
+                    Some(mesh_instance.mesh_asset_id().untyped())
                 } else {
                     None
                 },

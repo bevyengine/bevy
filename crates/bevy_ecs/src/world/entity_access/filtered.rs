@@ -144,7 +144,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
             .components()
             .get_valid_id(TypeId::of::<T>())?;
         self.access
-            .has_component_read(id)
+            .has_read(id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get() })
             .flatten()
@@ -162,7 +162,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
             .components()
             .get_valid_id(TypeId::of::<T>())?;
         self.access
-            .has_component_read(id)
+            .has_read(id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_ref() })
             .flatten()
@@ -178,7 +178,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
             .components()
             .get_valid_id(TypeId::of::<T>())?;
         self.access
-            .has_component_read(id)
+            .has_read(id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_change_ticks::<T>() })
             .flatten()
@@ -193,7 +193,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
         self.access
-            .has_component_read(component_id)
+            .has_read(component_id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_change_ticks_by_id(component_id) })
             .flatten()
@@ -210,7 +210,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.access
-            .has_component_read(component_id)
+            .has_read(component_id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_by_id(component_id) })
             .flatten()
@@ -575,7 +575,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             .components()
             .get_valid_id(TypeId::of::<T>())?;
         self.access
-            .has_component_write(id)
+            .has_write(id)
             // SAFETY: We have permission to access the component mutable
             // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut() })
@@ -608,7 +608,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             .components()
             .get_valid_id(TypeId::of::<T>())?;
         self.access
-            .has_component_write(id)
+            .has_write(id)
             // SAFETY:
             // - We have write access
             // - Caller ensures `T` is a mutable component
@@ -686,7 +686,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
         self.access
-            .has_component_write(component_id)
+            .has_write(component_id)
             // SAFETY: We have permission to access the component mutable
             // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })

@@ -1,7 +1,8 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+//! The Bevy game engine's GPU-oriented image type.
 
 extern crate alloc;
 
+/// The image prelude.
 pub mod prelude {
     pub use crate::{
         dynamic_texture_atlas_builder::DynamicTextureAtlasBuilder,
