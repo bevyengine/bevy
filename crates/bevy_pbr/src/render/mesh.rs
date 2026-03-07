@@ -2193,11 +2193,10 @@ pub fn collect_gpu_culled_meshes(
 
     // Collect shadow maps.
     for (maybe_render_layers, mut render_shadow_map_visible_entities) in &mut lights {
-        for mut render_visible_entities in render_shadow_map_visible_entities.subviews.values_mut()
-        {
+        for render_visible_entities in render_shadow_map_visible_entities.subviews.values_mut() {
             collect_gpu_culled_meshes_for_subview(
                 maybe_render_layers,
-                &mut render_visible_entities,
+                render_visible_entities,
                 &mut render_gpu_culled_entities,
             );
         }
@@ -2241,10 +2240,9 @@ fn collect_gpu_culled_meshes_for_subview(
         let maybe_entity_render_layers = render_mesh_instance_gpu_queues.entities.get(main_entity);
         if let (Some(view_render_layers), Some(entity_render_layers)) =
             (maybe_view_render_layers, maybe_entity_render_layers)
+            && !view_render_layers.intersects(entity_render_layers)
         {
-            if !view_render_layers.intersects(entity_render_layers) {
-                continue;
-            }
+            continue;
         }
 
         // Update the tables. 3D meshes have no render entity, so it's
