@@ -480,10 +480,8 @@ where
         index
     }
 
-    /// Pushes a dummy element onto the backing store of this buffer.
-    ///
-    /// You must do this before calling [`Self::write_buffer`], as `wgpu`
-    /// doesn't allow zero-sized buffers.
+    /// Pushes a dummy element onto the backing store of this buffer, if this
+    /// buffer is empty.
     pub fn ensure_nonempty(&mut self) {
         if self.buffer.is_empty() {
             self.buffer.push(default());
