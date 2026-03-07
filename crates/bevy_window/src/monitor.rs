@@ -1,8 +1,5 @@
 use alloc::{string::String, vec::Vec};
-use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-};
+use bevy_ecs::{component::Component, entity::Entity};
 use bevy_math::{IVec2, UVec2};
 
 #[cfg(feature = "bevy_reflect")]

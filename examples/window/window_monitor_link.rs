@@ -1,6 +1,8 @@
+//! Shows how the relationship between Windows and Monitors can be used to find which monitor a
+//! window is on.
 use bevy::prelude::*;
-use bevy::window::{Monitor, PrimaryWindow};
 use bevy::window::OnMonitor;
+use bevy::window::{Monitor, PrimaryWindow};
 
 fn main() {
     App::new()

@@ -6,7 +6,7 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
     message::MessageWriter,
-    prelude::{Changed, Component, Commands},
+    prelude::{Changed, Commands, Component},
     system::{Local, NonSendMarker, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
@@ -460,26 +460,22 @@ pub(crate) fn changed_windows(
 
             if let Some(monitor_link) = monitor_relationship {
                 if let Some(winit_monitor) = winit_window.current_monitor() {
-                    if let Some(linked_monitor) = monitors.find_entity(monitor_link.0) {
-                        if winit_monitor != linked_monitor {
-                            if let Some(winit_monitor_entity) = monitors.monitors.iter().find(|(h, _)| h == &winit_monitor).map(|(.., e)| e) {
-                                commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
-                                
-                            }
-                        }
+                    if let Some(linked_monitor) = monitors.find_entity(monitor_link.0) &&
+                        winit_monitor != linked_monitor &&
+                        let Some((_, winit_monitor_entity)) = monitors.monitors.iter().find(|(h, _)| h == &winit_monitor) {
+                        commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
                     }
                 } else {
                     commands.entity(entity).remove::<OnMonitor>();
                 }
             } else {
-                if let Some(winit_monitor) = winit_window.current_monitor() {
-                    if let Some(winit_monitor_entity) = monitors.monitors.iter().find(|(h, _)| h == &winit_monitor).map(|(.., e)| e) {
-                        commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
-
-                    }
+                if let Some(winit_monitor) = winit_window.current_monitor()
+                    && let Some((_, winit_monitor_entity)) = monitors.monitors.iter()
+                    .find(|(h, _)| h == &winit_monitor) {
+                    commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
                 }
             }
-            
+
             if let Some(maximized) = window.internal.take_maximize_request() {
                 winit_window.set_maximized(maximized);
             }
