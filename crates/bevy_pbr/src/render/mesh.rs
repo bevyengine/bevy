@@ -199,8 +199,7 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_skins,
-                        extract_morphs,
+                        (extract_skins, extract_morphs).chain(),
                         gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
                             .before(MeshExtractionSystems),
                     ),

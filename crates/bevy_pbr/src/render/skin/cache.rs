@@ -50,8 +50,8 @@ use nonmax::NonMaxU32;
 use tracing::error;
 
 use crate::{
-    GpuMorphDescriptor, MeshInputUniform, MeshUniform, MorphIndices, MorphUniforms,
-    RenderMeshInstances, SkinUniforms,
+    prepare_mesh_bind_groups, prepare_skins, GpuMorphDescriptor, MeshInputUniform, MeshUniform,
+    MorphIndices, MorphUniforms, RenderMeshInstances, SkinUniforms,
 };
 
 /// The workgroup size for the skin caching shader.
@@ -104,11 +104,15 @@ impl Plugin for SkinCachePlugin {
             )
             .add_systems(
                 Render,
-                prepare_skin_cache_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                prepare_skin_cache_bind_groups
+                    .in_set(RenderSystems::PrepareBindGroups)
+                    .after(prepare_mesh_bind_groups),
             )
             .add_systems(
                 Render,
-                prepare_skin_cache_pipelines.in_set(RenderSystems::Prepare),
+                prepare_skin_cache_pipelines
+                    .in_set(RenderSystems::Prepare)
+                    .after(prepare_skins),
             )
             .add_systems(RenderGraph, skin_cache.before(schedule::camera_driver));
     }
