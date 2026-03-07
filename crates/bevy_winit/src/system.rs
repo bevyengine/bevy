@@ -10,7 +10,11 @@ use bevy_ecs::{
     system::{Local, NonSendMarker, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
-use bevy_window::{ClosingWindow, CursorOptions, Monitor, OnMonitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode, WindowResized, WindowWrapper};
+use bevy_window::{
+    ClosingWindow, CursorOptions, Monitor, OnMonitor, PrimaryMonitor, RawHandleWrapper, VideoMode,
+    Window, WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
+    WindowResized, WindowWrapper,
+};
 use tracing::{error, info, warn};
 
 use winit::{
@@ -18,13 +22,6 @@ use winit::{
     event_loop::ActiveEventLoop,
 };
 
-use bevy_app::AppExit;
-use bevy_ecs::{prelude::MessageReader, query::With, system::Res};
-use bevy_math::{IVec2, UVec2};
-#[cfg(target_os = "ios")]
-use winit::platform::ios::WindowExtIOS;
-#[cfg(target_arch = "wasm32")]
-use winit::platform::web::WindowExtWebSys;
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
     converters::{
@@ -36,6 +33,13 @@ use crate::{
     winit_monitors::WinitMonitors,
     CreateMonitorParams, CreateWindowParams, WINIT_WINDOWS,
 };
+use bevy_app::AppExit;
+use bevy_ecs::{prelude::MessageReader, query::With, system::Res};
+use bevy_math::{IVec2, UVec2};
+#[cfg(target_os = "ios")]
+use winit::platform::ios::WindowExtIOS;
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::WindowExtWebSys;
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
 /// [`Window`] component.
@@ -86,7 +90,7 @@ pub fn create_windows(
                     CachedCursorOptions(cursor_options.clone()),
                     WinitWindowPressedKeys::default(),
                 ));
-                
+
                 if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
                     commands.entity(entity).insert(handle_wrapper.clone());
                     if let Some(handle_holder) = handle_holder {
@@ -294,7 +298,10 @@ pub(crate) struct CachedCursorOptions(CursorOptions);
 /// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
 pub(crate) fn changed_windows(
     mut commands: Commands,
-    mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow, Option<&OnMonitor>), Changed<Window>>,
+    mut changed_windows: Query<
+        (Entity, &mut Window, &mut CachedWindow, Option<&OnMonitor>),
+        Changed<Window>,
+    >,
     monitors: Res<WinitMonitors>,
     mut window_resized: MessageWriter<WindowResized>,
     _non_send_marker: NonSendMarker,

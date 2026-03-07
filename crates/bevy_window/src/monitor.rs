@@ -2,10 +2,10 @@ use alloc::{string::String, vec::Vec};
 use bevy_ecs::{component::Component, entity::Entity};
 use bevy_math::{IVec2, UVec2};
 
-#[cfg(feature = "bevy_reflect")]
-use {bevy_ecs::prelude::ReflectComponent, bevy_reflect::Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+#[cfg(feature = "bevy_reflect")]
+use {bevy_ecs::prelude::ReflectComponent, bevy_reflect::Reflect};
 
 /// Represents an available monitor as reported by the user's operating system, which can be used
 /// to query information about the display, such as its size, position, and video modes.

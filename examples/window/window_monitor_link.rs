@@ -27,20 +27,27 @@ fn setup(mut commands: Commands) {
         GlobalZIndex(i32::MAX),
         children![(
             Text::default(),
-            children![
-                TextSpan::new(
-                    "Current Monitor: Unknown",
-                ),
-            ]
+            children![TextSpan::new("Current Monitor: Unknown",),]
         )],
     ));
 }
 
-fn update_monitor(primary_window: Single<&OnMonitor, With<PrimaryWindow>>, monitors: Query<(Entity, &Monitor)>, example_text: Query<Entity, With<Text>>, mut writer: TextUiWriter,) -> Result{
-    if let Some(current_monitor) = monitors.iter().find(|(e, ..)| *e == primary_window.0).unwrap().1.name.clone() {
+fn update_monitor(
+    primary_window: Single<&OnMonitor, With<PrimaryWindow>>,
+    monitors: Query<(Entity, &Monitor)>,
+    example_text: Query<Entity, With<Text>>,
+    mut writer: TextUiWriter,
+) -> Result {
+    if let Some(current_monitor) = monitors
+        .iter()
+        .find(|(e, ..)| *e == primary_window.0)
+        .unwrap()
+        .1
+        .name
+        .clone()
+    {
         *writer.text(example_text.single()?, 1) = format!("Current Monitor: {:?}", current_monitor);
     } else {
-
         *writer.text(example_text.single()?, 1) = "Current Monitor: Unknown".to_string();
     }
     Ok(())
