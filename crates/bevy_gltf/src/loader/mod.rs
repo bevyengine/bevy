@@ -173,7 +173,7 @@ pub struct GltfLoader {
     /// glTF extension data processors.
     /// These are Bevy-side processors designed to access glTF
     /// extension data during the loading process.
-    pub extensions: Arc<RwLock<Vec<Box<dyn extensions::GltfExtensionHandler>>>>,
+    pub extensions: Arc<RwLock<Vec<Box<dyn extensions::ErasedGltfExtensionHandler>>>>,
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
@@ -744,14 +744,16 @@ impl GltfLoader {
                 let mut out_doc: Option<gltf::Document> = None;
                 let mut out_data: Option<Vec<Vec<u8>>> = None;
                 for extension in extensions.iter_mut() {
-                    extension.on_gltf_primitive(
-                        load_context,
-                        &gltf,
-                        &primitive,
-                        &buffer_data,
-                        &mut out_doc,
-                        &mut out_data,
-                    );
+                    extension
+                        .on_gltf_primitive(
+                            load_context,
+                            &gltf,
+                            &primitive,
+                            &buffer_data,
+                            &mut out_doc,
+                            &mut out_data,
+                        )
+                        .await;
                 }
 
                 // if there is a `gltf::Document`, then we have transformed
@@ -1551,7 +1553,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     textures: &[Handle<Image>],
     convert_coordinates: &GltfConvertCoordinates,
-    extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
+    extensions: &mut [Box<dyn extensions::ErasedGltfExtensionHandler>],
     skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
@@ -2122,7 +2124,7 @@ mod test {
     use std::path::Path;
 
     use crate::{
-        extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+        extensions::{ErasedGltfExtensionHandler, GltfExtensionHandler, GltfExtensionHandlers},
         Gltf, GltfAssetLabel, GltfMaterial, GltfNode, GltfSkin,
     };
     use bevy_app::{App, TaskPoolPlugin};
@@ -2713,7 +2715,7 @@ mod test {
     fn load_gltf_into_app_with_extension(
         gltf_path: &str,
         gltf: &str,
-        extension: Box<dyn GltfExtensionHandler>,
+        extension: Box<dyn ErasedGltfExtensionHandler>,
     ) -> App {
         #[expect(
             dead_code,
@@ -2828,14 +2830,14 @@ mod test {
         struct PrimitiveExtension {}
 
         impl GltfExtensionHandler for PrimitiveExtension {
-            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+            fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
                 Box::new((*self).clone())
             }
-            fn on_gltf_primitive(
+            async fn on_gltf_primitive(
                 &mut self,
                 _load_context: &mut LoadContext<'_>,
                 _gltf_document: &gltf::Gltf,
-                _gltf_primitive: &gltf::Primitive,
+                _gltf_primitive: &gltf::Primitive<'_>,
                 _buffer_data: &[Vec<u8>],
                 out_doc: &mut Option<gltf::Document>,
                 _out_data: &mut Option<Vec<Vec<u8>>>,
@@ -2864,14 +2866,14 @@ mod test {
         struct PrimitiveExtension {}
 
         impl GltfExtensionHandler for PrimitiveExtension {
-            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+            fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
                 Box::new((*self).clone())
             }
-            fn on_gltf_primitive(
+            async fn on_gltf_primitive(
                 &mut self,
                 _load_context: &mut LoadContext<'_>,
                 _gltf_document: &gltf::Gltf,
-                _gltf_primitive: &gltf::Primitive,
+                _gltf_primitive: &gltf::Primitive<'_>,
                 _buffer_data: &[Vec<u8>],
                 out_doc: &mut Option<gltf::Document>,
                 _out_data: &mut Option<Vec<Vec<u8>>>,
@@ -2905,14 +2907,14 @@ mod test {
         struct PrimitiveExtension {}
 
         impl GltfExtensionHandler for PrimitiveExtension {
-            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+            fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
                 Box::new((*self).clone())
             }
-            fn on_gltf_primitive(
+            async fn on_gltf_primitive(
                 &mut self,
                 _load_context: &mut LoadContext<'_>,
                 _gltf_document: &gltf::Gltf,
-                _gltf_primitive: &gltf::Primitive,
+                _gltf_primitive: &gltf::Primitive<'_>,
                 _buffer_data: &[Vec<u8>],
                 _out_doc: &mut Option<gltf::Document>,
                 out_data: &mut Option<Vec<Vec<u8>>>,
