@@ -32,6 +32,12 @@ struct GameState {
     paused: bool,
 }
 
+#[derive(Resource)]
+struct AtmospherePresets {
+    earth: Handle<ScatteringMedium>,
+    mars: Handle<ScatteringMedium>,
+}
+
 fn main() {
     App::new()
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
@@ -56,6 +62,8 @@ fn print_controls() {
     println!("Atmosphere Example Controls:");
     println!("    1          - Switch to lookup texture rendering method");
     println!("    2          - Switch to raymarched rendering method");
+    println!("    3          - Switch to Earth atmosphere");
+    println!("    4          - Switch to Mars atmosphere");
     println!("    Enter      - Pause/Resume sun motion");
     println!("    Up/Down    - Increase/Decrease exposure");
 }
@@ -63,10 +71,26 @@ fn print_controls() {
 fn atmosphere_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut atmosphere_settings: Query<&mut AtmosphereSettings>,
+    mut atmosphere_query: Query<&mut Atmosphere>,
+    atmosphere_presets: Res<AtmospherePresets>,
     mut game_state: ResMut<GameState>,
     mut camera_exposure: Query<&mut Exposure, With<Camera3d>>,
     time: Res<Time>,
 ) {
+    if keyboard_input.just_pressed(KeyCode::Digit3) {
+        for mut atmosphere in &mut atmosphere_query {
+            *atmosphere = Atmosphere::earth(atmosphere_presets.earth.clone());
+            println!("Switched to Earth atmosphere");
+        }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::Digit4) {
+        for mut atmosphere in &mut atmosphere_query {
+            *atmosphere = Atmosphere::mars(atmosphere_presets.mars.clone());
+            println!("Switched to Mars atmosphere");
+        }
+    }
+
     if keyboard_input.just_pressed(KeyCode::Digit1) {
         for mut settings in &mut atmosphere_settings {
             settings.rendering_method = AtmosphereMode::LookupTexture;
@@ -101,12 +125,22 @@ fn atmosphere_controls(
 fn setup_camera_fog(
     mut commands: Commands,
     mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+    asset_server: Res<AssetServer>,
 ) {
+    let earth_medium = scattering_mediums.add(ScatteringMedium::earth(256, 256));
+    let mars_phase = asset_server.load("textures/mars_mie_phase.ktx2");
+    let mars_medium = scattering_mediums.add(ScatteringMedium::mars(256, 256, mars_phase));
+
+    commands.insert_resource(AtmospherePresets {
+        earth: earth_medium.clone(),
+        mars: mars_medium.clone(),
+    });
+
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.8, 0.045, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // Earthlike atmosphere
-        Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
+        // Earth atmosphere
+        Atmosphere::earth(earth_medium),
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings::default(),
         // The directional light illuminance used in this scene

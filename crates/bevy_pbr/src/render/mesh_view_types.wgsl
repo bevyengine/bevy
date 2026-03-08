@@ -14,7 +14,7 @@ struct ClusteredLight {
     soft_shadow_size: f32,
     shadow_map_near_z: f32,
     decal_index: u32,
-    pad: f32,
+    range: f32,
 };
 
 const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u << 0u;
@@ -22,6 +22,7 @@ const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32                  = 1u << 1u;
 const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 1u << 2u;
 const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 1u << 3u;
 const POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32            = 1u << 4u;
+const POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT: u32                         = 1u << 5u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,
@@ -60,8 +61,8 @@ struct Lights {
     // xy are vec2<f32>(cluster_dimensions.xy) / vec2<f32>(view.width, view.height)
     //
     // For perspective projections:
-    // z is cluster_dimensions.z / log(far / near)
-    // w is cluster_dimensions.z * log(near) / log(far / near)
+    // z is (cluster_dimensions.z - 1) / log(far / near)
+    // w is (cluster_dimensions.z - 1) * log(near) / log(far / near)
     //
     // For orthographic projections:
     // NOTE: near and far are +ve but -z is infront of the camera
@@ -135,11 +136,13 @@ struct LightProbe {
     // The falloff region, specified as a fraction of the light probe's
     // bounding box.
     falloff: vec3<f32>,
+    bounding_sphere_radius: f32,
     // The boundaries of the simulated space used for parallax correction,
     // specified as *half* extents in light probe space.
     parallax_correction_bounds: vec3<f32>,
-    cubemap_index: i32,
     intensity: f32,
+    world_position: vec3<f32>,
+    cubemap_index: i32,
     // Various flags that apply to this light probe.
     flags: u32,
 };
@@ -215,6 +218,8 @@ struct ClusteredDecal {
     normal_map_texture_index: i32,
     metallic_roughness_texture_index: i32,
     emissive_texture_index: i32,
+    world_position: vec3<f32>,
+    bounding_sphere_radius: f32,
     tag: u32,
     pad_a: u32,
     pad_b: u32,

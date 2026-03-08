@@ -20,6 +20,7 @@ use bevy::{
         ops::{cbrt, sqrt},
         DVec2, DVec3,
     },
+    post_process::motion_blur::MotionBlur,
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
@@ -86,6 +87,10 @@ struct Args {
     /// animate the cube materials by updating the material from the cpu each frame
     #[argh(switch)]
     animate_materials: bool,
+
+    /// whether to enable motion blur.
+    #[argh(switch)]
+    motion_blur: bool,
 }
 
 #[derive(Default, Clone, PartialEq)]
@@ -207,6 +212,22 @@ fn setup(
             }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);
+            }
+            if args.motion_blur {
+                camera.insert((
+                    MotionBlur {
+                        // Use an unrealistically large shutter angle so that motion blur is clearly visible.
+                        shutter_angle: 3.0,
+                        ..Default::default()
+                    },
+                    // MSAA and MotionBlur are not compatible on WebGL.
+                    #[cfg(all(
+                        feature = "webgl2",
+                        target_arch = "wasm32",
+                        not(feature = "webgpu")
+                    ))]
+                    Msaa::Off,
+                ));
             }
 
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
