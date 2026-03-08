@@ -934,7 +934,7 @@ impl<'de> Deserialize<'de> for BrpRequest {
                 while let Some(key) = map.next_key()? {
                     match key {
                         Field::JsonRpc => {
-                            let value = map.next_value()?;
+                            let value = map.next_value::<String>()?;
                             if value != "2.0" {
                                 return Err(de::Error::invalid_value(
                                     de::Unexpected::Str(value),
