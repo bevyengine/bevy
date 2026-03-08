@@ -293,7 +293,7 @@ all_tuples_enumerated!(
 /// [the unit interval]: Interval::UNIT
 /// [`sample`]: EasingCurve::sample
 /// [`sample_clamped`]: EasingCurve::sample_clamped
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct EasingCurve<T> {
