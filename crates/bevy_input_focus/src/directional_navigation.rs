@@ -91,17 +91,23 @@ impl Plugin for DirectionalNavigationPlugin {
     reflect(Resource, Debug, PartialEq, Clone)
 )]
 pub struct AutoNavigationConfig {
-    /// Minimum overlap ratio (0.0-1.0) required along the perpendicular axis for cardinal directions.
+    /// Minimum overlap ratio (0.0-1.0) required
+    /// - along the perpendicular axis, for cardinal directions and
+    /// - within the unbounded region emanating from the corner in the direction of navigation
+    /// for diagonal directions.
     ///
     /// This parameter controls how much two UI elements must overlap in the perpendicular direction
-    /// to be considered reachable neighbors. It only applies to cardinal directions (`North`, `South`, `East`, `West`);
-    /// diagonal directions (`NorthEast`, `SouthEast`, etc.) ignore this requirement entirely.
+    /// or in the unbounded region to be considered reachable neighbors.
     ///
     /// # Calculation
     ///
-    /// The overlap factor is calculated as:
+    /// The overlap factor is calculated as, for cardinal directions:
     /// ```text
     /// overlap_factor = actual_overlap / min(origin_size, candidate_size)
+    /// ```
+    /// and for diagonal directions:
+    /// ```text
+    /// overlap_factor = overlapping_area / candidate_area
     /// ```
     ///
     /// For East/West navigation, this measures vertical overlap:
@@ -112,19 +118,34 @@ pub struct AutoNavigationConfig {
     /// - `actual_overlap` = overlapping width between the two elements
     /// - Sizes are the widths of the origin and candidate
     ///
+    /// For NorthEast, NorthWest, SouthEast, and SouthWest navigation, this measures overlap
+    /// of a candidate's area within the unbounded region extending infinitely from
+    /// the corner of the origin UI element in the given direction of navigation.
+    /// The region is bounded in the opposite direction of navigation by the x and y values
+    /// of the corner itself. e.g. An unbounded region to the NorthEast from a NE corner
+    /// at (20., 30.) will have x values >= 20. and y values >= 30.
+    /// - `overlapping_area` = the portion of the candidate_area that is within
+    ///   the desired unbounded region.
+    /// - The candidate_area is the width times the height of the candidate.
+    ///
+    /// Note that the overlap_factor is equal between the origin and the candidate
+    /// in opposite cardinal directions, but not necessarily equal in diagonal directions.
+    ///
     /// # Examples
     ///
     /// - `0.0` (default): Any overlap is sufficient. Even if elements barely touch, they can be neighbors.
-    /// - `0.5`: Elements must overlap by at least 50% of the smaller element's size.
+    /// - `0.5`: Elements must overlap by at least 50% of the smaller element's size in cardinal directions,
+    ///   and at least 50% of a candidate element's size must be within an origin corner's unbounded region.
     /// - `1.0`: Perfect alignment required. The smaller element must be completely within the bounds
-    ///   of the larger element along the perpendicular axis.
+    ///   of the larger element along the perpendicular axis. A candidate element must be completely within
+    ///   an origin corner's unbounded region.
     ///
     /// # Use Cases
     ///
     /// - **Sparse/irregular layouts** (e.g., star constellations): Use `0.0` to allow navigation
     ///   between elements that don't directly align.
     /// - **Grid layouts**: Use `0.5` or higher to ensure navigation only connects elements in
-    ///   the same row or column.
+    ///   the same row, column, and diagonal.
     /// - **Strict alignment**: Use `1.0` to require perfect alignment, though this may result
     ///   in disconnected navigation graphs if elements aren't precisely aligned.
     pub min_alignment_factor: f32,
