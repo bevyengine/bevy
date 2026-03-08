@@ -3125,6 +3125,7 @@ wasm = false
 name = "gpu_readback"
 path = "examples/shader/gpu_readback.rs"
 doc-scrape-examples = true
+required-features = ["shader_format_wesl"]
 
 [package.metadata.example.gpu_readback]
 name = "GPU readback"
