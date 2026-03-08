@@ -41,15 +41,12 @@ struct BoxMaterialHandle(Handle<StandardMaterial>);
 /// and Box Material assets, adds them to their respective Asset
 /// Resources, and stores their handles as resources so we can access
 /// them later when we're ready to render our Boxes
-fn add_assets(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let box_mesh_handle = meshes.add(Cuboid::new(0.25, 0.25, 0.25));
+fn add_assets(mut commands: Commands, mut asset_commands: AssetCommands) {
+    let box_mesh_handle = asset_commands.spawn_asset(Cuboid::new(0.25, 0.25, 0.25).into());
     commands.insert_resource(BoxMeshHandle(box_mesh_handle));
 
-    let box_material_handle = materials.add(Color::srgb(1.0, 0.2, 0.3));
+    let box_material_handle =
+        asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(1.0, 0.2, 0.3)));
     commands.insert_resource(BoxMaterialHandle(box_material_handle));
 }
 

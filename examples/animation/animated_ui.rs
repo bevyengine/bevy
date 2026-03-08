@@ -33,10 +33,7 @@ fn main() {
 
 impl AnimationInfo {
     // Programmatically creates the UI animation.
-    fn create(
-        animation_graphs: &mut Assets<AnimationGraph>,
-        animation_clips: &mut Assets<AnimationClip>,
-    ) -> AnimationInfo {
+    fn create(asset_commands: &mut AssetCommands) -> AnimationInfo {
         // Create an ID that identifies the text node we're going to animate.
         let animation_target_name = Name::new("Text");
         let animation_target_id = AnimationTargetId::from_name(&animation_target_name);
@@ -82,12 +79,12 @@ impl AnimationInfo {
         );
 
         // Save our animation clip as an asset.
-        let animation_clip_handle = animation_clips.add(animation_clip);
+        let animation_clip_handle = asset_commands.spawn_asset(animation_clip);
 
         // Create an animation graph with that clip.
         let (animation_graph, animation_node_index) =
             AnimationGraph::from_clip(animation_clip_handle);
-        let animation_graph_handle = animation_graphs.add(animation_graph);
+        let animation_graph_handle = asset_commands.spawn_asset(animation_graph);
 
         AnimationInfo {
             target_name: animation_target_name,
@@ -101,9 +98,8 @@ impl AnimationInfo {
 // Creates all the entities in the scene.
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
-    mut animation_clips: ResMut<Assets<AnimationClip>>,
 ) {
     // Create the animation.
     let AnimationInfo {
@@ -111,7 +107,7 @@ fn setup(
         target_id: animation_target_id,
         graph: animation_graph,
         node_index: animation_node_index,
-    } = AnimationInfo::create(animation_graphs.as_mut(), animation_clips.as_mut());
+    } = AnimationInfo::create(&mut asset_commands);
 
     // Build an animation player that automatically plays the UI animation.
     let mut animation_player = AnimationPlayer::default();

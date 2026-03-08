@@ -10,9 +10,9 @@
 //! then larger game worlds will need to load them from disk as needed, ideally without a loading screen.
 //!
 //! As is common in Rust, non-blocking asset loading is done using `async`, with background tasks used to load assets while the game is running.
-//! Bevy coordinates these tasks using the [`AssetServer`] resource, storing each loaded asset in a strongly-typed [`Assets<T>`] collection (also a resource).
-//! [`Handle`]s serve as an id-based reference to entries in the [`Assets`] collection, allowing them to be cheaply shared between systems,
-//! and providing a way to initialize objects (generally entities) before the required assets are loaded.
+//! Bevy coordinates these tasks using the [`AssetServer`] resource, storing each loaded asset in an entity.
+//! [`Handle`]s serve as a reference to these entities, allowing them to be cheaply shared between systems,
+//! and providing a way to initialize objects (generally components) before the required assets are loaded.
 //! In short: [`Handle`]s are not the assets themselves, they just tell how to look them up!
 //!
 //! ## Loading assets
@@ -37,8 +37,8 @@
 //! If we later want to change the asset data a given component uses (such as changing an entity's material), we have three options:
 //!
 //! 1. Change the handle stored on the responsible component to the handle of a different asset
-//! 2. Despawn the entity and spawn a new one with the new asset data.
-//! 3. Use the [`Assets`] collection to directly modify the current handle's asset data
+//! 2. Despawn the entity and spawn a new one with the new asset handle.
+//! 3. Use the [`AssetsMut`] system param to directly modify the current handle's asset data
 //!
 //! The first option is the most common: just query for the component that holds the handle, and mutate it, pointing to the new asset.
 //! Check how the handle was passed in to the entity when it was spawned: if a mesh-related component required a handle to a mesh asset,
@@ -56,7 +56,7 @@
 //!
 //! Bevy supports asset hot reloading, allowing you to change assets on disk and see the changes reflected in your game without restarting.
 //! When enabled, any changes to the underlying asset file will be detected by the [`AssetServer`], which will then reload the asset,
-//! mutating the asset data in the [`Assets`] collection and thus updating all entities that use the asset.
+//! mutating the asset data on its entity and thus updating all entities that use the asset.
 //! While it has limited uses in published games, it is very useful when developing, as it allows you to iterate quickly.
 //!
 //! To enable asset hot reloading on desktop platforms, enable `bevy`'s `file_watcher` cargo feature.
@@ -65,22 +65,22 @@
 //! # Procedural asset creation
 //!
 //! Not all assets are loaded from disk: some are generated at runtime, such as procedural materials, sounds or even levels.
-//! After creating an item of a type that implements [`Asset`], you can add it to the [`Assets`] collection using [`Assets::add`].
-//! Once in the asset collection, this data can be operated on like any other asset.
+//! After creating an item of a type that implements [`Asset`], you can create one using [`AssetCommands::spawn_asset`].
+//! Once spawned, this data can be operated on like any other asset.
 //!
 //! Note that, unlike assets loaded from a file path, no general mechanism currently exists to deduplicate procedural assets:
-//! calling [`Assets::add`] for every entity that needs the asset will create a new copy of the asset for each entity,
+//! calling [`AssetCommands::spawn_asset`] for every entity that needs the asset will create a new copy of the asset for each entity,
 //! quickly consuming memory.
 //!
 //! ## Handles and reference counting
 //!
-//! [`Handle`] (or their untyped counterpart [`UntypedHandle`]) are used to reference assets in the [`Assets`] collection,
+//! [`Handle`] (or their untyped counterpart [`UntypedHandle`]) are used to reference assets,
 //! and are the primary way to interact with assets in Bevy.
 //! As a user, you'll be working with handles a lot!
 //!
 //! The most important thing to know about handles is that they are reference counted: when you clone a handle, you're incrementing a reference count.
 //! When the object holding the handle is dropped (generally because an entity was despawned), the reference count is decremented.
-//! When the reference count hits zero, the asset it references is removed from the [`Assets`] collection.
+//! When the reference count hits zero, the asset it references is despawned.
 //!
 //! This reference counting is a simple, largely automatic way to avoid holding onto memory for game objects that are no longer in use.
 //! However, it can lead to surprising behavior if you're not careful!
@@ -165,8 +165,9 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use crate::{
-        Asset, AssetApp, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer, Assets,
-        DirectAssetAccessExt, Handle, UntypedHandle,
+        Asset, AssetApp, AssetCommands, AssetEvent, AssetId, AssetMode, AssetPlugin, AssetServer,
+        AssetServerAccessExt, Assets, AssetsMut, DirectAssetAccessExt, Handle, UntypedHandle,
+        WorldAssetCommandsExt,
     };
 }
 
@@ -183,11 +184,11 @@ mod path;
 mod reflect;
 mod render_asset;
 mod server;
+mod uuid_map;
 
 pub use assets::*;
 pub use bevy_asset_macros::Asset;
-use bevy_diagnostic::{Diagnostic, DiagnosticsStore, RegisterDiagnostic};
-pub use direct_access_ext::DirectAssetAccessExt;
+pub use direct_access_ext::*;
 pub use event::*;
 pub use folder::*;
 pub use futures_lite::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
@@ -201,6 +202,7 @@ pub use path::*;
 pub use reflect::*;
 pub use render_asset::*;
 pub use server::*;
+pub use uuid_map::*;
 
 pub use uuid;
 
@@ -214,6 +216,7 @@ use alloc::{
     vec::Vec,
 };
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
+use bevy_diagnostic::{Diagnostic, DiagnosticsStore, RegisterDiagnostic};
 use bevy_ecs::{prelude::Component, schedule::common_conditions::resource_exists};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
@@ -222,7 +225,6 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use core::any::TypeId;
 use tracing::error;
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
@@ -351,7 +353,13 @@ impl AssetPlugin {
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(MinimalAssetPlugin);
+
         let embedded = EmbeddedAssetRegistry::default();
+
+        let handle_provider = app.world().resource::<AssetHandleProvider>().clone();
+        let uuid_map = app.world().resource::<AssetUuidMap>().clone();
+
         {
             let mut sources = app
                 .world_mut()
@@ -364,6 +372,10 @@ impl Plugin for AssetPlugin {
             embedded.register_source(&mut sources);
         }
         {
+            let remote_allocator = app
+                .world_mut()
+                .entity_allocator_mut()
+                .build_remote_allocator();
             let watch = self
                 .watch_for_changes_override
                 .unwrap_or(cfg!(feature = "watch"));
@@ -373,6 +385,9 @@ impl Plugin for AssetPlugin {
                     let sources = builders.build_sources(watch, false);
 
                     app.insert_resource(AssetServer::new_with_meta_check(
+                        remote_allocator,
+                        handle_provider.clone(),
+                        uuid_map,
                         Arc::new(sources),
                         AssetServerMode::Unprocessed,
                         self.meta_check.clone(),
@@ -387,9 +402,12 @@ impl Plugin for AssetPlugin {
                     if use_asset_processor {
                         let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let (processor, sources) = AssetProcessor::new(&mut builders, watch);
-                        // the main asset server shares loaders with the processor asset server
                         app.insert_resource(AssetServer::new_with_loaders(
+                            remote_allocator,
+                            handle_provider.clone(),
+                            uuid_map,
                             sources,
+                            // the main asset server shares loaders with the processor asset server
                             processor.server().data.loaders.clone(),
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
@@ -402,6 +420,9 @@ impl Plugin for AssetPlugin {
                         let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch);
                         app.insert_resource(AssetServer::new_with_meta_check(
+                            remote_allocator,
+                            handle_provider.clone(),
+                            uuid_map,
                             Arc::new(sources),
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
@@ -417,18 +438,16 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
             .add_message::<UntypedAssetLoadFailedEvent>()
-            .configure_sets(
-                PreUpdate,
-                AssetTrackingSystems.after(handle_internal_asset_events),
-            )
             // `handle_internal_asset_events` requires the use of `&mut World`,
             // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
-            // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
-            // needs to be robust to stochastic delays anyways.
+            // This is virtually never a real problem: asset loading is async and so anything that
+            // interacts directly with it needs to be robust to stochastic delays anyways.
             .add_systems(
                 PreUpdate,
                 (
-                    handle_internal_asset_events.ambiguous_with_all(),
+                    handle_internal_asset_events
+                        .ambiguous_with_all()
+                        .before(despawn_unused_assets),
                     // TODO: Remove the run condition and use `If` once
                     // https://github.com/bevyengine/bevy/issues/21549 is resolved.
                     publish_asset_server_diagnostics.run_if(resource_exists::<DiagnosticsStore>),
@@ -440,7 +459,7 @@ impl Plugin for AssetPlugin {
 }
 
 /// Declares that this type is an asset,
-/// which can be loaded and managed by the [`AssetServer`] and stored in [`Assets`] collections.
+/// which can be loaded and managed by the [`AssetServer`] and stored in [`AssetData`].
 ///
 /// Generally, assets are large, complex, and/or expensive to load from disk, and are often authored by artists or designers.
 ///
@@ -453,9 +472,8 @@ impl Plugin for AssetPlugin {
 )]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
 
-/// A trait for components that can be used as asset identifiers, e.g. handle wrappers.
+/// A trait for components that can be used as asset references, e.g. handle wrappers.
 pub trait AsAssetId: Component {
-    /// The underlying asset type.
     type Asset: Asset;
 
     /// Retrieves the asset id from this component.
@@ -467,81 +485,77 @@ pub trait AsAssetId: Component {
 ///
 /// Note that this trait is automatically implemented when deriving [`Asset`].
 pub trait VisitAssetDependencies {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId));
+    fn visit_dependencies(&self, visit: &mut impl FnMut(AssetEntity));
 }
 
 impl<A: Asset> VisitAssetDependencies for Handle<A> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        visit(self.id().untyped());
+    fn visit_dependencies(&self, visit: &mut impl FnMut(AssetEntity)) {
+        self.entity().map(visit);
     }
 }
 
 impl<A: Asset> VisitAssetDependencies for Option<Handle<A>> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        if let Some(handle) = self {
-            visit(handle.id().untyped());
-        }
+    fn visit_dependencies(&self, visit: &mut impl FnMut(AssetEntity)) {
+        self.as_ref().and_then(Handle::entity).map(visit);
     }
 }
 
 impl VisitAssetDependencies for UntypedHandle {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        visit(self.id());
+    fn visit_dependencies(&self, visit: &mut impl FnMut(AssetEntity)) {
+        self.entity().map(visit);
     }
 }
 
 impl VisitAssetDependencies for Option<UntypedHandle> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        if let Some(handle) = self {
-            visit(handle.id());
-        }
+    fn visit_dependencies(&self, visit: &mut impl FnMut(AssetEntity)) {
+        self.as_ref().and_then(UntypedHandle::entity).map(visit);
     }
 }
 
 impl<A: Asset, const N: usize> VisitAssetDependencies for [Handle<A>; N] {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(AssetEntity)) {
         for dependency in self {
-            visit(dependency.id().untyped());
+            dependency.visit_dependencies(visit);
         }
     }
 }
 
 impl<const N: usize> VisitAssetDependencies for [UntypedHandle; N] {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(AssetEntity)) {
         for dependency in self {
-            visit(dependency.id());
+            dependency.visit_dependencies(visit);
         }
     }
 }
 
 impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(AssetEntity)) {
         for dependency in self {
-            visit(dependency.id().untyped());
+            dependency.visit_dependencies(visit);
         }
     }
 }
 
 impl VisitAssetDependencies for Vec<UntypedHandle> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(AssetEntity)) {
         for dependency in self {
-            visit(dependency.id());
+            dependency.visit_dependencies(visit);
         }
     }
 }
 
 impl<A: Asset> VisitAssetDependencies for HashSet<Handle<A>> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(AssetEntity)) {
         for dependency in self {
-            visit(dependency.id().untyped());
+            dependency.visit_dependencies(visit);
         }
     }
 }
 
 impl VisitAssetDependencies for HashSet<UntypedHandle> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(AssetEntity)) {
         for dependency in self {
-            visit(dependency.id());
+            dependency.visit_dependencies(visit);
         }
     }
 }
@@ -567,9 +581,9 @@ pub trait AssetApp {
     fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self;
     /// Initializes the given [`Asset`] in the [`App`] by:
     /// * Registering the [`Asset`] in the [`AssetServer`]
-    /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
+    /// * Initializing the [`AssetEvent`] message for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
-    /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
+    /// * Ignoring schedule ambiguities in [`AssetData`]. Any time a system takes
     ///   mutable access to this resource this causes a conflict, but they rarely actually
     ///   modify the same underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
@@ -633,37 +647,26 @@ impl AssetApp for App {
     }
 
     fn init_asset<A: Asset>(&mut self) -> &mut Self {
-        let assets = Assets::<A>::default();
-        self.world()
-            .resource::<AssetServer>()
-            .register_asset(&assets);
-        if self.world().contains_resource::<AssetProcessor>() {
-            let processor = self.world().resource::<AssetProcessor>();
-            // The processor should have its own handle provider separate from the Asset storage
-            // to ensure the id spaces are entirely separate. Not _strictly_ necessary, but
-            // desirable.
-            processor
-                .server()
-                .register_handle_provider(AssetHandleProvider::new(
-                    TypeId::of::<A>(),
-                    Arc::new(AssetIndexAllocator::default()),
-                ));
-        }
-        self.insert_resource(assets)
-            .allow_ambiguous_resource::<Assets<A>>()
+        self.world_mut()
+            .resource_mut::<AssetEventUnusedWriters>()
+            .register::<A>();
+        self.allow_ambiguous_component::<AssetData<A>>()
             .add_message::<AssetEvent<A>>()
             .add_message::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
             .add_systems(
                 PostUpdate,
-                Assets::<A>::asset_events
-                    .run_if(Assets::<A>::asset_events_condition)
-                    .in_set(AssetEventSystems),
-            )
-            .add_systems(
-                PreUpdate,
-                Assets::<A>::track_assets.in_set(AssetTrackingSystems),
-            )
+                write_modified_asset_events::<A>.in_set(AssetEventSystems),
+            );
+
+        if let Some(asset_server) = self.world().get_resource::<AssetServer>() {
+            asset_server.register_asset::<A>();
+        }
+        if let Some(processor) = self.world().get_resource::<AssetProcessor>() {
+            processor.server().register_asset::<A>();
+        }
+
+        self
     }
 
     fn register_asset_reflect<A>(&mut self) -> &mut Self
@@ -691,11 +694,36 @@ impl AssetApp for App {
     }
 }
 
-/// A system set that holds all "track asset" operations.
+/// A minimal form of [`AssetPlugin`] necessary for creating and accessing assets.
+///
+/// Notably this includes none of the asset loading resources. In general, users should always
+/// prefer the [`AssetPlugin`]. However this is provided to allow for the basic functionality of
+/// assets, which can be useful for tests.
+pub struct MinimalAssetPlugin;
+
+impl Plugin for MinimalAssetPlugin {
+    fn build(&self, app: &mut App) {
+        let handle_provider = AssetHandleProvider::new();
+        app.insert_resource(handle_provider)
+            .init_resource::<AssetUuidMap>()
+            .init_resource::<AssetEventUnusedWriters>()
+            .add_systems(
+                PreUpdate,
+                // `despawn_unused_assets` requires `&mut World`, but since these assets are unused,
+                // it's unlikely systems actually needs explicit ordering here. So we can ignore
+                // ambiguities.
+                despawn_unused_assets
+                    .ambiguous_with_all()
+                    .in_set(AssetTrackingSystems),
+            );
+    }
+}
+
+/// A system set that holds asset tracking operations.
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub struct AssetTrackingSystems;
 
-/// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Messages`] resource.
+/// A system set where events accumulated in [`Asset`]s are applied to the [`AssetEvent`] [`Messages`] resource.
 ///
 /// [`Messages`]: bevy_ecs::message::Messages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -714,7 +742,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, LoadedAsset,
+        AssetPlugin, AssetServer, Assets, AssetsMut, DirectAssetAccessExt, LoadState, LoadedAsset,
         UnapprovedPathMode, UntypedHandle, WriteDefaultMetaError,
     };
     use alloc::{
@@ -732,6 +760,7 @@ mod tests {
         message::MessageCursor,
         prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
+        system::SystemState,
     };
     use bevy_platform::{
         collections::{HashMap, HashSet},
@@ -962,7 +991,7 @@ mod tests {
     const LARGE_ITERATION_COUNT: usize = 10000;
 
     fn get<A: Asset>(world: &World, id: AssetId<A>) -> Option<&A> {
-        world.resource::<Assets<A>>().get(id)
+        world.get_asset(id)
     }
 
     fn get_started_load_count(world: &World) -> usize {
@@ -1226,8 +1255,7 @@ mod tests {
         assert_eq!(get_started_load_count(app.world()), 6);
 
         {
-            let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
-            let mut a = texts.get_mut(a_id).unwrap();
+            let mut a = app.world_mut().get_asset_mut(a_id).unwrap();
             a.text = "Changed".to_string();
         }
 
@@ -1235,14 +1263,20 @@ mod tests {
 
         app.update();
         assert_eq!(
-            app.world().resource::<Assets<CoolText>>().len(),
+            {
+                SystemState::<Assets<CoolText>>::new(app.world_mut())
+                    .get(app.world_mut())
+                    .count()
+            },
             0,
             "CoolText asset entities should be despawned when no more handles exist"
         );
         app.update();
         // this requires a second update because the parent asset was freed in the previous app.update()
         assert_eq!(
-            app.world().resource::<Assets<SubText>>().len(),
+            SystemState::<Assets<SubText>>::new(app.world_mut())
+                .get(app.world_mut())
+                .count(),
             0,
             "SubText asset entities should be despawned when no more handles exist"
         );
@@ -1250,14 +1284,17 @@ mod tests {
         let id_results = app.world_mut().remove_resource::<IdResults>().unwrap();
         let expected_events = vec![
             AssetEvent::Added { id: a_id },
+            AssetEvent::Added {
+                id: id_results.b_id,
+            },
             AssetEvent::LoadedWithDependencies {
                 id: id_results.b_id,
             },
             AssetEvent::Added {
-                id: id_results.b_id,
+                id: id_results.c_id,
             },
             AssetEvent::Added {
-                id: id_results.c_id,
+                id: id_results.d_id,
             },
             AssetEvent::LoadedWithDependencies {
                 id: id_results.d_id,
@@ -1266,10 +1303,6 @@ mod tests {
                 id: id_results.c_id,
             },
             AssetEvent::LoadedWithDependencies { id: a_id },
-            AssetEvent::Added {
-                id: id_results.d_id,
-            },
-            AssetEvent::Modified { id: a_id },
             AssetEvent::Unused { id: a_id },
             AssetEvent::Removed { id: a_id },
             AssetEvent::Unused {
@@ -1555,15 +1588,16 @@ mod tests {
 
         let id = {
             let handle = {
-                let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
-                let handle = texts.add(CoolText::default());
-                texts.get_strong_handle(handle.id()).unwrap()
+                let handle = app.world_mut().spawn_asset(CoolText::default());
+                app.world()
+                    .get_asset_strong_handle::<CoolText>(handle.entity().unwrap())
+                    .unwrap()
             };
 
             app.update();
 
             {
-                let text = app.world().resource::<Assets<CoolText>>().get(&handle);
+                let text = app.world().get_asset(handle.id());
                 assert!(text.is_some());
             }
             handle.id()
@@ -1571,7 +1605,7 @@ mod tests {
         // handle is dropped
         app.update();
         assert!(
-            app.world().resource::<Assets<CoolText>>().get(id).is_none(),
+            app.world().get_asset(id).is_none(),
             "asset has no handles, so it should have been dropped last update"
         );
     }
@@ -1594,24 +1628,17 @@ mod tests {
         let empty = "".to_string();
 
         let id = {
-            let handle = {
-                let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
-                texts.add(CoolText {
-                    text: hello.clone(),
-                    embedded: empty.clone(),
-                    dependencies: vec![],
-                    sub_texts: Vec::new(),
-                })
-            };
+            let handle = app.world_mut().spawn_asset(CoolText {
+                text: hello.clone(),
+                embedded: empty.clone(),
+                dependencies: vec![],
+                sub_texts: Vec::new(),
+            });
 
             app.update();
 
             {
-                let text = app
-                    .world()
-                    .resource::<Assets<CoolText>>()
-                    .get(&handle)
-                    .unwrap();
+                let text = app.world().get_asset(handle.id()).unwrap();
                 assert_eq!(text.text, hello);
             }
             handle.id()
@@ -1619,7 +1646,7 @@ mod tests {
         // handle is dropped
         app.update();
         assert!(
-            app.world().resource::<Assets<CoolText>>().get(id).is_none(),
+            app.world().get_asset(id).is_none(),
             "asset has no handles, so it should have been dropped last update"
         );
         // remove event is emitted
@@ -1669,6 +1696,9 @@ mod tests {
                 continue;
             }
             let expected_events = vec![
+                AssetEvent::Added {
+                    id: dep_handle.id(),
+                },
                 AssetEvent::LoadedWithDependencies {
                     id: dep_handle.id(),
                 },
@@ -1679,13 +1709,6 @@ mod tests {
         }
 
         assert_eq!(get_started_load_count(app.world()), 1);
-
-        app.update();
-        let events = core::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
-        let expected_events = vec![AssetEvent::Added {
-            id: dep_handle.id(),
-        }];
-        assert_eq!(events, expected_events);
     }
 
     #[test]
@@ -1746,13 +1769,11 @@ mod tests {
         run_app_until(&mut app, |world| {
             let events = world.resource::<Messages<AssetEvent<LoadedFolder>>>();
             let asset_server = world.resource::<AssetServer>();
-            let loaded_folders = world.resource::<Assets<LoadedFolder>>();
-            let cool_texts = world.resource::<Assets<CoolText>>();
             for event in cursor.read(events) {
                 if let AssetEvent::LoadedWithDependencies { id } = event
                     && *id == handle.id()
                 {
-                    let loaded_folder = loaded_folders.get(&handle).unwrap();
+                    let loaded_folder = world.get_asset(handle.id()).unwrap();
                     let a_handle: Handle<CoolText> =
                         asset_server.get_handle("text/a.cool.ron").unwrap();
                     let c_handle: Handle<CoolText> =
@@ -1771,9 +1792,9 @@ mod tests {
                     assert!(found_c);
                     assert_eq!(loaded_folder.handles.len(), 2);
 
-                    let a_text = cool_texts.get(&a_handle).unwrap();
-                    let b_text = cool_texts.get(&a_text.dependencies[0]).unwrap();
-                    let c_text = cool_texts.get(&c_handle).unwrap();
+                    let a_text = world.get_asset(a_handle.id()).unwrap();
+                    let b_text = world.get_asset(a_text.dependencies[0].id()).unwrap();
+                    let c_text = world.get_asset(c_handle.id()).unwrap();
 
                     assert_eq!("a", a_text.text);
                     assert_eq!("b", b_text.text);
@@ -1915,8 +1936,7 @@ mod tests {
             match tracker.finished_asset {
                 Some(asset_id) => {
                     assert_eq!(asset_id, a_id);
-                    let assets = world.resource::<Assets<CoolText>>();
-                    let result = assets.get(asset_id).unwrap();
+                    let result = world.get_asset(asset_id).unwrap();
                     assert_eq!(result.text, "a");
                     Some(())
                 }
@@ -1930,7 +1950,7 @@ mod tests {
         let mut app = create_app().0;
         app.init_asset::<CoolText>();
 
-        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        fn uses_assets(_asset: AssetsMut<CoolText>) {}
         app.add_systems(Update, (uses_assets, uses_assets));
         app.edit_schedule(Update, |s| {
             s.set_build_settings(ScheduleBuildSettings {
@@ -2140,35 +2160,6 @@ mod tests {
 
         // Make sure this asset actually loads.
         run_app_until(&mut app, |_| asset_server.is_loaded(&handle).then_some(()));
-    }
-
-    #[test]
-    fn insert_dropped_handle_returns_error() {
-        let mut app = create_app().0;
-
-        app.init_asset::<TestAsset>();
-
-        let handle = app.world().resource::<Assets<TestAsset>>().reserve_handle();
-        // We still have the asset ID, but we've dropped the handle so the asset is no longer live.
-        let asset_id = handle.id();
-        drop(handle);
-
-        // Allow `Assets` to detect the dropped handle.
-        app.world_mut()
-            .run_system_cached(Assets::<TestAsset>::track_assets)
-            .unwrap();
-
-        let AssetId::Index { index, .. } = asset_id else {
-            unreachable!("Reserving a handle always produces an index");
-        };
-
-        // Try to insert an asset into the dropped handle's spot. This should not panic.
-        assert_eq!(
-            app.world_mut()
-                .resource_mut::<Assets<TestAsset>>()
-                .insert(asset_id, TestAsset),
-            Err(InvalidGenerationError::Removed { index })
-        );
     }
 
     /// A loader that notifies a sender when the loader has started, and blocks on a receiver to
@@ -2383,8 +2374,8 @@ mod tests {
             assert_eq!(
                 messages,
                 [
-                    AssetEvent::LoadedWithDependencies { id: handle.id() },
                     AssetEvent::Added { id: handle.id() },
+                    AssetEvent::LoadedWithDependencies { id: handle.id() },
                 ]
             );
             Some(())
@@ -2459,8 +2450,8 @@ mod tests {
             assert_eq!(
                 messages,
                 [
+                    AssetEvent::Added { id: handle.id() },
                     AssetEvent::LoadedWithDependencies { id: handle.id() },
-                    AssetEvent::Added { id: handle.id() }
                 ]
             );
             Some(())
@@ -2535,8 +2526,8 @@ mod tests {
 
         run_app_until(&mut app, |world| {
             let (Some(asset_1), Some(asset_2)) = (
-                world.resource::<Assets<U8Asset>>().get(&handle_1),
-                world.resource::<Assets<U8Asset>>().get(&handle_2),
+                world.get_asset(handle_1.id()),
+                world.get_asset(handle_2.id()),
             ) else {
                 return None;
             };
@@ -2636,40 +2627,28 @@ mod tests {
 
         // Wait for the asset to load.
         run_app_until(&mut app, |world| {
-            world
-                .resource::<Assets<TestAsset>>()
-                .get(&original_handle)
-                .map(|_| ())
+            world.get_asset(original_handle.id()).map(|_| ())
         });
 
         assert_eq!(get_started_load_count(app.world()), 1);
 
         // Get a new strong handle from the original handle's ID.
         let new_handle = app
-            .world_mut()
-            .resource_mut::<Assets<TestAsset>>()
-            .get_strong_handle(original_handle.id())
+            .world()
+            .get_asset_strong_handle::<TestAsset>(original_handle.entity().unwrap())
             .unwrap();
 
         // Drop the original handle. This should still leave the asset alive.
         drop(original_handle);
 
         app.update();
-        assert!(app
-            .world()
-            .resource::<Assets<TestAsset>>()
-            .get(&new_handle)
-            .is_some());
+        assert!(app.world().get_asset(new_handle.id()).is_some());
 
         let _other_handle: Handle<TestAsset> = asset_server.load("test.txt");
         app.update();
         // The asset server should **not** have started a new load, since the asset is still alive.
 
-        // Due to https://github.com/bevyengine/bevy/issues/20651, we do get a second load. Once
-        // #20651 is fixed, we should swap these asserts.
-        //
-        // assert_eq!(get_started_load_count(app.world()), 1);
-        assert_eq!(get_started_load_count(app.world()), 2);
+        assert_eq!(get_started_load_count(app.world()), 1);
     }
 
     #[test]
@@ -2753,13 +2732,10 @@ mod tests {
         let immediate_handle: Handle<ImmediateNested> = server.load("a.immediate");
 
         run_app_until(&mut app, |world| {
-            let immediate_assets = world.resource::<Assets<ImmediateNested>>();
-            let immediate = immediate_assets.get(&immediate_handle)?;
+            let immediate = world.get_asset(immediate_handle.id())?;
 
             let test_asset_handle = immediate.0.clone();
-            world
-                .resource::<Assets<TestAsset>>()
-                .get(&test_asset_handle)?;
+            world.get_asset(test_asset_handle.id())?;
 
             // The immediate asset is loaded, and the asset it got from its immediate load is also
             // loaded.
@@ -2888,8 +2864,7 @@ mod tests {
 
         let dep_handle: Handle<TestAsset> = app
             .world()
-            .resource::<Assets<AssetWithDep>>()
-            .get(&subasset_handle)
+            .get_asset(subasset_handle.id())
             .unwrap()
             .dep
             .clone();

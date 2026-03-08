@@ -7,11 +7,10 @@ use bevy_shader::load_shader_library;
 pub use binder::RaytracingSceneBindings;
 pub use types::RaytracingMesh3d;
 
-use crate::SolariPlugins;
+use crate::{scene::extract::extract_standard_material_assets, SolariPlugins};
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
-    extract_resource::ExtractResourcePlugin,
     mesh::{
         allocator::{allocate_and_free_meshes, MeshAllocator},
         RenderMesh,
@@ -48,8 +47,6 @@ impl Plugin for RaytracingScenePlugin {
             return;
         }
 
-        app.add_plugins(ExtractResourcePlugin::<StandardMaterialAssets>::default());
-
         let render_app = app.sub_app_mut(RenderApp);
 
         render_app
@@ -61,7 +58,10 @@ impl Plugin for RaytracingScenePlugin {
             .init_resource::<BlasManager>()
             .init_resource::<StandardMaterialAssets>()
             .insert_resource(RaytracingSceneBindings::new())
-            .add_systems(ExtractSchedule, extract_raytracing_scene)
+            .add_systems(
+                ExtractSchedule,
+                (extract_raytracing_scene, extract_standard_material_assets),
+            )
             .add_systems(
                 Render,
                 (

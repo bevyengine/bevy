@@ -93,26 +93,28 @@ fn touch_camera(
 }
 
 /// set up a simple 3D scene
-fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup_scene(mut commands: Commands, mut asset_commands: AssetCommands) {
     // plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(5.0, 5.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.1, 0.2, 0.1))),
+        ),
     ));
     // cube
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(Color::srgb(0.5, 0.4, 0.3))),
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.5, 0.4, 0.3))),
+        ),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
     // sphere
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap())),
-        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.4, 0.8))),
+        Mesh3d(asset_commands.spawn_asset(Sphere::new(0.5).mesh().ico(4).unwrap())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.1, 0.4, 0.8))),
+        ),
         Transform::from_xyz(1.5, 1.5, 1.5),
     ));
     // light

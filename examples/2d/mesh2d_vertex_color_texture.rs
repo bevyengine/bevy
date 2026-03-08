@@ -12,8 +12,7 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // Load the Bevy logo as a texture
@@ -30,21 +29,21 @@ fn setup(
     // Insert the vertex colors as an attribute
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
 
-    let mesh_handle = meshes.add(mesh);
+    let mesh_handle = asset_commands.spawn_asset(mesh);
 
     commands.spawn(Camera2d);
 
     // Spawn the quad with vertex colors
     commands.spawn((
         Mesh2d(mesh_handle.clone()),
-        MeshMaterial2d(materials.add(ColorMaterial::default())),
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial::default())),
         Transform::from_translation(Vec3::new(-96., 0., 0.)).with_scale(Vec3::splat(128.)),
     ));
 
     // Spawning the quad with vertex colors and a texture results in tinting
     commands.spawn((
         Mesh2d(mesh_handle),
-        MeshMaterial2d(materials.add(texture_handle)),
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial::from(texture_handle))),
         Transform::from_translation(Vec3::new(96., 0., 0.)).with_scale(Vec3::splat(128.)),
     ));
 }

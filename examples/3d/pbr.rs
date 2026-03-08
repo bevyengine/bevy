@@ -14,11 +14,10 @@ fn main() {
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
-    let sphere_mesh = meshes.add(Sphere::new(0.45));
+    let sphere_mesh = asset_commands.spawn_asset(Sphere::new(0.45).into());
     // add entities to the world
     for y in -2..=2 {
         for x in -5..=5 {
@@ -27,7 +26,7 @@ fn setup(
             // sphere
             commands.spawn((
                 Mesh3d(sphere_mesh.clone()),
-                MeshMaterial3d(materials.add(StandardMaterial {
+                MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                     base_color: Srgba::hex("#ffd891").unwrap().into(),
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
@@ -41,7 +40,7 @@ fn setup(
     // unlit sphere
     commands.spawn((
         Mesh3d(sphere_mesh),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,

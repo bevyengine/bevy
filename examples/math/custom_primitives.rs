@@ -168,19 +168,15 @@ fn main() {
     app.run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Spawn the camera
     commands.spawn((Camera3d::default(), TRANSFORM_2D, PROJECTION_2D));
 
     // Spawn the 2D heart
     commands.spawn((
         // We can use the methods defined on the `MeshBuilder` to customize the mesh.
-        Mesh3d(meshes.add(HEART.mesh().resolution(50))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(HEART.mesh().resolution(50).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             emissive: RED.into(),
             base_color: RED.into(),
             ..Default::default()
@@ -194,8 +190,10 @@ fn setup(
     // Spawn the 2D heart ring
     commands.spawn((
         // We can use the methods defined on the `MeshBuilder` to customize the mesh.
-        Mesh3d(meshes.add(RING.mesh().with_inner(|heart| heart.resolution(50)))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(
+            asset_commands.spawn_asset(RING.mesh().with_inner(|heart| heart.resolution(50)).into()),
+        ),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             emissive: RED.into(),
             base_color: RED.into(),
             ..Default::default()
@@ -209,8 +207,8 @@ fn setup(
     // Spawn an extrusion of the heart
     commands.spawn((
         // We can set a custom resolution for the round parts of the extrusion as well.
-        Mesh3d(meshes.add(EXTRUSION.mesh().resolution(50))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(EXTRUSION.mesh().resolution(50).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: RED.into(),
             ..Default::default()
         })),
@@ -224,13 +222,14 @@ fn setup(
     commands.spawn((
         // We can set a custom resolution for the round parts of the extrusion as well.
         Mesh3d(
-            meshes.add(
+            asset_commands.spawn_asset(
                 RING_EXTRUSION
                     .mesh()
-                    .with_inner(|ring| ring.with_inner(|heart| heart.resolution(50))),
+                    .with_inner(|ring| ring.with_inner(|heart| heart.resolution(50)))
+                    .into(),
             ),
         ),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: RED.into(),
             ..Default::default()
         })),

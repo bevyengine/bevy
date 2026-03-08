@@ -33,11 +33,11 @@ struct DrawBounds<Shape: Bounded2d + Send + Sync + 'static>(Shape);
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let material = materials.add(asset_server.load("branding/icon.png"));
+    let material =
+        asset_commands.spawn_asset(ColorMaterial::from(asset_server.load("branding/icon.png")));
 
     commands.spawn((
         Camera2d,
@@ -65,7 +65,7 @@ fn setup(
                 angle: sector_angle,
             });
         commands.spawn((
-            Mesh2d(meshes.add(sector_mesh)),
+            Mesh2d(asset_commands.spawn_asset(sector_mesh.into())),
             MeshMaterial2d(material.clone()),
             Transform {
                 translation: Vec3::new(SPACING_X * i as f32 - OFFSET_X, 50.0, 0.0),
@@ -89,7 +89,7 @@ fn setup(
                 angle: -segment_angle,
             });
         commands.spawn((
-            Mesh2d(meshes.add(segment_mesh)),
+            Mesh2d(asset_commands.spawn_asset(segment_mesh.into())),
             MeshMaterial2d(material.clone()),
             Transform {
                 translation: Vec3::new(SPACING_X * i as f32 - OFFSET_X, -50.0, 0.0),

@@ -123,8 +123,8 @@ fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
 
 fn print_on_load(
     mut state: ResMut<State>,
-    custom_assets: Res<Assets<CustomAsset>>,
-    blob_assets: Res<Assets<Blob>>,
+    custom_assets: Assets<CustomAsset>,
+    blob_assets: Assets<Blob>,
 ) {
     let custom_asset = custom_assets.get(&state.handle);
     let other_custom_asset = custom_assets.get(&state.other_handle);

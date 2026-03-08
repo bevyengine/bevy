@@ -10,15 +10,13 @@ fn main() {
 }
 
 /// set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(5.0, 5.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
     ));
     // cube
     // Assign vertex colors based on vertex positions
@@ -33,11 +31,11 @@ fn setup(
         colorful_cube.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
     }
     commands.spawn((
-        Mesh3d(meshes.add(colorful_cube)),
+        Mesh3d(asset_commands.spawn_asset(colorful_cube)),
         // This is the default color, but note that vertex colors are
         // multiplied by the base color, so you'll likely want this to be
         // white if using vertex colors.
-        MeshMaterial3d(materials.add(Color::srgb(1., 1., 1.))),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(1., 1., 1.)))),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
 

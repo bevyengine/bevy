@@ -105,28 +105,27 @@ mod shapes {
 
     const X_EXTENT: f32 = 900.;
 
-    pub fn setup(
-        mut commands: Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
-    ) {
+    pub fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Shapes)));
 
         let shapes = [
-            meshes.add(Circle::new(50.0)),
-            meshes.add(CircularSector::new(50.0, 1.0)),
-            meshes.add(CircularSegment::new(50.0, 1.25)),
-            meshes.add(Ellipse::new(25.0, 50.0)),
-            meshes.add(Annulus::new(25.0, 50.0)),
-            meshes.add(Capsule2d::new(25.0, 50.0)),
-            meshes.add(Rhombus::new(75.0, 100.0)),
-            meshes.add(Rectangle::new(50.0, 100.0)),
-            meshes.add(RegularPolygon::new(50.0, 6)),
-            meshes.add(Triangle2d::new(
-                Vec2::Y * 50.0,
-                Vec2::new(-50.0, -50.0),
-                Vec2::new(50.0, -50.0),
-            )),
+            asset_commands.spawn_asset(Circle::new(50.0).into()),
+            asset_commands.spawn_asset(CircularSector::new(50.0, 1.0).into()),
+            asset_commands.spawn_asset(CircularSegment::new(50.0, 1.25).into()),
+            asset_commands.spawn_asset(Ellipse::new(25.0, 50.0).into()),
+            asset_commands.spawn_asset(Annulus::new(25.0, 50.0).into()),
+            asset_commands.spawn_asset(Capsule2d::new(25.0, 50.0).into()),
+            asset_commands.spawn_asset(Rhombus::new(75.0, 100.0).into()),
+            asset_commands.spawn_asset(Rectangle::new(50.0, 100.0).into()),
+            asset_commands.spawn_asset(RegularPolygon::new(50.0, 6).into()),
+            asset_commands.spawn_asset(
+                Triangle2d::new(
+                    Vec2::Y * 50.0,
+                    Vec2::new(-50.0, -50.0),
+                    Vec2::new(50.0, -50.0),
+                )
+                .into(),
+            ),
         ];
         let num_shapes = shapes.len();
 
@@ -136,7 +135,7 @@ mod shapes {
 
             commands.spawn((
                 Mesh2d(shape),
-                MeshMaterial2d(materials.add(color)),
+                MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial::from(color))),
                 Transform::from_xyz(
                     // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
                     -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
@@ -152,11 +151,7 @@ mod shapes {
 mod bloom {
     use bevy::{core_pipeline::tonemapping::Tonemapping, post_process::bloom::Bloom, prelude::*};
 
-    pub fn setup(
-        mut commands: Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
-    ) {
+    pub fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
         commands.spawn((
             Camera2d,
             Tonemapping::TonyMcMapface,
@@ -165,15 +160,19 @@ mod bloom {
         ));
 
         commands.spawn((
-            Mesh2d(meshes.add(Circle::new(100.))),
-            MeshMaterial2d(materials.add(Color::srgb(7.5, 0.0, 7.5))),
+            Mesh2d(asset_commands.spawn_asset(Circle::new(100.).into())),
+            MeshMaterial2d(
+                asset_commands.spawn_asset(ColorMaterial::from(Color::srgb(7.5, 0.0, 7.5))),
+            ),
             Transform::from_translation(Vec3::new(-200., 0., 0.)),
             DespawnOnExit(super::Scene::Bloom),
         ));
 
         commands.spawn((
-            Mesh2d(meshes.add(RegularPolygon::new(100., 6))),
-            MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))),
+            Mesh2d(asset_commands.spawn_asset(RegularPolygon::new(100., 6).into())),
+            MeshMaterial2d(
+                asset_commands.spawn_asset(ColorMaterial::from(Color::srgb(6.25, 9.4, 9.1))),
+            ),
             Transform::from_translation(Vec3::new(200., 0., 0.)),
             DespawnOnExit(super::Scene::Bloom),
         ));
@@ -444,11 +443,7 @@ mod texture_atlas_builder {
     const ATLAS_SCALE: f32 = 4.;
     const IMAGE_SCALE: f32 = 4.;
 
-    pub fn setup(
-        mut commands: Commands,
-        mut textures: ResMut<Assets<Image>>,
-        mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    ) {
+    pub fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::TextureAtlasBuilder)));
 
         for (i, padding) in [UVec2::ZERO, PADDING_SIZE].into_iter().enumerate() {
@@ -485,13 +480,13 @@ mod texture_atlas_builder {
             let (atlas_layout, _, atlas_texture) = texture_atlas_builder.build().expect(
                 "The images are 28 pixels square, so they should fit with 4 pixels left over",
             );
-            let atlas_layout = texture_atlases.add(atlas_layout);
+            let atlas_layout = asset_commands.spawn_asset(atlas_layout);
 
             let mut nearest_atlas_image = atlas_texture.clone();
             nearest_atlas_image.sampler = ImageSampler::nearest();
 
-            let atlas_handle = textures.add(atlas_texture);
-            let nearest_atlas_handle = textures.add(nearest_atlas_image);
+            let atlas_handle = asset_commands.spawn_asset(atlas_texture);
+            let nearest_atlas_handle = asset_commands.spawn_asset(nearest_atlas_image);
 
             let position = ((2. * i as f32 - 1.) * (0.625 * ATLAS_SIZE.x as f32 * ATLAS_SCALE))
                 .round()

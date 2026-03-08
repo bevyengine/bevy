@@ -79,7 +79,7 @@ impl CurrentMethod {
 
 fn update_parallax_depth_scale(
     input: Res<ButtonInput<KeyCode>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
     mut writer: TextUiWriter,
@@ -96,7 +96,7 @@ fn update_parallax_depth_scale(
         *depth_update = true;
     }
     if *depth_update {
-        for (_, mat) in materials.iter_mut() {
+        for (_, mut mat) in materials.iter_mut() {
             let current_depth = mat.parallax_depth_scale;
             let new_depth = current_depth.lerp(target_depth.0, DEPTH_CHANGE_RATE);
             mat.parallax_depth_scale = new_depth;
@@ -110,7 +110,7 @@ fn update_parallax_depth_scale(
 
 fn switch_method(
     input: Res<ButtonInput<KeyCode>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
     text: Single<Entity, With<Text>>,
     mut writer: TextUiWriter,
     mut current: Local<CurrentMethod>,
@@ -123,14 +123,14 @@ fn switch_method(
     let text_entity = *text;
     *writer.text(text_entity, 3) = format!("Method: {}\n", *current);
 
-    for (_, mat) in materials.iter_mut() {
+    for (_, mut mat) in materials.iter_mut() {
         mat.parallax_mapping_method = current.0;
     }
 }
 
 fn update_parallax_layers(
     input: Res<ButtonInput<KeyCode>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
     mut target_layers: Local<TargetLayers>,
     text: Single<Entity, With<Text>>,
     mut writer: TextUiWriter,
@@ -147,7 +147,7 @@ fn update_parallax_layers(
     let text_entity = *text;
     *writer.text(text_entity, 2) = format!("Layers: {layer_count:.0}\n");
 
-    for (_, mat) in materials.iter_mut() {
+    for (_, mut mat) in materials.iter_mut() {
         mat.max_parallax_layer_count = layer_count;
     }
 }
@@ -199,8 +199,7 @@ fn move_camera(
 
 fn setup(
     mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // The normal map. Note that to generate it in the GIMP image editor, you should
@@ -221,7 +220,7 @@ fn setup(
     ));
 
     // represent the light source as a sphere
-    let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
+    let mesh = asset_commands.spawn_asset(Sphere::new(0.05).mesh().ico(3).unwrap());
 
     // light
     commands.spawn((
@@ -230,13 +229,16 @@ fn setup(
             ..default()
         },
         Transform::from_xyz(2.0, 1.0, -1.1),
-        children![(Mesh3d(mesh), MeshMaterial3d(materials.add(Color::WHITE)))],
+        children![(
+            Mesh3d(mesh),
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE)))
+        )],
     ));
 
     // Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(10.0, 10.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             // standard material derived from dark green, but
             // with roughness and reflectance set.
             perceptual_roughness: 0.45,
@@ -249,7 +251,7 @@ fn setup(
     let parallax_depth_scale = TargetDepth::default().0;
     let max_parallax_layer_count = ops::exp2(TargetLayers::default().0);
     let parallax_mapping_method = CurrentMethod::default();
-    let parallax_material = materials.add(StandardMaterial {
+    let parallax_material = asset_commands.spawn_asset(StandardMaterial {
         perceptual_roughness: 0.4,
         base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.png")),
         normal_map_texture: Some(normal_handle),
@@ -263,7 +265,7 @@ fn setup(
     });
     commands.spawn((
         Mesh3d(
-            meshes.add(
+            asset_commands.spawn_asset(
                 // NOTE: for normal maps and depth maps to work, the mesh
                 // needs tangents generated.
                 Mesh::from(Cuboid::default())
@@ -275,7 +277,7 @@ fn setup(
         Spin { speed: 0.3 },
     ));
 
-    let background_cube = meshes.add(
+    let background_cube = asset_commands.spawn_asset(
         Mesh::from(Cuboid::new(40.0, 40.0, 40.0))
             .with_generated_tangents()
             .unwrap(),

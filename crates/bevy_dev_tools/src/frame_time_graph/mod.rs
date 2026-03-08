@@ -1,12 +1,9 @@
 //! Module containing logic for the frame time graph
 
 use bevy_app::{Plugin, Update};
-use bevy_asset::{load_internal_asset, uuid_handle, Asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, uuid_handle, Asset, Assets, AssetsMut, Handle};
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
-use bevy_ecs::{
-    schedule::IntoScheduleConfigs,
-    system::{Res, ResMut},
-};
+use bevy_ecs::{schedule::IntoScheduleConfigs, system::Res};
 use bevy_math::ops::log2;
 use bevy_reflect::TypePath;
 use bevy_render::{
@@ -97,8 +94,8 @@ impl UiMaterial for FrametimeGraphMaterial {
 
 /// A system that updates the frame time values sent to the frame time graph
 fn update_frame_time_values(
-    mut frame_time_graph_materials: ResMut<Assets<FrametimeGraphMaterial>>,
-    mut buffers: ResMut<Assets<ShaderBuffer>>,
+    frame_time_graph_materials: Assets<FrametimeGraphMaterial>,
+    mut buffers: AssetsMut<ShaderBuffer>,
     diagnostics_store: Res<DiagnosticsStore>,
     config: Option<Res<FpsOverlayConfig>>,
 ) {
@@ -113,7 +110,7 @@ fn update_frame_time_values(
         // convert to millis
         .map(|x| *x as f32 / 1000.0)
         .collect::<Vec<_>>();
-    for (_, material) in frame_time_graph_materials.iter_mut() {
+    for (_, material) in frame_time_graph_materials.iter() {
         let mut buffer = buffers.get_mut(&material.values).unwrap();
 
         buffer.set_data(frame_times.clone());

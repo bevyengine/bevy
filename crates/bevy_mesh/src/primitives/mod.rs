@@ -5,17 +5,17 @@
 //! that can be used to specify shape-specific configuration for creating the [`Mesh`].
 //!
 //! ```
-//! # use bevy_asset::Assets;
+//! # use bevy_asset::{Assets, AssetCommands};
 //! # use bevy_ecs::prelude::ResMut;
 //! # use bevy_math::prelude::Circle;
 //! # use bevy_mesh::*;
 //! #
-//! # fn setup(mut meshes: ResMut<Assets<Mesh>>) {
+//! # fn setup(mut asset_commands: AssetCommands) {
 //! // Create circle mesh with default configuration
-//! let circle = meshes.add(Circle { radius: 25.0 });
+//! let circle = asset_commands.spawn_asset(Mesh::from(Circle { radius: 25.0 }));
 //!
 //! // Specify number of vertices
-//! let circle = meshes.add(Circle { radius: 25.0 }.mesh().resolution(64));
+//! let circle = asset_commands.spawn_asset(Mesh::from(Circle { radius: 25.0 }.mesh().resolution(64)));
 //! # }
 //! ```
 

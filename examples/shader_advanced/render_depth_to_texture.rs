@@ -175,18 +175,11 @@ fn copy_depth_texture_system(
 /// Creates the scene.
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut show_depth_texture_materials: ResMut<Assets<ShowDepthTextureMaterial>>,
+    mut asset_commands: AssetCommands,
     demo_depth_texture: Res<DemoDepthTexture>,
 ) {
-    spawn_rotating_cube(&mut commands, &mut meshes, &mut standard_materials);
-    spawn_plane(
-        &mut commands,
-        &mut meshes,
-        &mut show_depth_texture_materials,
-        &demo_depth_texture,
-    );
+    spawn_rotating_cube(&mut commands, &mut asset_commands);
+    spawn_plane(&mut commands, &mut asset_commands, &demo_depth_texture);
     spawn_light(&mut commands);
     spawn_depth_only_camera(&mut commands);
     spawn_main_camera(&mut commands);
@@ -194,13 +187,9 @@ fn setup(
 }
 
 /// Spawns the main rotating cube.
-fn spawn_rotating_cube(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    standard_materials: &mut Assets<StandardMaterial>,
-) {
-    let cube_handle = meshes.add(Cuboid::new(3.0, 3.0, 3.0));
-    let rotating_cube_material_handle = standard_materials.add(StandardMaterial {
+fn spawn_rotating_cube(commands: &mut Commands, asset_commands: &mut AssetCommands) {
+    let cube_handle = asset_commands.spawn_asset(Cuboid::new(3.0, 3.0, 3.0).into());
+    let rotating_cube_material_handle = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::WHITE,
         unlit: false,
         ..default()
@@ -216,12 +205,11 @@ fn spawn_rotating_cube(
 // Spawns the plane that shows the depth texture.
 fn spawn_plane(
     commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    show_depth_texture_materials: &mut Assets<ShowDepthTextureMaterial>,
+    asset_commands: &mut AssetCommands,
     demo_depth_texture: &DemoDepthTexture,
 ) {
-    let plane_handle = meshes.add(Plane3d::new(Vec3::Z, Vec2::splat(2.0)));
-    let show_depth_texture_material = show_depth_texture_materials.add(ShowDepthTextureMaterial {
+    let plane_handle = asset_commands.spawn_asset(Plane3d::new(Vec3::Z, Vec2::splat(2.0)).into());
+    let show_depth_texture_material = asset_commands.spawn_asset(ShowDepthTextureMaterial {
         depth_texture: Some(demo_depth_texture.0.clone()),
     });
     commands.spawn((
@@ -305,8 +293,6 @@ impl Material for ShowDepthTextureMaterial {
 
 impl FromWorld for DemoDepthTexture {
     fn from_world(world: &mut World) -> Self {
-        let mut images = world.resource_mut::<Assets<Image>>();
-
         // Create a new 32-bit floating point depth texture.
         let mut depth_image = Image::new_uninit(
             Extent3d {
@@ -327,7 +313,7 @@ impl FromWorld for DemoDepthTexture {
             ..ImageSamplerDescriptor::default()
         });
 
-        let depth_image_handle = images.add(depth_image);
+        let depth_image_handle = world.spawn_asset(depth_image);
         DemoDepthTexture(depth_image_handle)
     }
 }

@@ -219,7 +219,7 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
 fn update_lightmaps(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
     meshes: Query<(Entity, &GltfMeshName, &MeshMaterial3d<StandardMaterial>), With<Mesh3d>>,
     mut lighting_mode_changed_reader: MessageReader<LightingModeChanged>,
     app_status: Res<AppStatus>,

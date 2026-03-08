@@ -272,20 +272,15 @@ struct CameraRig {
     pub target: Vec3,
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    shapes: Res<SampledShapes>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands, shapes: Res<SampledShapes>) {
     // Use seeded rng and store it in a resource; this makes the random output reproducible.
     let seeded_rng = ChaCha8Rng::seed_from_u64(4); // Chosen by a fair die roll, guaranteed to be random.
     commands.insert_resource(RandomSource(seeded_rng));
 
     // Make a plane for establishing space.
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(20.0, 20.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::srgb(0.3, 0.5, 0.3),
             perceptual_roughness: 0.95,
             metallic: 0.0,
@@ -294,7 +289,7 @@ fn setup(
         Transform::from_xyz(0.0, -2.5, 0.0),
     ));
 
-    let shape_material = materials.add(StandardMaterial {
+    let shape_material = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
         reflectance: 0.0,
         alpha_mode: AlphaMode::Blend,
@@ -306,7 +301,7 @@ fn setup(
     for (shape, translation) in shapes.0.iter() {
         // The sampled shape shown transparently:
         commands.spawn((
-            Mesh3d(meshes.add(shape.mesh())),
+            Mesh3d(asset_commands.spawn_asset(shape.mesh().into())),
             MeshMaterial3d(shape_material.clone()),
             Transform::from_translation(*translation),
         ));
@@ -357,16 +352,16 @@ fn setup(
 
     // Store the mesh and material for sample points in resources:
     commands.insert_resource(PointMesh(
-        meshes.add(Sphere::new(0.03).mesh().ico(1).unwrap()),
+        asset_commands.spawn_asset(Sphere::new(0.03).mesh().ico(1).unwrap()),
     ));
     commands.insert_resource(PointMaterial {
-        interior: materials.add(StandardMaterial {
+        interior: asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::BLACK,
             reflectance: 0.05,
             emissive: 2.5 * INSIDE_POINT_COLOR,
             ..default()
         }),
-        boundary: materials.add(StandardMaterial {
+        boundary: asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::BLACK,
             reflectance: 0.05,
             emissive: 1.5 * BOUNDARY_POINT_COLOR,

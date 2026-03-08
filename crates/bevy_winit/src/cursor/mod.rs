@@ -111,8 +111,8 @@ fn update_cursors(
     mut commands: Commands,
     windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
     #[cfg(feature = "custom_cursor")] cursor_cache: Res<WinitCustomCursorCache>,
-    #[cfg(feature = "custom_cursor")] images: Res<Assets<Image>>,
-    #[cfg(feature = "custom_cursor")] texture_atlases: Res<Assets<TextureAtlasLayout>>,
+    #[cfg(feature = "custom_cursor")] images: Assets<Image>,
+    #[cfg(feature = "custom_cursor")] texture_atlases: Assets<TextureAtlasLayout>,
     mut queue: Local<HashSet<Entity>>,
 ) {
     for (entity, cursor) in windows.iter() {

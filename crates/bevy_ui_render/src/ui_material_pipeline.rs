@@ -325,7 +325,7 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
 pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
-    materials: Extract<Res<Assets<M>>>,
+    materials: Extract<Assets<M>>,
     uinode_query: Extract<
         Query<(
             Entity,

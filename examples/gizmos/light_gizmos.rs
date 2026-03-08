@@ -37,21 +37,21 @@ fn gizmo_color_text(config: &LightGizmoConfigGroup) -> String {
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
     mut config_store: ResMut<GizmoConfigStore>,
 ) {
     // Circular base.
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
+        Mesh3d(asset_commands.spawn_asset(Circle::new(4.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
         Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
     ));
 
     // Cubes.
     {
-        let mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
-        let material = materials.add(Color::srgb_u8(124, 144, 255));
+        let mesh = asset_commands.spawn_asset(Cuboid::new(1.0, 1.0, 1.0).into());
+        let material =
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb_u8(124, 144, 255)));
         for x in [-2.0, 0.0, 2.0] {
             commands.spawn((
                 Mesh3d(mesh.clone()),

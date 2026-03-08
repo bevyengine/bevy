@@ -40,9 +40,8 @@ struct Fox(Handle<Gltf>);
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // trigger a load for the glTF asset
     // and store the handle in a Resource
@@ -56,8 +55,12 @@ fn setup(
 
     // Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(
+            asset_commands.spawn_asset(Plane3d::default().mesh().size(500000.0, 500000.0).into()),
+        ),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
     ));
 
     // Light
@@ -96,10 +99,10 @@ fn setup(
 
 fn spawn_fox_asset_when_ready(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     fox_handle: Res<Fox>,
     asset_server: Res<AssetServer>,
-    gltfs: Res<Assets<Gltf>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    gltfs: Assets<Gltf>,
 ) {
     if !asset_server.is_loaded_with_dependencies(&fox_handle.0) {
         // fox is not loaded yet
@@ -119,7 +122,7 @@ fn spawn_fox_asset_when_ready(
 
     // Keep our animation graph in a Resource so that it can be inserted onto
     // the correct entity once the scene actually loads.
-    let graph_handle = graphs.add(graph);
+    let graph_handle = asset_commands.spawn_asset(graph);
     commands.insert_resource(Animations {
         animations: node_indices,
         graph_handle,

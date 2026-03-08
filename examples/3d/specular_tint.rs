@@ -74,10 +74,9 @@ fn main() {
 /// Creates the scene.
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
     app_status: Res<AppStatus>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawns a camera.
     commands.spawn((
@@ -102,8 +101,8 @@ fn setup(
     // Spawn the sphere.
     commands.spawn((
         Transform::from_rotation(Quat::from_rotation_x(PI * 0.5)),
-        Mesh3d(meshes.add(Sphere::default().mesh().uv(32, 18))),
-        MeshMaterial3d(standard_materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Sphere::default().mesh().uv(32, 18))),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             // We want only reflected specular light here, so we set the base
             // color as black.
             base_color: Color::BLACK,
@@ -144,7 +143,7 @@ fn rotate_camera(mut cameras: Query<&mut Transform, With<Camera3d>>) {
 fn shift_hue(
     mut app_status: ResMut<AppStatus>,
     objects_with_materials: Query<&MeshMaterial3d<StandardMaterial>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
+    mut standard_materials: AssetsMut<StandardMaterial>,
 ) {
     if app_status.tint_type != TintType::Solid {
         return;
@@ -179,7 +178,7 @@ fn toggle_specular_map(
     mut app_status: ResMut<AppStatus>,
     app_assets: Res<AppAssets>,
     objects_with_materials: Query<&MeshMaterial3d<StandardMaterial>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
+    mut standard_materials: AssetsMut<StandardMaterial>,
 ) {
     if !keyboard.just_pressed(KeyCode::Space) {
         return;

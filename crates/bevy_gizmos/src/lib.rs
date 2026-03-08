@@ -71,7 +71,7 @@ pub mod prelude {
 }
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
-use bevy_asset::{Asset, AssetApp, Assets, Handle};
+use bevy_asset::{Asset, AssetApp, AssetCommands, AssetsMut, Handle};
 use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
     prelude::Entity,
@@ -279,7 +279,8 @@ pub struct GizmoMeshSystems;
 ///
 /// This also clears the default `GizmoStorage`.
 fn update_gizmo_meshes<Config: GizmoConfigGroup>(
-    mut gizmo_assets: ResMut<Assets<GizmoAsset>>,
+    mut gizmo_assets: AssetsMut<GizmoAsset>,
+    mut asset_commands: AssetCommands,
     mut handles: ResMut<GizmoHandles>,
     mut storage: ResMut<GizmoStorage<Config, ()>>,
 ) {
@@ -287,7 +288,7 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
         handles.handles.insert(TypeId::of::<Config>(), None);
     } else if let Some(handle) = handles.handles.get_mut(&TypeId::of::<Config>()) {
         if let Some(handle) = handle {
-            let mut gizmo = gizmo_assets.get_mut(handle.id()).unwrap();
+            let mut gizmo = gizmo_assets.get_mut(handle).unwrap();
 
             gizmo.buffer.list_positions = mem::take(&mut storage.list_positions);
             gizmo.buffer.list_colors = mem::take(&mut storage.list_colors);
@@ -306,7 +307,7 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
                 },
             };
 
-            *handle = Some(gizmo_assets.add(gizmo));
+            *handle = Some(asset_commands.spawn_asset(gizmo));
         }
     }
 }

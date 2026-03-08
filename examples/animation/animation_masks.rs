@@ -119,8 +119,7 @@ fn main() {
 fn setup_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
 ) {
     // Spawn the camera.
     commands.spawn((
@@ -148,8 +147,10 @@ fn setup_scene(
 
     // Spawn the ground.
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(7.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(asset_commands.spawn_asset(Circle::new(7.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 }
@@ -339,8 +340,8 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
 // entity with the `AnimationPlayer` that the glTF loader created.
 fn setup_animation_graph_once_loaded(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
     targets: Query<(Entity, &AnimationTargetId)>,
 ) {
@@ -380,7 +381,7 @@ fn setup_animation_graph_once_loaded(
         }
 
         // We're doing constructing the animation graph. Add it as an asset.
-        let animation_graph = animation_graphs.add(animation_graph);
+        let animation_graph = asset_commands.spawn_asset(animation_graph);
         commands
             .entity(entity)
             .insert(AnimationGraphHandle(animation_graph));
@@ -412,7 +413,7 @@ fn setup_animation_graph_once_loaded(
 fn handle_button_toggles(
     mut interactions: Query<(&Interaction, &mut AnimationControl), Changed<Interaction>>,
     mut animation_players: Query<&AnimationGraphHandle, With<AnimationPlayer>>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut animation_graphs: AssetsMut<AnimationGraph>,
     mut animation_nodes: Option<ResMut<AnimationNodes>>,
     mut app_state: ResMut<AppState>,
 ) {

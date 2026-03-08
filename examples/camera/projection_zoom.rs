@@ -44,8 +44,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     camera_settings: Res<CameraSettings>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
 ) {
     commands.spawn((
         Name::new("Camera"),
@@ -66,8 +65,8 @@ fn setup(
 
     commands.spawn((
         Name::new("Plane"),
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(5.0, 5.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::srgb(0.3, 0.5, 0.3),
             // Turning off culling keeps the plane visible when viewed from beneath.
             cull_mode: None,

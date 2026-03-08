@@ -44,15 +44,8 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    args: Res<Args>,
-    mesh_assets: ResMut<Assets<Mesh>>,
-    material_assets: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands, args: Res<Args>) {
     let args = args.into_inner();
-    let material_assets = material_assets.into_inner();
-    let mesh_assets = mesh_assets.into_inner();
     let n = args.grid_size;
 
     // Camera
@@ -74,12 +67,12 @@ fn setup(
     ));
 
     // Cubes
-    let mesh_handle = mesh_assets.add(Cuboid::from_size(Vec3::ONE));
+    let mesh_handle = asset_commands.spawn_asset(Cuboid::from_size(Vec3::ONE).into());
     for x in 0..n {
         for z in 0..n {
             commands.spawn((
                 Mesh3d(mesh_handle.clone()),
-                MeshMaterial3d(material_assets.add(Color::WHITE)),
+                MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
                 Transform::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
             ));
         }
@@ -89,7 +82,7 @@ fn setup(
 fn animate_materials(
     material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     time: Res<Time>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
 ) {
     for (i, material_handle) in material_handles.iter().enumerate() {
         if let Some(mut material) = materials.get_mut(material_handle) {

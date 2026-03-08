@@ -55,10 +55,11 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn change_material(
     scene_ready: On<SceneInstanceReady>,
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     children: Query<&Children>,
     color_override: Query<&ColorOverride>,
     mesh_materials: Query<(&MeshMaterial3d<StandardMaterial>, &GltfMaterialName)>,
-    mut asset_materials: ResMut<Assets<StandardMaterial>>,
+    asset_materials: Assets<StandardMaterial>,
 ) {
     info!("processing Scene Entity: {}", scene_ready.entity);
 
@@ -93,7 +94,7 @@ fn change_material(
                 // Override `MeshMaterial3d` with new material
                 commands
                     .entity(descendant)
-                    .insert(MeshMaterial3d(asset_materials.add(new_material)));
+                    .insert(MeshMaterial3d(asset_commands.spawn_asset(new_material)));
             }
             name => {
                 info!("not replacing: {name}");

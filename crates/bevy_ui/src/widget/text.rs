@@ -2,7 +2,7 @@ use crate::{
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, FixedMeasure, Measure, MeasureArgs,
     Node, NodeMeasure,
 };
-use bevy_asset::Assets;
+use bevy_asset::{AssetCommands, Assets, AssetsMut};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -237,7 +237,7 @@ impl Measure for TextMeasure {
 ///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
-    fonts: Res<Assets<Font>>,
+    fonts: Assets<Font>,
     mut text_query: Query<
         (
             Entity,
@@ -282,7 +282,7 @@ pub fn measure_text_system(
 
         match text_pipeline.create_text_measure(
             entity,
-            fonts.as_ref(),
+            &fonts,
             text_reader.iter(entity),
             computed_target.scale_factor,
             &block,
@@ -330,10 +330,11 @@ pub fn measure_text_system(
 ///
 /// ## World Resources
 ///
-/// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
+/// [`AssetsMut<Image>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
 pub fn text_system(
-    mut textures: ResMut<Assets<Image>>,
+    mut textures: AssetsMut<Image>,
+    mut asset_commands: AssetCommands,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
@@ -346,6 +347,7 @@ pub fn text_system(
     )>,
     mut scale_cx: ResMut<ScaleCx>,
 ) {
+    let mut deferred_font_atlas_set = Default::default();
     for (node, block, mut text_layout_info, mut text_flags, mut computed, hinting) in
         &mut text_query
     {
@@ -366,7 +368,9 @@ pub fn text_system(
             match text_pipeline.update_text_layout_info(
                 &mut text_layout_info,
                 &mut font_atlas_set,
+                &mut deferred_font_atlas_set,
                 &mut textures,
+                &mut asset_commands,
                 &mut computed,
                 &mut scale_cx,
                 physical_node_size,
@@ -401,5 +405,13 @@ pub fn text_system(
                 }
             }
         }
+    }
+
+    for (font_atlas_key, deferred_font_atlas) in deferred_font_atlas_set {
+        font_atlas_set.entry(font_atlas_key).or_default().extend(
+            deferred_font_atlas
+                .into_iter()
+                .map(|deferred| deferred.to_font_atlas(&mut asset_commands)),
+        );
     }
 }

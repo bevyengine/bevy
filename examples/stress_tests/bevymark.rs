@@ -216,32 +216,29 @@ struct StatsText;
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     args: Res<Args>,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    material_assets: ResMut<Assets<ColorMaterial>>,
-    images: ResMut<Assets<Image>>,
     window: Single<&Window>,
     counter: ResMut<BevyCounter>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
     let args = args.into_inner();
-    let images = images.into_inner();
 
     let mut textures = Vec::with_capacity(args.material_texture_count.max(1));
     if matches!(args.mode, Mode::Sprite) || args.material_texture_count > 0 {
         textures.push(asset_server.load("branding/icon.png"));
     }
-    init_textures(&mut textures, args, images);
+    init_textures(&mut textures, args, &mut asset_commands);
 
-    let material_assets = material_assets.into_inner();
-    let materials = init_materials(args, &textures, material_assets);
+    let materials = init_materials(args, &textures, &mut asset_commands);
 
     let mut bird_resources = BirdResources {
         textures,
         materials,
-        quad: meshes.add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32))),
+        quad: asset_commands
+            .spawn_asset(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32)).into()),
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
         color_rng: ChaCha8Rng::seed_from_u64(42),
@@ -618,7 +615,11 @@ fn counter_system(
     };
 }
 
-fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut Assets<Image>) {
+fn init_textures(
+    textures: &mut Vec<Handle<Image>>,
+    args: &Args,
+    asset_commands: &mut AssetCommands,
+) {
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
@@ -629,7 +630,7 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
             color_rng.random(),
             255,
         ];
-        textures.push(images.add(Image::new_fill(
+        textures.push(asset_commands.spawn_asset(Image::new_fill(
             Extent3d {
                 width: BIRD_TEXTURE_SIZE as u32,
                 height: BIRD_TEXTURE_SIZE as u32,
@@ -646,7 +647,7 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
 fn init_materials(
     args: &Args,
     textures: &[Handle<Image>],
-    assets: &mut Assets<ColorMaterial>,
+    asset_commands: &mut AssetCommands,
 ) -> Vec<Handle<ColorMaterial>> {
     let capacity = if args.vary_per_instance {
         args.per_wave * args.waves
@@ -662,7 +663,7 @@ fn init_materials(
     };
 
     let mut materials = Vec::with_capacity(capacity);
-    materials.push(assets.add(ColorMaterial {
+    materials.push(asset_commands.spawn_asset(ColorMaterial {
         color: Color::WHITE,
         texture: textures.first().cloned(),
         alpha_mode,
@@ -675,7 +676,7 @@ fn init_materials(
     let mut texture_rng = ChaCha8Rng::seed_from_u64(42);
     materials.extend(
         std::iter::repeat_with(|| {
-            assets.add(ColorMaterial {
+            asset_commands.spawn_asset(ColorMaterial {
                 color: Color::srgb_u8(color_rng.random(), color_rng.random(), color_rng.random()),
                 texture: textures.choose(&mut texture_rng).cloned(),
                 alpha_mode,

@@ -1,11 +1,10 @@
 use crate::ComputedTextBlock;
 use crate::FontCx;
 use bevy_asset::Asset;
-use bevy_asset::AssetId;
+use bevy_asset::AssetEntity;
 use bevy_asset::Assets;
 use bevy_ecs::system::Local;
 use bevy_ecs::system::Query;
-use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::TypePath;
@@ -46,8 +45,8 @@ impl Font {
 
 /// Add new font assets to the internal font collection.
 pub fn load_font_assets_into_font_collection(
-    fonts: Res<Assets<Font>>,
-    mut loaded_fonts: Local<HashSet<AssetId<Font>>>,
+    fonts: Assets<Font>,
+    mut loaded_fonts: Local<HashSet<AssetEntity>>,
     mut font_cx: ResMut<FontCx>,
     mut text_block_query: Query<&mut ComputedTextBlock>,
 ) {
@@ -55,8 +54,8 @@ pub fn load_font_assets_into_font_collection(
 
     loaded_fonts.retain(|id| fonts.contains(*id));
 
-    for (id, font) in fonts.iter() {
-        if loaded_fonts.insert(id) {
+    for (entity, font) in fonts.iter() {
+        if loaded_fonts.insert(entity) {
             font_cx.0.collection.register_fonts(
                 font.data.clone(),
                 Some(FontInfoOverride {

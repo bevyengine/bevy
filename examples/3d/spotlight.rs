@@ -35,15 +35,11 @@ fn main() {
 struct Movable;
 
 /// set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // ground plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(100.0, 100.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
         Movable,
     ));
 
@@ -52,8 +48,8 @@ fn setup(
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
-    let cube_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
-    let blue = materials.add(Color::srgb_u8(124, 144, 255));
+    let cube_mesh = asset_commands.spawn_asset(Cuboid::new(0.5, 0.5, 0.5).into());
+    let blue = asset_commands.spawn_asset(StandardMaterial::from(Color::srgb_u8(124, 144, 255)));
 
     commands.spawn_batch(
         std::iter::repeat_with(move || {
@@ -71,14 +67,14 @@ fn setup(
         .take(40),
     );
 
-    let sphere_mesh = meshes.add(Sphere::new(0.05).mesh().uv(32, 18));
-    let sphere_mesh_direction = meshes.add(Sphere::new(0.1).mesh().uv(32, 18));
-    let red_emissive = materials.add(StandardMaterial {
+    let sphere_mesh = asset_commands.spawn_asset(Sphere::new(0.05).mesh().uv(32, 18));
+    let sphere_mesh_direction = asset_commands.spawn_asset(Sphere::new(0.1).mesh().uv(32, 18));
+    let red_emissive = asset_commands.spawn_asset(StandardMaterial {
         base_color: RED.into(),
         emissive: LinearRgba::new(1.0, 0.0, 0.0, 0.0),
         ..default()
     });
-    let maroon_emissive = materials.add(StandardMaterial {
+    let maroon_emissive = asset_commands.spawn_asset(StandardMaterial {
         base_color: MAROON.into(),
         emissive: LinearRgba::new(0.369, 0.0, 0.0, 0.0),
         ..default()

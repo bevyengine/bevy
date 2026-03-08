@@ -146,8 +146,7 @@ fn setup(
     app_status: Res<AppStatus>,
     render_device: Res<RenderDevice>,
     render_adapter: Res<RenderAdapter>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
 ) {
     // Error out if clustered decals (and so light textures) aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
@@ -155,30 +154,26 @@ fn setup(
         commands.write_message(AppExit::error());
     }
 
-    spawn_cubes(&mut commands, &mut meshes, &mut materials);
+    spawn_cubes(&mut commands, &mut asset_commands);
     spawn_camera(&mut commands);
     spawn_light(&mut commands, &asset_server);
     spawn_buttons(&mut commands);
     spawn_help_text(&mut commands, &app_status);
-    spawn_light_textures(&mut commands, &asset_server, &mut meshes, &mut materials);
+    spawn_light_textures(&mut commands, &mut asset_commands, &asset_server);
 }
 
 #[derive(Component)]
 struct Rotate;
 
 /// Spawns the cube onto which the decals are projected.
-fn spawn_cubes(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-) {
+fn spawn_cubes(commands: &mut Commands, asset_commands: &mut AssetCommands) {
     // Rotate the cube a bit just to make it more interesting.
     let mut transform = Transform::IDENTITY;
     transform.rotate_y(FRAC_PI_3);
 
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(3.0, 3.0, 3.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::new(3.0, 3.0, 3.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: SILVER.into(),
             ..default()
         })),
@@ -187,8 +182,8 @@ fn spawn_cubes(
     ));
 
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(-13.0, -13.0, -13.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::new(-13.0, -13.0, -13.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: SILVER.into(),
             ..default()
         })),
@@ -227,9 +222,8 @@ fn spawn_camera(commands: &mut Commands) {
 
 fn spawn_light_textures(
     commands: &mut Commands,
+    asset_commands: &mut AssetCommands,
     asset_server: &AssetServer,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
 ) {
     commands.spawn((
         SpotLight {
@@ -257,8 +251,8 @@ fn spawn_light_textures(
                 asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb")),
             ),
             (
-                Mesh3d(meshes.add(Sphere::new(1.0))),
-                MeshMaterial3d(materials.add(StandardMaterial {
+                Mesh3d(asset_commands.spawn_asset(Sphere::new(1.0).into())),
+                MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                     emissive: Color::srgb(0.0, 0.0, 300.0).to_linear(),
                     ..default()
                 })),

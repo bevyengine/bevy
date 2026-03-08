@@ -40,37 +40,33 @@ const SHAPES_X_EXTENT: f32 = 14.0;
 const EXTRUSION_X_EXTENT: f32 = 16.0;
 const Z_EXTENT: f32 = 5.0;
 
-fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup_scene(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Set up the materials.
-    let white_matl = materials.add(Color::WHITE);
-    let ground_matl = materials.add(Color::from(GRAY_300));
-    let hover_matl = materials.add(Color::from(CYAN_300));
-    let pressed_matl = materials.add(Color::from(YELLOW_300));
+    let white_matl = asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE));
+    let ground_matl = asset_commands.spawn_asset(StandardMaterial::from(Color::from(GRAY_300)));
+    let hover_matl = asset_commands.spawn_asset(StandardMaterial::from(Color::from(CYAN_300)));
+    let pressed_matl = asset_commands.spawn_asset(StandardMaterial::from(Color::from(YELLOW_300)));
 
     let shapes = [
-        meshes.add(Cuboid::default()),
-        meshes.add(Tetrahedron::default()),
-        meshes.add(Capsule3d::default()),
-        meshes.add(Torus::default()),
-        meshes.add(Cylinder::default()),
-        meshes.add(Cone::default()),
-        meshes.add(ConicalFrustum::default()),
-        meshes.add(Sphere::default().mesh().ico(5).unwrap()),
-        meshes.add(Sphere::default().mesh().uv(32, 18)),
+        asset_commands.spawn_asset(Cuboid::default().into()),
+        asset_commands.spawn_asset(Tetrahedron::default().into()),
+        asset_commands.spawn_asset(Capsule3d::default().into()),
+        asset_commands.spawn_asset(Torus::default().into()),
+        asset_commands.spawn_asset(Cylinder::default().into()),
+        asset_commands.spawn_asset(Cone::default().into()),
+        asset_commands.spawn_asset(ConicalFrustum::default().into()),
+        asset_commands.spawn_asset(Sphere::default().mesh().ico(5).unwrap()),
+        asset_commands.spawn_asset(Sphere::default().mesh().uv(32, 18)),
     ];
 
     let extrusions = [
-        meshes.add(Extrusion::new(Rectangle::default(), 1.)),
-        meshes.add(Extrusion::new(Capsule2d::default(), 1.)),
-        meshes.add(Extrusion::new(Annulus::default(), 1.)),
-        meshes.add(Extrusion::new(Circle::default(), 1.)),
-        meshes.add(Extrusion::new(Ellipse::default(), 1.)),
-        meshes.add(Extrusion::new(RegularPolygon::default(), 1.)),
-        meshes.add(Extrusion::new(Triangle2d::default(), 1.)),
+        asset_commands.spawn_asset(Extrusion::new(Rectangle::default(), 1.).into()),
+        asset_commands.spawn_asset(Extrusion::new(Capsule2d::default(), 1.).into()),
+        asset_commands.spawn_asset(Extrusion::new(Annulus::default(), 1.).into()),
+        asset_commands.spawn_asset(Extrusion::new(Circle::default(), 1.).into()),
+        asset_commands.spawn_asset(Extrusion::new(Ellipse::default(), 1.).into()),
+        asset_commands.spawn_asset(Extrusion::new(RegularPolygon::default(), 1.).into()),
+        asset_commands.spawn_asset(Extrusion::new(Triangle2d::default(), 1.).into()),
     ];
 
     let num_shapes = shapes.len();
@@ -121,7 +117,15 @@ fn setup_scene(
 
     // Ground
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
+        Mesh3d(
+            asset_commands.spawn_asset(
+                Plane3d::default()
+                    .mesh()
+                    .size(50.0, 50.0)
+                    .subdivisions(10)
+                    .into(),
+            ),
+        ),
         MeshMaterial3d(ground_matl.clone()),
         Pickable::IGNORE, // Disable picking for the ground plane.
     ));

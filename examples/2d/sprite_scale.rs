@@ -134,13 +134,13 @@ fn setup_sprites(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn setup_texture_atlas(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let gabe = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let animation_indices_gabe = AnimationIndices { first: 0, last: 6 };
     let gabe_atlas = TextureAtlas {
-        layout: texture_atlas_layouts.add(TextureAtlasLayout::from_grid(
+        layout: asset_commands.spawn_asset(TextureAtlasLayout::from_grid(
             UVec2::splat(24),
             7,
             1,

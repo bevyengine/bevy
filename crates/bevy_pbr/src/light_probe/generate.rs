@@ -12,7 +12,9 @@
 //! For prefiltered environment maps, see [`bevy_light::EnvironmentMapLight`].
 //! These components are intended to be added to a camera.
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, RenderAssetUsages};
+use bevy_asset::{
+    embedded_asset, load_embedded_asset, AssetCommands, AssetServer, Assets, RenderAssetUsages,
+};
 use bevy_core_pipeline::mip_generation::{self, DownsampleShaders, DownsamplingConstants};
 use bevy_ecs::{
     component::Component,
@@ -1017,7 +1019,8 @@ pub fn filtering_system(
 /// System that generates an `EnvironmentMapLight` component based on the `GeneratedEnvironmentMapLight` component
 pub fn generate_environment_map_light(
     mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
+    mut asset_commands: AssetCommands,
+    images: Assets<Image>,
     query: Query<(Entity, &GeneratedEnvironmentMapLight), Without<EnvironmentMapLight>>,
 ) {
     for (entity, filtered_env_map) in &query {
@@ -1063,7 +1066,7 @@ pub fn generate_environment_map_light(
             ..Default::default()
         });
 
-        let diffuse_handle = images.add(diffuse);
+        let diffuse_handle = asset_commands.spawn_asset(diffuse);
 
         // Create a placeholder for the specular map. It matches the input cubemap resolution.
         let mut specular = Image::new_fill(
@@ -1093,7 +1096,7 @@ pub fn generate_environment_map_light(
             ..Default::default()
         });
 
-        let specular_handle = images.add(specular);
+        let specular_handle = asset_commands.spawn_asset(specular);
 
         // Add the EnvironmentMapLight component with the placeholder handles
         commands.entity(entity).insert(EnvironmentMapLight {

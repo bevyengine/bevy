@@ -1,6 +1,7 @@
 use crate::{DynamicScene, Scene};
-use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, DirectAssetAccessExt, Handle};
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     entity::{Entity, EntityHashMap},
     event::EntityEvent,
     hierarchy::ChildOf,
@@ -302,13 +303,17 @@ impl SceneSpawner {
         id: AssetId<DynamicScene>,
         entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), SceneSpawnError> {
-        world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
-            let scene = scenes
-                .get(id)
-                .ok_or(SceneSpawnError::NonExistentScene { id })?;
+        let mut dynamic_scene = world
+            .get_asset_mut(id)
+            .ok_or(SceneSpawnError::NonExistentScene { id })?;
 
-            scene.write_to_world(world, entity_map)
-        })
+        // Hokey-pokey the dynamic scene out of the world.
+        let scene_to_spawn = core::mem::take(&mut dynamic_scene.bypass_change_detection().0);
+        scene_to_spawn.write_to_world(world, entity_map)?;
+        let mut dynamic_scene = world.get_asset_mut(id).unwrap();
+        // Put the scene data back into the asset.
+        ***dynamic_scene = scene_to_spawn;
+        Ok(())
     }
 
     /// Immediately spawns a new instance of the provided scene.
@@ -341,17 +346,22 @@ impl SceneSpawner {
         id: AssetId<Scene>,
         entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), SceneSpawnError> {
-        world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
-            let scene = scenes
-                .get(id)
-                .ok_or(SceneSpawnError::NonExistentRealScene { id })?;
+        let type_registry = world.resource::<AppTypeRegistry>().clone();
 
-            scene.write_to_world_with(
-                world,
-                entity_map,
-                &world.resource::<AppTypeRegistry>().clone(),
-            )
-        })
+        let mut scene = world
+            .get_asset_mut(id)
+            .ok_or(SceneSpawnError::NonExistentRealScene { id })?;
+
+        // Hokey-pokey the dynamic scene out of the world.
+        let scene_to_spawn = core::mem::replace(
+            &mut scene.bypass_change_detection().0,
+            Scene::new(World::new()),
+        );
+        scene_to_spawn.write_to_world_with(world, entity_map, &type_registry)?;
+        let mut scene = world.get_asset_mut(id).unwrap();
+        // Put the scene data back into the asset.
+        ***scene = scene_to_spawn;
+        Ok(())
     }
 
     /// Iterate through all instances of the provided scenes and update those immediately.
@@ -712,7 +722,7 @@ pub fn scene_spawner(
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
-    use bevy_asset::{AssetPlugin, AssetServer, Handle};
+    use bevy_asset::{AssetPlugin, AssetServer, Handle, MinimalAssetPlugin};
     use bevy_ecs::{
         component::Component,
         hierarchy::Children,
@@ -728,7 +738,6 @@ mod tests {
     use super::*;
     use crate::{DynamicScene, SceneSpawner};
     use bevy_app::ScheduleRunnerPlugin;
-    use bevy_asset::Assets;
     use bevy_ecs::{
         entity::Entity,
         prelude::{AppTypeRegistry, World},
@@ -758,10 +767,7 @@ mod tests {
         scene_world.insert_resource(type_registry);
         scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
         let scene = DynamicScene::from_world(&scene_world);
-        let scene_handle = app
-            .world_mut()
-            .resource_mut::<Assets<DynamicScene>>()
-            .add(scene);
+        let scene_handle = app.world_mut().spawn_asset(scene);
 
         // spawn the scene as a child of `entity` using `DynamicSceneRoot`
         let entity = app
@@ -805,36 +811,37 @@ mod tests {
 
     #[test]
     fn clone_dynamic_entities() {
-        let mut world = World::default();
+        let mut app = App::new();
+        app.add_plugins(MinimalAssetPlugin);
 
         // setup
         let atr = AppTypeRegistry::default();
         atr.write().register::<A>();
-        world.insert_resource(atr);
-        world.insert_resource(Assets::<DynamicScene>::default());
+        app.world_mut().insert_resource(atr);
 
         // start test
-        world.spawn(A(42));
+        app.world_mut().spawn(A(42));
 
-        assert_eq!(world.query::<&A>().iter(&world).len(), 1);
+        assert_eq!(app.world_mut().query::<&A>().iter(app.world()).len(), 1);
 
         // clone only existing entity
         let mut scene_spawner = SceneSpawner::default();
-        let entity = world
+        let entity = app
+            .world_mut()
             .query_filtered::<Entity, With<A>>()
-            .single(&world)
+            .single(app.world())
             .unwrap();
-        let scene = DynamicSceneBuilder::from_world(&world)
+        let scene = DynamicSceneBuilder::from_world(app.world())
             .extract_entity(entity)
             .build();
 
-        let scene_id = world.resource_mut::<Assets<DynamicScene>>().add(scene);
+        let scene_id = app.world_mut().spawn_asset(scene);
         let instance_id = scene_spawner
-            .spawn_dynamic_sync(&mut world, &scene_id)
+            .spawn_dynamic_sync(app.world_mut(), &scene_id)
             .unwrap();
 
         // verify we spawned exactly one new entity with our expected component
-        assert_eq!(world.query::<&A>().iter(&world).len(), 2);
+        assert_eq!(app.world_mut().query::<&A>().iter(app.world()).len(), 2);
 
         // verify that we can get this newly-spawned entity by the instance ID
         let new_entity = scene_spawner
@@ -846,9 +853,10 @@ mod tests {
         assert_ne!(entity, new_entity);
 
         // verify this new entity contains the same data as the original entity
-        let [old_a, new_a] = world
+        let [old_a, new_a] = app
+            .world_mut()
             .query::<&A>()
-            .get_many(&world, [entity, new_entity])
+            .get_many(app.world(), [entity, new_entity])
             .unwrap();
         assert_eq!(old_a, new_a);
     }
@@ -1099,7 +1107,7 @@ mod tests {
             .add_children(&[child0, child1, child2]);
 
         let scene = Scene::new(scene_world);
-        let scene_handle = app.world_mut().resource_mut::<Assets<Scene>>().add(scene);
+        let scene_handle = app.world_mut().spawn_asset(scene);
 
         let spawned = app.world_mut().spawn(SceneRoot(scene_handle.clone())).id();
 

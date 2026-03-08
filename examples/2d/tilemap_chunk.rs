@@ -69,16 +69,15 @@ struct MovePlayer;
 
 fn spawn_fake_player(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut asset_commands: AssetCommands,
     chunk: Single<&TilemapChunk>,
 ) {
     let mut transform = chunk.calculate_tile_transform(UVec2::new(0, 0));
     transform.translation.z = 1.;
 
     commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(8., 8.))),
-        MeshMaterial2d(materials.add(Color::from(RED_400))),
+        Mesh2d(asset_commands.spawn_asset(Rectangle::new(8., 8.).into())),
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial::from_color(RED_400))),
         transform,
         MovePlayer,
     ));
@@ -88,8 +87,8 @@ fn spawn_fake_player(
 
     // second "player" to visually test a non-zero position
     commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(8., 8.))),
-        MeshMaterial2d(materials.add(Color::from(RED_400))),
+        Mesh2d(asset_commands.spawn_asset(Rectangle::new(8., 8.).into())),
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial::from_color(RED_400))),
         transform,
     ));
 }

@@ -1,4 +1,4 @@
-use bevy_asset::{Assets, Handle, RenderAssetUsages};
+use bevy_asset::{AssetCommands, Handle, RenderAssetUsages};
 use bevy_camera::visibility::{self, ViewVisibility, Visibility, VisibilityClass};
 use bevy_color::{Color, ColorToComponents, Srgba};
 use bevy_ecs::prelude::*;
@@ -137,20 +137,20 @@ pub struct EnvironmentMapLight {
 
 impl EnvironmentMapLight {
     /// An environment map with a uniform color, useful for uniform ambient lighting.
-    pub fn solid_color(assets: &mut Assets<Image>, color: impl Into<Color>) -> Self {
+    pub fn solid_color(asset_commands: &mut AssetCommands, color: impl Into<Color>) -> Self {
         let color = color.into();
-        Self::hemispherical_gradient(assets, color, color, color)
+        Self::hemispherical_gradient(asset_commands, color, color, color)
     }
 
     /// An environment map with a hemispherical gradient, fading between the sky and ground colors
     /// at the horizon. Useful as a very simple 'sky'.
     pub fn hemispherical_gradient(
-        assets: &mut Assets<Image>,
+        asset_commands: &mut AssetCommands,
         top_color: impl Into<Color>,
         mid_color: impl Into<Color>,
         bottom_color: impl Into<Color>,
     ) -> Self {
-        let handle = assets.add(Self::hemispherical_gradient_cubemap(
+        let handle = asset_commands.spawn_asset(Self::hemispherical_gradient_cubemap(
             top_color.into(),
             mid_color.into(),
             bottom_color.into(),

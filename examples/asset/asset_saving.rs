@@ -100,8 +100,8 @@ struct PendingLoad(Handle<ManyBoxes>);
 /// Waits for any [`PendingLoad`]s to complete, and spawns in their boxes when they do.
 fn wait_for_pending_loads(
     loads: Populated<(Entity, &PendingLoad)>,
-    many_boxes: Res<Assets<ManyBoxes>>,
-    one_boxes: Res<Assets<OneBox>>,
+    many_boxes: Assets<ManyBoxes>,
+    one_boxes: Assets<OneBox>,
     existing_boxes: Query<Entity, With<Box>>,
     mut commands: Commands,
 ) {

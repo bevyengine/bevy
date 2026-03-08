@@ -44,8 +44,8 @@ impl Buildings {
 
 pub fn load_assets(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let base_url = "https://github.com/bevyengine/bevy_asset_files/raw/main/kenney";
 
@@ -88,7 +88,7 @@ pub fn load_assets(
         let materials = ["colormap", "variation-a", "variation-b"]
             .iter()
             .map(|variation| {
-                materials.add(StandardMaterial {
+                asset_commands.spawn_asset(StandardMaterial {
                     base_color_texture: Some(asset_server.load(format!(
                         "{base_url}/city-kit-commercial/Textures/{variation}.png"
                     ))),
@@ -128,7 +128,7 @@ pub fn load_assets(
         let materials = ["colormap", "variation-a", "variation-b"]
             .iter()
             .map(|variation| {
-                materials.add(StandardMaterial {
+                asset_commands.spawn_asset(StandardMaterial {
                     base_color_texture: Some(asset_server.load(format!(
                         "{base_url}/city-kit-commercial/Textures/{variation}.png"
                     ))),
@@ -155,7 +155,7 @@ pub fn load_assets(
         let materials = ["colormap", "variation-a", "variation-b", "variation-c"]
             .iter()
             .map(|variation| {
-                materials.add(StandardMaterial {
+                asset_commands.spawn_asset(StandardMaterial {
                     base_color_texture: Some(asset_server.load(format!(
                         "{base_url}/city-kit-suburban/Textures/{variation}.png"
                     ))),
@@ -194,9 +194,9 @@ pub fn load_assets(
         //     "ground_tile/tile-low.glb#{}/std",
         //     GltfAssetLabel::DefaultMaterial
         // ));
-        let white_material = materials.add(StandardMaterial::from_color(WHITE));
+        let white_material = asset_commands.spawn_asset(StandardMaterial::from_color(WHITE));
         let grass_material =
-            materials.add(StandardMaterial::from_color(Color::srgb_u8(97, 203, 139)));
+            asset_commands.spawn_asset(StandardMaterial::from_color(Color::srgb_u8(97, 203, 139)));
 
         (mesh, white_material, grass_material)
     };

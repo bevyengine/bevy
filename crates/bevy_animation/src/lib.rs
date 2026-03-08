@@ -38,7 +38,7 @@ use crate::{
 };
 
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
+use bevy_asset::{Asset, AssetApp, AssetData, AssetEventSystems, AssetSelfHandle, Assets};
 use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
@@ -935,8 +935,8 @@ impl AnimationPlayer {
 /// A system that triggers untargeted animation events for the currently-playing animations.
 fn trigger_untargeted_animation_events(
     mut commands: Commands,
-    clips: Res<Assets<AnimationClip>>,
-    graphs: Res<Assets<AnimationGraph>>,
+    clips: Assets<AnimationClip>,
+    graphs: Assets<AnimationGraph>,
     players: Query<(Entity, &AnimationPlayer, &AnimationGraphHandle)>,
 ) {
     for (entity, player, graph_id) in &players {
@@ -977,8 +977,8 @@ fn trigger_untargeted_animation_events(
 /// A system that advances the time for all playing animations.
 pub fn advance_animations(
     time: Res<Time>,
-    animation_clips: Res<Assets<AnimationClip>>,
-    animation_graphs: Res<Assets<AnimationGraph>>,
+    animation_clips: Assets<AnimationClip>,
+    animation_graphs: Assets<AnimationGraph>,
     mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle)>,
 ) {
     let delta_seconds = time.delta_secs();
@@ -1021,6 +1021,9 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
         AnimatedBy,
         AnimationPlayer,
         AnimationGraphHandle,
+        AssetSelfHandle,
+        AssetData<AnimationClip>,
+        AssetData<AnimationGraph>,
     ),
 >;
 
@@ -1028,8 +1031,8 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
 /// according to the currently-playing animations.
 pub fn animate_targets(
     par_commands: ParallelCommands,
-    clips: Res<Assets<AnimationClip>>,
-    graphs: Res<Assets<AnimationGraph>>,
+    clips: Assets<AnimationClip>,
+    graphs: Assets<AnimationGraph>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
     players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
     mut targets: Query<

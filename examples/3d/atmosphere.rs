@@ -124,12 +124,12 @@ fn atmosphere_controls(
 
 fn setup_camera_fog(
     mut commands: Commands,
-    mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
-    let earth_medium = scattering_mediums.add(ScatteringMedium::earth(256, 256));
+    let earth_medium = asset_commands.spawn_asset(ScatteringMedium::earth(256, 256));
     let mars_phase = asset_server.load("textures/mars_mie_phase.ktx2");
-    let mars_medium = scattering_mediums.add(ScatteringMedium::mars(256, 256, mars_phase));
+    let mars_medium = asset_commands.spawn_asset(ScatteringMedium::mars(256, 256, mars_phase));
 
     commands.insert_resource(AtmospherePresets {
         earth: earth_medium.clone(),
@@ -208,8 +208,7 @@ impl MaterialExtension for Water {
 
 fn setup_terrain_scene(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut water_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, Water>>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // Sun
@@ -234,6 +233,31 @@ fn setup_terrain_scene(
         Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
     ));
 
+    let sphere_mesh = asset_commands.spawn_asset(Mesh::from(Sphere { radius: 1.0 }));
+
+    // light probe spheres
+    commands.spawn((
+        Mesh3d(sphere_mesh.clone()),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
+            base_color: Color::WHITE,
+            metallic: 1.0,
+            perceptual_roughness: 0.0,
+            ..default()
+        })),
+        Transform::from_xyz(-1.0, 0.1, -0.1).with_scale(Vec3::splat(0.05)),
+    ));
+
+    commands.spawn((
+        Mesh3d(sphere_mesh.clone()),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
+            base_color: Color::WHITE,
+            metallic: 0.0,
+            perceptual_roughness: 1.0,
+            ..default()
+        })),
+        Transform::from_xyz(-1.0, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
+    ));
+
     // Terrain
     commands.spawn((
         Terrain,
@@ -245,24 +269,18 @@ fn setup_terrain_scene(
             .with_rotation(Quat::from_rotation_y(PI / 2.0)),
     ));
 
-    spawn_water(
-        &mut commands,
-        &asset_server,
-        &mut meshes,
-        &mut water_materials,
-    );
+    spawn_water(&mut commands, &mut asset_commands, &asset_server);
 }
 
 // Spawns the water plane.
 fn spawn_water(
     commands: &mut Commands,
+    asset_commands: &mut AssetCommands,
     asset_server: &AssetServer,
-    meshes: &mut Assets<Mesh>,
-    water_materials: &mut Assets<ExtendedMaterial<StandardMaterial, Water>>,
 ) {
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
-        MeshMaterial3d(water_materials.add(ExtendedMaterial {
+        Mesh3d(asset_commands.spawn_asset(Plane3d::new(Vec3::Y, Vec2::splat(1.0)).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: BLACK.into(),
                 perceptual_roughness: 0.0,

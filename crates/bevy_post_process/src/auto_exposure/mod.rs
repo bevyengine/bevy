@@ -1,5 +1,5 @@
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, AssetApp, Assets, Handle};
+use bevy_asset::{embedded_asset, AssetApp, AssetId, DirectAssetAccessExt};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -52,9 +52,10 @@ impl Plugin for AutoExposurePlugin {
             .init_asset::<AutoExposureCompensationCurve>()
             .register_asset_reflect::<AutoExposureCompensationCurve>();
         app.world_mut()
-            .resource_mut::<Assets<AutoExposureCompensationCurve>>()
-            .insert(&Handle::default(), AutoExposureCompensationCurve::default())
-            .unwrap();
+            .spawn_uuid_asset::<AutoExposureCompensationCurve>(
+                AssetId::<()>::DEFAULT_UUID,
+                AutoExposureCompensationCurve::default(),
+            );
 
         app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());
 

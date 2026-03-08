@@ -18,16 +18,15 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
 ) {
     // Space between the two ears
     let gap = 4.0;
 
     // sound emitter
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.2).mesh().uv(32, 18))),
-        MeshMaterial3d(materials.add(Color::from(BLUE))),
+        Mesh3d(asset_commands.spawn_asset(Sphere::new(0.2).mesh().uv(32, 18))),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::from(BLUE)))),
         Transform::from_xyz(0.0, 0.0, 0.0),
         Emitter::default(),
         AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
@@ -42,14 +41,18 @@ fn setup(
         children![
             // left ear indicator
             (
-                Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
-                MeshMaterial3d(materials.add(Color::from(RED))),
+                Mesh3d(asset_commands.spawn_asset(Cuboid::new(0.2, 0.2, 0.2).into())),
+                MeshMaterial3d(
+                    asset_commands.spawn_asset(StandardMaterial::from(Color::from(RED)))
+                ),
                 Transform::from_translation(listener.left_ear_offset),
             ),
             // right ear indicator
             (
-                Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
-                MeshMaterial3d(materials.add(Color::from(LIME))),
+                Mesh3d(asset_commands.spawn_asset(Cuboid::new(0.2, 0.2, 0.2).into())),
+                MeshMaterial3d(
+                    asset_commands.spawn_asset(StandardMaterial::from(Color::from(LIME)))
+                ),
                 Transform::from_translation(listener.right_ear_offset),
             )
         ],

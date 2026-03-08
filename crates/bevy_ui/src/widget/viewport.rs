@@ -1,7 +1,7 @@
 #[cfg(feature = "bevy_picking")]
 use crate::UiGlobalTransform;
 use crate::{ComputedNode, Node};
-use bevy_asset::Assets;
+use bevy_asset::AssetsMut;
 #[cfg(feature = "bevy_picking")]
 use bevy_camera::Camera;
 use bevy_camera::RenderTarget;
@@ -10,7 +10,7 @@ use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or},
     reflect::ReflectComponent,
-    system::{Query, ResMut},
+    system::Query,
 };
 #[cfg(feature = "bevy_picking")]
 use bevy_ecs::{
@@ -162,7 +162,7 @@ pub fn update_viewport_render_target_size(
         Or<(Changed<ComputedNode>, Changed<ViewportNode>)>,
     >,
     camera_query: Query<&RenderTarget>,
-    mut images: ResMut<Assets<Image>>,
+    mut images: AssetsMut<Image>,
 ) {
     for (viewport, computed_node) in &viewport_query {
         let Ok(render_target) = camera_query.get(viewport.camera) else {

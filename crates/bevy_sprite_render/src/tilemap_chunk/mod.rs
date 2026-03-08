@@ -1,6 +1,6 @@
 use crate::{AlphaMode2d, MeshMaterial2d};
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AssetsMut, Handle, WorldAssetCommandsExt};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -10,7 +10,7 @@ use bevy_ecs::{
     query::Changed,
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
-    system::{Query, ResMut},
+    system::Query,
     world::DeferredWorld,
 };
 use bevy_image::Image;
@@ -169,19 +169,21 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
     let mesh = if let Some(mesh) = tilemap_chunk_mesh_cache.get(&mesh_size) {
         mesh.clone()
     } else {
-        let mut meshes = world.resource_mut::<Assets<Mesh>>();
-        meshes.add(Rectangle::from_size(mesh_size.as_vec2()))
+        world
+            .asset_commands()
+            .spawn_asset(Mesh::from(Rectangle::from_size(mesh_size.as_vec2())))
     };
 
-    let mut images = world.resource_mut::<Assets<Image>>();
-    let tile_data = images.add(tile_data_image);
+    let mut asset_commands = world.asset_commands();
 
-    let mut materials = world.resource_mut::<Assets<TilemapChunkMaterial>>();
-    let material = materials.add(TilemapChunkMaterial {
+    let tile_data = asset_commands.spawn_asset(tile_data_image);
+
+    let material = asset_commands.spawn_asset(TilemapChunkMaterial {
         tileset,
         tile_data,
         alpha_mode,
     });
+    drop(asset_commands);
 
     world
         .commands()
@@ -199,8 +201,8 @@ pub fn update_tilemap_chunk_indices(
         ),
         Changed<TilemapChunkTileData>,
     >,
-    mut materials: ResMut<Assets<TilemapChunkMaterial>>,
-    mut images: ResMut<Assets<Image>>,
+    mut materials: AssetsMut<TilemapChunkMaterial>,
+    mut images: AssetsMut<Image>,
 ) {
     for (chunk_entity, TilemapChunk { chunk_size, .. }, tile_data, material) in query {
         let expected_tile_data_length = chunk_size.element_product() as usize;

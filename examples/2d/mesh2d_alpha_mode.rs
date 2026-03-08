@@ -16,21 +16,20 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d);
 
     let texture_handle = asset_server.load("branding/icon.png");
-    let mesh_handle = meshes.add(Rectangle::from_size(Vec2::splat(256.0)));
+    let mesh_handle = asset_commands.spawn_asset(Rectangle::from_size(Vec2::splat(256.0)).into());
 
     // opaque
     // Each sprite should be square with the transparent parts being completely black
     // The blue sprite should be on top with the white and green one behind it
     commands.spawn((
         Mesh2d(mesh_handle.clone()),
-        MeshMaterial2d(materials.add(ColorMaterial {
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial {
             color: WHITE.into(),
             alpha_mode: AlphaMode2d::Opaque,
             texture: Some(texture_handle.clone()),
@@ -40,7 +39,7 @@ fn setup(
     ));
     commands.spawn((
         Mesh2d(mesh_handle.clone()),
-        MeshMaterial2d(materials.add(ColorMaterial {
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial {
             color: BLUE.into(),
             alpha_mode: AlphaMode2d::Opaque,
             texture: Some(texture_handle.clone()),
@@ -50,7 +49,7 @@ fn setup(
     ));
     commands.spawn((
         Mesh2d(mesh_handle.clone()),
-        MeshMaterial2d(materials.add(ColorMaterial {
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial {
             color: GREEN.into(),
             alpha_mode: AlphaMode2d::Opaque,
             texture: Some(texture_handle.clone()),
@@ -66,7 +65,7 @@ fn setup(
     // - behind the blue sprite
     commands.spawn((
         Mesh2d(mesh_handle.clone()),
-        MeshMaterial2d(materials.add(ColorMaterial {
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial {
             color: WHITE.into(),
             alpha_mode: AlphaMode2d::Mask(0.5),
             texture: Some(texture_handle.clone()),
@@ -76,7 +75,7 @@ fn setup(
     ));
     commands.spawn((
         Mesh2d(mesh_handle.clone()),
-        MeshMaterial2d(materials.add(ColorMaterial {
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial {
             color: BLUE.with_alpha(0.7).into(),
             alpha_mode: AlphaMode2d::Blend,
             texture: Some(texture_handle.clone()),
@@ -86,7 +85,7 @@ fn setup(
     ));
     commands.spawn((
         Mesh2d(mesh_handle.clone()),
-        MeshMaterial2d(materials.add(ColorMaterial {
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial {
             color: GREEN.with_alpha(0.7).into(),
             alpha_mode: AlphaMode2d::Blend,
             texture: Some(texture_handle),

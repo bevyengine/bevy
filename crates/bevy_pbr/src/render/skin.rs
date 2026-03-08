@@ -303,7 +303,7 @@ pub fn extract_skins(
             )>,
         >,
     >,
-    skinned_mesh_inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
+    skinned_mesh_inverse_bindposes: Extract<Assets<SkinnedMeshInverseBindposes>>,
     changed_transforms: Extract<Query<(Entity, &GlobalTransform), Changed<GlobalTransform>>>,
     joints: Extract<Query<&GlobalTransform>>,
     mut removed_skinned_meshes_query: Extract<RemovedComponents<SkinnedMesh>>,

@@ -18,7 +18,8 @@ use crate::effect_stack::chromatic_aberration::{
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{
-    embedded_asset, load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages,
+    embedded_asset, load_embedded_asset, AssetServer, DirectAssetAccessExt, Handle,
+    RenderAssetUsages,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -125,8 +126,7 @@ impl Plugin for EffectStackPlugin {
         embedded_asset!(app, "post_process.wgsl");
 
         // Load the default chromatic aberration LUT.
-        let mut assets = app.world_mut().resource_mut::<Assets<_>>();
-        let default_lut = assets.add(Image::new(
+        let default_lut = app.world_mut().spawn_asset(Image::new(
             Extent3d {
                 width: 3,
                 height: 1,
