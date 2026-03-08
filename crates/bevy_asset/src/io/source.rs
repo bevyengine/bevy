@@ -173,7 +173,7 @@ impl AssetSourceBuilder {
         watch: bool,
         watch_processed: bool,
     ) -> AssetSource {
-        let reader = self.reader.as_mut()();
+        let reader = self.reader.as_mut()().into();
         let writer = self.writer.as_mut().and_then(|w| w(false));
         let processed_writer = self.processed_writer.as_mut().and_then(|w| w(true));
         let mut source = AssetSource {
@@ -389,7 +389,7 @@ impl AssetSourceBuilders {
 /// for a specific asset source, identified by an [`AssetSourceId`].
 pub struct AssetSource {
     id: AssetSourceId<'static>,
-    reader: Box<dyn ErasedAssetReader>,
+    reader: Arc<dyn ErasedAssetReader>,
     writer: Option<Box<dyn ErasedAssetWriter>>,
     processed_reader: Option<Arc<dyn ErasedAssetReader>>,
     /// The ungated version of `processed_reader`.
