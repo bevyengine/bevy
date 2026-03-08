@@ -369,6 +369,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     output[mesh_output_index].local_from_world_transpose_a = local_from_world_transpose_a;
     output[mesh_output_index].local_from_world_transpose_b = local_from_world_transpose_b;
     output[mesh_output_index].flags = current_input[input_index].flags;
+    output[mesh_output_index].render_layers = current_input[input_index].render_layers;
     output[mesh_output_index].lightmap_uv_rect = current_input[input_index].lightmap_uv_rect;
     output[mesh_output_index].first_vertex_index = current_input[input_index].first_vertex_index;
     output[mesh_output_index].current_skin_index = current_input[input_index].current_skin_index;

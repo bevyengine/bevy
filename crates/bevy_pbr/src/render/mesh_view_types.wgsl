@@ -23,6 +23,10 @@ const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 1u << 2u;
 const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 1u << 3u;
 const POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32            = 1u << 4u;
 const POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT: u32                         = 1u << 5u;
+// Packed render layer bits in point and directional light `flags`.
+// Keep in sync with `LIGHT_RENDER_LAYERS_SHIFT` in `render/light.rs`.
+const LIGHT_RENDER_LAYERS_SHIFT: u32                                = 6u;
+const LIGHT_RENDER_LAYERS_MASK: u32                                 = (1u << (32u - LIGHT_RENDER_LAYERS_SHIFT)) - 1u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,

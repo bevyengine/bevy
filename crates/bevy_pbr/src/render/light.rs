@@ -84,6 +84,7 @@ pub struct ExtractedPointLight {
     pub shadow_normal_bias: f32,
     pub shadow_map_near_z: f32,
     pub spot_light_angles: Option<(f32, f32)>,
+    pub render_layers: RenderLayers,
     pub volumetric: bool,
     pub soft_shadows_enabled: bool,
     /// whether this point light contributes diffuse light to lightmapped meshes
@@ -126,6 +127,28 @@ bitflags::bitflags! {
         const SPOT_LIGHT                        = 1 << 5;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
+    }
+}
+
+/// The first bit in light flags that stores packed render layer membership.
+const LIGHT_RENDER_LAYERS_SHIFT: u32 = 6;
+/// The bitmask used to store packed render layer membership in light flags.
+const LIGHT_RENDER_LAYERS_MASK: u32 = (1 << (u32::BITS - LIGHT_RENDER_LAYERS_SHIFT)) - 1;
+
+/// Packs render layers into light flags.
+///
+/// We reserve the lower bits for light feature flags. If layers outside the
+/// packed range are used, we fall back to `all bits set` to preserve behavior.
+fn render_layers_to_light_mask(render_layers: &RenderLayers) -> u32 {
+    let bits = render_layers.bits();
+    let low_bits = bits.first().copied().unwrap_or_default();
+    let unsupported_bits = (low_bits >> (u32::BITS - LIGHT_RENDER_LAYERS_SHIFT)) != 0
+        || bits.iter().skip(1).any(|&extra_bits| extra_bits != 0);
+
+    if unsupported_bits {
+        LIGHT_RENDER_LAYERS_MASK
+    } else {
+        (low_bits as u32) & LIGHT_RENDER_LAYERS_MASK
     }
 }
 
@@ -300,6 +323,7 @@ pub fn extract_lights(
                 &GlobalTransform,
                 &ViewVisibility,
                 &CubemapFrusta,
+                Option<&RenderLayers>,
                 Option<&VolumetricLight>,
             ),
             Or<(
@@ -308,6 +332,7 @@ pub fn extract_lights(
                 Changed<GlobalTransform>,
                 Changed<ViewVisibility>,
                 Changed<CubemapFrusta>,
+                Changed<RenderLayers>,
                 Changed<VolumetricLight>,
             )>,
         >,
@@ -322,6 +347,7 @@ pub fn extract_lights(
                 &GlobalTransform,
                 &ViewVisibility,
                 &Frustum,
+                Option<&RenderLayers>,
                 Option<&VolumetricLight>,
             ),
             Or<(
@@ -330,6 +356,7 @@ pub fn extract_lights(
                 Changed<GlobalTransform>,
                 Changed<ViewVisibility>,
                 Changed<Frustum>,
+                Changed<RenderLayers>,
                 Changed<VolumetricLight>,
             )>,
         >,
@@ -413,6 +440,7 @@ pub fn extract_lights(
         transform,
         view_visibility,
         frusta,
+        maybe_layers,
         volumetric_light,
     ) in point_lights.iter()
     {
@@ -462,6 +490,7 @@ pub fn extract_lights(
                 * core::f32::consts::SQRT_2,
             shadow_map_near_z: point_light.shadow_map_near_z,
             spot_light_angles: None,
+            render_layers: maybe_layers.unwrap_or_default().clone(),
             volumetric: volumetric_light.is_some(),
             affects_lightmapped_mesh_diffuse: point_light.affects_lightmapped_mesh_diffuse,
             #[cfg(feature = "experimental_pbr_pcss")]
@@ -490,6 +519,7 @@ pub fn extract_lights(
         transform,
         view_visibility,
         frustum,
+        maybe_layers,
         volumetric_light,
     ) in spot_lights.iter()
     {
@@ -538,6 +568,7 @@ pub fn extract_lights(
                         * core::f32::consts::SQRT_2,
                     shadow_map_near_z: spot_light.shadow_map_near_z,
                     spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+                    render_layers: maybe_layers.unwrap_or_default().clone(),
                     volumetric: volumetric_light.is_some(),
                     affects_lightmapped_mesh_diffuse: spot_light.affects_lightmapped_mesh_diffuse,
                     #[cfg(feature = "experimental_pbr_pcss")]
@@ -1005,6 +1036,8 @@ pub fn prepare_lights(
 
     for (index, &(entity, _, light, _)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
+        let render_layers_mask = render_layers_to_light_mask(&light.render_layers);
+        flags |= PointLightFlags::from_bits_retain(render_layers_mask << LIGHT_RENDER_LAYERS_SHIFT);
 
         // Lights are sorted, shadow enabled lights are first
         if light.shadow_maps_enabled
@@ -1298,6 +1331,9 @@ pub fn prepare_lights(
             num_directional_lights_for_this_view += 1;
 
             let mut flags = DirectionalLightFlags::NONE;
+            let render_layers_mask = render_layers_to_light_mask(&light.render_layers);
+            flags |=
+                DirectionalLightFlags::from_bits_retain(render_layers_mask << LIGHT_RENDER_LAYERS_SHIFT);
 
             // Lights are sorted, volumetric and shadow enabled lights are first
             if light.volumetric
@@ -1904,12 +1940,27 @@ pub(crate) struct SpecializeShadowsSystemParam<'w, 's> {
     render_lightmaps: Res<'w, RenderLightmaps>,
     view_lights: Query<'w, 's, (Entity, &'static ViewLightEntities), With<ExtractedView>>,
     view_light_entities: Query<'w, 's, (&'static LightEntity, &'static ExtractedView)>,
-    point_light_entities:
-        Query<'w, 's, &'static RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
-    directional_light_entities:
-        Query<'w, 's, &'static RenderCascadesVisibleEntities, With<ExtractedDirectionalLight>>,
-    spot_light_entities:
-        Query<'w, 's, &'static RenderVisibleMeshEntities, With<ExtractedPointLight>>,
+    point_light_entities: Query<
+        'w,
+        's,
+        (&'static RenderCubemapVisibleEntities, &'static ExtractedPointLight),
+        With<ExtractedPointLight>,
+    >,
+    directional_light_entities: Query<
+        'w,
+        's,
+        (
+            &'static RenderCascadesVisibleEntities,
+            &'static ExtractedDirectionalLight,
+        ),
+        With<ExtractedDirectionalLight>,
+    >,
+    spot_light_entities: Query<
+        'w,
+        's,
+        (&'static RenderVisibleMeshEntities, &'static ExtractedPointLight),
+        With<ExtractedPointLight>,
+    >,
     light_key_cache: Res<'w, LightKeyCache>,
     specialized_shadow_material_pipeline_cache: ResMut<'w, SpecializedShadowMaterialPipelineCache>,
     pending_shadow_queues: ResMut<'w, PendingShadowQueues>,
@@ -1963,28 +2014,41 @@ pub(crate) fn specialize_shadows(
                     continue;
                 };
 
-                let visible_entities = match light_entity {
+                let (visible_entities, light_render_layers) = match light_entity {
                     LightEntity::Directional {
                         light_entity,
                         cascade_index,
-                    } => directional_light_entities
-                        .get(*light_entity)
-                        .expect("Failed to get directional light visible entities")
-                        .entities
-                        .get(&entity)
-                        .expect("Failed to get directional light visible entities for view")
-                        .get(*cascade_index)
-                        .expect("Failed to get directional light visible entities for cascade"),
+                    } => {
+                        let (visible_entities, light) = directional_light_entities
+                            .get(*light_entity)
+                            .expect("Failed to get directional light visible entities");
+                        (
+                            visible_entities
+                                .entities
+                                .get(&entity)
+                                .expect("Failed to get directional light visible entities for view")
+                                .get(*cascade_index)
+                                .expect(
+                                    "Failed to get directional light visible entities for cascade",
+                                ),
+                            &light.render_layers,
+                        )
+                    }
                     LightEntity::Point {
                         light_entity,
                         face_index,
-                    } => point_light_entities
-                        .get(*light_entity)
-                        .expect("Failed to get point light visible entities")
-                        .get(*face_index),
-                    LightEntity::Spot { light_entity } => spot_light_entities
-                        .get(*light_entity)
-                        .expect("Failed to get spot light visible entities"),
+                    } => {
+                        let (visible_entities, light) = point_light_entities
+                            .get(*light_entity)
+                            .expect("Failed to get point light visible entities");
+                        (visible_entities.get(*face_index), &light.render_layers)
+                    }
+                    LightEntity::Spot { light_entity } => {
+                        let (visible_entities, light) = spot_light_entities
+                            .get(*light_entity)
+                            .expect("Failed to get spot light visible entities");
+                        (visible_entities, &light.render_layers)
+                    }
                 };
 
                 let mut maybe_specialized_shadow_material_pipeline_cache =
@@ -2069,6 +2133,10 @@ pub(crate) fn specialize_shadows(
                         .flags()
                         .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                     {
+                        continue;
+                    }
+                    let mesh_layers = mesh_instance.render_layers.as_ref().unwrap_or_default();
+                    if !light_render_layers.intersects(mesh_layers) {
                         continue;
                     }
                     let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
@@ -2178,12 +2246,14 @@ pub fn queue_shadows(
     mesh_allocator: Res<MeshAllocator>,
     view_lights: Query<(Entity, &ViewLightEntities, Option<&RenderLayers>), With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
-    point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
+    point_light_entities:
+        Query<(&RenderCubemapVisibleEntities, &ExtractedPointLight), With<ExtractedPointLight>>,
     directional_light_entities: Query<
-        &RenderCascadesVisibleEntities,
+        (&RenderCascadesVisibleEntities, &ExtractedDirectionalLight),
         With<ExtractedDirectionalLight>,
     >,
-    spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
+    spot_light_entities:
+        Query<(&RenderVisibleMeshEntities, &ExtractedPointLight), With<ExtractedPointLight>>,
     specialized_material_pipeline_cache: Res<SpecializedShadowMaterialPipelineCache>,
     mut pending_shadow_queues: ResMut<PendingShadowQueues>,
     dirty_specializations: Res<DirtySpecializations>,
@@ -2214,28 +2284,41 @@ pub fn queue_shadows(
                     "View pending shadow queues should have been created in `specialize_shadows`",
                 );
 
-            let visible_entities = match light_entity {
+            let (visible_entities, light_render_layers) = match light_entity {
                 LightEntity::Directional {
                     light_entity,
                     cascade_index,
-                } => directional_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get directional light visible entities")
-                    .entities
-                    .get(&entity)
-                    .expect("Failed to get directional light visible entities for view")
-                    .get(*cascade_index)
-                    .expect("Failed to get directional light visible entities for cascade"),
+                } => {
+                    let (visible_entities, light) = directional_light_entities
+                        .get(*light_entity)
+                        .expect("Failed to get directional light visible entities");
+                    (
+                        visible_entities
+                            .entities
+                            .get(&entity)
+                            .expect("Failed to get directional light visible entities for view")
+                            .get(*cascade_index)
+                            .expect(
+                                "Failed to get directional light visible entities for cascade",
+                            ),
+                        &light.render_layers,
+                    )
+                }
                 LightEntity::Point {
                     light_entity,
                     face_index,
-                } => point_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get point light visible entities")
-                    .get(*face_index),
-                LightEntity::Spot { light_entity } => spot_light_entities
-                    .get(*light_entity)
-                    .expect("Failed to get spot light visible entities"),
+                } => {
+                    let (visible_entities, light) = point_light_entities
+                        .get(*light_entity)
+                        .expect("Failed to get point light visible entities");
+                    (visible_entities.get(*face_index), &light.render_layers)
+                }
+                LightEntity::Spot { light_entity } => {
+                    let (visible_entities, light) = spot_light_entities
+                        .get(*light_entity)
+                        .expect("Failed to get spot light visible entities");
+                    (visible_entities, &light.render_layers)
+                }
             };
 
             // First, remove meshes that need to be respecialized, and those that were removed, from the bins.
@@ -2277,7 +2360,9 @@ pub fn queue_shadows(
 
                 let mesh_layers = mesh_instance.render_layers.as_ref().unwrap_or_default();
                 let camera_layers = camera_layers.unwrap_or_default();
-                if !camera_layers.intersects(mesh_layers) {
+                if !camera_layers.intersects(mesh_layers)
+                    || !light_render_layers.intersects(mesh_layers)
+                {
                     continue;
                 }
 

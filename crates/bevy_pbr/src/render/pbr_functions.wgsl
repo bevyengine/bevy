@@ -63,6 +63,15 @@ const DITHER_THRESHOLD_MAP: vec4<u32> = vec4(
     0x050d070f
 );
 
+fn light_layer_mask_from_flags(flags: u32) -> u32 {
+    return (flags >> mesh_view_types::LIGHT_RENDER_LAYERS_SHIFT) &
+        mesh_view_types::LIGHT_RENDER_LAYERS_MASK;
+}
+
+fn mesh_and_light_layers_intersect(mesh_layers: u32, light_flags: u32) -> bool {
+    return (mesh_layers & light_layer_mask_from_flags(light_flags)) != 0u;
+}
+
 // Processes a visibility range dither value and discards the fragment if
 // needed.
 //
@@ -459,6 +468,11 @@ fn apply_pbr_lighting(
             i < clusterable_object_index_ranges.first_spot_light_index_offset;
             i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
+        if !mesh_and_light_layers_intersect(
+                in.render_layers,
+                view_bindings::clustered_lights.data[light_id].flags) {
+            continue;
+        }
 
         // If we're lightmapped, disable diffuse contribution from the light if
         // requested, to avoid double-counting light.
@@ -515,6 +529,11 @@ fn apply_pbr_lighting(
             i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
             i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
+        if !mesh_and_light_layers_intersect(
+                in.render_layers,
+                view_bindings::clustered_lights.data[light_id].flags) {
+            continue;
+        }
 
         // If we're lightmapped, disable diffuse contribution from the light if
         // requested, to avoid double-counting light.
@@ -585,6 +604,9 @@ fn apply_pbr_lighting(
         // check if this light should be skipped, which occurs if this light does not intersect with the view
         // note point and spot lights aren't skippable, as the relevant lights are filtered in `assign_lights_to_clusters`
         let light = &view_bindings::lights.directional_lights[i];
+        if !mesh_and_light_layers_intersect(in.render_layers, (*light).flags) {
+            continue;
+        }
 
         // If we're lightmapped, disable diffuse contribution from the light if
         // requested, to avoid double-counting light.
@@ -851,6 +873,7 @@ fn apply_fog(
     fragment_world_position: vec3<f32>,
     view_world_position: vec3<f32>,
     frag_coord_xy: vec2<f32>,
+    render_layers: u32,
 ) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
@@ -874,6 +897,9 @@ fn apply_fog(
         let n_directional_lights = view_bindings::lights.n_directional_lights;
         for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
             let light = view_bindings::lights.directional_lights[i];
+            if !mesh_and_light_layers_intersect(render_layers, light.flags) {
+                continue;
+            }
             let scattering_contribution = pow(
                 max(
                     dot(view_to_world_normalized, light.direction_to_light),
@@ -974,6 +1000,7 @@ fn main_pass_post_lighting_processing(
             pbr_input.world_position.xyz,
             view_bindings::view.world_position.xyz,
             pbr_input.frag_coord.xy,
+            pbr_input.render_layers,
         );
     }
 #endif  // DISTANCE_FOG

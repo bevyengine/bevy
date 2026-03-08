@@ -92,6 +92,7 @@ struct VertexOutput {
     ddy_uv: vec2<f32>,
     world_tangent: vec4<f32>,
     mesh_flags: u32,
+    render_layers: u32,
     cluster_id: u32,
     material_bind_group_slot: u32,
 #ifdef PREPASS_FRAGMENT
@@ -172,6 +173,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
         ddy_uv,
         world_tangent,
         instance_uniform.flags,
+        instance_uniform.render_layers,
         instance_id ^ meshlet_id,
         instance_uniform.material_and_lightmap_bind_group_slot & 0xffffu,
 #ifdef PREPASS_FRAGMENT

@@ -42,8 +42,10 @@ fn pbr_input_from_vertex_output(
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
     pbr_input.flags = in.mesh_flags;
+    pbr_input.render_layers = in.render_layers;
 #else
     pbr_input.flags = mesh[in.instance_index].flags;
+    pbr_input.render_layers = mesh[in.instance_index].render_layers;
 #endif
 
     pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
