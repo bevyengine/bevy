@@ -980,7 +980,8 @@ impl AssetServer {
     /// Queues a new asset to be tracked by the [`AssetServer`] and returns a [`Handle`] to it. This can be used to track
     /// dependencies of assets created at runtime.
     ///
-    /// After the asset has been fully loaded by the [`AssetServer`], it will show up in the relevant asset entity.
+    /// After the asset has been fully loaded by the [`AssetServer`], it will show up in the
+    /// [`AssetData`](crate::AssetData) component on relevant asset entity.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn add<A: Asset>(&self, asset: A) -> Handle<A> {
         self.load_asset(LoadedAsset::new_with_dependencies(asset))

@@ -215,6 +215,9 @@ pub struct LoadedUntypedAsset {
     pub handle: UntypedHandle,
 }
 
+/// Initializes the entity for `handle` with the minimum it needs to be considered an asset.
+///
+/// Importantly, this omits inserting any asset data - use [`insert_asset`] for that.
 pub(crate) fn setup_asset(
     world: &mut World,
     handle: &Arc<StrongHandle>,
@@ -226,6 +229,7 @@ pub(crate) fn setup_asset(
     Ok(())
 }
 
+/// Inserts [`AssetData`] holding `asset` onto `entity`.
 pub(crate) fn insert_asset<A: Asset>(
     world: &mut World,
     entity: AssetEntity,

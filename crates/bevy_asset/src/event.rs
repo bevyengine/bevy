@@ -167,6 +167,7 @@ impl AssetEventUnusedWriters {
     }
 }
 
+/// The provided asset type could not be found.
 #[derive(Error, Debug)]
 #[error("Failed to find asset type {0:?}")]
 pub(crate) struct MissingAssetTypeError(pub(crate) TypeId);
