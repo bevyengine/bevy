@@ -4748,6 +4748,7 @@ wasm = false
 name = "custom_phase_item"
 path = "examples/shader_advanced/custom_phase_item.rs"
 doc-scrape-examples = true
+required-features = ["shader_format_wesl"]
 
 [package.metadata.example.custom_phase_item]
 name = "Custom phase item"

@@ -321,7 +321,7 @@ struct CustomPhasePipeline {
 impl FromWorld for CustomPhasePipeline {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        let shader = asset_server.load("shaders/custom_phase_item.wgsl");
+        let shader = asset_server.load("shaders/custom_phase_item.wesl");
 
         let base_descriptor = RenderPipelineDescriptor {
             label: Some("custom render pipeline".into()),
