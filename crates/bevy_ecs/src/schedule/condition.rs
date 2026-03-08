@@ -819,7 +819,6 @@ pub mod common_conditions {
         }
     }
 
-
     /// Generates a [`SystemCondition`]-satisfying closure that returns `true`
     /// if the resource exists and satisfies a closure.
     ///
@@ -856,7 +855,9 @@ pub mod common_conditions {
     /// assert_eq!(world.resource::<Counter>().0, 7);
     /// ```
 
-    pub fn resource_exists_and<T>(condition: impl Fn(&T) -> bool) -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_exists_and<T>(
+        condition: impl Fn(&T) -> bool,
+    ) -> impl FnMut(Option<Res<T>>) -> bool
     where
         T: Resource,
     {
