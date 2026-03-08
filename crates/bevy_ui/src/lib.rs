@@ -9,6 +9,28 @@
 //! # Basic usage
 //! Spawn UI elements with [`widget::Button`], [`ImageNode`](widget::ImageNode), [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
+//!
+//! # Composition patterns
+//! UI layout is easiest to reason about when each entity has a single leaf content role:
+//! - one entity with [`Text`](prelude::Text),
+//! - or one entity with [`ImageNode`](widget::ImageNode),
+//! - or one entity with [`widget::ViewportNode`].
+//!
+//! Use parent/child nodes to combine them:
+//! ```no_run
+//! # use bevy::prelude::*;
+//! fn setup(mut commands: Commands) {
+//!     commands
+//!         .spawn(Node::default()) // parent layout node
+//!         .with_children(|parent| {
+//!             parent.spawn(Text::new("Title"));
+//!             parent.spawn(ImageNode::default());
+//!         });
+//! }
+//! ```
+//!
+//! Avoid placing multiple leaf content components (for example, `Text` + `ImageNode`) on one
+//! entity. Compose with child entities instead.
 
 pub mod auto_directional_navigation;
 pub mod interaction_states;

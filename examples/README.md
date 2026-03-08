@@ -577,6 +577,11 @@ Example | Description
 
 ### UI (User Interface)
 
+Composition tip:
+- Use one leaf content component (`Text`, `ImageNode`, or `ViewportNode`) per entity.
+- Compose mixed content through parent/child nodes instead of combining multiple leaf types on one entity.
+- Useful references: [Text](../examples/ui/text/text.rs), [Image Node](../examples/ui/images/image_node.rs), `examples/ui/layout/custom_measure.rs` (from PR-1), and [Flex Layout](../examples/ui/layout/flex_layout.rs).
+
 Example | Description
 --- | ---
 [Anchor Layout](../examples/ui/layout/anchor_layout.rs) | Shows an 'anchor layout' style of ui layout
