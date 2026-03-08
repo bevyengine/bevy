@@ -835,7 +835,7 @@ pub mod common_conditions {
     /// app.add_systems(
     ///     // `resource_exists_and_equals` will only return true
     ///     // if the given resource exists and satisfies the given condition
-    ///     my_system.run_if(resource_exists_and_equals(|counter: &Counter| Counter.0.is_negative())),
+    ///     my_system.run_if(resource_exists_and_equals(|counter: &Counter| counter.0.is_negative())),
     /// );
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
