@@ -70,7 +70,6 @@ pub(crate) struct AssetServerData {
     asset_event_sender: Sender<InternalAssetEvent>,
     asset_event_receiver: Receiver<InternalAssetEvent>,
     sources: Arc<AssetSources>,
-    mode: AssetServerMode,
     meta_check: AssetMetaCheck,
     unapproved_path_mode: UnapprovedPathMode,
 }
@@ -92,14 +91,12 @@ impl AssetServer {
     /// asset sources and hot-reload them.
     pub fn new(
         sources: Arc<AssetSources>,
-        mode: AssetServerMode,
         watching_for_changes: bool,
         unapproved_path_mode: UnapprovedPathMode,
     ) -> Self {
         Self::new_with_loaders(
             sources,
             Default::default(),
-            mode,
             AssetMetaCheck::Always,
             watching_for_changes,
             unapproved_path_mode,
@@ -110,7 +107,6 @@ impl AssetServer {
     /// asset sources and hot-reload them.
     pub fn new_with_meta_check(
         sources: Arc<AssetSources>,
-        mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
         unapproved_path_mode: UnapprovedPathMode,
@@ -118,7 +114,6 @@ impl AssetServer {
         Self::new_with_loaders(
             sources,
             Default::default(),
-            mode,
             meta_check,
             watching_for_changes,
             unapproved_path_mode,
@@ -128,7 +123,6 @@ impl AssetServer {
     pub(crate) fn new_with_loaders(
         sources: Arc<AssetSources>,
         loaders: Arc<RwLock<AssetLoaders>>,
-        mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
         unapproved_path_mode: UnapprovedPathMode,
@@ -139,7 +133,6 @@ impl AssetServer {
         Self {
             data: Arc::new(AssetServerData {
                 sources,
-                mode,
                 meta_check,
                 asset_event_sender,
                 asset_event_receiver,
@@ -1143,33 +1136,29 @@ impl AssetServer {
                     return;
                 };
 
-                let asset_reader = match server.data.mode {
-                    AssetServerMode::Unprocessed => source.reader(),
-                    AssetServerMode::Processed => match source.processed_reader() {
-                        Ok(reader) => reader,
-                        Err(_) => {
-                            error!(
-                                "Failed to load {path}. AssetSource {} does not have a processed AssetReader",
-                                path.source()
-                            );
-                            return;
-                        }
-                    },
-                };
-
                 let mut handles = Vec::new();
-                match load_folder(source.id(), path.path(), asset_reader, &server, &mut handles).await {
+                match load_folder(
+                    source.id(),
+                    path.path(),
+                    source.reader(),
+                    &server,
+                    &mut handles,
+                )
+                .await
+                {
                     Ok(_) => server.send_asset_event(InternalAssetEvent::Loaded {
                         index,
-                        loaded_asset: LoadedAsset::new_with_dependencies(
-                            LoadedFolder { handles },
-                        )
-                        .into(),
+                        loaded_asset: LoadedAsset::new_with_dependencies(LoadedFolder { handles })
+                            .into(),
                     }),
                     Err(err) => {
                         error!("Failed to load folder. {err}");
-                        server.send_asset_event(InternalAssetEvent::Failed { index, error: err, path });
-                    },
+                        server.send_asset_event(InternalAssetEvent::Failed {
+                            index,
+                            error: err,
+                            path,
+                        });
+                    }
                 }
             })
             .detach();
@@ -1406,11 +1395,6 @@ impl AssetServer {
         Some(info.path.as_ref()?.clone())
     }
 
-    /// Returns the [`AssetServerMode`] this server is currently in.
-    pub fn mode(&self) -> AssetServerMode {
-        self.data.mode
-    }
-
     /// Pre-register a loader that will later be added.
     ///
     /// Assets loaded with matching extensions will be blocked until the
@@ -1468,10 +1452,7 @@ impl AssetServer {
         AssetLoadError,
     > {
         let source = self.get_source(asset_path.source())?;
-        let asset_reader = match self.data.mode {
-            AssetServerMode::Unprocessed => source.reader(),
-            AssetServerMode::Processed => source.processed_reader()?,
-        };
+        let asset_reader = source.reader();
         let read_meta = match &self.data.meta_check {
             AssetMetaCheck::Always => true,
             AssetMetaCheck::Paths(paths) => paths.contains(asset_path),
@@ -1899,20 +1880,9 @@ pub fn handle_internal_asset_events(world: &mut World) {
         };
 
         for source in server.data.sources.iter() {
-            match server.data.mode {
-                AssetServerMode::Unprocessed => {
-                    if let Some(receiver) = source.event_receiver() {
-                        while let Ok(event) = receiver.try_recv() {
-                            handle_event(source.id(), event);
-                        }
-                    }
-                }
-                AssetServerMode::Processed => {
-                    if let Some(receiver) = source.processed_event_receiver() {
-                        while let Ok(event) = receiver.try_recv() {
-                            handle_event(source.id(), event);
-                        }
-                    }
+            if let Some(receiver) = source.event_receiver() {
+                while let Ok(event) = receiver.try_recv() {
+                    handle_event(source.id(), event);
                 }
             }
         }

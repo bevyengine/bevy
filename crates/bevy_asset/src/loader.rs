@@ -3,8 +3,8 @@ use crate::{
     loader_builders::{Deferred, NestedLoader, StaticTyped},
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfo, ProcessedInfoMinimal, Settings},
     path::AssetPath,
-    Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
-    Handle, UntypedAssetId, UntypedHandle,
+    Asset, AssetIndex, AssetLoadError, AssetServer, Assets, ErasedAssetIndex, Handle,
+    UntypedAssetId, UntypedHandle,
 };
 use alloc::{boxed::Box, string::ToString, vec::Vec};
 use atomicow::CowArc;
@@ -573,10 +573,7 @@ impl<'a> LoadContext<'a> {
     ) -> Result<Vec<u8>, ReadAssetBytesError> {
         let path = path.into();
         let source = self.asset_server.get_source(path.source())?;
-        let asset_reader = match self.asset_server.mode() {
-            AssetServerMode::Unprocessed => source.reader(),
-            AssetServerMode::Processed => source.processed_reader()?,
-        };
+        let asset_reader = source.reader();
         let mut reader = asset_reader.read(path.path()).await?;
         let hash = if self.populate_hashes {
             // NOTE: ensure meta is read while the asset bytes reader is still active to ensure transactionality

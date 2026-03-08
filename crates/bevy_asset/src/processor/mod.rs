@@ -41,19 +41,21 @@ mod log;
 mod process;
 
 use async_lock::RwLockReadGuardArc;
+use atomicow::CowArc;
 pub use log::*;
 pub use process::*;
 
 use crate::{
     io::{
         AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
-        AssetSources, AssetWriterError, ErasedAssetReader, MissingAssetSourceError,
+        AssetSources, AssetWriterError, ErasedAssetReader, ErasedAssetWriter,
+        MissingAssetSourceError, MissingAssetWriterError,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
         AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
-    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
+    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, DeserializeMetaError,
     MissingAssetLoaderForExtensionError, UnapprovedPathMode, WriteDefaultMetaError,
 };
 use alloc::{borrow::ToOwned, boxed::Box, string::String, sync::Arc, vec, vec::Vec};
@@ -110,10 +112,12 @@ pub struct AssetProcessorData {
     /// this once, and before the asset processor starts - there is no reason to await (and it
     /// avoids needing to use [`block_on`](bevy_tasks::block_on) to set the factory).
     log_factory: Mutex<Option<Box<dyn ProcessorTransactionLogFactory>>>,
+    /// The transaction log for recording the state of individual processing tasks.
     log: async_lock::RwLock<Option<Box<dyn ProcessorTransactionLog>>>,
     /// The processors that will be used to process assets.
     processors: RwLock<Processors>,
-    sources: Arc<AssetSources>,
+    /// The sources being processed.
+    sources: ProcessedSources,
 }
 
 /// The current state of processing, including the overall state and the state of all assets.
@@ -155,27 +159,126 @@ enum ShortTypeProcessorEntry {
     Ambiguous(Vec<&'static str>),
 }
 
+/// The set of sources being processed.
+#[derive(Default)]
+struct ProcessedSources {
+    /// The default source.
+    default: Option<ProcessedSource>,
+    /// The named sources.
+    named: HashMap<CowArc<'static, str>, ProcessedSource>,
+}
+
+impl ProcessedSources {
+    /// Gets the source with the given `id`.
+    fn get_source(
+        &self,
+        id: &AssetSourceId<'static>,
+    ) -> Result<&ProcessedSource, MissingAssetSourceError> {
+        match id {
+            AssetSourceId::Default => self
+                .default
+                .as_ref()
+                .ok_or_else(|| MissingAssetSourceError(id.clone())),
+            AssetSourceId::Name(name) => self
+                .named
+                .get(name)
+                .ok_or_else(|| MissingAssetSourceError(id.clone())),
+        }
+    }
+
+    /// Iterates through all sources being processed.
+    fn iter(&self) -> impl Iterator<Item = (AssetSourceId<'static>, &ProcessedSource)> {
+        self.default
+            .as_ref()
+            .map(|source| (AssetSourceId::Default, source))
+            .into_iter()
+            .chain(
+                self.named
+                    .iter()
+                    .map(|(name, source)| (AssetSourceId::Name(name.clone()), source)),
+            )
+    }
+
+    /// Inserts the `source` with the given `id`.
+    fn insert(&mut self, id: AssetSourceId<'static>, source: ProcessedSource) {
+        match id {
+            AssetSourceId::Default => {
+                self.default = Some(source);
+            }
+            AssetSourceId::Name(name) => {
+                self.named.insert(name, source);
+            }
+        }
+    }
+}
+
+/// A single processed source.
+struct ProcessedSource {
+    /// The unprocessed source, where the original unprocessed assets are read from.
+    unprocessed_source: AssetSource,
+    /// The ungated reader for the processed source.
+    ///
+    /// This is not gated on the processor, so that the processor can actually read the current
+    /// state without being blocked on itself.
+    ungated_processed_reader: Arc<dyn ErasedAssetReader>,
+    /// The processed source, where the processed assets are written to.
+    processed_writer: Box<dyn ErasedAssetWriter>,
+}
+
+impl ProcessedSource {
+    fn unprocessed_reader(&self) -> &dyn ErasedAssetReader {
+        self.unprocessed_source.reader()
+    }
+
+    fn unprocessed_writer(&self) -> Result<&dyn ErasedAssetWriter, MissingAssetWriterError> {
+        self.unprocessed_source.writer()
+    }
+
+    fn unprocessed_event_receiver(&self) -> Option<&async_channel::Receiver<AssetSourceEvent>> {
+        self.unprocessed_source.event_receiver()
+    }
+
+    fn processed_reader(&self) -> &dyn ErasedAssetReader {
+        self.ungated_processed_reader.as_ref()
+    }
+
+    fn processed_writer(&self) -> &dyn ErasedAssetWriter {
+        self.processed_writer.as_ref()
+    }
+}
+
 impl AssetProcessor {
     /// Creates a new [`AssetProcessor`] instance.
     pub fn new(
-        sources: &mut AssetSourceBuilders,
+        unprocessed_sources: &mut AssetSourceBuilders,
+        final_sources: &mut AssetSourceBuilders,
         watch_processed: bool,
     ) -> (Self, Arc<AssetSources>) {
         let state = Arc::new(ProcessingState::new());
-        let mut sources = sources.build_sources(true, watch_processed);
-        sources.gate_on_processor(state.clone());
-        let sources = Arc::new(sources);
 
-        let data = Arc::new(AssetProcessorData::new(sources.clone(), state));
+        let unprocessed_sources = unprocessed_sources.build_unprocessed_sources();
+        // TODO: It would be nice if we didn't need an additional "gating" step - we should just
+        // create the asset source gated. But currently we need an additional `build_sources` step,
+        // so we need to gate after the fact.
+        let mut final_sources =
+            final_sources.build_sources(watch_processed, /*create_root_for_writer=*/ true);
+        let ungated_processed_readers_and_writers =
+            final_sources.gate_on_processor(&unprocessed_sources, state.clone());
+        let final_sources = Arc::new(final_sources);
+
+        let data = Arc::new(AssetProcessorData::new(
+            unprocessed_sources,
+            ungated_processed_readers_and_writers,
+            state,
+        ));
         // The asset processor uses its own asset server with its own id space
         let server = AssetServer::new_with_meta_check(
-            sources.clone(),
-            AssetServerMode::Processed,
+            final_sources.clone(),
             AssetMetaCheck::Always,
             false,
             UnapprovedPathMode::default(),
         );
-        (Self { server, data }, sources)
+        (Self { server, data }, final_sources)
     }
 
     /// Gets a reference to the [`Arc`] containing the [`AssetProcessorData`].
@@ -192,20 +295,6 @@ impl AssetProcessor {
     /// Retrieves the current [`ProcessorState`]
     pub async fn get_state(&self) -> ProcessorState {
         self.data.processing_state.get_state().await
-    }
-
-    /// Retrieves the [`AssetSource`] for this processor
-    #[inline]
-    pub fn get_source<'a>(
-        &self,
-        id: impl Into<AssetSourceId<'a>>,
-    ) -> Result<&AssetSource, MissingAssetSourceError> {
-        self.data.sources.get(id.into())
-    }
-
-    #[inline]
-    pub fn sources(&self) -> &AssetSources {
-        &self.data.sources
     }
 
     /// Logs an unrecoverable error. On the next run of the processor, all assets will be regenerated. This should only be used as a last resort.
@@ -294,8 +383,8 @@ impl AssetProcessor {
         &self,
         sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
-        for source in self.sources().iter_processed() {
-            self.queue_processing_tasks_for_folder(source, PathBuf::from(""), sender)
+        for (id, source) in self.data.sources.iter() {
+            self.queue_processing_tasks_for_folder(&id, source, PathBuf::from(""), sender)
                 .await
                 .unwrap();
         }
@@ -307,21 +396,20 @@ impl AssetProcessor {
         &self,
         sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
-        for source in self.data.sources.iter_processed() {
-            let Some(receiver) = source.event_receiver().cloned() else {
+        for (id, source) in self.data.sources.iter() {
+            let Some(receiver) = source.unprocessed_event_receiver().cloned() else {
                 continue;
             };
-            let source_id = source.id();
             let processor = self.clone();
             let sender = sender.clone();
             IoTaskPool::get()
                 .spawn(async move {
                     while let Ok(event) = receiver.recv().await {
-                        let Ok(source) = processor.get_source(source_id.clone()) else {
+                        let Ok(source) = processor.data.sources.get_source(&id) else {
                             return;
                         };
                         processor
-                            .handle_asset_source_event(source, event, &sender)
+                            .handle_asset_source_event(&id, source, event, &sender)
                             .await;
                     }
                 })
@@ -394,10 +482,12 @@ impl AssetProcessor {
                     pending_tasks += 1;
                     IoTaskPool::get()
                         .spawn(async move {
-                            let Ok(source) = processor.get_source(source_id) else {
+                            let Ok(source) = processor.data.sources.get_source(&source_id) else {
                                 return;
                             };
-                            processor.process_asset(source, path, new_task_sender).await;
+                            processor
+                                .process_asset(&source_id, source, path, new_task_sender)
+                                .await;
                             // If the channel gets closed, that's ok. Just ignore it.
                             let _ = task_finished_sender.send(()).await;
                         })
@@ -456,12 +546,12 @@ impl AssetProcessor {
         let meta = processor.default_meta(processor_path_kind);
         let serialized_meta = meta.serialize();
 
-        let source = self.get_source(path.source())?;
+        let source = self.data.sources.get_source(&path.source().clone_owned())?;
 
         // Note: we get the reader rather than the processed reader, since we want to write the meta
         // file for the unprocessed version of that asset (so it will be processed by the default
         // processor).
-        let reader = source.reader();
+        let reader = source.unprocessed_reader();
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
             Err(AssetReaderError::NotFound(_)) => {
@@ -475,7 +565,7 @@ impl AssetProcessor {
             }
         }
 
-        let writer = source.writer()?;
+        let writer = source.unprocessed_writer()?;
         writer
             .write_meta_bytes(path.path(), &serialized_meta)
             .await?;
@@ -485,7 +575,8 @@ impl AssetProcessor {
 
     async fn handle_asset_source_event(
         &self,
-        source: &AssetSource,
+        id: &AssetSourceId<'static>,
+        source: &ProcessedSource,
         event: AssetSourceEvent,
         new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
@@ -495,32 +586,31 @@ impl AssetProcessor {
             | AssetSourceEvent::AddedMeta(path)
             | AssetSourceEvent::ModifiedAsset(path)
             | AssetSourceEvent::ModifiedMeta(path) => {
-                let _ = new_task_sender.send((source.id(), path)).await;
+                let _ = new_task_sender.send((id.clone(), path)).await;
             }
             AssetSourceEvent::RemovedAsset(path) => {
-                self.handle_removed_asset(source, path).await;
+                self.handle_removed_asset(id, source, path).await;
             }
             AssetSourceEvent::RemovedMeta(path) => {
-                self.handle_removed_meta(source, path, new_task_sender)
-                    .await;
+                self.handle_removed_meta(id, path, new_task_sender).await;
             }
             AssetSourceEvent::AddedFolder(path) => {
-                self.handle_added_folder(source, path, new_task_sender)
+                self.handle_added_folder(id, source, path, new_task_sender)
                     .await;
             }
             // NOTE: As a heads up for future devs: this event shouldn't be run in parallel with other events that might
             // touch this folder (ex: the folder might be re-created with new assets). Clean up the old state first.
             // Currently this event handler is not parallel, but it could be (and likely should be) in the future.
             AssetSourceEvent::RemovedFolder(path) => {
-                self.handle_removed_folder(source, &path).await;
+                self.handle_removed_folder(id, source, &path).await;
             }
             AssetSourceEvent::RenamedAsset { old, new } => {
                 // If there was a rename event, but the path hasn't changed, this asset might need reprocessing.
                 // Sometimes this event is returned when an asset is moved "back" into the asset folder
                 if old == new {
-                    let _ = new_task_sender.send((source.id(), new)).await;
+                    let _ = new_task_sender.send((id.clone(), new)).await;
                 } else {
-                    self.handle_renamed_asset(source, old, new, new_task_sender)
+                    self.handle_renamed_asset(id, source, old, new, new_task_sender)
                         .await;
                 }
             }
@@ -528,38 +618,39 @@ impl AssetProcessor {
                 // If there was a rename event, but the path hasn't changed, this asset meta might need reprocessing.
                 // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
                 if old == new {
-                    let _ = new_task_sender.send((source.id(), new)).await;
+                    let _ = new_task_sender.send((id.clone(), new)).await;
                 } else {
                     debug!("Meta renamed from {old:?} to {new:?}");
                     // Renaming meta should not assume that an asset has also been renamed. Check both old and new assets to see
                     // if they should be re-imported (and/or have new meta generated)
-                    let _ = new_task_sender.send((source.id(), old)).await;
-                    let _ = new_task_sender.send((source.id(), new)).await;
+                    let _ = new_task_sender.send((id.clone(), old)).await;
+                    let _ = new_task_sender.send((id.clone(), new)).await;
                 }
             }
             AssetSourceEvent::RenamedFolder { old, new } => {
                 // If there was a rename event, but the path hasn't changed, this asset folder might need reprocessing.
                 // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
                 if old == new {
-                    self.handle_added_folder(source, new, new_task_sender).await;
+                    self.handle_added_folder(id, source, new, new_task_sender)
+                        .await;
                 } else {
                     // PERF: this reprocesses everything in the moved folder. this is not necessary in most cases, but
                     // requires some nuance when it comes to path handling.
-                    self.handle_removed_folder(source, &old).await;
-                    self.handle_added_folder(source, new, new_task_sender).await;
+                    self.handle_removed_folder(id, source, &old).await;
+                    self.handle_added_folder(id, source, new, new_task_sender)
+                        .await;
                 }
             }
             AssetSourceEvent::RemovedUnknown { path, is_meta } => {
-                let processed_reader = source.ungated_processed_reader().unwrap();
+                let processed_reader = source.processed_reader();
                 match processed_reader.is_directory(&path).await {
                     Ok(is_directory) => {
                         if is_directory {
-                            self.handle_removed_folder(source, &path).await;
+                            self.handle_removed_folder(id, source, &path).await;
                         } else if is_meta {
-                            self.handle_removed_meta(source, path, new_task_sender)
-                                .await;
+                            self.handle_removed_meta(id, path, new_task_sender).await;
                         } else {
-                            self.handle_removed_asset(source, path).await;
+                            self.handle_removed_asset(id, source, path).await;
                         }
                     }
                     Err(err) => {
@@ -571,14 +662,14 @@ impl AssetProcessor {
                                 error!(
                                     "Path '{}' was removed, but the destination reader could not determine if it \
                                     was a folder or a file due to the following error: {err}",
-                                    AssetPath::from_path(&path).with_source(source.id())
+                                    AssetPath::from_path(&path).with_source(id.clone())
                                 );
                             }
                             AssetReaderError::HttpError(status) => {
                                 error!(
                                     "Path '{}' was removed, but the destination reader could not determine if it \
                                     was a folder or a file due to receiving an unexpected HTTP Status {status}",
-                                    AssetPath::from_path(&path).with_source(source.id())
+                                    AssetPath::from_path(&path).with_source(id.clone())
                                 );
                             }
                         }
@@ -590,15 +681,16 @@ impl AssetProcessor {
 
     async fn handle_added_folder(
         &self,
-        source: &AssetSource,
+        id: &AssetSourceId<'static>,
+        source: &ProcessedSource,
         path: PathBuf,
         new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
         debug!(
             "Folder {} was added. Attempting to re-process",
-            AssetPath::from_path(&path).with_source(source.id())
+            AssetPath::from_path(&path).with_source(id.clone())
         );
-        self.queue_processing_tasks_for_folder(source, path, new_task_sender)
+        self.queue_processing_tasks_for_folder(id, source, path, new_task_sender)
             .await
             .unwrap();
     }
@@ -606,7 +698,7 @@ impl AssetProcessor {
     /// Responds to a removed meta event by reprocessing the asset at the given path.
     async fn handle_removed_meta(
         &self,
-        source: &AssetSource,
+        id: &AssetSourceId<'static>,
         path: PathBuf,
         new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
@@ -616,22 +708,27 @@ impl AssetProcessor {
         // user-initiated action.
         debug!(
             "Meta for asset {} was removed. Attempting to re-process",
-            AssetPath::from_path(&path).with_source(source.id())
+            AssetPath::from_path(&path).with_source(id.clone())
         );
-        let _ = new_task_sender.send((source.id(), path)).await;
+        let _ = new_task_sender.send((id.clone(), path)).await;
     }
 
     /// Removes all processed assets stored at the given path (respecting transactionality), then removes the folder itself.
-    async fn handle_removed_folder(&self, source: &AssetSource, path: &Path) {
+    async fn handle_removed_folder(
+        &self,
+        id: &AssetSourceId<'static>,
+        source: &ProcessedSource,
+        path: &Path,
+    ) {
         debug!(
             "Removing folder {} because source was removed",
             path.display()
         );
-        let processed_reader = source.ungated_processed_reader().unwrap();
+        let processed_reader = source.processed_reader();
         match processed_reader.read_directory(path).await {
             Ok(mut path_stream) => {
                 while let Some(child_path) = path_stream.next().await {
-                    self.handle_removed_asset(source, child_path).await;
+                    self.handle_removed_asset(id, source, child_path).await;
                 }
             }
             Err(err) => match err {
@@ -654,14 +751,14 @@ impl AssetProcessor {
                 }
             },
         }
-        let processed_writer = source.processed_writer().unwrap();
+        let processed_writer = source.processed_writer();
         if let Err(err) = processed_writer.remove_directory(path).await {
             match err {
                 AssetWriterError::Io(err) => {
                     // we can ignore NotFound because if the "final" file in a folder was removed
                     // then we automatically clean up this folder
                     if err.kind() != ErrorKind::NotFound {
-                        let asset_path = AssetPath::from_path(path).with_source(source.id());
+                        let asset_path = AssetPath::from_path(path).with_source(id.clone());
                         error!("Failed to remove destination folder that no longer exists in {asset_path}: {err}");
                     }
                 }
@@ -671,8 +768,13 @@ impl AssetProcessor {
 
     /// Removes the processed version of an asset and associated in-memory metadata. This will block until all existing reads/writes to the
     /// asset have finished, thanks to the `file_transaction_lock`.
-    async fn handle_removed_asset(&self, source: &AssetSource, path: PathBuf) {
-        let asset_path = AssetPath::from(path).with_source(source.id());
+    async fn handle_removed_asset(
+        &self,
+        id: &AssetSourceId<'static>,
+        source: &ProcessedSource,
+        path: PathBuf,
+    ) {
+        let asset_path = AssetPath::from(path).with_source(id.clone());
         debug!("Removing processed {asset_path} because source was removed");
         let lock = {
             // Scope the infos lock so we don't hold up other processing for too long.
@@ -686,22 +788,23 @@ impl AssetProcessor {
         // we must wait for uncontested write access to the asset source to ensure existing
         // readers/writers can finish their operations
         let _write_lock = lock.write();
-        self.remove_processed_asset_and_meta(source, asset_path.path())
-            .await;
+        let writer = source.processed_writer();
+        self.remove_asset_and_meta(writer, asset_path.path()).await;
     }
 
     /// Handles a renamed source asset by moving its processed results to the new location and updating in-memory paths + metadata.
     /// This will cause direct path dependencies to break.
     async fn handle_renamed_asset(
         &self,
-        source: &AssetSource,
+        id: &AssetSourceId<'static>,
+        source: &ProcessedSource,
         old: PathBuf,
         new: PathBuf,
         new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
-        let old = AssetPath::from(old).with_source(source.id());
-        let new = AssetPath::from(new).with_source(source.id());
-        let processed_writer = source.processed_writer().unwrap();
+        let old = AssetPath::from(old).with_source(id.clone());
+        let new = AssetPath::from(new).with_source(id.clone());
+        let processed_writer = source.processed_writer();
         let result = {
             // Scope the infos lock so we don't hold up other processing for too long.
             let mut infos = self.data.processing_state.asset_infos.write().await;
@@ -726,18 +829,19 @@ impl AssetProcessor {
 
     async fn queue_processing_tasks_for_folder(
         &self,
-        source: &AssetSource,
+        id: &AssetSourceId<'static>,
+        source: &ProcessedSource,
         path: PathBuf,
         new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) -> Result<(), AssetReaderError> {
-        if source.reader().is_directory(&path).await? {
-            let mut path_stream = source.reader().read_directory(&path).await?;
+        if source.unprocessed_reader().is_directory(&path).await? {
+            let mut path_stream = source.unprocessed_reader().read_directory(&path).await?;
             while let Some(path) = path_stream.next().await {
-                Box::pin(self.queue_processing_tasks_for_folder(source, path, new_task_sender))
+                Box::pin(self.queue_processing_tasks_for_folder(id, source, path, new_task_sender))
                     .await?;
             }
         } else {
-            let _ = new_task_sender.send((source.id(), path)).await;
+            let _ = new_task_sender.send((id.clone(), path)).await;
         }
         Ok(())
     }
@@ -874,16 +978,14 @@ impl AssetProcessor {
             }
         }
 
-        for source in self.sources().iter_processed() {
-            let Some(processed_reader) = source.ungated_processed_reader() else {
-                continue;
-            };
-            let Ok(processed_writer) = source.processed_writer() else {
-                continue;
-            };
+        for (id, source) in self.data.sources.iter() {
+            let unprocessed_reader = source.unprocessed_reader();
+            let processed_reader = source.processed_reader();
+            let processed_writer = source.processed_writer();
+
             let mut unprocessed_paths = Vec::new();
             get_asset_paths(
-                source.reader(),
+                unprocessed_reader,
                 PathBuf::from(""),
                 &mut unprocessed_paths,
                 None,
@@ -911,12 +1013,12 @@ impl AssetProcessor {
             }
 
             for path in unprocessed_paths {
-                asset_infos.get_or_insert(AssetPath::from(path).with_source(source.id()));
+                asset_infos.get_or_insert(AssetPath::from(path).with_source(id.clone()));
             }
 
             for path in processed_paths {
                 let mut dependencies = Vec::new();
-                let asset_path = AssetPath::from(path).with_source(source.id());
+                let asset_path = AssetPath::from(path).with_source(id.clone());
                 if let Some(info) = asset_infos.get_mut(&asset_path) {
                     match processed_reader.read_meta_bytes(asset_path.path()).await {
                         Ok(meta_bytes) => {
@@ -938,20 +1040,20 @@ impl AssetProcessor {
                                 }
                                 Err(err) => {
                                     trace!("Removing processed data for {asset_path} because meta could not be parsed: {err}");
-                                    self.remove_processed_asset_and_meta(source, asset_path.path())
+                                    self.remove_asset_and_meta(processed_writer, asset_path.path())
                                         .await;
                                 }
                             }
                         }
                         Err(err) => {
                             trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
-                            self.remove_processed_asset_and_meta(source, asset_path.path())
+                            self.remove_asset_and_meta(processed_writer, asset_path.path())
                                 .await;
                         }
                     }
                 } else {
                     trace!("Removing processed data for non-existent asset {asset_path}");
-                    self.remove_processed_asset_and_meta(source, asset_path.path())
+                    self.remove_asset_and_meta(processed_writer, asset_path.path())
                         .await;
                 }
 
@@ -971,20 +1073,19 @@ impl AssetProcessor {
 
     /// Removes the processed version of an asset and its metadata, if it exists. This _is not_ transactional like `remove_processed_asset_transactional`, nor
     /// does it remove existing in-memory metadata.
-    async fn remove_processed_asset_and_meta(&self, source: &AssetSource, path: &Path) {
-        if let Err(err) = source.processed_writer().unwrap().remove(path).await {
+    async fn remove_asset_and_meta(&self, writer: &dyn ErasedAssetWriter, path: &Path) {
+        if let Err(err) = writer.remove(path).await {
             warn!("Failed to remove non-existent asset {path:?}: {err}");
         }
 
-        if let Err(err) = source.processed_writer().unwrap().remove_meta(path).await {
+        if let Err(err) = writer.remove_meta(path).await {
             warn!("Failed to remove non-existent meta {path:?}: {err}");
         }
 
-        self.clean_empty_processed_ancestor_folders(source, path)
-            .await;
+        self.clean_empty_ancestor_folders(writer, path).await;
     }
 
-    async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, path: &Path) {
+    async fn clean_empty_ancestor_folders(&self, writer: &dyn ErasedAssetWriter, path: &Path) {
         // As a safety precaution don't delete absolute paths to avoid deleting folders outside of the destination folder
         if path.is_absolute() {
             error!("Attempted to clean up ancestor folders of an absolute path. This is unsafe so the operation was skipped.");
@@ -994,13 +1095,7 @@ impl AssetProcessor {
             if parent == Path::new("") {
                 break;
             }
-            if source
-                .processed_writer()
-                .unwrap()
-                .remove_empty_directory(parent)
-                .await
-                .is_err()
-            {
+            if writer.remove_empty_directory(parent).await.is_err() {
                 // if we fail to delete a folder, stop walking up the tree
                 break;
             }
@@ -1016,11 +1111,12 @@ impl AssetProcessor {
     /// [`ProcessorGatedReader`]: crate::io::processor_gated::ProcessorGatedReader
     async fn process_asset(
         &self,
-        source: &AssetSource,
+        id: &AssetSourceId<'static>,
+        source: &ProcessedSource,
         path: PathBuf,
         processor_task_event: async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
-        let asset_path = AssetPath::from(path).with_source(source.id());
+        let asset_path = AssetPath::from(path).with_source(id.clone());
         let result = self.process_asset_internal(source, &asset_path).await;
         let mut infos = self.data.processing_state.asset_infos.write().await;
         infos
@@ -1030,14 +1126,14 @@ impl AssetProcessor {
 
     async fn process_asset_internal(
         &self,
-        source: &AssetSource,
+        source: &ProcessedSource,
         asset_path: &AssetPath<'static>,
     ) -> Result<ProcessResult, ProcessError> {
         // TODO: check if already processing to protect against duplicate hot-reload events
         debug!("Processing {}", asset_path);
         let server = &self.server;
         let path = asset_path.path();
-        let reader = source.reader();
+        let reader = source.unprocessed_reader();
 
         let reader_err = |err| ProcessError::AssetReaderError {
             path: asset_path.clone(),
@@ -1101,7 +1197,7 @@ impl AssetProcessor {
             }
         };
 
-        let processed_writer = source.processed_writer()?;
+        let processed_writer = source.processed_writer();
 
         let new_hash = {
             // Create a reader just for computing the hash. Keep this scoped here so that we drop it
@@ -1278,15 +1374,12 @@ impl AssetProcessor {
                                     error!("Failed to remove asset {path:?}: {message}");
                                     state_is_valid = false;
                                 };
-                                let Ok(source) = self.get_source(path.source()) else {
-                                    unrecoverable_err(&"AssetSource does not exist");
-                                    continue;
-                                };
-                                let Ok(processed_writer) = source.processed_writer() else {
-                                    unrecoverable_err(&"AssetSource does not have a processed AssetWriter registered");
+                                let Ok(source) = self.data.sources.get_source(path.source()) else {
+                                    unrecoverable_err(&"Processed asset source does not exist");
                                     continue;
                                 };
 
+                                let processed_writer = source.processed_writer();
                                 if let Err(err) = processed_writer.remove(path.path()).await {
                                     match err {
                                         AssetWriterError::Io(err) => {
@@ -1316,11 +1409,9 @@ impl AssetProcessor {
 
             if !state_is_valid {
                 error!("Processed asset transaction log state was invalid and unrecoverable for some reason (see previous logs). Removing processed assets and starting fresh.");
-                for source in self.sources().iter_processed() {
-                    let Ok(processed_writer) = source.processed_writer() else {
-                        continue;
-                    };
-                    if let Err(err) = processed_writer
+                for (_, source) in self.data.sources.iter() {
+                    if let Err(err) = source
+                        .processed_writer()
                         .remove_assets_in_directory(Path::new(""))
                         .await
                     {
@@ -1339,10 +1430,31 @@ impl AssetProcessor {
 
 impl AssetProcessorData {
     /// Initializes a new [`AssetProcessorData`] using the given [`AssetSources`].
-    pub(crate) fn new(sources: Arc<AssetSources>, processing_state: Arc<ProcessingState>) -> Self {
+    pub(crate) fn new(
+        mut unprocessed_sources: HashMap<AssetSourceId<'static>, AssetSource>,
+        ungated_processed_readers_and_writers: HashMap<
+            AssetSourceId<'static>,
+            (Arc<dyn ErasedAssetReader>, Box<dyn ErasedAssetWriter>),
+        >,
+        processing_state: Arc<ProcessingState>,
+    ) -> Self {
+        let mut processed_sources = ProcessedSources::default();
+        for (id, (ungated_processed_reader, processed_writer)) in
+            ungated_processed_readers_and_writers
+        {
+            let unprocessed_source = unprocessed_sources
+                .remove(&id)
+                .expect("there is an unprocessed source for each processed reader");
+            let processed_source = ProcessedSource {
+                unprocessed_source,
+                ungated_processed_reader,
+                processed_writer,
+            };
+            processed_sources.insert(id, processed_source);
+        }
         AssetProcessorData {
             processing_state,
-            sources,
+            sources: processed_sources,
             log_factory: Mutex::new(Some(Box::new(FileTransactionLogFactory::default()))),
             log: Default::default(),
             processors: Default::default(),

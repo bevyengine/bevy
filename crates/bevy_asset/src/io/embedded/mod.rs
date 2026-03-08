@@ -86,52 +86,23 @@ impl EmbeddedAssetRegistry {
     /// Registers the [`EMBEDDED`] [`AssetSource`](crate::io::AssetSource) with the given [`AssetSourceBuilders`].
     pub fn register_source(&self, sources: &mut AssetSourceBuilders) {
         let dir = self.dir.clone();
-        let processed_dir = self.dir.clone();
 
-        #[cfg_attr(
-            not(feature = "embedded_watcher"),
-            expect(
-                unused_mut,
-                reason = "Variable is only mutated when `embedded_watcher` feature is enabled."
-            )
-        )]
-        let mut source =
-            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() }))
-                .with_processed_reader(move || {
-                    Box::new(MemoryAssetReader {
-                        root: processed_dir.clone(),
-                    })
-                })
-                // Note that we only add a processed watch warning because we don't want to warn
-                // noisily about embedded watching (which is niche) when users enable file watching.
-                .with_processed_watch_warning(
-                    "Consider enabling the `embedded_watcher` cargo feature.",
-                );
+        let source =
+            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() }));
 
         #[cfg(feature = "embedded_watcher")]
-        {
+        let source = {
             let root_paths = self.root_paths.clone();
             let dir = self.dir.clone();
-            let processed_root_paths = self.root_paths.clone();
-            let processed_dir = self.dir.clone();
-            source = source
-                .with_watcher(move |sender| {
-                    Some(Box::new(EmbeddedWatcher::new(
-                        dir.clone(),
-                        root_paths.clone(),
-                        sender,
-                        core::time::Duration::from_millis(300),
-                    )))
-                })
-                .with_processed_watcher(move |sender| {
-                    Some(Box::new(EmbeddedWatcher::new(
-                        processed_dir.clone(),
-                        processed_root_paths.clone(),
-                        sender,
-                        core::time::Duration::from_millis(300),
-                    )))
-                });
-        }
+            source.with_watcher(move |sender| {
+                Some(Box::new(EmbeddedWatcher::new(
+                    dir.clone(),
+                    root_paths.clone(),
+                    sender,
+                    core::time::Duration::from_millis(300),
+                )))
+            })
+        };
         sources.insert(EMBEDDED, source);
     }
 }
