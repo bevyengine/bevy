@@ -26,6 +26,8 @@ pub struct MeasureArgs<'a> {
 
 /// A `Measure` is used to compute the size of a ui node
 /// when the size of that node is based on its content.
+///
+/// See `examples/ui/layout/custom_measure.rs` for an end-to-end custom measure example.
 pub trait Measure: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.
     fn measure(&mut self, measure_args: MeasureArgs<'_>, style: &taffy::Style) -> Vec2;

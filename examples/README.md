@@ -584,6 +584,7 @@ Example | Description
 [Box Shadow](../examples/ui/styling/box_shadow.rs) | Demonstrates how to create a node with a shadow
 [Button](../examples/ui/widgets/button.rs) | Illustrates creating and updating a button
 [CSS Grid](../examples/ui/layout/grid.rs) | An example for CSS Grid layout
+[Custom Measure](../examples/ui/layout/custom_measure.rs) | Shows how to size a UI node with a custom `Measure` implementation
 [Directional Navigation](../examples/ui/navigation/directional_navigation.rs) | Demonstration of automatic directional navigation based on UI element positions
 [Directional Navigation Overrides](../examples/ui/navigation/directional_navigation_overrides.rs) | Demonstration of automatic directional navigation between UI elements with manual overrides
 [Display and Visibility](../examples/ui/layout/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.

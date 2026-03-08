@@ -758,6 +758,7 @@ accesskit = "0.24"
 nonmax = "0.5"
 gltf = "1.4"
 indexmap = "2"
+taffy = "0.9"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 ureq = { version = "3.0.8", features = ["json"] }
@@ -3648,6 +3649,17 @@ doc-scrape-examples = true
 [package.metadata.example.button]
 name = "Button"
 description = "Illustrates creating and updating a button"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "custom_measure"
+path = "examples/ui/layout/custom_measure.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_measure]
+name = "Custom Measure"
+description = "Shows how to size a UI node with a custom `Measure` implementation"
 category = "UI (User Interface)"
 wasm = true
 
