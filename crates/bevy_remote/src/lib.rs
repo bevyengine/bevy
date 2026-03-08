@@ -937,7 +937,7 @@ impl<'de> Deserialize<'de> for BrpRequest {
                             let value = map.next_value::<String>()?;
                             if value != "2.0" {
                                 return Err(de::Error::invalid_value(
-                                    de::Unexpected::Str(value),
+                                    de::Unexpected::Str(&value),
                                     &"2.0",
                                 ));
                             }
