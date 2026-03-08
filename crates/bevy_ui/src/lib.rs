@@ -17,16 +17,16 @@
 //! - or one entity with [`widget::ViewportNode`].
 //!
 //! Use parent/child nodes to combine them:
-//! ```no_run
-//! # use bevy::prelude::*;
-//! fn setup(mut commands: Commands) {
-//!     commands
-//!         .spawn(Node::default()) // parent layout node
-//!         .with_children(|parent| {
-//!             parent.spawn(Text::new("Title"));
-//!             parent.spawn(ImageNode::default());
-//!         });
-//! }
+//! ```
+//! # use bevy_ecs::world::World;
+//! # use bevy_ui::prelude::*;
+//! # let mut world = World::default();
+//! world
+//!     .spawn(Node::default()) // parent layout node
+//!     .with_children(|parent| {
+//!         parent.spawn(Text::new("Title"));
+//!         parent.spawn(ImageNode::default());
+//!     });
 //! ```
 //!
 //! Avoid placing multiple leaf content components (for example, `Text` + `ImageNode`) on one
