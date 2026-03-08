@@ -833,9 +833,9 @@ pub mod common_conditions {
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// app.add_systems(
-    ///     // `resource_exists_and_equals` will only return true
+    ///     // `resource_exists_and` will only return true
     ///     // if the given resource exists and satisfies the given condition
-    ///     my_system.run_if(resource_exists_and_equals(|counter: &Counter| counter.0.is_negative())),
+    ///     my_system.run_if(resource_exists_and(|counter: &Counter| counter.0.is_negative())),
     /// );
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -854,7 +854,6 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 7);
     /// ```
-
     pub fn resource_exists_and<T>(
         condition: impl Fn(&T) -> bool,
     ) -> impl FnMut(Option<Res<T>>) -> bool
