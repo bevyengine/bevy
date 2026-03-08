@@ -9,6 +9,9 @@
 //! # Basic usage
 //! Spawn UI elements with [`widget::Button`], [`ImageNode`](widget::ImageNode), [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
+//!
+//! Leaf content components (`Text`, `ImageNode`, `ViewportNode`) should be kept on separate entities.
+//! Use parent/child `Node` composition to combine them.
 
 pub mod auto_directional_navigation;
 pub mod interaction_states;
@@ -34,6 +37,7 @@ mod geometry;
 mod layout;
 mod stack;
 mod ui_node;
+mod validation;
 
 use bevy_text::detect_text_needs_rerender;
 pub use focus::*;
@@ -224,6 +228,7 @@ fn build_text_interop(app: &mut App) {
     app.add_systems(
         PostUpdate,
         (
+            validation::warn_on_invalid_mixed_leaf_content.in_set(UiSystems::Content),
             widget::measure_text_system
                 .chain()
                 .after(detect_text_needs_rerender)
