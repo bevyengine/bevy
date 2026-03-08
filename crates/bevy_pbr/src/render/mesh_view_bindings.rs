@@ -618,6 +618,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&RenderViewLightProbes<IrradianceVolume>>,
         Has<OrderIndependentTransparencySettings>,
         Option<&AtmosphereTextures>,
+        Option<&AtmosphereBuffer>,
         Has<ExtractedAtmosphere>,
         Option<&ViewContactShadowsUniformOffset>,
     )>,
@@ -636,10 +637,9 @@ pub fn prepare_mesh_view_bind_groups(
         Res<ContactShadowsBuffer>,
     ),
     oit_buffers: Res<OitBuffers>,
-    (decals_buffer, render_decals, atmosphere_buffer, atmosphere_sampler, blue_noise): (
+    (decals_buffer, render_decals, atmosphere_sampler, blue_noise): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
-        Option<Res<AtmosphereBuffer>>,
         Option<Res<AtmosphereSampler>>,
         Res<Bluenoise>,
     ),
@@ -682,6 +682,7 @@ pub fn prepare_mesh_view_bind_groups(
             render_view_irradiance_volumes,
             has_oit,
             atmosphere_textures,
+            atmosphere_buffer,
             has_atmosphere,
             _contact_shadows_offset,
         ) in &views
@@ -794,7 +795,7 @@ pub fn prepare_mesh_view_bind_groups(
 
             if has_atmosphere
                 && let Some(atmosphere_textures) = atmosphere_textures
-                && let Some(atmosphere_buffer) = atmosphere_buffer.as_ref()
+                && let Some(atmosphere_buffer) = atmosphere_buffer
                 && let Some(atmosphere_sampler) = atmosphere_sampler.as_ref()
                 && let Some(atmosphere_buffer_binding) = atmosphere_buffer.buffer.binding()
             {
