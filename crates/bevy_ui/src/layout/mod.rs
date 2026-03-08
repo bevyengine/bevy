@@ -359,7 +359,8 @@ pub fn ui_layout_system(
 mod tests {
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::propagate_ui_target_cameras, ContentSize, LayoutContext,
+        update::propagate_ui_target_cameras, ContentSize, LayoutContext, Measure, MeasureArgs,
+        NodeMeasure,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
@@ -1230,5 +1231,123 @@ mod tests {
             world.resource_mut::<UiSurface>().taffy.total_node_count(),
             3
         );
+    }
+
+    struct WrappingLikeMeasure {
+        glyph_count: f32,
+        glyph_width: f32,
+        line_height: f32,
+        horizontal_padding: f32,
+        vertical_padding: f32,
+    }
+
+    impl Measure for WrappingLikeMeasure {
+        fn measure(&mut self, args: MeasureArgs<'_>, _style: &taffy::Style) -> Vec2 {
+            let min_width = self.horizontal_padding * 2.0 + self.glyph_width;
+            let max_content_width =
+                self.horizontal_padding * 2.0 + self.glyph_count * self.glyph_width;
+            let width = if let Some(width) = args.width {
+                width.max(min_width)
+            } else {
+                match args.available_width {
+                    taffy::style::AvailableSpace::Definite(available) => {
+                        max_content_width.clamp(min_width, available.max(min_width))
+                    }
+                    taffy::style::AvailableSpace::MinContent => min_width,
+                    taffy::style::AvailableSpace::MaxContent => max_content_width,
+                }
+            };
+
+            let inner_width = (width - self.horizontal_padding * 2.0).max(self.glyph_width);
+            let glyphs_per_line = (inner_width / self.glyph_width).floor().max(1.0);
+            let line_count = (self.glyph_count / glyphs_per_line).ceil().max(1.0);
+
+            Vec2::new(
+                width,
+                self.vertical_padding * 2.0 + line_count * self.line_height,
+            )
+        }
+    }
+
+    #[test]
+    fn measured_node_respects_max_width() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let mut content_size = ContentSize::default();
+        content_size.set(NodeMeasure::Custom(Box::new(WrappingLikeMeasure {
+            glyph_count: 100.0,
+            glyph_width: 8.0,
+            line_height: 16.0,
+            horizontal_padding: 8.0,
+            vertical_padding: 4.0,
+        })));
+
+        let measured_entity = world
+            .spawn((
+                Node {
+                    align_self: AlignSelf::Start,
+                    max_width: Val::Px(120.0),
+                    ..default()
+                },
+                content_size,
+            ))
+            .id();
+
+        app.update();
+        let world = app.world();
+
+        let computed = world.get::<ComputedNode>(measured_entity).unwrap();
+        assert!(computed.size.x <= 120.0);
+    }
+
+    #[test]
+    fn measured_node_height_reflows_when_max_width_changes() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let mut content_size = ContentSize::default();
+        content_size.set(NodeMeasure::Custom(Box::new(WrappingLikeMeasure {
+            glyph_count: 80.0,
+            glyph_width: 8.0,
+            line_height: 16.0,
+            horizontal_padding: 8.0,
+            vertical_padding: 4.0,
+        })));
+
+        let measured_entity = world
+            .spawn((
+                Node {
+                    align_self: AlignSelf::Start,
+                    max_width: Val::Px(240.0),
+                    ..default()
+                },
+                content_size,
+            ))
+            .id();
+
+        app.update();
+        let initial_height = app
+            .world()
+            .get::<ComputedNode>(measured_entity)
+            .unwrap()
+            .size
+            .y;
+
+        app.world_mut().entity_mut(measured_entity).insert(Node {
+            align_self: AlignSelf::Start,
+            max_width: Val::Px(120.0),
+            ..default()
+        });
+
+        app.update();
+        let constrained_height = app
+            .world()
+            .get::<ComputedNode>(measured_entity)
+            .unwrap()
+            .size
+            .y;
+
+        assert!(constrained_height > initial_height);
     }
 }
