@@ -3113,6 +3113,7 @@ wasm = true
 name = "compute_shader_game_of_life"
 path = "examples/shader/compute_shader_game_of_life.rs"
 doc-scrape-examples = true
+required-features = ["shader_format_wesl"]
 
 [package.metadata.example.compute_shader_game_of_life]
 name = "Compute - Game of Life"
