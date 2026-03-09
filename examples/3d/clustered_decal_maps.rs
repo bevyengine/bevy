@@ -152,14 +152,12 @@ fn main() {
         .add_systems(
             Update,
             (
-                widgets::handle_ui_interactions::<AppSetting>,
-                update_radio_buttons,
-            ),
+                handle_emission_type_change,
+                update_radio_buttons.run_if(resource_changed::<AppStatus>),
+            )
+                .chain(),
         )
-        .add_systems(
-            Update,
-            handle_emission_type_change.after(widgets::handle_ui_interactions::<AppSetting>),
-        )
+        .add_observer(widgets::handle_ui_button_interaction_on_click::<AppSetting>)
         .insert_resource(SeededRng(ChaCha8Rng::seed_from_u64(19878367467712)))
         .run();
 }

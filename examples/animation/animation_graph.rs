@@ -8,8 +8,10 @@ use bevy::{
         basic::WHITE,
         css::{ANTIQUE_WHITE, DARK_GREEN},
     },
+    input_focus::InputDispatchPlugin,
     prelude::*,
-    ui::RelativeCursorPosition,
+    ui::{Pressed, RelativeCursorPosition},
+    ui_widgets::{Button, UiWidgetsPlugins},
 };
 
 use argh::FromArgs;
@@ -74,13 +76,17 @@ fn main() {
     let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Animation Graph Example".into(),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Animation Graph Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            UiWidgetsPlugins,
+            InputDispatchPlugin,
+        ))
         .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
         .add_systems(Update, init_animations)
         .add_systems(
@@ -307,7 +313,7 @@ fn setup_node_rects(commands: &mut Commands) {
 
             if let NodeType::Clip(clip) = node_type {
                 container.insert((
-                    Interaction::None,
+                    Button,
                     RelativeCursorPosition::default(),
                     (*clip).clone(),
                 ));
@@ -402,14 +408,10 @@ fn init_animations(
 /// Read cursor position relative to clip nodes, allowing the user to change weights
 /// when dragging the node UI widgets.
 fn handle_weight_drag(
-    mut interaction_query: Query<(&Interaction, &RelativeCursorPosition, &ClipNode)>,
+    mut pressed_query: Query<(&RelativeCursorPosition, &ClipNode), With<Pressed>>,
     mut animation_weights_query: Query<&mut ExampleAnimationWeights>,
 ) {
-    for (interaction, relative_cursor, clip_node) in &mut interaction_query {
-        if !matches!(*interaction, Interaction::Pressed) {
-            continue;
-        }
-
+    for (relative_cursor, clip_node) in &mut pressed_query {
         let Some(pos) = relative_cursor.normalized else {
             continue;
         };

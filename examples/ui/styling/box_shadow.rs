@@ -1,6 +1,16 @@
 //! This example shows how to create a node with a shadow and adjust its settings interactively.
 
-use bevy::{color::palettes::css::*, prelude::*, time::Time, window::RequestRedraw};
+use bevy::{
+    color::palettes::css::*,
+    input_focus::InputDispatchPlugin,
+    picking::hover::Hovered,
+    prelude::*,
+    reflect::Is,
+    time::Time,
+    ui::Pressed,
+    ui_widgets::{Button, UiWidgetsPlugins},
+    window::RequestRedraw,
+};
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
@@ -116,16 +126,17 @@ struct HeldButton {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins, InputDispatchPlugin))
         .insert_resource(SHADOW_DEFAULT_SETTINGS)
         .insert_resource(SHAPE_DEFAULT_SETTINGS)
         .insert_resource(HeldButton::default())
         .add_systems(Startup, setup)
+        .add_observer(button_on_interaction::<Add, Pressed>)
+        .add_observer(button_on_interaction::<Remove, Pressed>)
+        .add_observer(button_on_interaction::<Insert, Hovered>)
         .add_systems(
             Update,
             (
-                button_system,
-                button_color_system,
                 update_shape.run_if(resource_changed::<ShapeSettings>),
                 update_shadow.run_if(resource_changed::<ShadowSettings>),
                 update_shadow_samples.run_if(resource_changed::<ShadowSettings>),
@@ -261,6 +272,7 @@ fn setup(
                 },
                 children![(
                     Button,
+                    Hovered::default(),
                     Node {
                         width: px(90),
                         height: px(32),
@@ -327,6 +339,7 @@ fn build_setting_row(
             ),
             (
                 Button,
+                Hovered::default(),
                 Node {
                     width: px(28),
                     height: px(28),
@@ -375,6 +388,7 @@ fn build_setting_row(
             ),
             (
                 Button,
+                Hovered::default(),
                 Node {
                     width: px(28),
                     height: px(28),
@@ -515,32 +529,45 @@ fn update_shape(
     }
 }
 
-// Handles button interactions for all settings
-fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &SettingsButton),
-        (Changed<Interaction>, With<Button>),
+// Handles button interactions for all settings and button colors
+fn button_on_interaction<E: EntityEvent, C: Component>(
+    event: On<E, C>,
+    mut buttons: Query<
+        (&mut BackgroundColor, &Hovered, Has<Pressed>, &SettingsButton),
+        With<Button>
     >,
     mut shadow: ResMut<ShadowSettings>,
     mut shape: ResMut<ShapeSettings>,
     mut held: ResMut<HeldButton>,
     time: Res<Time>,
 ) {
-    let now = time.elapsed_secs_f64();
-    for (interaction, btn) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
+    if let Ok((mut color, hovered, pressed, btn)) = buttons.get_mut(event.event_target()) {
+        let now = time.elapsed_secs_f64();
+        let hovered = hovered.get();
+        let pressed = pressed && !(E::is::<Remove>() && C::is::<Pressed>());
+        match (hovered, pressed) {
+            (true, true) => {
                 trigger_button_action(btn, &mut shadow, &mut shape);
                 held.button = Some(*btn);
                 held.pressed_at = Some(now);
                 held.last_repeat = Some(now);
+                *color = PRESSED_BUTTON.into();
             }
-            Interaction::None | Interaction::Hovered => {
+            (true, false) => {
                 if held.button == Some(*btn) {
                     held.button = None;
                     held.pressed_at = None;
                     held.last_repeat = None;
                 }
+                *color = HOVERED_BUTTON.into();
+            }
+            (false, _) => {
+                if held.button == Some(*btn) {
+                    held.button = None;
+                    held.pressed_at = None;
+                    held.last_repeat = None;
+                }
+                *color = NORMAL_BUTTON.into();
             }
         }
     }
@@ -614,22 +641,6 @@ fn button_repeat_system(
         if since_pressed > INITIAL_DELAY && since_last > REPEAT_RATE {
             trigger_button_action(&btn, &mut shadow, &mut shape);
             held.last_repeat = Some(now);
-        }
-    }
-}
-
-// Changes color of button on hover and on pressed
-fn button_color_system(
-    mut query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>, With<SettingsButton>),
-    >,
-) {
-    for (interaction, mut color) in &mut query {
-        match *interaction {
-            Interaction::Pressed => *color = PRESSED_BUTTON.into(),
-            Interaction::Hovered => *color = HOVERED_BUTTON.into(),
-            Interaction::None => *color = NORMAL_BUTTON.into(),
         }
     }
 }

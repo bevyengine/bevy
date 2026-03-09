@@ -3,8 +3,13 @@
 use bevy::{
     color::palettes::basic::*,
     input::{gestures::RotationGesture, touch::TouchPhase},
+    input_focus::InputDispatchPlugin,
     log::{Level, LogPlugin},
+    picking::hover::Hovered,
     prelude::*,
+    reflect::Is,
+    ui::Pressed,
+    ui_widgets::{Button, UiWidgetsPlugins},
     window::{AppLifecycle, ScreenEdge, WindowMode},
     winit::WinitSettings,
 };
@@ -15,7 +20,7 @@ use bevy::{
 /// `main.rs`.
 pub fn main() {
     let mut app = App::new();
-    app.add_plugins(
+    app.add_plugins((
         DefaultPlugins
             .set(LogPlugin {
                 // This will show some log events from Bevy to the native logger.
@@ -40,7 +45,9 @@ pub fn main() {
                 }),
                 ..default()
             }),
-    )
+        UiWidgetsPlugins,
+        InputDispatchPlugin,
+    ))
     // Make the winit loop wait more aggressively when no user input is received
     // This can help reduce cpu usage on mobile devices
     .insert_resource(WinitSettings::mobile())
@@ -49,12 +56,14 @@ pub fn main() {
         Update,
         (
             touch_camera,
-            button_handler,
             // Only run the lifetime handler when an [`AudioSink`] component exists in the world.
             // This ensures we don't try to manage audio that hasn't been initialized yet.
             handle_lifetime.run_if(any_with_component::<AudioSink>),
         ),
     )
+    .add_observer(button_on_interaction::<Add, Pressed>)
+    .add_observer(button_on_interaction::<Remove, Pressed>)
+    .add_observer(button_on_interaction::<Insert, Hovered>)
     .run();
 }
 
@@ -141,6 +150,7 @@ fn setup_scene(
     commands
         .spawn((
             Button,
+            Hovered::default(),
             Node {
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
@@ -162,23 +172,16 @@ fn setup_scene(
         ));
 }
 
-fn button_handler(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
-    >,
+fn button_on_interaction<E: EntityEvent, C: Component>(
+    event: On<E, C>,
+    mut button_query: Query<(&Hovered, Has<Pressed>, &mut BackgroundColor), With<Button>>,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = BLUE.into();
-            }
-            Interaction::Hovered => {
-                *color = GRAY.into();
-            }
-            Interaction::None => {
-                *color = WHITE.into();
-            }
+    if let Ok((hovered, pressed, mut color)) = button_query.get_mut(event.event_target()) {
+        let pressed = pressed && !(E::is::<Remove>() && C::is::<Pressed>());
+        *color = match (hovered.get(), pressed) {
+            (true, true) => BLUE.into(),
+            (true, false) => GRAY.into(),
+            (false, _) => WHITE.into(),
         }
     }
 }

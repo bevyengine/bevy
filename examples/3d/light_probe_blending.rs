@@ -166,36 +166,19 @@ fn main() {
         .add_systems(
             Update,
             (
-                widgets::handle_ui_interactions::<GizmosEnabled>,
                 handle_gizmos_enabled_change,
-            )
-                .chain(),
-        )
-        .add_systems(
-            Update,
-            (
-                widgets::handle_ui_interactions::<ObjectToShow>,
                 handle_object_to_show_change,
-            )
-                .chain(),
+                handle_camera_mode_change.after(free_camera::run_freecamera_controller),
+            ),
         )
         .add_systems(
             Update,
-            (
-                widgets::handle_ui_interactions::<CameraMode>,
-                handle_camera_mode_change,
-            )
-                .chain()
-                .after(free_camera::run_freecamera_controller),
-        )
-        .add_systems(
-            Update,
-            update_radio_buttons
-                .after(widgets::handle_ui_interactions::<GizmosEnabled>)
-                .after(widgets::handle_ui_interactions::<ObjectToShow>)
-                .after(widgets::handle_ui_interactions::<CameraMode>),
+            update_radio_buttons.run_if(resource_changed::<AppStatus>),
         )
         .add_systems(Update, draw_gizmos)
+        .add_observer(widgets::handle_ui_button_interaction_on_click::<GizmosEnabled>)
+        .add_observer(widgets::handle_ui_button_interaction_on_click::<ObjectToShow>)
+        .add_observer(widgets::handle_ui_button_interaction_on_click::<CameraMode>)
         .run();
 }
 

@@ -960,7 +960,6 @@ mod overflow {
                                     min_height: px(100),
                                     ..default()
                                 },
-                                Interaction::default(),
                                 Outline {
                                     width: px(2),
                                     offset: px(2),

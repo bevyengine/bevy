@@ -16,8 +16,15 @@
 //! And lastly, we'll add [`Tutorial`], a computed state deriving from [`TutorialState`], [`InGame`] and [`IsPaused`], with 2 distinct
 //! states to display the 2 tutorial texts.
 
-use bevy::{dev_tools::states::*, input::keyboard::Key, prelude::*};
-
+use bevy::{
+    dev_tools::states::*,
+    input::keyboard::Key,
+    input_focus::InputDispatchPlugin,
+    picking::hover::Hovered,
+    prelude::*,
+    ui::Pressed,
+    ui_widgets::{Button, UiWidgetsPlugins},
+};
 use ui::*;
 
 // To begin, we want to define our state objects.
@@ -167,7 +174,7 @@ impl ComputedStates for Tutorial {
 fn main() {
     // We start the setup like we did in the states example.
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins, InputDispatchPlugin))
         .init_state::<AppState>()
         .init_state::<TutorialState>()
         // After initializing the normal states, we'll use `.add_computed_state::<CS>()` to initialize our `ComputedStates`
@@ -179,7 +186,7 @@ fn main() {
         // using our states as normal.
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::Menu), setup_menu)
-        .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
+        .add_systems(Update, (handle_button_interaction, menu.run_if(in_state(AppState::Menu))))
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         // We only want to run the [`setup_game`] function when we enter the [`AppState::InGame`] state, regardless
         // of whether the game is paused or not.
@@ -217,14 +224,14 @@ fn menu(
     mut next_state: ResMut<NextState<AppState>>,
     tutorial_state: Res<State<TutorialState>>,
     mut next_tutorial: ResMut<NextState<TutorialState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &MenuButton),
-        (Changed<Interaction>, With<Button>),
+    mut button_query: Query<
+        (Has<Pressed>, &Hovered, &mut BackgroundColor, &MenuButton),
+        (Or<(Changed<Pressed>, Changed<Hovered>)>, With<Button>),
     >,
 ) {
-    for (interaction, mut color, menu_button) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
+    for (pressed, hovered, mut color, menu_button) in &mut button_query {
+        match (hovered.get(), pressed) {
+            (_, true) => {
                 *color = if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
@@ -244,7 +251,7 @@ fn menu(
                     }),
                 };
             }
-            Interaction::Hovered => {
+            (true, false) => {
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
@@ -253,7 +260,7 @@ fn menu(
                     *color = HOVERED_BUTTON.into();
                 }
             }
-            Interaction::None => {
+            _ => {
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
@@ -304,6 +311,14 @@ fn quit_to_menu(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextSta
 
 mod ui {
     use crate::*;
+    use bevy::{
+        color::palettes::css::*,
+        input_focus::InputDispatchPlugin,
+        picking::hover::Hovered,
+        prelude::*,
+        ui::Pressed,
+        ui_widgets::{Button, UiWidgetsPlugins},
+    };
 
     #[derive(Resource)]
     pub struct MenuData {
@@ -311,6 +326,7 @@ mod ui {
     }
 
     #[derive(Component, PartialEq, Eq)]
+    #[require(Button, Hovered)]
     pub enum MenuButton {
         Play,
         Tutorial,
@@ -343,7 +359,7 @@ mod ui {
                 },
                 children![
                     (
-                        Button,
+                        MenuButton::Play,
                         Node {
                             width: px(200),
                             height: px(65),
@@ -354,7 +370,6 @@ mod ui {
                             ..default()
                         },
                         BackgroundColor(NORMAL_BUTTON),
-                        MenuButton::Play,
                         children![(
                             Text::new("Play"),
                             TextFont {
@@ -365,7 +380,7 @@ mod ui {
                         )],
                     ),
                     (
-                        Button,
+                        MenuButton::Tutorial,
                         Node {
                             width: px(200),
                             height: px(65),
@@ -379,7 +394,6 @@ mod ui {
                             TutorialState::Active => ACTIVE_BUTTON,
                             TutorialState::Inactive => NORMAL_BUTTON,
                         }),
-                        MenuButton::Tutorial,
                         children![(
                             Text::new("Tutorial"),
                             TextFont {

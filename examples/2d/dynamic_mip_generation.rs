@@ -225,11 +225,7 @@ fn main() {
     .add_systems(Update, animate_image_scale)
     .add_systems(
         Update,
-        (
-            widgets::handle_ui_interactions::<AppSetting>,
-            update_radio_buttons,
-        )
-            .chain(),
+        update_radio_buttons.run_if(resource_changed::<AppStatus>),
     )
     .add_systems(
         Update,
@@ -237,10 +233,9 @@ fn main() {
     )
     .add_systems(
         Update,
-        handle_app_setting_change
-            .after(widgets::handle_ui_interactions::<AppSetting>)
-            .before(regenerate_image_when_requested),
-    );
+        handle_app_setting_change.before(regenerate_image_when_requested),
+    )
+    .add_observer(widgets::handle_ui_button_interaction_on_click::<AppSetting>);
 
     // Because `MipGenerationJobs` is part of the render app, we need to add the
     // associated systems to that app, not the main one.

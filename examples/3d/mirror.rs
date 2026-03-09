@@ -3,11 +3,12 @@
 use std::f32::consts::FRAC_PI_2;
 
 use crate::widgets::{RadioButton, WidgetClickEvent, WidgetClickSender};
-use bevy::camera::RenderTarget;
 use bevy::{
     asset::RenderAssetUsages,
+    camera::RenderTarget,
     color::palettes::css::GREEN,
     input::mouse::AccumulatedMouseMotion,
+    input_focus::InputDispatchPlugin,
     math::{reflection_matrix, uvec2, vec3},
     pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
@@ -15,6 +16,8 @@ use bevy::{
         AsBindGroup, Extent3d, TextureDimension, TextureFormat, TextureUsages,
     },
     shader::ShaderRef,
+    ui::Pressed,
+    ui_widgets::UiWidgetsPlugins,
     window::{PrimaryWindow, WindowResized},
 };
 
@@ -110,13 +113,17 @@ static FOX_ASSET_PATH: &str = "models/animated/Fox.glb";
 /// The app entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Mirror Example".into(),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Mirror Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            UiWidgetsPlugins,
+            InputDispatchPlugin,
+        ))
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, ScreenSpaceTextureExtension>,
         >::default())
@@ -125,11 +132,13 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, handle_window_resize_messages)
         .add_systems(Update, (move_camera_on_mouse_down, move_fox_on_mouse_down))
-        .add_systems(Update, widgets::handle_ui_interactions::<DragAction>)
         .add_systems(
             Update,
-            (handle_mouse_action_change, update_radio_buttons)
-                .after(widgets::handle_ui_interactions::<DragAction>),
+            (
+                handle_mouse_action_change,
+                update_radio_buttons.run_if(resource_changed::<AppStatus>),
+            )
+                .chain(),
         )
         .add_systems(
             Update,
@@ -137,6 +146,7 @@ fn main() {
         )
         .add_systems(Update, play_fox_animation)
         .add_systems(Update, update_help_text)
+        .add_observer(widgets::handle_ui_button_interaction_on_click::<DragAction>)
         .run();
 }
 
@@ -444,7 +454,7 @@ fn move_fox_on_mouse_down(
     mut scene_roots_query: Query<&mut Transform, With<SceneRoot>>,
     windows_query: Query<&Window, With<PrimaryWindow>>,
     cameras_query: Query<(&Camera, &GlobalTransform)>,
-    interactions_query: Query<&Interaction, With<RadioButton>>,
+    pressed_query: Query<&Pressed, With<RadioButton>>,
     buttons: Res<ButtonInput<MouseButton>>,
     app_status: Res<AppStatus>,
 ) {
@@ -453,9 +463,7 @@ fn move_fox_on_mouse_down(
     // widget.
     if app_status.drag_action != DragAction::MoveFox
         || !buttons.pressed(MouseButton::Left)
-        || interactions_query
-            .iter()
-            .any(|interaction| *interaction != Interaction::None)
+        || pressed_query.iter().next().is_some()
     {
         return;
     }
@@ -528,7 +536,7 @@ fn update_radio_buttons(
 /// This is mostly copied from `examples/camera/camera_orbit.rs`.
 fn move_camera_on_mouse_down(
     mut main_cameras_query: Query<&mut Transform, (With<Camera>, Without<MirrorCamera>)>,
-    interactions_query: Query<&Interaction, With<RadioButton>>,
+    pressed_query: Query<&Pressed, With<RadioButton>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     app_status: Res<AppStatus>,
@@ -538,9 +546,7 @@ fn move_camera_on_mouse_down(
     // widget.
     if app_status.drag_action != DragAction::MoveCamera
         || !mouse_buttons.pressed(MouseButton::Left)
-        || interactions_query
-            .iter()
-            .any(|interaction| *interaction != Interaction::None)
+        || pressed_query.iter().next().is_some()
     {
         return;
     }
