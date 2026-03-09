@@ -165,7 +165,8 @@ pub(crate) fn transform_hotspot(
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
-    use bevy_asset::RenderAssetUsages;
+    use bevy_asset::{AssetApp, DirectAssetAccessExt, MinimalAssetPlugin, RenderAssetUsages};
+    use bevy_ecs::system::SystemState;
     use bevy_image::Image;
     use bevy_math::Rect;
     use bevy_math::Vec2;
@@ -192,20 +193,19 @@ mod tests {
             #[test]
             fn $name() {
                 let mut app = App::new();
-                let mut texture_atlas_layout_assets = Assets::<TextureAtlasLayout>::default();
+
+                app.add_plugins(MinimalAssetPlugin)
+                    .init_asset::<Image>()
+                    .init_asset::<TextureAtlasLayout>();
 
                 // Create a simple 3x3 texture atlas layout for the test cases
                 // that use a texture atlas. In the future we could adjust the
                 // test cases to use different texture atlas layouts.
                 let layout = TextureAtlasLayout::from_grid(UVec2::new(3, 3), 1, 1, None, None);
-                let layout_handle = texture_atlas_layout_assets.add(layout);
+                let layout_handle = app.world_mut().spawn_asset(layout);
 
-                app.insert_resource(texture_atlas_layout_assets);
-
-                let texture_atlases = app
-                    .world()
-                    .get_resource::<Assets<TextureAtlasLayout>>()
-                    .unwrap();
+                let mut state = SystemState::<Assets<TextureAtlasLayout>>::new(app.world_mut());
+                let texture_atlases = state.get(app.world());
 
                 let image = create_image_rgba8(&[0; 3 * 3 * 4]); // 3x3 image
 

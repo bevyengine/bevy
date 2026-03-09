@@ -411,26 +411,27 @@ fn update_ui(
 /// Set up a simple 3D scene
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(20.0, 20.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.1, 0.2, 0.1))),
+        ),
     ));
 
-    let cube_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(uv_debug_texture())),
+    let cube_texture = asset_commands.spawn_asset(uv_debug_texture());
+    let cube_material = asset_commands.spawn_asset(StandardMaterial {
+        base_color_texture: Some(cube_texture),
         ..default()
     });
 
     // Cubes
     for i in 0..5 {
         commands.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.25, 0.25, 0.25))),
+            Mesh3d(asset_commands.spawn_asset(Cuboid::new(0.25, 0.25, 0.25).into())),
             MeshMaterial3d(cube_material.clone()),
             Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
         ));

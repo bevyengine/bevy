@@ -172,8 +172,7 @@ struct ScoreboardUi;
 // Add the game's entities to our world
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // Camera
@@ -199,8 +198,8 @@ fn setup(
 
     // Ball
     commands.spawn((
-        Mesh2d(meshes.add(Circle::default())),
-        MeshMaterial2d(materials.add(BALL_COLOR)),
+        Mesh2d(asset_commands.spawn_asset(Circle::default().into())),
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial::from(BALL_COLOR))),
         Transform::from_translation(BALL_STARTING_POSITION)
             .with_scale(Vec2::splat(BALL_DIAMETER).extend(1.)),
         Ball,

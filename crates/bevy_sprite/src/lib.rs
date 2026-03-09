@@ -116,9 +116,9 @@ impl Plugin for SpritePlugin {
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds_2d(
     mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
-    images: Res<Assets<Image>>,
-    atlases: Res<Assets<TextureAtlasLayout>>,
+    meshes: Assets<Mesh>,
+    images: Assets<Image>,
+    atlases: Assets<TextureAtlasLayout>,
     new_mesh_aabb: Query<
         (Entity, &Mesh2d),
         (
@@ -221,8 +221,8 @@ pub fn calculate_bounds_2d(
 // inside the vertex shader which isn't recognized by calculate_aabb().
 fn calculate_bounds_2d_sprite_mesh(
     mut commands: Commands,
-    images: Res<Assets<Image>>,
-    atlases: Res<Assets<TextureAtlasLayout>>,
+    images: Assets<Image>,
+    atlases: Assets<TextureAtlasLayout>,
     new_sprite_aabb: Query<
         (Entity, &SpriteMesh, &Anchor),
         (
@@ -283,6 +283,7 @@ fn calculate_bounds_2d_sprite_mesh(
 #[cfg(test)]
 mod test {
     use super::*;
+    use bevy_asset::{AssetApp, DirectAssetAccessExt, MinimalAssetPlugin};
     use bevy_math::{Rect, Vec2, Vec3A};
 
     #[test]
@@ -290,14 +291,12 @@ mod test {
         // Setup app
         let mut app = App::new();
 
+        app.add_plugins(MinimalAssetPlugin)
+            .init_asset::<Image>()
+            .init_asset::<TextureAtlasLayout>();
+
         // Add resources and get handle to image
-        let mut image_assets = Assets::<Image>::default();
-        let image_handle = image_assets.add(Image::default());
-        app.insert_resource(image_assets);
-        let mesh_assets = Assets::<Mesh>::default();
-        app.insert_resource(mesh_assets);
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
-        app.insert_resource(texture_atlas_assets);
+        let image_handle = app.world_mut().spawn_asset(Image::default());
 
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
@@ -328,14 +327,12 @@ mod test {
         // Setup app
         let mut app = App::new();
 
+        app.add_plugins(MinimalAssetPlugin)
+            .init_asset::<Image>()
+            .init_asset::<TextureAtlasLayout>();
+
         // Add resources and get handle to image
-        let mut image_assets = Assets::<Image>::default();
-        let image_handle = image_assets.add(Image::default());
-        app.insert_resource(image_assets);
-        let mesh_assets = Assets::<Mesh>::default();
-        app.insert_resource(mesh_assets);
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
-        app.insert_resource(texture_atlas_assets);
+        let image_handle = app.world_mut().spawn_asset(Image::default());
 
         // Add system
         app.add_systems(Update, calculate_bounds_2d);
@@ -391,14 +388,12 @@ mod test {
         // Setup app
         let mut app = App::new();
 
+        app.add_plugins(MinimalAssetPlugin)
+            .init_asset::<Image>()
+            .init_asset::<TextureAtlasLayout>();
+
         // Add resources and get handle to image
-        let mut image_assets = Assets::<Image>::default();
-        let image_handle = image_assets.add(Image::default());
-        app.insert_resource(image_assets);
-        let mesh_assets = Assets::<Mesh>::default();
-        app.insert_resource(mesh_assets);
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
-        app.insert_resource(texture_atlas_assets);
+        let image_handle = app.world_mut().spawn_asset(Image::default());
 
         // Add system
         app.add_systems(Update, calculate_bounds_2d);

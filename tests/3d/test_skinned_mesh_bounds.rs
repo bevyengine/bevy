@@ -71,9 +71,9 @@ fn load_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn spawn_scene(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     query: Query<(Entity, &PendingScene)>,
-    assets: Res<Assets<Gltf>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    assets: Assets<Gltf>,
 ) {
     for (entity, PendingScene(asset)) in query.iter() {
         if let Some(gltf) = assets.get(asset)
@@ -87,7 +87,7 @@ fn spawn_scene(
                 .remove::<PendingScene>()
                 .insert((
                     SceneRoot(scene_handle.clone()),
-                    PendingAnimation((graphs.add(graph), graph_node_index)),
+                    PendingAnimation((asset_commands.spawn_asset(graph), graph_node_index)),
                 ))
                 .observe(play_animation);
         }
@@ -121,13 +121,8 @@ type CustomAnimationId = i8;
 #[derive(Component)]
 struct CustomAnimation(CustomAnimationId);
 
-fn spawn_custom_meshes(
-    mut commands: Commands,
-    mut mesh_assets: ResMut<Assets<Mesh>>,
-    mut material_assets: ResMut<Assets<StandardMaterial>>,
-    mut inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
-) {
-    let mesh_handle = mesh_assets.add(
+fn spawn_custom_meshes(mut commands: Commands, mut asset_commands: AssetCommands) {
+    let mesh_handle = asset_commands.spawn_asset(
         Mesh::new(
             PrimitiveTopology::TriangleStrip,
             // Test that skinned mesh bounds work even if the mesh is render
@@ -184,11 +179,12 @@ fn spawn_custom_meshes(
         .unwrap(),
     );
 
-    let inverse_bindposes_handle = inverse_bindposes_assets.add(vec![
-        Mat4::from_translation(Vec3::new(0.0, 0.0, 0.0)),
-        Mat4::from_translation(Vec3::new(0.0, 0.0, 0.0)),
-        Mat4::from_translation(Vec3::new(0.0, -1.0, 0.0)),
-    ]);
+    let inverse_bindposes_handle =
+        asset_commands.spawn_asset(SkinnedMeshInverseBindposes::from(vec![
+            Mat4::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+            Mat4::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+            Mat4::from_translation(Vec3::new(0.0, -1.0, 0.0)),
+        ]));
 
     struct MeshInstance {
         animations: [CustomAnimationId; 2],
@@ -244,7 +240,7 @@ fn spawn_custom_meshes(
             .spawn((
                 Transform::IDENTITY,
                 Mesh3d(mesh_handle.clone()),
-                MeshMaterial3d(material_assets.add(StandardMaterial {
+                MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                     base_color: Color::WHITE,
                     cull_mode: None,
                     ..default()

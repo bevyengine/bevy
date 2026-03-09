@@ -50,14 +50,13 @@ fn main() {
 // Creates a simple scene.
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<BindlessMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // Add a cube with a blue tinted texture.
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(BindlessMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(BindlessMaterial {
             color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/bevy_logo_dark.png")),
         })),
@@ -66,8 +65,8 @@ fn setup(
 
     // Add a cylinder with a red tinted texture.
     commands.spawn((
-        Mesh3d(meshes.add(Cylinder::default())),
-        MeshMaterial3d(materials.add(BindlessMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cylinder::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(BindlessMaterial {
             color: LinearRgba::RED,
             color_texture: Some(asset_server.load("branding/bevy_logo_light.png")),
         })),

@@ -118,19 +118,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn decompress<T: Component + From<Handle<A>>, A: Asset>(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut compressed_assets: ResMut<Assets<GzAsset>>,
+    compressed_assets: Assets<GzAsset>,
     query: Query<(Entity, &Compressed<A>)>,
 ) {
     for (entity, Compressed { compressed, .. }) in query.iter() {
-        let Some(GzAsset { uncompressed }) = compressed_assets.remove(compressed) else {
+        if compressed_assets.get(compressed).is_none() {
             continue;
-        };
+        }
+        let asset_server = asset_server.clone();
+        let compressed = compressed.clone();
+        commands.queue(move |world: &mut World| {
+            let GzAsset { uncompressed } = world.remove_asset(compressed.id()).unwrap();
 
-        let uncompressed = uncompressed.take::<A>().unwrap();
+            let uncompressed = uncompressed.take::<A>().unwrap();
 
-        commands
-            .entity(entity)
-            .remove::<Compressed<A>>()
-            .insert(T::from(asset_server.add(uncompressed)));
+            world
+                .entity_mut(entity)
+                .remove::<Compressed<A>>()
+                .insert(T::from(asset_server.add(uncompressed)));
+        });
     }
 }

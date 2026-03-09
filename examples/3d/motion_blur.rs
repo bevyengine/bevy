@@ -52,10 +52,8 @@ struct Rotates;
 
 fn setup_scene(
     asset_server: Res<AssetServer>,
-    mut images: ResMut<Assets<Image>>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
 ) {
     commands.insert_resource(GlobalAmbientLight {
         color: Color::WHITE,
@@ -73,8 +71,8 @@ fn setup_scene(
     ));
     // Sky
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::default())),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Sphere::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             unlit: true,
             base_color: Color::linear_rgb(0.1, 0.6, 1.0),
             ..default()
@@ -86,40 +84,40 @@ fn setup_scene(
     let uv_size = 4000.0;
     let uvs = vec![[uv_size, 0.0], [0.0, 0.0], [0.0, uv_size], [uv_size; 2]];
     plane.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    let texture = asset_commands.spawn_asset(uv_debug_texture());
     commands.spawn((
-        Mesh3d(meshes.add(plane)),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(plane)),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
-            base_color_texture: Some(images.add(uv_debug_texture())),
+            base_color_texture: Some(texture),
             ..default()
         })),
         Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
     ));
 
-    spawn_cars(&asset_server, &mut meshes, &mut materials, &mut commands);
-    spawn_trees(&mut meshes, &mut materials, &mut commands);
-    spawn_barriers(&mut meshes, &mut materials, &mut commands);
+    spawn_cars(&asset_server, &mut commands, &mut asset_commands);
+    spawn_trees(&mut commands, &mut asset_commands);
+    spawn_barriers(&mut commands, &mut asset_commands);
 }
 
 fn spawn_cars(
     asset_server: &AssetServer,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
     commands: &mut Commands,
+    asset_commands: &mut AssetCommands,
 ) {
     const N_CARS: usize = 20;
-    let box_mesh = meshes.add(Cuboid::new(0.3, 0.15, 0.55));
-    let cylinder = meshes.add(Cylinder::default());
+    let box_mesh = asset_commands.spawn_asset(Cuboid::new(0.3, 0.15, 0.55).into());
+    let cylinder = asset_commands.spawn_asset(Cylinder::default().into());
     let logo = asset_server.load("branding/icon.png");
-    let wheel_matl = materials.add(StandardMaterial {
+    let wheel_matl = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::WHITE,
         base_color_texture: Some(logo.clone()),
         ..default()
     });
 
     let mut matl = |color| {
-        materials.add(StandardMaterial {
+        asset_commands.spawn_asset(StandardMaterial {
             base_color: color,
             ..default()
         })
@@ -171,14 +169,10 @@ fn spawn_cars(
     }
 }
 
-fn spawn_barriers(
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-    commands: &mut Commands,
-) {
+fn spawn_barriers(commands: &mut Commands, asset_commands: &mut AssetCommands) {
     const N_CONES: usize = 100;
-    let capsule = meshes.add(Capsule3d::default());
-    let matl = materials.add(StandardMaterial {
+    let capsule = asset_commands.spawn_asset(Capsule3d::default().into());
+    let matl = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::srgb_u8(255, 87, 51),
         reflectance: 1.0,
         ..default()
@@ -200,16 +194,16 @@ fn spawn_barriers(
     spawn_with_offset(-0.04);
 }
 
-fn spawn_trees(
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-    commands: &mut Commands,
-) {
+fn spawn_trees(commands: &mut Commands, asset_commands: &mut AssetCommands) {
     const N_TREES: usize = 30;
-    let capsule = meshes.add(Capsule3d::default());
-    let sphere = meshes.add(Sphere::default());
-    let leaves = materials.add(Color::linear_rgb(0.0, 1.0, 0.0));
-    let trunk = materials.add(Color::linear_rgb(0.4, 0.2, 0.2));
+    let capsule = asset_commands.spawn_asset(Capsule3d::default().into());
+    let sphere = asset_commands.spawn_asset(Sphere::default().into());
+    let leaves = asset_commands.spawn_asset(StandardMaterial::from_color(Color::linear_rgb(
+        0.0, 1.0, 0.0,
+    )));
+    let trunk = asset_commands.spawn_asset(StandardMaterial::from_color(Color::linear_rgb(
+        0.4, 0.2, 0.2,
+    )));
 
     let mut spawn_with_offset = |offset: f32| {
         for i in 0..N_TREES {

@@ -150,7 +150,8 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
 /// This allows the user to press Enter to toggle anisotropy on and off.
 fn create_material_variants(
     mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
+    materials: Assets<StandardMaterial>,
     new_meshes: Query<
         (Entity, &MeshMaterial3d<StandardMaterial>),
         (
@@ -166,7 +167,7 @@ fn create_material_variants(
 
         commands.entity(entity).insert(MaterialVariants {
             anisotropic: anisotropic_material_handle.0.clone(),
-            isotropic: materials.add(StandardMaterial {
+            isotropic: asset_commands.spawn_asset(StandardMaterial {
                 anisotropy_texture: None,
                 anisotropy_strength: 0.0,
                 anisotropy_rotation: 0.0,

@@ -18,14 +18,13 @@ fn main() {
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // cube
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(CustomMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(CustomMaterial {
             color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,

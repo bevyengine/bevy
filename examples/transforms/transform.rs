@@ -38,15 +38,11 @@ fn main() {
 }
 
 // Startup system to setup the scene and spawn all relevant entities.
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Add an object (sphere) for visualizing scaling.
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(3.0).mesh().ico(32).unwrap())),
-        MeshMaterial3d(materials.add(Color::from(YELLOW))),
+        Mesh3d(asset_commands.spawn_asset(Sphere::new(3.0).mesh().ico(32).unwrap())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::from(YELLOW)))),
         Transform::from_translation(Vec3::ZERO),
         Center {
             max_size: 1.0,
@@ -63,8 +59,8 @@ fn setup(
     let cube_spawn =
         Transform::from_translation(Vec3::Z * -10.0).with_rotation(Quat::from_rotation_y(PI / 2.));
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(Color::WHITE)),
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
         cube_spawn,
         CubeState {
             start_pos: cube_spawn.translation,

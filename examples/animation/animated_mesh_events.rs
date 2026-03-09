@@ -4,6 +4,7 @@ use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
     animation::{AnimationEvent, AnimationTargetId},
+    asset::AssetMut,
     color::palettes::css::WHITE,
     light::CascadeShadowConfigBuilder,
     prelude::*,
@@ -79,10 +80,8 @@ fn observe_on_step(
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     // Build the animation graph
     let (graph, index) = AnimationGraph::from_clip(
@@ -91,7 +90,7 @@ fn setup(
     );
 
     // Insert a resource with the current scene information
-    let graph_handle = graphs.add(graph);
+    let graph_handle = asset_commands.spawn_asset(graph);
     commands.insert_resource(Animations {
         index,
         graph_handle,
@@ -105,8 +104,12 @@ fn setup(
 
     // Plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(
+            asset_commands.spawn_asset(Plane3d::default().mesh().size(500000.0, 500000.0).into()),
+        ),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
     ));
 
     // Light
@@ -141,28 +144,28 @@ fn setup_scene_once_loaded(
     mut commands: Commands,
     animations: Res<Animations>,
     feet: Res<FoxFeetTargets>,
-    graphs: Res<Assets<AnimationGraph>>,
-    mut clips: ResMut<Assets<AnimationClip>>,
+    graphs: Assets<AnimationGraph>,
+    mut clips: AssetsMut<AnimationClip>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
     fn get_clip<'a>(
         node: AnimationNodeIndex,
         graph: &AnimationGraph,
-        clips: &'a mut Assets<AnimationClip>,
-    ) -> &'a mut AnimationClip {
+        clips: &'a mut AssetsMut<AnimationClip>,
+    ) -> AssetMut<'a, AnimationClip> {
         let node = graph.get(node).unwrap();
         let clip = match &node.node_type {
             AnimationNodeType::Clip(handle) => clips.get_mut(handle),
             _ => unreachable!(),
         };
-        clip.unwrap().into_inner()
+        clip.unwrap()
     }
 
     for (entity, mut player) in &mut players {
         // Send `OnStep` events once the fox feet hits the ground in the running animation.
 
         let graph = graphs.get(&animations.graph_handle).unwrap();
-        let running_animation = get_clip(animations.index, graph, &mut clips);
+        let mut running_animation = get_clip(animations.index, graph, &mut clips);
 
         // You can determine the time an event should trigger if you know which frame it occurs and
         // the frame rate of the animation. Let's say we want to trigger an event at frame 15,
@@ -226,8 +229,8 @@ struct ParticleAssets {
 impl FromWorld for ParticleAssets {
     fn from_world(world: &mut World) -> Self {
         Self {
-            mesh: world.add_asset::<Mesh>(Sphere::new(10.0)),
-            material: world.add_asset::<StandardMaterial>(StandardMaterial {
+            mesh: world.spawn_asset(Sphere::new(10.0).into()),
+            material: world.spawn_asset(StandardMaterial {
                 base_color: WHITE.into(),
                 ..Default::default()
             }),

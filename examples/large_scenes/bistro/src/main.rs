@@ -341,7 +341,7 @@ pub fn proc_scene(
     mut commands: Commands,
     children: Query<&Children>,
     has_std_mat: Query<&MeshMaterial3d<StandardMaterial>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
     lights: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>, With<SpotLight>)>>,
     cameras: Query<Entity, With<Camera>>,
     args: Res<Args>,
@@ -515,8 +515,8 @@ fn spin(
 fn benchmark(
     input: Res<ButtonInput<KeyCode>>,
     mut camera_transform: Single<&mut Transform, With<Camera>>,
-    materials: Res<Assets<StandardMaterial>>,
-    meshes: Res<Assets<Mesh>>,
+    materials: Assets<StandardMaterial>,
+    meshes: Assets<Mesh>,
     has_std_mat: Query<&MeshMaterial3d<StandardMaterial>>,
     has_mesh: Query<&Mesh3d>,
     mut bench_started: Local<Option<Instant>>,
@@ -557,9 +557,9 @@ fn benchmark(
         println!("{:>7.2}ms avg 1% high", low_high.sum_one_percent_high * r);
         println!(
             "{:>7} Meshes\n{:>7} Mesh Instances\n{:>7} Materials\n{:>7} Material Instances",
-            meshes.len(),
+            meshes.count(),
             has_mesh.iter().len(),
-            materials.len(),
+            materials.count(),
             has_std_mat.iter().len(),
         );
         *bench_started = None;

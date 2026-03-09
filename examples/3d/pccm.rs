@@ -77,15 +77,14 @@ fn main() {
 /// Creates the initial scene.
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawn the glTF scene.
     commands.spawn(SceneRoot(asset_server.load(OUTER_CUBE_URL)));
 
     spawn_camera(&mut commands);
-    spawn_inner_cube(&mut commands, &mut meshes, &mut materials);
+    spawn_inner_cube(&mut commands, &mut asset_commands);
     spawn_reflection_probe(&mut commands, &asset_server);
     spawn_buttons(&mut commands);
 }
@@ -101,12 +100,8 @@ fn spawn_camera(commands: &mut Commands) {
 }
 
 /// Spawns the inner reflective cube in the scene.
-fn spawn_inner_cube(
-    commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
-) {
-    let cube_mesh = meshes.add(
+fn spawn_inner_cube(commands: &mut Commands, asset_commands: &mut AssetCommands) {
+    let cube_mesh = asset_commands.spawn_asset(
         Cuboid {
             half_size: Vec3::new(5.0, 1.0, 2.0),
         }
@@ -115,7 +110,7 @@ fn spawn_inner_cube(
         .with_duplicated_vertices()
         .with_computed_flat_normals(),
     );
-    let cube_material = materials.add(StandardMaterial {
+    let cube_material = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::WHITE,
         metallic: 1.0,
         reflectance: 1.0,

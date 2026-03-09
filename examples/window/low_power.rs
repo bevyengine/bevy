@@ -166,13 +166,14 @@ pub(crate) mod test_setup {
     /// Set up a scene with a cube and some text
     pub fn setup(
         mut commands: Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
+        mut asset_commands: AssetCommands,
         mut request_redraw_writer: MessageWriter<RequestRedraw>,
     ) {
         commands.spawn((
-            Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
-            MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+            Mesh3d(asset_commands.spawn_asset(Cuboid::new(0.5, 0.5, 0.5).into())),
+            MeshMaterial3d(
+                asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.8, 0.7, 0.6))),
+            ),
             Rotator,
         ));
 

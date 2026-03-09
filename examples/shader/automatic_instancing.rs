@@ -23,22 +23,17 @@ fn main() {
 /// This example demonstrates one use of automatic instancing and how to use `MeshTag` to use
 /// external data in a custom material. For example, here we use the "index" of each cube to
 /// determine the texel coordinate to sample from the image in the shader.
-fn setup(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
-) {
+fn setup(mut commands: Commands, assets: Res<AssetServer>, mut asset_commands: AssetCommands) {
     // We will use this image as our external data for our material to sample from in the vertex shader
     let image = assets.load("branding/icon.png");
 
     // Our single mesh handle that will be instanced
-    let mesh_handle = meshes.add(Cuboid::from_size(Vec3::splat(0.01)));
+    let mesh_handle = asset_commands.spawn_asset(Cuboid::from_size(Vec3::splat(0.01)).into());
 
     // Create the custom material with a reference to our texture
     // Automatic instancing works with any Material, including the `StandardMaterial`.
     // This custom material is used to demonstrate the optional `MeshTag` feature.
-    let material_handle = materials.add(CustomMaterial {
+    let material_handle = asset_commands.spawn_asset(CustomMaterial {
         image: image.clone(),
     });
 

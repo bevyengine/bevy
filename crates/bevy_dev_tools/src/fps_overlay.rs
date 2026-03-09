@@ -1,7 +1,7 @@
 //! Module containing logic for FPS overlay.
 
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::Assets;
+use bevy_asset::AssetCommands;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
@@ -11,7 +11,7 @@ use bevy_ecs::{
     reflect::ReflectResource,
     resource::Resource,
     schedule::{common_conditions::resource_changed, IntoScheduleConfigs, SystemSet},
-    system::{Commands, Query, Res, ResMut, Single},
+    system::{Commands, Query, Res, Single},
 };
 use bevy_picking::Pickable;
 use bevy_reflect::Reflect;
@@ -183,10 +183,7 @@ fn setup(
         all(target_arch = "wasm32", not(feature = "webgpu")),
         expect(unused, reason = "Unused variables in wasm32 without webgpu feature")
     )]
-    (mut frame_time_graph_materials, mut buffers): (
-        ResMut<Assets<FrametimeGraphMaterial>>,
-        ResMut<Assets<ShaderBuffer>>,
-    ),
+    mut asset_commands: AssetCommands,
 ) {
     commands
         .spawn((
@@ -222,6 +219,13 @@ fn setup(
             {
                 // Todo: Needs a better design that works with responsive sizing.
                 let font_size = 20.;
+                let values = asset_commands.spawn_asset(ShaderBuffer {
+                    // Initialize with dummy data because the default (`data: None`) will
+                    // cause a panic in the shader if the frame time graph is constructed
+                    // with `enabled: false`.
+                    data: Some(vec![0, 0, 0, 0]),
+                    ..Default::default()
+                });
                 p.spawn((
                     Node {
                         width: Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE),
@@ -234,14 +238,8 @@ fn setup(
                         ..Default::default()
                     },
                     Pickable::IGNORE,
-                    MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
-                        values: buffers.add(ShaderBuffer {
-                            // Initialize with dummy data because the default (`data: None`) will
-                            // cause a panic in the shader if the frame time graph is constructed
-                            // with `enabled: false`.
-                            data: Some(vec![0, 0, 0, 0]),
-                            ..Default::default()
-                        }),
+                    MaterialNode::from(asset_commands.spawn_asset(FrametimeGraphMaterial {
+                        values,
                         config: FrameTimeGraphConfigUniform::new(
                             overlay_config.frame_time_graph_config.target_fps,
                             overlay_config.frame_time_graph_config.min_fps,

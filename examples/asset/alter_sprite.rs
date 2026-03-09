@@ -60,7 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         //   - for the CPU (`RenderAssetUsages::MAIN_WORLD`),
         //   - or both.
         // `RENDER_WORLD` is necessary to render the image, `MAIN_WORLD` is necessary to inspect
-        // and modify the image (via `ResMut<Assets<Image>>`).
+        // and modify the image (via `AssetsMut<Image>`).
         //
         // Since most games will not need to modify textures at runtime, many developers opt to pass
         // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the image in
@@ -121,7 +121,7 @@ fn alter_handle(
     sprite.image = asset_server.load(bird.get_texture_path());
 }
 
-fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Single<&Sprite, With<Left>>) {
+fn alter_asset(mut images: AssetsMut<Image>, left_bird: Single<&Sprite, With<Left>>) {
     // Obtain a mutable reference to the Image asset.
     let Some(mut image) = images.get_mut(&left_bird.image) else {
         return;

@@ -96,13 +96,10 @@ const DEFAULT_RENDER_LAYER: usize = 0;
 /// The light source belongs to both layers.
 const VIEW_MODEL_RENDER_LAYER: usize = 1;
 
-fn spawn_view_model(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
-    let arm_material = materials.add(Color::from(tailwind::TEAL_200));
+fn spawn_view_model(mut commands: Commands, mut asset_commands: AssetCommands) {
+    let arm = asset_commands.spawn_asset(Cuboid::new(0.1, 0.1, 0.5).into());
+    let arm_material =
+        asset_commands.spawn_asset(StandardMaterial::from(Color::from(tailwind::TEAL_200)));
 
     commands.spawn((
         Player,
@@ -147,14 +144,10 @@ fn spawn_view_model(
     ));
 }
 
-fn spawn_world_model(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
-    let cube = meshes.add(Cuboid::new(2.0, 0.5, 1.0));
-    let material = materials.add(Color::WHITE);
+fn spawn_world_model(mut commands: Commands, mut asset_commands: AssetCommands) {
+    let floor = asset_commands.spawn_asset(Plane3d::new(Vec3::Y, Vec2::splat(10.0)).into());
+    let cube = asset_commands.spawn_asset(Cuboid::new(2.0, 0.5, 1.0).into());
+    let material = asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE));
 
     // The world model camera will render the floor and the cubes spawned in this system.
     // Assigning no `RenderLayers` component defaults to layer 0.

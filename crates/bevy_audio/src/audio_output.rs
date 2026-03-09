@@ -96,7 +96,7 @@ impl<'w, 's> EarPositions<'w, 's> {
 /// data is available, and creates/inserts the sink.
 pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
     audio_output: Res<AudioOutput>,
-    audio_sources: Res<Assets<Source>>,
+    audio_sources: Assets<Source>,
     global_volume: Res<GlobalVolume>,
     query_nonplaying: Query<
         (

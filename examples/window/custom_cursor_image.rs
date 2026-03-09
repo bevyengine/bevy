@@ -30,13 +30,13 @@ fn main() {
 
 fn setup_cursor_icon(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     window: Single<Entity, With<Window>>,
 ) {
     let layout =
         TextureAtlasLayout::from_grid(UVec2::splat(64), 20, 10, Some(UVec2::splat(5)), None);
-    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+    let texture_atlas_layout = asset_commands.spawn_asset(layout);
 
     let animation_config = AnimationConfig::new(0, 199, 1, 4);
 

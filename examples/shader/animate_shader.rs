@@ -15,15 +15,11 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // cube
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(CustomMaterial {})),
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(CustomMaterial {})),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
 

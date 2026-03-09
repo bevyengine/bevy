@@ -31,8 +31,7 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ArrayTextureMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // Load the texture.
@@ -58,8 +57,8 @@ fn setup(
     ));
 
     // Spawn some cubes using the array texture.
-    let mesh_handle = meshes.add(Cuboid::default());
-    let material_handle = materials.add(ArrayTextureMaterial { array_texture });
+    let mesh_handle = asset_commands.spawn_asset(Cuboid::default().into());
+    let material_handle = asset_commands.spawn_asset(ArrayTextureMaterial { array_texture });
     for x in -5..=5 {
         commands.spawn((
             Mesh3d(mesh_handle.clone()),

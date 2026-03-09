@@ -37,10 +37,7 @@ fn main() {
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
-    mut std_materials: ResMut<Assets<StandardMaterial>>,
-    mut depth_materials: ResMut<Assets<PrepassOutputMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // camera
@@ -60,16 +57,18 @@ fn setup(
 
     // plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterial3d(std_materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(5.0, 5.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
     ));
 
     // A quad that shows the outputs of the prepass
     // To make it easy, we just draw a big quad right in front of the camera.
     // For a real application, this isn't ideal.
     commands.spawn((
-        Mesh3d(meshes.add(Rectangle::new(20.0, 20.0))),
-        MeshMaterial3d(depth_materials.add(PrepassOutputMaterial {
+        Mesh3d(asset_commands.spawn_asset(Rectangle::new(20.0, 20.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(PrepassOutputMaterial {
             settings: ShowPrepassSettings::default(),
         })),
         Transform::from_xyz(-0.75, 1.25, 3.0).looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
@@ -78,8 +77,8 @@ fn setup(
 
     // Opaque cube
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(CustomMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(CustomMaterial {
             color: LinearRgba::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Opaque,
@@ -90,8 +89,8 @@ fn setup(
 
     // Cube with alpha mask
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(std_materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
             ..default()
@@ -102,8 +101,8 @@ fn setup(
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(CustomMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(CustomMaterial {
             color: LinearRgba::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
@@ -213,7 +212,7 @@ fn toggle_prepass_view(
     mut prepass_view: Local<u32>,
     keycode: Res<ButtonInput<KeyCode>>,
     material_handle: Single<&MeshMaterial3d<PrepassOutputMaterial>>,
-    mut materials: ResMut<Assets<PrepassOutputMaterial>>,
+    mut materials: AssetsMut<PrepassOutputMaterial>,
     text: Single<Entity, With<Text>>,
     mut writer: TextUiWriter,
 ) {

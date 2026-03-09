@@ -1,14 +1,10 @@
 //! Provides types to specify atmosphere lighting, scattering terms, etc.
 
 use alloc::{borrow::Cow, sync::Arc};
-use bevy_asset::{Asset, AssetEvent, AssetId, Handle};
+use bevy_asset::{Asset, AssetEvent, AssetId, Assets, AssetsMut, Handle};
 use bevy_camera::Hdr;
 use bevy_color::{ColorToComponents, Gray, LinearRgba};
-use bevy_ecs::{
-    component::Component,
-    message::MessageReader,
-    system::{Res, ResMut},
-};
+use bevy_ecs::{component::Component, message::MessageReader};
 use bevy_image::Image;
 use bevy_math::curve::{FunctionCurve, Interval, SampleAutoCurve};
 use bevy_math::{ops, Curve, FloatPow, Vec3};
@@ -524,8 +520,8 @@ impl Default for PhaseFunction {
 /// Resolves [`PhaseFunction::ChromaticTexture`] to [`PhaseFunction::ChromaticCurve`] when the image loads.
 pub fn extract_chromatic_phase_textures(
     mut reader: MessageReader<AssetEvent<Image>>,
-    images: Res<bevy_asset::Assets<Image>>,
-    mut scattering_media: ResMut<bevy_asset::Assets<ScatteringMedium>>,
+    images: Assets<Image>,
+    mut scattering_media: AssetsMut<ScatteringMedium>,
 ) {
     let extract_ids: HashSet<AssetId<Image>> = scattering_media
         .iter()
@@ -574,7 +570,7 @@ pub fn extract_chromatic_phase_textures(
 
         let new_phase = PhaseFunction::from_chromatic_curve(curve);
 
-        for (_id, medium) in scattering_media.iter_mut() {
+        for (_id, mut medium) in scattering_media.iter_mut() {
             for term in medium.terms.iter_mut() {
                 if let PhaseFunction::ChromaticTexture(handle) = &term.phase
                     && handle.id() == *id

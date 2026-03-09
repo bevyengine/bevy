@@ -20,7 +20,7 @@ use crate::prepass::node::late_prepass;
 use crate::schedule::{Core3d, Core3dSystems};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, Assets, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, DirectAssetAccessExt, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::resource_exists,
@@ -263,7 +263,6 @@ impl Plugin for MipGenerationPlugin {
         // specialized for each texture format by replacing `##TEXTURE_FORMAT##`
         // with each possible format.
         // When we have WESL, we should probably revisit this.
-        let mut shader_assets = app.world_mut().resource_mut::<Assets<Shader>>();
         let shader_template_source = include_str!("downsample.wgsl");
         let general_shaders: HashMap<_, _> = TEXTURE_FORMATS
             .iter()
@@ -272,7 +271,8 @@ impl Plugin for MipGenerationPlugin {
                     shader_template_source.replace("##TEXTURE_FORMAT##", identifier);
                 (
                     *texture_format,
-                    shader_assets.add(Shader::from_wgsl(shader_source, "downsample.wgsl")),
+                    app.world_mut()
+                        .spawn_asset(Shader::from_wgsl(shader_source, "downsample.wgsl")),
                 )
             })
             .collect();

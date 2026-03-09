@@ -64,17 +64,13 @@ struct ReadbackBuffer(Handle<ShaderBuffer>);
 #[derive(Resource, ExtractResource, Clone)]
 struct ReadbackImage(Handle<Image>);
 
-fn setup(
-    mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
-    mut buffers: ResMut<Assets<ShaderBuffer>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Create a storage buffer with some data
     let buffer: Vec<u32> = (0..BUFFER_LEN as u32).collect();
     let mut buffer = ShaderBuffer::from(buffer);
     // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
     buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
-    let buffer = buffers.add(buffer);
+    let buffer = asset_commands.spawn_asset(buffer);
 
     // Create a storage texture with some data
     let size = Extent3d {
@@ -93,7 +89,7 @@ fn setup(
     // We also need to enable the COPY_SRC, as well as STORAGE_BINDING so we can use it in the
     // compute shader
     image.texture_descriptor.usage |= TextureUsages::COPY_SRC | TextureUsages::STORAGE_BINDING;
-    let image = images.add(image);
+    let image = asset_commands.spawn_asset(image);
 
     // Spawn the readback components. For each frame, the data will be read back from the GPU
     // asynchronously and trigger the `ReadbackComplete` event on this entity. Despawn the entity

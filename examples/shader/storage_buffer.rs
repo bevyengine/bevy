@@ -18,12 +18,7 @@ fn main() {
 }
 
 /// set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut buffers: ResMut<Assets<ShaderBuffer>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Example data for the storage buffer
     let color_data: Vec<[f32; 4]> = vec![
         [1.0, 0.0, 0.0, 1.0],
@@ -33,11 +28,11 @@ fn setup(
         [0.0, 1.0, 1.0, 1.0],
     ];
 
-    let colors = buffers.add(ShaderBuffer::from(color_data));
+    let colors = asset_commands.spawn_asset(ShaderBuffer::from(color_data));
 
-    let mesh_handle = meshes.add(Cuboid::from_size(Vec3::splat(0.3)));
+    let mesh_handle = asset_commands.spawn_asset(Cuboid::from_size(Vec3::splat(0.3)).into());
     // Create the custom material with the storage buffer
-    let material_handle = materials.add(CustomMaterial {
+    let material_handle = asset_commands.spawn_asset(CustomMaterial {
         colors: colors.clone(),
     });
 
@@ -68,8 +63,8 @@ fn setup(
 fn update(
     time: Res<Time>,
     material_handles: Res<CustomMaterialHandle>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
-    mut buffers: ResMut<Assets<ShaderBuffer>>,
+    mut materials: AssetsMut<CustomMaterial>,
+    mut buffers: AssetsMut<ShaderBuffer>,
 ) {
     let material = materials.get_mut(&material_handles.0).unwrap();
 

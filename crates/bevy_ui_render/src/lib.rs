@@ -475,7 +475,7 @@ pub fn extract_uinode_background_colors(
 pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    texture_atlases: Extract<Assets<TextureAtlasLayout>>,
     uinode_query: Extract<
         Query<(
             Entity,

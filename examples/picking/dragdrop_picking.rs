@@ -26,11 +26,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     commands.spawn(Camera2d);
 
     commands
@@ -82,8 +78,10 @@ fn setup(
     commands
         .spawn((
             DropArea,
-            Mesh2d(meshes.add(Rectangle::new(AREA_SIZE, AREA_SIZE))),
-            MeshMaterial2d(materials.add(Color::srgb(0.1, 0.4, 0.1))),
+            Mesh2d(asset_commands.spawn_asset(Rectangle::new(AREA_SIZE, AREA_SIZE).into())),
+            MeshMaterial2d(
+                asset_commands.spawn_asset(ColorMaterial::from(Color::srgb(0.1, 0.4, 0.1))),
+            ),
             Transform::IDENTITY,
             children![(
                 Text2d::new("Drop here"),
@@ -103,8 +101,7 @@ fn on_drag_enter(
     mut event: On<Pointer<DragEnter>>,
     button: Single<Entity, With<DraggableButton>>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut asset_commands: AssetCommands,
 ) {
     if event.dragged == *button {
         let Some(position) = event.hit.position else {
@@ -112,8 +109,10 @@ fn on_drag_enter(
         };
         commands.spawn((
             GhostPreview,
-            Mesh2d(meshes.add(Circle::new(ELEMENT_SIZE))),
-            MeshMaterial2d(materials.add(Color::srgba(1.0, 1.0, 0.6, 0.5))),
+            Mesh2d(asset_commands.spawn_asset(Circle::new(ELEMENT_SIZE).into())),
+            MeshMaterial2d(
+                asset_commands.spawn_asset(ColorMaterial::from(Color::srgba(1.0, 1.0, 0.6, 0.5))),
+            ),
             Transform::from_translation(position + 2. * Vec3::Z),
             Pickable::IGNORE,
         ));
@@ -138,10 +137,9 @@ fn on_drag_over(
 fn on_drag_drop(
     mut event: On<Pointer<DragDrop>>,
     button: Single<Entity, With<DraggableButton>>,
-    mut commands: Commands,
     ghost: Single<Entity, With<GhostPreview>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut commands: Commands,
+    mut asset_commands: AssetCommands,
 ) {
     if event.dropped == *button {
         commands.entity(*ghost).despawn();
@@ -150,8 +148,10 @@ fn on_drag_drop(
         };
         commands.spawn((
             DroppedElement,
-            Mesh2d(meshes.add(Circle::new(ELEMENT_SIZE))),
-            MeshMaterial2d(materials.add(Color::srgb(1.0, 1.0, 0.6))),
+            Mesh2d(asset_commands.spawn_asset(Circle::new(ELEMENT_SIZE).into())),
+            MeshMaterial2d(
+                asset_commands.spawn_asset(ColorMaterial::from(Color::srgb(1.0, 1.0, 0.6))),
+            ),
             Transform::from_translation(position + 2. * Vec3::Z),
             Pickable::IGNORE,
         ));

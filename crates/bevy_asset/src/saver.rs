@@ -382,18 +382,14 @@ impl<'a> SavedAssetBuilder<'a> {
         asset: SavedAsset<'a, 'a, A>,
     ) -> Handle<A> {
         let label = label.into();
-        let handle = Handle::Strong(
-            self.asset_server
-                .read_infos()
-                .handle_providers
-                .get(&TypeId::of::<A>())
-                .expect("asset type has been initialized")
-                .reserve_handle_internal(
-                    false,
-                    Some(self.asset_path.clone().with_label(label.to_string())),
-                    None,
-                ),
-        );
+        let handle = self
+            .asset_server
+            .create_fake_handle(
+                TypeId::of::<A>(),
+                Some(self.asset_path.clone().with_label(label.to_string())),
+                None,
+            )
+            .typed_unchecked();
         self.add_labeled_asset_with_existing_handle(label, asset, handle.clone());
         handle
     }
@@ -429,17 +425,10 @@ impl<'a> SavedAssetBuilder<'a> {
         asset: ErasedSavedAsset<'a, 'a>,
     ) -> UntypedHandle {
         let label = label.into();
-        let handle = UntypedHandle::Strong(
-            self.asset_server
-                .read_infos()
-                .handle_providers
-                .get(&asset.value.type_id())
-                .expect("asset type has been initialized")
-                .reserve_handle_internal(
-                    false,
-                    Some(self.asset_path.clone().with_label(label.to_string())),
-                    None,
-                ),
+        let handle = self.asset_server.create_fake_handle(
+            asset.value.type_id(),
+            Some(self.asset_path.clone().with_label(label.to_string())),
+            None,
         );
         self.add_labeled_asset_with_existing_handle_erased(label, asset, handle.clone());
         handle
@@ -577,7 +566,7 @@ pub(crate) mod tests {
     use crate::{
         saver::{save_using_saver, AssetSaver, SavedAsset, SavedAssetBuilder},
         tests::{create_app, run_app_until, CoolText, CoolTextLoader, CoolTextRon, SubText},
-        AssetApp, AssetServer, Assets,
+        AssetApp, AssetServer, DirectAssetAccessExt,
     };
 
     fn new_subtext(text: &str) -> SubText {
@@ -684,22 +673,17 @@ pub(crate) mod tests {
             .unwrap();
         }
 
-        let readback = asset_server.load("some/target/path.cool.ron");
+        let readback = asset_server.load::<CoolText>("some/target/path.cool.ron");
         run_app_until(&mut app, |_| {
             asset_server.is_loaded(&readback).then_some(())
         });
 
-        let cool_text = app
-            .world()
-            .resource::<Assets<CoolText>>()
-            .get(&readback)
-            .unwrap();
+        let cool_text = app.world().get_asset(readback.id()).unwrap();
 
-        let subtexts = app.world().resource::<Assets<SubText>>();
         let mut asset_labels = cool_text
             .sub_texts
             .iter()
-            .map(|handle| subtexts.get(handle).unwrap().text.clone())
+            .map(|handle| app.world().get_asset(handle.id()).unwrap().text.clone())
             .collect::<Vec<_>>();
         asset_labels.sort();
         assert_eq!(asset_labels, &["goodbye", "hiya", "idk"]);
@@ -713,13 +697,11 @@ pub(crate) mod tests {
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
 
-        let mut subtexts = app.world_mut().resource_mut::<Assets<SubText>>();
-        let hiya_handle = subtexts.add(new_subtext("hiya"));
-        let goodbye_handle = subtexts.add(new_subtext("goodbye"));
-        let idk_handle = subtexts.add(new_subtext("idk"));
+        let hiya_handle = app.world_mut().spawn_asset(new_subtext("hiya"));
+        let goodbye_handle = app.world_mut().spawn_asset(new_subtext("goodbye"));
+        let idk_handle = app.world_mut().spawn_asset(new_subtext("idk"));
 
-        let mut cool_texts = app.world_mut().resource_mut::<Assets<CoolText>>();
-        let cool_text_handle = cool_texts.add(CoolText {
+        let cool_text_handle = app.world_mut().spawn_asset(CoolText {
             text: "wassup".into(),
             sub_texts: vec![
                 hiya_handle.clone(),
@@ -729,28 +711,27 @@ pub(crate) mod tests {
             ..Default::default()
         });
 
-        let subtexts = app.world().resource::<Assets<SubText>>();
-        let cool_texts = app.world().resource::<Assets<CoolText>>();
         let asset_server = app.world().resource::<AssetServer>().clone();
         let mut saved_asset_builder =
             SavedAssetBuilder::new(asset_server.clone(), "some/target/path.cool.ron".into());
         saved_asset_builder.add_labeled_asset_with_existing_handle(
             "hiya",
-            SavedAsset::from_asset(subtexts.get(&hiya_handle).unwrap()),
+            SavedAsset::from_asset(app.world().get_asset(hiya_handle.id()).unwrap()),
             hiya_handle,
         );
         saved_asset_builder.add_labeled_asset_with_existing_handle(
             "goodbye",
-            SavedAsset::from_asset(subtexts.get(&goodbye_handle).unwrap()),
+            SavedAsset::from_asset(app.world().get_asset(goodbye_handle.id()).unwrap()),
             goodbye_handle,
         );
         saved_asset_builder.add_labeled_asset_with_existing_handle(
             "idk",
-            SavedAsset::from_asset(subtexts.get(&idk_handle).unwrap()),
+            SavedAsset::from_asset(app.world().get_asset(idk_handle.id()).unwrap()),
             idk_handle,
         );
 
-        let saved_asset = saved_asset_builder.build(cool_texts.get(&cool_text_handle).unwrap());
+        let saved_asset =
+            saved_asset_builder.build(app.world().get_asset(cool_text_handle.id()).unwrap());
         let mut asset_labels = saved_asset
             .label_to_asset_index
             .keys()
@@ -761,7 +742,7 @@ pub(crate) mod tests {
 
         // While this example is supported, it is **not** recommended. This currently blocks the
         // entire world from updating. A slow write could cause visible stutters. However we do this
-        // here to show it's possible to use assets directly out of the Assets resources.
+        // here to show it's possible to use assets directly out of the world.
         {
             let asset_server = asset_server.clone();
             block_on(async move {
@@ -777,22 +758,17 @@ pub(crate) mod tests {
             .unwrap();
         }
 
-        let readback = asset_server.load("some/target/path.cool.ron");
+        let readback = asset_server.load::<CoolText>("some/target/path.cool.ron");
         run_app_until(&mut app, |_| {
             asset_server.is_loaded(&readback).then_some(())
         });
 
-        let cool_text = app
-            .world()
-            .resource::<Assets<CoolText>>()
-            .get(&readback)
-            .unwrap();
+        let cool_text = app.world().get_asset(readback.id()).unwrap();
 
-        let subtexts = app.world().resource::<Assets<SubText>>();
         let mut asset_labels = cool_text
             .sub_texts
             .iter()
-            .map(|handle| subtexts.get(handle).unwrap().text.clone())
+            .map(|handle| app.world().get_asset(handle.id()).unwrap().text.clone())
             .collect::<Vec<_>>();
         asset_labels.sort();
         assert_eq!(asset_labels, &["goodbye", "hiya", "idk"]);

@@ -5,6 +5,7 @@ use std::{f32::consts::PI, time::Instant};
 
 use crate::light_consts::lux;
 use argh::FromArgs;
+use bevy::asset::AssetUuidMap;
 use bevy::pbr::ContactShadows;
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
@@ -265,9 +266,9 @@ pub fn setup(
 pub fn assign_rng_materials(
     scene_ready: On<SceneInstanceReady>,
     mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    meshes: Res<Assets<Mesh>>,
+    mut asset_commands: AssetCommands,
+    meshes: Assets<Mesh>,
+    asset_uuid_map: Res<AssetUuidMap>,
     mesh_instances: Query<(Entity, &Mesh3d)>,
     args: Res<Args>,
     asset_server: Res<AssetServer>,
@@ -301,14 +302,14 @@ pub fn assign_rng_materials(
 
     let base_color_textures = (0..args.texture_count)
         .map(|i| {
-            images.add(generate_random_compressed_texture_with_mipmaps(
+            asset_commands.spawn_asset(generate_random_compressed_texture_with_mipmaps(
                 2048, false, i,
             ))
         })
         .collect::<Vec<_>>();
     let roughness_textures = (0..args.texture_count)
         .map(|i| {
-            images.add(generate_random_compressed_texture_with_mipmaps(
+            asset_commands.spawn_asset(generate_random_compressed_texture_with_mipmaps(
                 2048,
                 false, // Using bc4 here seems to not work
                 i + 2048,
@@ -316,7 +317,7 @@ pub fn assign_rng_materials(
         })
         .collect::<Vec<_>>();
 
-    for (i, (mesh_h, _mesh)) in meshes.iter().enumerate() {
+    for (i, (mesh_entity, _mesh)) in meshes.iter().enumerate() {
         let mut base_color_texture = None;
         let mut roughness_texture = None;
 
@@ -327,7 +328,7 @@ pub fn assign_rng_materials(
             roughness_texture = Some(roughness_textures[i % roughness_textures.len()].clone());
         }
 
-        let unique_material = materials.add(StandardMaterial {
+        let unique_material = asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::srgb(
                 hash_noise(i as u32, 0, 0),
                 hash_noise(i as u32, 0, 1),
@@ -338,7 +339,9 @@ pub fn assign_rng_materials(
             ..default()
         });
         for (entity, mesh_instance_h) in mesh_instances.iter() {
-            if mesh_instance_h.id() == mesh_h {
+            if let Ok(mesh_instance_target) = asset_uuid_map.resolve_entity(mesh_instance_h.id())
+                && mesh_instance_target == mesh_entity
+            {
                 commands
                     .entity(entity)
                     .insert(MeshMaterial3d::from(unique_material.clone()));
@@ -449,8 +452,8 @@ fn spin(
 fn benchmark(
     input: Res<ButtonInput<KeyCode>>,
     mut camera_transform: Single<&mut Transform, With<Camera>>,
-    materials: Res<Assets<StandardMaterial>>,
-    meshes: Res<Assets<Mesh>>,
+    materials: Assets<StandardMaterial>,
+    meshes: Assets<Mesh>,
     has_std_mat: Query<&MeshMaterial3d<StandardMaterial>>,
     has_mesh: Query<&Mesh3d>,
     mut bench_started: Local<Option<Instant>>,
@@ -491,9 +494,9 @@ fn benchmark(
         println!("{:>7.2}ms avg 1% high", low_high.sum_one_percent_high * r);
         println!(
             "{:>7} Meshes\n{:>7} Mesh Instances\n{:>7} Materials\n{:>7} Material Instances",
-            meshes.len(),
+            meshes.count(),
             has_mesh.iter().len(),
-            materials.len(),
+            materials.count(),
             has_std_mat.iter().len(),
         );
         *bench_started = None;

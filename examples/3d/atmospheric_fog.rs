@@ -42,8 +42,7 @@ fn setup_camera_fog(mut commands: Commands) {
 
 fn setup_terrain_scene(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
@@ -72,8 +71,8 @@ fn setup_terrain_scene(
 
     // Sky
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(2.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::new(2.0, 1.0, 1.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Srgba::hex("888888").unwrap().into(),
             unlit: true,
             cull_mode: None,

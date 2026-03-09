@@ -118,7 +118,7 @@ impl Plugin for ScenePlugin {
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
-    use bevy_asset::{AssetPlugin, Assets};
+    use bevy_asset::{AssetPlugin, DirectAssetAccessExt};
     use bevy_ecs::{
         component::Component,
         entity::Entity,
@@ -128,9 +128,7 @@ mod tests {
     };
     use bevy_reflect::Reflect;
 
-    use crate::{
-        DynamicScene, DynamicSceneBuilder, DynamicSceneRoot, Scene, ScenePlugin, SceneRoot,
-    };
+    use crate::{DynamicSceneBuilder, DynamicSceneRoot, Scene, ScenePlugin, SceneRoot};
 
     #[derive(Component, Reflect, PartialEq, Debug)]
     #[reflect(Component)]
@@ -168,10 +166,7 @@ mod tests {
             .register_type::<Triangle>()
             .register_type::<FinishLine>();
 
-        let scene_handle = app
-            .world_mut()
-            .resource_mut::<Assets<Scene>>()
-            .reserve_handle();
+        let scene_handle = app.world_mut().reserve_asset_handle();
 
         let scene_entity = app.world_mut().spawn(SceneRoot(scene_handle.clone())).id();
         app.update();
@@ -193,8 +188,7 @@ mod tests {
         scene_1.world.spawn((Circle { radius: 7.0 }, ChildOf(root)));
 
         app.world_mut()
-            .resource_mut::<Assets<Scene>>()
-            .insert(&scene_handle, scene_1)
+            .insert_asset(scene_handle.id(), scene_1)
             .unwrap();
 
         app.update();
@@ -251,8 +245,7 @@ mod tests {
         ));
 
         app.world_mut()
-            .resource_mut::<Assets<Scene>>()
-            .insert(&scene_handle, scene_2)
+            .insert_asset(scene_handle.id(), scene_2)
             .unwrap();
 
         app.update();
@@ -296,10 +289,7 @@ mod tests {
             .register_type::<Triangle>()
             .register_type::<FinishLine>();
 
-        let scene_handle = app
-            .world_mut()
-            .resource_mut::<Assets<DynamicScene>>()
-            .reserve_handle();
+        let scene_handle = app.world_mut().reserve_asset_handle();
 
         let scene_entity = app
             .world_mut()
@@ -335,8 +325,7 @@ mod tests {
 
         let scene_1 = create_dynamic_scene(scene_1, app.world());
         app.world_mut()
-            .resource_mut::<Assets<DynamicScene>>()
-            .insert(&scene_handle, scene_1)
+            .insert_asset(scene_handle.id(), scene_1)
             .unwrap();
 
         app.update();
@@ -395,8 +384,7 @@ mod tests {
         let scene_2 = create_dynamic_scene(scene_2, app.world());
 
         app.world_mut()
-            .resource_mut::<Assets<DynamicScene>>()
-            .insert(&scene_handle, scene_2)
+            .insert_asset(scene_handle.id(), scene_2)
             .unwrap();
 
         app.update();

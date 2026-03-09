@@ -60,19 +60,19 @@ fn main() {
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
-    let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
-    let cube_mesh = meshes.add(Cuboid::new(0.7, 0.7, 0.7));
-    let plane_mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
-    let cylinder_mesh = meshes.add(Cylinder::new(0.5, 2.0).mesh().resolution(50));
+    let icosphere_mesh = asset_commands.spawn_asset(Sphere::new(0.9).mesh().ico(7).unwrap());
+    let cube_mesh = asset_commands.spawn_asset(Cuboid::new(0.7, 0.7, 0.7).into());
+    let plane_mesh = asset_commands.spawn_asset(Plane3d::default().mesh().size(2.0, 2.0).into());
+    let cylinder_mesh =
+        asset_commands.spawn_asset(Cylinder::new(0.5, 2.0).mesh().resolution(50).into());
 
     // Cube #1
     commands.spawn((
         Mesh3d(cube_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial::default())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::default())),
         Transform::from_xyz(0.25, 0.5, -2.0).with_rotation(Quat::from_euler(
             EulerRot::XYZ,
             1.4,
@@ -89,7 +89,7 @@ fn setup(
     // Cube #2
     commands.spawn((
         Mesh3d(cube_mesh),
-        MeshMaterial3d(materials.add(StandardMaterial::default())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::default())),
         Transform::from_xyz(-0.75, 0.7, -2.0).with_rotation(Quat::from_euler(
             EulerRot::XYZ,
             0.4,
@@ -106,7 +106,7 @@ fn setup(
     // Candle
     commands.spawn((
         Mesh3d(cylinder_mesh),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::srgb(0.9, 0.2, 0.3),
             diffuse_transmission: 0.7,
             perceptual_roughness: 0.32,
@@ -133,7 +133,7 @@ fn setup(
 
     commands.spawn((
         Mesh3d(icosphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             emissive,
             diffuse_transmission: 1.0,
             ..default()
@@ -146,7 +146,7 @@ fn setup(
     // Glass Sphere
     commands.spawn((
         Mesh3d(icosphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::WHITE,
             specular_transmission: 0.9,
             diffuse_transmission: 1.0,
@@ -166,7 +166,7 @@ fn setup(
     // R Sphere
     commands.spawn((
         Mesh3d(icosphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: RED.into(),
             specular_transmission: 0.9,
             diffuse_transmission: 1.0,
@@ -186,7 +186,7 @@ fn setup(
     // G Sphere
     commands.spawn((
         Mesh3d(icosphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: LIME.into(),
             specular_transmission: 0.9,
             diffuse_transmission: 1.0,
@@ -206,7 +206,7 @@ fn setup(
     // B Sphere
     commands.spawn((
         Mesh3d(icosphere_mesh),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: BLUE.into(),
             specular_transmission: 0.9,
             diffuse_transmission: 1.0,
@@ -224,14 +224,14 @@ fn setup(
     ));
 
     // Chessboard Plane
-    let black_material = materials.add(StandardMaterial {
+    let black_material = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::BLACK,
         reflectance: 0.3,
         perceptual_roughness: 0.8,
         ..default()
     });
 
-    let white_material = materials.add(StandardMaterial {
+    let white_material = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::WHITE,
         reflectance: 0.3,
         perceptual_roughness: 0.8,
@@ -260,7 +260,7 @@ fn setup(
     // Paper
     commands.spawn((
         Mesh3d(plane_mesh),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::WHITE,
             diffuse_transmission: 0.6,
             perceptual_roughness: 0.8,
@@ -374,7 +374,7 @@ impl Default for ExampleState {
 
 fn example_control_system(
     mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: AssetsMut<StandardMaterial>,
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
     camera: Single<
         (

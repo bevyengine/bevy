@@ -101,20 +101,22 @@ fn reenable_entities_on_space(
 
 const X_EXTENT: f32 = 900.;
 
-fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup_scene(mut commands: Commands, mut asset_commands: AssetCommands) {
     commands.spawn(Camera2d);
 
     let named_shapes = [
-        (Name::new("Annulus"), meshes.add(Annulus::new(25.0, 50.0))),
+        (
+            Name::new("Annulus"),
+            asset_commands.spawn_asset(Annulus::new(25.0, 50.0).into()),
+        ),
         (
             Name::new("Bestagon"),
-            meshes.add(RegularPolygon::new(50.0, 6)),
+            asset_commands.spawn_asset(RegularPolygon::new(50.0, 6).into()),
         ),
-        (Name::new("Rhombus"), meshes.add(Rhombus::new(75.0, 100.0))),
+        (
+            Name::new("Rhombus"),
+            asset_commands.spawn_asset(Rhombus::new(75.0, 100.0).into()),
+        ),
     ];
     let num_shapes = named_shapes.len();
 
@@ -126,7 +128,7 @@ fn setup_scene(
             name,
             DisableOnClick,
             Mesh2d(shape),
-            MeshMaterial2d(materials.add(color)),
+            MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial::from(color))),
             Transform::from_xyz(
                 // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
                 -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,

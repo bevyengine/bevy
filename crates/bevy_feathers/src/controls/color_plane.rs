@@ -1,5 +1,5 @@
 use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::{Asset, Assets};
+use bevy_asset::{Asset, AssetCommands, AssetsMut};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -9,7 +9,7 @@ use bevy_ecs::{
     observer::On,
     query::{Changed, Has, Or, With},
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, Res},
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_picking::{
@@ -187,8 +187,9 @@ fn update_plane_color(
     q_children: Query<&Children>,
     q_material_node: Query<&MaterialNode<ColorPlaneMaterial>>,
     mut q_node: Query<&mut Node>,
-    mut r_materials: ResMut<Assets<ColorPlaneMaterial>>,
     mut commands: Commands,
+    mut r_materials: AssetsMut<ColorPlaneMaterial>,
+    mut asset_commands: AssetCommands,
 ) {
     for (plane_ent, plane, plane_value) in q_color_plane.iter() {
         // Find the inner entity
@@ -208,7 +209,7 @@ fn update_plane_color(
             }
         } else {
             // Insert new node component
-            let material = r_materials.add(ColorPlaneMaterial {
+            let material = asset_commands.spawn_asset(ColorPlaneMaterial {
                 plane: *plane,
                 fixed_channel: plane_value.0.z,
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]

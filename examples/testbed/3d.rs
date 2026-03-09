@@ -123,14 +123,10 @@ mod light {
 
     const CURRENT_SCENE: super::Scene = super::Scene::Light;
 
-    pub fn setup(
-        mut commands: Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
-    ) {
+    pub fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
         commands.spawn((
-            Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(10.0, 10.0).into())),
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 base_color: Color::WHITE,
                 perceptual_roughness: 1.0,
                 ..default()
@@ -139,8 +135,8 @@ mod light {
         ));
 
         commands.spawn((
-            Mesh3d(meshes.add(Cuboid::default())),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 base_color: DEEP_PINK.into(),
                 ..default()
             })),
@@ -199,11 +195,7 @@ mod bloom {
 
     const CURRENT_SCENE: super::Scene = super::Scene::Bloom;
 
-    pub fn setup(
-        mut commands: Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
-    ) {
+    pub fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
         commands.spawn((
             Camera3d::default(),
             Tonemapping::TonyMcMapface,
@@ -212,16 +204,16 @@ mod bloom {
             DespawnOnExit(CURRENT_SCENE),
         ));
 
-        let material_emissive1 = materials.add(StandardMaterial {
+        let material_emissive1 = asset_commands.spawn_asset(StandardMaterial {
             emissive: LinearRgba::rgb(13.99, 5.32, 2.0),
             ..default()
         });
-        let material_emissive2 = materials.add(StandardMaterial {
+        let material_emissive2 = asset_commands.spawn_asset(StandardMaterial {
             emissive: LinearRgba::rgb(2.0, 13.99, 5.32),
             ..default()
         });
 
-        let mesh = meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap());
+        let mesh = asset_commands.spawn_asset(Sphere::new(0.5).mesh().ico(5).unwrap());
 
         for z in -2..3_i32 {
             let material = match (z % 2).abs() {
@@ -290,14 +282,14 @@ mod animation {
 
     pub fn setup(
         mut commands: Commands,
+        mut asset_commands: AssetCommands,
         asset_server: Res<AssetServer>,
-        mut graphs: ResMut<Assets<AnimationGraph>>,
     ) {
         let (graph, node) = AnimationGraph::from_clip(
             asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
         );
 
-        let graph_handle = graphs.add(graph);
+        let graph_handle = asset_commands.spawn_asset(graph);
         commands.insert_resource(Animation {
             animation: node,
             graph: graph_handle,
@@ -532,13 +524,8 @@ mod white_furnace_solid_color_light {
         }
     }
 
-    pub fn setup(
-        mut commands: Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
-        mut images: ResMut<Assets<Image>>,
-    ) {
-        let sphere_mesh = meshes.add(Sphere::new(0.45));
+    pub fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
+        let sphere_mesh = asset_commands.spawn_asset(Mesh::from(Sphere::new(0.45)));
 
         // Light should come from the environment map only
         commands.insert_resource(GlobalAmbientLight::NONE);
@@ -551,7 +538,7 @@ mod white_furnace_solid_color_light {
                 // sphere
                 commands.spawn((
                     Mesh3d(sphere_mesh.clone()),
-                    MeshMaterial3d(materials.add(StandardMaterial {
+                    MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                         base_color: LinearRgba::WHITE.into(),
                         // vary key PBR parameters on a grid of spheres to show the effect
                         metallic: y01,
@@ -566,9 +553,10 @@ mod white_furnace_solid_color_light {
 
         // Create a pure white cubemap
         let white_cubemap = create_white_cubemap(256);
-        let white_cubemap_handle = images.add(white_cubemap);
+        let white_cubemap_handle = asset_commands.spawn_asset(white_cubemap);
 
-        let mut solid_color_light = EnvironmentMapLight::solid_color(&mut images, Color::WHITE);
+        let mut solid_color_light =
+            EnvironmentMapLight::solid_color(&mut asset_commands, Color::WHITE);
         solid_color_light.intensity = 500.0;
 
         // camera
@@ -644,13 +632,8 @@ mod white_furnace_environment_map_light {
         }
     }
 
-    pub fn setup(
-        mut commands: Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
-        mut images: ResMut<Assets<Image>>,
-    ) {
-        let sphere_mesh = meshes.add(Sphere::new(0.45));
+    pub fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
+        let sphere_mesh = asset_commands.spawn_asset(Mesh::from(Sphere::new(0.45)));
 
         // Light should come from the environment map only
         commands.insert_resource(GlobalAmbientLight::NONE);
@@ -663,7 +646,7 @@ mod white_furnace_environment_map_light {
                 // sphere
                 commands.spawn((
                     Mesh3d(sphere_mesh.clone()),
-                    MeshMaterial3d(materials.add(StandardMaterial {
+                    MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                         base_color: LinearRgba::WHITE.into(),
                         // vary key PBR parameters on a grid of spheres to show the effect
                         metallic: y01,
@@ -678,7 +661,7 @@ mod white_furnace_environment_map_light {
 
         // Create a pure white cubemap
         let white_cubemap = create_white_cubemap(256);
-        let white_cubemap_handle = images.add(white_cubemap);
+        let white_cubemap_handle = asset_commands.spawn_asset(white_cubemap);
 
         let generated_light = GeneratedEnvironmentMapLight {
             environment_map: white_cubemap_handle.clone(),

@@ -47,40 +47,35 @@ fn main() {
     app.run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     let image_r = create_test_image(2048, -0.8, 0.156, 1);
-    let mut mat_r = StandardMaterial::from(images.add(image_r));
+    let mut mat_r = StandardMaterial::from(asset_commands.spawn_asset(image_r));
     mat_r.unlit = true;
 
     let image_rg = create_test_image(2048, -0.8, 0.156, 2);
-    let mut mat_rg = StandardMaterial::from(images.add(image_rg));
+    let mut mat_rg = StandardMaterial::from(asset_commands.spawn_asset(image_rg));
     mat_rg.unlit = true;
 
     let image_rgba = create_test_image(2048, -0.8, 0.156, 4);
-    let mut mat_rgba = StandardMaterial::from(images.add(image_rgba));
+    let mut mat_rgba = StandardMaterial::from(asset_commands.spawn_asset(image_rgba));
     mat_rgba.unlit = true;
 
-    let plane_h = meshes.add(Plane3d::default().mesh().size(20.0, 30.0));
+    let plane_h = asset_commands.spawn_asset(Plane3d::default().mesh().size(20.0, 30.0).into());
 
     // planes
     commands.spawn((
         Mesh3d(plane_h.clone()),
-        MeshMaterial3d(materials.add(mat_r)),
+        MeshMaterial3d(asset_commands.spawn_asset(mat_r)),
         Transform::from_xyz(-3.0, 0.0, 0.0).with_rotation(Quat::from_rotation_z(-PI * 0.5)),
     ));
     commands.spawn((
         Mesh3d(plane_h.clone()),
-        MeshMaterial3d(materials.add(mat_rg)),
+        MeshMaterial3d(asset_commands.spawn_asset(mat_rg)),
         Transform::from_xyz(3.0, 0.0, 0.0).with_rotation(Quat::from_rotation_z(PI * 0.5)),
     ));
     commands.spawn((
         Mesh3d(plane_h.clone()),
-        MeshMaterial3d(materials.add(mat_rgba)),
+        MeshMaterial3d(asset_commands.spawn_asset(mat_rgba)),
         Transform::from_xyz(0.0, -3.0, 0.0),
     ));
 

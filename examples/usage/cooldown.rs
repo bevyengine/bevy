@@ -21,13 +21,13 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn(Camera2d);
     let texture = asset_server.load("textures/food_kenney.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(64), 7, 7, None, None);
-    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+    let texture_atlas_layout = asset_commands.spawn_asset(layout);
     commands.spawn((
         Node {
             width: percent(100),

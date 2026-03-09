@@ -3,7 +3,7 @@
 //! Like [`Changed`](bevy_ecs::prelude::Changed), but for [`Asset`]s,
 //! and triggers whenever the handle or the underlying asset changes.
 
-use crate::{AsAssetId, Asset, AssetId};
+use crate::{AsAssetId, Asset, AssetEntity, AssetId, AssetUuidMap};
 use bevy_ecs::component::Components;
 use bevy_ecs::{
     archetype::Archetype,
@@ -31,17 +31,18 @@ use tracing::error;
 /// introduce any safety issues.
 #[derive(Resource)]
 pub(crate) struct AssetChanges<A: Asset> {
-    change_ticks: HashMap<AssetId<A>, Tick>,
+    change_ticks: HashMap<AssetEntity, Tick>,
     last_change_tick: Tick,
+    marker: PhantomData<fn() -> A>,
 }
 
 impl<A: Asset> AssetChanges<A> {
-    pub(crate) fn insert(&mut self, asset_id: AssetId<A>, tick: Tick) {
+    pub(crate) fn insert(&mut self, entity: AssetEntity, tick: Tick) {
         self.last_change_tick = tick;
-        self.change_ticks.insert(asset_id, tick);
+        self.change_ticks.insert(entity, tick);
     }
-    pub(crate) fn remove(&mut self, asset_id: &AssetId<A>) {
-        self.change_ticks.remove(asset_id);
+    pub(crate) fn remove(&mut self, entity: &AssetEntity) {
+        self.change_ticks.remove(entity);
     }
 }
 
@@ -50,6 +51,7 @@ impl<A: Asset> Default for AssetChanges<A> {
         Self {
             change_ticks: Default::default(),
             last_change_tick: Tick::new(0),
+            marker: PhantomData,
         }
     }
 }
@@ -57,9 +59,12 @@ impl<A: Asset> Default for AssetChanges<A> {
 struct AssetChangeCheck<'w, A: AsAssetId> {
     // This should never be `None` in practice, but we need to handle the case
     // where the `AssetChanges` resource was removed.
-    change_ticks: Option<&'w HashMap<AssetId<A::Asset>, Tick>>,
+    change_ticks: Option<&'w HashMap<AssetEntity, Tick>>,
+    /// Mapping from UUID handles to entity handles.
+    uuid_map: Option<&'w AssetUuidMap>,
     last_run: Tick,
     this_run: Tick,
+    marker: PhantomData<fn() -> A>,
 }
 
 impl<A: AsAssetId> Clone for AssetChangeCheck<'_, A> {
@@ -71,21 +76,43 @@ impl<A: AsAssetId> Clone for AssetChangeCheck<'_, A> {
 impl<A: AsAssetId> Copy for AssetChangeCheck<'_, A> {}
 
 impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
-    fn new(changes: &'w AssetChanges<A::Asset>, last_run: Tick, this_run: Tick) -> Self {
+    fn new(
+        changes: &'w AssetChanges<A::Asset>,
+        uuid_map: Option<&'w AssetUuidMap>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self {
         Self {
             change_ticks: Some(&changes.change_ticks),
+            uuid_map,
             last_run,
             this_run,
+            marker: PhantomData,
         }
     }
-    // TODO(perf): some sort of caching? Each check has two levels of indirection,
-    // which is not optimal.
+    // TODO(perf): some sort of caching? Each check has (at least) two levels of indirection (more
+    // for UUID handles), which is not optimal.
     fn has_changed(&self, handle: &A) -> bool {
         let is_newer = |tick: &Tick| tick.is_newer_than(self.last_run, self.this_run);
         let id = handle.as_asset_id();
 
+        // If the handle corresponds to the entity, just use that. If it's a UUID handle, try to
+        // resolve the entity using the UUID map.
+        // PERF: We could make this faster if we could lookup the type ID map once at the start and
+        // then just lookup the uuid here.
+        let entity = match id {
+            AssetId::Entity { entity, .. } => entity,
+            AssetId::Uuid { .. } => {
+                if let Some(entity) = self.uuid_map.and_then(|map| map.resolve_entity(id).ok()) {
+                    entity
+                } else {
+                    return false;
+                }
+            }
+        };
+
         self.change_ticks
-            .is_some_and(|change_ticks| change_ticks.get(&id).is_some_and(is_newer))
+            .is_some_and(|change_ticks| change_ticks.get(&entity).is_some_and(is_newer))
     }
 }
 
@@ -93,11 +120,10 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
 /// after the system last ran, where `A` is a component that implements
 /// [`AsAssetId`].
 ///
-/// Unlike `Changed<A>`, this is true whenever the asset for the `A`
-/// in `ResMut<Assets<A>>` changed. For example, when a mesh changed through the
-/// [`Assets<Mesh>::get_mut`] method, `AssetChanged<Mesh>` will iterate over all
-/// entities with the `Handle<Mesh>` for that mesh. Meanwhile, `Changed<Handle<Mesh>>`
-/// will iterate over no entities.
+/// Unlike `Changed<A>`, this is true whenever `A::Asset` in `AssetData<A::Asset>` changed. For
+/// example, when a mesh changes through the [`AssetsMut<Mesh>::get_mut`] method,
+/// `AssetChanged<Mesh>` will iterate over all entities with the `Handle<Mesh>` for that mesh.
+/// Meanwhile, `Changed<Handle<Mesh>>` will iterate over no entities.
 ///
 /// Swapping the actual `A` component is a common pattern. So you
 /// should check for _both_ `AssetChanged<A>` and `Changed<A>` with
@@ -123,7 +149,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
 /// If no `A` asset updated since the last time the system ran, then no lookups occur.
 ///
 /// [`AssetEventSystems`]: crate::AssetEventSystems
-/// [`Assets<Mesh>::get_mut`]: crate::Assets::get_mut
+/// [`AssetsMut<Mesh>::get_mut`]: crate::AssetsMut::get_mut
 pub struct AssetChanged<A: AsAssetId>(PhantomData<A>);
 
 /// [`WorldQuery`] fetch for [`AssetChanged`].
@@ -147,6 +173,7 @@ impl<'w, A: AsAssetId> Clone for AssetChangedFetch<'w, A> {
 pub struct AssetChangedState<A: AsAssetId> {
     asset_id: ComponentId,
     resource_id: ComponentId,
+    uuid_map_id: ComponentId,
     _asset: PhantomData<fn(A)>,
 }
 
@@ -187,10 +214,20 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
                 inner: None,
                 check: AssetChangeCheck {
                     change_ticks: None,
+                    uuid_map: None,
                     last_run,
                     this_run,
+                    marker: PhantomData,
                 },
             };
+        };
+        // SAFETY:
+        // - `uuid_map_id` was obtained from the type ID of `AssetUuidMap`.
+        // - `update_component_access` added read access for `uuid_map_id`.
+        let uuid_map = unsafe {
+            world
+                .get_resource_by_id(state.uuid_map_id)
+                .map(|ptr| ptr.deref::<AssetUuidMap>())
         };
         let has_updates = changes.last_change_tick.is_newer_than(last_run, this_run);
 
@@ -200,7 +237,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
                     unsafe {
                         <&A>::init_fetch(world, &state.asset_id, last_run, this_run)
                     }),
-            check: AssetChangeCheck::new(changes, last_run, this_run),
+            check: AssetChangeCheck::new(changes, uuid_map, last_run, this_run),
         }
     }
 
@@ -246,24 +283,34 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         component_access_set: &mut FilteredAccessSet,
         _world: UnsafeWorldCell,
     ) {
-        let mut filter = FilteredAccess::default();
-        filter.add_read(state.resource_id);
-        filter.and_with(IS_RESOURCE);
+        let mut resource_filter = FilteredAccess::default();
+        resource_filter.add_read(state.resource_id);
+        resource_filter.and_with(IS_RESOURCE);
 
-        let conflicts = component_access_set.get_conflicts_single(&filter);
-        if conflicts.is_empty() {
-            component_access_set.add(filter);
-            return;
+        let conflicts = component_access_set.get_conflicts_single(&resource_filter);
+        if !conflicts.is_empty() {
+            panic!("error[B0002]: AssetChanged<{}> in system {:?} conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<A>(), system_name);
         }
-        panic!("error[B0002]: AssetChanged<{}> in system {:?} conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<A>(), system_name);
+        component_access_set.add(resource_filter);
+
+        let mut uuid_filter = FilteredAccess::default();
+        uuid_filter.add_read(state.uuid_map_id);
+        uuid_filter.and_with(IS_RESOURCE);
+        let conflicts = component_access_set.get_conflicts_single(&uuid_filter);
+        if !conflicts.is_empty() {
+            panic!("error[B0002]: AssetUuidMap in system {:?} conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002", system_name);
+        }
+        component_access_set.add(uuid_filter);
     }
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {
         let resource_id = world.init_resource::<AssetChanges<A::Asset>>();
         let asset_id = world.register_component::<A>();
+        let uuid_map_id = world.init_resource::<AssetUuidMap>();
         AssetChangedState {
             asset_id,
             resource_id,
+            uuid_map_id,
             _asset: PhantomData,
         }
     }
@@ -271,9 +318,11 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     fn get_state(components: &Components) -> Option<Self::State> {
         let resource_id = components.component_id::<AssetChanges<A::Asset>>()?;
         let asset_id = components.component_id::<A>()?;
+        let uuid_map_id = components.component_id::<AssetUuidMap>()?;
         Some(AssetChangedState {
             asset_id,
             resource_id,
+            uuid_map_id,
             _asset: PhantomData,
         })
     }
@@ -311,21 +360,22 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
+    use crate::direct_access_ext::AssetCommands;
     use crate::tests::create_app;
-    use crate::{AssetEventSystems, Handle};
+    use crate::{AssetEventSystems, Assets, AssetsMut, Handle};
     use alloc::{vec, vec::Vec};
     use bevy_ecs::system::assert_is_system;
     use core::num::NonZero;
     use std::println;
 
-    use crate::{AssetApp, Assets};
+    use crate::AssetApp;
     use bevy_app::{App, AppExit, PostUpdate, Startup, Update};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::{
         component::Component,
         message::MessageWriter,
         resource::Resource,
-        system::{Commands, IntoSystem, Local, Query, Res, ResMut},
+        system::{Commands, IntoSystem, Local, Query, ResMut},
     };
     use bevy_reflect::TypePath;
 
@@ -383,7 +433,7 @@ mod tests {
 
     fn count_update(
         mut counter: ResMut<Counter>,
-        assets: Res<Assets<MyAsset>>,
+        assets: Assets<MyAsset>,
         query: Query<&MyComponent, AssetChanged<MyComponent>>,
     ) {
         for handle in query.iter() {
@@ -392,14 +442,14 @@ mod tests {
         }
     }
 
-    fn update_some(mut assets: ResMut<Assets<MyAsset>>, mut run_count: Local<u32>) {
+    fn update_some(mut assets: AssetsMut<MyAsset>, mut run_count: Local<u32>) {
         let mut update_index = |i| {
             let id = assets
                 .iter()
                 .find_map(|(h, a)| (a.0 == i).then_some(h))
                 .unwrap();
             let mut asset = assets.get_mut(id).unwrap();
-            println!("setting new value for {}", asset.0);
+            println!("setting new value for {}", (***asset).0);
             asset.1 = "new_value";
         };
         match *run_count {
@@ -414,22 +464,18 @@ mod tests {
         *run_count += 1;
     }
 
-    fn add_some(
-        mut assets: ResMut<Assets<MyAsset>>,
-        mut cmds: Commands,
-        mut run_count: Local<u32>,
-    ) {
+    fn add_some(mut asset_commands: AssetCommands, mut cmds: Commands, mut run_count: Local<u32>) {
         match *run_count {
             1 => {
-                cmds.spawn(MyComponent(assets.add(MyAsset(0, "init"))));
+                cmds.spawn(MyComponent(asset_commands.spawn_asset(MyAsset(0, "init"))));
             }
             0 | 2 => {}
             3 => {
-                cmds.spawn(MyComponent(assets.add(MyAsset(1, "init"))));
-                cmds.spawn(MyComponent(assets.add(MyAsset(2, "init"))));
+                cmds.spawn(MyComponent(asset_commands.spawn_asset(MyAsset(1, "init"))));
+                cmds.spawn(MyComponent(asset_commands.spawn_asset(MyAsset(2, "init"))));
             }
             4.. => {
-                cmds.spawn(MyComponent(assets.add(MyAsset(3, "init"))));
+                cmds.spawn(MyComponent(asset_commands.spawn_asset(MyAsset(3, "init"))));
             }
         };
         *run_count += 1;
@@ -470,9 +516,9 @@ mod tests {
             .insert_resource(Counter(vec![0, 0]))
             .add_systems(
                 Startup,
-                |mut cmds: Commands, mut assets: ResMut<Assets<MyAsset>>| {
-                    let asset0 = assets.add(MyAsset(0, "init"));
-                    let asset1 = assets.add(MyAsset(1, "init"));
+                |mut cmds: Commands, mut asset_commands: AssetCommands| {
+                    let asset0 = asset_commands.spawn_asset(MyAsset(0, "init"));
+                    let asset1 = asset_commands.spawn_asset(MyAsset(1, "init"));
                     cmds.spawn(MyComponent(asset0.clone()));
                     cmds.spawn(MyComponent(asset0));
                     cmds.spawn(MyComponent(asset1.clone()));

@@ -203,18 +203,21 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
     mut gizmo_config_store: ResMut<GizmoConfigStore>,
 ) {
     adjust_gizmo_settings(&mut gizmo_config_store);
 
-    let reflective_material = create_reflective_material(&mut materials);
+    let reflective_material = create_reflective_material(&mut asset_commands);
 
     spawn_camera(&mut commands);
     spawn_gltf_scene(&mut commands, &asset_server);
-    spawn_reflective_sphere(&mut commands, &mut meshes, reflective_material.clone());
-    spawn_reflective_prism(&mut commands, &mut meshes, reflective_material);
+    spawn_reflective_sphere(
+        &mut commands,
+        &mut asset_commands,
+        reflective_material.clone(),
+    );
+    spawn_reflective_prism(&mut commands, &mut asset_commands, reflective_material);
     spawn_light_probes(&mut commands, &asset_server);
     spawn_buttons(&mut commands);
     spawn_help_text(&mut commands);
@@ -231,10 +234,8 @@ fn adjust_gizmo_settings(gizmo_config_store: &mut GizmoConfigStore) {
 }
 
 /// Creates the perfectly-reflective material that the sphere and prism use.
-fn create_reflective_material(
-    materials: &mut Assets<StandardMaterial>,
-) -> Handle<StandardMaterial> {
-    materials.add(StandardMaterial {
+fn create_reflective_material(asset_commands: &mut AssetCommands) -> Handle<StandardMaterial> {
+    asset_commands.spawn_asset(StandardMaterial {
         base_color: WHITE.into(),
         metallic: 1.0,
         reflectance: 1.0,
@@ -267,11 +268,11 @@ fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
 /// Spawns the reflective sphere, creating its mesh in the process.
 fn spawn_reflective_sphere(
     commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
+    asset_commands: &mut AssetCommands,
     material: Handle<StandardMaterial>,
 ) {
     // Create a mesh.
-    let sphere = meshes.add(Sphere::default().mesh().uv(32, 18));
+    let sphere = asset_commands.spawn_asset(Sphere::default().mesh().uv(32, 18));
 
     // Spawn the sphere.
     commands.spawn((
@@ -288,11 +289,11 @@ fn spawn_reflective_sphere(
 /// as desired.
 fn spawn_reflective_prism(
     commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
+    asset_commands: &mut AssetCommands,
     material: Handle<StandardMaterial>,
 ) {
     // Create a mesh.
-    let cube = meshes.add(
+    let cube = asset_commands.spawn_asset(
         Cuboid {
             half_size: vec3(2.0, 1.0, 10.0),
         }

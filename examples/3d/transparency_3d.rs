@@ -12,21 +12,19 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // Opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(6.0, 6.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(6.0, 6.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
     ));
 
     // Transparent sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap())),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Sphere::new(0.5).mesh().ico(3).unwrap())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             // Alpha channel of the color controls transparency.
             // We set it to 0.0 here, because it will be changed over time in the
             // `fade_transparency` function.
@@ -42,8 +40,8 @@ fn setup(
 
     // Transparent unlit sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap())),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Sphere::new(0.5).mesh().ico(3).unwrap())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::srgba(0.2, 0.7, 0.1, 0.0),
             alpha_mode: AlphaMode::Mask(0.1),
             unlit: true,
@@ -54,18 +52,20 @@ fn setup(
 
     // Transparent cube, uses `alpha_mode: Blend`
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
         // Notice how there is no need to set the `alpha_mode` explicitly here.
         // When converting a color to a material using `into()`, the alpha mode is
         // automatically set to `Blend` if the alpha channel is anything lower than 1.0.
-        MeshMaterial3d(materials.add(Color::srgba(0.5, 0.5, 1.0, 0.0))),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgba(0.5, 0.5, 1.0, 0.0))),
+        ),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
 
     // Transparent cube, uses `alpha_mode: AlphaToCoverage`
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        Mesh3d(asset_commands.spawn_asset(Cuboid::default().into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: Color::srgba(0.5, 1.0, 0.5, 0.0),
             alpha_mode: AlphaMode::AlphaToCoverage,
             ..default()
@@ -75,8 +75,10 @@ fn setup(
 
     // Opaque sphere
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap())),
-        MeshMaterial3d(materials.add(Color::srgb(0.7, 0.2, 0.1))),
+        Mesh3d(asset_commands.spawn_asset(Sphere::new(0.5).mesh().ico(3).unwrap())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.7, 0.2, 0.1))),
+        ),
         Transform::from_xyz(0.0, 0.5, -1.5),
     ));
 
@@ -107,9 +109,9 @@ fn setup(
 ///   samples in use. For example, assuming 8xMSAA, the object will be
 ///   completely opaque, then will be 7/8 opaque (1/8 transparent), then will be
 ///   6/8 opaque, then 5/8, etc.
-pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
+pub fn fade_transparency(time: Res<Time>, mut materials: AssetsMut<StandardMaterial>) {
     let alpha = (ops::sin(time.elapsed_secs()) / 2.0) + 0.5;
-    for (_, material) in materials.iter_mut() {
+    for (_, mut material) in materials.iter_mut() {
         material.base_color.set_alpha(alpha);
     }
 }

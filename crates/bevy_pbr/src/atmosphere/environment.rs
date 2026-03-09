@@ -5,13 +5,13 @@ use crate::{
     },
     ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
 };
-use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages};
+use bevy_asset::{load_embedded_asset, AssetCommands, AssetServer, Handle, RenderAssetUsages};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{With, Without},
     resource::Resource,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, Res},
 };
 use bevy_image::Image;
 use bevy_light::{AtmosphereEnvironmentMapLight, GeneratedEnvironmentMapLight};
@@ -197,7 +197,7 @@ pub fn validate_environment_map_size(size: UVec2) -> UVec2 {
 pub fn prepare_atmosphere_probe_components(
     probes: Query<(Entity, &AtmosphereEnvironmentMapLight), (Without<AtmosphereEnvironmentMap>,)>,
     mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
+    mut asset_commands: AssetCommands,
 ) {
     for (entity, env_map_light) in &probes {
         // Create a cubemap image in the main world that we can reference
@@ -224,7 +224,7 @@ pub fn prepare_atmosphere_probe_components(
             | TextureUsages::COPY_SRC;
 
         // Add the image to assets to get a handle
-        let environment_handle = images.add(environment_image);
+        let environment_handle = asset_commands.spawn_asset(environment_image);
 
         commands.entity(entity).insert(AtmosphereEnvironmentMap {
             environment_map: environment_handle.clone(),

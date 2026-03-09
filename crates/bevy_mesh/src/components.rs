@@ -28,8 +28,8 @@ use derive_more::derive::From;
 /// // Spawn an entity with a mesh using `ColorMaterial`.
 /// fn setup(
 ///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<ColorMaterial>>,
+///     mut meshes: AssetsMut<Mesh>,
+///     mut materials: AssetsMut<ColorMaterial>,
 /// ) {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
@@ -80,8 +80,8 @@ impl AsAssetId for Mesh2d {
 /// // Spawn an entity with a mesh using `StandardMaterial`.
 /// fn setup(
 ///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<StandardMaterial>>,
+///     mut meshes: AssetsMut<Mesh>,
+///     mut materials: AssetsMut<StandardMaterial>,
 /// ) {
 ///     commands.spawn((
 ///         Mesh3d(meshes.add(Capsule3d::default())),

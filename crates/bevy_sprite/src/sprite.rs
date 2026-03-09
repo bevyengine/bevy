@@ -292,8 +292,12 @@ impl From<Vec2> for Anchor {
 
 #[cfg(test)]
 mod tests {
-    use bevy_asset::{Assets, RenderAssetUsages};
+    use bevy_app::App;
+    use bevy_asset::{
+        AssetApp, Assets, DirectAssetAccessExt, MinimalAssetPlugin, RenderAssetUsages,
+    };
     use bevy_color::Color;
+    use bevy_ecs::system::SystemState;
     use bevy_image::{Image, ToExtents};
     use bevy_image::{TextureAtlas, TextureAtlasLayout};
     use bevy_math::{Rect, URect, UVec2, Vec2};
@@ -302,6 +306,23 @@ mod tests {
     use crate::Anchor;
 
     use super::Sprite;
+
+    fn create_app() -> (
+        App,
+        SystemState<(
+            Assets<'static, 'static, Image>,
+            Assets<'static, 'static, TextureAtlasLayout>,
+        )>,
+    ) {
+        let mut app = App::new();
+
+        app.add_plugins(MinimalAssetPlugin)
+            .init_asset::<Image>()
+            .init_asset::<TextureAtlasLayout>();
+
+        let state = SystemState::new(app.world_mut());
+        (app, state)
+    }
 
     /// Makes a new image of the specified size.
     fn make_image(size: UVec2) -> Image {
@@ -316,16 +337,15 @@ mod tests {
 
     #[test]
     fn compute_pixel_space_point_for_regular_sprite() {
-        let mut image_assets = Assets::<Image>::default();
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
-
-        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+        let (mut app, mut state) = create_app();
+        let image = app.world_mut().spawn_asset(make_image(UVec2::new(5, 10)));
 
         let sprite = Sprite {
             image,
             ..Default::default()
         };
 
+        let (image_assets, texture_atlas_assets) = state.get(app.world());
         let compute = |point| {
             sprite.compute_pixel_space_point(
                 point,
@@ -343,12 +363,12 @@ mod tests {
 
     #[test]
     fn compute_pixel_space_point_for_color_sprite() {
-        let image_assets = Assets::<Image>::default();
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+        let (app, mut state) = create_app();
 
         // This also tests the `custom_size` field.
         let sprite = Sprite::from_color(Color::BLACK, Vec2::new(50.0, 100.0));
 
+        let (image_assets, texture_atlas_assets) = state.get(app.world());
         let compute = |point| {
             sprite
                 .compute_pixel_space_point(
@@ -370,10 +390,9 @@ mod tests {
 
     #[test]
     fn compute_pixel_space_point_for_sprite_with_anchor_bottom_left() {
-        let mut image_assets = Assets::<Image>::default();
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+        let (mut app, mut state) = create_app();
 
-        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+        let image = app.world_mut().spawn_asset(make_image(UVec2::new(5, 10)));
 
         let sprite = Sprite {
             image,
@@ -381,6 +400,7 @@ mod tests {
         };
         let anchor = Anchor::BOTTOM_LEFT;
 
+        let (image_assets, texture_atlas_assets) = state.get(app.world());
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
         };
@@ -393,10 +413,9 @@ mod tests {
 
     #[test]
     fn compute_pixel_space_point_for_sprite_with_anchor_top_right() {
-        let mut image_assets = Assets::<Image>::default();
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+        let (mut app, mut state) = create_app();
 
-        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+        let image = app.world_mut().spawn_asset(make_image(UVec2::new(5, 10)));
 
         let sprite = Sprite {
             image,
@@ -404,6 +423,7 @@ mod tests {
         };
         let anchor = Anchor::TOP_RIGHT;
 
+        let (image_assets, texture_atlas_assets) = state.get(app.world());
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
         };
@@ -416,10 +436,9 @@ mod tests {
 
     #[test]
     fn compute_pixel_space_point_for_sprite_with_anchor_flip_x() {
-        let mut image_assets = Assets::<Image>::default();
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+        let (mut app, mut state) = create_app();
 
-        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+        let image = app.world_mut().spawn_asset(make_image(UVec2::new(5, 10)));
 
         let sprite = Sprite {
             image,
@@ -428,6 +447,7 @@ mod tests {
         };
         let anchor = Anchor::BOTTOM_LEFT;
 
+        let (image_assets, texture_atlas_assets) = state.get(app.world());
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
         };
@@ -440,10 +460,9 @@ mod tests {
 
     #[test]
     fn compute_pixel_space_point_for_sprite_with_anchor_flip_y() {
-        let mut image_assets = Assets::<Image>::default();
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+        let (mut app, mut state) = create_app();
 
-        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+        let image = app.world_mut().spawn_asset(make_image(UVec2::new(5, 10)));
 
         let sprite = Sprite {
             image,
@@ -452,6 +471,7 @@ mod tests {
         };
         let anchor = Anchor::TOP_RIGHT;
 
+        let (image_assets, texture_atlas_assets) = state.get(app.world());
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
         };
@@ -464,10 +484,9 @@ mod tests {
 
     #[test]
     fn compute_pixel_space_point_for_sprite_with_rect() {
-        let mut image_assets = Assets::<Image>::default();
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+        let (mut app, mut state) = create_app();
 
-        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+        let image = app.world_mut().spawn_asset(make_image(UVec2::new(5, 10)));
 
         let sprite = Sprite {
             image,
@@ -476,6 +495,7 @@ mod tests {
         };
         let anchor = Anchor::BOTTOM_LEFT;
 
+        let (image_assets, texture_atlas_assets) = state.get(app.world());
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
         };
@@ -486,11 +506,10 @@ mod tests {
 
     #[test]
     fn compute_pixel_space_point_for_texture_atlas_sprite() {
-        let mut image_assets = Assets::<Image>::default();
-        let mut texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+        let (mut app, mut state) = create_app();
 
-        let image = image_assets.add(make_image(UVec2::new(5, 10)));
-        let texture_atlas = texture_atlas_assets.add(TextureAtlasLayout {
+        let image = app.world_mut().spawn_asset(make_image(UVec2::new(5, 10)));
+        let texture_atlas = app.world_mut().spawn_asset(TextureAtlasLayout {
             size: UVec2::new(5, 10),
             textures: vec![URect::new(1, 1, 4, 4)],
         });
@@ -505,6 +524,7 @@ mod tests {
         };
         let anchor = Anchor::BOTTOM_LEFT;
 
+        let (image_assets, texture_atlas_assets) = state.get(app.world());
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
         };
@@ -515,11 +535,10 @@ mod tests {
 
     #[test]
     fn compute_pixel_space_point_for_texture_atlas_sprite_with_rect() {
-        let mut image_assets = Assets::<Image>::default();
-        let mut texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+        let (mut app, mut state) = create_app();
 
-        let image = image_assets.add(make_image(UVec2::new(5, 10)));
-        let texture_atlas = texture_atlas_assets.add(TextureAtlasLayout {
+        let image = app.world_mut().spawn_asset(make_image(UVec2::new(5, 10)));
+        let texture_atlas = app.world_mut().spawn_asset(TextureAtlasLayout {
             size: UVec2::new(5, 10),
             textures: vec![URect::new(1, 1, 4, 4)],
         });
@@ -536,6 +555,7 @@ mod tests {
         };
         let anchor = Anchor::BOTTOM_LEFT;
 
+        let (image_assets, texture_atlas_assets) = state.get(app.world());
         let compute = |point| {
             sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
         };
@@ -546,10 +566,9 @@ mod tests {
 
     #[test]
     fn compute_pixel_space_point_for_sprite_with_custom_size_and_rect() {
-        let mut image_assets = Assets::<Image>::default();
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+        let (mut app, mut state) = create_app();
 
-        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+        let image = app.world_mut().spawn_asset(make_image(UVec2::new(5, 10)));
 
         let sprite = Sprite {
             image,
@@ -558,6 +577,7 @@ mod tests {
             ..Default::default()
         };
 
+        let (image_assets, texture_atlas_assets) = state.get(app.world());
         let compute = |point| {
             sprite.compute_pixel_space_point(
                 point,
@@ -574,10 +594,9 @@ mod tests {
 
     #[test]
     fn compute_pixel_space_point_for_sprite_with_zero_custom_size() {
-        let mut image_assets = Assets::<Image>::default();
-        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+        let (mut app, mut state) = create_app();
 
-        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+        let image = app.world_mut().spawn_asset(make_image(UVec2::new(5, 10)));
 
         let sprite = Sprite {
             image,
@@ -585,6 +604,7 @@ mod tests {
             ..Default::default()
         };
 
+        let (image_assets, texture_atlas_assets) = state.get(app.world());
         let compute = |point| {
             sprite.compute_pixel_space_point(
                 point,

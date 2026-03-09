@@ -25,19 +25,18 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     // Import the custom texture.
     let custom_texture_handle: Handle<Image> = asset_server.load("textures/array_texture.png");
     // Create and save a handle to the mesh.
-    let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh());
+    let cube_mesh_handle: Handle<Mesh> = asset_commands.spawn_asset(create_cube_mesh());
 
     // Render the mesh with the custom texture, and add the marker.
     commands.spawn((
         Mesh3d(cube_mesh_handle),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color_texture: Some(custom_texture_handle),
             ..default()
         })),
@@ -71,7 +70,7 @@ fn setup(
 fn input_handler(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mesh_query: Query<&Mesh3d, With<CustomUV>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut meshes: AssetsMut<Mesh>,
     mut query: Query<&mut Transform, With<CustomUV>>,
     time: Res<Time>,
 ) {

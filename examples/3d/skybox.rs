@@ -147,7 +147,7 @@ fn cycle_cubemap_asset(
 
 fn asset_loaded(
     asset_server: Res<AssetServer>,
-    mut images: ResMut<Assets<Image>>,
+    mut images: AssetsMut<Image>,
     mut cubemap: ResMut<Cubemap>,
     mut skyboxes: Query<&mut Skybox>,
 ) {

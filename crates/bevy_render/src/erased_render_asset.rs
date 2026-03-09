@@ -3,8 +3,8 @@ use crate::{
     RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
-use bevy_asset::RenderAssetUsages;
-use bevy_asset::{Asset, AssetEvent, AssetId, Assets, UntypedAssetId};
+use bevy_asset::{Asset, AssetEvent, AssetId, DirectAssetAccessExt, UntypedAssetId};
+use bevy_asset::{AssetsMut, RenderAssetUsages};
 use bevy_ecs::{
     prelude::{Commands, IntoScheduleConfigs, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
@@ -228,7 +228,7 @@ impl<ERA> ErasedRenderAssets<ERA> {
 struct CachedExtractErasedRenderAssetSystemState<A: ErasedRenderAsset> {
     state: SystemState<(
         MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
-        ResMut<'static, Assets<A::SourceAsset>>,
+        AssetsMut<'static, 'static, A::SourceAsset>,
     )>,
 }
 
@@ -247,8 +247,8 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
     mut main_world: ResMut<MainWorld>,
 ) {
     main_world.resource_scope(
-        |world, mut cached_state: Mut<CachedExtractErasedRenderAssetSystemState<A>>| {
-            let (mut events, mut assets) = cached_state.state.get_mut(world);
+        |main_world, mut cached_state: Mut<CachedExtractErasedRenderAssetSystemState<A>>| {
+            let (mut events, assets) = cached_state.state.get_mut(main_world);
 
             let mut needs_extracting = <HashSet<_>>::default();
             let mut removed = <HashSet<_>>::default();
@@ -283,22 +283,30 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
             }
 
             let mut extracted_assets = Vec::new();
+            let mut take_later = <HashSet<_>>::default();
             let mut added = <HashSet<_>>::default();
             for id in needs_extracting.drain() {
                 if let Some(asset) = assets.get(id) {
                     let asset_usage = A::asset_usage(asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                            if let Some(asset) = assets.remove(id) {
-                                extracted_assets.push((id, asset));
-                                added.insert(id);
-                            }
+                            take_later.insert(id);
+                            added.insert(id);
                         } else {
                             extracted_assets.push((id, asset.clone()));
                             added.insert(id);
                         }
                     }
                 }
+            }
+            cached_state.state.apply(main_world);
+
+            for id in take_later {
+                let Ok(asset) = main_world.remove_asset(id) else {
+                    // Ignore assets we've previously removed.
+                    continue;
+                };
+                extracted_assets.push((id, asset));
             }
 
             commands.insert_resource(ExtractedAssets::<A> {
@@ -307,7 +315,6 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
                 modified,
                 added,
             });
-            cached_state.state.apply(world);
         },
     );
 }

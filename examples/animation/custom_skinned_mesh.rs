@@ -37,10 +37,8 @@ struct AnimatedJoint(isize);
 /// It is similar to the scene defined in `models/SimpleSkin/SimpleSkin.gltf`
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
     // Create a camera
     commands.spawn((
@@ -49,10 +47,10 @@ fn setup(
     ));
 
     // Create inverse bindpose matrices for a skeleton consists of 2 joints
-    let inverse_bindposes = skinned_mesh_inverse_bindposes_assets.add(vec![
+    let inverse_bindposes = asset_commands.spawn_asset(SkinnedMeshInverseBindposes::from(vec![
         Mat4::from_translation(Vec3::new(-0.5, -1.0, 0.0)),
         Mat4::from_translation(Vec3::new(-0.5, -1.0, 0.0)),
-    ]);
+    ]));
 
     // Create a mesh
     let mesh = Mesh::new(
@@ -142,7 +140,7 @@ fn setup(
     .with_generated_skinned_mesh_bounds()
     .unwrap();
 
-    let mesh = meshes.add(mesh);
+    let mesh = asset_commands.spawn_asset(mesh);
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
@@ -170,7 +168,7 @@ fn setup(
         // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
         commands.spawn((
             Mesh3d(mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
                 base_color: Color::srgb(
                     rng.random_range(0.0..1.0),
                     rng.random_range(0.0..1.0),

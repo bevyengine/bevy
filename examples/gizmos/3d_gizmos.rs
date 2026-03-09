@@ -20,12 +20,7 @@ fn main() {
 #[derive(Default, Reflect, GizmoConfigGroup)]
 struct MyRoundGizmos;
 
-fn setup(
-    mut commands: Commands,
-    mut gizmo_assets: ResMut<Assets<GizmoAsset>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     let mut gizmo = GizmoAsset::new();
 
     // When drawing a lot of static lines a Gizmo component can have
@@ -39,7 +34,7 @@ fn setup(
 
     commands.spawn((
         Gizmo {
-            handle: gizmo_assets.add(gizmo),
+            handle: asset_commands.spawn_asset(gizmo),
             line_config: GizmoLineConfig {
                 width: 5.,
                 ..default()
@@ -56,13 +51,17 @@ fn setup(
     ));
     // plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Mesh3d(asset_commands.spawn_asset(Plane3d::default().mesh().size(5.0, 5.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.3, 0.5, 0.3))),
+        ),
     ));
     // cube
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+        Mesh3d(asset_commands.spawn_asset(Cuboid::new(1.0, 1.0, 1.0).into())),
+        MeshMaterial3d(
+            asset_commands.spawn_asset(StandardMaterial::from(Color::srgb(0.8, 0.7, 0.6))),
+        ),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
     // light

@@ -23,12 +23,16 @@ pub fn main() {
 /// Initializes the scene.
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
 ) {
-    let sphere_mesh = create_sphere_mesh(&mut meshes);
-    spawn_sphere(&mut commands, &mut materials, &asset_server, &sphere_mesh);
+    let sphere_mesh = create_sphere_mesh(&mut asset_commands);
+    spawn_sphere(
+        &mut commands,
+        &mut asset_commands,
+        &asset_server,
+        &sphere_mesh,
+    );
     spawn_light(&mut commands);
     spawn_camera(&mut commands, &asset_server);
 }
@@ -47,7 +51,7 @@ fn rotate_skybox_and_environment_map(
 }
 
 /// Generates a sphere.
-fn create_sphere_mesh(meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
+fn create_sphere_mesh(asset_commands: &mut AssetCommands) -> Handle<Mesh> {
     // We're going to use normal maps, so make sure we've generated tangents, or
     // else the normal maps won't show up.
 
@@ -55,19 +59,19 @@ fn create_sphere_mesh(meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
     sphere_mesh
         .generate_tangents()
         .expect("Failed to generate tangents");
-    meshes.add(sphere_mesh)
+    asset_commands.spawn_asset(sphere_mesh)
 }
 
 /// Spawn a regular object with a clearcoat layer. This looks like car paint.
 fn spawn_sphere(
     commands: &mut Commands,
-    materials: &mut Assets<StandardMaterial>,
+    asset_commands: &mut AssetCommands,
     asset_server: &AssetServer,
     sphere_mesh: &Handle<Mesh>,
 ) {
     commands.spawn((
         Mesh3d(sphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             clearcoat: 1.0,
             clearcoat_perceptual_roughness: 0.3,
             clearcoat_normal_texture: Some(asset_server.load_with_settings(

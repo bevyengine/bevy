@@ -23,15 +23,11 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, MyExtension>>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // sphere
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(1.0))),
-        MeshMaterial3d(materials.add(ExtendedMaterial {
+        Mesh3d(asset_commands.spawn_asset(Sphere::new(1.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: RED.into(),
                 // can be used in forward or deferred mode

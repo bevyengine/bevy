@@ -27,8 +27,8 @@ struct AnimationToPlay {
 
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     let (graph, index) = AnimationGraph::from_clip(
         asset_server.load(GltfAssetLabel::Animation(2).from_asset(GLTF_PATH)),
@@ -37,7 +37,7 @@ fn setup(
     commands
         .spawn((
             AnimationToPlay {
-                graph_handle: graphs.add(graph),
+                graph_handle: asset_commands.spawn_asset(graph),
                 index,
             },
             SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH))),
@@ -80,7 +80,7 @@ fn play_animation_when_ready(
 fn name_morphs(
     asset_server: Res<AssetServer>,
     mut events: MessageReader<AssetEvent<Mesh>>,
-    meshes: Res<Assets<Mesh>>,
+    meshes: Assets<Mesh>,
 ) {
     for event in events.read() {
         if let AssetEvent::<Mesh>::Added { id } = event

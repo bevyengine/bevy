@@ -21,12 +21,7 @@ struct FirstPassCube;
 #[derive(Component)]
 struct MainPassCube;
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // This is the texture that will be rendered to.
     let image = Image::new_target_texture(
         512,
@@ -35,10 +30,10 @@ fn setup(
         Some(TextureFormat::Rgba8UnormSrgb),
     );
 
-    let image_handle = images.add(image);
+    let image_handle = asset_commands.spawn_asset(image);
 
-    let cube_handle = meshes.add(Cuboid::new(4.0, 4.0, 4.0));
-    let cube_material_handle = materials.add(StandardMaterial {
+    let cube_handle = asset_commands.spawn_asset(Cuboid::new(4.0, 4.0, 4.0).into());
+    let cube_material_handle = asset_commands.spawn_asset(StandardMaterial {
         base_color: Color::srgb(0.8, 0.7, 0.6),
         reflectance: 0.02,
         unlit: false,
@@ -81,10 +76,11 @@ fn setup(
     ));
 
     let cube_size = 4.0;
-    let cube_handle = meshes.add(Cuboid::new(cube_size, cube_size, cube_size));
+    let cube_handle =
+        asset_commands.spawn_asset(Cuboid::new(cube_size, cube_size, cube_size).into());
 
     // This material has the texture that has been rendered.
-    let material_handle = materials.add(StandardMaterial {
+    let material_handle = asset_commands.spawn_asset(StandardMaterial {
         base_color_texture: Some(image_handle),
         reflectance: 0.02,
         unlit: false,

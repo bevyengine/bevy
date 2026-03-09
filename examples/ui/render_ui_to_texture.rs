@@ -32,12 +32,7 @@ fn main() {
 #[derive(Component)]
 struct Cube;
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     let size = Extent3d {
         width: 512,
         height: 512,
@@ -56,7 +51,7 @@ fn setup(
     image.texture_descriptor.usage =
         TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
 
-    let image_handle = images.add(image);
+    let image_handle = asset_commands.spawn_asset(image);
 
     // Light
     commands.spawn(DirectionalLight::default());
@@ -130,10 +125,10 @@ fn setup(
                 });
         });
 
-    let mesh_handle = meshes.add(Cuboid::default());
+    let mesh_handle = asset_commands.spawn_asset(Cuboid::default().into());
 
     // This material has the texture that has been rendered.
-    let material_handle = materials.add(StandardMaterial {
+    let material_handle = asset_commands.spawn_asset(StandardMaterial {
         base_color_texture: Some(image_handle),
         reflectance: 0.02,
         unlit: false,
@@ -178,7 +173,7 @@ fn drive_diegetic_pointer(
     ui_camera: Query<&RenderTarget, With<Camera2d>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
-    images: Res<Assets<Image>>,
+    images: Assets<Image>,
     manual_texture_views: Res<ManualTextureViews>,
     mut window_events: MessageReader<WindowEvent>,
     mut pointer_inputs: MessageWriter<PointerInput>,

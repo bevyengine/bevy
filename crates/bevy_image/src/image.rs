@@ -12,7 +12,9 @@ use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages};
+use bevy_asset::{
+    uuid_handle, Asset, AssetApp, AssetId, DirectAssetAccessExt, Handle, RenderAssetUsages,
+};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_ecs::resource::Resource;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
@@ -210,14 +212,12 @@ impl Plugin for ImagePlugin {
         #[cfg(feature = "bevy_reflect")]
         app.register_asset_reflect::<Image>();
 
-        let mut image_assets = app.world_mut().resource_mut::<Assets<Image>>();
-
-        image_assets
-            .insert(&Handle::default(), Image::default())
-            .unwrap();
-        image_assets
-            .insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent())
-            .unwrap();
+        app.world_mut()
+            .spawn_uuid_asset::<Image>(AssetId::<Image>::DEFAULT_UUID, Image::default());
+        app.world_mut().spawn_uuid_asset::<Image>(
+            TRANSPARENT_IMAGE_HANDLE.uuid().unwrap(),
+            Image::transparent(),
+        );
 
         #[cfg(feature = "compressed_image_saver")]
         if let Some(processor) = app

@@ -107,20 +107,24 @@ fn main() {
 /// Creates the scene.
 fn setup(
     mut commands: Commands,
+    mut asset_commands: AssetCommands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, ExampleBindlessExtension>>>,
 ) {
     // Create a gray sphere, modulated with a red-tinted checkerboard pattern.
     commands.spawn((
-        Mesh3d(meshes.add(SphereMeshBuilder::new(
-            1.0,
-            SphereKind::Uv {
-                sectors: 20,
-                stacks: 20,
-            },
-        ))),
-        MeshMaterial3d(materials.add(ExtendedMaterial {
+        Mesh3d(
+            asset_commands.spawn_asset(
+                SphereMeshBuilder::new(
+                    1.0,
+                    SphereKind::Uv {
+                        sectors: 20,
+                        stacks: 20,
+                    },
+                )
+                .into(),
+            ),
+        ),
+        MeshMaterial3d(asset_commands.spawn_asset(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: GRAY_600.into(),
                 ..default()

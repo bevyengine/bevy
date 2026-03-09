@@ -79,11 +79,7 @@ impl Plugin for ComputeShaderMeshGeneratorPlugin {
 #[derive(Component, ExtractComponent, Clone)]
 struct GenerateMesh(Handle<Mesh>);
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     // a truly empty mesh will error if used in Mesh3d
     // so we set up the data to be what we want the compute shader to output
     // We're using 36 indices and 24 vertices which is directly taken from
@@ -112,7 +108,7 @@ fn setup(
         mesh
     };
 
-    let handle = meshes.add(empty_mesh);
+    let handle = asset_commands.spawn_asset(empty_mesh);
 
     // we spawn two "users" of the mesh handle,
     // but only insert `GenerateMesh` on one of them
@@ -120,7 +116,7 @@ fn setup(
     commands.spawn((
         GenerateMesh(handle.clone()),
         Mesh3d(handle.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: RED_400.into(),
             ..default()
         })),
@@ -129,7 +125,7 @@ fn setup(
 
     commands.spawn((
         Mesh3d(handle),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial {
             base_color: SKY_400.into(),
             ..default()
         })),
@@ -141,8 +137,8 @@ fn setup(
     // mesh_allocator offsets that would only work if we had
     // one mesh in the scene.
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
+        Mesh3d(asset_commands.spawn_asset(Circle::new(4.0).into())),
+        MeshMaterial3d(asset_commands.spawn_asset(StandardMaterial::from(Color::WHITE))),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
     commands.spawn((

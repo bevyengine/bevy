@@ -9,16 +9,12 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup(mut commands: Commands, mut asset_commands: AssetCommands) {
     commands.spawn(Camera2d);
 
     commands.spawn((
-        Mesh2d(meshes.add(Rectangle::default())),
-        MeshMaterial2d(materials.add(Color::from(PURPLE))),
+        Mesh2d(asset_commands.spawn_asset(Rectangle::default().into())),
+        MeshMaterial2d(asset_commands.spawn_asset(ColorMaterial::from_color(PURPLE))),
         Transform::default().with_scale(Vec3::splat(128.)),
     ));
 }

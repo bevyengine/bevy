@@ -12,11 +12,8 @@ use bevy_asset::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
-    message::MessageReader,
-    reflect::ReflectComponent,
-    resource::Resource,
-    system::{Res, ResMut},
+    component::Component, message::MessageReader, reflect::ReflectComponent, resource::Resource,
+    system::ResMut,
 };
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
@@ -848,7 +845,7 @@ pub struct NonPathHandleError;
 /// for quick evaluation of that graph's animations.
 pub(crate) fn thread_animation_graphs(
     mut threaded_animation_graphs: ResMut<ThreadedAnimationGraphs>,
-    animation_graphs: Res<Assets<AnimationGraph>>,
+    animation_graphs: Assets<AnimationGraph>,
     mut animation_graph_asset_events: MessageReader<AssetEvent<AnimationGraph>>,
 ) {
     for animation_graph_asset_event in animation_graph_asset_events.read() {

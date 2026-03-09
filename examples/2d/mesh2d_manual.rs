@@ -49,7 +49,7 @@ fn main() {
 fn star(
     mut commands: Commands,
     // We will add a new Mesh for the star being created
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut asset_commands: AssetCommands,
 ) {
     // Let's define the mesh for the object we want to draw: a nice star.
     // We will specify here what kind of topology is used to define the mesh,
@@ -115,7 +115,7 @@ fn star(
         // We use a marker component to identify the custom colored meshes
         ColoredMesh2d,
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2d` for 2D rendering
-        Mesh2d(meshes.add(star)),
+        Mesh2d(asset_commands.spawn_asset(star)),
     ));
 
     commands.spawn(Camera2d);
@@ -300,11 +300,12 @@ pub struct RenderColoredMesh2dInstances(MainEntityHashMap<RenderMesh2dInstance>)
 
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
-        // Load our custom shader
-        let mut shaders = app.world_mut().resource_mut::<Assets<Shader>>();
         // Here, we construct and add the shader asset manually. There are many ways to load this
         // shader, including `embedded_asset`/`load_embedded_asset`.
-        let shader = shaders.add(Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()));
+        let shader = app
+            .world_mut()
+            .asset_commands()
+            .spawn_asset(Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()));
 
         app.add_plugins(SyncComponentPlugin::<ColoredMesh2d>::default());
 
