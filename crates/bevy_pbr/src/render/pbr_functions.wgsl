@@ -276,10 +276,15 @@ fn calculate_diffuse_color(
         (1.0 - diffuse_transmission);
 }
 
+// Remapping [0,1] reflectance to F0 for dielectrics
+fn calculate_F0_dielectric(reflectance: vec3<f32>) -> vec3<f32> {
+    return 0.16 * reflectance * reflectance;
+}
+
 // Remapping [0,1] reflectance to F0
 // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
 fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) -> vec3<f32> {
-    return 0.16 * reflectance * reflectance * (1.0 - metallic) + base_color * metallic;
+    return mix(calculate_F0_dielectric(reflectance), base_color, metallic);
 }
 
 #ifdef DEPTH_PREPASS
@@ -388,7 +393,9 @@ fn apply_pbr_lighting(
     lighting_input.P = in.world_position.xyz;
     lighting_input.V = in.V;
     lighting_input.diffuse_color = diffuse_color;
-    lighting_input.F0_ = F0;
+    lighting_input.metallic = metallic;
+    lighting_input.F0_dielectric = calculate_F0_dielectric(reflectance);
+    lighting_input.F0_metallic = output_color.rgb;
     lighting_input.F_ab = F_ab;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
@@ -415,7 +422,9 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.P = diffuse_transmissive_lobe_world_position.xyz;
     transmissive_lighting_input.V = -in.V;
     transmissive_lighting_input.diffuse_color = diffuse_transmissive_color;
-    transmissive_lighting_input.F0_ = vec3(0.0);
+    transmissive_lighting_input.metallic = 0.0;
+    transmissive_lighting_input.F0_dielectric = vec3(0.0);
+    transmissive_lighting_input.F0_metallic = vec3(0.0);
     transmissive_lighting_input.F_ab = vec2(0.1);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     transmissive_lighting_input.layers[LAYER_CLEARCOAT].NdotV = 0.0;
@@ -735,7 +744,7 @@ fn apply_pbr_lighting(
     // diffuse_color = vec3<f32>(1.0) // later we use `diffuse_transmissive_color` and `specular_transmissive_color`
     // NdotV = 1.0;
     // R = T // see definition below
-    // F0 = vec3<f32>(1.0)
+    // F0 = vec3<f32>(1.0) (using F0_dielectric = 1, F0_metallic = 0 and metallic = 0)
     // diffuse_occlusion = 1.0
     //
     // (This one is slightly different from the other light types above, because the environment
@@ -755,7 +764,9 @@ fn apply_pbr_lighting(
     transmissive_environment_light_input.layers[LAYER_BASE].R = T;
     transmissive_environment_light_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
     transmissive_environment_light_input.layers[LAYER_BASE].roughness = roughness;
-    transmissive_environment_light_input.F0_ = vec3<f32>(1.0);
+    transmissive_environment_light_input.metallic = 0.0;
+    transmissive_environment_light_input.F0_dielectric = vec3<f32>(1.0);
+    transmissive_environment_light_input.F0_metallic = vec3<f32>(0.0);
     transmissive_environment_light_input.F_ab = vec2(0.1);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     // No clearcoat.

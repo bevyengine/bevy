@@ -332,16 +332,9 @@ fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
 }
 
 /// Converts a direction in world space to atmosphere space
-fn direction_world_to_atmosphere(dir_ws: vec3<f32>, up: vec3<f32>) -> vec3<f32> {
-    // Camera forward in world space (-Z in view to world transform)
-    let forward_ws = (view.world_from_view * vec4(0.0, 0.0, -1.0, 0.0)).xyz;
-    let tangent_z = normalize(up * dot(forward_ws, up) - forward_ws);
-    let tangent_x = cross(up, tangent_z);
-    return vec3(
-        dot(dir_ws, tangent_x),
-        dot(dir_ws, up),
-        dot(dir_ws, tangent_z),
-    );
+fn direction_world_to_atmosphere(dir_ws: vec3<f32>) -> vec3<f32> {
+    let dir_as = atmosphere_transforms.atmosphere_from_world * vec4(dir_ws, 0.0);
+    return dir_as.xyz;
 }
 
 /// Converts a direction in atmosphere space to world space
