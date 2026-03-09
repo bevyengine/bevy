@@ -513,11 +513,13 @@ pub enum RelationshipAccessorInitializer {
     Relationship {
         entity_field_offset: usize,
         linked_spawn: bool,
+        allow_self_referential: bool,
         relationship_target_getter: Arc<dyn Fn(&Components) -> Option<ComponentId>>,
     },
     RelationshipTarget {
         iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
         linked_spawn: bool,
+        allow_self_referential: bool,
         relationship_getter: Arc<dyn Fn(&Components) -> Option<ComponentId>>,
     },
 }
@@ -528,20 +530,24 @@ impl core::fmt::Debug for RelationshipAccessorInitializer {
             Self::Relationship {
                 entity_field_offset,
                 linked_spawn,
+                allow_self_referential,
                 relationship_target_getter: _,
             } => f
                 .debug_struct("Relationship")
                 .field("entity_field_offset", entity_field_offset)
                 .field("linked_spawn", linked_spawn)
+                .field("allow_self_referential", allow_self_referential)
                 .finish(),
             Self::RelationshipTarget {
                 iter,
                 linked_spawn,
+                allow_self_referential,
                 relationship_getter: _,
             } => f
                 .debug_struct("RelationshipTarget")
                 .field("iter", iter)
                 .field("linked_spawn", linked_spawn)
+                .field("allow_self_referential", allow_self_referential)
                 .finish(),
         }
     }
@@ -588,24 +594,28 @@ impl MaybeRelationshipAccessor {
             RelationshipAccessorInitializer::Relationship {
                 entity_field_offset,
                 linked_spawn,
+                allow_self_referential,
                 ref relationship_target_getter,
             } => {
                 let relationship_target = mapper(relationship_target_getter.as_ref())?;
                 RelationshipAccessor::Relationship {
                     entity_field_offset,
                     linked_spawn,
+                    allow_self_referential,
                     relationship_target,
                 }
             }
             RelationshipAccessorInitializer::RelationshipTarget {
                 iter,
                 linked_spawn,
+                allow_self_referential,
                 ref relationship_getter,
             } => {
                 let relationship = mapper(relationship_getter.as_ref())?;
                 RelationshipAccessor::RelationshipTarget {
                     iter,
                     linked_spawn,
+                    allow_self_referential,
                     relationship,
                 }
             }
@@ -633,6 +643,7 @@ pub enum RelationshipAccessor {
         entity_field_offset: usize,
         /// Value of [`RelationshipTarget::LINKED_SPAWN`] for the [`Relationship::RelationshipTarget`] of this [`Relationship`].
         linked_spawn: bool,
+        allow_self_referential: bool,
         relationship_target: ComponentId,
     },
     /// This component is a [`RelationshipTarget`].
@@ -645,6 +656,7 @@ pub enum RelationshipAccessor {
         iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
         /// Value of [`RelationshipTarget::LINKED_SPAWN`] of this [`RelationshipTarget`].
         linked_spawn: bool,
+        allow_self_referential: bool,
         relationship: ComponentId,
     },
 }
@@ -664,6 +676,19 @@ impl RelationshipAccessor {
         match self {
             RelationshipAccessor::Relationship { linked_spawn, .. }
             | RelationshipAccessor::RelationshipTarget { linked_spawn, .. } => *linked_spawn,
+        }
+    }
+
+    pub fn allow_self_referential(&self) -> bool {
+        match self {
+            RelationshipAccessor::Relationship {
+                allow_self_referential,
+                ..
+            }
+            | RelationshipAccessor::RelationshipTarget {
+                allow_self_referential,
+                ..
+            } => *allow_self_referential,
         }
     }
 }
@@ -687,6 +712,7 @@ impl<C> ComponentRelationshipAccessor<C> {
             initializer: RelationshipAccessorInitializer::Relationship {
                 entity_field_offset,
                 linked_spawn: C::RelationshipTarget::LINKED_SPAWN,
+                allow_self_referential: C::ALLOW_SELF_REFERENTIAL,
                 relationship_target_getter: Arc::new(|components| {
                     components.get_id(TypeId::of::<C::RelationshipTarget>())
                 }),
@@ -705,6 +731,7 @@ impl<C> ComponentRelationshipAccessor<C> {
                 // Safety: caller ensures that `ptr` is of type `C`.
                 iter: |ptr| unsafe { Box::new(RelationshipTarget::iter(ptr.deref::<C>())) },
                 linked_spawn: C::LINKED_SPAWN,
+                allow_self_referential: C::Relationship::ALLOW_SELF_REFERENTIAL,
                 relationship_getter: Arc::new(|components| {
                     components.get_id(TypeId::of::<C::Relationship>())
                 }),
@@ -1051,10 +1078,12 @@ mod tests {
             RelationshipAccessor::Relationship {
                 entity_field_offset,
                 linked_spawn,
+                allow_self_referential,
                 relationship_target,
             } => {
                 assert_eq!(entity_field_offset, core::mem::offset_of!(Likes, e));
                 assert!(!linked_spawn);
+                assert!(!allow_self_referential);
                 assert_eq!(relationship_target, liked_by_id);
             }
             _ => {
@@ -1072,6 +1101,7 @@ mod tests {
             RelationshipAccessor::RelationshipTarget {
                 iter,
                 linked_spawn,
+                allow_self_referential,
                 relationship,
             } => {
                 let liked_by = LikedBy(alloc::vec![
@@ -1084,6 +1114,7 @@ mod tests {
                     assert_eq!(iter((&liked_by).into()).collect::<Vec<_>>(), liked_by.0);
                 }
                 assert!(!linked_spawn);
+                assert!(!allow_self_referential);
                 assert_eq!(relationship, likes_id);
             }
             _ => {
@@ -1092,7 +1123,7 @@ mod tests {
         }
 
         #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
+        #[relationship(relationship_target = RelTarget, allow_self_referential)]
         struct Rel(Entity);
 
         #[derive(Component)]
@@ -1102,19 +1133,21 @@ mod tests {
         let rel_id = world.register_component::<Rel>();
         let rel_target_id = world.register_component::<RelTarget>();
 
-        assert!(world
+        let rel_accessor = world
             .components()
             .get_info(rel_id)
             .unwrap()
             .relationship_accessor()
-            .unwrap()
-            .linked_spawn());
-        assert!(world
+            .unwrap();
+        assert!(rel_accessor.linked_spawn());
+        assert!(rel_accessor.allow_self_referential());
+        let rel_target_accessor = world
             .components()
             .get_info(rel_target_id)
             .unwrap()
             .relationship_accessor()
-            .unwrap()
-            .linked_spawn());
+            .unwrap();
+        assert!(rel_target_accessor.linked_spawn());
+        assert!(rel_target_accessor.allow_self_referential());
     }
 }
