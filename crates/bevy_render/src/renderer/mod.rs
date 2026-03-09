@@ -387,9 +387,9 @@ pub async fn initialize_renderer(
             min_storage_buffer_offset_alignment: limits
                 .min_storage_buffer_offset_alignment
                 .max(constrained_limits.min_storage_buffer_offset_alignment),
-            max_inter_stage_shader_components: limits
-                .max_inter_stage_shader_components
-                .min(constrained_limits.max_inter_stage_shader_components),
+            max_inter_stage_shader_variables: limits
+                .max_inter_stage_shader_variables
+                .min(constrained_limits.max_inter_stage_shader_variables),
             max_compute_workgroup_storage_size: limits
                 .max_compute_workgroup_storage_size
                 .min(constrained_limits.max_compute_workgroup_storage_size),
