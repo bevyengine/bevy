@@ -1,7 +1,12 @@
 //! Demonstrates a custom picking backend with custom hit data.
 //!
-//! The backend writes triangle vertices into [`PointerHits`], and a follow-up
-//! system draws an outline around the hovered triangle.
+//! The example contains pickable 3D meshes. When a mesh is hovered, a custom
+//! picking backend performs a ray cast against the mesh and retrieves the
+//! triangle that was hit. The triangle vertices are stored in a custom struct
+//! (`TriangleHitInfo`) that implements `HitDataExtra`, and saved into `HitData`
+//! structs. This information is not available by default in `HitData` and thus
+//! requires its `extra` field. A follow-up system reads the hit data and draws
+//! an outline around the hovered triangle using gizmos.
 
 use bevy::{
     color::palettes::css::*,
@@ -41,6 +46,9 @@ fn main() {
         .run();
 }
 
+/// The custom hit data used by our picking backend. All structs that implement
+/// `Clone + Send + Sync + fmt::Debug + 'static` automatically implement
+/// `HitDataExtra` and can be used as extra data in `HitData`.
 #[derive(Clone, Debug)]
 struct TriangleHitInfo {
     triangle_vertices: Option<[Vec3; 3]>,
@@ -186,6 +194,8 @@ fn draw_hit_gizmos(hovered_triangles: Res<HoveredTriangles>, mut gizmos: Gizmos)
         let center = (vertices[0] + vertices[1] + vertices[2]) / 3.0;
         let offset = triangle.normal.normalize_or_zero() * 0.025;
 
+        // The outline is made bigger and offset a bit to prevent being covered
+        // by the mesh
         let outline = vertices.map(|vertex| center + (vertex - center) * 1.05 + offset);
 
         gizmos.line(outline[0], outline[1], WHITE);
