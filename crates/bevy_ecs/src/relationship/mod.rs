@@ -740,14 +740,14 @@ impl<C> ComponentRelationshipAccessor<C> {
     where
         C: Relationship,
     {
+        let getter: Box<dyn Fn(&Components) -> Option<ComponentId>> =
+            Box::new(|components| components.get_id(TypeId::of::<C::RelationshipTarget>()));
         Self {
             initializer: RelationshipAccessorInitializer::Relationship {
                 entity_field_offset,
                 linked_spawn: C::RelationshipTarget::LINKED_SPAWN,
                 allow_self_referential: C::ALLOW_SELF_REFERENTIAL,
-                relationship_target_getter: Arc::new(|components| {
-                    components.get_id(TypeId::of::<C::RelationshipTarget>())
-                }),
+                relationship_target_getter: Arc::from(getter),
             },
             phantom: Default::default(),
         }
@@ -758,15 +758,15 @@ impl<C> ComponentRelationshipAccessor<C> {
     where
         C: RelationshipTarget,
     {
+        let getter: Box<dyn Fn(&Components) -> Option<ComponentId>> =
+            Box::new(|components| components.get_id(TypeId::of::<C::Relationship>()));
         Self {
             initializer: RelationshipAccessorInitializer::RelationshipTarget {
                 // Safety: caller ensures that `ptr` is of type `C`.
                 iter: |ptr| unsafe { Box::new(RelationshipTarget::iter(ptr.deref::<C>())) },
                 linked_spawn: C::LINKED_SPAWN,
                 allow_self_referential: C::Relationship::ALLOW_SELF_REFERENTIAL,
-                relationship_getter: Arc::new(|components| {
-                    components.get_id(TypeId::of::<C::Relationship>())
-                }),
+                relationship_getter: Arc::from(getter),
             },
             phantom: Default::default(),
         }
