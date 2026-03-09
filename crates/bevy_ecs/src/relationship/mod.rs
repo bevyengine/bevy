@@ -1021,4 +1021,100 @@ mod tests {
             unsafe { *child_of_ptr.byte_add(*entity_field_offset).deref() };
         assert_eq!(child_of_entity, parent);
     }
+
+    #[test]
+    fn relationship_accessor() {
+        #[derive(Component)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Likes {
+            _a: u16,
+            #[relationship]
+            e: Entity,
+            _b: (i8, u8),
+        }
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Likes)]
+        struct LikedBy(Vec<Entity>);
+
+        let mut world = World::new();
+        let likes_id = world.register_component::<Likes>();
+        let liked_by_id = world.register_component::<LikedBy>();
+
+        let likes_accessor = world
+            .components()
+            .get_info(likes_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap();
+        match *likes_accessor {
+            RelationshipAccessor::Relationship {
+                entity_field_offset,
+                linked_spawn,
+                relationship_target,
+            } => {
+                assert_eq!(entity_field_offset, core::mem::offset_of!(Likes, e));
+                assert!(!linked_spawn);
+                assert_eq!(relationship_target, liked_by_id);
+            }
+            _ => {
+                panic!("Not a Relationship")
+            }
+        }
+
+        let liked_by_accessor = world
+            .components()
+            .get_info(liked_by_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap();
+        match *liked_by_accessor {
+            RelationshipAccessor::RelationshipTarget {
+                iter,
+                linked_spawn,
+                relationship,
+            } => {
+                let liked_by = LikedBy(alloc::vec![
+                    world.spawn_empty().id(),
+                    world.spawn_empty().id(),
+                    world.spawn_empty().id()
+                ]);
+                // SAFETY: liked_by is of type LikedBy
+                unsafe {
+                    assert_eq!(iter((&liked_by).into()).collect::<Vec<_>>(), liked_by.0);
+                }
+                assert!(!linked_spawn);
+                assert_eq!(relationship, likes_id);
+            }
+            _ => {
+                panic!("Not a RelationshipTarget")
+            }
+        }
+
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
+        struct RelTarget(Vec<Entity>);
+
+        let rel_id = world.register_component::<Rel>();
+        let rel_target_id = world.register_component::<RelTarget>();
+
+        assert!(world
+            .components()
+            .get_info(rel_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap()
+            .linked_spawn());
+        assert!(world
+            .components()
+            .get_info(rel_target_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap()
+            .linked_spawn());
+    }
 }
