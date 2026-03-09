@@ -535,7 +535,7 @@ pub enum RelationshipAccessorInitializer {
         iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
         /// Value of [`RelationshipTarget::LINKED_SPAWN`] of this [`RelationshipTarget`].
         linked_spawn: bool,
-        /// Value of [`Relationship::ALLOW_SELF_REFERENTIAL`] for thr [`Relationship`] of this [`RelationshipTarget`].
+        /// Value of [`Relationship::ALLOW_SELF_REFERENTIAL`] for the [`Relationship`] of this [`RelationshipTarget`].
         allow_self_referential: bool,
         /// Getter for [`ComponentId`] of the [`Relationship`] counterpart.
         /// Should return `None` if [`Relationship`] isn't registered yet.
@@ -683,7 +683,7 @@ pub enum RelationshipAccessor {
         iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
         /// Value of [`RelationshipTarget::LINKED_SPAWN`] of this [`RelationshipTarget`].
         linked_spawn: bool,
-        /// Value of [`Relationship::ALLOW_SELF_REFERENTIAL`] for thr [`Relationship`] of this [`RelationshipTarget`].
+        /// Value of [`Relationship::ALLOW_SELF_REFERENTIAL`] for the [`Relationship`] of this [`RelationshipTarget`].
         allow_self_referential: bool,
         /// [`ComponentId`] of the [`Relationship`] counterpart.
         relationship: ComponentId,
