@@ -33,8 +33,8 @@ fn main() {
         .add_systems(
             PreUpdate,
             (
-                cache_hovered_triangles.after(PickingSystems::Backend),
                 custom_backend_system.in_set(PickingSystems::Backend),
+                cache_hovered_triangles.after(PickingSystems::Backend),
             ),
         )
         .add_systems(Update, draw_hit_gizmos)
@@ -53,6 +53,49 @@ struct TriangleOverlay {
     position: Vec3,
     normal: Vec3,
     vertices: [Vec3; 3],
+}
+
+fn setup_scene(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let shapes: [(Mesh, Color); 3] = [
+        (Cuboid::default().into(), RED.into()),
+        (Sphere::default().mesh().ico(2).unwrap(), GREEN.into()),
+        (Cylinder::default().into(), BLUE.into()),
+    ];
+
+    for (i, (mesh, color)) in shapes.iter().enumerate() {
+        let x = i as f32 * 1.5 - 1.5;
+        let material = materials.add(StandardMaterial::from_color(*color));
+
+        commands.spawn((
+            Mesh3d(meshes.add(mesh.clone())),
+            MeshMaterial3d(material),
+            Transform::from_xyz(x, 0.5, 0.0),
+            Pickable::default(),
+        ));
+    }
+
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(30.0, 30.0))),
+        MeshMaterial3d(materials.add(Color::from(DARK_GRAY))),
+        Pickable::IGNORE,
+    ));
+
+    commands.spawn((PointLight::default(), Transform::from_xyz(0.0, 8.0, 4.0)));
+
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 2.5, 6.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+    ));
+}
+
+fn setup_gizmos(mut config_store: ResMut<GizmoConfigStore>) {
+    let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
+    config.depth_bias = -1.0;
+    config.line.width = 3.0;
 }
 
 fn custom_backend_system(
@@ -101,49 +144,6 @@ fn custom_backend_system(
             pointer_hits.write(PointerHits::new(ray_id.pointer, picks, camera.order as f32));
         }
     }
-}
-
-fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let shapes: [(Mesh, Color); 3] = [
-        (Cuboid::default().into(), RED.into()),
-        (Sphere::default().mesh().ico(2).unwrap(), GREEN.into()),
-        (Cylinder::default().into(), BLUE.into()),
-    ];
-
-    for (i, (mesh, color)) in shapes.iter().enumerate() {
-        let x = i as f32 * 1.5 - 1.5;
-        let material = materials.add(StandardMaterial::from_color(*color));
-
-        commands.spawn((
-            Mesh3d(meshes.add(mesh.clone())),
-            MeshMaterial3d(material),
-            Transform::from_xyz(x, 0.5, 0.0),
-            Pickable::default(),
-        ));
-    }
-
-    commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(30.0, 30.0))),
-        MeshMaterial3d(materials.add(Color::from(DARK_GRAY))),
-        Pickable::IGNORE,
-    ));
-
-    commands.spawn((PointLight::default(), Transform::from_xyz(0.0, 8.0, 4.0)));
-
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(0.0, 2.5, 6.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-    ));
-}
-
-fn setup_gizmos(mut config_store: ResMut<GizmoConfigStore>) {
-    let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
-    config.depth_bias = -1.0;
-    config.line.width = 3.0;
 }
 
 fn cache_hovered_triangles(
