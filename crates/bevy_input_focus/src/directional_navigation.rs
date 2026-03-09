@@ -123,7 +123,7 @@ pub struct AutoNavigationConfig {
     /// the corner of the origin UI element in the given direction of navigation.
     /// The region is bounded in the opposite direction of navigation by the x and y values
     /// of the corner itself. e.g. An unbounded region to the NorthEast from a NE corner
-    /// at (20., 30.) will have x values >= 20. and y values >= 30.
+    /// at (20., 30.) will have x values >= 20. and y values <= 30 (UI coordinates).
     /// - `overlapping_area` = the portion of the candidate_area that is within
     ///   the desired unbounded region.
     /// - The candidate_area is the width times the height of the candidate.
@@ -493,7 +493,7 @@ pub enum DirectionalNavigationError {
 pub struct FocusableArea {
     /// The entity identifier for this focusable area.
     pub entity: Entity,
-    /// The center position in global coordinates.
+    /// The center position in UI (viewport) coordinates.
     pub position: Vec2,
     /// The size (width, height) of the area.
     pub size: Vec2,
@@ -504,7 +504,7 @@ pub struct FocusableArea {
 /// This allows the auto-navigation system to work with different UI implementations
 /// as long as they can provide position and size information.
 pub trait Navigable {
-    /// Returns the center position and size in global coordinates.
+    /// Returns the center position and size in UI (viewport) coordinates.
     fn get_bounds(&self) -> (Vec2, Vec2);
 }
 
