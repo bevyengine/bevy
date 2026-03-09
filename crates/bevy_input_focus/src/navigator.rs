@@ -374,4 +374,44 @@ mod tests {
         );
         assert!(close_score < far_score);
     }
+
+    #[test]
+    fn test_calculate_overlap_diagonal() {
+        let origin_pos = Vec2::new(100.0, 100.0);
+        let origin_size = Vec2::new(50.0, 50.0);
+
+        // Fully overlapping candidate to the north east
+        let north_east_pos = Vec2::new(150.0, 150.0);
+        let north_east_size = Vec2::new(30.0, 30.0);
+        let overlap = calculate_overlap(
+            origin_pos,
+            origin_size,
+            north_east_pos,
+            north_east_size,
+            CompassOctant::NorthEast,
+        );
+        assert_eq!(overlap, 1.0); // Full overlap
+
+        // Partially overlapping node to the north east
+        let north_east_pos = Vec2::new(120.0, 150.0);
+        let partial_overlap = calculate_overlap(
+            origin_pos,
+            origin_size,
+            north_east_pos,
+            north_east_size,
+            CompassOctant::NorthEast,
+        );
+        assert!(partial_overlap > 0.0 && partial_overlap < 1.0);
+
+        // No overlap
+        let north_east_pos = Vec2::new(110.0, 150.0);
+        let no_overlap = calculate_overlap(
+            origin_pos,
+            origin_size,
+            north_east_pos,
+            north_east_size,
+            CompassOctant::NorthEast,
+        );
+        assert_eq!(no_overlap, 0.0);
+    }
 }
