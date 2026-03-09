@@ -228,6 +228,14 @@ impl Slab {
             Slab::LargeObject(large_object_slab) => large_object_slab.element_layout.class,
         }
     }
+
+    /// Returns the [`ElementLayout`] of this slab.
+    fn layout(&self) -> &ElementLayout {
+        match *self {
+            Slab::General(ref general_slab) => &general_slab.element_layout,
+            Slab::LargeObject(ref large_object_slab) => &large_object_slab.element_layout,
+        }
+    }
 }
 
 /// A resizable slab that can contain multiple objects.
@@ -494,6 +502,17 @@ impl MeshAllocator {
         self.mesh_id_to_index_slab.len()
     }
 
+    /// Returns an iterator over all slabs that contain vertex data.
+    pub fn vertex_slabs(&self) -> impl Iterator<Item = SlabId> {
+        self.slabs.iter().filter_map(|(slab_id, slab)| {
+            if matches!(slab.layout().class, ElementClass::Vertex) {
+                Some(*slab_id)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Returns an iterator over all slabs that contain morph targets.
     #[cfg(feature = "morph")]
     pub fn morph_target_slabs(&self) -> impl Iterator<Item = SlabId> {
@@ -504,6 +523,11 @@ impl MeshAllocator {
                 None
             }
         })
+    }
+
+    /// Returns the buffer corresponding to the given slab, if allocated.
+    pub fn slab_buffer(&self, slab_id: SlabId) -> Option<&Buffer> {
+        self.slabs.get(&slab_id).and_then(|slab| slab.buffer())
     }
 
     /// Returns the GPU buffer corresponding to the slab with the given ID if
@@ -1162,8 +1186,10 @@ impl ElementClass {
     /// Returns the `wgpu` [`BufferUsages`] appropriate for a buffer of this
     /// class.
     fn buffer_usages(&self) -> BufferUsages {
+        // We include `BufferUsages::STORAGE` on vertex buffers for the skin
+        // caching shader.
         match *self {
-            ElementClass::Vertex => BufferUsages::VERTEX,
+            ElementClass::Vertex => BufferUsages::VERTEX | BufferUsages::STORAGE,
             ElementClass::Index => BufferUsages::INDEX,
             #[cfg(feature = "morph")]
             ElementClass::MorphTarget => BufferUsages::STORAGE,

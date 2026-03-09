@@ -24,6 +24,19 @@ struct Mesh {
     // User supplied index to identify the mesh instance
     tag: u32,
     morph_descriptor_index: u32,
+    // The location of the first skinned/morphed vertex in the cached skinned
+    // vertices buffer for the current frame.
+    //
+    // If this mesh doesn't use skin caching, this is `u32::MAX`.
+    cached_skin_offset: u32,
+    /// The location of the first skinned/morphed vertex in the cached skinned
+    /// vertices buffer for the previous frame.
+    ///
+    /// If this mesh doesn't use skin caching, or the mesh is newly-visible this
+    /// frame, this is `u32::MAX`.
+    prev_cached_skin_offset: u32,
+    pad_a: u32,
+    pad_b: u32,
 };
 
 #ifdef SKINNED
@@ -31,8 +44,6 @@ struct SkinnedMesh {
     data: array<mat4x4<f32>, 256u>,
 };
 #endif
-
-#ifdef MORPH_TARGETS
 
 struct MorphWeights {
     weights: array<vec4<f32>, 64u>, // 64 = 256 / 4 (256 = MAX_MORPH_WEIGHTS)
@@ -70,7 +81,11 @@ struct MorphAttributes {
     pad_c: f32,
 };
 
-#endif  // MORPH_TARGETS
+struct CachedSkinnedVertex {
+    position: vec3<f32>,
+    normal: vec3<f32>,
+    tangent: vec4<f32>,
+};
 
 // [2^0, 2^16)
 const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32     = (1u << 16u) - 1u;
