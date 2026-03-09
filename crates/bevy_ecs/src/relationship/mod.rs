@@ -5,8 +5,9 @@ mod relationship_query;
 mod relationship_source_collection;
 
 use alloc::boxed::Box;
+use bevy_platform::sync::Arc;
 use bevy_ptr::Ptr;
-use core::marker::PhantomData;
+use core::{any::TypeId, marker::PhantomData};
 
 use alloc::format;
 
@@ -16,7 +17,7 @@ pub use relationship_query::*;
 pub use relationship_source_collection::*;
 
 use crate::{
-    component::{Component, ComponentCloneBehavior, Mutable},
+    component::{Component, ComponentCloneBehavior, ComponentId, Components, Mutable},
     entity::{ComponentCloneCtx, Entity},
     error::CommandWithEntity,
     lifecycle::HookContext,
@@ -507,6 +508,119 @@ impl RelationshipTargetCloneBehaviorHierarchy
     }
 }
 
+#[derive(Clone)]
+pub enum RelationshipAccessorInitializer {
+    Relationship {
+        entity_field_offset: usize,
+        linked_spawn: bool,
+        relationship_target_getter: Arc<dyn Fn(&Components) -> Option<ComponentId>>,
+    },
+    RelationshipTarget {
+        iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
+        linked_spawn: bool,
+        relationship_getter: Arc<dyn Fn(&Components) -> Option<ComponentId>>,
+    },
+}
+
+impl core::fmt::Debug for RelationshipAccessorInitializer {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Relationship {
+                entity_field_offset,
+                linked_spawn,
+                relationship_target_getter: _,
+            } => f
+                .debug_struct("Relationship")
+                .field("entity_field_offset", entity_field_offset)
+                .field("linked_spawn", linked_spawn)
+                .finish(),
+            Self::RelationshipTarget {
+                iter,
+                linked_spawn,
+                relationship_getter: _,
+            } => f
+                .debug_struct("RelationshipTarget")
+                .field("iter", iter)
+                .field("linked_spawn", linked_spawn)
+                .finish(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) enum MaybeRelationshipAccessor {
+    #[default]
+    NoAccessor,
+    Initializer(Box<RelationshipAccessorInitializer>),
+    Accessor(RelationshipAccessor),
+}
+
+impl MaybeRelationshipAccessor {
+    pub fn accessor(&self) -> Option<&RelationshipAccessor> {
+        match self {
+            MaybeRelationshipAccessor::Accessor(relationship_accessor) => {
+                Some(relationship_accessor)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn initialize(&mut self, id: ComponentId, components: &mut Components) {
+        _ = (|| {
+            let accessor = self.initializer_to_accessor(|getter| getter(components))?;
+            let counterpart_id = accessor.counterpart_id();
+            let counterpart_slot = components.get_relationship_accessor_mut(counterpart_id)?;
+            let counterpart_accessor = counterpart_slot.initializer_to_accessor(|_| Some(id))?;
+            *counterpart_slot = MaybeRelationshipAccessor::Accessor(counterpart_accessor);
+            *self = MaybeRelationshipAccessor::Accessor(accessor);
+            Some(())
+        })();
+    }
+
+    fn initializer_to_accessor(
+        &self,
+        mapper: impl FnOnce(&dyn Fn(&Components) -> Option<ComponentId>) -> Option<ComponentId>,
+    ) -> Option<RelationshipAccessor> {
+        let MaybeRelationshipAccessor::Initializer(initializer) = self else {
+            return None;
+        };
+        Some(match *initializer.as_ref() {
+            RelationshipAccessorInitializer::Relationship {
+                entity_field_offset,
+                linked_spawn,
+                ref relationship_target_getter,
+            } => {
+                let relationship_target = mapper(relationship_target_getter.as_ref())?;
+                RelationshipAccessor::Relationship {
+                    entity_field_offset,
+                    linked_spawn,
+                    relationship_target,
+                }
+            }
+            RelationshipAccessorInitializer::RelationshipTarget {
+                iter,
+                linked_spawn,
+                ref relationship_getter,
+            } => {
+                let relationship = mapper(relationship_getter.as_ref())?;
+                RelationshipAccessor::RelationshipTarget {
+                    iter,
+                    linked_spawn,
+                    relationship,
+                }
+            }
+        })
+    }
+}
+
+impl From<Option<RelationshipAccessorInitializer>> for MaybeRelationshipAccessor {
+    fn from(value: Option<RelationshipAccessorInitializer>) -> Self {
+        value
+            .map(|v| MaybeRelationshipAccessor::Initializer(Box::new(v)))
+            .unwrap_or(MaybeRelationshipAccessor::NoAccessor)
+    }
+}
+
 /// This enum describes a way to access the entities of [`Relationship`] and [`RelationshipTarget`] components
 /// in a type-erased context.
 #[derive(Debug, Clone, Copy)]
@@ -519,6 +633,7 @@ pub enum RelationshipAccessor {
         entity_field_offset: usize,
         /// Value of [`RelationshipTarget::LINKED_SPAWN`] for the [`Relationship::RelationshipTarget`] of this [`Relationship`].
         linked_spawn: bool,
+        relationship_target: ComponentId,
     },
     /// This component is a [`RelationshipTarget`].
     RelationshipTarget {
@@ -530,12 +645,32 @@ pub enum RelationshipAccessor {
         iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
         /// Value of [`RelationshipTarget::LINKED_SPAWN`] of this [`RelationshipTarget`].
         linked_spawn: bool,
+        relationship: ComponentId,
     },
+}
+
+impl RelationshipAccessor {
+    pub fn counterpart_id(&self) -> ComponentId {
+        match self {
+            RelationshipAccessor::Relationship {
+                relationship_target,
+                ..
+            } => *relationship_target,
+            RelationshipAccessor::RelationshipTarget { relationship, .. } => *relationship,
+        }
+    }
+
+    pub fn linked_spawn(&self) -> bool {
+        match self {
+            RelationshipAccessor::Relationship { linked_spawn, .. }
+            | RelationshipAccessor::RelationshipTarget { linked_spawn, .. } => *linked_spawn,
+        }
+    }
 }
 
 /// A type-safe convenience wrapper over [`RelationshipAccessor`].
 pub struct ComponentRelationshipAccessor<C: ?Sized> {
-    pub(crate) accessor: RelationshipAccessor,
+    pub(crate) initializer: RelationshipAccessorInitializer,
     phantom: PhantomData<C>,
 }
 
@@ -549,9 +684,12 @@ impl<C> ComponentRelationshipAccessor<C> {
         C: Relationship,
     {
         Self {
-            accessor: RelationshipAccessor::Relationship {
+            initializer: RelationshipAccessorInitializer::Relationship {
                 entity_field_offset,
                 linked_spawn: C::RelationshipTarget::LINKED_SPAWN,
+                relationship_target_getter: Arc::new(|components| {
+                    components.get_id(TypeId::of::<C::RelationshipTarget>())
+                }),
             },
             phantom: Default::default(),
         }
@@ -563,10 +701,13 @@ impl<C> ComponentRelationshipAccessor<C> {
         C: RelationshipTarget,
     {
         Self {
-            accessor: RelationshipAccessor::RelationshipTarget {
+            initializer: RelationshipAccessorInitializer::RelationshipTarget {
                 // Safety: caller ensures that `ptr` is of type `C`.
                 iter: |ptr| unsafe { Box::new(RelationshipTarget::iter(ptr.deref::<C>())) },
                 linked_spawn: C::LINKED_SPAWN,
+                relationship_getter: Arc::new(|components| {
+                    components.get_id(TypeId::of::<C::Relationship>())
+                }),
             },
             phantom: Default::default(),
         }
