@@ -145,7 +145,7 @@ pub struct AutoNavigationConfig {
     /// - **Sparse/irregular layouts** (e.g., star constellations): Use `0.0` to allow navigation
     ///   between elements that don't directly align.
     /// - **Grid layouts**: Use `0.5` or higher to ensure navigation only connects elements in
-    ///   the same row, column, and diagonal.
+    ///   the same row, column, or diagonal.
     /// - **Strict alignment**: Use `1.0` to require perfect alignment, though this may result
     ///   in disconnected navigation graphs if elements aren't precisely aligned.
     pub min_alignment_factor: f32,
