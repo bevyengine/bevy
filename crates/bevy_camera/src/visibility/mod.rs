@@ -1,3 +1,32 @@
+//! Components that control the visibility of entities.
+//!
+//! ## What is the difference between visibility components
+//!
+//! There are three components that indicate various kinds
+//! of visibility modes of an entity:
+//! - [`Visibility`]
+//! - [`InheritedVisibility`]
+//! - [`ViewVisibility`]
+//!
+//! [`Visibility`] is the user-defined visibility.
+//! It is the only component that users should typically add to an entity[^1],
+//! the other two are then added automatically.
+//!
+//! [`InheritedVisibility`] is computed by propagation through the entity hierarchy.
+//! Entities with [`Visibility::Inherited`] copy the visibility
+//! of their parent entities. If they have no [`ChildOf`] component, they are visible.
+//! The propagation is done in `visibility_propagate_system`, which runs
+//! in the [`PostUpdate`] schedule.
+//!
+//! [`ViewVisibility`] indicates whether the entity should be
+//! extracted for rendering. This component is recomputed in every frame
+//! in the [`PostUpdate`] schedule.
+//!
+//! [^1]: If at all -- most components that go together with [`Visibility`]
+//! already [require](bevy_ecs::component::Component#required-components) it,
+//! so users only need to explicitly add it if they wish to override
+//! the default value of [`Visibility::Inherited`].
+
 mod range;
 mod render_layers;
 
@@ -47,24 +76,7 @@ pub struct NoCpuCulling;
 /// Users should set this component if they wish to change the visibility of an entity.
 ///
 /// To read the visibility of an entity, query for its [`InheritedVisibility`] instead.
-///
-/// ## [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`]
-///
-/// These are three components that relate to visibility.
-/// Only [`Visibility`] is typically added to an entity,
-/// the other two are then added automatically.
-///
-/// [`Visibility`] is the visibility set by the user.
-///
-/// [`InheritedVisibility`] is computed by propagation through the entity hierarchy.
-/// Entities with [`Visibility::Inherited`] copy the visibility
-/// of their parent entities. If they have no [`ChildOf`] component, they are visible.
-/// The propagation is done in `visibility_propagate_system`, which runs
-/// in the [`PostUpdate`] schedule.
-///
-/// [`ViewVisibility`] indicates whether the entity should be
-/// extracted for rendering. This component is recomputed in every frame
-/// in the [`PostUpdate`] schedule.
+/// For more information, see [module level documentation](self#what-is-the-difference-between-visibility-components).
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(InheritedVisibility, ViewVisibility)]
@@ -138,30 +150,13 @@ impl PartialEq<&Visibility> for Visibility {
 ///
 /// This is a computed component that users should not change manually.
 /// To set the visibility of an entity, use [`Visibility`] instead.
+/// For more information, see [module level documentation](self#what-is-the-difference-between-visibility-components).
 ///
 /// This property is updated in [`VisibilityPropagate`] in the [`PostUpdate`] schedule.
 /// Until then, it is not up to date with [`Visibility`] if it was changed
 /// in the same frame.
 ///
 /// If this is false, then [`ViewVisibility`] should also be false.
-///
-/// ## [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`]
-///
-/// These are three components that relate to visibility.
-/// Only [`Visibility`] is typically added to an entity,
-/// the other two are then added automatically.
-///
-/// [`Visibility`] is the visibility set by the user.
-///
-/// [`InheritedVisibility`] is computed by propagation through the entity hierarchy.
-/// Entities with [`Visibility::Inherited`] copy the visibility
-/// of their parent entities. If they have no [`ChildOf`] component, they are visible.
-/// The propagation is done in `visibility_propagate_system`, which runs
-/// in the [`PostUpdate`] schedule.
-///
-/// [`ViewVisibility`] indicates whether the entity should be
-/// extracted for rendering. This component is recomputed in every frame
-/// in the [`PostUpdate`] schedule.
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
@@ -218,6 +213,9 @@ pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 /// Algorithmically computed indication of whether an entity is visible and should be extracted for
 /// rendering.
 ///
+/// Not to be confused with [`Visibility`] and [`InheritedVisibility`].
+/// For more information, see [module level documentation](self#what-is-the-difference-between-visibility-components).
+///
 /// Each frame, this will be reset to `false` during [`VisibilityPropagate`] systems in
 /// [`PostUpdate`]. Later in the frame, systems in [`CheckVisibility`] will mark any visible
 /// entities using [`ViewVisibility::set`]. Because of this, values of this type will be marked as
@@ -225,24 +223,6 @@ pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 ///
 /// If you wish to add a custom visibility system that sets this value, be sure to add it to the
 /// [`CheckVisibility`] set.
-///
-/// ## [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`]
-///
-/// These are three components that relate to visibility.
-/// Only [`Visibility`] is typically added to an entity,
-/// the other two are then added automatically.
-///
-/// [`Visibility`] is the visibility set by the user.
-///
-/// [`InheritedVisibility`] is computed by propagation through the entity hierarchy.
-/// Entities with [`Visibility::Inherited`] copy the visibility
-/// of their parent entities. If they have no [`ChildOf`] component, they are visible.
-/// The propagation is done in `visibility_propagate_system`, which runs
-/// in the [`PostUpdate`] schedule.
-///
-/// [`ViewVisibility`] indicates whether the entity should be
-/// extracted for rendering. This component is recomputed in every frame
-/// in the [`PostUpdate`] schedule.
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
