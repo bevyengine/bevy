@@ -23,7 +23,8 @@ use bevy_log::{debug, info, info_span, warn};
 use bevy_render::camera::ExtractedCamera;
 use bevy_window::RawHandleWrapperHolder;
 use wgpu::{
-    Adapter, AdapterInfo, Backends, DeviceType, Instance, Queue, RequestAdapterOptions, Trace,
+    Adapter, AdapterInfo, Backends, DeviceType, ForceShaderModelToken, Instance, Queue,
+    RequestAdapterOptions, Trace,
 };
 
 /// Schedule label for the root render graph schedule. This schedule runs once per frame
@@ -185,16 +186,19 @@ pub async fn initialize_renderer(
         backends,
         flags: options.instance_flags,
         memory_budget_thresholds: options.instance_memory_budget_thresholds,
+        display: None,
         backend_options: wgpu::BackendOptions {
             gl: wgpu::GlBackendOptions {
                 gles_minor_version: options.gles3_minor_version,
                 fence_behavior: wgpu::GlFenceBehavior::Normal,
+                debug_fns: wgpu::GlDebugFns::Auto,
             },
             dx12: wgpu::Dx12BackendOptions {
                 shader_compiler: options.dx12_shader_compiler.clone(),
                 presentation_system: wgpu::wgt::Dx12SwapchainKind::from_env().unwrap_or_default(),
                 latency_waitable_object: wgpu::wgt::Dx12UseFrameLatencyWaitableObject::from_env()
                     .unwrap_or_default(),
+                force_shader_model: ForceShaderModelToken::default(),
             },
             noop: wgpu::NoopBackendOptions { enable: false },
         },
