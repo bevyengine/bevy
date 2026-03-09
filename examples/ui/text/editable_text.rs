@@ -51,7 +51,7 @@ fn setup(
 ) {
     // Set up a camera
     // We need a camera to see the UI
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     // Create a root UI node, so we can place the input above the output in a column
     // TODO: center things nicely
@@ -183,7 +183,7 @@ fn build_input_text(
 
     commands.entity(outer).add_children(&[edit]);
 
-    return (outer, edit);
+    (outer, edit)
 }
 
 // Submit the text when Ctrl+Enter is pressed
@@ -198,15 +198,13 @@ fn text_submission(
     if keyboard_input.just_pressed(KeyCode::Enter)
         && (keyboard_input.pressed(KeyCode::ControlLeft)
             || keyboard_input.pressed(KeyCode::ControlRight))
+        && let Some(focused_entity) = input_focus.get()
+        && let Ok((mut text_input, name)) = text_input.get_mut(focused_entity)
     {
-        if let Some(focused_entity) = input_focus.get() {
-            if let Some((mut text_input, name)) = text_input.get_mut(focused_entity).ok() {
-                let input = text_input.value().clone().to_string();
-                text_output.0 = format!("{:}: {:}", name, input);
+        let input = text_input.value().clone().to_string();
+        text_output.0 = format!("{:}: {:}", name, input);
 
-                text_input.clear(&mut font_context.0, &mut layout_context.0);
-            }
-        }
+        text_input.clear(&mut font_context.0, &mut layout_context.0);
     }
 }
 
@@ -220,13 +218,15 @@ fn rotate_tab(
 
         for entity in text_input.iter() {
             if focused_entity.is_none() {
-                (*input_focus).0 = Some(entity);
+                input_focus.0 = Some(entity);
                 return;
-            } else {
-                if entity != focused_entity.unwrap() {
-                    (*input_focus).0 = Some(entity);
-                    return;
-                }
+            }
+
+            if let Some(focused_entity) = focused_entity
+                && entity != focused_entity
+            {
+                input_focus.0 = Some(entity);
+                return;
             }
         }
     }
