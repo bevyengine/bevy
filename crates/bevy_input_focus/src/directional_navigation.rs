@@ -94,7 +94,7 @@ pub struct AutoNavigationConfig {
     /// Minimum overlap ratio (0.0-1.0) required
     /// - along the perpendicular axis, for cardinal directions and
     /// - within the unbounded region emanating from the corner in the direction of navigation
-    /// for diagonal directions.
+    ///   for diagonal directions.
     ///
     /// This parameter controls how much two UI elements must overlap in the perpendicular direction
     /// or in the unbounded region to be considered reachable neighbors.
@@ -118,17 +118,17 @@ pub struct AutoNavigationConfig {
     /// - `actual_overlap` = overlapping width between the two elements
     /// - Sizes are the widths of the origin and candidate
     ///
-    /// For NorthEast, NorthWest, SouthEast, and SouthWest navigation, this measures overlap
+    /// For North East, North West, South East, and South West navigation, this measures overlap
     /// of a candidate's area within the unbounded region extending infinitely from
     /// the corner of the origin UI element in the given direction of navigation.
     /// The region is bounded in the opposite direction of navigation by the x and y values
-    /// of the corner itself. e.g. An unbounded region to the NorthEast from a NE corner
+    /// of the corner itself. e.g. An unbounded region to the North East from the origin's NE corner
     /// at (20., 30.) will have x values >= 20. and y values <= 30 (UI coordinates).
-    /// - `overlapping_area` = the portion of the candidate_area that is within
+    /// - `overlapping_area` = the portion of the `candidate_area` that is within
     ///   the desired unbounded region.
-    /// - The candidate_area is the width times the height of the candidate.
+    /// - The `candidate_area` is the width times the height of the candidate.
     ///
-    /// Note that the overlap_factor is equal between the origin and the candidate
+    /// Note that the `overlap_factor` is equal between the origin and the candidate
     /// in opposite cardinal directions, but not necessarily equal in diagonal directions.
     ///
     /// # Examples

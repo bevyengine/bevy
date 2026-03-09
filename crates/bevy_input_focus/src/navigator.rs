@@ -36,11 +36,11 @@ fn calculate_1d_overlap(
 /// the x and y bounds divided by the candidate's original area.
 /// If the candidate's original area is <= 0.0, 0.0 (no overlap) is returned.
 ///
-/// The x and y clamps must be unbounded, meaning that the minimum clamp must be f32::NEG_INFINITY
-/// or the maximum clamp must be f32::INFINITY. The clamps are specified in UI coordinates, i.e.
-/// y increases downwards. For example:
-/// x_clamp = |x| => x.clamp(30., f32::INFINITY) and y_clamp = |y| => y.clamp(f32::NEG_INFINITY, 20.)
-/// specifies a unbounded section to the North and East from (30., 20.).
+/// The x and y clamps must be unbounded, meaning that the minimum clamp must be `f32::NEG_INFINITY`
+/// or the maximum clamp must be `f32::INFINITY`. The clamps are specified in UI coordinates, i.e.
+/// y increases downwards. For example, an `x_clamp` between `30.` and `f32::INFINITY` alongside
+/// a `y_clamp` between `f32::NEG_INFINITY` and `20.` specifies a unbounded section to the North
+/// and East from `Vec2::new(30., 20.)`.
 fn calculate_unbounded_2d_overlap(
     x_clamp: impl Fn(f32) -> f32,
     y_clamp: impl Fn(f32) -> f32,
