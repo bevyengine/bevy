@@ -198,7 +198,11 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_skins,
+                        extract_skins.run_if(
+                            |skinned_meshes: Extract<Query<(), With<SkinnedMesh>>>| {
+                                !skinned_meshes.is_empty()
+                            },
+                        ),
                         extract_morphs,
                         gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
                             .before(MeshExtractionSystems),
