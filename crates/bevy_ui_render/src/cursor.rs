@@ -1,3 +1,18 @@
+use bevy_asset::AssetId;
+use bevy_camera::visibility::InheritedVisibility;
+use bevy_color::Alpha;
+use bevy_ecs::prelude::*;
+use bevy_math::{Affine2, Rect, Vec2};
+use bevy_render::{sync_world::TemporaryRenderEntity, Extract};
+use bevy_sprite::BorderRect;
+use bevy_text::{TextCursorStyle, TextLayoutInfo};
+use bevy_ui::{
+    CalculatedClip, ComputedNode, ComputedUiTargetCamera, ResolvedBorderRadius, UiGlobalTransform,
+};
+
+use crate::{
+    stack_z_offsets, ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap,
+};
 
 pub fn extract_text_cursor(
     mut commands: Commands,
@@ -38,8 +53,7 @@ pub fn extract_text_cursor(
             continue;
         };
 
-        let transform =
-            Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
+        let transform = Affine2::from(global_transform); // * Affine2::from_translation(0.5 * uinode.size());
 
         if !text_layout_info.selection_rects.is_empty()
             && !cursor_style.selection_color.is_fully_transparent()
@@ -53,7 +67,7 @@ pub fn extract_text_cursor(
                     clip: maybe_clip.map(|clip| clip.clip),
                     image: AssetId::default(),
                     extracted_camera_entity,
-                    transform: transform * Affine2::from_translation(selection.center()),
+                    transform: transform * Affine2::from_translation(selection.min),
                     item: ExtractedUiItem::Node {
                         color: selection_color,
                         rect: Rect {
@@ -72,19 +86,24 @@ pub fn extract_text_cursor(
             }
         }
 
-        if !text_layout_info.cursor.is_empty() && !cursor_style.color.is_fully_transparent() {
+        if text_layout_info.cursor.is_some()
+            && !text_layout_info.cursor.unwrap().is_empty()
+            && !cursor_style.color.is_fully_transparent()
+        {
+            let x = text_layout_info.cursor.unwrap();
+
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_CURSOR,
                 clip: maybe_clip.map(|clip| clip.clip),
                 image: AssetId::default(),
                 extracted_camera_entity,
-                transform: transform * Affine2::from_translation(text_layout_info.cursor.center()),
+                transform: transform * Affine2::from_translation(x.min),
                 item: ExtractedUiItem::Node {
                     color: cursor_style.color.to_linear(),
                     rect: Rect {
                         min: Vec2::ZERO,
-                        max: text_layout_info.cursor.size(),
+                        max: x.size(),
                     },
                     atlas_scaling: None,
                     flip_x: false,

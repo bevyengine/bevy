@@ -44,6 +44,7 @@ pub use layout::*;
 pub use measurement::*;
 pub use ui_node::*;
 pub use ui_transform::*;
+pub use widget::TextNodeFlags;
 
 /// The UI prelude.
 ///
@@ -224,7 +225,10 @@ fn build_text_interop(app: &mut App) {
     app.add_systems(
         PostUpdate,
         (
-            widget::measure_text_system
+            (
+                widget::measure_text_system,
+                widget::measure_editable_text_system,
+            )
                 .chain()
                 .after(detect_text_needs_rerender)
                 .after(bevy_text::load_font_assets_into_font_collection)

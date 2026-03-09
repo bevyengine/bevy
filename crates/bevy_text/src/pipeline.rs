@@ -1,4 +1,5 @@
 use alloc::borrow::Cow;
+use bevy_ecs::world::Mut;
 
 use core::hash::BuildHasher;
 
@@ -15,11 +16,12 @@ use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use parley::style::{OverflowWrap, TextWrapMode};
 use parley::{
-    Alignment, AlignmentOptions, FontFamily, FontStack, Layout, PositionedLayoutItem,
+    Alignment, AlignmentOptions, BoundingBox, FontFamily, FontStack, Layout, PositionedLayoutItem,
     StyleProperty, WordBreakStrength,
 };
 use swash::FontRef;
 
+use crate::EditableText;
 use crate::{
     add_glyph_to_atlas,
     error::TextError,
@@ -267,6 +269,7 @@ impl TextPipeline {
         textures: &mut Assets<Image>,
         computed: &mut ComputedTextBlock,
         scale_cx: &mut ScaleCx,
+        maybe_editable_text: &mut Option<Mut<EditableText>>,
         bounds: TextBounds,
         justify: Justify,
         hinting: FontHinting,
@@ -278,7 +281,7 @@ impl TextPipeline {
         layout_with_bounds(layout, bounds, justify);
 
         for (line_index, line) in layout.lines().enumerate() {
-            for item in line.items() {
+            for item in line.items().into_iter() {
                 if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
                     let span_index = glyph_run.style().brush.0 as usize;
                     let font_smoothing = glyph_run.style().brush.1;
@@ -369,7 +372,29 @@ impl TextPipeline {
         }
 
         layout_info.size = Vec2::new(layout.full_width(), layout.height()).ceil();
+
+        if let Some(editable_text) = maybe_editable_text {
+            let geom = editable_text
+                .editor
+                .cursor_geometry(editable_text.cursor_width);
+
+            layout_info.cursor = geom.map_or(None, |f| Some(bounding_box_to_rect(f)));
+        }
+
         Ok(())
+    }
+}
+
+fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
+    Rect {
+        min: Vec2 {
+            x: geom.x0 as f32,
+            y: geom.y0 as f32,
+        },
+        max: Vec2 {
+            x: geom.x1 as f32,
+            y: geom.y1 as f32,
+        },
     }
 }
 
@@ -419,7 +444,7 @@ pub struct TextLayoutInfo {
     /// The glyphs resulting size
     pub size: Vec2,
     /// Cursor size and position for editing
-    pub cursor: Rect,
+    pub cursor: Option<Rect>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
 }
@@ -431,6 +456,8 @@ impl TextLayoutInfo {
         self.glyphs.clear();
         self.run_geometry.clear();
         self.size = Vec2::ZERO;
+        self.cursor = None;
+        self.selection_rects.clear();
     }
 }
 

@@ -1012,9 +1012,8 @@ wasm = true
 [[example]]
 name = "editable_text"
 path = "examples/ui/text/editable_text.rs"
-# Causes an ICE on docs.rs
-doc-scrape-examples = false
-required-features = ["experimental_bevy_ui_widgets"]
+doc-scrape-examples = true
+required-features = ["bevy_remote","bevy_ui_debug"]
 
 [package.metadata.example.editable_text]
 name = "Editable Text"

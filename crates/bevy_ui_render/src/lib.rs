@@ -9,6 +9,7 @@
 
 pub mod box_shadow;
 mod color_space;
+mod cursor;
 mod gradient;
 mod pipeline;
 mod render_pass;
@@ -25,7 +26,6 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_text::editing::TextCursorStyle;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
@@ -64,8 +64,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Strikethrough, StrikethroughColor, TextBackgroundColor,
-    TextColor, TextLayoutInfo, Underline, UnderlineColor,
+    ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
+    TextBackgroundColor, TextColor, TextLayoutInfo, Underline, UnderlineColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -77,6 +77,7 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
+use crate::cursor::extract_text_cursor;
 use crate::shader_flags::INVERT;
 
 pub mod prelude {
@@ -128,6 +129,7 @@ pub enum RenderUiSystems {
     ExtractTextBackgrounds,
     ExtractTextShadows,
     ExtractText,
+    ExtractCursor,
     ExtractDebug,
     ExtractGradient,
 }
@@ -225,6 +227,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractTextBackgrounds,
                     RenderUiSystems::ExtractTextShadows,
                     RenderUiSystems::ExtractText,
+                    RenderUiSystems::ExtractCursor,
                     RenderUiSystems::ExtractDebug,
                 )
                     .chain(),
@@ -241,6 +244,7 @@ impl Plugin for UiRenderPlugin {
                     extract_text_decorations.in_set(RenderUiSystems::ExtractTextBackgrounds),
                     extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
+                    extract_text_cursor.in_set(RenderUiSystems::ExtractCursor),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
@@ -891,6 +895,7 @@ pub fn extract_text_sections(
     uinode_query: Extract<
         Query<(
             Entity,
+            Option<&EditableText>,
             &ComputedNode,
             &UiGlobalTransform,
             &InheritedVisibility,
@@ -910,6 +915,7 @@ pub fn extract_text_sections(
     let mut camera_mapper = camera_map.get_mapper();
     for (
         entity,
+        _maybe_et,
         uinode,
         transform,
         inherited_visibility,

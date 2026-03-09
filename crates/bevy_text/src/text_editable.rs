@@ -78,11 +78,11 @@
 use std::collections::VecDeque;
 
 use crate::{
-    FontCx, FontHinting, FontSmoothing, LayoutCx, LineHeight, TextColor, TextFont, TextLayout,
+    apply_edit, text_edit::TextEdit, ComputedTextBlock, FontCx, FontHinting, FontSmoothing,
+    LayoutCx, LineHeight, TextColor, TextFont, TextLayout,
 };
 use bevy_ecs::prelude::*;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
-use smol_str::SmolStr;
 
 /// A plain-text text input field.
 ///
@@ -117,26 +117,30 @@ pub struct EditableText {
     ///
     /// Analogous to [`ComputedTextBlock::needs_rerender`](crate::ComputedTextBlock::needs_rerender).
     pub(crate) needs_rerender: bool,
-    /// Does the text use `rem` sizes that depend on the base font size?
-    pub(crate) uses_rem_sizes: bool,
-    /// Does the text use `vw` / `vh` sizes that depend on the viewport size?
-    pub(crate) uses_viewport_sizes: bool,
+    /// cursor width
+    pub cursor_width: f32,
 }
 
 impl Default for EditableText {
     fn default() -> Self {
         Self {
             // Defaults selected to match `Text::default()`
-            editor: PlainEditor::new(20.),
+            editor: PlainEditor::new(100.), // TODO: font size is 70, so how does this work?
             pending_edits: VecDeque::new(),
             needs_rerender: true,
-            uses_rem_sizes: false,
-            uses_viewport_sizes: false,
+            cursor_width: 20.0,
         }
     }
 }
 
 impl EditableText {
+    /// build with initial text
+    pub fn new(text: &str) -> Self {
+        let mut a = Self::default();
+        a.set_input(text);
+        return a;
+    }
+
     /// Access the internal [`PlainEditor`].
     pub fn editor(&self) -> &PlainEditor<(u32, FontSmoothing)> {
         &self.editor
@@ -175,29 +179,32 @@ impl EditableText {
         let mut driver = self.editor_mut().driver(font_context, layout_context);
 
         while let Some(edit) = pending_edits.pop_front() {
-            match edit {
-                TextEdit::Insert(str) => driver.insert_or_replace_selection(&str),
-                TextEdit::Backspace => driver.backdelete(),
-                TextEdit::Delete => driver.delete(),
-                TextEdit::MoveCursorRight => driver.move_right(),
-                TextEdit::MoveCursorLeft => driver.move_left(),
-            }
+            driver = apply_edit(edit, driver);
         }
+        self.needs_rerender = true;
     }
 
     /// Sets the entire text input to the given string, replacing any existing content.
     pub fn set_input(&mut self, text: &str) {
         self.editor.set_text(text);
+        // TODO: reset cursor location
+        self.pending_edits.clear();
         self.needs_rerender = true;
     }
 
     /// Clears the current input and resets the cursor position.
-    pub fn clear(&mut self) {
+    pub fn clear(
+        &mut self,
+        font_context: &mut FontContext,
+        layout_context: &mut LayoutContext<(u32, FontSmoothing)>,
+    ) {
         self.editor.set_text("");
+        let mut driver = self.editor_mut().driver(font_context, layout_context);
+        driver.move_to_byte(0);
+        self.pending_edits.clear();
         self.needs_rerender = true;
     }
 }
-
 
 /// Applies pending text edit actions to all [`EditableText`] widgets.
 pub fn apply_text_edits(
@@ -207,5 +214,23 @@ pub fn apply_text_edits(
 ) {
     for mut editable_text in query.iter_mut() {
         editable_text.apply_pending_edits(&mut font_context.0, &mut layout_context.0);
+    }
+}
+
+/// A
+pub fn edit_to_computed(
+    mut query: Query<(&mut EditableText, &mut ComputedTextBlock)>,
+    mut font_context: ResMut<FontCx>,
+    mut layout_context: ResMut<LayoutCx>,
+) {
+    for (mut editable_text, mut computed) in query.iter_mut() {
+        // TODO: calculate cursor width
+        editable_text.cursor_width = 20.0;
+
+        let editor = editable_text.editor_mut();
+        let layout = editor.layout(&mut font_context.0, &mut layout_context.0);
+
+        computed.layout = layout.clone();
+        computed.needs_rerender = true;
     }
 }

@@ -5,14 +5,30 @@
 //! that includes e.g. a background, border, and text label.
 //!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
+use bevy::color::palettes::css::{BLUE, GREEN, RED, YELLOW};
 use bevy::input_focus::{InputDispatchPlugin, InputFocus};
 use bevy::prelude::*;
-use bevy::text::EditableText;
+use bevy::remote::{http::RemoteHttpPlugin, RemotePlugin};
+use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
 use bevy::ui_widgets::EditableTextInputPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(GlobalUiDebugOptions {
+            enabled: true,
+            line_width: 1.,
+            line_color_override: None,
+            show_hidden: true,
+            show_clipped: true,
+            ignore_border_radius: false,
+            outline_border_box: true,
+            outline_padding_box: true,
+            outline_content_box: true,
+            outline_scrollbars: false,
+        })
+        .add_plugins(RemotePlugin::default())
+        .add_plugins(RemoteHttpPlugin::default())
         .add_plugins((
             // This is also part of UiWidgetsPlugins, but we only need EditableText for this example
             EditableTextInputPlugin,
@@ -20,9 +36,14 @@ fn main() {
             InputDispatchPlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(PreUpdate, rotate_tab)
         .add_systems(Update, text_submission)
         .run();
 }
+
+#[derive(Component)]
+struct TextOutput;
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -34,56 +55,178 @@ fn setup(
 
     // Create a root UI node, so we can place the input above the output in a column
     // TODO: center things nicely
-    let root = commands.spawn(Node { ..default() }).id();
+    let root = commands
+        .spawn(Node {
+            display: Display::Block,
+            ..default()
+        })
+        .id();
 
-    // Set up an EditableText widget
-    let text_input = commands
+    let font: FontSource = asset_server.load("fonts/FiraMono-Medium.ttf").into();
+
+    // Instructions
+    let text_instructions = commands
         .spawn((
-            EditableText::default(),
+            Node {
+                width: px(400),
+                height: px(100),
+                ..Default::default()
+            },
+            BorderColor::from(Color::from(YELLOW)),
+            Text::new("Tab to change input, Ctrl+Enter to submit"),
             TextFont {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
-                font_size: FontSize::Px(70.0),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                font_size: FontSize::Px(30.0),
                 ..default()
             },
+            UiTransform::from_translation(Val2 {
+                x: Val::Px(0.0),
+                y: Val::Px(0.0),
+            }),
         ))
         .id();
 
+    // Set up an EditableText widget
+    let (text_input_left, text_input_left_edit) =
+        build_input_text(&mut commands, &font, true, 70.0);
+    let (text_input_right, _text_input_right_edit) =
+        build_input_text(&mut commands, &font, false, 50.0);
+
     // Set the focus to our text input so we can start typing right away
-    input_focus.set(text_input);
+    input_focus.set(text_input_left_edit);
 
     // Set up a text output to see the result of our text input
     let text_output = commands
         .spawn((
+            Node {
+                width: px(400),
+                height: px(100),
+                border: UiRect {
+                    left: px(5),
+                    right: px(5),
+                    top: px(5),
+                    bottom: px(5),
+                },
+                ..Default::default()
+            },
+            BorderColor::from(Color::from(YELLOW)),
             Text::new("testing"),
+            TextOutput,
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
                 font_size: FontSize::Px(70.0),
                 ..default()
             },
+            UiTransform::from_translation(Val2 {
+                x: Val::Px(5.0),
+                y: Val::Px(200.0),
+            }),
         ))
         .id();
 
     // Assemble our hierarchy
-    commands
-        .entity(root)
-        .add_children(&[text_input, text_output]);
+    commands.entity(root).add_children(&[
+        text_instructions,
+        text_input_left,
+        text_input_right,
+        text_output,
+    ]);
+}
+
+fn build_input_text(
+    commands: &mut Commands,
+    font: &FontSource,
+    is_left: bool,
+    font_size: f32,
+) -> (Entity, Entity) {
+    let outer = commands
+        .spawn((
+            Node {
+                width: px(200),
+                height: px(100),
+                border: UiRect {
+                    left: px(5),
+                    right: px(5),
+                    top: px(5),
+                    bottom: px(5),
+                },
+                ..Default::default()
+            },
+            BorderColor::from(Color::from(YELLOW)),
+            UiTransform::from_translation(Val2 {
+                x: Val::Px(if is_left { 0.0 } else { 300.0 }),
+                y: Val::Px(50.0),
+            }),
+        ))
+        .id();
+
+    let edit = commands
+        .spawn((
+            Name::new(if is_left { "Left" } else { "Right" }),
+            EditableText::new(""),
+            TextFont {
+                font: font.clone(),
+                font_size: FontSize::Px(font_size),
+                ..default()
+            },
+            TextCursorStyle {
+                color: RED.into(),
+                selection_color: GREEN.into(),
+                selected_text_color: Some(BLUE.into()),
+            },
+            UiTransform::from_translation(Val2 {
+                x: Val::Px(10.0),
+                y: Val::Px(10.0),
+            }),
+        ))
+        .id();
+
+    commands.entity(outer).add_children(&[edit]);
+
+    return (outer, edit);
 }
 
 // Submit the text when Ctrl+Enter is pressed
 fn text_submission(
     input_focus: Res<InputFocus>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut text_input: Query<&mut EditableText>,
-    mut text_output: Single<&mut Text>,
+    mut text_input: Query<(&mut EditableText, &Name)>,
+    mut text_output: Single<&mut Text, With<TextOutput>>,
+    mut font_context: ResMut<FontCx>,
+    mut layout_context: ResMut<LayoutCx>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Enter)
         && (keyboard_input.pressed(KeyCode::ControlLeft)
             || keyboard_input.pressed(KeyCode::ControlRight))
     {
         if let Some(focused_entity) = input_focus.get() {
-            if let Some(mut text_input) = text_input.get_mut(focused_entity).ok() {
-                text_output.0 = text_input.value().clone().to_string();
-                text_input.clear();
+            if let Some((mut text_input, name)) = text_input.get_mut(focused_entity).ok() {
+                let input = text_input.value().clone().to_string();
+                text_output.0 = format!("{:}: {:}", name, input);
+
+                text_input.clear(&mut font_context.0, &mut layout_context.0);
+            }
+        }
+    }
+}
+
+fn rotate_tab(
+    mut input_focus: ResMut<InputFocus>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    text_input: Query<Entity, With<EditableText>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Tab) {
+        let focused_entity = input_focus.0;
+
+        for entity in text_input.iter() {
+            if focused_entity.is_none() {
+                (*input_focus).0 = Some(entity);
+                return;
+            } else {
+                if entity != focused_entity.unwrap() {
+                    (*input_focus).0 = Some(entity);
+                    return;
+                }
             }
         }
     }

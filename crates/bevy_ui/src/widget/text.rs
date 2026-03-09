@@ -19,9 +19,10 @@ use bevy_log::warn_once;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak, LineHeight,
-    RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, EditableText, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak,
+    LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
+    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
+    TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -324,6 +325,130 @@ pub fn measure_text_system(
     }
 }
 
+/// holder to simulate text spans
+pub struct EditableTextAsSpan<'a> {
+    item: Option<(Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
+}
+
+impl<'a> Iterator for EditableTextAsSpan<'a> {
+    type Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.item.take()
+    }
+}
+
+impl<'a> EditableTextAsSpan<'a> {
+    pub fn new(
+        entity: Entity,
+        text: &'a str,
+        text_font: &'a TextFont,
+        text_color: TextColor,
+        line_height: LineHeight,
+    ) -> Self {
+        Self {
+            item: Some((entity, 1, text, text_font, text_color.0, line_height)),
+        }
+    }
+}
+
+/// is the same as measure_text_system but we coerce a EditableText to an iter of TextSpan's
+pub fn measure_editable_text_system(
+    fonts: Res<Assets<Font>>,
+    mut text_query: Query<
+        (
+            Entity,
+            Ref<EditableText>,
+            Ref<TextLayout>,
+            &mut ContentSize,
+            &mut TextNodeFlags,
+            &mut ComputedTextBlock,
+            Ref<ComputedUiRenderTargetInfo>,
+            &ComputedNode,
+            Ref<TextFont>,
+            Ref<TextColor>,
+            Ref<LineHeight>,
+        ),
+        With<Node>,
+    >,
+    mut text_pipeline: ResMut<TextPipeline>,
+    mut font_system: ResMut<FontCx>,
+    mut layout_cx: ResMut<LayoutCx>,
+    rem_size: Res<RemSize>,
+) {
+    for (
+        entity,
+        text,
+        block,
+        mut content_size,
+        mut text_flags,
+        mut computed,
+        computed_target,
+        computed_node,
+        text_font,
+        text_color,
+        line_height,
+    ) in &mut text_query
+    {
+        // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
+        // 1e-5 epsilon to ignore tiny scale factor float errors
+        if !(1e-5
+            < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
+            || computed.needs_rerender(computed_target.is_changed(), rem_size.is_changed())
+            || text.is_changed()
+            || text_flags.needs_measure_fn
+            || content_size.is_added())
+        {
+            continue;
+        }
+
+        let t = text.value().to_string();
+        let text_spans = EditableTextAsSpan::new(entity, &t, &text_font, *text_color, *line_height);
+
+        match text_pipeline.create_text_measure(
+            entity,
+            fonts.as_ref(),
+            text_spans,
+            computed_target.scale_factor,
+            &block,
+            computed.as_mut(),
+            &mut font_system,
+            &mut layout_cx,
+            computed_target.logical_size(),
+            rem_size.0,
+        ) {
+            Ok(measure) => {
+                if block.linebreak == LineBreak::NoWrap {
+                    content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
+                } else {
+                    content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
+                }
+
+                // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
+                text_flags.needs_measure_fn = false;
+                text_flags.needs_recompute = true;
+            }
+            Err(
+                TextError::NoSuchFont
+                | TextError::NoSuchFontFamily(_)
+                | TextError::DegenerateScaleFactor,
+            ) => {
+                // Try again next frame
+                text_flags.needs_measure_fn = true;
+            }
+            Err(
+                e @ (TextError::FailedToAddGlyph(_)
+                | TextError::FailedToGetGlyphImage(_)
+                | TextError::MissingAtlasLayout
+                | TextError::MissingAtlasTexture
+                | TextError::InconsistentAtlasState),
+            ) => {
+                panic!("Fatal error when processing text: {e}.");
+            }
+        };
+    }
+}
+
 /// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
 /// or when the `needs_recompute` field of [`TextNodeFlags`] is set to true.
 /// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
@@ -342,12 +467,20 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
+        Option<&mut EditableText>,
         Ref<FontHinting>,
     )>,
     mut scale_cx: ResMut<ScaleCx>,
 ) {
-    for (node, block, mut text_layout_info, mut text_flags, mut computed, hinting) in
-        &mut text_query
+    for (
+        node,
+        block,
+        mut text_layout_info,
+        mut text_flags,
+        mut computed,
+        mut maybe_editable_text,
+        hinting,
+    ) in &mut text_query
     {
         if node.is_changed() || text_flags.needs_recompute || hinting.is_changed() {
             // Skip the text node if it is waiting for a new measure func
@@ -369,6 +502,7 @@ pub fn text_system(
                 &mut textures,
                 &mut computed,
                 &mut scale_cx,
+                &mut maybe_editable_text,
                 physical_node_size,
                 block.justify,
                 *hinting,

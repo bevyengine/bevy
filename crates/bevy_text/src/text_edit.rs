@@ -1,3 +1,7 @@
+use parley::PlainEditorDriver;
+use smol_str::SmolStr;
+
+use crate::FontSmoothing;
 
 /// Deferred text input edit and navigation actions applied by the `apply_text_edits` system.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,4 +38,19 @@ pub enum TextEdit {
     ///
     /// Typically generated in response to the [`Left`](Key::Left) key.
     MoveCursorLeft,
+}
+
+/// Takes a `TextEdit` and applies to `PlainEditorDriver`
+pub fn apply_edit<'a>(
+    edit: TextEdit,
+    mut driver: PlainEditorDriver<'a, (u32, FontSmoothing)>,
+) -> PlainEditorDriver<'a, (u32, FontSmoothing)> {
+    match edit {
+        TextEdit::Insert(str) => driver.insert_or_replace_selection(&str),
+        TextEdit::Backspace => driver.backdelete(),
+        TextEdit::Delete => driver.delete(),
+        TextEdit::MoveCursorRight => driver.move_right(),
+        TextEdit::MoveCursorLeft => driver.move_left(),
+    }
+    return driver;
 }
