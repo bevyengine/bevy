@@ -144,7 +144,8 @@ impl ComponentInfo {
         &self.required_components
     }
 
-    /// Returns [`RelationshipAccessor`] for this component if it is a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget) , `None` otherwise.
+    /// Returns [`RelationshipAccessor`] for this component if it is a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget).
+    /// This will also return `None` if the relationship isn't fully initialized yet, which requires both components to be registered and won't work for components queued for registration.
     pub fn relationship_accessor(&self) -> Option<&RelationshipAccessor> {
         self.descriptor.relationship_accessor.accessor()
     }
