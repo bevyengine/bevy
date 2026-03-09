@@ -81,7 +81,7 @@ use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
 
 /// A plain-text text input field.
 ///
-/// Please see the [`text_editable` module](crate::text_editable) for more details on usage and functionality.
+/// Please see this module docs for more details on usage and functionality.
 ///
 /// Note that text editing operations are trickier than they might first appear,
 /// due to the complexities of Unicode text handling.

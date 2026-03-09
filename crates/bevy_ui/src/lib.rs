@@ -81,6 +81,8 @@ use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{propagate_ui_target_cameras, update_clipping_system};
 
+use crate::widget::measure_editable_text_system;
+
 /// The basic plugin for Bevy UI
 #[derive(Default)]
 pub struct UiPlugin;
@@ -192,6 +194,7 @@ impl Plugin for UiPlugin {
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystems::Stack)
+                    .after(measure_editable_text_system)
                     // These systems don't care about stack index
                     .ambiguous_with(widget::measure_text_system)
                     .ambiguous_with(update_clipping_system)
@@ -225,10 +228,7 @@ fn build_text_interop(app: &mut App) {
     app.add_systems(
         PostUpdate,
         (
-            (
-                widget::measure_text_system,
-                widget::measure_editable_text_system,
-            )
+            (widget::measure_text_system, measure_editable_text_system)
                 .chain()
                 .after(detect_text_needs_rerender)
                 .after(bevy_text::load_font_assets_into_font_collection)

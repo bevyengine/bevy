@@ -29,15 +29,11 @@ pub fn process_text_inputs(
     mut keyboard_input: MessageReader<KeyboardInput>,
 ) {
     // Check if any EditableText is focused
-    let focused_entity = if let Some(entity) = focus.get() {
-        entity
-    } else {
+    let Some(focused_entity) = focus.get() else {
         return; // No focused entity, nothing to do
     };
 
-    let mut editable_text = if let Ok(editable_text) = query.get_mut(focused_entity) {
-        editable_text
-    } else {
+    let Ok(mut editable_text) = query.get_mut(focused_entity) else {
         return; // Focused entity is not an EditableText, nothing to do
     };
 

@@ -86,24 +86,22 @@ pub fn extract_text_cursor(
             }
         }
 
-        if text_layout_info.cursor.is_some()
-            && !text_layout_info.cursor.unwrap().is_empty()
+        if let Some(cursor_rect) = text_layout_info.cursor
+            && !cursor_rect.is_empty()
             && !cursor_style.color.is_fully_transparent()
         {
-            let x = text_layout_info.cursor.unwrap();
-
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_CURSOR,
                 clip: maybe_clip.map(|clip| clip.clip),
                 image: AssetId::default(),
                 extracted_camera_entity,
-                transform: transform * Affine2::from_translation(x.min),
+                transform: transform * Affine2::from_translation(cursor_rect.min),
                 item: ExtractedUiItem::Node {
                     color: cursor_style.color.to_linear(),
                     rect: Rect {
                         min: Vec2::ZERO,
-                        max: x.size(),
+                        max: cursor_rect.size(),
                     },
                     atlas_scaling: None,
                     flip_x: false,

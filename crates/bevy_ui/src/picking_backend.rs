@@ -76,8 +76,12 @@ impl Default for UiPickingSettings {
 pub struct UiPickingPlugin;
 impl Plugin for UiPickingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<UiPickingSettings>()
-            .add_systems(PreUpdate, ui_picking.in_set(PickingSystems::Backend));
+        app.init_resource::<UiPickingSettings>().add_systems(
+            PreUpdate,
+            ui_picking
+                .in_set(PickingSystems::Backend)
+                .after(bevy_text::edit_to_computed),
+        );
     }
 }
 
