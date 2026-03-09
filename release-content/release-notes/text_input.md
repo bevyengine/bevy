@@ -1,7 +1,7 @@
 ---
 title: "Text input"
 authors: ["@alice-i-cecile", "@ickshonpe", "@Zeophlite"]
-pull_requests: [TODO]
+pull_requests: [23282]
 ---
 
 Entering text into an application is a common task, even for games.

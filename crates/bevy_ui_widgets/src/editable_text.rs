@@ -22,7 +22,7 @@ use bevy_ui::{widget::TextNodeFlags, ContentSize, Node};
 /// used by this system.
 ///
 /// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
-/// and then applied later by the [`apply_text_edits`] system.
+/// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 pub fn process_text_inputs(
     focus: Res<InputFocus>,
     mut query: Query<&mut EditableText>,

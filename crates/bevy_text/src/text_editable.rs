@@ -2,9 +2,9 @@
 //!
 //! The [`EditableText`] widget is an undecorated rectangular text input field,
 //! which allows users to input and edit text within a Bevy UI application.
-//! Every [`EditableText`] component is also a [`Node`] in the Bevy UI hierarchy,
+//! Every [`EditableText`] component is also a [`Node`](https://docs.rs/bevy/latest/bevy/prelude/struct.Node.html) in the Bevy UI hierarchy,
 //! allowing you to position and size it using standard Bevy UI layout techniques.
-//! You can think of it as the editable equivalent of [`Text`](bevy_ui::prelude::Text),
+//! You can think of it as the editable equivalent of [`Text`](https://docs.rs/bevy/latest/bevy/prelude/struct.Text.html),
 //! and components such as [`TextFont`] and [`TextColor`] can be used to style it.
 //!
 //! [`EditableText`] supports the following functionality:
@@ -66,16 +66,11 @@
 //!
 //! If you require any of these features, please consider contributing it to the crate,
 //! one feature at a time!
-//!
-//! # Usage
-//!
-//! To use this widget, ensure that the [`EditableTextPlugin`] has been added to your Bevy app.
-//! Then, you can add a [`EditableText`] component to any UI node.
 // Note: this logic is in `bevy_text`, rather than higher up in `bevy_ui` or `bevy_ui_widgets`,
 // because doing so allows us to process `EditableText` in the various systems provided by `bevy_text`
 // and `bevy_ui`, such as text layout and font management.
 
-use std::collections::VecDeque;
+use alloc::collections::VecDeque;
 
 use crate::{
     apply_edit, text_edit::TextEdit, ComputedTextBlock, FontCx, FontHinting, FontSmoothing,
@@ -86,7 +81,7 @@ use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
 
 /// A plain-text text input field.
 ///
-/// Please see the [`editable_text` module](crate::editable_text) for more details on usage and functionality.
+/// Please see the [`text_editable` module](crate::text_editable) for more details on usage and functionality.
 ///
 /// Note that text editing operations are trickier than they might first appear,
 /// due to the complexities of Unicode text handling.
@@ -98,9 +93,9 @@ use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
 #[derive(Component)]
 #[require(TextLayout, TextFont, TextColor, LineHeight, FontHinting)]
 pub struct EditableText {
-    /// A [parley::PlainEditor], tracking both the text content and cursor position.
+    /// A [`parley::PlainEditor`], tracking both the text content and cursor position.
     ///
-    /// This serves as an analogue to [`ComputedTextBlock`](crate::ComputedTextBlock) for editable text.
+    /// This serves as an analogue to [`ComputedTextBlock`] for editable text.
     ///
     /// In most cases, you should queue text edits via the [`EditableText::queue_edit`] method instead of directly manipulating the editor,
     /// and then allow the [`apply_text_edits`] system to apply the edits at the appropriate time in the update cycle.
@@ -138,7 +133,7 @@ impl EditableText {
     pub fn new(text: &str) -> Self {
         let mut a = Self::default();
         a.set_input(text);
-        return a;
+        a
     }
 
     /// Access the internal [`PlainEditor`].
@@ -154,7 +149,7 @@ impl EditableText {
 
     /// Get the current text input as a [`SplitString`].
     ///
-    /// A [`SplitString`] can be converted into a [`String`] using [`SplitString::to_string`] if needed.
+    /// A [`SplitString`] can be converted into a [`String`] using `to_string` if needed.
     pub fn value(&self) -> SplitString<'_> {
         self.editor.text()
     }
@@ -175,7 +170,7 @@ impl EditableText {
         // Take the `pending_edits` out of the struct so we can apply them without mutable aliasing issues.
         // We do not need to put the `pending_edits` back into the struct,
         // as all edits should be consumed by this method, leaving `pending_edits` empty at the end.
-        let mut pending_edits = std::mem::take(&mut self.pending_edits);
+        let mut pending_edits = core::mem::take(&mut self.pending_edits);
         let mut driver = self.editor_mut().driver(font_context, layout_context);
 
         while let Some(edit) = pending_edits.pop_front() {

@@ -1013,7 +1013,7 @@ wasm = true
 name = "editable_text"
 path = "examples/ui/text/editable_text.rs"
 doc-scrape-examples = true
-required-features = ["bevy_remote","bevy_ui_debug"]
+required-features = ["bevy_remote", "bevy_ui_debug"]
 
 [package.metadata.example.editable_text]
 name = "Editable Text"

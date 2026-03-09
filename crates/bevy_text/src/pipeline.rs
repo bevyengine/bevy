@@ -281,7 +281,7 @@ impl TextPipeline {
         layout_with_bounds(layout, bounds, justify);
 
         for (line_index, line) in layout.lines().enumerate() {
-            for item in line.items().into_iter() {
+            for item in line.items() {
                 if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
                     let span_index = glyph_run.style().brush.0 as usize;
                     let font_smoothing = glyph_run.style().brush.1;
@@ -378,7 +378,7 @@ impl TextPipeline {
                 .editor
                 .cursor_geometry(editable_text.cursor_width);
 
-            layout_info.cursor = geom.map_or(None, |f| Some(bounding_box_to_rect(f)));
+            layout_info.cursor = geom.map(bounding_box_to_rect);
         }
 
         Ok(())

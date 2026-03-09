@@ -352,7 +352,7 @@ impl<'a> EditableTextAsSpan<'a> {
     }
 }
 
-/// is the same as measure_text_system but we coerce a EditableText to an iter of TextSpan's
+/// is the same as [`measure_text_system`] but we coerce a [`EditableText`] to an iter of [`TextSpan`](bevy_text::TextSpan)'s
 pub fn measure_editable_text_system(
     fonts: Res<Assets<Font>>,
     mut text_query: Query<

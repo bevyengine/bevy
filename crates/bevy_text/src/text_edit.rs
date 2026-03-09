@@ -11,13 +11,11 @@ pub enum TextEdit {
     /// Typically generated in response to keyboard text input events.
     ///
     /// This is intended to insert a single Unicode grapheme cluster, such as a letter, digit, punctuation mark, or emoji.
-    /// Ordinarily, this is derived from [`KeyboardInput::logical_key`](bevy_input::keyboard::KeyboardInput::logical_key),
-    /// which stores a [`SmolStr`] inside of the [`Key::Character`] variant, which may represent multiple bytes.
     Insert(SmolStr),
     /// Delete the character behind the cursor.
     /// If there is a selection, deletes the selection instead.
     ///
-    /// Typically generated in response to the [`Backspace`](Key::Backspace) key.
+    /// Typically generated in response to the backspace key.
     ///
     /// This operation removes an entire Unicode grapheme cluster, which may consist of multiple bytes,
     /// shifting the cursor position accordingly.
@@ -25,18 +23,18 @@ pub enum TextEdit {
     /// Delete the character at the cursor.
     /// If there is a selection, deletes the selection instead.
     ///
-    /// Typically generated in response to the [`Delete`](Key::Delete) key.
+    /// Typically generated in response to the delete key.
     ///
     /// This operation removes an entire Unicode grapheme cluster, which may consist of multiple bytes,
     /// shifting the cursor position accordingly.
     Delete,
     /// Moves the cursor by one position to the right.
     ///
-    /// Typically generated in response to the [`Right`](Key::Right) key.
+    /// Typically generated in response to the right key.
     MoveCursorRight,
     /// Moves the cursor by one position to the left.
     ///
-    /// Typically generated in response to the [`Left`](Key::Left) key.
+    /// Typically generated in response to the left key.
     MoveCursorLeft,
 }
 
@@ -52,5 +50,5 @@ pub fn apply_edit<'a>(
         TextEdit::MoveCursorRight => driver.move_right(),
         TextEdit::MoveCursorLeft => driver.move_left(),
     }
-    return driver;
+    driver
 }
