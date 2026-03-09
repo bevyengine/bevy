@@ -13,7 +13,7 @@ fn main() {
             Update,
             animate_cooldowns.run_if(any_with_component::<ActiveCooldown>),
         )
-        .add_observer(activate_ability_on_press)
+        .add_observer(activate_ability)
         .run();
 }
 
@@ -124,7 +124,7 @@ struct Cooldown(Timer);
 #[component(storage = "SparseSet")]
 struct ActiveCooldown;
 
-fn activate_ability_on_press(
+fn activate_ability(
     press: On<Pointer<Click>>,
     mut commands: Commands,
     mut button_query: Query<

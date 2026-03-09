@@ -1,10 +1,7 @@
 //! Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
 
 use bevy::{
-    input_focus::{
-        tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
     ui_widgets::{
@@ -21,7 +18,6 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             UiWidgetsPlugins,
-            InputDispatchPlugin,
             TabNavigationPlugin,
         ))
         .add_systems(Startup, setup)

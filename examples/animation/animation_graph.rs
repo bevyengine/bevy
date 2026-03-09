@@ -8,7 +8,6 @@ use bevy::{
         basic::WHITE,
         css::{ANTIQUE_WHITE, DARK_GREEN},
     },
-    input_focus::InputDispatchPlugin,
     prelude::*,
     ui::{Pressed, RelativeCursorPosition},
     ui_widgets::{Button, UiWidgetsPlugins},
@@ -85,7 +84,6 @@ fn main() {
                 ..default()
             }),
             UiWidgetsPlugins,
-            InputDispatchPlugin,
         ))
         .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
         .add_systems(Update, init_animations)

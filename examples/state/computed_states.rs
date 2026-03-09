@@ -19,7 +19,6 @@
 use bevy::{
     dev_tools::states::*,
     input::keyboard::Key,
-    input_focus::InputDispatchPlugin,
     picking::hover::Hovered,
     prelude::*,
     ui::Pressed,
@@ -174,7 +173,7 @@ impl ComputedStates for Tutorial {
 fn main() {
     // We start the setup like we did in the states example.
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins, InputDispatchPlugin))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
         .init_state::<AppState>()
         .init_state::<TutorialState>()
         // After initializing the normal states, we'll use `.add_computed_state::<CS>()` to initialize our `ComputedStates`
@@ -313,7 +312,6 @@ mod ui {
     use crate::*;
     use bevy::{
         color::palettes::css::*,
-        input_focus::InputDispatchPlugin,
         picking::hover::Hovered,
         prelude::*,
         ui::Pressed,

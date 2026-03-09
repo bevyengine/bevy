@@ -20,7 +20,7 @@ use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
         directional_navigation::{AutoNavigationConfig, DirectionalNavigationPlugin},
-        InputDispatchPlugin, InputFocus, InputFocusVisible,
+        InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2, Rot2},
     picking::{
@@ -37,7 +37,6 @@ fn main() {
         // Input focus is not enabled by default, so we need to add the corresponding plugins
         .add_plugins((
             DefaultPlugins,
-            InputDispatchPlugin,
             DirectionalNavigationPlugin,
         ))
         // This resource is canonically used to track whether or not to render a focus indicator

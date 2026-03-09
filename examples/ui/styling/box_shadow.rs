@@ -2,7 +2,6 @@
 
 use bevy::{
     color::palettes::css::*,
-    input_focus::InputDispatchPlugin,
     picking::hover::Hovered,
     prelude::*,
     reflect::Is,
@@ -126,7 +125,7 @@ struct HeldButton {
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins, InputDispatchPlugin))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
         .insert_resource(SHADOW_DEFAULT_SETTINGS)
         .insert_resource(SHAPE_DEFAULT_SETTINGS)
         .insert_resource(HeldButton::default())

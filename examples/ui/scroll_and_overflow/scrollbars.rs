@@ -2,10 +2,7 @@
 
 use bevy::{
     ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
-    input_focus::{
-        tab_navigation::{TabGroup, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::{TabGroup, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
     ui_widgets::{
@@ -18,7 +15,6 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             ScrollbarPlugin,
-            InputDispatchPlugin,
             TabNavigationPlugin,
         ))
         .insert_resource(UiScale(1.25))

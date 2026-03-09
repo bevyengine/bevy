@@ -9,7 +9,6 @@
 
 use bevy::{
     dev_tools::states::*,
-    input_focus::InputDispatchPlugin,
     picking::hover::Hovered,
     prelude::*,
     ui::Pressed,
@@ -41,7 +40,7 @@ enum IsPaused {
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins, InputDispatchPlugin))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
         .init_state::<AppState>()
         .add_sub_state::<IsPaused>() // We set the substate up here.
         // Most of these remain the same

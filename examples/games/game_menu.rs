@@ -2,7 +2,7 @@
 //! change some settings or quit. There is no actual game, it will just display the current
 //! settings for 5 seconds before going back to the menu.
 
-use bevy::{input_focus::InputDispatchPlugin, prelude::*, ui_widgets::UiWidgetsPlugins};
+use bevy::{prelude::*, ui_widgets::UiWidgetsPlugins};
 
 const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
@@ -32,7 +32,7 @@ struct Volume(u32);
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins, InputDispatchPlugin))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
         // Insert as resource the initial value for the settings resources
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))

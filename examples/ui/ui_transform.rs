@@ -3,7 +3,6 @@ use bevy::color::palettes::css::DARK_GRAY;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::YELLOW;
 use bevy::{
-    input_focus::InputDispatchPlugin,
     picking::hover::Hovered,
     prelude::*,
     ui::Pressed,
@@ -13,7 +12,7 @@ use core::f32::consts::FRAC_PI_8;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins, InputDispatchPlugin))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
         .add_systems(Startup, setup)
         .add_systems(Update, button_system)
         .add_systems(Update, translation_system)

@@ -6,7 +6,6 @@
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
 use bevy::{
-    input_focus::InputDispatchPlugin,
     picking::hover::Hovered,
     prelude::*,
     ui::Pressed,
@@ -15,7 +14,7 @@ use bevy::{
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins((DefaultPlugins, UiWidgetsPlugins, InputDispatchPlugin))
+    app.add_plugins((DefaultPlugins, UiWidgetsPlugins))
         .init_state::<AppState>() // Alternatively we could use .insert_state(AppState::Menu)
         .add_systems(Startup, setup)
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.

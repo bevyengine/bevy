@@ -2,7 +2,6 @@
 
 use bevy::{
     color::palettes::css::*,
-    input_focus::InputDispatchPlugin,
     picking::hover::Hovered,
     prelude::*,
     ui::Pressed,
@@ -11,7 +10,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins, InputDispatchPlugin))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
         .add_message::<ButtonActivated>()
         .add_systems(Startup, setup)
         .add_systems(Update, (update_buttons, update_radio_buttons_colors))

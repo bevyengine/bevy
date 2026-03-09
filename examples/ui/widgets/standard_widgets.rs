@@ -10,7 +10,7 @@ use bevy::{
     color::palettes::basic::*,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin, InputFocus,
+        InputFocus,
     },
     picking::hover::Hovered,
     prelude::*,
@@ -29,7 +29,6 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             UiWidgetsPlugins,
-            InputDispatchPlugin,
             TabNavigationPlugin,
         ))
         .insert_resource(DemoWidgetStates {

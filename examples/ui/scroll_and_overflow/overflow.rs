@@ -2,7 +2,6 @@
 
 use bevy::{
     color::palettes::css::*,
-    input_focus::InputDispatchPlugin,
     picking::hover::Hovered,
     prelude::*,
     reflect::Is,
@@ -12,7 +11,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins, InputDispatchPlugin))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
         .add_systems(Startup, setup)
         .add_observer(update_outlines_on_interaction::<Add, Pressed>)
         .add_observer(update_outlines_on_interaction::<Remove, Pressed>)

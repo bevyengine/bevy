@@ -3,7 +3,7 @@
 
 use bevy::{
     color::palettes::basic::*,
-    input_focus::{InputDispatchPlugin, InputFocus},
+    input_focus::InputFocus,
     picking::hover::Hovered,
     prelude::*,
     reflect::Is,
@@ -13,7 +13,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins, InputDispatchPlugin))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
         // `InputFocus` must be set for accessibility to recognize the button.
         .init_resource::<InputFocus>()
         .add_systems(Startup, setup)

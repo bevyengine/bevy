@@ -8,7 +8,6 @@ use bevy::{
     camera::RenderTarget,
     color::palettes::css::GREEN,
     input::mouse::AccumulatedMouseMotion,
-    input_focus::InputDispatchPlugin,
     math::{reflection_matrix, uvec2, vec3},
     pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
@@ -122,7 +121,6 @@ fn main() {
                 ..default()
             }),
             UiWidgetsPlugins,
-            InputDispatchPlugin,
         ))
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, ScreenSpaceTextureExtension>,

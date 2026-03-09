@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::basic::*,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin, InputFocus,
+        InputFocus,
     },
     picking::hover::Hovered,
     prelude::*,
@@ -15,10 +15,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins, UiWidgetsPlugins,
-            InputDispatchPlugin, TabNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, focus_system)
         .add_observer(button_on_interaction::<Add, Pressed>)

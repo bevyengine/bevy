@@ -110,7 +110,7 @@ fn main() {
             ..default()
         })
         .init_resource::<AppState>()
-        .add_observer(handle_button_toggles_on_press)
+        .add_observer(handle_button_toggles)
         .run();
 }
 
@@ -409,7 +409,7 @@ fn setup_animation_graph_once_loaded(
 
 // A system that handles requests from the user to toggle mask groups on and
 // off.
-fn handle_button_toggles_on_press(
+fn handle_button_toggles(
     press: On<Pointer<Click>>,
     mut animation_control_query: Query<(&mut AnimationControl)>,
     mut animation_players: Query<&AnimationGraphHandle, With<AnimationPlayer>>,

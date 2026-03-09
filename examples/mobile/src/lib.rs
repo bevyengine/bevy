@@ -3,7 +3,6 @@
 use bevy::{
     color::palettes::basic::*,
     input::{gestures::RotationGesture, touch::TouchPhase},
-    input_focus::InputDispatchPlugin,
     log::{Level, LogPlugin},
     picking::hover::Hovered,
     prelude::*,
@@ -46,7 +45,6 @@ pub fn main() {
                 ..default()
             }),
         UiWidgetsPlugins,
-        InputDispatchPlugin,
     ))
     // Make the winit loop wait more aggressively when no user input is received
     // This can help reduce cpu usage on mobile devices

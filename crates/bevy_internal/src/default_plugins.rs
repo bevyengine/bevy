@@ -12,6 +12,7 @@ plugin_group! {
         bevy_transform:::TransformPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
         bevy_input:::InputPlugin,
+        bevy_input_focus:::InputDispatchPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]
         bevy_app:::ScheduleRunnerPlugin,
         #[cfg(feature = "bevy_window")]

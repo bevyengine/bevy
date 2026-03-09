@@ -16,7 +16,6 @@ use std::marker::PhantomData;
 use bevy::{
     dev_tools::states::*,
     ecs::schedule::ScheduleLabel,
-    input_focus::InputDispatchPlugin,
     picking::hover::Hovered,
     prelude::*,
     ui::Pressed,
@@ -38,7 +37,6 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             UiWidgetsPlugins,
-            InputDispatchPlugin,
             IdentityTransitionsPlugin::<AppState>::default(),
         ))
         .init_state::<AppState>()

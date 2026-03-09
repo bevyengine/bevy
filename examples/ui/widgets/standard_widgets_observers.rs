@@ -6,10 +6,7 @@
 
 use bevy::{
     color::palettes::basic::*,
-    input_focus::{
-        tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
     reflect::Is,
@@ -25,7 +22,6 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             UiWidgetsPlugins,
-            InputDispatchPlugin,
             TabNavigationPlugin,
         ))
         .insert_resource(DemoWidgetStates { slider_value: 50.0 })
