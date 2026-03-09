@@ -477,8 +477,8 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
             }),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState {
                     front: stencil_face_state,
                     back: stencil_face_state,
@@ -534,8 +534,8 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
             }),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState {
                     front: stencil_face_state,
                     back: stencil_face_state,
