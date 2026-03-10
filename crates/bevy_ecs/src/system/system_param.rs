@@ -260,8 +260,9 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// This method also validates that the param can be acquired. If validation fails,
     /// an appropriate [`SystemParamValidationError`] should be returned.
-    /// Built-in executors use this to prevent systems with invalid params from running,
-    /// and any failures here will be bubbled up to the default error handler defined in [`bevy_ecs::error`].
+    /// Systems will convert this to a [`RunSystemError`](super::RunSystemError),
+    /// and the built-in executors will ignore any "skipped" validation results,
+    /// but pass any "invalid" results to the default error handler defined in [`bevy_ecs::error`].
     ///
     /// For nested [`SystemParam`]s validation will fail if any
     /// delegated validation fails.
