@@ -26,9 +26,7 @@ pub use schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
 
 mod fullscreen_vertex_shader;
 
-use crate::schedule::{
-    camera_driver, handle_uncovered_swap_chains, submit_pending_command_buffers,
-};
+use crate::schedule::{camera_driver, submit_pending_command_buffers};
 use crate::{
     blit::BlitPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin, mip_generation::MipGenerationPlugin,
@@ -64,9 +62,7 @@ impl Plugin for CorePipelinePlugin {
             RenderGraph,
             (
                 camera_driver.in_set(RenderGraphSystems::Render),
-                (submit_pending_command_buffers, handle_uncovered_swap_chains)
-                    .chain()
-                    .in_set(RenderGraphSystems::Submit),
+                submit_pending_command_buffers.in_set(RenderGraphSystems::Submit),
             ),
         );
     }

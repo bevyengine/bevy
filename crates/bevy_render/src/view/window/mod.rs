@@ -247,10 +247,9 @@ pub fn prepare_windows(
 ) {
     for window in windows.windows.values_mut() {
         // Skip acquiring a swap-chain texture for windows that no camera
-        // targets. This avoids a wasted clear pass in
-        // `handle_uncovered_swap_chains` that triggers a DMA-fence fd leak on
-        // Adreno 740 (Quest 3). The exception is windows that still need their
-        // initial present (required on Wayland).
+        // targets. This avoids a DMA-fence fd leak on Adreno 740 (Quest 3).
+        // The exception is windows that still need their initial present
+        // (required on Wayland).
         let is_camera_target = sorted_cameras.0.iter().any(|c| {
             matches!(
                 &c.target,
