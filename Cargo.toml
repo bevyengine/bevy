@@ -5151,24 +5151,24 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "prefs_counter"
-path = "examples/app/prefs_counter.rs"
+name = "persisting_preferences"
+path = "examples/app/persisting_preferences.rs"
 doc-scrape-examples = true
 required-features = ["bevy_settings"]
 
-[package.metadata.example.prefs_counter]
+[package.metadata.example.persisting_preferences]
 name = "User Preferences"
 description = "Demonstrates persistence of user preferences"
 category = "Application"
 wasm = true
 
 [[example]]
-name = "prefs_window"
-path = "examples/app/prefs_window.rs"
+name = "persisting_window_settings"
+path = "examples/window/persisting_window_settings.rs"
 doc-scrape-examples = true
 required-features = ["bevy_settings"]
 
-[package.metadata.example.prefs_window]
+[package.metadata.example.persisting_window_settings]
 name = "Save Window Position"
 description = "Demonstrates saving window position in preferences"
 category = "Application"

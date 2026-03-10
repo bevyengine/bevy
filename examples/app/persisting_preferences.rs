@@ -1,8 +1,8 @@
 //! Demonstrates persistence of user preferences.
-//! 
+//!
 //! A counter is shown in the window. It can be incremented and decremented via input press.
 //! Its value persists between app sessions via user preferences.
-//! 
+//!
 //! On desktop, if you quit the app and then restart it, the counter value should display
 //! the most recent value the app had before exiting.
 //! On web, if you navigate away and then come back to the window, the counter
@@ -29,7 +29,9 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(PreferencesPlugin::new("org.bevy.examples.prefs_counter"))
+        .add_plugins(PreferencesPlugin::new(
+            "org.bevy.examples.persisting_preferences",
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, (show_count, change_count, on_window_close))
         .run();
@@ -80,7 +82,7 @@ fn setup(mut commands: Commands) {
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
             ));
             parent.spawn((
-                Text::new("Press SPACE to increment"),
+                Text::new("Press SPACE to increment, BACKSPACE to decrement."),
                 TextFont {
                     font_size: FontSize::Px(20.0),
                     ..default()
@@ -103,14 +105,11 @@ fn change_count(
     mut commands: Commands,
 ) {
     let mut changed = false;
-    if keyboard.just_pressed(KeyCode::Space) || keyboard.just_pressed(KeyCode::Period) {
+    if keyboard.just_pressed(KeyCode::Space) {
         counter.count += 1;
         changed = true;
     }
-    if keyboard.just_pressed(KeyCode::Backspace)
-        || keyboard.just_pressed(KeyCode::Delete)
-        || keyboard.just_pressed(KeyCode::Comma)
-    {
+    if keyboard.just_pressed(KeyCode::Backspace) || keyboard.just_pressed(KeyCode::Delete) {
         counter.count -= 1;
         changed = true;
     }

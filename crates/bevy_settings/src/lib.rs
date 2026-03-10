@@ -7,6 +7,8 @@
 //!   A key distinction is that these configuration files are consumed and produced by the same app.
 //! * **Settings** is a more general term, which also includes configuration files produced by a
 //!   different application, such as a text editor or external settings app.
+//!
+//! Refer to [`PreferencesPlugin`] for detailed usage information.
 use core::any::TypeId;
 use core::time::Duration;
 use std::collections::HashMap;
@@ -45,8 +47,9 @@ use store_wasm::PreferencesStore;
 /// Plugin to orchestrate loading and saving of user preferences.
 ///
 /// You are required to provide a unique application name, so that your preferences don't overwrite
-/// those of other apps. To ensure global uniqueness, it is recommended to use a reverse domain
-/// name, e.g. "com.example.myapp". The plugin will create a directory with that name in the
+/// those of other apps. To ensure global uniqueness, it is recommended to use a
+/// [reverse domain name](https://en.wikipedia.org/wiki/Reverse_domain_name_notation),
+/// e.g. "com.example.myapp". The plugin will create a directory with that name in the
 /// appropriate filesystem location (depending on platform) for app preferences. For platforms
 /// without filesystems, other storage mechanisms will be used.
 ///
@@ -225,10 +228,10 @@ impl Command for SavePreferences {
     }
 }
 
-/// A Command which saves changed preferences after a delay. Issuing this command multiple times
-/// resets the delay timer each time. This is meant to be used for settings which change at
-/// a high frequency, such as dragging a slider which controls the game's audio volume. The default
-/// delay is 1.0 seconds.
+/// A Command which saves changed preferences after a delay. This is debounced: issuing this
+/// command multiple times resets the delay timer each time. This is meant to be used for settings
+/// which change at a high frequency, such as dragging a slider which controls the game's audio
+/// volume. The default delay is 1.0 seconds.
 pub struct SavePreferencesDeferred(pub Duration);
 
 impl Default for SavePreferencesDeferred {

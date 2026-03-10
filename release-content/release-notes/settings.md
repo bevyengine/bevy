@@ -19,4 +19,4 @@ explicitly or implicitly), and whose lifetime isn't limited to a single saved ga
 Preferences are defined using `bevy_reflect` annotations, and are automatically inserted as
 resources when the settings framework starts up.
 
-See the `examples/app/prefs_counter` for a simple example of how to use the framework.
+See the `examples/app/persisting_preferences` for a simple example of how to use the framework.

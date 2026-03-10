@@ -27,25 +27,13 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(PreferencesPlugin::new("org.bevy.examples.prefs_window"))
+        .add_plugins(PreferencesPlugin::new(
+            "org.bevy.examples.persisting_window_settings",
+        ))
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                show_count,
-                change_count,
-                on_window_close,
-                update_window_settings,
-            ),
-        )
+        .add_systems(Update, (on_window_close, update_window_settings))
         .add_plugins(init_window_pos)
         .run();
-}
-
-#[derive(Resource, SettingsGroup, Reflect, Default)]
-#[reflect(Resource, SettingsGroup, Default)]
-struct Counter {
-    count: i32,
 }
 
 /// Settings group which remembers the current window position and size
@@ -57,9 +45,6 @@ struct WindowSettings {
     size: Option<UVec2>,
     fullscreen: bool,
 }
-
-#[derive(Component)]
-struct CounterDisplay;
 
 /// A "glue" plugin that copies the window settings to the actual window entity.
 fn init_window_pos(app: &mut App) {
@@ -91,65 +76,15 @@ fn init_window_pos(app: &mut App) {
 
 fn setup(mut commands: Commands) {
     commands.spawn((Camera::default(), Camera2d));
-    commands
-        .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            display: Display::Flex,
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            ..default()
-        })
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new("---"),
-                TextFont {
-                    font_size: FontSize::Px(33.0),
-                    ..default()
-                },
-                CounterDisplay,
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-            ));
-            parent.spawn((
-                Text::new("Press SPACE to increment"),
-                TextFont {
-                    font_size: FontSize::Px(20.0),
-                    ..default()
-                },
-            ));
-        });
-}
-
-fn show_count(mut query: Query<&mut Text, With<CounterDisplay>>, counter: Res<Counter>) {
-    if counter.is_changed() {
-        for mut text in query.iter_mut() {
-            text.0 = format!("Count: {}", counter.count);
-        }
-    }
-}
-
-fn change_count(
-    mut counter: ResMut<Counter>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut commands: Commands,
-) {
-    let mut changed = false;
-    if keyboard.just_pressed(KeyCode::Space) || keyboard.just_pressed(KeyCode::Period) {
-        counter.count += 1;
-        changed = true;
-    }
-    if keyboard.just_pressed(KeyCode::Backspace)
-        || keyboard.just_pressed(KeyCode::Delete)
-        || keyboard.just_pressed(KeyCode::Comma)
-    {
-        counter.count -= 1;
-        changed = true;
-    }
-
-    if changed {
-        commands.queue(SavePreferencesDeferred::default());
-    }
+    commands.spawn(Node {
+        width: Val::Percent(100.0),
+        height: Val::Percent(100.0),
+        display: Display::Flex,
+        flex_direction: FlexDirection::Column,
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        ..default()
+    });
 }
 
 /// System which keeps the window settings up to date when the user resizes or moves the window.
