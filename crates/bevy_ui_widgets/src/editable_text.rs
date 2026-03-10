@@ -10,8 +10,8 @@
 
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_ecs::prelude::*;
-use bevy_input::keyboard::{Key, KeyboardInput};
-use bevy_input::InputSystems;
+use bevy_input::keyboard::{Key, KeyCode, KeyboardInput};
+use bevy_input::{ButtonInput, InputSystems};
 use bevy_input_focus::{InputFocus, InputFocusSystems};
 use bevy_text::{EditableText, TextEdit};
 use bevy_ui::{widget::TextNodeFlags, ContentSize, Node};
@@ -27,6 +27,7 @@ pub fn process_text_inputs(
     focus: Res<InputFocus>,
     mut query: Query<&mut EditableText>,
     mut keyboard_input: MessageReader<KeyboardInput>,
+    keyboard_button_input: Res<ButtonInput<KeyCode>>,
 ) {
     // Check if any EditableText is focused
     let Some(focused_entity) = focus.get() else {
@@ -36,6 +37,9 @@ pub fn process_text_inputs(
     let Ok(mut editable_text) = query.get_mut(focused_entity) else {
         return; // Focused entity is not an EditableText, nothing to do
     };
+
+    let shift = keyboard_button_input.pressed(KeyCode::ShiftLeft)
+        || keyboard_button_input.pressed(KeyCode::ShiftRight);
 
     for keyboard_event in keyboard_input.read() {
         match keyboard_event {
@@ -65,14 +69,22 @@ pub fn process_text_inputs(
                 state: bevy_input::ButtonState::Pressed,
                 ..
             } => {
-                editable_text.queue_edit(TextEdit::MoveCursorRight);
+                if shift {
+                    editable_text.queue_edit(TextEdit::SelectRight);
+                } else {
+                    editable_text.queue_edit(TextEdit::MoveCursorRight);
+                }
             }
             KeyboardInput {
                 logical_key: Key::ArrowLeft,
                 state: bevy_input::ButtonState::Pressed,
                 ..
             } => {
-                editable_text.queue_edit(TextEdit::MoveCursorLeft);
+                if shift {
+                    editable_text.queue_edit(TextEdit::SelectLeft);
+                } else {
+                    editable_text.queue_edit(TextEdit::MoveCursorLeft);
+                }
             }
             _ => {}
         }

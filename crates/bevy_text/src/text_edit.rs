@@ -36,6 +36,14 @@ pub enum TextEdit {
     ///
     /// Typically generated in response to the left key.
     MoveCursorLeft,
+    /// Move selection on to the right.
+    ///
+    /// Typically generated in response to shift and the right key.
+    SelectRight,
+    /// Move selection on to the left.
+    ///
+    /// Typically generated in response to shift and the left key.
+    SelectLeft,
 }
 
 /// Takes a `TextEdit` and applies to `PlainEditorDriver`
@@ -49,6 +57,8 @@ pub fn apply_edit<'a>(
         TextEdit::Delete => driver.delete(),
         TextEdit::MoveCursorRight => driver.move_right(),
         TextEdit::MoveCursorLeft => driver.move_left(),
+        TextEdit::SelectRight => driver.select_right(),
+        TextEdit::SelectLeft => driver.select_left(),
     }
     driver
 }

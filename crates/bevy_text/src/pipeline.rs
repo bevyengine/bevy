@@ -379,6 +379,13 @@ impl TextPipeline {
                 .cursor_geometry(editable_text.cursor_width);
 
             layout_info.cursor = geom.map(bounding_box_to_rect);
+
+            layout_info.selection_rects = editable_text
+                .editor
+                .selection_geometry()
+                .iter()
+                .map(|&b| bounding_box_to_rect(b.0))
+                .collect();
         }
 
         Ok(())
