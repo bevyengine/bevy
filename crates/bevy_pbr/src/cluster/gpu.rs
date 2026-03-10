@@ -511,7 +511,7 @@ impl FromWorld for ClusteringRasterPipeline {
             // @group(0) @binding(1) var<storage, read_write> index_lists:
             // ClusterableObjectIndexLists;
             binding_types::storage_buffer::<GpuClusterableObjectIndexListsStorage>(false)
-                .build(1, ShaderStages::VERTEX_FRAGMENT),
+                .build(1, ShaderStages::FRAGMENT),
             // @group(0) @binding(2) var<storage> clustered_lights:
             // ClusteredLights;
             binding_types::storage_buffer_read_only::<GpuClusteredLight>(false)
@@ -538,20 +538,20 @@ impl FromWorld for ClusteringRasterPipeline {
         // ClusterOffsetsAndCountsAtomic;
         bind_group_layout_entries_count_pass.push(
             binding_types::storage_buffer::<GpuClusterOffsetsAndCountsStorage>(false)
-                .build(7, ShaderStages::VERTEX_FRAGMENT),
+                .build(7, ShaderStages::FRAGMENT),
         );
 
         // @group(0) @binding(7) var<storage> offsets_and_counts:
         // ClusterOffsetsAndCounts;
         bind_group_layout_entries_populate_pass.push(
             binding_types::storage_buffer_read_only::<GpuClusterOffsetsAndCountsStorage>(false)
-                .build(7, ShaderStages::VERTEX_FRAGMENT),
+                .build(7, ShaderStages::FRAGMENT),
         );
         // @group(0) @binding(8) var<storage, read_write>
         // scratchpad_offsets_and_counts: ClusterOffsetsAndCountsAtomic;
         bind_group_layout_entries_populate_pass.push(
             binding_types::storage_buffer::<GpuClusterOffsetsAndCountsStorage>(false)
-                .build(8, ShaderStages::VERTEX_FRAGMENT),
+                .build(8, ShaderStages::FRAGMENT),
         );
 
         let bind_group_layout_count_pass = BindGroupLayoutDescriptor::new(
@@ -577,12 +577,15 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
     type Key = ClusteringRasterPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut shader_defs = vec![];
+        let mut fragment_shader_defs = vec![];
         if key.populate_pass {
-            shader_defs.push(ShaderDefVal::from("POPULATE_PASS"));
+            fragment_shader_defs.push(ShaderDefVal::from("POPULATE_PASS"));
         } else {
-            shader_defs.push(ShaderDefVal::from("COUNT_PASS"));
+            fragment_shader_defs.push(ShaderDefVal::from("COUNT_PASS"));
         }
+
+        let mut vertex_shader_defs = fragment_shader_defs.clone();
+        vertex_shader_defs.push(ShaderDefVal::from("VERTEX_SHADER"));
 
         RenderPipelineDescriptor {
             label: if key.populate_pass {
@@ -598,7 +601,7 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
             immediate_size: 0,
             vertex: VertexState {
                 shader: self.shader.clone(),
-                shader_defs: shader_defs.clone(),
+                shader_defs: vertex_shader_defs,
                 entry_point: Some("vertex_main".into()),
                 buffers: vec![VertexBufferLayout {
                     array_stride: size_of::<Vec2>() as u64,
@@ -612,7 +615,7 @@ impl SpecializedRenderPipeline for ClusteringRasterPipeline {
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
-                shader_defs: shader_defs.clone(),
+                shader_defs: fragment_shader_defs,
                 entry_point: Some("fragment_main".into()),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::R8Unorm,

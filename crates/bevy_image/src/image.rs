@@ -2000,7 +2000,7 @@ impl Image {
 ///
 /// [UASTC]: https://github.com/BinomialLLC/basis_universal/wiki/UASTC-Texture-Specification/b624c07ad3c659e7b0f0badcb36e9a6b8820a99d
 #[derive(Clone, Copy, Debug)]
-pub enum DataFormat {
+pub enum TextureChannelLayout {
     /// 3-color
     Rgb,
     /// 4-color
@@ -2019,7 +2019,7 @@ pub enum TranscodeFormat {
     /// Has to be transcoded from a compressed ETC1S texture.
     Etc1s,
     /// Has to be transcoded from a compressed UASTC texture.
-    Uastc(DataFormat),
+    Uastc(TextureChannelLayout),
     /// Has to be transcoded from `R8UnormSrgb` to `R8Unorm` for use with `wgpu`.
     R8UnormSrgb,
     /// Has to be transcoded from `Rg8UnormSrgb` to `R8G8Unorm` for use with `wgpu`.

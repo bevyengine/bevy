@@ -1,6 +1,9 @@
 use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
 
-use bevy_asset::saver::{AssetSaver, SavedAsset};
+use bevy_asset::{
+    saver::{AssetSaver, SavedAsset},
+    AssetPath,
+};
 use bevy_reflect::TypePath;
 use futures_lite::AsyncWriteExt;
 use thiserror::Error;
@@ -33,6 +36,7 @@ impl AssetSaver for CompressedImageSaver {
         writer: &mut bevy_asset::io::Writer,
         image: SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
     ) -> Result<ImageLoaderSettings, Self::Error> {
         let is_srgb = image.texture_descriptor.format.is_srgb();
 
