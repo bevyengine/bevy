@@ -393,8 +393,8 @@ mod gltf_coordinate_conversion {
     use bevy::{
         gltf::{
             convert_coordinates::{
-                GltfConvertCoordinates, GltfSemanticsConversion, PartialSemantics,
-                SemanticsConversion, SignedAxis,
+                GltfConvertCoordinates, GltfConvertSemantics, Semantics, SemanticsConversion,
+                SignedAxis,
             },
             GltfLoaderSettings,
         },
@@ -443,9 +443,9 @@ mod gltf_coordinate_conversion {
                 "models/animated/MorphStressTest.gltf",
                 Transform::from_xyz(2.5, -1.0, -2.5).with_scale(Vec3::splat(0.8)),
                 [2].as_slice(),
-                PartialSemantics {
-                    forward: SignedAxis::NEGATIVE_X,
-                    up: SignedAxis::POSITIVE_Y,
+                Semantics {
+                    forward: SignedAxis::NEG_X,
+                    up: SignedAxis::Y,
                 },
             ),
             // Animated lights.
@@ -453,22 +453,22 @@ mod gltf_coordinate_conversion {
                 "models/animated/animated_camera_and_light.glb",
                 Transform::from_xyz(0.0, 0.0, 0.0),
                 [0, 1, 2, 3].as_slice(),
-                PartialSemantics::BEVY,
+                Semantics::BEVY,
             ),
             // Skinned mesh.
             (
                 "models/animated/Fox.glb",
                 Transform::from_xyz(-3.0, -1.0, 2.0).with_scale(Vec3::splat(0.03)),
                 [1].as_slice(),
-                PartialSemantics::BEVY,
+                Semantics::BEVY,
             ),
         ] {
             let convert_coordinates = GltfConvertCoordinates {
                 rotate_scenes: true,
                 rotate_nodes: true,
                 rotate_meshes: true,
-                semantics: GltfSemanticsConversion::All(SemanticsConversion {
-                    source: PartialSemantics::GLTF,
+                semantics: GltfConvertSemantics::All(SemanticsConversion {
+                    source: Semantics::GLTF,
                     target: target_semantics,
                 }),
             };

@@ -1,4 +1,4 @@
-//! Utilities for converting from glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
+//! Utilities for converting glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
 //! to Bevy's.
 use bevy_mesh::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
 use core::fmt::Debug;
@@ -9,6 +9,8 @@ use bevy_math::{bounding::Aabb3d, vec3, Mat4, Quat, Vec3, Vec4};
 use bevy_transform::components::Transform;
 use thiserror::Error;
 
+/// XXX TODO
+///
 /// Options for converting scenes and assets from glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
 /// (+Z forward) to Bevy's coordinate system (-Z forward).
 ///
@@ -41,82 +43,83 @@ use thiserror::Error;
 /// glTF nodes are not converted.
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
-    /// XXX TODO: Update documentation.
+    /// If true, rotate all scenes to match the target semantics.
     ///
-    /// If true, convert scenes by rotating the top-level transform of the scene entity.
-    /// This will ensure that [`Transform::forward`] of the "root" entity (the one with [`SceneInstance`](bevy_scene::SceneInstance))
-    /// aligns with the "forward" of the glTF scene.
-    ///
-    /// The scene entity is created by the glTF loader. Its parent is the entity
-    /// with the `SceneInstance` component, and its children are the root nodes
-    /// of the glTF scene.
-    ///
-    /// This option only changes the transform of the scene entity. It does not
-    /// directly change the transforms of node entities - it only changes them
-    /// indirectly through transform inheritance.
+    /// This only affects the transforms of the root nodes of each scene.
     pub rotate_scenes: bool,
 
-    /// XXX TODO: Documentation.
+    /// If true, rotate the local transforms of all nodes to match target semantics.
+    ///
+    /// This affects the transforms of nodes and their immediate child entities.
+    ///
+    /// Nodes that are cameras or lights are *not* changed, except to counter
+    /// any conversion of their parent node. This is because both glTF and Bevy
+    /// require camera and light nodes to be -Z forward.
     pub rotate_nodes: bool,
 
-    /// XXX TODO: Update documentation.
+    /// If true, rotate all meshes to match the target semantics.
     ///
-    /// If true, convert mesh assets and skinned mesh bind poses.
-    ///
-    /// This option only changes mesh assets and the transforms of entities that
-    /// instance meshes through [`Mesh3d`](bevy_mesh::Mesh3d).
+    /// This can affect:
+    /// - The vertices of [`Mesh`](bevy_mesh::Mesh) assets, including morph targets.
+    /// - The transforms and [`Aabb`](bevy_camera::primitives::Aabb) components
+    ///   of entities that instance meshes through a [`Mesh3d`](bevy_mesh::Mesh3d)
+    ///   component.
+    /// - The matrices in [`SkinnedMeshInverseBindposes`](bevy_mesh::skinning::SkinnedMeshInverseBindposes)
+    ///   assets.
     pub rotate_meshes: bool,
 
     /// The semantics conversion to use if any of `rotate_scenes`, `rotate_nodes`
-    /// or `rotate_meshes` are enabled. Defaults to `GLTF_TO_BEVY`.
-    pub semantics: GltfSemanticsConversion,
+    /// or `rotate_meshes` are enabled. Defaults to ['GLTF_TO_BEVY](SemanticsConversion::GLTF_TO_BEVY].
+    pub semantics: GltfConvertSemantics,
 }
 
-/// The semantics conversion used by `GltfCoordinateConversion`.
+/// The semantics conversion options that will be used by scenes, nodes and
+/// meshes.
+///
+/// These options are only used if the corresponding [`rotate_scenes`](GltfConvertCoordinates::rotate_scenes),
+/// [`rotate_nodes`](GltfConvertCoordinates::rotate_nodes), and [`rotate_meshes`](GltfConvertCoordinates::rotate_meshes)
+/// options are enabled.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-pub enum GltfSemanticsConversion {
-    /// Use one semantics conversion for scenes, nodes and meshes.
+pub enum GltfConvertSemantics {
+    /// Use one semantics conversion for scenes, nodes and meshes. They
     All(SemanticsConversion),
     /// Use different semantics conversions for scenes, nodes and meshes.
-    Flexible {
-        /// The semantics conversion for scenes. Will only be applied if
-        /// `GltfConvertCoordinates::rotate_scenes` is true.
+    Separate {
+        /// The semantics conversion for scenes.
         scenes: SemanticsConversion,
-        /// The semantics conversion for scenes. Will only be applied if
-        /// `GltfConvertCoordinates::rotate_nodes` is true.
+        /// The semantics conversion for nodes.
         nodes: SemanticsConversion,
-        /// The semantics conversion for scenes. Will only be applied if
-        /// `GltfConvertCoordinates::rotate_meshes` is true.
+        /// The semantics conversion for scenes
         meshes: SemanticsConversion,
     },
 }
 
-impl GltfSemanticsConversion {
+impl GltfConvertSemantics {
     fn scenes(&self) -> SemanticsConversion {
         match self {
             Self::All(all) => *all,
-            Self::Flexible { scenes, .. } => *scenes,
+            Self::Separate { scenes, .. } => *scenes,
         }
     }
 
     fn nodes(&self) -> SemanticsConversion {
         match self {
             Self::All(all) => *all,
-            Self::Flexible { nodes, .. } => *nodes,
+            Self::Separate { nodes, .. } => *nodes,
         }
     }
 
     fn meshes(&self) -> SemanticsConversion {
         match self {
             Self::All(all) => *all,
-            Self::Flexible { meshes, .. } => *meshes,
+            Self::Separate { meshes, .. } => *meshes,
         }
     }
 }
 
-impl Default for GltfSemanticsConversion {
+impl Default for GltfConvertSemantics {
     fn default() -> Self {
-        GltfSemanticsConversion::All(SemanticsConversion::GLTF_TO_BEVY)
+        GltfConvertSemantics::All(SemanticsConversion::GLTF_TO_BEVY)
     }
 }
 
@@ -312,37 +315,37 @@ pub struct SignedAxis {
 
 impl SignedAxis {
     /// +X
-    pub const POSITIVE_X: Self = Self {
+    pub const X: Self = Self {
         sign: Sign::Positive,
         axis: Axis::X,
     };
 
     /// +Y
-    pub const POSITIVE_Y: Self = Self {
+    pub const Y: Self = Self {
         sign: Sign::Positive,
         axis: Axis::Y,
     };
 
     /// +Z
-    pub const POSITIVE_Z: Self = Self {
+    pub const Z: Self = Self {
         sign: Sign::Positive,
         axis: Axis::Z,
     };
 
     /// -X
-    pub const NEGATIVE_X: Self = Self {
+    pub const NEG_X: Self = Self {
         sign: Sign::Negative,
         axis: Axis::X,
     };
 
     /// -Y
-    pub const NEGATIVE_Y: Self = Self {
+    pub const NEG_Y: Self = Self {
         sign: Sign::Negative,
         axis: Axis::Y,
     };
 
     /// -Z
-    pub const NEGATIVE_Z: Self = Self {
+    pub const NEG_Z: Self = Self {
         sign: Sign::Negative,
         axis: Axis::Z,
     };
@@ -367,13 +370,15 @@ impl From<SignedAxis> for Vec3 {
     }
 }
 
-/// Defines forward/up/right semantics for a cartesian coordinate system, with
-/// the right axis implicit.
+/// Defines forward/up/right semantics for a cartesian coordinate system.
+///
+/// The right axis is left implicit - it will be the cross product of the
+/// forward and up axes.
 ///
 /// Not guarantee to be valid. See `Semantics` for explicit and validated
 /// semantics.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct PartialSemantics {
+pub struct Semantics {
     /// The forward axis.
     pub forward: SignedAxis,
 
@@ -381,18 +386,18 @@ pub struct PartialSemantics {
     pub up: SignedAxis,
 }
 
-impl PartialSemantics {
-    /// Standard Bevy semantics.
+impl Semantics {
+    /// Standard Bevy semantics: -Z forward, +Y up.
     pub const BEVY: Self = Self {
-        forward: SignedAxis::NEGATIVE_Z,
-        up: SignedAxis::POSITIVE_Y,
+        forward: SignedAxis::NEG_Z,
+        up: SignedAxis::Y,
     };
 
-    /// [Standard glTF semantics](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
-    /// (excluding cameras and lights, which are -Z forward).
+    /// [Standard glTF semantics](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units):
+    /// +Z forward, +Y up (excluding cameras and lights, which are -Z forward, +Y up).
     pub const GLTF: Self = Self {
-        forward: SignedAxis::POSITIVE_Z,
-        up: SignedAxis::POSITIVE_Y,
+        forward: SignedAxis::Z,
+        up: SignedAxis::Y,
     };
 }
 
@@ -401,16 +406,16 @@ impl PartialSemantics {
 /// Guaranteed to be valid - each semantic is a different axis, and the right
 /// is the cross product of forward and up.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Semantics {
+pub struct ValidSemantics {
     forward: SignedAxis,
     up: SignedAxis,
     right: SignedAxis,
 }
 
-impl Semantics {
+impl ValidSemantics {
     /// Create semantics from forward and up axes. The right axis is implicit.
     pub fn from_forward_up(forward: SignedAxis, up: SignedAxis) -> Result<Self, SemanticsError> {
-        TryFrom::try_from(PartialSemantics { forward, up })
+        TryFrom::try_from(Semantics { forward, up })
     }
 
     /// Returns the forward axis.
@@ -428,26 +433,26 @@ impl Semantics {
         self.right
     }
 
-    /// Standard Bevy semantics.
+    /// Standard Bevy semantics: -Z forward, +Y up.
     pub const BEVY: Self = Self {
-        forward: SignedAxis::NEGATIVE_Z,
-        up: SignedAxis::POSITIVE_Y,
-        right: SignedAxis::POSITIVE_X,
+        forward: SignedAxis::NEG_Z,
+        up: SignedAxis::Y,
+        right: SignedAxis::X,
     };
 
-    /// [Standard glTF semantics](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
-    /// (excluding cameras and lights, which are -Z forward).
+    /// [Standard glTF semantics](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units):
+    /// +Z forward, +Y up (excluding cameras and lights, which are -Z forward, +Y up).
     pub const GLTF: Self = Self {
-        forward: SignedAxis::POSITIVE_Z,
-        up: SignedAxis::POSITIVE_Y,
-        right: SignedAxis::NEGATIVE_X,
+        forward: SignedAxis::Z,
+        up: SignedAxis::Y,
+        right: SignedAxis::NEG_X,
     };
 }
 
-impl TryFrom<PartialSemantics> for Semantics {
+impl TryFrom<Semantics> for ValidSemantics {
     type Error = SemanticsError;
 
-    fn try_from(value: PartialSemantics) -> Result<Self, Self::Error> {
+    fn try_from(value: Semantics) -> Result<Self, Self::Error> {
         let forward = value.forward;
         let up = value.up;
 
@@ -471,7 +476,7 @@ impl TryFrom<PartialSemantics> for Semantics {
     }
 }
 
-/// Errors from converting `PartialSemantics` to `Semantics`.
+/// Errors from converting [`Semantics`] to [`ValidSemantics`].
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum SemanticsError {
     /// Forward and up are the same axis.
@@ -483,17 +488,17 @@ pub enum SemanticsError {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SemanticsConversion {
     /// The semantics to convert from.
-    pub source: PartialSemantics,
+    pub source: Semantics,
 
     /// The semantics to convert to.
-    pub target: PartialSemantics,
+    pub target: Semantics,
 }
 
 impl SemanticsConversion {
     /// Converts from glTF to Bevy semantics.
     const GLTF_TO_BEVY: Self = Self {
-        source: PartialSemantics::GLTF,
-        target: PartialSemantics::BEVY,
+        source: Semantics::GLTF,
+        target: Semantics::BEVY,
     };
 }
 
@@ -501,12 +506,18 @@ impl SemanticsConversion {
 /// is usually faster and more accurate than using a matrix or quaternion.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct RemappingConverter {
+    /// Maps from target to source axis.
     axis: [Axis; 3],
+
+    /// Sign flip, applied by multiplying after `axis` remapping,
     flip: Vec3,
 }
 
 impl RemappingConverter {
-    pub(crate) fn from_source_target(source: Semantics, target: Semantics) -> RemappingConverter {
+    pub(crate) fn from_source_target(
+        source: ValidSemantics,
+        target: ValidSemantics,
+    ) -> RemappingConverter {
         let (sf, su, sr) = (source.forward(), source.up(), source.right());
         let (tf, tu, tr) = (target.forward(), target.up(), target.right());
 
@@ -579,7 +590,7 @@ impl Converter {
         remapping: RemappingConverter::IDENTITY,
     };
 
-    pub(crate) fn from_source_target(source: Semantics, target: Semantics) -> Converter {
+    pub(crate) fn from_source_target(source: ValidSemantics, target: ValidSemantics) -> Converter {
         let remapping = RemappingConverter::from_source_target(source, target);
 
         let matrix = Mat4::from_cols(
@@ -630,11 +641,12 @@ impl Converter {
     }
 }
 
-// Helper for applying a conversion to nodes in a hierarchy without affecting
-// the rest of the hierarchy.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct HierarchyConverter {
+    // The converter to use for this node.
     local: Converter,
+
+    // The converter that was used for the parent node.
     parent: Converter,
 }
 
@@ -673,20 +685,20 @@ mod tests {
     use rand::{distr::Distribution, rngs::StdRng, seq::IndexedRandom, Rng, RngExt, SeedableRng};
 
     const SIGNED_AXES: [SignedAxis; 6] = [
-        SignedAxis::POSITIVE_X,
-        SignedAxis::POSITIVE_Y,
-        SignedAxis::POSITIVE_Z,
-        SignedAxis::NEGATIVE_X,
-        SignedAxis::NEGATIVE_Y,
-        SignedAxis::NEGATIVE_Z,
+        SignedAxis::X,
+        SignedAxis::Y,
+        SignedAxis::Z,
+        SignedAxis::NEG_X,
+        SignedAxis::NEG_Y,
+        SignedAxis::NEG_Z,
     ];
 
-    fn semantics_permutations() -> impl Iterator<Item = Semantics> {
+    fn semantics_permutations() -> impl Iterator<Item = ValidSemantics> {
         SIGNED_AXES.iter().flat_map(|forward| {
             SIGNED_AXES
                 .iter()
                 .filter(|up| forward.axis != up.axis)
-                .map(|up| Semantics::from_forward_up(*forward, *up).unwrap())
+                .map(|up| ValidSemantics::from_forward_up(*forward, *up).unwrap())
         })
     }
 
@@ -703,9 +715,9 @@ mod tests {
 
         assert_eq!(
             Err(SemanticsError::ForwardAndUpAreSameAxis(Axis::Z)),
-            Semantics::try_from(PartialSemantics {
-                forward: SignedAxis::POSITIVE_Z,
-                up: SignedAxis::NEGATIVE_Z
+            ValidSemantics::try_from(Semantics {
+                forward: SignedAxis::Z,
+                up: SignedAxis::NEG_Z
             })
         );
     }
@@ -714,17 +726,17 @@ mod tests {
     #[test]
     fn named_semantics() {
         assert_eq!(
-            Semantics::BEVY,
-            Semantics::try_from(PartialSemantics::BEVY).unwrap()
+            ValidSemantics::BEVY,
+            ValidSemantics::try_from(Semantics::BEVY).unwrap()
         );
 
         assert_eq!(
-            Semantics::GLTF,
-            Semantics::try_from(PartialSemantics::GLTF).unwrap()
+            ValidSemantics::GLTF,
+            ValidSemantics::try_from(Semantics::GLTF).unwrap()
         );
     }
 
-    // A variety of directions for a particular semantics.
+    // A variety of directions generated from a semantics.
     #[derive(Debug)]
     struct TestDirections {
         forward: Vec3,
@@ -733,8 +745,8 @@ mod tests {
         diagonal: Vec3,
     }
 
-    impl From<Semantics> for TestDirections {
-        fn from(value: Semantics) -> Self {
+    impl From<ValidSemantics> for TestDirections {
+        fn from(value: ValidSemantics) -> Self {
             let forward = value.forward().into();
             let up = value.up().into();
             let right = value.right().into();
@@ -797,8 +809,8 @@ mod tests {
         }
     }
 
-    // A distribution of random transforms within a fairly narrow range. This
-    // keeps the error bounds small enough that we can use a simple
+    // A distribution of random transforms within a narrow range. This keeps the
+    // error bounds small enough that we can test for equality with a simple
     // `abs_diff_eq` and fixed epsilon.
     struct RandomSmallTransforms;
 
@@ -820,10 +832,10 @@ mod tests {
         }
     }
 
-    struct RandomSemantics(Vec<Semantics>);
+    struct RandomSemantics(Vec<ValidSemantics>);
 
-    impl Distribution<Semantics> for RandomSemantics {
-        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Semantics {
+    impl Distribution<ValidSemantics> for RandomSemantics {
+        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ValidSemantics {
             *self.0.choose(rng).unwrap()
         }
     }
@@ -865,7 +877,8 @@ mod tests {
                 HierarchyConverter::from_local_and_parent(node_converters[1], node_converters[0]),
                 // The leaf node uses the identity conversion, so a transform
                 // in the leaf node's space and scene-space should be the same
-                // even if other nodes in the hierarchy are converted.
+                // regardless of how the other nodes in the hierarchy are
+                // converted.
                 HierarchyConverter::from_local_and_parent(Converter::IDENTITY, node_converters[1]),
             ];
 
