@@ -564,9 +564,11 @@ fn upload_light_probes(
     }
 
     // Initialize the uniform buffer writer.
-    let mut writer = light_probes_buffer
+    let Some(mut writer) = light_probes_buffer
         .get_writer(views.iter().len(), &render_device, &render_queue)
-        .unwrap();
+    else {
+        return;
+    };
 
     // Process each view.
     for view_entity in views.iter() {
