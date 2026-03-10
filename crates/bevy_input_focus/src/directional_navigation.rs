@@ -118,9 +118,10 @@ pub struct AutoNavigationConfig {
     /// - `actual_overlap` = overlapping width between the two elements
     /// - Sizes are the widths of the origin and candidate
     ///
-    /// For North East, North West, South East, and South West navigation, this measures overlap
-    /// of a candidate's area within the unbounded region extending infinitely from
-    /// the corner of the origin UI element in the given direction of navigation.
+    /// For North East, North West, South East, and South West navigation, this measures the 
+    /// percentage of the a candidate's area which is contained in the quadrant region placed 
+    /// at the corner of the origin UI element.
+    /// The corner and the direction of the quadrant corresponds to the given direction of navigation.
     /// The region is bounded in the opposite direction of navigation by the x and y values
     /// of the corner itself. e.g. An unbounded region to the North East from the origin's NE corner
     /// at (20., 30.) will have x values >= 20. and y values <= 30 (UI coordinates).
