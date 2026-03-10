@@ -104,6 +104,9 @@ const REALLOCATION_FACTOR: f64 = 1.5;
 /// We round all allocations up to the nearest multiple of this.
 const REALLOCATION_SIZE_MULTIPLE: usize = 256;
 
+/// The number of dirty-page bits packed into each [`AtomicU64`] word.
+const PAGES_PER_DIRTY_WORD: u32 = 64;
+
 /// Pipelines for the sparse buffer update shader.
 ///
 /// This shader is shared among all sparse buffer vectors.
@@ -159,9 +162,14 @@ pub struct SparseBufferUpdateJob {
 }
 
 impl SparseBufferUpdateJob {
+    /// The number of elements per page.
+    fn page_size(&self) -> u32 {
+        1 << self.page_size_log2
+    }
+
     /// Calculates the number of words that need to be updated.
     fn words_to_update(&self) -> u32 {
-        (self.updated_page_count << self.page_size_log2) * self.element_word_size
+        self.updated_page_count * self.page_size() * self.element_word_size
     }
 
     /// Calculates the number of workgroups that need to be dispatched.
@@ -330,6 +338,11 @@ struct SparseBufferStagingBuffers {
 }
 
 impl SparseBufferStagingBuffers {
+    /// The number of elements per page.
+    fn page_size(&self) -> usize {
+        1 << self.page_size_log2
+    }
+
     /// Creates a new set of staging buffers for a sparse buffer vector.
     fn new(label: &str, element_word_size: u32, page_size_log2: u32) -> SparseBufferStagingBuffers {
         let mut source_data_buffer =
@@ -351,7 +364,8 @@ impl SparseBufferStagingBuffers {
     fn updated_page_count(&self) -> u32 {
         // Note that we don't have to round up here because data is always
         // uploaded in increments of a whole page.
-        ((self.source_data.len() / (self.element_word_size as usize)) >> self.page_size_log2) as u32
+        let element_count = self.source_data.len() / self.element_word_size as usize;
+        (element_count / self.page_size()) as u32
     }
 
     /// Writes the buffers that contain all the data necessary to perform a
@@ -379,7 +393,7 @@ impl SparseBufferStagingBuffers {
         // maximum number of workgroups as defined by `wgpu`, we must perform a
         // full reupload.
         let total_changed_word_count =
-            changed_page_count * (1 << self.page_size_log2) * self.element_word_size;
+            changed_page_count * self.page_size() as u32 * self.element_word_size;
         if total_changed_word_count > MAX_WORKGROUPS * SPARSE_BUFFER_UPDATE_WORKGROUP_SIZE {
             return true;
         }
@@ -387,7 +401,7 @@ impl SparseBufferStagingBuffers {
         // Don't perform a sparse upload if too many words changed, as it'll end
         // up being slower than just uploading the whole buffer afresh.
         let sparse_upload_fraction =
-            changed_page_count as f64 / buffer_length.div_ceil(1 << self.page_size_log2) as f64;
+            changed_page_count as f64 / buffer_length.div_ceil(self.page_size()) as f64;
         sparse_upload_fraction > SPARSE_UPLOAD_THRESHOLD
     }
 }
@@ -451,6 +465,11 @@ impl<T> AtomicSparseBufferVec<T>
 where
     T: AtomicPod,
 {
+    /// The number of elements per page.
+    fn page_size(&self) -> u32 {
+        1 << self.staging_buffers.page_size_log2
+    }
+
     /// Creates a new [`AtomicSparseBufferVec`] with the given set of buffer
     /// usages, page size, and label.
     ///
@@ -538,7 +557,7 @@ where
         self.values.push(T::Blob::default());
         value.write_to_blob(&self.values[index as usize]);
 
-        let page_word = (self.index_to_page(index) / 64) as usize;
+        let page_word = (self.index_to_page(index) / PAGES_PER_DIRTY_WORD) as usize;
         while self.dirty_pages.len() < page_word + 1 {
             self.dirty_pages.push(AtomicU64::default());
         }
@@ -551,13 +570,13 @@ where
     /// we know that we need to upload it.
     fn note_changed_index(&self, index: u32) {
         let page = self.index_to_page(index);
-        let (page_word, page_in_word) = (page / 64, page % 64);
+        let (page_word, page_in_word) = (page / PAGES_PER_DIRTY_WORD, page % PAGES_PER_DIRTY_WORD);
         self.dirty_pages[page_word as usize].fetch_or(1 << page_in_word, Ordering::Relaxed);
     }
 
     /// Returns the page corresponding to the given element index.
     fn index_to_page(&self, index: u32) -> u32 {
-        index >> self.staging_buffers.page_size_log2
+        index / self.page_size()
     }
 
     /// Ensures that the backing buffer for this buffer vector is present and
@@ -592,8 +611,8 @@ where
         // all pages that we added, if any. First, we compute the index of the
         // last page word before the append operation.
         let old_final_page = self.index_to_page(old_len);
-        let old_final_page_word_index = old_final_page / 64;
-        let old_final_page_in_word = old_final_page % 64;
+        let old_final_page_word_index = old_final_page / PAGES_PER_DIRTY_WORD;
+        let old_final_page_in_word = old_final_page % PAGES_PER_DIRTY_WORD;
 
         // Next, we set the bits corresponding to every page that we added to
         // that final page word. Note that this might set bits corresponding to
@@ -608,7 +627,7 @@ where
         // Finally, we add any new page words, with all bits set.
         let new_page_count = self.index_to_page(new_len);
         self.dirty_pages
-            .resize_with((new_page_count as usize).div_ceil(64), || {
+            .resize_with((new_page_count as usize).div_ceil(PAGES_PER_DIRTY_WORD as usize), || {
                 AtomicU64::new(u64::MAX)
             });
     }
@@ -621,7 +640,8 @@ where
         self.values.truncate(len as usize);
 
         let page = self.index_to_page(len);
-        self.dirty_pages.truncate(page.div_ceil(64) as usize);
+        self.dirty_pages
+            .truncate(page.div_ceil(PAGES_PER_DIRTY_WORD) as usize);
     }
 
     /// Writes the data to the GPU, either via a sparse upload or a bulk data
@@ -700,15 +720,16 @@ where
         for (page_word_index, atomic_page_word) in self.dirty_pages.iter().enumerate() {
             let page_word = atomic_page_word.load(Ordering::Relaxed);
             for page_index_in_word in BitIter::new(page_word) {
-                let page = page_word_index as u32 * 64 + page_index_in_word;
+                let page = page_word_index as u32 * PAGES_PER_DIRTY_WORD + page_index_in_word;
 
                 // Write the index of the page so the shader will know where to
                 // scatter the data to.
                 self.staging_buffers.indices.push(page);
 
                 // Copy the page to the GPU staging buffer.
-                let page_start = (page as usize) << self.staging_buffers.page_size_log2;
-                let page_end = (page as usize + 1) << self.staging_buffers.page_size_log2;
+                let page_size = self.staging_buffers.page_size();
+                let page_start = page as usize * page_size;
+                let page_end = page_start + page_size;
                 for value_index in page_start..page_end {
                     match self.values.get(value_index) {
                         Some(blob) => {
@@ -730,7 +751,7 @@ where
                 debug_assert_eq!(
                     self.staging_buffers.source_data.len()
                         % (self.staging_buffers.element_word_size as usize
-                            * (1usize << self.staging_buffers.page_size_log2 as usize)),
+                            * self.staging_buffers.page_size()),
                     0
                 );
             }
@@ -943,9 +964,7 @@ impl Iterator for BitIter {
 /// Calculates the size that a buffer should be in order to balance reallocation
 /// frequency against memory waste.
 fn calculate_allocation_size(length: usize) -> usize {
-    ((f64::powf(
-        REALLOCATION_FACTOR,
-        (length as f64).log(REALLOCATION_FACTOR).ceil(),
-    )) as usize)
-        .next_multiple_of(REALLOCATION_SIZE_MULTIPLE)
+    let exponent = (length as f64).log(REALLOCATION_FACTOR).ceil();
+    let size = REALLOCATION_FACTOR.powf(exponent) as usize;
+    size.next_multiple_of(REALLOCATION_SIZE_MULTIPLE)
 }
