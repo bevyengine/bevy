@@ -292,6 +292,7 @@ fn drag_button(label: &str) -> impl Bundle {
         },
         Button,
         BackgroundColor(Color::BLACK),
+        // Detect the hover.
         Hovered::default(),
         BUTTON_BORDER_COLOR,
         children![widgets::ui_text(label, Color::WHITE)],

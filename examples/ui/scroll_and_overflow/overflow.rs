@@ -91,6 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     Button,
+                                    // Hover detection
                                     Hovered::default(),
                                     Outline {
                                         width: px(2),

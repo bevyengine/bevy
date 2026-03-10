@@ -169,6 +169,7 @@ mod ui {
                 },
                 children![(
                     Button,
+                    // hover detection
                     Hovered::default(),
                     Node {
                         width: px(150),

@@ -377,6 +377,7 @@ where
     parent
         .spawn((
             Button,
+            // Detect the hover
             Hovered::default(),
             Node {
                 align_self: AlignSelf::FlexStart,

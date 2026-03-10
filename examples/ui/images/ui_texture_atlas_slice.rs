@@ -84,6 +84,7 @@ fn setup(
                 parent
                     .spawn((
                         Button,
+                        // detect the hover
                         Hovered::default(),
                         ImageNode::from_atlas_image(
                             texture_handle.clone(),

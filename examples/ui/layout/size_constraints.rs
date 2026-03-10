@@ -220,6 +220,7 @@ fn spawn_button(
     parent
         .spawn((
             Button,
+            // detect the hover
             Hovered::default(),
             Node {
                 align_items: AlignItems::Center,

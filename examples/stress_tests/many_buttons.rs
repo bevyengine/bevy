@@ -278,6 +278,7 @@ fn spawn_button(
     let margin = UiRect::axes(width * 0.05, height * 0.05);
     let mut builder = commands.spawn((
         Button,
+        // This is to detect the hover
         Hovered::default(),
         Node {
             width,

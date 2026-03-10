@@ -70,6 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 parent
                     .spawn((
                         Button,
+                        // detect the hover
                         Hovered::default(),
                         ImageNode {
                             image: image.clone(),

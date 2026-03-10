@@ -31,6 +31,7 @@ pub struct RotateButton(pub Rot2);
 #[derive(Component)]
 pub struct ScaleButton(pub f32);
 
+/// A button that detects the hover
 #[derive(Component)]
 #[require(Button, Hovered)]
 struct HoverableButton;

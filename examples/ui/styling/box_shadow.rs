@@ -123,6 +123,11 @@ struct HeldButton {
     last_repeat: Option<f64>,
 }
 
+/// Marker which detects the hover.
+#[derive(Component)]
+#[require(Button, Hovered)]
+struct HoverableButton;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -270,8 +275,7 @@ fn setup(
                     ..default()
                 },
                 children![(
-                    Button,
-                    Hovered::default(),
+                    HoverableButton,
                     Node {
                         width: px(90),
                         height: px(32),
@@ -337,8 +341,7 @@ fn build_setting_row(
                 )],
             ),
             (
-                Button,
-                Hovered::default(),
+                HoverableButton,
                 Node {
                     width: px(28),
                     height: px(28),
@@ -386,8 +389,7 @@ fn build_setting_row(
                 }],
             ),
             (
-                Button,
-                Hovered::default(),
+                HoverableButton,
                 Node {
                     width: px(28),
                     height: px(28),

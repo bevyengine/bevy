@@ -309,6 +309,7 @@ mod menu {
     const PRESSED_BUTTON: Color = Color::srgb(0.25, 0.65, 0.25);
     const SELECTED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
+    // Tag component that detects the hover
     #[derive(Component)]
     #[require(Button, Hovered)]
     struct HoverableButton;

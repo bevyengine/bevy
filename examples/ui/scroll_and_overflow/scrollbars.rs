@@ -115,6 +115,7 @@ fn scroll_area_demo() -> impl Bundle {
                         border_radius: BorderRadius::all(px(4)),
                         ..default()
                     },
+                    // Hover detection
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
                     CoreScrollbarThumb,
@@ -140,6 +141,7 @@ fn scroll_area_demo() -> impl Bundle {
                         border_radius: BorderRadius::all(px(4)),
                         ..default()
                     },
+                    // Hover detection
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
                     CoreScrollbarThumb,

@@ -85,6 +85,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
         },
         children![(
             Button,
+            // detect the hover
             Hovered::default(),
             Node {
                 width: px(150),

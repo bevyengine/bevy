@@ -72,6 +72,7 @@ fn setup_menu(mut commands: Commands) {
             },
             children![(
                 Button,
+                // hover detection
                 Hovered::default(),
                 Node {
                     width: px(150),

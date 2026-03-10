@@ -145,6 +145,7 @@ fn vertical_slider() -> impl Bundle {
         },
         DemoSlider,
         VerticalSlider,
+        // Hover detection
         Hovered::default(),
         Slider {
             track_click: TrackClick::Snap,
@@ -203,6 +204,7 @@ fn horizontal_slider() -> impl Bundle {
             ..default()
         },
         DemoSlider,
+        // Hover detection
         Hovered::default(),
         Slider {
             track_click: TrackClick::Snap,

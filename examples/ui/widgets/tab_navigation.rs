@@ -126,6 +126,7 @@ fn setup(mut commands: Commands) {
                             parent
                                 .spawn((
                                     Button,
+                                    // detect the hover
                                     Hovered::default(),
                                     Node {
                                         width: px(200),
