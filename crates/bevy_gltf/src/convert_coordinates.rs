@@ -633,7 +633,7 @@ impl Converter {
     }
 
     pub(crate) fn convert_rotation(&self, source: Quat) -> Quat {
-        source * self.rotation
+        self.rotation * source
     }
 
     pub(crate) fn convert_scale(&self, source: Vec3) -> Vec3 {
@@ -664,7 +664,7 @@ impl HierarchyConverter {
     }
 
     pub(crate) fn convert_rotation(&self, r: Quat) -> Quat {
-        self.parent.rotation() * r * self.local.rotation().inverse()
+        self.parent.convert_rotation(r) * self.local.rotation().inverse()
     }
 
     pub(crate) fn convert_scale(&self, s: Vec3) -> Vec3 {
