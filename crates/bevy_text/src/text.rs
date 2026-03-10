@@ -377,7 +377,7 @@ pub struct TextFont {
     /// Specifies the font face used for this text section.
     ///
     /// A `FontSource` can be a handle to a font asset, a font family name,
-    /// or a generic font category that is resolved using Cosmic Text's font database.
+    /// or a generic font category that is resolved using Parley's font database.
     pub font: FontSource,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
