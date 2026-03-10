@@ -436,7 +436,10 @@ impl PerspectiveProjection {
     /// `examples/3d/mirror.rs` for an example of usage.
     fn adjust_perspective_matrix_for_clip_plane(&self, matrix: &mut Mat4) {
         // If we don't have an oblique clip plane, save ourselves the trouble.
-        if self.near_clip_plane.xyz() == Vec3::NEG_Z {
+        if self.near_clip_plane.x == 0.0
+            && self.near_clip_plane.y == 0.0
+            && self.near_clip_plane.z == -1.0
+        {
             return;
         }
 
