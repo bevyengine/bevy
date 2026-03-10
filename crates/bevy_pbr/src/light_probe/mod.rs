@@ -567,6 +567,7 @@ fn upload_light_probes(
     let Some(mut writer) =
         light_probes_buffer.get_writer(views.iter().len(), &render_device, &render_queue)
     else {
+        error!("Failed to create light probes uniform buffer writer.");
         return;
     };
 
