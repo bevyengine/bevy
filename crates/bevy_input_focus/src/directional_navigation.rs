@@ -93,11 +93,11 @@ impl Plugin for DirectionalNavigationPlugin {
 pub struct AutoNavigationConfig {
     /// Minimum overlap ratio (0.0-1.0) required
     /// - along the perpendicular axis, for cardinal directions and
-    /// - within the unbounded region emanating from the corner in the direction of navigation
+    /// - within the quadrant emanating from an origin's corner in the direction of navigation
     ///   for diagonal directions.
     ///
     /// This parameter controls how much two UI elements must overlap in the perpendicular direction
-    /// or in the unbounded region to be considered reachable neighbors.
+    /// or in the desired quadrant to be considered reachable neighbors.
     ///
     /// # Calculation
     ///
@@ -118,12 +118,12 @@ pub struct AutoNavigationConfig {
     /// - `actual_overlap` = overlapping width between the two elements
     /// - Sizes are the widths of the origin and candidate
     ///
-    /// For North East, North West, South East, and South West navigation, this measures the 
-    /// percentage of the a candidate's area which is contained in the quadrant region placed 
+    /// For North East, North West, South East, and South West navigation, this measures the
+    /// percentage of the a candidate's area which is contained in the quadrant region placed
     /// at the corner of the origin UI element.
-    /// The corner and the direction of the quadrant corresponds to the given direction of navigation.
+    /// Both the corner and the direction of the quadrant correspond to the given direction of navigation.
     /// The region is bounded in the opposite direction of navigation by the x and y values
-    /// of the corner itself. e.g. An unbounded region to the North East from the origin's NE corner
+    /// of the corner itself. e.g. The quadrant to the North East from the origin's NE corner
     /// at (20., 30.) will have x values >= 20. and y values <= 30 (UI coordinates).
     /// - `overlapping_area` = the portion of the `candidate_area` that is within
     ///   the desired unbounded region.
@@ -136,10 +136,11 @@ pub struct AutoNavigationConfig {
     ///
     /// - `0.0` (default): Any overlap is sufficient. Even if elements barely touch, they can be neighbors.
     /// - `0.5`: Elements must overlap by at least 50% of the smaller element's size in cardinal directions,
-    ///   and at least 50% of a candidate element's size must be within an origin corner's unbounded region.
+    ///   or at least 50% of a candidate element's size must be within the origin corner's quadrant in the
+    ///   desired diagonal direction.
     /// - `1.0`: Perfect alignment required. The smaller element must be completely within the bounds
     ///   of the larger element along the perpendicular axis. A candidate element must be completely within
-    ///   an origin corner's unbounded region.
+    ///   the origin corner's quadrant for diagonal directions.
     ///
     /// # Use Cases
     ///

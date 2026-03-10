@@ -29,18 +29,18 @@ fn calculate_1d_overlap(
     }
 }
 
-/// Calculate 2D overlap of the 2D-candidate within an unbounded section of the coordinate plane.
+/// Calculate 2D overlap of the 2D-candidate within a quadrant of the coordinate plane.
 ///
 /// Returns a value between 0.0 (no overlap) and 1.0 (perfect overlap).
 /// The overlap returned is the proportion of the candidate's area that lies within
-/// the x and y bounds divided by the candidate's original area.
+/// the quadrant, defined by x_clamp and y_clamp, by the candidate's original area.
 /// If the candidate's original area is <= 0.0, 0.0 (no overlap) is returned.
 ///
 /// The x and y clamps must be unbounded, meaning that the minimum clamp must be `f32::NEG_INFINITY`
 /// or the maximum clamp must be `f32::INFINITY`. The clamps are specified in UI coordinates, i.e.
 /// y increases downwards. For example, an `x_clamp` between `30.` and `f32::INFINITY` alongside
-/// a `y_clamp` between `f32::NEG_INFINITY` and `20.` specifies a unbounded section to the North
-/// and East from `Vec2::new(30., 20.)`.
+/// a `y_clamp` between `f32::NEG_INFINITY` and `20.` specifies a quadrant to the North
+/// and East with its center at `Vec2::new(30., 20.)`.
 fn calculate_unbounded_2d_overlap(
     x_clamp: impl Fn(f32) -> f32,
     y_clamp: impl Fn(f32) -> f32,
@@ -94,7 +94,7 @@ fn calculate_overlap(
             )
         }
         CompassOctant::NorthEast => {
-            // Check for overlap in the NorthEast direction from the origin's NE Corner
+            // Check for overlap in the NorthEast quadrant with its center at the origin's NE Corner
             let origin_pos_north_east = origin_pos + (origin_size / 2.) * Vec2::new(1., -1.);
 
             calculate_unbounded_2d_overlap(
@@ -105,7 +105,7 @@ fn calculate_overlap(
             )
         }
         CompassOctant::SouthEast => {
-            // Check for overlap in the SouthEast direction from the origin's SE Corner
+            // Check for overlap in the SouthEast quadrant with its center at the origin's SE Corner
             let origin_pos_south_east = origin_pos + (origin_size / 2.);
 
             calculate_unbounded_2d_overlap(
@@ -116,7 +116,7 @@ fn calculate_overlap(
             )
         }
         CompassOctant::SouthWest => {
-            // Check for overlap in the SouthWest direction from the origin's SW Corner
+            // Check for overlap in the SouthWest quadrant with its center at the origin's SW Corner
             let origin_pos_south_west = origin_pos + (origin_size / 2.) * Vec2::new(-1., 1.);
 
             calculate_unbounded_2d_overlap(
@@ -127,7 +127,7 @@ fn calculate_overlap(
             )
         }
         CompassOctant::NorthWest => {
-            // Check for overlap in the NorthWest direction from the origin's NW Corner
+            // Check for overlap in the NorthWest quadrant with its center at the origin's NW Corner
             let origin_pos_north_west = origin_pos - (origin_size / 2.);
 
             calculate_unbounded_2d_overlap(
