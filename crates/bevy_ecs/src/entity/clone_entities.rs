@@ -1468,8 +1468,8 @@ mod tests {
         world::{DeferredWorld, FromWorld, World},
     };
     use bevy_ptr::OwningPtr;
+    use core::alloc::Layout;
     use core::marker::PhantomData;
-    use core::{alloc::Layout, ops::Deref};
 
     #[cfg(feature = "bevy_reflect")]
     mod reflect {
@@ -2179,7 +2179,13 @@ mod tests {
         );
 
         assert_eq!(
-            world.entity(root).get::<Children>().unwrap().deref(),
+            world
+                .entity(root)
+                .get::<Children>()
+                .unwrap()
+                .iter()
+                .map(|e| *e)
+                .collect::<Vec<_>>(),
             &[child1, child2]
         );
     }

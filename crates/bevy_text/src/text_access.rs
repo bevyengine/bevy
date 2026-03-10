@@ -212,7 +212,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
             let (children, idx) = self.stack.last_mut()?;
 
             loop {
-                let Some(child) = children.get(*idx) else {
+                let Some(child) = children.get_index(*idx) else {
                     break;
                 };
 
@@ -328,7 +328,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
             };
 
             loop {
-                let Some(child) = children.get(*idx) else {
+                let Some(child) = children.get_index(*idx) else {
                     // All children at this stack entry have been iterated.
                     stack.pop();
                     break;
@@ -522,7 +522,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
             };
 
             loop {
-                let Some(child) = children.get(*idx) else {
+                let Some(child) = children.get_index(*idx) else {
                     // All children at this stack entry have been iterated.
                     stack.pop();
                     break;
