@@ -1,6 +1,6 @@
 ---
 title: "Text input"
-authors: ["@alice-i-cecile", "@ickshonpe", "@Zeophlite"]
+authors: ["@ickshonpe", "@Zeophlite", "@alice-i-cecile"]
 pull_requests: [23282]
 ---
 
