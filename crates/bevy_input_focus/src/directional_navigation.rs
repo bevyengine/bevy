@@ -493,7 +493,7 @@ pub enum DirectionalNavigationError {
 pub struct FocusableArea {
     /// The entity identifier for this focusable area.
     pub entity: Entity,
-    /// The center position in UI (viewport) coordinates.
+    /// The center position in global coordinates.
     pub position: Vec2,
     /// The size (width, height) of the area.
     pub size: Vec2,
@@ -504,7 +504,7 @@ pub struct FocusableArea {
 /// This allows the auto-navigation system to work with different UI implementations
 /// as long as they can provide position and size information.
 pub trait Navigable {
-    /// Returns the center position and size in UI (viewport) coordinates.
+    /// Returns the center position and size in global coordinates.
     fn get_bounds(&self) -> (Vec2, Vec2);
 }
 
