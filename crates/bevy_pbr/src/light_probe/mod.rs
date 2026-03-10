@@ -564,8 +564,8 @@ fn upload_light_probes(
     }
 
     // Initialize the uniform buffer writer.
-    let Some(mut writer) = light_probes_buffer
-        .get_writer(views.iter().len(), &render_device, &render_queue)
+    let Some(mut writer) =
+        light_probes_buffer.get_writer(views.iter().len(), &render_device, &render_queue)
     else {
         return;
     };
