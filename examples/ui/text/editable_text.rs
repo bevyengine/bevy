@@ -148,7 +148,7 @@ fn build_input_text(
     let edit = commands
         .spawn((
             Name::new(if is_left { "Left" } else { "Right" }),
-            EditableText::new(""),
+            EditableText,
             TextFont {
                 font: font.clone(),
                 font_size: FontSize::Px(font_size),

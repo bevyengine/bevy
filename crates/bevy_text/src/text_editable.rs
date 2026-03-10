@@ -203,7 +203,7 @@ pub fn edit_to_computed(
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
 ) {
-    // TODO: optimise with change detection
+    // TODO: optimize with change detection
 
     for (mut editable_text, mut computed) in query.iter_mut() {
         // TODO: calculate cursor width

@@ -353,7 +353,7 @@ impl<'a> EditableTextAsSpan<'a> {
     }
 }
 
-/// Analagous to [`measure_text_system`] but for a single [`EditableText`]
+/// Analogous to [`measure_text_system`] but for a single [`EditableText`]
 pub fn measure_editable_text_system(
     fonts: Res<Assets<Font>>,
     mut text_query: Query<
