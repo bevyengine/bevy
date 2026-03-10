@@ -8,27 +8,12 @@
 use bevy::color::palettes::css::{BLUE, GREEN, RED, YELLOW};
 use bevy::input_focus::{InputDispatchPlugin, InputFocus};
 use bevy::prelude::*;
-use bevy::remote::{http::RemoteHttpPlugin, RemotePlugin};
 use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
 use bevy::ui_widgets::EditableTextInputPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(GlobalUiDebugOptions {
-            enabled: true,
-            line_width: 1.,
-            line_color_override: None,
-            show_hidden: true,
-            show_clipped: true,
-            ignore_border_radius: false,
-            outline_border_box: true,
-            outline_padding_box: true,
-            outline_content_box: true,
-            outline_scrollbars: false,
-        })
-        .add_plugins(RemotePlugin::default())
-        .add_plugins(RemoteHttpPlugin::default())
         .add_plugins((
             // This is also part of UiWidgetsPlugins, but we only need EditableText for this example
             EditableTextInputPlugin,

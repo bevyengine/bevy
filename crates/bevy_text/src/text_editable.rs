@@ -129,13 +129,6 @@ impl Default for EditableText {
 }
 
 impl EditableText {
-    /// build with initial text
-    pub fn new(text: &str) -> Self {
-        let mut a = Self::default();
-        a.set_input(text);
-        a
-    }
-
     /// Access the internal [`PlainEditor`].
     pub fn editor(&self) -> &PlainEditor<(u32, FontSmoothing)> {
         &self.editor
@@ -179,14 +172,6 @@ impl EditableText {
         self.needs_rerender = true;
     }
 
-    /// Sets the entire text input to the given string, replacing any existing content.
-    pub fn set_input(&mut self, text: &str) {
-        self.editor.set_text(text);
-        // TODO: reset cursor location
-        self.pending_edits.clear();
-        self.needs_rerender = true;
-    }
-
     /// Clears the current input and resets the cursor position.
     pub fn clear(
         &mut self,
@@ -212,12 +197,14 @@ pub fn apply_text_edits(
     }
 }
 
-/// A
+/// Copies the layout from the [`parley::PlainEditor`] to the [`ComputedTextBlock`]
 pub fn edit_to_computed(
     mut query: Query<(&mut EditableText, &mut ComputedTextBlock)>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
 ) {
+    // TODO: optimise with change detection
+
     for (mut editable_text, mut computed) in query.iter_mut() {
         // TODO: calculate cursor width
         editable_text.cursor_width = 20.0;

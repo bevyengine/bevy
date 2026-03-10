@@ -53,7 +53,7 @@ pub fn extract_text_cursor(
             continue;
         };
 
-        let transform = Affine2::from(global_transform); // * Affine2::from_translation(0.5 * uinode.size());
+        let transform = Affine2::from(global_transform);
 
         if !text_layout_info.selection_rects.is_empty()
             && !cursor_style.selection_color.is_fully_transparent()

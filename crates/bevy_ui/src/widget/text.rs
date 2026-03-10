@@ -325,7 +325,8 @@ pub fn measure_text_system(
     }
 }
 
-/// holder to simulate text spans
+/// [`measure_text_system`] iterates over [`TextSpan`](bevy_text::TextSpan).
+/// An [`EditableText`] is a single instance, so we use this helper struct.
 pub struct EditableTextAsSpan<'a> {
     item: Option<(Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
 }
@@ -352,7 +353,7 @@ impl<'a> EditableTextAsSpan<'a> {
     }
 }
 
-/// Analagous to [`measure_text_system`] but we coerce a [`EditableText`] to an iter of [`TextSpan`](bevy_text::TextSpan)'s
+/// Analagous to [`measure_text_system`] but for a single [`EditableText`]
 pub fn measure_editable_text_system(
     fonts: Res<Assets<Font>>,
     mut text_query: Query<
