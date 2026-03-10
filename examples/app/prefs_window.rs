@@ -1,4 +1,10 @@
 //! Demonstrates persistence of user preferences for saving window position.
+//!
+//! This app saves the app window’s settings to preferences. You may resize the window, move it
+//! around, and make it full screen; this example will remember those settings.
+//!
+//! If you close the app and restart it, the app should initialize back to the previous window position,
+//! size, and mode (i.e. fullscreen) it had at closing.
 use std::time::Duration;
 
 use bevy::{
