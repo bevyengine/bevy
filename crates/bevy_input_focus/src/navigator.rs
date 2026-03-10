@@ -33,7 +33,7 @@ fn calculate_1d_overlap(
 ///
 /// Returns a value between 0.0 (no overlap) and 1.0 (perfect overlap).
 /// The overlap returned is the proportion of the candidate's area that lies within
-/// the quadrant, defined by x_clamp and y_clamp, by the candidate's original area.
+/// the quadrant, defined by `x_clamp` and `y_clamp`, by the candidate's original area.
 /// If the candidate's original area is <= 0.0, 0.0 (no overlap) is returned.
 ///
 /// The x and y clamps must be unbounded, meaning that the minimum clamp must be `f32::NEG_INFINITY`
