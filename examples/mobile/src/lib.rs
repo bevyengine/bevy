@@ -4,7 +4,6 @@ use bevy::{
     color::palettes::basic::*,
     input::{gestures::RotationGesture, touch::TouchPhase},
     log::{Level, LogPlugin},
-    picking::hover::Hovered,
     prelude::*,
     reflect::Is,
     ui::Pressed,
@@ -60,7 +59,6 @@ pub fn main() {
     )
     .add_observer(button_on_interaction::<Add, Pressed>)
     .add_observer(button_on_interaction::<Remove, Pressed>)
-    .add_observer(button_on_interaction::<Insert, Hovered>)
     .run();
 }
 
@@ -147,7 +145,6 @@ fn setup_scene(
     commands
         .spawn((
             Button,
-            Hovered::default(),
             Node {
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
@@ -171,14 +168,13 @@ fn setup_scene(
 
 fn button_on_interaction<E: EntityEvent, C: Component>(
     event: On<E, C>,
-    mut button_query: Query<(&Hovered, Has<Pressed>, &mut BackgroundColor), With<Button>>,
+    mut button_query: Query<(Has<Pressed>, &mut BackgroundColor), With<Button>>,
 ) {
-    if let Ok((hovered, pressed, mut color)) = button_query.get_mut(event.event_target()) {
+    if let Ok((pressed, mut color)) = button_query.get_mut(event.event_target()) {
         let pressed = pressed && !(E::is::<Remove>() && C::is::<Pressed>());
-        *color = match (hovered.get(), pressed) {
-            (true, true) => BLUE.into(),
-            (true, false) => GRAY.into(),
-            (false, _) => WHITE.into(),
+        *color = match pressed {
+            true => BLUE.into(),
+            false => WHITE.into(),
         }
     }
 }
