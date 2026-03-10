@@ -50,7 +50,7 @@ use store_wasm::PreferencesStore;
 /// appropriate filesystem location (depending on platform) for app preferences. For platforms
 /// without filesystems, other storage mechanisms will be used.
 ///
-/// If you are in the unfortunate position where you do not have a domain name and cannot
+/// If you are do not have a domain name and cannot
 /// afford one, use a reverse domain based on the URL of your repo (GitHub, GitLab, Codeberg
 /// and so on).
 ///
@@ -209,7 +209,7 @@ impl Command for SavePreferencesSync {
     }
 }
 
-/// A Command which saves preferences to disk. Actual FS operations happen in another thread.
+/// A [`Command`] which saves preferences to disk. Actual file system operations happen in another thread.
 #[derive(Default, PartialEq)]
 pub enum SavePreferences {
     /// Save preferences only if they have changed since the most recent load or save.
@@ -345,7 +345,7 @@ fn resources_to_toml(
 /// Builds the preferences file registry by scanning the type registry for settings resources.
 /// This is separated from loading to enable testing without file I/O.
 ///
-/// Returns the `PreferencesFileRegistry` that tracks which resources are associated with
+/// Returns the [`PreferencesFileRegistry`] that tracks which resources are associated with
 /// which settings files.
 fn build_preferences_registry(
     app_name: &str,

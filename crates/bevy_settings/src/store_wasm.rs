@@ -40,7 +40,7 @@ impl PreferencesStore {
         }
     }
 
-    /// Save the content of a [`toml::Table`] to disk, in another thread.
+    /// Save the content of a [`toml::Table`] to local storage, in another thread.
     ///
     /// # Arguments
     /// * `filename` - the name of the file to be saved
