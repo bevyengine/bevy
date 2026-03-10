@@ -496,7 +496,7 @@ mod tests {
 
         assert!(matches!(result, Err(RunSystemError::Failed { .. })));
 
-        let expected = "does not exist";
+        let expected = "Resource does not exist";
         let actual = result.unwrap_err().to_string();
 
         assert!(
