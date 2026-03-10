@@ -52,15 +52,14 @@ pub struct GltfConvertCoordinates {
     ///
     /// This affects the transforms of nodes and their immediate child entities.
     ///
-    /// Nodes that are cameras or lights are *not* changed, except to counter
-    /// any conversion of their parent node. This is because both glTF and Bevy
-    /// require camera and light nodes to be -Z forward.
+    /// Nodes that are cameras or lights are *not* converted. This is because
+    /// both glTF and Bevy require camera and light nodes to be -Z forward.
     pub rotate_nodes: bool,
 
     /// If true, rotate all meshes to match the target semantics.
     ///
     /// This can affect:
-    /// - The vertices of [`Mesh`](bevy_mesh::Mesh) assets, including morph targets.
+    /// - The vertices of [`Mesh`] assets, including morph targets.
     /// - The transforms and [`Aabb`](bevy_camera::primitives::Aabb) components
     ///   of entities that instance meshes through a [`Mesh3d`](bevy_mesh::Mesh3d)
     ///   component.
@@ -69,7 +68,10 @@ pub struct GltfConvertCoordinates {
     pub rotate_meshes: bool,
 
     /// The semantics conversion to use if any of `rotate_scenes`, `rotate_nodes`
-    /// or `rotate_meshes` are enabled. Defaults to ['GLTF_TO_BEVY](SemanticsConversion::GLTF_TO_BEVY].
+    /// or `rotate_meshes` are enabled.
+    ///
+    /// Defaults to converting from [standard glTF semantics](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
+    /// (+Z forward, +Y up) to Bevy semantics (-Z forward, +Y up).
     pub semantics: GltfConvertSemantics,
 }
 
@@ -123,7 +125,7 @@ impl Default for GltfConvertSemantics {
     }
 }
 
-/// A `GltfConvertCoordinates` that's been resolved to converters.
+/// A [`GltfConvertCoordinates`] that has been resolved to converters.
 #[derive(Debug)]
 pub(crate) struct ResolvedConvertCoordinates {
     scene: Converter,
@@ -235,7 +237,7 @@ pub(crate) fn attribute_coordinate_conversion(
     }
 }
 
-/// A axis in a 3d cartesian coordinate system.
+/// An axis in a 3D cartesian coordinate system.
 #[expect(missing_docs, reason = "The variants are self-explanatory")]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Axis {
@@ -370,12 +372,10 @@ impl From<SignedAxis> for Vec3 {
     }
 }
 
-/// Defines forward/up/right semantics for a cartesian coordinate system.
+/// Defines forward/up/right semantics for a cartesian coordinate system, where
+/// the forward and up axes are explicit but the right is implicit.
 ///
-/// The right axis is left implicit - it will be the cross product of the
-/// forward and up axes.
-///
-/// Not guarantee to be valid. See `Semantics` for explicit and validated
+/// Not guarantee to be valid. See [`ValidSemantics`] for explicit and validated
 /// semantics.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Semantics {
@@ -387,14 +387,19 @@ pub struct Semantics {
 }
 
 impl Semantics {
-    /// Standard Bevy semantics: -Z forward, +Y up.
+    /// Returns semantics with the given forward and up.
+    pub fn from_forward_up(forward: SignedAxis, up: SignedAxis) -> Self {
+        Semantics { forward, up }
+    }
+
+    /// Bevy semantics: -Z forward, +Y up.
     pub const BEVY: Self = Self {
         forward: SignedAxis::NEG_Z,
         up: SignedAxis::Y,
     };
 
     /// [Standard glTF semantics](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units):
-    /// +Z forward, +Y up (excluding cameras and lights, which are -Z forward, +Y up).
+    /// +Z forward, +Y up. This excludes glTF cameras and lights, which are -Z forward, +Y up.
     pub const GLTF: Self = Self {
         forward: SignedAxis::Z,
         up: SignedAxis::Y,
@@ -413,11 +418,6 @@ pub struct ValidSemantics {
 }
 
 impl ValidSemantics {
-    /// Create semantics from forward and up axes. The right axis is implicit.
-    pub fn from_forward_up(forward: SignedAxis, up: SignedAxis) -> Result<Self, SemanticsError> {
-        TryFrom::try_from(Semantics { forward, up })
-    }
-
     /// Returns the forward axis.
     pub fn forward(&self) -> SignedAxis {
         self.forward
@@ -433,7 +433,7 @@ impl ValidSemantics {
         self.right
     }
 
-    /// Standard Bevy semantics: -Z forward, +Y up.
+    /// Bevy semantics: -Z forward, +Y up.
     pub const BEVY: Self = Self {
         forward: SignedAxis::NEG_Z,
         up: SignedAxis::Y,
@@ -441,7 +441,7 @@ impl ValidSemantics {
     };
 
     /// [Standard glTF semantics](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units):
-    /// +Z forward, +Y up (excluding cameras and lights, which are -Z forward, +Y up).
+    /// +Z forward, +Y up. This excludes glTF cameras and lights, which are -Z forward, +Y up.
     pub const GLTF: Self = Self {
         forward: SignedAxis::Z,
         up: SignedAxis::Y,
@@ -484,7 +484,7 @@ pub enum SemanticsError {
     ForwardAndUpAreSameAxis(Axis),
 }
 
-/// Describes a conversion from source to target `Semantics`.
+/// Describes a conversion from source to target [`Semantics`].
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SemanticsConversion {
     /// The semantics to convert from.
@@ -641,6 +641,133 @@ impl Converter {
     }
 }
 
+/// Helper for converting the semantics of things in a hierarchy, where each
+/// thing may have a different semantics.
+///
+/// To explain how this works, let's start with a scene containing one mesh. The
+/// diagram shows a top-down view of the scene - the axes in the middle of the
+/// mesh represent mesh-space, and the axes in the bottom left represent
+/// scene-space.
+///
+/// ```ignore
+///        +-----------+
+///        |           +-+
+///        |      x      |
+///        |      |      |
+///        |      M--z   |
+///        |             |
+/// x      +-------------+
+/// |
+/// S--z
+/// ```
+///
+/// We want to convert the mesh's semantics from +X forward to +Z forward, but the
+/// mesh's vertices should stay at the same position in scene-space. This can be
+/// done by rotating the mesh 90 degrees *counter-clockwise*, then rotating its
+/// vertices 90 degrees *clockwise*.
+///
+/// ```ignore
+///          Before             Counter-Rotate Mesh       Rotate Vertices
+///
+///        +-----------+              +-----------+          +-----------+
+///        |           +-+          +-+           |          |           +-+
+///        |      x      |          |      z      |          |      z      |
+///        |      |      |          |      |      |          |      |      |
+///        |      M--z   |          |   x--M      |          |   x--M      |
+///        |             |          |             |          |             |
+/// x      +-------------+          +-------------+          +-------------+
+/// |
+/// S--z
+/// ```
+///
+/// Conceptually, what's happening is that we have the following hierarchy:
+///
+/// - Scene
+///   - Mesh
+///     - Mesh Vertices
+///
+/// And only the mesh is having its semantics converted - the semantics of the
+/// scene and vertices stay the same.
+///
+/// The rules for converting the semantics of a thing in a hierarchy are:
+///
+/// - Apply the thing's *parent's* conversion to the thing.
+/// - Apply the thing's inverse conversion to the thing.
+///
+/// Applying these rules to the mesh's vertices, we get:
+///
+/// - Apply the mesh's conversion to the vertices.
+/// - Apply the vertices' inverse conversion to the vertices - the vertices
+///   have no conversion so nothing is done.
+///
+/// And for the mesh:
+///
+/// - Apply the scene's conversion to the mesh - the scene has no conversion so
+///   nothing is done.
+/// - Apply the mesh's inverse conversion to the mesh.
+///
+/// If we take both cases and remove the rules that don't do anything, we end up
+/// with:
+///
+/// - Apply the mesh's conversion to the vertices.
+/// - Apply the mesh's inverse conversion to the mesh.
+///
+/// Note that even though the vertices do not have their own conversion, they
+/// still get affected by their mesh's conversion. Or to put it another way,
+/// children without a conversion still get affected by their parent's
+/// conversion.
+///
+/// Let's apply the same rules to scene nodes. Say we have two nodes A and B,
+/// where A is the parent of B, and we want to convert the semantics of *both* A
+/// and B from +X forward to +Y forward. The conversion should look like this:
+///
+/// ```ignore
+///          Before                After
+///
+///                X                       Z
+///                |                       |
+///                B--Z                 X--B
+///              .`                      .`
+///        X   .`                  Z   .`
+///        | .`                    | .`
+///        A--Z                 X--A
+/// ```
+///
+/// Unlike with meshes, both the parent and the child want the same conversion.
+/// So the rules applied to A are:
+///
+/// 1. Apply the scene's conversion to A - the scene has no conversion.
+/// 2. Apply A's inverse conversion to A.
+///
+/// And B:
+///
+/// 1. Apply A's conversion to B.
+/// 2. Apply B's inverse conversion to B.
+///
+/// Applying these step by step, we get:
+///
+/// ```ignore
+///               Before                 Apply A's inverse conversion to A
+///             
+///                     x                      z
+///                     |                      |
+///                     B--z                x--B
+///                   .`                        `.
+///             x   .`                            `.  z
+///             | .`                                `.|
+///             A--z                               x--A
+///     
+///     
+///      Apply A's conversion to B       Apply B's inverse conversion to B
+///     
+///                     X                                     Z
+///                     |                                     |
+///                     B--Z                               X--B
+///                   .`                                    .`
+///             X   .`                                Z   .`
+///             | .`                                  | .`
+///             A--Z                               X--A
+/// ```
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct HierarchyConverter {
     // The converter to use for this node.
@@ -698,7 +825,9 @@ mod tests {
             SIGNED_AXES
                 .iter()
                 .filter(|up| forward.axis != up.axis)
-                .map(|up| ValidSemantics::from_forward_up(*forward, *up).unwrap())
+                .map(|up| {
+                    ValidSemantics::try_from(Semantics::from_forward_up(*forward, *up)).unwrap()
+                })
         })
     }
 
@@ -875,10 +1004,10 @@ mod tests {
             let hierarchy_converters = [
                 HierarchyConverter::from_local_and_parent(node_converters[0], Converter::IDENTITY),
                 HierarchyConverter::from_local_and_parent(node_converters[1], node_converters[0]),
-                // The leaf node uses the identity conversion, so a transform
-                // in the leaf node's space and scene-space should be the same
-                // regardless of how the other nodes in the hierarchy are
-                // converted.
+                // The leaf node uses the identity conversion. This means that
+                // whatever conversions are applied to other nodes in the
+                // hierarchy, a transform in the leaf node's space should always
+                // result in the same transform in scene-space.
                 HierarchyConverter::from_local_and_parent(Converter::IDENTITY, node_converters[1]),
             ];
 
