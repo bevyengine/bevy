@@ -1,4 +1,12 @@
 //! Demonstrates persistence of user preferences.
+//! 
+//! A counter is shown in the window. It can be incremented and decremented via input press.
+//! Its value persists between app sessions via user preferences.
+//! 
+//! On desktop, if you quit the app and then restart it, the counter value should display
+//! the most recent value the app had before exiting.
+//! On web, if you navigate away and then come back to the window, the counter
+//! should display the most recent value the app had before navigating away.
 use std::time::Duration;
 
 use bevy::{
