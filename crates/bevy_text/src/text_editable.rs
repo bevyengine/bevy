@@ -120,7 +120,7 @@ impl Default for EditableText {
     fn default() -> Self {
         Self {
             // Defaults selected to match `Text::default()`
-            editor: PlainEditor::new(100.), // TODO: font size is 70, so how does this work?
+            editor: PlainEditor::new(100.),
             pending_edits: VecDeque::new(),
             needs_rerender: true,
             cursor_width: 20.0,
@@ -206,10 +206,8 @@ pub fn edit_to_computed(
     // TODO: optimize with change detection
 
     for (mut editable_text, mut computed) in query.iter_mut() {
-        // TODO: calculate cursor width
-        editable_text.cursor_width = 20.0;
-
         let editor = editable_text.editor_mut();
+
         let layout = editor.layout(&mut font_context.0, &mut layout_context.0);
 
         computed.layout = layout.clone();

@@ -359,7 +359,7 @@ pub fn measure_editable_text_system(
     mut text_query: Query<
         (
             Entity,
-            Ref<EditableText>,
+            &mut EditableText,
             Ref<TextLayout>,
             &mut ContentSize,
             &mut TextNodeFlags,
@@ -379,7 +379,7 @@ pub fn measure_editable_text_system(
 ) {
     for (
         entity,
-        text,
+        mut text,
         block,
         mut content_size,
         mut text_flags,
@@ -403,6 +403,18 @@ pub fn measure_editable_text_system(
             continue;
         }
 
+        // TODO: detect if sizes change, then set text_flags.needs_measure_fn and continue
+        let logical_viewport_size = computed_target.logical_size();
+
+        let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);
+
+        let editor = text.editor_mut();
+        let styles = editor.edit_styles();
+
+        styles.insert(parley::StyleProperty::FontSize(font_size * 1.42));
+
+        text.cursor_width = font_size * 0.28;
+
         let t = text.value().to_string();
         let text_spans = EditableTextAsSpan::new(entity, &t, &text_font, *text_color, *line_height);
 
@@ -415,7 +427,7 @@ pub fn measure_editable_text_system(
             computed.as_mut(),
             &mut font_system,
             &mut layout_cx,
-            computed_target.logical_size(),
+            logical_viewport_size,
             rem_size.0,
         ) {
             Ok(measure) => {

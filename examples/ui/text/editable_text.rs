@@ -39,7 +39,6 @@ fn setup(
     commands.spawn(Camera2d);
 
     // Create a root UI node, so we can place the input above the output in a column
-    // TODO: center things nicely
     let root = commands
         .spawn(Node {
             display: Display::Block,
@@ -80,6 +79,13 @@ fn setup(
     // Set the focus to our text input so we can start typing right away
     input_focus.set(text_input_left_edit);
 
+    let input_container = commands
+        .spawn(Node {
+            display: Display::Flex,
+            ..default()
+        })
+        .id();
+
     // Set up a text output to see the result of our text input
     let text_output = commands
         .spawn((
@@ -110,12 +116,13 @@ fn setup(
         .id();
 
     // Assemble our hierarchy
-    commands.entity(root).add_children(&[
-        text_instructions,
-        text_input_left,
-        text_input_right,
-        text_output,
-    ]);
+    commands
+        .entity(input_container)
+        .add_children(&[text_input_left, text_input_right]);
+
+    commands
+        .entity(root)
+        .add_children(&[text_instructions, input_container, text_output]);
 }
 
 fn build_input_text(
