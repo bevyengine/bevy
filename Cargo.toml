@@ -131,7 +131,7 @@ unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
 [features]
-default = ["2d", "3d", "ui"]
+default = ["2d", "3d", "ui", "audio"]
 
 # PROFILE: The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.
 2d = [
@@ -140,7 +140,6 @@ default = ["2d", "3d", "ui"]
   "2d_bevy_render",
   "ui",
   "scene",
-  "audio",
   "picking",
 ]
 
@@ -151,7 +150,6 @@ default = ["2d", "3d", "ui"]
   "3d_bevy_render",
   "ui",
   "scene",
-  "audio",
   "picking",
 ]
 
@@ -162,7 +160,6 @@ ui = [
   "ui_api",
   "ui_bevy_render",
   "scene",
-  "audio",
   "picking",
   "bevy_ui_widgets",
 ]
@@ -429,10 +426,10 @@ raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
 type_label_buffers = ["bevy_internal/type_label_buffers"]
 
 # Tracing support, saving a file in Chrome Tracing format
-trace_chrome = ["trace", "bevy_internal/trace_chrome"]
+trace_chrome = ["trace", "bevy_internal/trace_chrome", "debug"]
 
 # Tracing support, exposing a port for Tracy
-trace_tracy = ["trace", "bevy_internal/trace_tracy"]
+trace_tracy = ["trace", "bevy_internal/trace_tracy", "debug"]
 
 # Tracing support, with memory profiling, exposing a port for Tracy
 trace_tracy_memory = ["bevy_internal/trace_tracy_memory"]
@@ -1035,6 +1032,18 @@ doc-scrape-examples = true
 [package.metadata.example.tilemap_chunk]
 name = "Tilemap Chunk"
 description = "Renders a tilemap chunk"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "tilemap_chunk_orientation"
+path = "examples/2d/tilemap_chunk_orientation.rs"
+# Causes an ICE on docs.rs
+doc-scrape-examples = true
+
+[package.metadata.example.tilemap_chunk_orientation]
+name = "Tilemap Chunk with Orientations"
+description = "Renders a tilemap chunk using tile orientations (mirrored, rotated)"
 category = "2D Rendering"
 wasm = true
 
@@ -1958,11 +1967,23 @@ wasm = false
 name = "asset_saving"
 path = "examples/asset/asset_saving.rs"
 doc-scrape-examples = true
-required-features = ["ui_picking", "sprite_picking"]
+required-features = ["ui_picking", "sprite_picking", "png"]
 
 [package.metadata.example.asset_saving]
 name = "Asset Saving"
-description = "Demonstrates how to save an asset (with subassets)"
+description = "Demonstrates how to save an asset"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "asset_saving_with_subassets"
+path = "examples/asset/asset_saving_with_subassets.rs"
+doc-scrape-examples = true
+required-features = ["ui_picking", "sprite_picking"]
+
+[package.metadata.example.asset_saving_with_subassets]
+name = "Asset Saving with Subassets"
+description = "Demonstrates how to save an asset with subassets"
 category = "Assets"
 wasm = true
 
@@ -2033,6 +2054,17 @@ description = "Load an asset from a non-standard asset source"
 category = "Assets"
 # Uses non-standard asset path
 wasm = false
+
+[[example]]
+name = "generated_assets"
+path = "examples/asset/generated_assets.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.generated_assets]
+name = "Generated Assets"
+description = "Shows how to generate and store assets at runtime"
+category = "Assets"
+wasm = true
 
 [[example]]
 name = "web_asset"
@@ -2264,6 +2296,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "callbacks"
+path = "examples/ecs/callbacks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.callbacks]
+name = "Callbacks"
+description = "Store arbitrary systems in components and run them on demand"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "component_hooks"
 path = "examples/ecs/component_hooks.rs"
 doc-scrape-examples = true
@@ -2484,6 +2527,17 @@ name = "Startup System"
 description = "Demonstrates a startup system (one that runs once when the app starts up)"
 category = "ECS (Entity Component System)"
 wasm = false
+
+[[example]]
+name = "delayed_commands"
+path = "examples/ecs/delayed_commands.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.delayed_commands]
+name = "Delayed Commands"
+description = "Demonstrates how to schedule ECS commands with a delay"
+category = "ECS (Entity Component System)"
+wasm = true
 
 [[example]]
 name = "states"

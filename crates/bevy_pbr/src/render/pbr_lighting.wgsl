@@ -6,7 +6,7 @@
     atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
     atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
 }
-#import bevy_render::maths::PI
+#import bevy_render::maths::{PI, orthonormalize}
 
 const LAYER_BASE: u32 = 0;
 const LAYER_CLEARCOAT: u32 = 1;
@@ -78,10 +78,13 @@ struct LightingInput {
     // The diffuse color of the material.
     diffuse_color: vec3<f32>,
 
+    // The 0-1 metallic factor of the material.
+    metallic: f32,
+
     // Specular reflectance at the normal incidence angle.
-    //
-    // This should be read F₀, but due to Naga limitations we can't name it that.
-    F0_: vec3<f32>,
+    F0_dielectric: vec3<f32>,
+    F0_metallic: vec3<f32>,
+    
     // Constants for the BRDF approximation.
     //
     // See `EnvBRDFApprox` in
@@ -263,10 +266,9 @@ fn sample_visible_ggx(
     let y = sin_theta * sin(phi);
     let c_std = vec3f(x, y, z);
 
-    // Reflect the sample so that the normal aligns with +Z
-    let up = vec3f(0.0, 0.0, 1.0);
-    let wr = n + up;
-    let c = dot(wr, c_std) * wr / wr.z - c_std;
+    // Rotate the sample so that the normal aligns with +Z
+    let TBN = orthonormalize(n);
+    let c = TBN * c_std;
 
     // Half-vector in the standard frame
     let wm_std = c + wi_std;
@@ -401,7 +403,7 @@ fn specular(
 ) -> vec3<f32> {
     // Unpack.
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
-    let F0 = (*input).F0_;
+    let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
     let NdotL = (*derived_input).NdotL;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
@@ -457,7 +459,7 @@ fn specular_anisotropy(
     // Unpack.
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let V = (*input).V;
-    let F0 = (*input).F0_;
+    let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
     let anisotropy = (*input).anisotropy;
     let Ta = (*input).Ta;
     let Ba = (*input).Ba;
@@ -525,7 +527,9 @@ fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
     let c1 = vec4<f32>(1.0, 0.0425, 1.04, -0.04);
     let r = perceptual_roughness * c0 + c1;
     let a004 = min(r.x * r.x, exp2(-9.28 * NdotV)) * r.x + r.y;
-    return vec2<f32>(-1.04, 1.04) * a004 + r.zw;
+    // Keep F_ab positive to avoid divide-by-zero in downstream BRDF terms.
+    let f_ab_epsilon = 0.00005;
+    return max(vec2<f32>(-1.04, 1.04) * a004 + r.zw, vec2<f32>(f_ab_epsilon));
 }
 
 fn EnvBRDFApprox(F0: vec3<f32>, F_ab: vec2<f32>) -> vec3<f32> {

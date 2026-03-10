@@ -8,7 +8,7 @@
 //! It's generally recommended to try the built-in instancing before going with this approach.
 
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
-use bevy::pbr::{SetMeshViewBindingArrayBindGroup, ViewKeyCache};
+use bevy::pbr::{MeshPipelineSet, SetMeshViewBindingArrayBindGroup, ViewKeyCache};
 use bevy::{
     camera::visibility::NoFrustumCulling,
     core_pipeline::core_3d::Transparent3d,
@@ -107,7 +107,7 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_systems(RenderStartup, init_custom_pipeline)
+            .add_systems(RenderStartup, init_custom_pipeline.after(MeshPipelineSet))
             .add_systems(
                 Render,
                 (
@@ -155,7 +155,7 @@ fn queue_custom(
             else {
                 continue;
             };
-            let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
             let key =
@@ -287,14 +287,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         else {
             return RenderCommandResult::Skip;
         };
-        let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id) else {
+        let Some(gpu_mesh) = meshes.into_inner().get(mesh_instance.mesh_asset_id()) else {
             return RenderCommandResult::Skip;
         };
         let Some(instance_buffer) = instance_buffer else {
             return RenderCommandResult::Skip;
         };
         let Some(vertex_buffer_slice) =
-            mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)
+            mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id())
         else {
             return RenderCommandResult::Skip;
         };
@@ -308,7 +308,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
                 count,
             } => {
                 let Some(index_buffer_slice) =
-                    mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)
+                    mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id())
                 else {
                     return RenderCommandResult::Skip;
                 };

@@ -15,7 +15,7 @@ use std::ops::Range;
 use bevy::camera::Viewport;
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy::math::Affine3Ext;
-use bevy::pbr::{SetMeshViewEmptyBindGroup, ViewKeyCache};
+use bevy::pbr::{MeshPipelineSet, SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
     core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
@@ -131,7 +131,7 @@ impl Plugin for MeshStencilPhasePlugin {
             .add_render_command::<Stencil3d, DrawMesh3dStencil>()
             .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
             .init_resource::<PendingCustomMeshQueues>()
-            .add_systems(RenderStartup, init_stencil_pipeline)
+            .add_systems(RenderStartup, init_stencil_pipeline.after(MeshPipelineSet))
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
                 Render,
@@ -349,13 +349,20 @@ impl GetBatchData for StencilPipeline {
         SRes<RenderAssets<RenderMesh>>,
         SRes<MeshAllocator>,
     );
-    type CompareData = AssetId<Mesh>;
+    // Placing `AssetId<Mesh>` in the batch set compare data prevents Bevy from
+    // trying to multi-draw items with different meshes together. This is fine
+    // for this simple example.
+    type BatchSetCompareData = AssetId<Mesh>;
+    type BatchCompareData = ();
     type BufferData = MeshUniform;
 
     fn get_batch_data(
         (mesh_instances, _render_assets, mesh_allocator): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
-    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+    ) -> Option<(
+        Self::BufferData,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
                 "`get_batch_data` should never be called in GPU mesh uniform \
@@ -365,7 +372,7 @@ impl GetBatchData for StencilPipeline {
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
         let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
@@ -384,7 +391,7 @@ impl GetBatchData for StencilPipeline {
                 current_skin_index: u32::MAX,
                 material_and_lightmap_bind_group_slot: 0,
                 tag: 0,
-                pad: 0,
+                morph_descriptor_index: u32::MAX,
             }
         };
         Some((mesh_uniform, None))
@@ -397,7 +404,10 @@ impl GetFullBatchData for StencilPipeline {
     fn get_index_and_compare_data(
         (mesh_instances, _, _): &SystemParamItem<Self::Param>,
         main_entity: MainEntity,
-    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
+    ) -> Option<(
+        NonMaxU32,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
@@ -408,10 +418,10 @@ impl GetFullBatchData for StencilPipeline {
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((
-            mesh_instance.current_uniform_index,
+            NonMaxU32::new(mesh_instance.gpu_specific.current_uniform_index())?,
             mesh_instance
                 .should_batch()
-                .then_some(mesh_instance.mesh_asset_id),
+                .then_some((mesh_instance.mesh_asset_id(), ())),
         ))
     }
 
@@ -427,7 +437,7 @@ impl GetFullBatchData for StencilPipeline {
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
         let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
@@ -435,7 +445,8 @@ impl GetFullBatchData for StencilPipeline {
         Some(MeshUniform::new(
             &mesh_instance.transforms,
             first_vertex_index,
-            mesh_instance.material_bindings_index.slot,
+            mesh_instance.material_bindings_index().slot,
+            None,
             None,
             None,
             None,
@@ -571,7 +582,7 @@ fn queue_custom_meshes(
                     .insert((*render_entity, *visible_entity));
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
                 continue;
             };
 
