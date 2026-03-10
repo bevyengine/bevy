@@ -242,9 +242,25 @@ pub fn prepare_windows(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
+    sorted_cameras: Res<crate::camera::SortedCameras>,
     #[cfg(target_os = "linux")] render_instance: Res<RenderInstance>,
 ) {
     for window in windows.windows.values_mut() {
+        // Skip acquiring a swap-chain texture for windows that no camera
+        // targets. This avoids a wasted clear pass in
+        // `handle_uncovered_swap_chains` that triggers a DMA-fence fd leak on
+        // Adreno 740 (Quest 3). The exception is windows that still need their
+        // initial present (required on Wayland).
+        let is_camera_target = sorted_cameras.0.iter().any(|c| {
+            matches!(
+                &c.target,
+                Some(bevy_camera::NormalizedRenderTarget::Window(w)) if w.entity() == window.entity
+            )
+        });
+        if !is_camera_target && !window.needs_initial_present {
+            continue;
+        }
+
         let window_surfaces = window_surfaces.deref_mut();
         let Some(surface_data) = window_surfaces.surfaces.get(&window.entity) else {
             continue;
