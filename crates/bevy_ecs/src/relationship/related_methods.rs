@@ -727,26 +727,14 @@ mod tests {
         let some_child = Some(&child_value);
 
         parent.replace_children(&[child2, child3]);
-        let children: Vec<_> = parent
-            .get::<Children>()
-            .unwrap()
-            .collection()
-            .iter()
-            .copied()
-            .collect();
+        let children = parent.get::<Children>().unwrap().to_vec();
         assert_eq!(children, [child2, child3]);
         assert_eq!(parent.world().get::<ChildOf>(child1), None);
         assert_eq!(parent.world().get::<ChildOf>(child2), some_child);
         assert_eq!(parent.world().get::<ChildOf>(child3), some_child);
 
         parent.replace_children_with_difference(&[child3], &[child1, child2], &[child1]);
-        let children: Vec<_> = parent
-            .get::<Children>()
-            .unwrap()
-            .collection()
-            .iter()
-            .copied()
-            .collect();
+        let children = parent.get::<Children>().unwrap().to_vec();
         assert_eq!(children, [child1, child2]);
         assert_eq!(parent.world().get::<ChildOf>(child1), some_child);
         assert_eq!(parent.world().get::<ChildOf>(child2), some_child);

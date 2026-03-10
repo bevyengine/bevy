@@ -233,6 +233,12 @@ impl Children {
     pub fn contains(&self, entity: &Entity) -> bool {
         self.0.contains(entity)
     }
+
+    /// Collects the children into a [`Vec`].
+    #[inline]
+    pub fn to_vec(&self) -> alloc::vec::Vec<Entity> {
+        self.0.iter().copied().collect()
+    }
 }
 
 impl<'a> IntoIterator for &'a Children {
@@ -532,7 +538,7 @@ mod tests {
         world
             .entity(entity)
             .get::<Children>()
-            .map(|c| c.into_iter().copied().collect::<Vec<_>>())
+            .map(|c| c.to_vec())
             .unwrap_or_default()
     }
 
