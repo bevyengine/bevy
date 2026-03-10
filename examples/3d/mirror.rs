@@ -16,7 +16,6 @@ use bevy::{
     },
     shader::ShaderRef,
     ui::Pressed,
-    ui_widgets::UiWidgetsPlugins,
     window::{PrimaryWindow, WindowResized},
 };
 
@@ -112,16 +111,13 @@ static FOX_ASSET_PATH: &str = "models/animated/Fox.glb";
 /// The app entry point.
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Bevy Mirror Example".into(),
-                    ..default()
-                }),
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Mirror Example".into(),
                 ..default()
             }),
-            UiWidgetsPlugins,
-        ))
+            ..default()
+        }))
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, ScreenSpaceTextureExtension>,
         >::default())

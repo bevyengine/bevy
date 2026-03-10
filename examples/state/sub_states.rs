@@ -12,7 +12,7 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui::Pressed,
-    ui_widgets::{Button, UiWidgetsPlugins},
+    ui_widgets::Button,
 };
 
 use ui::*;
@@ -40,7 +40,7 @@ enum IsPaused {
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
+        .add_plugins(DefaultPlugins)
         .init_state::<AppState>()
         .add_sub_state::<IsPaused>() // We set the substate up here.
         // Most of these remain the same

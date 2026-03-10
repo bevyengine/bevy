@@ -6,13 +6,13 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui::Pressed,
-    ui_widgets::{Button, UiWidgetsPlugins},
+    ui_widgets::Button,
 };
 use core::f32::consts::FRAC_PI_8;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, button_system)
         .add_systems(Update, translation_system)
@@ -30,6 +30,10 @@ pub struct RotateButton(pub Rot2);
 /// A button that scales the target node
 #[derive(Component)]
 pub struct ScaleButton(pub f32);
+
+#[derive(Component)]
+#[require(Button, Hovered)]
+struct HoverableButton;
 
 /// Marker component so the systems know which entities to translate, rotate and scale
 #[derive(Component)]
@@ -136,8 +140,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     GlobalZIndex(1),
                     children![
                         (
-                            Button,
-                            Hovered::default(),
+                            HoverableButton,
                             Node {
                                 height: px(50),
                                 width: px(50),
@@ -150,8 +153,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             children![(Text::new("<--"), TextColor(Color::BLACK),)]
                         ),
                         (
-                            Button,
-                            Hovered::default(),
+                            HoverableButton,
                             Node {
                                 height: px(50),
                                 width: px(50),
@@ -179,8 +181,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TargetNode,
                     children![
                         (
-                            Button,
-                            Hovered::default(),
+                            HoverableButton,
                             Node {
                                 width: px(80),
                                 height: px(80),
@@ -200,8 +201,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             },
                             children![
                                 (
-                                    Button,
-                                    Hovered::default(),
+                                    HoverableButton,
                                     Node {
                                         width: px(80),
                                         height: px(80),
@@ -228,8 +228,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     }
                                 ),
                                 (
-                                    Button,
-                                    Hovered::default(),
+                                    HoverableButton,
                                     Node {
                                         width: px(80),
                                         height: px(80),
@@ -246,8 +245,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ]
                         ),
                         (
-                            Button,
-                            Hovered::default(),
+                            HoverableButton,
                             Node {
                                 width: px(80),
                                 height: px(80),
@@ -275,8 +273,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     GlobalZIndex(1),
                     children![
                         (
-                            Button,
-                            Hovered::default(),
+                            HoverableButton,
                             Node {
                                 height: px(50),
                                 width: px(50),
@@ -289,8 +286,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             children![(Text::new("-->"), TextColor(Color::BLACK),)]
                         ),
                         (
-                            Button,
-                            Hovered::default(),
+                            HoverableButton,
                             Node {
                                 height: px(50),
                                 width: px(50),

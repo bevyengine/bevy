@@ -6,12 +6,12 @@ use bevy::{
     prelude::*,
     reflect::Is,
     ui::Pressed,
-    ui_widgets::{Button, UiWidgetsPlugins},
+    ui_widgets::Button,
 };
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_observer(update_outlines_on_interaction::<Add, Pressed>)
         .add_observer(update_outlines_on_interaction::<Remove, Pressed>)
@@ -106,10 +106,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn update_outlines_on_interaction<E: EntityEvent, C: Component>(
     event: On<E, C>,
-    mut outline_query: Query<
-        (&Hovered, Has<Pressed>, &mut Outline),
-        With<Button>
-    >,
+    mut outline_query: Query<(&Hovered, Has<Pressed>, &mut Outline), With<Button>>,
 ) {
     if let Ok((hovered, pressed, mut outline)) = outline_query.get_mut(event.event_target()) {
         let hovered = hovered.get();

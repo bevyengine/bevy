@@ -19,7 +19,7 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui::Pressed,
-    ui_widgets::{Button, UiWidgetsPlugins},
+    ui_widgets::Button,
 };
 
 use custom_transitions::*;
@@ -36,7 +36,6 @@ fn main() {
         // We insert the custom transitions plugin for `AppState`.
         .add_plugins((
             DefaultPlugins,
-            UiWidgetsPlugins,
             IdentityTransitionsPlugin::<AppState>::default(),
         ))
         .init_state::<AppState>()

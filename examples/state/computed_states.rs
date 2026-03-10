@@ -22,7 +22,7 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui::Pressed,
-    ui_widgets::{Button, UiWidgetsPlugins},
+    ui_widgets::Button,
 };
 use ui::*;
 
@@ -173,7 +173,7 @@ impl ComputedStates for Tutorial {
 fn main() {
     // We start the setup like we did in the states example.
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
+        .add_plugins(DefaultPlugins)
         .init_state::<AppState>()
         .init_state::<TutorialState>()
         // After initializing the normal states, we'll use `.add_computed_state::<CS>()` to initialize our `ComputedStates`
@@ -315,7 +315,7 @@ mod ui {
         picking::hover::Hovered,
         prelude::*,
         ui::Pressed,
-        ui_widgets::{Button, UiWidgetsPlugins},
+        ui_widgets::Button,
     };
 
     #[derive(Resource)]

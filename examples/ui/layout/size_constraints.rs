@@ -5,12 +5,12 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui::Pressed,
-    ui_widgets::{Button, UiWidgetsPlugins},
+    ui_widgets::Button,
 };
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
+        .add_plugins(DefaultPlugins)
         .add_message::<ButtonActivated>()
         .add_systems(Startup, setup)
         .add_systems(Update, (update_buttons, update_radio_buttons_colors))

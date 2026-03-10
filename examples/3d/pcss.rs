@@ -139,7 +139,7 @@ fn main() {
                 handle_light_type_change,
                 handle_shadow_filter_change,
                 handle_pcss_toggle,
-            )
+            ),
         )
         .add_observer(widgets::handle_ui_button_interaction_on_click::<AppSetting>)
         .run();

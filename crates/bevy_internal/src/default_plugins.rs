@@ -66,6 +66,8 @@ plugin_group! {
         bevy_ui:::UiPlugin,
         #[cfg(feature = "bevy_ui_render")]
         bevy_ui_render:::UiRenderPlugin,
+        #[cfg(feature = "bevy_ui_widgets")]
+        bevy_ui_widgets:::UiWidgetsButtonPlugin,
         #[cfg(feature = "bevy_gltf")]
         bevy_gltf:::GltfPlugin,
         #[cfg(feature = "bevy_pbr")]

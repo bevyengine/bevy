@@ -10,7 +10,7 @@ use bevy::{
     },
     prelude::*,
     ui::{Pressed, RelativeCursorPosition},
-    ui_widgets::{Button, UiWidgetsPlugins},
+    ui_widgets::Button,
 };
 
 use argh::FromArgs;
@@ -75,16 +75,13 @@ fn main() {
     let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Bevy Animation Graph Example".into(),
-                    ..default()
-                }),
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Animation Graph Example".into(),
                 ..default()
             }),
-            UiWidgetsPlugins,
-        ))
+            ..default()
+        }))
         .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
         .add_systems(Update, init_animations)
         .add_systems(

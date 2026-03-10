@@ -7,12 +7,12 @@ use bevy::{
     prelude::*,
     reflect::Is,
     ui::{widget::NodeImageMode, Pressed},
-    ui_widgets::{Button, UiWidgetsPlugins},
+    ui_widgets::Button,
 };
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_observer(button_on_interaction::<Add, Pressed>)
         .add_observer(button_on_interaction::<Remove, Pressed>)

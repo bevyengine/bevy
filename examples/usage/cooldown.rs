@@ -149,7 +149,8 @@ fn activate_ability(
         **text = format!(
             "You can eat {name} again in {} seconds.",
             cooldown.0.remaining_secs().ceil()
-        ).into();
+        )
+        .into();
     }
 }
 

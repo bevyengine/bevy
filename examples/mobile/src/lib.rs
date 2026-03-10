@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     reflect::Is,
     ui::Pressed,
-    ui_widgets::{Button, UiWidgetsPlugins},
+    ui_widgets::Button,
     window::{AppLifecycle, ScreenEdge, WindowMode},
     winit::WinitSettings,
 };
@@ -19,7 +19,7 @@ use bevy::{
 /// `main.rs`.
 pub fn main() {
     let mut app = App::new();
-    app.add_plugins((
+    app.add_plugins(
         DefaultPlugins
             .set(LogPlugin {
                 // This will show some log events from Bevy to the native logger.
@@ -44,8 +44,7 @@ pub fn main() {
                 }),
                 ..default()
             }),
-        UiWidgetsPlugins,
-    ))
+    )
     // Make the winit loop wait more aggressively when no user input is received
     // This can help reduce cpu usage on mobile devices
     .insert_resource(WinitSettings::mobile())

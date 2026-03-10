@@ -10,12 +10,12 @@ use bevy::{
     prelude::*,
     reflect::Is,
     ui::Pressed,
-    ui_widgets::{Button, UiWidgetsPlugins},
+    ui_widgets::Button,
 };
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, UiWidgetsPlugins, TabNavigationPlugin))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, focus_system)
         .add_observer(button_on_interaction::<Add, Pressed>)

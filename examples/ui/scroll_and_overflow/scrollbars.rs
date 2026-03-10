@@ -12,11 +12,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            ScrollbarPlugin,
-            TabNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, ScrollbarPlugin, TabNavigationPlugin))
         .insert_resource(UiScale(1.25))
         .add_systems(Startup, setup_view_root)
         .add_systems(Update, update_scrollbar_thumb)
