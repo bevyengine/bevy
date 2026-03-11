@@ -142,9 +142,8 @@ impl<'w, 's> UiChildren<'w, 's> {
             .get(entity)
             .ok()
             .flatten()
-            .map(|children| children.as_ref())
-            .unwrap_or(&[])
-            .iter()
+            .into_iter()
+            .flat_map(|children| children.into_iter())
             .copied()
     }
 

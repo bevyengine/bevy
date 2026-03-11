@@ -1468,8 +1468,8 @@ mod tests {
         world::{DeferredWorld, FromWorld, World},
     };
     use bevy_ptr::OwningPtr;
+    use core::alloc::Layout;
     use core::marker::PhantomData;
-    use core::{alloc::Layout, ops::Deref};
 
     #[cfg(feature = "bevy_reflect")]
     mod reflect {
@@ -2152,13 +2152,7 @@ mod tests {
             .linked_cloning(true)
             .clone_entity(root, clone_root);
 
-        let root_children = world
-            .entity(clone_root)
-            .get::<Children>()
-            .unwrap()
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
+        let root_children = world.entity(clone_root).get::<Children>().unwrap().to_vec();
 
         assert!(root_children.iter().all(|e| *e != child1 && *e != child2));
         assert_eq!(root_children.len(), 2);
@@ -2179,7 +2173,7 @@ mod tests {
         );
 
         assert_eq!(
-            world.entity(root).get::<Children>().unwrap().deref(),
+            world.entity(root).get::<Children>().unwrap().to_vec(),
             &[child1, child2]
         );
     }

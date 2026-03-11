@@ -511,7 +511,7 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn add(&mut self, entity: Entity) -> bool {
-        self.insert(entity)
+        self.0.insert(entity)
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
@@ -536,6 +536,59 @@ impl RelationshipSourceCollection for EntityIndexSet {
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         self.extend(entities);
+    }
+}
+
+impl OrderedRelationshipSourceCollection for EntityIndexSet {
+    fn insert(&mut self, index: usize, entity: Entity) {
+        // Add to end, then move to position
+        self.0.insert(entity);
+        let len = self.0.len();
+        if index < len {
+            self.0.swap_indices(len - 1, index);
+        }
+    }
+
+    fn remove_at(&mut self, index: usize) -> Option<Entity> {
+        (index < self.0.len()).then(|| self.0.swap_remove_index(index).unwrap())
+    }
+
+    fn insert_stable(&mut self, index: usize, entity: Entity) {
+        if index < self.0.len() {
+            // Insert at end then shift into position
+            self.0.insert(entity);
+            let last = self.0.len() - 1;
+            self.0.move_index(last, index);
+        } else {
+            self.0.insert(entity);
+        }
+    }
+
+    fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
+        (index < self.0.len()).then(|| self.0.shift_remove_index(index).unwrap())
+    }
+
+    fn sort(&mut self) {
+        self.0.sort_unstable();
+    }
+
+    fn insert_sorted(&mut self, entity: Entity) {
+        self.0.insert(entity);
+        self.0.sort_unstable();
+    }
+
+    fn place_most_recent(&mut self, index: usize) {
+        if !self.0.is_empty() {
+            let last = self.0.len() - 1;
+            self.0.move_index(last, index.min(last));
+        }
+    }
+
+    fn place(&mut self, entity: Entity, index: usize) {
+        if let Some(current) = self.0.get_index_of(&entity) {
+            let target = index.min(self.0.len() - 1);
+            self.0.move_index(current, target);
+        }
     }
 }
 
