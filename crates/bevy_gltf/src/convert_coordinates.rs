@@ -5,7 +5,7 @@ use core::fmt::Debug;
 use gltf::Node;
 use serde::{Deserialize, Serialize};
 
-use bevy_math::{bounding::Aabb3d, vec3, Mat4, Quat, Vec3, Vec4};
+use bevy_math::{bounding::Aabb3d, vec3, Dir3, Mat4, Quat, Vec3, Vec4};
 use bevy_transform::components::Transform;
 use thiserror::Error;
 
@@ -270,10 +270,16 @@ impl Axis {
 
 impl From<Axis> for Vec3 {
     fn from(value: Axis) -> Self {
+        Dir3::from(value).into()
+    }
+}
+
+impl From<Axis> for Dir3 {
+    fn from(value: Axis) -> Self {
         match value {
-            Axis::X => vec3(1.0, 0.0, 0.0),
-            Axis::Y => vec3(0.0, 1.0, 0.0),
-            Axis::Z => vec3(0.0, 0.0, 1.0),
+            Axis::X => Dir3::X,
+            Axis::Y => Dir3::Y,
+            Axis::Z => Dir3::Z,
         }
     }
 }
@@ -364,9 +370,15 @@ impl Debug for SignedAxis {
 
 impl From<SignedAxis> for Vec3 {
     fn from(value: SignedAxis) -> Self {
+        Dir3::from(value).into()
+    }
+}
+
+impl From<SignedAxis> for Dir3 {
+    fn from(value: SignedAxis) -> Self {
         match value.sign {
-            Sign::Positive => Vec3::from(value.axis),
-            Sign::Negative => -Vec3::from(value.axis),
+            Sign::Positive => Dir3::from(value.axis),
+            Sign::Negative => -Dir3::from(value.axis),
         }
     }
 }
@@ -849,12 +861,28 @@ mod tests {
         );
     }
 
-    // Test that our named semantics are valid.
+    // Test that our named semantics are valid. Also test that the Bevy
+    // semantics match `Transform`.
     #[test]
     fn named_semantics() {
         assert_eq!(
             ValidSemantics::BEVY,
             ValidSemantics::try_from(Semantics::BEVY).unwrap()
+        );
+
+        assert_eq!(
+            Dir3::from(ValidSemantics::BEVY.forward()),
+            Transform::IDENTITY.forward()
+        );
+
+        assert_eq!(
+            Dir3::from(ValidSemantics::BEVY.up()),
+            Transform::IDENTITY.up()
+        );
+
+        assert_eq!(
+            Dir3::from(ValidSemantics::BEVY.right()),
+            Transform::IDENTITY.right()
         );
 
         assert_eq!(
