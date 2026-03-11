@@ -610,7 +610,7 @@ pub enum EaseFunction {
     /// `f(t) ≈ 1.0 - 2.0^(-10.0 * t)`
     ///
     /// As with `EaseFunction::ExponentialIn`, the precise definition adjusts it slightly
-    // so it hits both `(0, 0)` and `(1, 1)`.
+    /// so it hits both `(0, 0)` and `(1, 1)`.
     ///
     #[doc = include_str!("../../images/easefunction/ExponentialOut.svg")]
     ExponentialOut,
