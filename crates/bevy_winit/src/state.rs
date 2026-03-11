@@ -576,7 +576,7 @@ impl WinitAppRunnerState {
                                 SystemState::<CreateWindowParams>::from_world(self.world_mut());
 
                             let (.., mut handlers, accessibility_requested, monitors) =
-                                create_window.get_mut(self.world_mut());
+                                create_window.get_mut(self.world_mut()).unwrap();
 
                             let winit_window = winit_windows.create_window(
                                 event_loop,
