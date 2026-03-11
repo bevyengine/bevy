@@ -24,10 +24,7 @@ use crate::{
         BoxedCondition, InternedSystemSet, ScheduleGraph,
     },
     storage::SparseSetIndex,
-    system::{
-        ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemParamValidationError,
-        SystemStateFlags,
-    },
+    system::{ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -99,15 +96,6 @@ impl System for SystemWithAccess {
     #[inline]
     fn queue_deferred(&mut self, world: DeferredWorld) {
         self.system.queue_deferred(world);
-    }
-
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Caller ensures the same safety requirements.
-        unsafe { self.system.validate_param_unsafe(world) }
     }
 
     #[inline]
@@ -199,15 +187,6 @@ impl System for ConditionWithAccess {
     #[inline]
     fn queue_deferred(&mut self, world: DeferredWorld) {
         self.condition.queue_deferred(world);
-    }
-
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Caller ensures the same safety requirements.
-        unsafe { self.condition.validate_param_unsafe(world) }
     }
 
     #[inline]
