@@ -23,7 +23,9 @@ use bevy_ui::{
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
     PositionType, UiRect, Val,
 };
-use bevy_ui_widgets::{Slider, SliderOrientation, SliderPrecision, SliderRange, SliderValue, TrackClick};
+use bevy_ui_widgets::{
+    Slider, SliderOrientation, SliderPrecision, SliderRange, SliderValue, TrackClick,
+};
 
 use crate::{
     constants::{fonts, size},
