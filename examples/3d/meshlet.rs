@@ -121,7 +121,7 @@ struct BunnyWiggler;
 
 fn bunny_wiggler(mut bunny: Query<&mut Transform, With<BunnyWiggler>>, time: Res<Time>) {
     bunny.single_mut().as_deref_mut().unwrap().translation.z +=
-        (time.elapsed_secs() * 10.0).cos() * 0.003;
+        bevy::math::ops::cos(time.elapsed_secs() * 10.0) * 0.003;
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Default)]
