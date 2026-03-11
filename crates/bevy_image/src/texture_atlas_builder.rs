@@ -43,7 +43,7 @@ pub struct TextureAtlasBuilder<'a> {
     auto_format_conversion: bool,
     /// The amount of padding in pixels to add along the right and bottom edges of the texture rects.
     padding: UVec2,
-    /// The padding along the left and top edges of the TextureAtlas
+    /// The padding along the left and top edges of the `TextureAtlas`
     initial_padding: UVec2,
 }
 
@@ -105,15 +105,15 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///
     /// The `x` value provide will be added to the right edge, while the `y` value will be added to the bottom edge.
     ///
-    /// calling this function will also set the initial padding (on the top and left edge).
-    /// call [`initial_padding`] to set that value only
+    /// calling this function will also set the initial padding (`x` for the left edge and `y` for the top).
+    /// call [`initial_padding`](TextureAtlasBuilder::initial_padding) to set the left and top padding values only
     pub fn padding(&mut self, padding: UVec2) -> &mut Self {
         self.padding = padding;
         self.initial_padding = padding;
         self
     }
 
-    /// Sets the amount of padding in pixels to add on the top and left edge of the texture atlas.
+    /// Sets the amount of padding in pixels to add on the left and top edge of the texture atlas.
     ///
     /// The `x` value provide will be added to the left edge, while the `y` value will be added to the top edge.
     pub fn initial_padding(&mut self, padding: UVec2) -> &mut Self {
