@@ -495,7 +495,7 @@ pub enum EaseFunction {
     ///
     #[doc = include_str!("../../images/easefunction/QuarticIn.svg")]
     QuarticIn,
-    /// `f(t) = (t - 1.0)³ * (1.0 - t) + 1.0`
+    /// `f(t) = 1.0 - (1.0 - t)⁴`
     ///
     #[doc = include_str!("../../images/easefunction/QuarticOut.svg")]
     QuarticOut,
