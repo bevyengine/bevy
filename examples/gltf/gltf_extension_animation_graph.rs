@@ -163,7 +163,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
         &mut self,
         load_context: &mut LoadContext<'_>,
         gltf_animation: &gltf::Animation,
-        handle: Handle<AnimationClip>,
+        animation_clip: &mut AnimationClip,
     ) {
         if gltf_animation.name().is_some_and(|v| v == "Run") {
             let hip_node = ["root", "_rootJoint", "b_Root_00", "b_Hip_01"];
@@ -205,29 +205,26 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
                 ]
                 .iter(),
             );
-            let running_animation = load_context.get_mut_asset_by_handle(&handle).unwrap();
-            running_animation.add_event_to_target(
+            animation_clip.add_event_to_target(
                 AnimationTargetId::from_iter(front_left_foot),
                 0.625,
                 Step,
             );
-            running_animation.add_event_to_target(
+            animation_clip.add_event_to_target(
                 AnimationTargetId::from_iter(front_right_foot),
                 0.5,
                 Step,
             );
-            running_animation.add_event_to_target(
+            animation_clip.add_event_to_target(
                 AnimationTargetId::from_iter(back_left_foot),
                 0.0,
                 Step,
             );
-            running_animation.add_event_to_target(
+            animation_clip.add_event_to_target(
                 AnimationTargetId::from_iter(back_right_foot),
                 0.125,
                 Step,
             );
-
-            self.clip = Some(handle.clone());
         }
     }
     #[cfg(feature = "bevy_animation")]
@@ -235,10 +232,14 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
         &mut self,
         _load_context: &mut LoadContext<'_>,
         _animations: &[Handle<AnimationClip>],
-        _named_animations: &HashMap<Box<str>, Handle<AnimationClip>>,
+        named_animations: &HashMap<Box<str>, Handle<AnimationClip>>,
         animation_roots: &HashSet<usize>,
     ) {
         self.animation_root_indices = animation_roots.clone();
+
+        if let Some(handle) = named_animations.get("Run") {
+            self.clip = Some(handle.clone());
+        }
     }
 
     fn on_gltf_node(

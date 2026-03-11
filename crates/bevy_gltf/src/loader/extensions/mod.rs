@@ -81,7 +81,7 @@ pub trait GltfExtensionHandler: Send + Sync {
         &mut self,
         load_context: &mut LoadContext<'_>,
         gltf_animation: &gltf::Animation,
-        handle: Handle<AnimationClip>,
+        animation_clip: &mut AnimationClip,
     ) {
     }
 
