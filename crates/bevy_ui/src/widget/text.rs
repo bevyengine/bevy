@@ -12,7 +12,7 @@ use bevy_ecs::{
     query::With,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},
-    world::Ref,
+    world::{Mut, Ref},
 };
 use bevy_image::prelude::*;
 use bevy_log::warn_once;
@@ -403,17 +403,13 @@ pub fn measure_editable_text_system(
             continue;
         }
 
-        // TODO: detect if sizes change, then set text_flags.needs_measure_fn and continue
         let logical_viewport_size = computed_target.logical_size();
 
-        let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);
+        if check_style_and_cursor(&mut text, logical_viewport_size, &text_font, &rem_size) {
+            text_flags.needs_measure_fn = true;
 
-        let editor = text.editor_mut();
-        let styles = editor.edit_styles();
-
-        styles.insert(parley::StyleProperty::FontSize(font_size * 1.42));
-
-        text.cursor_width = font_size * 0.28;
+            continue;
+        }
 
         let t = text.value().to_string();
         let text_spans = EditableTextAsSpan::new(entity, &t, &text_font, *text_color, *line_height);
@@ -460,6 +456,54 @@ pub fn measure_editable_text_system(
             }
         };
     }
+}
+
+fn check_style_and_cursor(
+    text: &mut Mut<EditableText>,
+    logical_viewport_size: Vec2,
+    text_font: &Ref<TextFont>,
+    rem_size: &Res<RemSize>,
+) -> bool {
+    // TODO: these factors don't have any science to them
+    const CURSOR_SCALE: f32 = 0.28;
+    const STYLE_SCALE: f32 = 1.52;
+
+    let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);
+
+    let editor = text.editor_mut();
+    let styles = editor.edit_styles();
+
+    let target_font_size_style = parley::StyleProperty::FontSize(font_size * STYLE_SCALE);
+
+    let dis = core::mem::discriminant(&target_font_size_style);
+
+    let maybe_current_font_size = styles.inner().get(&dis);
+
+    let mut font_changes_required = false;
+
+    if let Some(current_font_size) = maybe_current_font_size {
+        if let parley::StyleProperty::FontSize(x) = current_font_size {
+            if (x - font_size * STYLE_SCALE).abs() > 1e-5 {
+                styles.insert(target_font_size_style);
+
+                font_changes_required = true;
+            }
+        }
+
+        if (text.cursor_width - font_size * CURSOR_SCALE).abs() > 1e-5 {
+            text.cursor_width = font_size * CURSOR_SCALE;
+
+            font_changes_required = true;
+        }
+    } else {
+        styles.insert(target_font_size_style);
+
+        text.cursor_width = font_size * CURSOR_SCALE;
+
+        font_changes_required = true;
+    }
+
+    font_changes_required
 }
 
 /// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
