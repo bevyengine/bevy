@@ -100,7 +100,7 @@ where
 /// # let mut app = AppMock;
 ///
 /// app.init_state::<GameState>();
-/// app.add_systems(OnEnter(GameState::InGame), spawn_player);
+/// app.add_systems(OnEnter(GameState::Level(2)), spawn_player);
 /// ```
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
@@ -207,7 +207,9 @@ impl<S: States + Default> Default for DespawnOnEnter<S> {
 /// enum GameState {
 ///     #[default]
 ///     MainMenu,
+///     GameOver,
 ///     SettingsMenu,
+///     InGame,
 ///     Level(u8),
 /// }
 ///
@@ -216,7 +218,9 @@ impl<S: States + Default> Default for DespawnOnEnter<S> {
 ///
 /// fn spawn_player(mut commands: Commands) {
 ///     commands.spawn((
-///         DespawnOnEnterWith(|entered_state| matches!(entered_state, GameState::Level(2))),
+///         DespawnOnEnterWith(|entered_state| {
+///             matches!(entered_state, GameState::MainMenu | GameState::GameOver)
+///         }),
 ///         Player
 ///     ));
 /// }
