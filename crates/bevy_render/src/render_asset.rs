@@ -262,7 +262,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
 ) {
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
-            let (mut events, mut assets, maybe_render_assets) = cached_state.state.get_mut(world);
+            let (mut events, mut assets, maybe_render_assets) = cached_state.state.get_mut(world).unwrap();
 
             let mut needs_extracting = <HashSet<_>>::default();
             let mut removed = <HashSet<_>>::default();
