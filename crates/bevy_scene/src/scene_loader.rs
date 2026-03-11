@@ -56,13 +56,14 @@ impl AssetLoader for SceneLoader {
         &self,
         reader: &mut dyn Reader,
         _settings: &(),
-        _load_context: &mut LoadContext<'_>,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
         let scene_deserializer = SceneDeserializer {
             type_registry: &self.type_registry.read(),
+            load_from_path: load_context,
         };
         Ok(scene_deserializer
             .deserialize(&mut deserializer)
