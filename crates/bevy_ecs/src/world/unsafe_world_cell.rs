@@ -132,7 +132,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// everything mutably
     /// # Safety
     /// - `world` must be a pointer within the lifetime of the original `&mut World` it was obtained
-    /// from.
+    ///     from.
     #[inline]
     pub unsafe fn new_mutable_from_ptr(world: *mut World) -> Self {
         Self {
@@ -147,7 +147,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// everything immutably
     /// # Safety
     /// - `world` must be a pointer within the lifetime of the original `&World` it was obtained
-    /// from.
+    ///     from.
     #[inline]
     pub unsafe fn new_readonly_from_ptr(world: *const World) -> Self {
         Self {
