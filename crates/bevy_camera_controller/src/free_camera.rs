@@ -21,6 +21,7 @@ use bevy_input::keyboard::KeyCode;
 use bevy_input::mouse::{
     AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseScrollUnit,
 };
+use bevy_input::touch::Touches;
 use bevy_input::ButtonInput;
 use bevy_log::info;
 use bevy_math::{ops::exp, EulerRot, Quat, StableInterpolate, Vec2, Vec3};
@@ -214,6 +215,7 @@ pub fn run_freecamera_controller(
     mut windows: Query<(&Window, &mut CursorOptions)>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
+    touch_input: Res<Touches>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
@@ -348,5 +350,15 @@ pub fn run_freecamera_controller(
             .clamp(-PI / 2., PI / 2.);
         state.yaw -= accumulated_mouse_motion.delta.x * RADIANS_PER_DOT * config.sensitivity;
         transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, state.yaw, state.pitch);
+    }
+
+    // Handle touch input
+    for touch in touch_input.iter() {
+        if touch.delta() != Vec2::ZERO {
+            state.pitch = (state.pitch - touch.delta().y * RADIANS_PER_DOT * config.sensitivity)
+                .clamp(-PI / 2., PI / 2.);
+            state.yaw -= touch.delta().x * RADIANS_PER_DOT * config.sensitivity;
+            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, state.yaw, state.pitch);
+        }
     }
 }
