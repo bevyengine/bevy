@@ -26,7 +26,6 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::TemporaryRenderEntity,
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
@@ -418,7 +417,7 @@ pub fn extract_gradients(
                             node_type,
                         },
                         main_entity: entity.into(),
-                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        render_entity: commands.spawn(TemporarySubEntity).id(),
                     });
                     continue;
                 }
@@ -442,7 +441,7 @@ pub fn extract_gradients(
                         );
 
                         extracted_gradients.items.push(ExtractedGradient {
-                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            render_entity: commands.spawn(TemporarySubEntity).id(),
                             stack_index: uinode.stack_index,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
@@ -492,7 +491,7 @@ pub fn extract_gradients(
                         );
 
                         extracted_gradients.items.push(ExtractedGradient {
-                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            render_entity: commands.spawn(TemporarySubEntity).id(),
                             stack_index: uinode.stack_index,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
@@ -548,7 +547,7 @@ pub fn extract_gradients(
                         );
 
                         extracted_gradients.items.push(ExtractedGradient {
-                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            render_entity: commands.spawn(TemporarySubEntity).id(),
                             stack_index: uinode.stack_index,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),

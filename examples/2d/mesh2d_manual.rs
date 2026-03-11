@@ -29,7 +29,7 @@ use bevy::{
         sync_component::{SyncComponent, SyncComponentPlugin},
         sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
-        Extract, Render, RenderApp, RenderStartup, RenderSystems,
+        Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
     },
     sprite_render::{
         extract_mesh2d, init_mesh_2d_pipeline, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline,
@@ -125,7 +125,7 @@ fn star(
 #[derive(Component, Default)]
 pub struct ColoredMesh2d;
 
-impl SyncComponent for ColoredMesh2d {
+impl SyncComponent<RenderApp> for ColoredMesh2d {
     type Out = Self;
 }
 

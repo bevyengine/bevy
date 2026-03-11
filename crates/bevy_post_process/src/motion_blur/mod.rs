@@ -115,11 +115,11 @@ impl Default for MotionBlur {
     }
 }
 
-impl SyncComponent for MotionBlur {
+impl SyncComponent<RenderApp> for MotionBlur {
     type Out = MotionBlurUniform;
 }
 
-impl ExtractComponent for MotionBlur {
+impl ExtractComponent<RenderApp> for MotionBlur {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
 

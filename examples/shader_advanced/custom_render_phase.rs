@@ -57,7 +57,8 @@ use bevy::{
         renderer::{RenderContext, ViewQuery},
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
-        Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+        Extract, ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup,
+        RenderSystems,
     },
 };
 use indexmap::IndexMap;

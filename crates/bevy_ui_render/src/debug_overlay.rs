@@ -21,7 +21,7 @@ use bevy_math::Affine2;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
-use bevy_render::sync_world::TemporaryRenderEntity;
+use bevy_render::sync_world::TemporarySubEntity;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_ui::ui_transform::UiGlobalTransform;
@@ -215,7 +215,7 @@ pub fn extract_debug_overlay(
             }
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporarySubEntity).id(),
                 // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
                 z_order,
                 clip: maybe_clip

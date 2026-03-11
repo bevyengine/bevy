@@ -10,7 +10,8 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::ExtractComponent, render_resource::ShaderType, sync_component::SyncComponent,
+    extract_component::ExtractComponent, render_resource::ShaderType,
+    sync_component::SyncComponent, RenderApp,
 };
 
 /// The raw RGBA data for the default chromatic aberration gradient.
@@ -85,11 +86,11 @@ impl Default for ChromaticAberration {
     }
 }
 
-impl SyncComponent for ChromaticAberration {
+impl SyncComponent<RenderApp> for ChromaticAberration {
     type Out = Self;
 }
 
-impl ExtractComponent for ChromaticAberration {
+impl ExtractComponent<RenderApp> for ChromaticAberration {
     type QueryData = Read<ChromaticAberration>;
     type QueryFilter = With<Camera>;
 

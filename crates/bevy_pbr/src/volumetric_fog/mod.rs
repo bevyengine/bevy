@@ -107,6 +107,6 @@ impl Plugin for VolumetricFogPlugin {
     }
 }
 
-impl SyncComponent<VolumetricFogPlugin> for FogVolume {
+impl SyncComponent<RenderApp, VolumetricFogPlugin> for FogVolume {
     type Out = Self;
 }

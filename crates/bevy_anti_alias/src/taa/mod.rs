@@ -133,7 +133,7 @@ impl Default for TemporalAntiAliasing {
     }
 }
 
-impl SyncComponent for TemporalAntiAliasing {
+impl SyncComponent<RenderApp> for TemporalAntiAliasing {
     type Out = Self;
 }
 

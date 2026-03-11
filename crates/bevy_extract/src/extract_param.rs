@@ -23,7 +23,9 @@ use core::ops::{Deref, DerefMut};
 /// ## Context
 ///
 /// [`ExtractSchedule`] is used to extract (move) data from the simulation world ([`MainWorld`]) to the
-/// render world. The render world drives rendering each frame (generally to a `Window`).
+/// sub world.
+///
+/// In case of rendering, the sub world drives rendering each frame (generally to a [`Window`]).
 /// This design is used to allow performing calculations related to rendering a prior frame at the same
 /// time as the next frame is simulated, which increases throughput (FPS).
 ///
@@ -32,13 +34,16 @@ use core::ops::{Deref, DerefMut};
 /// ## Examples
 ///
 /// ```
+/// use bevy_app::AppLabel;
 /// use bevy_ecs::prelude::*;
-/// use bevy_render::Extract;
-/// use bevy_render::sync_world::RenderEntity;
+/// use bevy_extract::Extract;
+/// use bevy_extract::sync_world::SubEntity;
+/// # #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+/// # struct ExtractApp;
 /// # #[derive(Component)]
 /// // Do make sure to sync the cloud entities before extracting them.
 /// # struct Cloud;
-/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<RenderEntity, With<Cloud>>>) {
+/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<SubEntity<ExtractApp>, With<Cloud>>>) {
 ///     for cloud in &clouds {
 ///         commands.entity(cloud).insert(Cloud);
 ///     }
@@ -46,7 +51,7 @@ use core::ops::{Deref, DerefMut};
 /// ```
 ///
 /// [`ExtractSchedule`]: crate::ExtractSchedule
-/// [Window]: bevy_window::Window
+/// [`Window`]: https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html
 pub struct Extract<'w, 's, P>
 where
     P: ReadOnlySystemParam + 'static,

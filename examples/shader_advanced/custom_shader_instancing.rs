@@ -86,11 +86,11 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 #[derive(Component, Deref)]
 struct InstanceMaterialData(Vec<InstanceData>);
 
-impl SyncComponent for InstanceMaterialData {
+impl SyncComponent<RenderApp> for InstanceMaterialData {
     type Out = Self;
 }
 
-impl ExtractComponent for InstanceMaterialData {
+impl ExtractComponent<RenderApp> for InstanceMaterialData {
     type QueryData = &'static InstanceMaterialData;
     type QueryFilter = ();
 

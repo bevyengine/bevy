@@ -39,3 +39,27 @@ impl ExtractComponent for MyComponent {
     }
 }
 ```
+
+All above has moved to new crate `bevy_extract`.
+
+`ExtractPlugin` is now generic on `AppLabel`
+
+Currently a component can only be extracted to a single world.
+
+Most extraction parts are re-exported by `bevy_render` , but the following migrations are needed:
+
+- When using traits, specify the `AppLabel`, e.g. `SyncComponent`, `ExtractComponent`
+
+Before:
+
+```rust,ignore
+impl SyncComponent for TemporalAntiAliasing {
+```
+
+After:
+
+```rust,ignore
+impl SyncComponent<RenderApp> for TemporalAntiAliasing {
+```
+
+- Use `TemporarySubEntity` instead of `TemporaryRenderEntity`

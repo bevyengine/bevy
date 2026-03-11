@@ -1,12 +1,12 @@
 //! Convenience logic for turning components from the main world into extracted
-//! instances in the render world.
+//! instances in the sub world.
 //!
 //! This is essentially the same as the `extract_component` module, but
 //! higher-performance because it avoids the ECS overhead.
 
 use core::marker::PhantomData;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -17,16 +17,15 @@ use bevy_ecs::{
 };
 
 use crate::sync_world::MainEntityHashMap;
-use crate::{Extract, ExtractSchedule, RenderApp};
+use crate::{Extract, ExtractSchedule};
 
-/// Describes how to extract data needed for rendering from a component or
-/// components.
+/// Describes how to extract data needed from a component or components.
 ///
-/// Before rendering, any applicable components will be transferred from the
-/// main world to the render world in the [`ExtractSchedule`] step.
+/// Before this, any applicable components will be transferred from the
+/// main world to the sub world in the [`ExtractSchedule`] step.
 ///
 /// This is essentially the same as
-/// [`ExtractComponent`](crate::extract_component::ExtractComponent), but
+/// [`ExtractBaseComponent`](crate::extract_base_component::ExtractBaseComponent), but
 /// higher-performance because it avoids the ECS overhead.
 pub trait ExtractInstance: Send + Sync + Sized + 'static {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
@@ -34,25 +33,28 @@ pub trait ExtractInstance: Send + Sync + Sized + 'static {
     /// Filters the entities with additional constraints.
     type QueryFilter: QueryFilter;
 
-    /// Defines how the component is transferred into the "render world".
+    /// Defines how the component is transferred into the "sub world".
     fn extract(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self>;
 }
 
-/// This plugin extracts one or more components into the "render world" as
+/// This plugin extracts one or more components into the "sub world" as
 /// extracted instances.
 ///
 /// Therefore it sets up the [`ExtractSchedule`] step for the specified
 /// [`ExtractedInstances`].
-#[derive(Default)]
-pub struct ExtractInstancesPlugin<EI>
+pub struct ExtractInstancesPlugin<L, EI>
 where
+    L: AppLabel + Default,
     EI: ExtractInstance,
 {
     only_extract_visible: bool,
-    marker: PhantomData<fn() -> EI>,
+    marker: PhantomData<fn() -> (L, EI)>,
+
+    /// The [`AppLabel`] of the [`SubApp`](bevy_app::SubApp) to set up with extraction.
+    pub app_label: InternedAppLabel,
 }
 
-/// Stores all extract instances of a type in the render world.
+/// Stores all extract instances of a type in the sub world.
 #[derive(Resource, Deref, DerefMut)]
 pub struct ExtractedInstances<EI>(MainEntityHashMap<EI>)
 where
@@ -67,40 +69,58 @@ where
     }
 }
 
-impl<EI> ExtractInstancesPlugin<EI>
+impl<L, EI> Default for ExtractInstancesPlugin<L, EI>
 where
+    L: AppLabel + Default,
     EI: ExtractInstance,
 {
     /// Creates a new [`ExtractInstancesPlugin`] that unconditionally extracts to
-    /// the render world, whether the entity is visible or not.
-    pub fn new() -> Self {
+    /// the sub world, whether the entity is visible or not.
+    fn default() -> Self {
         Self {
             only_extract_visible: false,
             marker: PhantomData,
-        }
-    }
-
-    /// Creates a new [`ExtractInstancesPlugin`] that extracts to the render world
-    /// if and only if the entity it's attached to is visible.
-    pub fn extract_visible() -> Self {
-        Self {
-            only_extract_visible: true,
-            marker: PhantomData,
+            app_label: L::default().intern(),
         }
     }
 }
 
-impl<EI> Plugin for ExtractInstancesPlugin<EI>
+impl<L, EI> ExtractInstancesPlugin<L, EI>
 where
+    L: AppLabel + Default,
+    EI: ExtractInstance,
+{
+    pub fn new() -> Self {
+        Self {
+            only_extract_visible: false,
+            marker: PhantomData,
+            app_label: L::default().intern(),
+        }
+    }
+
+    /// Creates a new [`ExtractInstancesPlugin`] that extracts to the sub world
+    /// if and only if the entity it's attached to is visible.
+    pub fn extract_visible(app_label: InternedAppLabel) -> Self {
+        Self {
+            only_extract_visible: true,
+            marker: PhantomData,
+            app_label,
+        }
+    }
+}
+
+impl<L, EI> Plugin for ExtractInstancesPlugin<L, EI>
+where
+    L: AppLabel + Default,
     EI: ExtractInstance,
 {
     fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ExtractedInstances<EI>>();
+        if let Some(sub_app) = app.get_sub_app_mut(self.app_label) {
+            sub_app.init_resource::<ExtractedInstances<EI>>();
             if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible::<EI>);
+                sub_app.add_systems(ExtractSchedule, extract_visible::<EI>);
             } else {
-                render_app.add_systems(ExtractSchedule, extract_all::<EI>);
+                sub_app.add_systems(ExtractSchedule, extract_all::<EI>);
             }
         }
     }

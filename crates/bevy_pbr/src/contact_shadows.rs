@@ -80,11 +80,11 @@ impl From<ContactShadows> for ContactShadowsUniform {
     }
 }
 
-impl SyncComponent for ContactShadows {
+impl SyncComponent<RenderApp> for ContactShadows {
     type Out = Self;
 }
 
-impl ExtractComponent for ContactShadows {
+impl ExtractComponent<RenderApp> for ContactShadows {
     type QueryData = &'static ContactShadows;
     type QueryFilter = ();
 

@@ -1106,6 +1106,6 @@ pub fn generate_environment_map_light(
     }
 }
 
-impl SyncComponent<EnvironmentMapGenerationPlugin> for GeneratedEnvironmentMapLight {
+impl SyncComponent<RenderApp, EnvironmentMapGenerationPlugin> for GeneratedEnvironmentMapLight {
     type Out = RenderEnvironmentMap;
 }

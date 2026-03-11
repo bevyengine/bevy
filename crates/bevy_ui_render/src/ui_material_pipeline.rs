@@ -18,7 +18,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{MainEntity, TemporaryRenderEntity},
+    sync_world::MainEntity,
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
@@ -359,7 +359,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         };
 
         extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            render_entity: commands.spawn(TemporarySubEntity).id(),
             stack_index: computed_node.stack_index,
             transform: transform.into(),
             material: handle.id(),

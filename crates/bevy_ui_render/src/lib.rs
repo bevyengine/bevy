@@ -23,6 +23,7 @@ use bevy_camera::visibility::InheritedVisibility;
 use bevy_camera::{Camera, Camera2d, Camera3d, Hdr, RenderTarget};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::sync_world::TemporarySubEntity;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
@@ -49,7 +50,7 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
+    sync_world::{MainEntity, RenderEntity},
     texture::GpuImage,
     view::{ExtractedView, RetainedViewEntity, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
@@ -420,7 +421,7 @@ pub fn extract_uinode_background_colors(
 
         if !background_color.is_fully_transparent() {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporarySubEntity).id(),
                 z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
@@ -447,7 +448,7 @@ pub fn extract_uinode_background_colors(
             && !outer_color.0.is_fully_transparent()
         {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporarySubEntity).id(),
                 z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
@@ -536,7 +537,7 @@ pub fn extract_uinode_images(
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            render_entity: commands.spawn(TemporarySubEntity).id(),
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),
             extracted_camera_entity,
@@ -653,7 +654,7 @@ pub fn extract_uinode_borders(
                         node_type: NodeType::Border(border_flags),
                     },
                     main_entity: entity.into(),
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporarySubEntity).id(),
                 });
             }
         }
@@ -667,7 +668,7 @@ pub fn extract_uinode_borders(
             let outline_size = computed_node.outlined_node_size();
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporarySubEntity).id(),
                 image,
                 clip: maybe_clip.map(|clip| clip.clip),
                 extracted_camera_entity,
@@ -795,7 +796,7 @@ pub fn extract_ui_camera_view(
                     },
                     // Link to the main camera view.
                     UiViewTarget(render_entity),
-                    TemporaryRenderEntity,
+                    TemporarySubEntity,
                 ))
                 .id();
 
@@ -859,7 +860,7 @@ pub fn extract_viewport_nodes(
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            render_entity: commands.spawn(TemporarySubEntity).id(),
             clip: clip.map(|clip| clip.clip),
             image: image.id(),
             extracted_camera_entity,
@@ -966,7 +967,7 @@ pub fn extract_text_sections(
             {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporarySubEntity).id(),
                     image: atlas_info.texture,
                     clip: clip.map(|clip| clip.clip),
                     extracted_camera_entity,
@@ -1053,7 +1054,7 @@ pub fn extract_text_shadows(
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: node_transform,
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporarySubEntity).id(),
                     image: atlas_info.texture,
                     clip: clip.map(|clip| clip.clip),
                     extracted_camera_entity,
@@ -1076,7 +1077,7 @@ pub fn extract_text_shadows(
             if has_strikethrough {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporarySubEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
                     extracted_camera_entity,
@@ -1102,7 +1103,7 @@ pub fn extract_text_shadows(
             if has_underline {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporarySubEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
                     extracted_camera_entity,
@@ -1191,7 +1192,7 @@ pub fn extract_text_decorations(
             if let Some(text_background_color) = text_background_color {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporarySubEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
                     extracted_camera_entity,
@@ -1221,7 +1222,7 @@ pub fn extract_text_decorations(
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporarySubEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
                     extracted_camera_entity,
@@ -1251,7 +1252,7 @@ pub fn extract_text_decorations(
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporarySubEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
                     extracted_camera_entity,
