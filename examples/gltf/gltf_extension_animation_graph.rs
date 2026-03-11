@@ -161,7 +161,7 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
     #[cfg(feature = "bevy_animation")]
     fn on_animation(
         &mut self,
-        load_context: &mut LoadContext<'_>,
+        _load_context: &mut LoadContext<'_>,
         gltf_animation: &gltf::Animation,
         animation_clip: &mut AnimationClip,
     ) {
