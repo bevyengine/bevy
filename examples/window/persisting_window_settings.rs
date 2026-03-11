@@ -27,6 +27,7 @@ fn main() {
             }),
             ..default()
         }))
+        .init_resource::<WindowSettings>()
         .add_plugins(PreferencesPlugin::new(
             "org.bevy.examples.persisting_window_settings",
         ))
