@@ -636,7 +636,7 @@ pub enum EaseFunction {
     ///
     #[doc = include_str!("../../images/easefunction/BackIn.svg")]
     BackIn,
-    /// `f(t) = 1.0 +  2.70158 * (t - 1.0)³ - 1.70158 * (t - 1.0)²`
+    /// `f(t) = 1.0 + 2.70158 * (t - 1.0)³ + 1.70158 * (t - 1.0)²`
     ///
     #[doc = include_str!("../../images/easefunction/BackOut.svg")]
     BackOut,
@@ -924,7 +924,7 @@ pub struct ElasticInOutCurve;
 #[derive(Copy, Clone)]
 pub struct BackInCurve;
 
-/// `f(t) = 1.0 +  2.70158 * (t - 1.0)³ - 1.70158 * (t - 1.0)²`
+/// `f(t) = 1.0 +  2.70158 * (t - 1.0)³ + 1.70158 * (t - 1.0)²`
 ///
 #[doc = include_str!("../../images/easefunction/BackOut.svg")]
 #[derive(Copy, Clone)]
