@@ -35,7 +35,7 @@ use crate::state::{StateTransitionEvent, States};
 ///
 /// fn spawn_player(mut commands: Commands) {
 ///     commands.spawn((
-///         DespawnOnEnter(GameState::MainMenu),
+///         DespawnOnExit(GameState::MainMenu),
 ///         Player
 ///     ));
 /// }
