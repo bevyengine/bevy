@@ -56,7 +56,7 @@ use wgpu_types::Face;
 
 use crate::{
     convert_coordinates::{RemappingConverter, SemanticsError},
-    loader::gltf_ext::scene::node_transforms_and_conversions,
+    loader::gltf_ext::scene::{node_parents, node_transforms},
     vertex_attributes::convert_attribute,
     Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
     GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin,
@@ -298,8 +298,8 @@ impl GltfLoader {
                 None => loader.default_convert_coordinates,
             })?;
 
-        let (node_transforms, node_conversions) =
-            node_transforms_and_conversions(&gltf, &convert_coordinates);
+        let node_parents = node_parents(&gltf);
+        let node_transforms = node_transforms(&gltf, &node_parents, &convert_coordinates);
 
         let skinned_mesh_bounds_policy = settings
             .skinned_mesh_bounds_policy
@@ -342,7 +342,8 @@ impl GltfLoader {
                         continue;
                     }
 
-                    let conversion = &node_conversions[node.index()];
+                    let node_conversion =
+                        convert_coordinates.node_hierarchy_conversion(&node, &node_parents);
 
                     let maybe_curve: Option<VariableCurve> = if let Some(outputs) =
                         reader.read_outputs()
@@ -352,7 +353,7 @@ impl GltfLoader {
                                 let translation_property = animated_field!(Transform::translation);
                                 let translations: Vec<Vec3> = tr
                                     .map(Vec3::from)
-                                    .map(|t| conversion.convert_translation(t))
+                                    .map(|t| node_conversion.convert_translation(t))
                                     .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
@@ -412,7 +413,7 @@ impl GltfLoader {
                                 let rotations: Vec<Quat> = rots
                                     .into_f32()
                                     .map(Quat::from_array)
-                                    .map(|r| conversion.convert_rotation(r))
+                                    .map(|r| node_conversion.convert_rotation(r))
                                     .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
@@ -471,7 +472,7 @@ impl GltfLoader {
                                 let scale_property = animated_field!(Transform::scale);
                                 let scales: Vec<Vec3> = scale
                                     .map(Vec3::from)
-                                    .map(|s| conversion.convert_scale(s))
+                                    .map(|s| node_conversion.convert_scale(s))
                                     .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
@@ -958,9 +959,14 @@ impl GltfLoader {
                                 // The inverse bindpose is a mapping from mesh-space
                                 // to joint-space, so it's affected by the conversion
                                 // of both meshes and joint nodes.
-                                node_conversions[node.index()].local().matrix()
+
+                                let mesh_conversion = convert_coordinates.mesh();
+                                let node_conversion = convert_coordinates
+                                    .node_hierarchy_conversion(&node, &node_parents);
+
+                                node_conversion.local().matrix()
                                     * Mat4::from_cols_array_2d(&mat)
-                                    * convert_coordinates.mesh().matrix().transpose()
+                                    * mesh_conversion.matrix().transpose()
                             })
                             .collect()
                     })

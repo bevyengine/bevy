@@ -173,10 +173,12 @@ impl ResolvedConvertCoordinates {
     pub(crate) fn node_hierarchy_conversion(
         &self,
         node: &Node,
-        parent_node: Option<&Node>,
+        parents: &[Option<Node>],
     ) -> HierarchyConverter {
+        let parent_node = parents.get(node.index()).cloned().flatten();
+
         let parent_converter = if let Some(parent_node) = parent_node {
-            self.node(parent_node)
+            self.node(&parent_node)
         } else {
             self.scene
         };

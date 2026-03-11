@@ -48,10 +48,8 @@ fn node_transform(node: &Node, conversion: &HierarchyConverter) -> Transform {
     conversion.convert_transform(unconverted)
 }
 
-pub(crate) fn node_transforms_and_conversions(
-    gltf: &Gltf,
-    convert_coordinates: &ResolvedConvertCoordinates,
-) -> (Vec<Transform>, Vec<HierarchyConverter>) {
+/// Returns the parent of each node, indexed by `Node::index`.
+pub(crate) fn node_parents<'a>(gltf: &'a Gltf) -> Vec<Option<Node<'a>>> {
     let mut parent_indices = vec![Option::<usize>::None; gltf.nodes().len()];
 
     for node in gltf.nodes() {
@@ -60,22 +58,26 @@ pub(crate) fn node_transforms_and_conversions(
         }
     }
 
-    let conversions = gltf
-        .nodes()
-        .zip(parent_indices)
-        .map(|(node, parent_index)| {
-            let parent = parent_index.and_then(|parent_index| gltf.nodes().nth(parent_index));
-            convert_coordinates.node_hierarchy_conversion(&node, parent.as_ref())
+    parent_indices
+        .into_iter()
+        .map(|i| i.and_then(|i| gltf.nodes().nth(i)))
+        .collect()
+}
+
+/// Returns the transform of each node, indexed by `Node::index`.
+pub(crate) fn node_transforms<'a>(
+    gltf: &'a Gltf,
+    parents: &[Option<Node<'a>>],
+    convert_coordinates: &ResolvedConvertCoordinates,
+) -> Vec<Transform> {
+    gltf.nodes()
+        .map(|node| {
+            node_transform(
+                &node,
+                &convert_coordinates.node_hierarchy_conversion(&node, parents),
+            )
         })
-        .collect::<Vec<HierarchyConverter>>();
-
-    let transforms = gltf
-        .nodes()
-        .zip(conversions.iter().by_ref())
-        .map(|(node, conversion)| node_transform(&node, conversion))
-        .collect::<Vec<Transform>>();
-
-    (transforms, conversions)
+        .collect()
 }
 
 #[cfg_attr(
