@@ -526,6 +526,8 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 ///         // because they both need access to the same message queue.
 ///         // SOLUTION: `ParamSet` allows these conflicting parameters to be used safely
 ///         // by ensuring only one is accessed at a time.
+///         // Note that a better solution here is to use `MessageMutator`,
+///         // which both reads and writes messages with a single parameter.
 ///         MessageReader<MyMessage>,
 ///         MessageWriter<MyMessage>,
 ///         // PROBLEM: `&World` needs read access to everything, which conflicts with
