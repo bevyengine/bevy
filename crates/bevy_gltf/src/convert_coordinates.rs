@@ -10,7 +10,6 @@ use bevy_transform::components::Transform;
 use thiserror::Error;
 
 /// XXX TODO
-///
 /// Options for converting scenes and assets from glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
 /// (+Z forward) to Bevy's coordinate system (-Z forward).
 ///
@@ -60,7 +59,7 @@ pub struct GltfConvertCoordinates {
     ///
     /// This can affect:
     /// - The vertices of [`Mesh`] assets, including morph targets.
-    /// - The transforms and [`Aabb`](bevy_camera::primitives::Aabb) components
+    /// - The transform and [`Aabb`](bevy_camera::primitives::Aabb) components
     ///   of entities that instance meshes through a [`Mesh3d`](bevy_mesh::Mesh3d)
     ///   component.
     /// - The matrices in [`SkinnedMeshInverseBindposes`](bevy_mesh::skinning::SkinnedMeshInverseBindposes)
@@ -134,30 +133,6 @@ pub(crate) struct ResolvedConvertCoordinates {
 }
 
 impl ResolvedConvertCoordinates {
-    pub(crate) fn resolve(input: GltfConvertCoordinates) -> Result<Self, SemanticsError> {
-        Ok(Self {
-            scene: if input.rotate_scenes {
-                input.semantics.scenes().try_into()?
-            } else {
-                Converter::IDENTITY
-            },
-            node: if input.rotate_nodes {
-                input.semantics.nodes().try_into()?
-            } else {
-                Converter::IDENTITY
-            },
-            mesh: if input.rotate_meshes {
-                input.semantics.meshes().try_into()?
-            } else {
-                Converter::IDENTITY
-            },
-        })
-    }
-
-    pub(crate) fn scene_converter(&self) -> Converter {
-        self.scene
-    }
-
     pub(crate) fn node_converter(&self, node: &Node) -> Converter {
         if node.camera().is_none() && node.light().is_none() {
             self.node
@@ -192,6 +167,30 @@ impl ResolvedConvertCoordinates {
     /// child of a node and contain a `Mesh3d`
     pub(crate) fn mesh_hierarchy_converter(&self, parent_node: &Node) -> HierarchyConverter {
         HierarchyConverter::from_local_and_parent(self.mesh, self.node_converter(parent_node))
+    }
+}
+
+impl TryFrom<GltfConvertCoordinates> for ResolvedConvertCoordinates {
+    type Error = SemanticsError;
+
+    fn try_from(value: GltfConvertCoordinates) -> Result<Self, Self::Error> {
+        Ok(Self {
+            scene: if value.rotate_scenes {
+                value.semantics.scenes().try_into()?
+            } else {
+                Converter::IDENTITY
+            },
+            node: if value.rotate_nodes {
+                value.semantics.nodes().try_into()?
+            } else {
+                Converter::IDENTITY
+            },
+            mesh: if value.rotate_meshes {
+                value.semantics.meshes().try_into()?
+            } else {
+                Converter::IDENTITY
+            },
+        })
     }
 }
 
@@ -503,11 +502,11 @@ impl SemanticsConversion {
 }
 
 /// Converts between semantics by swapping and/or flipping components. This
-/// is usually faster and more accurate than using a matrix or quaternion.
+/// is usually faster and more accurate than rotation by a matrix or quaternion.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct RemappingConverter {
-    /// Maps from target to source axis.
-    axis: [Axis; 3],
+    /// Maps from target axis index to source axis.
+    target_to_source: [Axis; 3],
 
     /// Sign flip, applied by multiplying after `axis` remapping,
     flip: Vec3,
@@ -521,11 +520,11 @@ impl RemappingConverter {
         let (sf, su, sr) = (source.forward(), source.up(), source.right());
         let (tf, tu, tr) = (target.forward(), target.up(), target.right());
 
-        let mut axis = [Axis::X; 3];
+        let mut target_to_source = [Axis::X; 3];
 
-        axis[tf.axis.index()] = sf.axis;
-        axis[tu.axis.index()] = su.axis;
-        axis[tr.axis.index()] = sr.axis;
+        target_to_source[tf.axis.index()] = sf.axis;
+        target_to_source[tu.axis.index()] = su.axis;
+        target_to_source[tr.axis.index()] = sr.axis;
 
         let mut flip = Vec3::ZERO;
 
@@ -533,27 +532,30 @@ impl RemappingConverter {
         flip[tu.axis.index()] = tu.sign.multiplier() * su.sign.multiplier();
         flip[tr.axis.index()] = tr.sign.multiplier() * sr.sign.multiplier();
 
-        Self { axis, flip }
+        Self {
+            target_to_source,
+            flip,
+        }
     }
 
     pub(crate) const IDENTITY: RemappingConverter = RemappingConverter {
-        axis: [Axis::X, Axis::Y, Axis::Z],
+        target_to_source: [Axis::X, Axis::Y, Axis::Z],
         flip: Vec3::ONE,
     };
 
     pub(crate) fn convert_translation(&self, source: Vec3) -> Vec3 {
         Vec3::new(
-            source[self.axis[0].index()],
-            source[self.axis[1].index()],
-            source[self.axis[2].index()],
+            source[self.target_to_source[0].index()],
+            source[self.target_to_source[1].index()],
+            source[self.target_to_source[2].index()],
         ) * self.flip
     }
 
     pub(crate) fn convert_scale(&self, source: Vec3) -> Vec3 {
         Vec3::new(
-            source[self.axis[0].index()],
-            source[self.axis[1].index()],
-            source[self.axis[2].index()],
+            source[self.target_to_source[0].index()],
+            source[self.target_to_source[1].index()],
+            source[self.target_to_source[2].index()],
         )
     }
 

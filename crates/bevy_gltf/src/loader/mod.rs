@@ -293,7 +293,7 @@ impl GltfLoader {
         };
 
         let convert_coordinates =
-            ResolvedConvertCoordinates::resolve(match settings.convert_coordinates {
+            ResolvedConvertCoordinates::try_from(match settings.convert_coordinates {
                 Some(convert_coordinates) => convert_coordinates,
                 None => loader.default_convert_coordinates,
             })?;
