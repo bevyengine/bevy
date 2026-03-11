@@ -2970,7 +2970,8 @@ wasm = false
 [[example]]
 name = "type_data"
 path = "examples/reflection/type_data.rs"
-doc-scrape-examples = true
+# causes ICE due to impl in a fn: https://github.com/rust-lang/rust/issues/149089
+doc-scrape-examples = false
 
 [package.metadata.example.type_data]
 name = "Type Data"
