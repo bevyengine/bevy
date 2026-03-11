@@ -74,7 +74,7 @@ pub(crate) fn node_transforms<'a>(
         .map(|node| {
             node_transform(
                 &node,
-                &convert_coordinates.node_hierarchy_conversion(&node, parents),
+                &convert_coordinates.node_hierarchy_converter(&node, parents),
             )
         })
         .collect()

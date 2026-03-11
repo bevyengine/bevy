@@ -6,9 +6,7 @@ use gltf::{
 };
 use thiserror::Error;
 
-use crate::convert_coordinates::{
-    attribute_coordinate_conversion, CoordinateConversionAttributeError, RemappingConverter,
-};
+use crate::convert_coordinates::{CoordinateConversionAttributeError, RemappingConverter};
 
 /// Represents whether integer data requires normalization
 #[derive(Copy, Clone)]
@@ -258,7 +256,7 @@ pub(crate) fn convert_attribute(
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
     custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
-    convert_coordinates: RemappingConverter,
+    coordinate_converter: RemappingConverter,
 ) -> Result<(MeshVertexAttribute, Values), ConvertAttributeError> {
     if let Some((attribute, conversion)) = match &semantic {
         gltf::Semantic::Positions => Some((Mesh::ATTRIBUTE_POSITION, ConversionMode::Any)),
@@ -288,9 +286,11 @@ pub(crate) fn convert_attribute(
                 ConversionMode::JointWeight => iter.into_joint_weight_values(),
             })
             .map_err(|err| ConvertAttributeError::AccessFailed(err, accessor.index()))?;
-        let converted_values =
-            attribute_coordinate_conversion(attribute, converted_values, convert_coordinates)?;
-
+        let converted_values = crate::convert_coordinates::convert_attributes(
+            attribute,
+            converted_values,
+            coordinate_converter,
+        )?;
         let loaded_format = VertexFormat::from(&converted_values);
         if attribute.format == loaded_format {
             Ok((attribute, converted_values))

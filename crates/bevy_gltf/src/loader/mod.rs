@@ -343,7 +343,7 @@ impl GltfLoader {
                     }
 
                     let node_conversion =
-                        convert_coordinates.node_hierarchy_conversion(&node, &node_parents);
+                        convert_coordinates.node_hierarchy_converter(&node, &node_parents);
 
                     let maybe_curve: Option<VariableCurve> = if let Some(outputs) =
                         reader.read_outputs()
@@ -794,8 +794,8 @@ impl GltfLoader {
                     &buffer_data
                 };
 
-                // XXX TODO: Duplicated elsewhere.
-                let convert_mesh_vertex_rotation = convert_coordinates.mesh_vertex_converter();
+                let mesh_vertex_coordinate_converter =
+                    convert_coordinates.mesh_converter().remapping();
 
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
@@ -816,7 +816,7 @@ impl GltfLoader {
                         accessor,
                         buffer_data,
                         &loader.custom_vertex_attributes,
-                        convert_mesh_vertex_rotation,
+                        mesh_vertex_coordinate_converter,
                     ) {
                         Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                         Err(err) => warn!("{}", err),
@@ -843,7 +843,7 @@ impl GltfLoader {
                         };
                         let morph_target_image = MorphTargetImage::new(
                             morph_target_reader.map(|i| PrimitiveMorphAttributesIter {
-                                convert_coordinates: convert_mesh_vertex_rotation,
+                                convert_coordinates: mesh_vertex_coordinate_converter,
                                 positions: i.0,
                                 normals: i.1,
                                 tangents: i.2,
@@ -960,11 +960,10 @@ impl GltfLoader {
                                 // to joint-space, so it's affected by the conversion
                                 // of both meshes and joint nodes.
 
-                                let mesh_conversion = convert_coordinates.mesh();
-                                let node_conversion = convert_coordinates
-                                    .node_hierarchy_conversion(&node, &node_parents);
+                                let mesh_conversion = convert_coordinates.mesh_converter();
+                                let node_conversion = convert_coordinates.node_converter(&node);
 
-                                node_conversion.local().matrix()
+                                node_conversion.matrix()
                                     * Mat4::from_cols_array_2d(&mat)
                                     * mesh_conversion.matrix().transpose()
                             })
@@ -1721,17 +1720,13 @@ fn load_node(
                 let bounds = primitive.bounding_box();
                 let parent_entity = parent.target_entity();
 
-                // Apply the inverse of the conversion transform that's been
-                // applied to the mesh asset. This preserves the mesh's relation
-                // to the node transform.
-                let convert_mesh_coordinates =
-                    convert_coordinates.mesh_hierarchy_conversion(gltf_node);
-
-                // XXX TODO: Explain.
-                let convert_mesh_vertex_coordinates = convert_coordinates.mesh_vertex_converter();
-
+                // The mesh entity's transform is usually identity, but it may
+                // not be if nodes and meshes have different coordinate
+                // conversions.
                 let mesh_entity_transform = Transform::from_rotation(
-                    convert_mesh_coordinates.convert_rotation(Quat::IDENTITY),
+                    convert_coordinates
+                        .mesh_hierarchy_converter(gltf_node)
+                        .convert_rotation(Quat::IDENTITY),
                 );
 
                 let mut mesh_entity = parent.spawn((
@@ -1759,7 +1754,10 @@ fn load_node(
                     mesh_entity.insert(MeshMorphWeights::Reference(parent_entity));
                 }
 
-                let aabb = convert_mesh_vertex_coordinates.convert_aabb(Aabb3d::from_min_max(
+                let mesh_vertex_coordinate_converter =
+                    convert_coordinates.mesh_converter().remapping();
+
+                let aabb = mesh_vertex_coordinate_converter.convert_aabb(Aabb3d::from_min_max(
                     Vec3::from_slice(&bounds.min),
                     Vec3::from_slice(&bounds.max),
                 ));

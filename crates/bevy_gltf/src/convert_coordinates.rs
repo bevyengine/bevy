@@ -154,11 +154,11 @@ impl ResolvedConvertCoordinates {
         })
     }
 
-    pub(crate) fn scene(&self) -> Converter {
+    pub(crate) fn scene_converter(&self) -> Converter {
         self.scene
     }
 
-    pub(crate) fn node(&self, node: &Node) -> Converter {
+    pub(crate) fn node_converter(&self, node: &Node) -> Converter {
         if node.camera().is_none() && node.light().is_none() {
             self.node
         } else {
@@ -166,11 +166,11 @@ impl ResolvedConvertCoordinates {
         }
     }
 
-    pub(crate) fn mesh(&self) -> Converter {
+    pub(crate) fn mesh_converter(&self) -> Converter {
         self.mesh
     }
 
-    pub(crate) fn node_hierarchy_conversion(
+    pub(crate) fn node_hierarchy_converter(
         &self,
         node: &Node,
         parents: &[Option<Node>],
@@ -178,22 +178,20 @@ impl ResolvedConvertCoordinates {
         let parent_node = parents.get(node.index()).cloned().flatten();
 
         let parent_converter = if let Some(parent_node) = parent_node {
-            self.node(&parent_node)
+            self.node_converter(&parent_node)
         } else {
             self.scene
         };
 
-        let local_converter = self.node(node);
+        let local_converter = self.node_converter(node);
 
         HierarchyConverter::from_local_and_parent(local_converter, parent_converter)
     }
 
-    pub(crate) fn mesh_hierarchy_conversion(&self, node: &Node) -> HierarchyConverter {
-        HierarchyConverter::from_local_and_parent(self.mesh, self.node(node))
-    }
-
-    pub(crate) fn mesh_vertex_converter(&self) -> RemappingConverter {
-        self.mesh.remapping()
+    /// Returns the converter for a mesh entity, which is assumed to be the
+    /// child of a node and contain a `Mesh3d`
+    pub(crate) fn mesh_hierarchy_converter(&self, parent_node: &Node) -> HierarchyConverter {
+        HierarchyConverter::from_local_and_parent(self.mesh, self.node_converter(parent_node))
     }
 }
 
@@ -203,7 +201,7 @@ pub(crate) enum CoordinateConversionAttributeError {
     UnsupportedFormat(&'static str, VertexFormat),
 }
 
-pub(crate) fn attribute_coordinate_conversion(
+pub(crate) fn convert_attributes(
     attribute: MeshVertexAttribute,
     values: VertexAttributeValues,
     converter: RemappingConverter,
@@ -782,10 +780,6 @@ pub(crate) struct HierarchyConverter {
 impl HierarchyConverter {
     pub(crate) fn from_local_and_parent(local: Converter, parent: Converter) -> Self {
         Self { local, parent }
-    }
-
-    pub(crate) fn local(&self) -> Converter {
-        self.local
     }
 
     pub(crate) fn convert_translation(&self, t: Vec3) -> Vec3 {
