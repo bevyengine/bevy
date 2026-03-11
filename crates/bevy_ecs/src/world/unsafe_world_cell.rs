@@ -130,8 +130,11 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Creates [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
     /// everything mutably
+    /// # Safety
+    /// - `world` must be a pointer within the lifetime of the original `&mut World` it was obtained
+    /// from.
     #[inline]
-    pub fn new_mutable_from_ptr(world: *mut World) -> Self {
+    pub unsafe fn new_mutable_from_ptr(world: *mut World) -> Self {
         Self {
             ptr: world,
             #[cfg(debug_assertions)]
@@ -142,8 +145,11 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Creates a [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
     /// everything immutably
+    /// # Safety
+    /// - `world` must be a pointer within the lifetime of the original `&World` it was obtained
+    /// from.
     #[inline]
-    pub fn new_readonly_from_ptr(world: *const World) -> Self {
+    pub unsafe fn new_readonly_from_ptr(world: *const World) -> Self {
         Self {
             ptr: world.cast_mut(),
             #[cfg(debug_assertions)]
