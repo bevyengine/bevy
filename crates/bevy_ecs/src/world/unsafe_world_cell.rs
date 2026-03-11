@@ -128,7 +128,7 @@ impl<'w> UnsafeWorldCell<'w> {
         }
     }
 
-    /// Creates ['UnsafeWorldCell'] directly from a raw pointer that can be used to access
+    /// Creates [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
     /// everything mutably
     #[inline]
     pub fn new_mutable_from_ptr(world: *mut World) -> Self {
