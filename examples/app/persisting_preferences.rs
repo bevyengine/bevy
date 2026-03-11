@@ -29,6 +29,7 @@ fn main() {
             }),
             ..default()
         }))
+        .init_resource::<Counter>()
         .add_plugins(PreferencesPlugin::new(
             "org.bevy.examples.persisting_preferences",
         ))
