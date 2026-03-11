@@ -114,7 +114,7 @@ impl DerefMut for ResourceEntities {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
 #[derive(Component, Debug)]
 #[component(on_insert, on_discard, on_despawn)]
-pub struct IsResource(ComponentId);
+pub struct IsResource(pub ComponentId);
 
 impl IsResource {
     /// Creates a new instance with the given `component_id`
