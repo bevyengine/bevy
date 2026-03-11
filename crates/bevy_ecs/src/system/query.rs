@@ -684,6 +684,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// This iterator is always guaranteed to return results from each matching entity once and only once.
     /// Iteration order is not guaranteed.
     ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QueryIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
     /// # Example
     ///
     /// Here, the `gravity_system` updates the `Velocity` component of every entity that contains it:
@@ -711,6 +718,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns an [`Iterator`] over the query items, with the actual "inner" world lifetime.
+    ///
+    /// This iterator is always guaranteed to return results from each matching entity once and only once.
+    /// Iteration order is not guaranteed.
+    ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QueryIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
     ///
     /// # Example
     ///
@@ -1135,6 +1152,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// This iterator is always guaranteed to return results from each matching entity once and only once.
     /// Iteration order is not guaranteed.
+    ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QueryIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QueryIter::fetch_next()`](crate::query::QueryIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
     ///
     /// # Safety
     ///

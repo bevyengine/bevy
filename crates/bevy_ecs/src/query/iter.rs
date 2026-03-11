@@ -129,10 +129,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
     }
 
-    /// Get next result from the query.
+    /// Get the next result from the query.
     ///
-    /// This can be used to iterate over queries that do not implement [`IterQueryData`].
-    /// Most queries do implement that trait, and can use the ordinary [`Iterator::next`]
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QueryIter`] will not implement [`Iterator`].
+    /// In that case, this method can be used to iterate over the items
+    /// while ensuring only one is alive at a time.
+    ///
+    /// Most queries do implement [`IterQueryData`],
+    /// and and can use the ordinary [`Iterator::next`]
     /// method or a `for` loop.
     ///
     /// # Example
@@ -460,6 +466,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// The sort is not cached across system runs.
     ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QuerySortedIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QuerySortedIter::fetch_next()`](crate::query::QuerySortedIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
     ///
     /// # Panics
@@ -591,6 +604,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// The sort is not cached across system runs.
     ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QuerySortedIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QuerySortedIter::fetch_next()`](crate::query::QuerySortedIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
     ///
     /// # Panics
@@ -651,6 +671,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This restriction may be lifted in the future.
     ///
     /// The sort is not cached across system runs.
+    ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QuerySortedIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QuerySortedIter::fetch_next()`](crate::query::QuerySortedIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
     ///
@@ -720,6 +747,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// The sort is not cached across system runs.
     ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QuerySortedIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QuerySortedIter::fetch_next()`](crate::query::QuerySortedIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
     ///
     /// # Panics
@@ -755,6 +789,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This restriction may be lifted in the future.
     ///
     /// The sort is not cached across system runs.
+    ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QuerySortedIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QuerySortedIter::fetch_next()`](crate::query::QuerySortedIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
     ///
@@ -853,6 +894,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// The sort is not cached across system runs.
     ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QuerySortedIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QuerySortedIter::fetch_next()`](crate::query::QuerySortedIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
     ///
     /// # Panics
@@ -892,6 +940,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// The sort is not cached across system runs.
     ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QuerySortedIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QuerySortedIter::fetch_next()`](crate::query::QuerySortedIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
+    ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
     ///
     /// # Panics
@@ -925,6 +980,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This restriction may be lifted in the future.
     ///
     /// The sort is not cached across system runs.
+    ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QuerySortedIter`] will not implement [`Iterator`].
+    /// To iterate over the items in that case,
+    /// use the [`QuerySortedIter::fetch_next()`](crate::query::QuerySortedIter::fetch_next) method,
+    /// which ensures only one item is alive at a time.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
     ///
@@ -1203,7 +1265,32 @@ where
         }
     }
 
-    /// Get next result from the query
+    /// Get the next result from the query.
+    ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QuerySortedIter`] will not implement [`Iterator`].
+    /// In that case, this method can be used to iterate over the items
+    /// while ensuring only one is alive at a time.
+    ///
+    /// Most queries do implement [`IterQueryData`],
+    /// and and can use the ordinary [`Iterator::next`]
+    /// method or a `for` loop.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component, Ord, PartialOrd, Eq, PartialEq)]
+    /// # struct C;
+    /// fn system(mut query: Query<&mut C>) {
+    ///     let mut iter = query.iter_mut().sort::<&C>();
+    ///     while let Some(mut c) = iter.fetch_next() {
+    ///         //
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     pub fn fetch_next(&mut self) -> Option<D::Item<'_, 's>> {
         while let Some(entity) = self.entity_iter.next() {
             // SAFETY:
@@ -1216,7 +1303,17 @@ where
         None
     }
 
-    /// Get next result from the back of the query
+    /// Get the next result from the back of the query.
+    ///
+    /// If the [`QueryData`] does not implement [`IterQueryData`],
+    /// then it is not sound to yield multiple items concurrently
+    /// and the resulting [`QuerySortedIter`] will not implement [`Iterator`].
+    /// In that case, this method can be used to iterate over the items
+    /// while ensuring only one is alive at a time.
+    ///
+    /// Most queries do implement [`IterQueryData`],
+    /// and and can use the ordinary [`Iterator::next`]
+    /// method or a `for` loop.
     pub fn fetch_next_back(&mut self) -> Option<D::Item<'_, 's>>
     where
         I: DoubleEndedIterator,
@@ -1470,7 +1567,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
         None
     }
 
-    /// Get next result from the query
+    /// Get the next result from the query
     #[inline(always)]
     pub fn fetch_next(&mut self) -> Option<D::Item<'_, 's>> {
         // SAFETY:
@@ -2011,7 +2108,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
 impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: EntityEquivalent>>
     QueryManyIter<'w, 's, D, F, I>
 {
-    /// Get next result from the back of the query
+    /// Get the next result from the back of the query
     #[inline(always)]
     pub fn fetch_next_back(&mut self) -> Option<D::Item<'_, 's>> {
         // SAFETY:
@@ -2285,7 +2382,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
         }
     }
 
-    /// Get next result from the query
+    /// Get the next result from the query
     #[inline(always)]
     pub fn fetch_next(&mut self) -> Option<D::Item<'_, 's>> {
         while let Some(entity) = self.entity_iter.next() {
@@ -2307,7 +2404,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
 impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item = Entity>>
     QuerySortedManyIter<'w, 's, D, F, I>
 {
-    /// Get next result from the query
+    /// Get the next result from the query
     #[inline(always)]
     pub fn fetch_next_back(&mut self) -> Option<D::Item<'_, 's>> {
         while let Some(entity) = self.entity_iter.next_back() {
