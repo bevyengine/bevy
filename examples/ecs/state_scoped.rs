@@ -136,9 +136,9 @@ fn on_c_1_enter(mut commands: Commands) {
             left: px(0),
             ..default()
         },
-        (children![DespawnOnExitWith(|entered_state| matches!(
-            entered_state,
-            GameState::C(1)
+        (children![DespawnOnExitWith(|exited_state| matches!(
+            exited_state,
+            GameState::C(_)
         ))]),
     ));
 }
@@ -161,7 +161,7 @@ fn on_c_1_exit(mut commands: Commands) {
         },
         (children![DespawnOnEnterWith(|entered_state| matches!(
             entered_state,
-            GameState::C(1)
+            GameState::C(_)
         ))]),
     ));
 }
