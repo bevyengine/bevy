@@ -7,7 +7,7 @@ use gltf::{
 use thiserror::Error;
 
 use crate::convert_coordinates::{
-    convert_attribute_coordinates, CoordinateConversionAttributeError, RemappingConverter,
+    convert_attribute_coordinates, CoordinateConversionAttributeError, HierarchyConverter,
 };
 
 /// Represents whether integer data requires normalization
@@ -258,7 +258,7 @@ pub(crate) fn convert_attribute(
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
     custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
-    coordinate_converter: RemappingConverter,
+    coordinate_converter: HierarchyConverter,
 ) -> Result<(MeshVertexAttribute, Values), ConvertAttributeError> {
     if let Some((attribute, conversion)) = match &semantic {
         gltf::Semantic::Positions => Some((Mesh::ATTRIBUTE_POSITION, ConversionMode::Any)),

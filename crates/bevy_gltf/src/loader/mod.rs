@@ -55,7 +55,7 @@ use tracing::{error, info_span, warn};
 use wgpu_types::Face;
 
 use crate::{
-    convert_coordinates::{RemappingConverter, SemanticsError},
+    convert_coordinates::{HierarchyConverter, SemanticsError},
     loader::gltf_ext::scene::{node_parents, node_transforms},
     vertex_attributes::convert_attribute,
     Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
@@ -807,7 +807,7 @@ impl GltfLoader {
                 };
 
                 let mesh_vertex_coordinate_converter =
-                    convert_coordinates.mesh_converter().remapping();
+                    convert_coordinates.mesh_vertex_hierarchy_converter();
 
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
@@ -1725,7 +1725,7 @@ fn load_node(
 
                 let mesh_entity_transform = Transform::from_rotation(
                     convert_coordinates
-                        .mesh_hierarchy_converter(gltf_node)
+                        .mesh_entity_hierarchy_converter(gltf_node)
                         .convert_rotation(Quat::IDENTITY),
                 );
 
@@ -1755,7 +1755,7 @@ fn load_node(
                 }
 
                 let mesh_vertex_coordinate_converter =
-                    convert_coordinates.mesh_converter().remapping();
+                    convert_coordinates.mesh_vertex_hierarchy_converter();
 
                 let aabb = mesh_vertex_coordinate_converter.convert_aabb(Aabb3d::from_min_max(
                     Vec3::from_slice(&bounds.min),
@@ -2091,7 +2091,7 @@ impl ImageOrPath {
 }
 
 struct PrimitiveMorphAttributesIter<'s> {
-    convert_coordinates: RemappingConverter,
+    convert_coordinates: HierarchyConverter,
     positions: Option<Iter<'s, [f32; 3]>>,
     normals: Option<Iter<'s, [f32; 3]>>,
     tangents: Option<Iter<'s, [f32; 3]>>,

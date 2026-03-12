@@ -172,11 +172,19 @@ impl ResolvedConvertCoordinates {
 
     /// Returns the hierarchy converter for mesh entities, which are assumed to
     /// be children of node entities.
-    pub(crate) fn mesh_hierarchy_converter(&self, parent_node: &Node) -> HierarchyConverter {
+    pub(crate) fn mesh_entity_hierarchy_converter(&self, parent_node: &Node) -> HierarchyConverter {
         HierarchyConverter::from_local_and_parent(
             self.mesh_converter,
             self.node_converter(parent_node),
         )
+    }
+
+    // Returns the hierarchy converter for mesh vertices.
+    pub(crate) fn mesh_vertex_hierarchy_converter(&self) -> HierarchyConverter {
+        // Mesh vertices are considered children of the mesh entities. The
+        // semantics of mesh vertices are not converted, but their translation
+        // is affected by their parent's conversion.
+        HierarchyConverter::from_local_and_parent(Converter::IDENTITY, self.mesh_converter)
     }
 }
 
@@ -214,7 +222,7 @@ pub(crate) enum CoordinateConversionAttributeError {
 pub(crate) fn convert_attribute_coordinates(
     attribute: MeshVertexAttribute,
     values: VertexAttributeValues,
-    converter: RemappingConverter,
+    converter: HierarchyConverter,
 ) -> Result<VertexAttributeValues, CoordinateConversionAttributeError> {
     match attribute {
         Mesh::ATTRIBUTE_POSITION | Mesh::ATTRIBUTE_NORMAL | Mesh::ATTRIBUTE_TANGENT => match values
@@ -658,18 +666,6 @@ impl Converter {
     pub(crate) fn remapping(&self) -> RemappingConverter {
         self.remapping
     }
-
-    pub(crate) fn convert_translation(&self, source: Vec3) -> Vec3 {
-        self.remapping.convert_translation(source)
-    }
-
-    pub(crate) fn convert_rotation(&self, source: Quat) -> Quat {
-        self.rotation * source
-    }
-
-    pub(crate) fn convert_scale(&self, source: Vec3) -> Vec3 {
-        self.remapping.convert_scale(source)
-    }
 }
 
 /// Helper for converting the semantics of things in a hierarchy, where each
@@ -813,21 +809,25 @@ impl HierarchyConverter {
     }
 
     pub(crate) fn convert_translation(&self, t: Vec3) -> Vec3 {
-        self.parent.convert_translation(t)
+        self.parent.remapping().convert_translation(t)
     }
 
     pub(crate) fn convert_rotation(&self, r: Quat) -> Quat {
-        self.parent.convert_rotation(r) * self.local.rotation().inverse()
+        self.parent.rotation() * r * self.local.rotation().inverse()
     }
 
     pub(crate) fn convert_scale(&self, s: Vec3) -> Vec3 {
-        self.local.convert_scale(s)
+        self.local.remapping().convert_scale(s)
     }
 
     pub(crate) fn convert_transform(&self, t: Transform) -> Transform {
         Transform::from_translation(self.convert_translation(t.translation))
             .with_rotation(self.convert_rotation(t.rotation))
             .with_scale(self.convert_scale(t.scale))
+    }
+
+    pub(crate) fn convert_aabb(&self, aabb: Aabb3d) -> Aabb3d {
+        self.parent.remapping().convert_aabb(aabb)
     }
 }
 
