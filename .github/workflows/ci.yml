@@ -438,6 +438,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
+      - name: Validate Cargo dependency resolution
+        id: cargo-sanity
+        run: cargo metadata --format-version 1 > /dev/null
       - name: check for missing metadata
         id: missing-metadata
         run: cargo run -p build-templated-pages -- check-missing examples
@@ -455,7 +458,7 @@ jobs:
           mkdir -p ./missing-examples
           echo ${{ github.event.number }} > ./missing-examples/NR
       - name: log failed task - missing metadata
-        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-metadata.conclusion == 'failure' }}
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-metadata.conclusion == 'failure' && steps.cargo-sanity.conclusion == 'success' }}
         run: touch ./missing-examples/missing-metadata
       - name: log failed task - missing update
         if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
@@ -477,6 +480,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
+      - name: Validate Cargo dependency resolution
+        id: cargo-sanity
+        run: cargo metadata --format-version 1 > /dev/null
       - name: check for missing features
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
@@ -494,7 +500,7 @@ jobs:
           mkdir -p ./missing-features
           echo ${{ github.event.number }} > ./missing-features/NR
       - name: log failed task - missing features
-        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-features.conclusion == 'failure' }}
+        if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-features.conclusion == 'failure' && steps.cargo-sanity.conclusion == 'success' }}
         run: touch ./missing-features/missing-features
       - name: log failed task - missing update
         if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
