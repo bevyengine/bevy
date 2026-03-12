@@ -342,7 +342,7 @@ impl GltfLoader {
                         continue;
                     }
 
-                    let node_conversion =
+                    let node_convertor =
                         convert_coordinates.node_hierarchy_converter(&node, &node_parents);
 
                     let maybe_curve: Option<VariableCurve> = if let Some(outputs) =
@@ -353,7 +353,7 @@ impl GltfLoader {
                                 let translation_property = animated_field!(Transform::translation);
                                 let translations: Vec<Vec3> = tr
                                     .map(Vec3::from)
-                                    .map(|t| node_conversion.convert_translation(t))
+                                    .map(|t| node_convertor.convert_translation(t))
                                     .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
@@ -413,7 +413,7 @@ impl GltfLoader {
                                 let rotations: Vec<Quat> = rots
                                     .into_f32()
                                     .map(Quat::from_array)
-                                    .map(|r| node_conversion.convert_rotation(r))
+                                    .map(|r| node_convertor.convert_rotation(r))
                                     .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
@@ -472,7 +472,7 @@ impl GltfLoader {
                                 let scale_property = animated_field!(Transform::scale);
                                 let scales: Vec<Vec3> = scale
                                     .map(Vec3::from)
-                                    .map(|s| node_conversion.convert_scale(s))
+                                    .map(|s| node_convertor.convert_scale(s))
                                     .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
@@ -960,12 +960,12 @@ impl GltfLoader {
                                 // to joint-space, so it's affected by the conversion
                                 // of both meshes and joint nodes.
 
-                                let mesh_conversion = convert_coordinates.mesh_converter();
-                                let node_conversion = convert_coordinates.node_converter(&node);
+                                let mesh_converter = convert_coordinates.mesh_converter();
+                                let node_converter = convert_coordinates.node_converter(&node);
 
-                                node_conversion.matrix()
+                                node_converter.matrix()
                                     * Mat4::from_cols_array_2d(&mat)
-                                    * mesh_conversion.matrix().transpose()
+                                    * mesh_converter.matrix().transpose()
                             })
                             .collect()
                     })
@@ -1720,9 +1720,6 @@ fn load_node(
                 let bounds = primitive.bounding_box();
                 let parent_entity = parent.target_entity();
 
-                // The mesh entity's transform is usually identity, but it may
-                // not be if nodes and meshes have different coordinate
-                // conversions.
                 let mesh_entity_transform = Transform::from_rotation(
                     convert_coordinates
                         .mesh_hierarchy_converter(gltf_node)

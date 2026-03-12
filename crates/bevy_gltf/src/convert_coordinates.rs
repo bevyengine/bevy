@@ -1,45 +1,40 @@
-//! Utilities for converting glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
-//! to Bevy's.
+//! Utilities for converting glTFs between coordinate systems.
+use bevy_math::{bounding::Aabb3d, vec3, Dir3, Mat4, Quat, Vec3, Vec4};
 use bevy_mesh::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
+use bevy_transform::components::Transform;
+
 use core::fmt::Debug;
 use gltf::Node;
 use serde::{Deserialize, Serialize};
-
-use bevy_math::{bounding::Aabb3d, vec3, Dir3, Mat4, Quat, Vec3, Vec4};
-use bevy_transform::components::Transform;
 use thiserror::Error;
 
-/// XXX TODO
-/// Options for converting scenes and assets from glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
-/// (+Z forward) to Bevy's coordinate system (-Z forward).
+/// Options for converting the coordinate systems of glTF scenes during loading.
 ///
 /// _CAUTION: This is an experimental feature. Behavior may change in future versions._
 ///
-/// The exact coordinate system conversion is as follows:
+/// glTF's [standard coordinate system semantics](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
+/// are "+Z forward, +Y up". Bevy's semantics are "-Z forward, +Y up" -
+/// almost the same, but *negative* Z forward rather than glTF's *positive* Z
+/// forward.
 ///
-/// - glTF:
-///   - forward: +Z
-///   - up: +Y
-///   - right: -X
-/// - Bevy:
-///   - forward: -Z
-///   - up: +Y
-///   - right: +X
+/// Without conversion, this means that most glTF scenes would appear backwards
+/// in Bevy - or more precisely, the scene's `Transform::forward` would point
+/// backwards instead of forwards. To solve this, conversion can be enabled
+/// through `GltfConvertCoordinates` in [`GltfPlugin`](crate::GltfPlugin) or
+/// [`GltfLoaderSettings`](crate::loader::GltfLoaderSettings).
 ///
-/// Cameras and lights are an exception - they already use Bevy's coordinate
-/// system. This means cameras and lights will match Bevy's forward even if
-/// conversion is disabled.
+/// Not all glTF scenes follow the standard. It's also common for nodes within
+/// the scene to have inconsistent semantics - so the scene might be +Z forward
+/// but nodes within the scene are different. `GltfConvertCoordinates` has
+/// several options to handle these cases.
 ///
-/// If a glTF file uses the standard coordinate system, then the conversion
-/// options will behave like so:
+/// First, conversion can be controlled individually for scenes, nodes and
+/// meshes. See [`rotate_scenes`](GltfConvertCoordinates::rotate_scenes),
+/// [`rotate_nodes`](GltfConvertCoordinates::rotate_nodes), and [`rotate_meshes`](GltfConvertCoordinates::rotate_meshes).
 ///
-/// - `rotate_scene_entity` will make the glTF's scene forward align with the [`Transform::forward`]
-///   of the entity with the [`SceneInstance`](bevy_scene::SceneInstance) component.
-/// - `rotate_meshes` will do the same for entities with a `Mesh3d` component.
-///
-/// Other entities in the scene are not converted, so their forward may not
-/// match `Transform::forward`. In particular, the entities that correspond to
-/// glTF nodes are not converted.
+/// Second, the source and target semantics can be overridden. So instead of
+/// converting from the standard glTF semantics to Bevy semantics, one or both
+/// can be overridden with, say, "+X forward, -Z up". See [`GltfConvertSemantics`].
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
     /// If true, rotate all scenes to match the target semantics.
@@ -47,9 +42,9 @@ pub struct GltfConvertCoordinates {
     /// This only affects the transforms of the root nodes of each scene.
     pub rotate_scenes: bool,
 
-    /// If true, rotate the local transforms of all nodes to match target semantics.
-    ///
-    /// This affects the transforms of nodes and their immediate child entities.
+    /// If true, rotate the local transforms of nodes to match the target
+    /// semantics. This affects the transforms of nodes and their immediate
+    /// child entities.
     ///
     /// Nodes that are cameras or lights are *not* converted. This is because
     /// both glTF and Bevy require camera and light nodes to be -Z forward.
@@ -69,20 +64,29 @@ pub struct GltfConvertCoordinates {
     /// The semantics conversion to use if any of `rotate_scenes`, `rotate_nodes`
     /// or `rotate_meshes` are enabled.
     ///
-    /// Defaults to converting from [standard glTF semantics](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
+    /// Defaults to converting from [glTF semantics](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
     /// (+Z forward, +Y up) to Bevy semantics (-Z forward, +Y up).
     pub semantics: GltfConvertSemantics,
 }
 
-/// The semantics conversion options that will be used by scenes, nodes and
-/// meshes.
+impl GltfConvertCoordinates {
+    /// Convert scenes, nodes and meshes from glTF and Bevy semantics.
+    pub const ALL: Self = Self {
+        rotate_scenes: true,
+        rotate_nodes: true,
+        rotate_meshes: true,
+        semantics: GltfConvertSemantics::All(SemanticsConversion::GLTF_TO_BEVY),
+    };
+}
+
+/// The semantics conversion that will be used by scenes, nodes and meshes.
 ///
 /// These options are only used if the corresponding [`rotate_scenes`](GltfConvertCoordinates::rotate_scenes),
 /// [`rotate_nodes`](GltfConvertCoordinates::rotate_nodes), and [`rotate_meshes`](GltfConvertCoordinates::rotate_meshes)
 /// options are enabled.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum GltfConvertSemantics {
-    /// Use one semantics conversion for scenes, nodes and meshes. They
+    /// Use one semantics conversion for scenes, nodes and meshes.
     All(SemanticsConversion),
     /// Use different semantics conversions for scenes, nodes and meshes.
     Separate {
@@ -127,22 +131,21 @@ impl Default for GltfConvertSemantics {
 /// A [`GltfConvertCoordinates`] that has been resolved to converters.
 #[derive(Debug)]
 pub(crate) struct ResolvedConvertCoordinates {
-    scene: Converter,
-    node: Converter,
-    mesh: Converter,
+    scene_converter: Converter,
+    node_converter: Converter,
+    mesh_converter: Converter,
 }
 
 impl ResolvedConvertCoordinates {
     pub(crate) fn node_converter(&self, node: &Node) -> Converter {
-        if node.camera().is_none() && node.light().is_none() {
-            self.node
-        } else {
+        if node.camera().is_some() || node.light().is_some() {
+            // Cameras and lights are not converted. glTF requires cameras and
+            // lights to be -Z forward, which means they already follow Bevy
+            // semantics.
             Converter::IDENTITY
+        } else {
+            self.node_converter
         }
-    }
-
-    pub(crate) fn mesh_converter(&self) -> Converter {
-        self.mesh
     }
 
     pub(crate) fn node_hierarchy_converter(
@@ -155,7 +158,7 @@ impl ResolvedConvertCoordinates {
         let parent_converter = if let Some(parent_node) = parent_node {
             self.node_converter(&parent_node)
         } else {
-            self.scene
+            self.scene_converter
         };
 
         let local_converter = self.node_converter(node);
@@ -163,10 +166,17 @@ impl ResolvedConvertCoordinates {
         HierarchyConverter::from_local_and_parent(local_converter, parent_converter)
     }
 
-    /// Returns the converter for a mesh entity, which is assumed to be the
-    /// child of a node and contain a `Mesh3d`
+    pub(crate) fn mesh_converter(&self) -> Converter {
+        self.mesh_converter
+    }
+
+    /// Returns the hierarchy converter for mesh entities, which are assumed to
+    /// be children of node entities.
     pub(crate) fn mesh_hierarchy_converter(&self, parent_node: &Node) -> HierarchyConverter {
-        HierarchyConverter::from_local_and_parent(self.mesh, self.node_converter(parent_node))
+        HierarchyConverter::from_local_and_parent(
+            self.mesh_converter,
+            self.node_converter(parent_node),
+        )
     }
 }
 
@@ -175,17 +185,17 @@ impl TryFrom<GltfConvertCoordinates> for ResolvedConvertCoordinates {
 
     fn try_from(value: GltfConvertCoordinates) -> Result<Self, Self::Error> {
         Ok(Self {
-            scene: if value.rotate_scenes {
+            scene_converter: if value.rotate_scenes {
                 value.semantics.scenes().try_into()?
             } else {
                 Converter::IDENTITY
             },
-            node: if value.rotate_nodes {
+            node_converter: if value.rotate_nodes {
                 value.semantics.nodes().try_into()?
             } else {
                 Converter::IDENTITY
             },
-            mesh: if value.rotate_meshes {
+            mesh_converter: if value.rotate_meshes {
                 value.semantics.meshes().try_into()?
             } else {
                 Converter::IDENTITY
@@ -200,7 +210,8 @@ pub(crate) enum CoordinateConversionAttributeError {
     UnsupportedFormat(&'static str, VertexFormat),
 }
 
-pub(crate) fn convert_attributes(
+/// Apply the given converter to the attribute.
+pub(crate) fn convert_attribute_coordinates(
     attribute: MeshVertexAttribute,
     values: VertexAttributeValues,
     converter: RemappingConverter,
@@ -312,7 +323,7 @@ impl Sign {
     }
 }
 
-/// A signed 3D axis, e.g. "+X", "-Z".
+/// A signed 3D axis, for example "+X" or "-Z".
 #[expect(missing_docs, reason = "The members are self-explanatory")]
 #[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignedAxis {
@@ -468,10 +479,10 @@ impl TryFrom<Semantics> for ValidSemantics {
         let up = value.up;
 
         if forward.axis == up.axis {
-            return Err(SemanticsError::ForwardAndUpAreSameAxis(value.forward.axis));
+            return Err(SemanticsError::ForwardAndUpAreSameAxis(forward.axis));
         }
 
-        // right = forward.cross(up)
+        // Equivalent to `right = forward.cross(up)`.
 
         let winding = (forward.axis.index() + 1).rem_euclid(3) == up.axis.index();
 
@@ -480,6 +491,8 @@ impl TryFrom<Semantics> for ValidSemantics {
                 true => Sign::Positive,
                 false => Sign::Negative,
             },
+            // SAFETY: We know `forward.axis != up.axis`, therefore `forward.axis.index() + up.axis.index()`
+            // must be 1, 2 or 3.
             axis: Axis::from_index_unchecked(3 - (forward.axis.index() + up.axis.index())),
         };
 
@@ -495,7 +508,8 @@ pub enum SemanticsError {
     ForwardAndUpAreSameAxis(Axis),
 }
 
-/// Describes a conversion from source to target [`Semantics`].
+/// Describes a conversion from source to target [`Semantics`], for example
+/// [`GLTF_TO_BEVY`](SemanticsConversion::GLTF_TO_BEVY).
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SemanticsConversion {
     /// The semantics to convert from.
@@ -506,8 +520,9 @@ pub struct SemanticsConversion {
 }
 
 impl SemanticsConversion {
-    /// Converts from glTF to Bevy semantics.
-    const GLTF_TO_BEVY: Self = Self {
+    /// Converts from glTF semantics (+Z forward, +Y up) to Bevy semantics
+    /// (-Z forward, +Y up).
+    pub const GLTF_TO_BEVY: Self = Self {
         source: Semantics::GLTF,
         target: Semantics::BEVY,
     };
@@ -579,6 +594,8 @@ impl RemappingConverter {
     }
 }
 
+/// Converts between semantics using various methods - quaternion, matrix or
+/// [`RemappingConverter`].
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct Converter {
     rotation: Quat,
@@ -656,7 +673,7 @@ impl Converter {
 }
 
 /// Helper for converting the semantics of things in a hierarchy, where each
-/// thing may have a different semantics.
+/// thing may have different semantics.
 ///
 /// To explain how this works, let's start with a scene containing one mesh. The
 /// diagram shows a top-down view of the scene - the axes in the middle of the
@@ -705,8 +722,10 @@ impl Converter {
 ///
 /// The rules for converting the semantics of a thing in a hierarchy are:
 ///
-/// - Apply the thing's *parent's* conversion to the thing.
-/// - Apply the thing's inverse conversion to the thing.
+/// - Apply the thing's *parent's* conversion to parent-space transform of the
+///   thing.
+/// - Apply the thing's *inverse* conversion to the local-space transform of the
+///   thing
 ///
 /// Applying these rules to the mesh's vertices, we get:
 ///
@@ -747,8 +766,8 @@ impl Converter {
 ///        A--Z                 X--A
 /// ```
 ///
-/// Unlike with meshes, both the parent and the child want the same conversion.
-/// So the rules applied to A are:
+/// Unlike the mesh example, both the parent and the child want the same
+/// conversion. So the rules for A are:
 ///
 /// 1. Apply the scene's conversion to A - the scene has no conversion.
 /// 2. Apply A's inverse conversion to A.
@@ -784,10 +803,7 @@ impl Converter {
 /// ```
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct HierarchyConverter {
-    // The converter to use for this node.
     local: Converter,
-
-    // The converter that was used for the parent node.
     parent: Converter,
 }
 
