@@ -230,7 +230,7 @@ impl<S: States + Default> Default for DespawnOnEnter<S> {
     }
 }
 
-/// Despawns entities marked with [`DespawnOnEnter<S>`], or [`DespawnOnEnterWith<S>`] when their state
+/// Despawns entities marked with [`DespawnOnEnter<S>`] when their state
 /// matches the world state.
 ///
 /// If the entity has already been despawned no warning will be emitted.
