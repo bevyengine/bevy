@@ -2150,12 +2150,12 @@ impl<'a> ImageType<'a> {
 }
 
 /// Used to calculate the total number of pixels for an image size.
-pub trait Volume {
+pub trait ImageVolume {
     /// Calculates the total number of pixels in the item.
     fn volume(&self) -> usize;
 }
 
-impl Volume for Extent3d {
+impl ImageVolume for Extent3d {
     /// Calculates the total number of pixels in the [`Extent3d`].
     fn volume(&self) -> usize {
         (self.width * self.height * self.depth_or_array_layers) as usize
