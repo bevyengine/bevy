@@ -56,6 +56,13 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     extract_component::derive_extract_component(input)
 }
 
+/// Derives the `AsBindGroup` trait for a struct, enabling it to be
+/// converted into a bind group layout and bind group for use in rendering.
+///
+/// For detailed information on the available attributes (`#[uniform]`, `#[texture]`,
+/// `#[sampler]`, `#[storage_texture]`, `#[storage]`, `#[bind_group_data]`, `#[bindless]`,
+/// and `#[data]`), see the [`AsBindGroup`](bevy_render::render_resource::AsBindGroup)
+/// trait documentation.
 #[proc_macro_derive(
     AsBindGroup,
     attributes(
