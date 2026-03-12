@@ -273,7 +273,6 @@ mod menu {
             .add_systems(Update, menu_action.run_if(in_state(GameState::Menu)))
             .add_observer(button_on_interaction::<Add, SelectedOption>)
             .add_observer(button_on_interaction::<Add, Pressed>)
-            .add_observer(button_on_interaction::<Insert, Hovered>)
             .add_observer(button_on_interaction::<Insert, Hovered>);
     }
 
