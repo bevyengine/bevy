@@ -13,7 +13,24 @@ pub(crate) fn bevy_asset_path() -> Path {
 
 const DEPENDENCY_ATTRIBUTE: &str = "dependency";
 
-/// Implement the `Asset` trait.
+/// Derive macro for the `Asset` trait.
+///
+/// Marks a type as a loadable asset. Also derives `VisitAssetDependencies`
+/// automatically. Use `#[dependency]` on `Handle<T>` fields to declare asset
+/// dependencies that should be loaded alongside this asset.
+///
+/// See the `Asset` trait docs for full explanation.
+///
+/// ```ignore
+/// #[derive(Asset, TypePath)]
+/// struct MyMaterial {
+///     // This handle is tracked as a dependency.
+///     #[dependency]
+///     texture: Handle<Image>,
+///     // Not a dependency, won't be tracked.
+///     name: String,
+/// }
+/// ```
 #[proc_macro_derive(Asset, attributes(dependency))]
 pub fn derive_asset(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -32,7 +49,23 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Implement the `VisitAssetDependencies` trait.
+/// Derive macro for the `VisitAssetDependencies` trait.
+///
+/// Generates dependency-visiting code for asset types. This is automatically
+/// derived when using `#[derive(Asset)]`, so you typically only need this
+/// if implementing the `Asset` trait manually.
+///
+/// Use `#[dependency]` on `Handle<T>` fields to mark them as dependencies.
+///
+/// See the `VisitAssetDependencies` trait docs for full explanation.
+///
+/// ```ignore
+/// #[derive(VisitAssetDependencies)]
+/// struct MyData {
+///     #[dependency]
+///     texture: Handle<Image>,
+/// }
+/// ```
 #[proc_macro_derive(VisitAssetDependencies, attributes(dependency))]
 pub fn derive_asset_dependency_visitor(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);

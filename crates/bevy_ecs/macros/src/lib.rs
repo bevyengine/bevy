@@ -48,7 +48,36 @@ impl Default for BundleAttributes {
     }
 }
 
-/// Implement the `Bundle` trait.
+/// Derive macro for the `Bundle` trait.
+///
+/// Bundles group components together for spawning. Each field must implement
+/// `Component` or `Bundle`.
+///
+/// See the `Bundle` trait docs for full explanation.
+///
+/// # Attributes
+///
+/// ## Field attributes
+///
+/// ```ignore
+/// #[derive(Bundle)]
+/// struct MyBundle {
+///     // Skip this field when inserting; it must implement Default.
+///     #[bundle(ignore)]
+///     metadata: String,
+/// }
+/// ```
+///
+/// ## Container attributes
+///
+/// ```ignore
+/// // Opt out of BundleFromComponents impl (e.g. for bundles with SpawnRelatedBundle fields).
+/// #[derive(Bundle)]
+/// #[bundle(ignore_from_components)]
+/// struct MyBundle {
+///     // ...
+/// }
+/// ```
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -205,7 +234,25 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Implement the `MapEntities` trait.
+/// Derive macro for the `MapEntities` trait.
+///
+/// Automatically maps all `Entity` fields to new values during entity remapping
+/// (e.g. scene loading, entity cloning). By default, all fields of type `Entity`
+/// are mapped. Use `#[entities]` to select specific fields.
+///
+/// See the `MapEntities` trait docs for full explanation.
+///
+/// ```ignore
+/// #[derive(MapEntities)]
+/// struct Spring {
+///     #[entities]
+///     a: Entity,
+///     #[entities]
+///     b: Entity,
+///     // Fields without #[entities] are not mapped when the attribute is present.
+///     stiffness: f32,
+/// }
+/// ```
 #[proc_macro_derive(MapEntities, attributes(entities))]
 pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -231,7 +278,37 @@ pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Implement `SystemParam` to use a struct as a parameter in a system
+/// Derive macro for the `SystemParam` trait.
+///
+/// Allows using a custom struct as a system parameter. Each field must implement
+/// `SystemParam`. The struct may have two lifetimes: `'w` (world data) and `'s`
+/// (param state). No other lifetime names are allowed.
+///
+/// See the `SystemParam` trait docs for full explanation.
+///
+/// # Attributes
+///
+/// ## Container attributes
+///
+/// ```ignore
+/// // Generate a builder struct (named `MyParamBuilder`) for use with SystemParamBuilder.
+/// #[derive(SystemParam)]
+/// #[system_param(builder)]
+/// struct MyParam<'w, 's> {
+///     query: Query<'w, 's, Entity>,
+/// }
+/// ```
+///
+/// ## Field attributes
+///
+/// ```ignore
+/// #[derive(SystemParam)]
+/// struct MyParam<'w> {
+///     // Override the validation error message for this field.
+///     #[system_param(validation_message = "Missing required resource")]
+///     res: Res<'w, MyResource>,
+/// }
+/// ```
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
@@ -480,13 +557,60 @@ fn derive_system_param_impl(
     }))
 }
 
-/// Implement `QueryData` to use a struct as a data parameter in a query
+/// Derive macro for the `QueryData` trait.
+///
+/// Allows using a custom struct as a data parameter in a `Query`. Each field
+/// must also implement `QueryData`. Reference lifetimes must be `'static`.
+///
+/// See the `QueryData` trait docs for full explanation.
+///
+/// # Attributes
+///
+/// ```ignore
+/// // Mark the query as mutable to allow &mut component references.
+/// #[derive(QueryData)]
+/// #[query_data(mutable)]
+/// struct MyQuery {
+///     component: &'static mut Health,
+/// }
+///
+/// // Derive additional traits on the generated item structs.
+/// #[derive(QueryData)]
+/// #[query_data(derive(Debug))]
+/// struct DebugQuery {
+///     entity: Entity,
+/// }
+///
+/// // Enable contiguous iteration support.
+/// #[derive(QueryData)]
+/// #[query_data(mutable, contiguous(all))]
+/// struct FastQuery {
+///     value: &'static mut Transform,
+/// }
+/// ```
 #[proc_macro_derive(QueryData, attributes(query_data))]
 pub fn derive_query_data(input: TokenStream) -> TokenStream {
     derive_query_data_impl(input)
 }
 
-/// Implement `QueryFilter` to use a struct as a filter parameter in a query
+/// Derive macro for the `QueryFilter` trait.
+///
+/// Allows using a custom struct as a filter parameter in a `Query`. Each field
+/// must implement `QueryFilter`.
+///
+/// See the `QueryFilter` trait docs for full explanation.
+///
+/// ```ignore
+/// #[derive(QueryFilter)]
+/// struct MyFilter {
+///     with_a: With<ComponentA>,
+///     without_b: Without<ComponentB>,
+/// }
+///
+/// fn my_system(query: Query<Entity, MyFilter>) {
+///     // ...
+/// }
+/// ```
 #[proc_macro_derive(QueryFilter, attributes(query_filter))]
 pub fn derive_query_filter(input: TokenStream) -> TokenStream {
     derive_query_filter_impl(input)
@@ -522,7 +646,20 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
 
-/// Implement the `Event` trait.
+/// Derive macro for the `Event` trait.
+///
+/// Marks a type as an event that can be sent and received via `EventWriter`
+/// and `EventReader`.
+///
+/// See the `Event` trait docs for full explanation.
+///
+/// ```ignore
+/// #[derive(Event)]
+/// struct CollisionEvent {
+///     entity_a: Entity,
+///     entity_b: Entity,
+/// }
+/// ```
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     event::derive_event(input)
@@ -546,19 +683,64 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     event::derive_entity_event(input)
 }
 
-/// Implement the `Message` trait.
+/// Derive macro for the `Message` trait.
+///
+/// Marks a type as a buffered message that can be sent between systems via
+/// `MessageWriter` and read via `MessageReader`.
+///
+/// See the `Message` trait docs for full explanation.
+///
+/// ```ignore
+/// #[derive(Message)]
+/// struct DamageEvent {
+///     amount: f32,
+/// }
+/// ```
 #[proc_macro_derive(Message)]
 pub fn derive_message(input: TokenStream) -> TokenStream {
     message::derive_message(input)
 }
 
-/// Implement the `Resource` trait.
+/// Derive macro for the `Resource` trait.
+///
+/// Marks a type as a globally unique singleton in the `World`. Access it in
+/// systems via `Res<T>` (read-only) or `ResMut<T>` (mutable).
+///
+/// See the `Resource` trait docs for full explanation.
+///
+/// ```ignore
+/// #[derive(Resource)]
+/// struct GameSettings {
+///     volume: f32,
+/// }
+///
+/// fn read_settings(settings: Res<GameSettings>) {
+///     // ...
+/// }
+/// ```
 #[proc_macro_derive(Resource)]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
-/// Implement the `SettingsGroup` trait.
+/// Derive macro for the `SettingsGroup` trait.
+///
+/// Marks a type as a settings group for configuration management.
+///
+/// See the `SettingsGroup` trait docs for full explanation.
+///
+/// # Attributes
+///
+/// ```ignore
+/// #[derive(SettingsGroup)]
+/// // Override the group name (defaults to snake_case of type name).
+/// #[settings_group(group = "rendering")]
+/// // Specify a settings file source.
+/// #[settings_group(file = "config/rendering.toml")]
+/// struct RenderSettings {
+///     // ...
+/// }
+/// ```
 #[proc_macro_derive(SettingsGroup, attributes(settings_group))]
 pub fn derive_settings_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -717,7 +899,24 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
 
-/// Implement the `FromWorld` trait.
+/// Derive macro for the `FromWorld` trait.
+///
+/// Generates a `FromWorld` implementation that calls `FromWorld::from_world`
+/// on each field. Works on structs and enums.
+///
+/// See the `FromWorld` trait docs for full explanation.
+///
+/// For enums, mark the variant to construct with `#[from_world]`:
+///
+/// ```ignore
+/// #[derive(FromWorld)]
+/// enum MyEnum {
+///     // This variant will be constructed by FromWorld.
+///     #[from_world]
+///     Active { count: usize },
+///     Inactive,
+/// }
+/// ```
 #[proc_macro_derive(FromWorld, attributes(from_world))]
 pub fn derive_from_world(input: TokenStream) -> TokenStream {
     let bevy_ecs_path = bevy_ecs_path();
