@@ -126,7 +126,7 @@ fn star(
 pub struct ColoredMesh2d;
 
 impl SyncComponent for ColoredMesh2d {
-    type Out = Self;
+    type Target = Self;
 }
 
 /// Custom pipeline for 2d meshes with vertex colors

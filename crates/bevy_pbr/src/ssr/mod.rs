@@ -516,12 +516,17 @@ pub fn prepare_ssr_settings(
 }
 
 impl SyncComponent for ScreenSpaceReflections {
-    type Out = ScreenSpaceReflectionsUniform;
+    type Target = (
+        ScreenSpaceReflectionsUniform,
+        ViewScreenSpaceReflectionsUniformOffset,
+        ScreenSpaceReflectionsPipelineId,
+    );
 }
 
 impl ExtractComponent for ScreenSpaceReflections {
     type QueryData = Read<ScreenSpaceReflections>;
     type QueryFilter = ();
+    type Out = ScreenSpaceReflectionsUniform;
 
     fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {

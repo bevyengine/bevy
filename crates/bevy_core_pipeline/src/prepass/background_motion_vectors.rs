@@ -56,12 +56,13 @@ use crate::{
 pub struct NoBackgroundMotionVectors;
 
 impl SyncComponent for NoBackgroundMotionVectors {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for NoBackgroundMotionVectors {
     type QueryData = Read<NoBackgroundMotionVectors>;
     type QueryFilter = ();
+    type Out = Self;
 
     fn extract_component(_item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(NoBackgroundMotionVectors)

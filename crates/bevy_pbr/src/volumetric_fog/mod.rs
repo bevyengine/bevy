@@ -108,5 +108,5 @@ impl Plugin for VolumetricFogPlugin {
 }
 
 impl SyncComponent<VolumetricFogPlugin> for FogVolume {
-    type Out = Self;
+    type Target = Self;
 }
