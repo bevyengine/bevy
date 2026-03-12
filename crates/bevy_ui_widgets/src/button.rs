@@ -2,12 +2,13 @@ use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
 use bevy_ecs::query::Has;
+use bevy_ecs::resource::Resource;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     observer::On,
     query::With,
-    system::{Commands, Query},
+    system::{Commands, Query, Res},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
@@ -24,19 +25,37 @@ use crate::Activate;
 #[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
 pub struct Button;
 
+/// A resource that holds the list of key codes that trigger an `Activate` event when pressed.
+///
+/// By default, it includes [`KeyCode::Enter`] and [`KeyCode::Space`].
+#[derive(Resource)]
+pub struct ButtonKeyEventCodes(Vec<KeyCode>);
+
+impl ButtonKeyEventCodes {
+    const DEFAULT_KEY_CODES: [KeyCode; 2] = [KeyCode::Enter, KeyCode::Space];
+}
+
+impl Default for ButtonKeyEventCodes {
+    fn default() -> Self {
+        Self(Self::DEFAULT_KEY_CODES.to_vec())
+    }
+}
+
 fn button_on_key_event(
     mut event: On<FocusedInput<KeyboardInput>>,
     q_state: Query<Has<InteractionDisabled>, With<Button>>,
     mut commands: Commands,
+    maybe_key_codes: Option<Res<ButtonKeyEventCodes>>,
 ) {
     if let Ok(disabled) = q_state.get(event.focused_entity)
         && !disabled
     {
         let input_event = &event.input;
-        if !input_event.repeat
-            && input_event.state == ButtonState::Pressed
-            && (input_event.key_code == KeyCode::Enter || input_event.key_code == KeyCode::Space)
-        {
+        let is_valid_key_code = match maybe_key_codes {
+            Some(key_codes) => key_codes.0.contains(&input_event.key_code),
+            None => ButtonKeyEventCodes::DEFAULT_KEY_CODES.contains(&input_event.key_code),
+        };
+        if !input_event.repeat && input_event.state == ButtonState::Pressed && is_valid_key_code {
             event.propagate(false);
             commands.trigger(Activate {
                 entity: event.focused_entity,
@@ -117,6 +136,8 @@ pub struct ButtonPlugin;
 
 impl Plugin for ButtonPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<ButtonKeyEventCodes>();
+
         app.add_observer(button_on_key_event)
             .add_observer(button_on_pointer_down)
             .add_observer(button_on_pointer_up)
