@@ -15,7 +15,7 @@ To be more precise:
   - All logic that was done in this method should be moved to the `get_param` method of that type
 - `SystemState::validate_param` has been removed
   - Validation now happens automatically when calling `get`, `get_mut`, or `get_unchecked`
-- `SystemState::fetch`, `get_unchecked`, `get` and `get_mut` now require `InfallibleSystemParam`.  For fallible parameters, there are now `try_` variants that return a `Result<..., SystemParamValidationError>`. Callers that previously destructured the result of a fallible paramter directly will need to call `try_get` and add `.unwrap()` or handle the `Result`:
+- `SystemState::fetch`, `get_unchecked`, `get` and `get_mut` now require `InfallibleSystemParam`.  For fallible parameters, there are now `try_` variants that return a `Result<..., SystemParamValidationError>`. Callers that previously destructured the result of a fallible parameter directly will need to call `try_get` and add `.unwrap()` or handle the `Result`:
 
 ```rust
 // Before
@@ -62,11 +62,13 @@ bubbling up any errors originating in `SystemParam::get_param`.
 If you have a custom `SystemParam` implementation, you need to either:
 
 If `validate_param` was overridden, because the parameter was sometimes invalid:
+
 1. Remove the `validate_param` method.
 2. Move any validation logic into `get_param`.
 3. Rename `get_param` to `try_get_param` and return `Result<Self::Item<'world, 'state>, SystemParamValidationError>`.
 
 If `validate_param` was not overridden, because the parameter was always valid:
+
 1. Add an `InfallibleSystemParam` impl
 2. Move `get_param` to that impl
 3. Create a `SystemParam::try_get_param` method that calls `get_param`
