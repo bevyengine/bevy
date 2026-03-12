@@ -1159,6 +1159,40 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::trigger_with(event, trigger));
     }
 
+    /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it,
+    /// and then calls `after` with the (possibly modified) event.
+    ///
+    /// This is the deferred equivalent of [`World::trigger_ref`].
+    ///
+    /// [`Observer`]: crate::observer::Observer
+    /// [`World::trigger_ref`]: World::trigger_ref
+    #[track_caller]
+    pub fn trigger_ref<'a, E: Event<Trigger<'a>: Default>>(
+        &mut self,
+        event: E,
+        after: impl FnOnce(&mut World, &mut E) + Send + 'static,
+    ) {
+        self.queue(command::trigger_ref(event, after));
+    }
+
+    /// Triggers the given [`Event`] using the given [`Trigger`], which will run any [`Observer`]s watching for it,
+    /// and then calls `after` with the (possibly modified) event.
+    ///
+    /// This is the deferred equivalent of [`World::trigger_ref_with`].
+    ///
+    /// [`Trigger`]: crate::event::Trigger
+    /// [`Observer`]: crate::observer::Observer
+    /// [`World::trigger_ref_with`]: World::trigger_ref_with
+    #[track_caller]
+    pub fn trigger_ref_with<E: Event<Trigger<'static>: Send + Sync>>(
+        &mut self,
+        event: E,
+        trigger: E::Trigger<'static>,
+        after: impl FnOnce(&mut World, &mut E) + Send + 'static,
+    ) {
+        self.queue(command::trigger_ref_with(event, trigger, after));
+    }
+
     /// Spawns an [`Observer`](crate::observer::Observer) and returns the [`EntityCommands`] associated
     /// with the entity that stores the observer.
     ///

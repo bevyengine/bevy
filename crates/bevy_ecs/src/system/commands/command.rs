@@ -240,6 +240,50 @@ pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
     }
 }
 
+/// Triggers the given [`Event`], which will run any [`Observer`]s watching for it,
+/// and then calls `after` with the (possibly modified) event.
+///
+/// This is the deferred equivalent of [`World::trigger_ref`].
+///
+/// [`Observer`]: crate::observer::Observer
+/// [`World::trigger_ref`]: World::trigger_ref
+#[track_caller]
+pub fn trigger_ref<'a, E: Event<Trigger<'a>: Default>>(
+    mut event: E,
+    after: impl FnOnce(&mut World, &mut E) + Send + 'static,
+) -> impl Command {
+    let caller = MaybeLocation::caller();
+    move |world: &mut World| {
+        world.trigger_ref_with_caller(
+            &mut event,
+            &mut <E::Trigger<'_> as Default>::default(),
+            caller,
+        );
+        after(world, &mut event);
+    }
+}
+
+/// Triggers the given [`Event`] using the given [`Trigger`], which will run any [`Observer`]s watching for it,
+/// and then calls `after` with the (possibly modified) event.
+///
+/// This is the deferred equivalent of [`World::trigger_ref_with`].
+///
+/// [`Trigger`]: crate::event::Trigger
+/// [`Observer`]: crate::observer::Observer
+/// [`World::trigger_ref_with`]: World::trigger_ref_with
+#[track_caller]
+pub fn trigger_ref_with<E: Event<Trigger<'static>: Send + Sync>>(
+    mut event: E,
+    mut trigger: E::Trigger<'static>,
+    after: impl FnOnce(&mut World, &mut E) + Send + 'static,
+) -> impl Command {
+    let caller = MaybeLocation::caller();
+    move |world: &mut World| {
+        world.trigger_ref_with_caller(&mut event, &mut trigger, caller);
+        after(world, &mut event);
+    }
+}
+
 /// A [`Command`] that writes an arbitrary [`Message`].
 #[track_caller]
 pub fn write_message<M: Message>(message: M) -> impl Command {
