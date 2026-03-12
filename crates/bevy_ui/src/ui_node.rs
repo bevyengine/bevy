@@ -95,8 +95,10 @@ impl ComputedNode {
 
     /// The calculated node size as width and height in logical pixels.
     ///
-    /// Logical size is the physical size divided by the scale factor,
-    /// and matches the coordinate space used by cursor/mouse positions.
+    /// Logical size is the physical size divided by the scale factor.
+    /// Note that this is in UI logical space, which accounts for both the window
+    /// scale factor and [`UiScale`](super::UiScale). To convert pointer positions
+    /// to UI logical space, divide by `UiScale` as well.
     #[inline]
     pub fn logical_size(&self) -> Vec2 {
         self.size * self.inverse_scale_factor
