@@ -192,7 +192,7 @@ pub mod prelude {
 ///
 /// See the documentation on the fields for more details.
 #[derive(Component, Debug, Clone, Copy, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default, Debug, PartialEq, Clone, Copy)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Pickable {
     /// Should this entity block entities below it from being picked?
     ///
