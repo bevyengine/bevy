@@ -123,7 +123,7 @@ fn on_b_exit(mut commands: Commands) {
 fn on_c_1_enter(mut commands: Commands) {
     info!("on_c_1_enter");
     commands.spawn((
-        DespawnOnExitWith(|entered_state| matches!(entered_state, GameState::C(1))),
+        DespawnWhen::new(|transition| matches!(transition.exited, Some(GameState::C(_)))),
         Text::new("Game is in state 'C(1)'"),
         TextFont {
             font_size: FontSize::Px(33.0),
@@ -136,9 +136,9 @@ fn on_c_1_enter(mut commands: Commands) {
             left: px(0),
             ..default()
         },
-        (children![DespawnOnExitWith(|exited_state| matches!(
-            exited_state,
-            GameState::C(_)
+        (children![DespawnWhen::new(|transition| matches!(
+            transition.exited,
+            Some(GameState::C(_))
         ))]),
     ));
 }
@@ -146,7 +146,7 @@ fn on_c_1_enter(mut commands: Commands) {
 fn on_c_1_exit(mut commands: Commands) {
     info!("on_c_1_exit");
     commands.spawn((
-        DespawnOnEnterWith(|entered_state| matches!(entered_state, GameState::C(1))),
+        DespawnWhen::new(|transition| matches!(transition.entered, Some(GameState::C(1)))),
         Text::new("Game state 'C(1)' will be back in 1 second"),
         TextFont {
             font_size: FontSize::Px(33.0),
@@ -159,9 +159,9 @@ fn on_c_1_exit(mut commands: Commands) {
             left: px(500),
             ..default()
         },
-        (children![DespawnOnEnterWith(|entered_state| matches!(
-            entered_state,
-            GameState::C(_)
+        (children![DespawnWhen::new(|transition| matches!(
+            transition.entered,
+            Some(GameState::C(_))
         ))]),
     ));
 }
