@@ -1,13 +1,13 @@
-//! A module adding debug visualization of [`PointLight`]s, [`SpotLight`]s and [`DirectionalLight`]s.
+//! A module adding debug visualization of [`PointLight`]s, [`SpotLight`]s, [`DirectionalLight`]s and [`RectLight`]s.
 
 use core::f32::consts::PI;
 
 use bevy_gizmos::primitives::dim3::GizmoPrimitive3d;
 
-use crate::{DirectionalLight, PointLight, SpotLight};
+use crate::{DirectionalLight, PointLight, RectLight, SpotLight};
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{
-    palettes::basic::{BLUE, GREEN, RED},
+    palettes::basic::{BLUE, GREEN, MAROON, RED},
     Color, Oklcha,
 };
 use bevy_ecs::{
@@ -110,8 +110,26 @@ fn directional_light_gizmo(
         .with_tip_length(0.3);
 }
 
-/// A [`Plugin`] that provides visualization of [`PointLight`]s, [`SpotLight`]s
-/// and [`DirectionalLight`]s for debugging.
+/// Draws a rectangular outline in the light plane and an arrow for the light's direction.
+fn rect_light_gizmo(
+    transform: &GlobalTransform,
+    rect_light: &RectLight,
+    color: Color,
+    gizmos: &mut Gizmos<LightGizmoConfigGroup>,
+) {
+    let (_, rotation, translation) = transform.to_scale_rotation_translation();
+    let size = bevy_math::Vec2::new(rect_light.width, rect_light.height);
+    gizmos.rect(Isometry3d::new(translation, rotation), size, color);
+    gizmos
+        .arrow(
+            translation,
+            translation + rotation * Vec3::NEG_Z * 0.6,
+            color,
+        )
+        .with_tip_length(0.2);
+}
+
+/// A [`Plugin`] that provides visualization of [`PointLight`]s, [`SpotLight`]s, [`DirectionalLight`]s and [`RectLight`]s for debugging.
 pub struct LightGizmoPlugin;
 
 impl Plugin for LightGizmoPlugin {
@@ -168,6 +186,10 @@ pub struct LightGizmoConfigGroup {
     ///
     /// Defaults to [`BLUE`].
     pub directional_light_color: Color,
+    /// [`Color`] to use for drawing a [`RectLight`] gizmo when [`LightGizmoColor::ByLightType`] is used.
+    ///
+    /// Defaults to [`MAROON`].
+    pub rect_light_color: Color,
 }
 
 impl Default for LightGizmoConfigGroup {
@@ -178,12 +200,13 @@ impl Default for LightGizmoConfigGroup {
             point_light_color: RED.into(),
             spot_light_color: GREEN.into(),
             directional_light_color: BLUE.into(),
+            rect_light_color: MAROON.into(),
         }
     }
 }
 
 /// Add this [`Component`] to an entity to draw any of its lights components
-/// ([`PointLight`], [`SpotLight`] and [`DirectionalLight`]).
+/// ([`PointLight`], [`SpotLight`], [`DirectionalLight`] and [`RectLight`]).
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, Default, Debug)]
 pub struct ShowLightGizmo {
@@ -197,6 +220,7 @@ fn draw_lights(
     point_query: Query<(Entity, &PointLight, &GlobalTransform, &ShowLightGizmo)>,
     spot_query: Query<(Entity, &SpotLight, &GlobalTransform, &ShowLightGizmo)>,
     directional_query: Query<(Entity, &DirectionalLight, &GlobalTransform, &ShowLightGizmo)>,
+    rect_query: Query<(Entity, &RectLight, &GlobalTransform, &ShowLightGizmo)>,
     mut gizmos: Gizmos<LightGizmoConfigGroup>,
 ) {
     let color = |entity: Entity, gizmo_color: Option<LightGizmoColor>, light_color, type_color| {
@@ -234,6 +258,15 @@ fn draw_lights(
         );
         directional_light_gizmo(transform, color, &mut gizmos);
     }
+    for (entity, light, transform, light_gizmo) in &rect_query {
+        let color = color(
+            entity,
+            light_gizmo.color,
+            light.color,
+            gizmos.config_ext.rect_light_color,
+        );
+        rect_light_gizmo(transform, light, color, &mut gizmos);
+    }
 }
 
 fn draw_all_lights(
@@ -243,6 +276,7 @@ fn draw_all_lights(
         (Entity, &DirectionalLight, &GlobalTransform),
         Without<ShowLightGizmo>,
     >,
+    rect_query: Query<(Entity, &RectLight, &GlobalTransform), Without<ShowLightGizmo>>,
     mut gizmos: Gizmos<LightGizmoConfigGroup>,
 ) {
     match gizmos.config_ext.color {
@@ -256,6 +290,9 @@ fn draw_all_lights(
             for (_, _, transform) in &directional_query {
                 directional_light_gizmo(transform, color, &mut gizmos);
             }
+            for (_, light, transform) in &rect_query {
+                rect_light_gizmo(transform, light, color, &mut gizmos);
+            }
         }
         LightGizmoColor::Varied => {
             let color = |entity: Entity| Oklcha::sequential_dispersed(entity.index_u32()).into();
@@ -268,6 +305,9 @@ fn draw_all_lights(
             for (entity, _, transform) in &directional_query {
                 directional_light_gizmo(transform, color(entity), &mut gizmos);
             }
+            for (entity, light, transform) in &rect_query {
+                rect_light_gizmo(transform, light, color(entity), &mut gizmos);
+            }
         }
         LightGizmoColor::MatchLightColor => {
             for (_, light, transform) in &point_query {
@@ -278,6 +318,9 @@ fn draw_all_lights(
             }
             for (_, light, transform) in &directional_query {
                 directional_light_gizmo(transform, light.color, &mut gizmos);
+            }
+            for (_, light, transform) in &rect_query {
+                rect_light_gizmo(transform, light, light.color, &mut gizmos);
             }
         }
         LightGizmoColor::ByLightType => {
@@ -301,6 +344,14 @@ fn draw_all_lights(
                 directional_light_gizmo(
                     transform,
                     gizmos.config_ext.directional_light_color,
+                    &mut gizmos,
+                );
+            }
+            for (_, light, transform) in &rect_query {
+                rect_light_gizmo(
+                    transform,
+                    light,
+                    gizmos.config_ext.rect_light_color,
                     &mut gizmos,
                 );
             }
