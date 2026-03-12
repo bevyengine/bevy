@@ -1,5 +1,9 @@
-//! This example illustrates the basic usage of an `ImageNode`.
-//! `ImageNode` is UI Node that render an Image.
+//! This example illustrates the basic usage of [`ImageNode`],
+//! a UI node that renders an image.
+//!
+//! It also demonstrates how to use [`ImageNode::with_rect`] to render
+//! only a sub-region of an image, which is an easy one-off alternative
+//! to using a [`TextureAtlas`].
 
 use bevy::prelude::*;
 
@@ -11,29 +15,41 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Ui camera
     commands.spawn(Camera2d);
 
+    let image = asset_server.load("branding/icon.png");
+
     commands.spawn((
-        // This root Node serves as a container for the ImageNode.
-        // In this case, it will center the item on the screen.
+        // Root node that centers everything on screen.
         Node {
             width: percent(100),
             height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
+            column_gap: px(24.),
             ..default()
         },
-        // Child Nodes are added with the `children!` macro.
-        children![(
-            // Create a new `ImageNode` with the given texture.
-            ImageNode::new(asset_server.load("branding/icon.png")),
-            // Child Node control `ImageNode` size
-            Node {
-                width: px(256.),
-                height: px(256.),
-                ..default()
-            }
-        )],
+        children![
+            // Full image.
+            (
+                ImageNode::new(image.clone()),
+                Node {
+                    width: px(256.),
+                    height: px(256.),
+                    ..default()
+                },
+            ),
+            // Sub-region of the same image using `with_rect`.
+            // This renders only the specified rectangle (in pixels)
+            // from the source texture.
+            (
+                ImageNode::new(image).with_rect(Rect::new(0., 0., 128., 128.)),
+                Node {
+                    width: px(128.),
+                    height: px(128.),
+                    ..default()
+                },
+            ),
+        ],
     ));
 }
