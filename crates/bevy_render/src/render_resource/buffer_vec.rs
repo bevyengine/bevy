@@ -10,7 +10,7 @@ use encase::{
     ShaderType,
 };
 use thiserror::Error;
-use wgpu::{BindingResource, BufferAddress, BufferUsages};
+use wgpu::{BindingResource, BufferAddress, BufferBinding, BufferSize, BufferUsages};
 
 use super::GpuArrayBufferable;
 
@@ -45,6 +45,7 @@ pub struct RawBufferVec<T: NoUninit> {
     buffer_usage: BufferUsages,
     label: Option<String>,
     changed: bool,
+    last_written_size: Option<BufferSize>,
 }
 
 impl<T: NoUninit> RawBufferVec<T> {
@@ -58,6 +59,7 @@ impl<T: NoUninit> RawBufferVec<T> {
             buffer_usage,
             label: None,
             changed: false,
+            last_written_size: None,
         }
     }
 
@@ -68,11 +70,18 @@ impl<T: NoUninit> RawBufferVec<T> {
     }
 
     /// Returns the binding for the buffer if the data has been uploaded.
+    ///
+    /// The binding is restricted to the portion of the buffer that was actually
+    /// written to in the last [`write_buffer`](Self::write_buffer) call. This
+    /// ensures that shaders using `arrayLength()` see the correct number of
+    /// elements, even if the underlying GPU buffer is larger due to reuse.
     #[inline]
     pub fn binding(&self) -> Option<BindingResource<'_>> {
-        Some(BindingResource::Buffer(
-            self.buffer()?.as_entire_buffer_binding(),
-        ))
+        Some(BindingResource::Buffer(BufferBinding {
+            buffer: self.buffer()?,
+            offset: 0,
+            size: self.last_written_size,
+        }))
     }
 
     /// Returns the amount of space that the GPU will use before reallocating.
@@ -177,11 +186,13 @@ impl<T: NoUninit> RawBufferVec<T> {
             return;
         }
         self.reserve(self.values.len(), device);
+        let size = self.item_size * self.values.len();
         if let Some(buffer) = &self.buffer {
-            let range = 0..self.item_size * self.values.len();
+            let range = 0..size;
             let bytes: &[u8] = must_cast_slice(&self.values);
             queue.write_buffer(buffer, 0, &bytes[range]);
         }
+        self.last_written_size = BufferSize::new(size as u64);
     }
 
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
@@ -456,6 +467,7 @@ where
     buffer_usage: BufferUsages,
     label: Option<String>,
     label_changed: bool,
+    last_written_size: Option<BufferSize>,
     phantom: PhantomData<T>,
 }
 
@@ -472,6 +484,7 @@ where
             buffer_usage,
             label: None,
             label_changed: false,
+            last_written_size: None,
             phantom: PhantomData,
         }
     }
@@ -483,11 +496,18 @@ where
     }
 
     /// Returns the binding for the buffer if the data has been uploaded.
+    ///
+    /// The binding is restricted to the portion of the buffer that was actually
+    /// written to in the last [`write_buffer`](Self::write_buffer) call. This
+    /// ensures that shaders using `arrayLength()` see the correct number of
+    /// elements, even if the underlying GPU buffer is larger due to reuse.
     #[inline]
     pub fn binding(&self) -> Option<BindingResource<'_>> {
-        Some(BindingResource::Buffer(
-            self.buffer()?.as_entire_buffer_binding(),
-        ))
+        Some(BindingResource::Buffer(BufferBinding {
+            buffer: self.buffer()?,
+            offset: 0,
+            size: self.last_written_size,
+        }))
     }
 
     /// Returns the amount of space that the GPU will use before reallocating.
@@ -595,6 +615,7 @@ where
 
         let Some(buffer) = &self.buffer else { return };
         queue.write_buffer(buffer, 0, &self.data);
+        self.last_written_size = BufferSize::new(self.data.len() as u64);
     }
 
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
@@ -657,6 +678,7 @@ where
     buffer_usage: BufferUsages,
     label: Option<String>,
     label_changed: bool,
+    last_reserved_size: Option<BufferSize>,
     phantom: PhantomData<T>,
 }
 
@@ -674,6 +696,7 @@ where
             buffer_usage,
             label: None,
             label_changed: false,
+            last_reserved_size: None,
             phantom: PhantomData,
         }
     }
@@ -685,11 +708,18 @@ where
     }
 
     /// Returns the binding for the buffer if the data has been uploaded.
+    ///
+    /// The binding is restricted to the portion of the buffer that was actually
+    /// reserved in the last [`write_buffer`](Self::write_buffer) call. This
+    /// ensures that shaders using `arrayLength()` see the correct number of
+    /// elements, even if the underlying GPU buffer is larger due to reuse.
     #[inline]
     pub fn binding(&self) -> Option<BindingResource<'_>> {
-        Some(BindingResource::Buffer(
-            self.buffer()?.as_entire_buffer_binding(),
-        ))
+        Some(BindingResource::Buffer(BufferBinding {
+            buffer: self.buffer()?,
+            offset: 0,
+            size: self.last_reserved_size,
+        }))
     }
 
     /// Reserves space for one more element in the buffer and returns its index.
@@ -772,6 +802,7 @@ where
         if !self.is_empty() {
             self.reserve(self.len, device);
         }
+        self.last_reserved_size = BufferSize::new((self.item_size * self.len) as u64);
     }
 }
 

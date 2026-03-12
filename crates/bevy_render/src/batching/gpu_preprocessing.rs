@@ -1072,6 +1072,16 @@ where
         self.cpu_metadata.buffer()
     }
 
+    /// Returns a size-restricted binding for the CPU metadata buffer.
+    ///
+    /// Unlike [`Self::cpu_metadata_buffer`], this binding is limited to the
+    /// portion of the buffer that was actually written, ensuring that shaders
+    /// using `arrayLength()` see the correct element count.
+    #[inline]
+    pub fn cpu_metadata_binding(&self) -> Option<BindingResource<'_>> {
+        self.cpu_metadata.binding()
+    }
+
     /// Returns the GPU buffer that holds the GPU-constructed data used to
     /// construct indirect draw parameters for meshes.
     ///
@@ -1092,6 +1102,16 @@ where
     #[inline]
     pub fn batch_sets_buffer(&self) -> Option<&Buffer> {
         self.batch_sets.buffer()
+    }
+
+    /// Returns a size-restricted binding for the batch sets buffer.
+    ///
+    /// Unlike [`Self::batch_sets_buffer`], this binding is limited to the
+    /// portion of the buffer that was actually written, ensuring that shaders
+    /// using `arrayLength()` see the correct element count.
+    #[inline]
+    pub fn batch_sets_binding(&self) -> Option<BindingResource<'_>> {
+        self.batch_sets.binding()
     }
 
     /// Reserves space for `count` new batches.

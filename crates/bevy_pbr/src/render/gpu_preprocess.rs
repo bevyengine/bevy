@@ -1813,7 +1813,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .indexed
-                .cpu_metadata_buffer(),
+                .cpu_metadata_binding(),
             self.phase_indirect_parameters_buffers
                 .indexed
                 .gpu_metadata_buffer(),
@@ -1822,7 +1822,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
             self.late_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(indexed_cpu_metadata_buffer),
+                Some(indexed_cpu_metadata_binding),
                 Some(indexed_gpu_metadata_buffer),
                 Some(indexed_work_item_gpu_buffer),
                 Some(late_indexed_work_item_gpu_buffer),
@@ -1858,7 +1858,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (7, indexed_cpu_metadata_binding.clone()),
                             (8, indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
@@ -1913,7 +1913,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .non_indexed
-                .cpu_metadata_buffer(),
+                .cpu_metadata_binding(),
             self.phase_indirect_parameters_buffers
                 .non_indexed
                 .gpu_metadata_buffer(),
@@ -1922,7 +1922,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
             self.late_non_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(non_indexed_cpu_metadata_buffer),
+                Some(non_indexed_cpu_metadata_binding),
                 Some(non_indexed_gpu_metadata_buffer),
                 Some(non_indexed_work_item_gpu_buffer),
                 Some(late_non_indexed_work_item_buffer),
@@ -1958,7 +1958,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (7, non_indexed_cpu_metadata_binding.clone()),
                             (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
@@ -2012,7 +2012,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .indexed
-                .cpu_metadata_buffer(),
+                .cpu_metadata_binding(),
             self.phase_indirect_parameters_buffers
                 .indexed
                 .gpu_metadata_buffer(),
@@ -2020,7 +2020,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
             self.late_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(indexed_cpu_metadata_buffer),
+                Some(indexed_cpu_metadata_binding),
                 Some(indexed_gpu_metadata_buffer),
                 Some(late_indexed_work_item_gpu_buffer),
                 Some(late_indexed_indirect_parameters_buffer),
@@ -2055,7 +2055,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (7, indexed_cpu_metadata_binding.clone()),
                             (8, indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
@@ -2101,7 +2101,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .non_indexed
-                .cpu_metadata_buffer(),
+                .cpu_metadata_binding(),
             self.phase_indirect_parameters_buffers
                 .non_indexed
                 .gpu_metadata_buffer(),
@@ -2109,7 +2109,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
             self.late_non_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(non_indexed_cpu_metadata_buffer),
+                Some(non_indexed_cpu_metadata_binding),
                 Some(non_indexed_gpu_metadata_buffer),
                 Some(non_indexed_work_item_gpu_buffer),
                 Some(late_non_indexed_indirect_parameters_buffer),
@@ -2144,7 +2144,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (7, non_indexed_cpu_metadata_binding.clone()),
                             (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
@@ -2203,14 +2203,14 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .indexed
-                .cpu_metadata_buffer(),
+                .cpu_metadata_binding(),
             self.phase_indirect_parameters_buffers
                 .indexed
                 .gpu_metadata_buffer(),
             indexed_work_item_buffer.buffer(),
         ) {
             (
-                Some(indexed_cpu_metadata_buffer),
+                Some(indexed_cpu_metadata_binding),
                 Some(indexed_gpu_metadata_buffer),
                 Some(indexed_work_item_gpu_buffer),
             ) => {
@@ -2244,7 +2244,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (7, indexed_cpu_metadata_binding.clone()),
                             (8, indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
@@ -2268,14 +2268,14 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         match (
             self.phase_indirect_parameters_buffers
                 .non_indexed
-                .cpu_metadata_buffer(),
+                .cpu_metadata_binding(),
             self.phase_indirect_parameters_buffers
                 .non_indexed
                 .gpu_metadata_buffer(),
             non_indexed_work_item_buffer.buffer(),
         ) {
             (
-                Some(non_indexed_cpu_metadata_buffer),
+                Some(non_indexed_cpu_metadata_binding),
                 Some(non_indexed_gpu_metadata_buffer),
                 Some(non_indexed_work_item_gpu_buffer),
             ) => {
@@ -2309,7 +2309,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (7, non_indexed_cpu_metadata_binding.clone()),
                             (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
                             (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
@@ -2341,9 +2341,9 @@ fn create_build_indirect_parameters_bind_groups(
             PhaseBuildIndirectParametersBindGroups {
                 reset_indexed_indirect_batch_sets: match (phase_indirect_parameters_buffer
                     .indexed
-                    .batch_sets_buffer(),)
+                    .batch_sets_binding(),)
                 {
-                    (Some(indexed_batch_sets_buffer),) => Some(
+                    (Some(indexed_batch_sets_binding),) => Some(
                         render_device.create_bind_group(
                             "reset_indexed_indirect_batch_sets_bind_group",
                             // The early bind group is good for the main phase and late
@@ -2355,7 +2355,7 @@ fn create_build_indirect_parameters_bind_groups(
                                     .bind_group_layout,
                             ),
                             &BindGroupEntries::sequential((
-                                indexed_batch_sets_buffer.as_entire_binding(),
+                                indexed_batch_sets_binding,
                             )),
                         ),
                     ),
@@ -2364,9 +2364,9 @@ fn create_build_indirect_parameters_bind_groups(
 
                 reset_non_indexed_indirect_batch_sets: match (phase_indirect_parameters_buffer
                     .non_indexed
-                    .batch_sets_buffer(),)
+                    .batch_sets_binding(),)
                 {
-                    (Some(non_indexed_batch_sets_buffer),) => Some(
+                    (Some(non_indexed_batch_sets_binding),) => Some(
                         render_device.create_bind_group(
                             "reset_non_indexed_indirect_batch_sets_bind_group",
                             // The early bind group is good for the main phase and late
@@ -2378,7 +2378,7 @@ fn create_build_indirect_parameters_bind_groups(
                                     .bind_group_layout,
                             ),
                             &BindGroupEntries::sequential((
-                                non_indexed_batch_sets_buffer.as_entire_binding(),
+                                non_indexed_batch_sets_binding,
                             )),
                         ),
                     ),

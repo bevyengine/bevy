@@ -745,7 +745,7 @@ pub fn prepare_prepass_view_bind_group(
     if let (Some(view_binding), Some(globals_binding), Some(visibility_ranges_buffer)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
-        visibility_ranges.buffer().buffer(),
+        visibility_ranges.buffer().binding(),
     ) {
         prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
             "prepass_view_no_motion_vectors_bind_group",
@@ -753,7 +753,7 @@ pub fn prepare_prepass_view_bind_group(
             &BindGroupEntries::with_indices((
                 (0, view_binding.clone()),
                 (1, globals_binding.clone()),
-                (14, visibility_ranges_buffer.as_entire_binding()),
+                (14, visibility_ranges_buffer.clone()),
             )),
         ));
 
@@ -765,7 +765,7 @@ pub fn prepare_prepass_view_bind_group(
                     (0, view_binding),
                     (1, globals_binding),
                     (2, previous_view_uniforms_binding),
-                    (14, visibility_ranges_buffer.as_entire_binding()),
+                    (14, visibility_ranges_buffer.clone()),
                 )),
             ));
         }
