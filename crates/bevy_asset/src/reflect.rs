@@ -508,12 +508,24 @@ pub struct TypedHandleReference {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{string::String, vec::Vec};
+    use alloc::{string::String, vec, vec::Vec};
     use core::any::TypeId;
+    use ron::ser::PrettyConfig;
+    use serde::de::DeserializeSeed;
+    use std::path::Path;
+    use uuid::Uuid;
 
-    use crate::{tests::create_app, Asset, AssetApp, ReflectAsset};
+    use crate::{
+        tests::{create_app, run_app_until, CoolText, CoolTextLoader, CoolTextRon, SubText},
+        Asset, AssetApp, AssetServer, Assets, DirectAssetAccessExt, EphemeralHandleBehavior,
+        Handle, HandleDeserializeProcessor, HandleSerializeProcessor, LoadedUntypedAsset,
+        ReflectAsset, UntypedHandle,
+    };
     use bevy_ecs::reflect::AppTypeRegistry;
-    use bevy_reflect::Reflect;
+    use bevy_reflect::{
+        serde::{TypedReflectDeserializer, TypedReflectSerializer},
+        FromReflect, Reflect, TypePath,
+    };
 
     #[derive(Asset, Reflect)]
     struct AssetType {
@@ -563,5 +575,142 @@ mod tests {
 
         reflect_asset.remove(app.world_mut(), id).unwrap();
         assert_eq!(reflect_asset.len(app.world()), 0);
+    }
+
+    fn serialize_as_cool_text(text: &str) -> String {
+        let cool_text_ron = CoolTextRon {
+            text: text.into(),
+            dependencies: vec![],
+            embedded_dependencies: vec![],
+            sub_texts: vec![],
+        };
+        ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
+    }
+
+    #[test]
+    fn roundtrip_reflect_serialize_handles() {
+        #[derive(Asset, TypePath)]
+        struct OtherAsset;
+
+        #[derive(Reflect)]
+        struct Stuff {
+            typed: Handle<CoolText>,
+            untyped: UntypedHandle,
+            uuid: Handle<OtherAsset>,
+            ephemeral: Handle<OtherAsset>,
+        }
+
+        let uuid = Uuid::from_u128(123);
+
+        // Initial app to serialize a `Stuff` instance.
+        let ron_data = {
+            let (mut app, dir) = create_app();
+            app.init_asset::<OtherAsset>()
+                .init_asset::<CoolText>()
+                .init_asset::<SubText>()
+                // Normally reflection auto registration would mean we don't need this, but that
+                // feature may not be set for tests, so register the types manually just in case.
+                .register_asset_reflect::<CoolText>()
+                .register_type::<Stuff>()
+                .register_asset_loader(CoolTextLoader);
+
+            dir.insert_asset_text(Path::new("abc.cool.ron"), &serialize_as_cool_text("hello"));
+            dir.insert_asset_text(Path::new("def.cool.ron"), &serialize_as_cool_text("world"));
+
+            let type_registry = app.world().resource::<AppTypeRegistry>().0.clone();
+            let asset_server = app.world().resource::<AssetServer>().clone();
+
+            let untyped = asset_server.load_untyped("def.cool.ron");
+            run_app_until(&mut app, |_| asset_server.is_loaded(&untyped).then_some(()));
+            let untyped = app
+                .world()
+                .resource::<Assets<LoadedUntypedAsset>>()
+                .get(&untyped)
+                .unwrap()
+                .handle
+                .clone();
+
+            let ephemeral = app.world_mut().add_asset(OtherAsset);
+
+            let stuff = Stuff {
+                typed: asset_server.load("abc.cool.ron"),
+                untyped,
+                uuid: uuid.into(),
+                ephemeral,
+            };
+
+            let type_registry = type_registry.read();
+            let processor = HandleSerializeProcessor {
+                ephemeral_handle_behavior: EphemeralHandleBehavior::Silent,
+            };
+            let reflect_serializer =
+                TypedReflectSerializer::with_processor(&stuff, &type_registry, &processor);
+
+            ron::to_string(&reflect_serializer).unwrap()
+        };
+
+        // Create a new app to deserialize the serialized data.
+        let (mut app, dir) = create_app();
+        app.init_asset::<OtherAsset>()
+            .init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            // See above for why we register these manually.
+            .register_asset_reflect::<CoolText>()
+            .register_type::<Stuff>()
+            .register_asset_loader(CoolTextLoader);
+
+        dir.insert_asset_text(Path::new("abc.cool.ron"), &serialize_as_cool_text("hello"));
+        dir.insert_asset_text(Path::new("def.cool.ron"), &serialize_as_cool_text("world"));
+
+        let type_registry = app.world().resource::<AppTypeRegistry>().0.clone();
+        let mut asset_server = app.world().resource::<AssetServer>().clone();
+
+        let type_registry = type_registry.read();
+        let mut processor = HandleDeserializeProcessor {
+            load_from_path: &mut asset_server,
+        };
+        let reflect_deserializer = TypedReflectDeserializer::with_processor(
+            type_registry.get(TypeId::of::<Stuff>()).unwrap(),
+            &type_registry,
+            &mut processor,
+        );
+
+        let mut ron_deserializer = ron::Deserializer::from_str(&ron_data).unwrap();
+        let stuff = Stuff::from_reflect(
+            reflect_deserializer
+                .deserialize(&mut ron_deserializer)
+                .unwrap()
+                .as_ref(),
+        )
+        .unwrap();
+
+        // The UUID handle matches.
+        assert_eq!(stuff.uuid, Handle::from(uuid));
+        // The ephemeral handle was replaced by the default handle.
+        assert_eq!(stuff.ephemeral, Handle::default());
+
+        // The deserializer should have caused the handles to start loading.
+        run_app_until(&mut app, |_| {
+            (asset_server.is_loaded(&stuff.typed) && asset_server.is_loaded(&stuff.untyped))
+                .then_some(())
+        });
+
+        // Make sure that the handles actually do end up with the correct assets.
+        assert_eq!(
+            app.world()
+                .resource::<Assets<CoolText>>()
+                .get(&stuff.typed)
+                .unwrap()
+                .text,
+            "hello"
+        );
+        assert_eq!(
+            app.world()
+                .resource::<Assets<CoolText>>()
+                .get(&stuff.untyped.try_typed::<CoolText>().unwrap())
+                .unwrap()
+                .text,
+            "world"
+        );
     }
 }
