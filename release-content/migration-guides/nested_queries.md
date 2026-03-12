@@ -12,13 +12,18 @@ and need additional trait bounds to ensure they are only used soundly.
 
 An `IterQueryData` bound has been added to iteration methods on `Query`:
 
-* `iter_mut`/ `iter_unsafe` / `into_iter`
+* `into_iter`
 * `iter_many_unique_mut` / `iter_many_unique_unsafe` / `iter_many_unique_inner`
 * `get_many_mut` / `get_many_inner` / `get_many_unique_mut` / `get_many_unique_inner`
 * `par_iter_mut` / `par_iter_inner` / `par_iter_many_unique_mut`
 * `single_mut` / `single_inner`
+* `iter_combinations_mut` / `iter_combinations_inner` / `iter_combinations_unsafe`
 
-`iter`, `iter_many`, `par_iter`, and `single` have no extra bounds,
+`iter_mut`, `iter_unsafe`, and `iter_inner` may be called with non-iterable data,
+but the resulting `QueryIter` will not `impl Iterator`.
+It may be iterated using streaming or lending iteration by calling the new `fetch_next` method.
+
+`iter`, `iter_many`, `par_iter`, `single`, and `iter_combinations` have no extra bounds,
 since read-only queries are always sound to iterate.
 `iter_many_mut` and `iter_many_inner` methods have no extra bounds, either,
 since they already prohibit concurrent access to multiple entities.
@@ -40,6 +45,11 @@ fn generic_func<D: QueryData>(query: Query<D>) {
 // 0.18
 fn generic_func<D: IterQueryData>(query: Query<D>) {
     for item in &mut query { ... }
+}
+// 0.18, but with support for non-iterable query types
+fn generic_func<D: QueryData>(mut query: Query<D>) {
+    let mut iter = query.iter_mut();
+    while let Some(item) = iter.fetch_next() { ... }
 }
 ```
 

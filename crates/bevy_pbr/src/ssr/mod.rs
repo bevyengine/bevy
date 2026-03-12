@@ -48,8 +48,8 @@ use tracing::info;
 
 use crate::{
     binding_arrays_are_usable, contact_shadows::ViewContactShadowsUniformOffset,
-    deferred::deferred_lighting, Bluenoise, ExtractedAtmosphere, MeshPipelineViewLayoutKey,
-    MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
+    deferred::deferred_lighting, Bluenoise, ExtractedAtmosphere, MeshPipelineSet,
+    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset,
 };
@@ -211,7 +211,10 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
         render_app
             .init_resource::<ScreenSpaceReflectionsBuffer>()
             .init_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>()
-            .add_systems(RenderStartup, init_screen_space_reflections_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_screen_space_reflections_pipeline.after(MeshPipelineSet),
+            )
             .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSystems::Prepare))
             .add_systems(
                 Render,

@@ -62,7 +62,7 @@ jobs:
           mkdir traces && mv trace*.json traces/
           mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: example-traces-macos
           path: traces
@@ -71,11 +71,11 @@ jobs:
         run: |
           echo ${{ github.event.number }} > ./screenshots/PR
       - name: save screenshots
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: screenshots-macos
           path: screenshots
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: example-run-macos
@@ -142,16 +142,16 @@ jobs:
           mkdir traces && mv trace*.json traces/
           mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: example-traces-linux
           path: traces
       - name: save screenshots
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: screenshots-linux
           path: screenshots
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: example-run-linux
@@ -211,16 +211,16 @@ jobs:
           mkdir traces && mv trace*.json traces/
           mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: example-traces-windows
           path: traces
       - name: save screenshots
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: screenshots-windows
           path: screenshots
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: example-run-windows

@@ -15,7 +15,9 @@ use crate::{
     component::map_entities, query_data::derive_query_data_impl,
     query_filter::derive_query_filter_impl,
 };
-use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
+use bevy_macro_utils::{
+    derive_label, ensure_no_collision, get_struct_fields, pascal_to_snake_case, BevyManifest,
+};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, ToTokens};
@@ -384,7 +386,7 @@ fn derive_system_param_impl(
         let builder_doc_comment = format!("A [`SystemParamBuilder`] for a [`{struct_name}`].");
         let builder_struct = quote! {
             #[doc = #builder_doc_comment]
-            struct #builder_name<#(#builder_type_parameters,)*> {
+            struct #builder_name<#(#[allow(non_camel_case_types, reason = "generated from snake-case field name")] #builder_type_parameters,)*> {
                 #(#field_members: #builder_type_parameters,)*
             }
         };
@@ -394,7 +396,7 @@ fn derive_system_param_impl(
             // SAFETY: This delegates to the `SystemParamBuilder` for tuples.
             unsafe impl<
                 #(#lifetimes,)*
-                #(#builder_type_parameters: #path::system::SystemParamBuilder<#field_types>,)*
+                #(#[allow(non_camel_case_types, reason = "generated from snake-case field name")] #builder_type_parameters: #path::system::SystemParamBuilder<#field_types>,)*
                 #punctuated_generics
             > #path::system::SystemParamBuilder<#generic_struct> for #builder_name<#(#builder_type_parameters,)*>
                 #where_clause
@@ -450,32 +452,21 @@ fn derive_system_param_impl(
                 }
 
                 #[inline]
-                unsafe fn validate_param<'w, 's>(
-                    state: &'s mut Self::State,
-                    _system_meta: &#path::system::SystemMeta,
-                    _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
-                ) -> Result<(), #path::system::SystemParamValidationError> {
-                    let #state_struct_name { state: (#(#tuple_patterns,)*) } = state;
-                    #(
-                        <#field_types as #path::system::SystemParam>::validate_param(#field_locals, _system_meta, _world)
-                            .map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
-                    )*
-                    Result::Ok(())
-                }
-
-                #[inline]
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                     change_tick: #path::change_detection::Tick,
-                ) -> Self::Item<'w, 's> {
-                    let (#(#tuple_patterns,)*) = <
-                        (#(#tuple_types,)*) as #path::system::SystemParam
-                    >::get_param(&mut state.state, system_meta, world, change_tick);
-                    #struct_name {
+                ) -> Result<Self::Item<'w, 's>, #path::system::SystemParamValidationError> {
+                    let (#(#tuple_patterns,)*) = &mut state.state;
+                    #(
+                        let #field_locals = unsafe {
+                            <#field_types as #path::system::SystemParam>::get_param(#field_locals, system_meta, world, change_tick)
+                        }.map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
+                    )*
+                    Result::Ok(#struct_name {
                         #(#field_members: #field_locals,)*
-                    }
+                    })
                 }
             }
 
@@ -565,6 +556,62 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Resource)]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
+}
+
+/// Implement the `SettingsGroup` trait.
+#[proc_macro_derive(SettingsGroup, attributes(settings_group))]
+pub fn derive_settings_group(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let name = &input.ident;
+
+    let (override_name, override_file) = {
+        let mut override_name: Option<String> = None;
+        let mut override_file: Option<String> = None;
+
+        input
+            .attrs
+            .iter()
+            .find(|attr| attr.path().is_ident("settings_group"))
+            .and_then(|attr| {
+                attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("group") {
+                        let value = meta.value()?;
+                        let s: syn::LitStr = value.parse()?;
+                        override_name = Some(s.value());
+                        Ok(())
+                    } else if meta.path.is_ident("file") {
+                        let value = meta.value()?;
+                        let s: syn::LitStr = value.parse()?;
+                        override_file = Some(s.value());
+                        Ok(())
+                    } else {
+                        Err(meta.error("unsupported attribute"))
+                    }
+                })
+                .ok()
+            });
+
+        (override_name, override_file)
+    };
+
+    let group_name = override_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
+    let file_name = override_file
+        .map(|f| quote! { Some(#f) })
+        .unwrap_or(quote! { None });
+
+    let expanded = quote! {
+        impl SettingsGroup for #name {
+            fn settings_group_name() -> &'static str {
+                #group_name
+            }
+            fn settings_source() -> Option<&'static str> {
+                #file_name
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
 }
 
 /// Cheat sheet for derive syntax,

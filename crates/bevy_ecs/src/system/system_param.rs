@@ -15,7 +15,6 @@ use crate::{
         QuerySingleError, QueryState, ReadOnlyQueryData,
     },
     resource::{Resource, IS_RESOURCE},
-    storage::NonSendData,
     system::{Query, Single, SystemMeta},
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
@@ -257,52 +256,16 @@ pub unsafe trait SystemParam: Sized {
     )]
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
 
-    /// Validates that the param can be acquired by the [`get_param`](SystemParam::get_param).
+    /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
     ///
-    /// Built-in executors use this to prevent systems with invalid params from running,
-    /// and any failures here will be bubbled up to the default error handler defined in [`bevy_ecs::error`],
-    /// with a value of type [`SystemParamValidationError`].
+    /// This method also validates that the param can be acquired. If validation fails,
+    /// an appropriate [`SystemParamValidationError`] should be returned.
+    /// Systems will convert this to a [`RunSystemError`](super::RunSystemError),
+    /// and the built-in executors will ignore any "skipped" validation results,
+    /// but pass any "invalid" results to the default error handler defined in [`bevy_ecs::error`].
     ///
     /// For nested [`SystemParam`]s validation will fail if any
     /// delegated validation fails.
-    ///
-    /// However calling and respecting [`SystemParam::validate_param`]
-    /// is not a strict requirement, [`SystemParam::get_param`] should
-    /// provide it's own safety mechanism to prevent undefined behavior.
-    ///
-    /// The [`world`](UnsafeWorldCell) can only be used to read param's data
-    /// and world metadata. No data can be written.
-    ///
-    /// When using system parameters that require `change_tick` you can use
-    /// [`UnsafeWorldCell::change_tick()`]. Even if this isn't the exact
-    /// same tick used for [`SystemParam::get_param`], the world access
-    /// ensures that the queried data will be the same in both calls.
-    ///
-    /// This method has to be called directly before [`SystemParam::get_param`] with no other (relevant)
-    /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
-    /// the validity of the param may change.
-    ///
-    /// [`System::validate_param`](super::system::System::validate_param),
-    /// calls this method for each supplied system param.
-    ///
-    /// # Safety
-    ///
-    /// - The passed [`UnsafeWorldCell`] must have read-only access to world data
-    ///   registered in [`init_access`](SystemParam::init_access).
-    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    #[expect(
-        unused_variables,
-        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
-    )]
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        Ok(())
-    }
-
-    /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
     ///
     /// # Safety
     ///
@@ -317,7 +280,7 @@ pub unsafe trait SystemParam: Sized {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state>;
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError>;
 }
 
 /// A [`SystemParam`] that only reads a given [`World`].
@@ -363,12 +326,12 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
         // The caller ensures the world matches the one used in init_state.
-        unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) }
+        Ok(unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) })
     }
 }
 
@@ -399,34 +362,16 @@ unsafe impl<'a, 'b, D: IterQueryData + 'static, F: QueryFilter + 'static> System
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
         // The caller ensures the world matches the one used in init_state.
         let query =
             unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) };
-        let single = query
-            .single_inner()
-            .expect("The query was expected to contain exactly one matching entity.");
-        Single {
-            item: single,
-            _filter: PhantomData,
-        }
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
-        // and the query is read only.
-        // The caller ensures the world matches the one used in init_state.
-        let query = unsafe {
-            state.query_unchecked_with_ticks(world, system_meta.last_run, world.change_tick())
-        };
         match query.single_inner() {
-            Ok(_) => Ok(()),
+            Ok(single) => Ok(Single {
+                item: single,
+                _filter: PhantomData,
+            }),
             Err(QuerySingleError::NoEntities(_)) => Err(
                 SystemParamValidationError::skipped::<Self>("No matching entities"),
             ),
@@ -470,30 +415,15 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: Delegate to existing `SystemParam` implementations.
-        let query = unsafe { Query::get_param(state, system_meta, world, change_tick) };
-        Populated(query)
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY:
-        // - We have read-only access to the components accessed by query.
-        // - The caller ensures the world matches the one used in init_state.
-        let query = unsafe {
-            state.query_unchecked_with_ticks(world, system_meta.last_run, world.change_tick())
-        };
+        let query = unsafe { Query::get_param(state, system_meta, world, change_tick) }?;
         if query.is_empty() {
             Err(SystemParamValidationError::skipped::<Self>(
                 "No matching entities",
             ))
         } else {
-            Ok(())
+            Ok(Populated(query))
         }
     }
 }
@@ -683,30 +613,28 @@ macro_rules! impl_param_set {
             }
 
             #[inline]
-            unsafe fn validate_param<'w, 's>(
-                state: &'s mut Self::State,
-                system_meta: &SystemMeta,
-                world: UnsafeWorldCell<'w>,
-            ) -> Result<(), SystemParamValidationError> {
-                // SAFETY: Upheld by caller
-                unsafe {
-                    <($($param,)*) as SystemParam>::validate_param(state, system_meta, world)
-                }
-            }
-
-            #[inline]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
                 change_tick: Tick,
-            ) -> Self::Item<'w, 's> {
-                ParamSet {
+            ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+                // Validate each sub-param eagerly so that the system is correctly
+                // skipped by the executor when any sub-param is unavailable.
+                // PERF: the sub-params will be fetched again lazily when accessed through
+                // the ParamSet, but this is no worse than the previous
+                // validate_param + get_param pattern.
+                $(
+                    // SAFETY: Upheld by caller.
+                    drop(unsafe { $param::get_param(&mut state.$index, system_meta, world, change_tick) }?);
+                )*
+
+                Ok(ParamSet {
                     param_states: state,
                     system_meta: system_meta.clone(),
                     world,
                     change_tick,
-                }
+                })
             }
         }
 
@@ -724,6 +652,7 @@ macro_rules! impl_param_set {
                     unsafe {
                         $param::get_param(&mut self.param_states.$index, &self.system_meta, self.world, self.change_tick)
                     }
+                    .unwrap_or_else(|err| panic!("ParamSet parameter validation failed: {err}"))
                 }
             )*
         }
@@ -749,49 +678,24 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
-        _world: &mut World,
+        world: &mut World,
     ) {
-        let combined_access = component_access_set.combined_access();
-        assert!(
-            !combined_access.has_resource_write(component_id),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<T>(),
-            system_meta.name,
-        );
-
         let mut filter = FilteredAccess::default();
-        filter.add_component_read(component_id);
-        filter.add_resource_read(component_id);
+        filter.add_read(component_id);
         filter.and_with(IS_RESOURCE);
 
-        assert!(component_access_set
-            .get_conflicts_single(&filter)
-            .is_empty(),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<T>(),
-            system_meta.name
-        );
-
-        component_access_set.add(filter);
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        &mut component_id: &mut Self::State,
-        _system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to the resource
-        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
-            && let Ok(entity_ref) = world.get_entity(*entity)
-            && entity_ref.contains_id(component_id)
-        {
-            Ok(())
-        } else {
-            Err(SystemParamValidationError::invalid::<Self>(
-                "Resource does not exist",
-            ))
+        let conflicts = component_access_set.get_conflicts_single(&filter);
+        if conflicts.is_empty() {
+            component_access_set.add(filter);
+            return;
         }
+
+        let mut accesses = conflicts.format_conflict_list(world.as_unsafe_world_cell());
+        // Access list may be empty (if access to all components requested)
+        if !accesses.is_empty() {
+            accesses.push(' ');
+        }
+        panic!("error[B0002]: Res<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
     }
 
     #[inline]
@@ -800,17 +704,11 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .get_resource_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    DebugName::type_name::<T>()
-                );
-            });
-        Res {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        let (ptr, ticks) = world.get_resource_with_ticks(component_id).ok_or_else(|| {
+            SystemParamValidationError::invalid::<Self>("Resource does not exist")
+        })?;
+        Ok(Res {
             value: ptr.deref(),
             ticks: ComponentTicksRef {
                 added: ticks.added.deref(),
@@ -819,7 +717,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-        }
+        })
     }
 }
 
@@ -837,52 +735,24 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
-        _world: &mut World,
+        world: &mut World,
     ) {
-        let combined_access = component_access_set.combined_access();
-        if combined_access.has_resource_write(component_id) {
-            panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                DebugName::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_resource_read(component_id) {
-            panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                DebugName::type_name::<T>(), system_meta.name);
-        }
-
         let mut filter = FilteredAccess::default();
-        filter.add_component_write(component_id);
-        filter.add_resource_write(component_id);
+        filter.add_write(component_id);
         filter.and_with(IS_RESOURCE);
 
-        assert!(component_access_set
-            .get_conflicts_single(&filter)
-            .is_empty(),
-            "error[B0002]: ResMut<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<T>(),
-            system_meta.name
-        );
-
-        component_access_set.add(filter);
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        &mut component_id: &mut Self::State,
-        _system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to the resource.
-        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
-            && let Ok(entity_ref) = world.get_entity(*entity)
-            && entity_ref.contains_id(component_id)
-        {
-            Ok(())
-        } else {
-            Err(SystemParamValidationError::invalid::<Self>(
-                "Resource does not exist",
-            ))
+        let conflicts = component_access_set.get_conflicts_single(&filter);
+        if conflicts.is_empty() {
+            component_access_set.add(filter);
+            return;
         }
+
+        let mut accesses = conflicts.format_conflict_list(world.as_unsafe_world_cell());
+        // Access list may be empty (if access to all components requested)
+        if !accesses.is_empty() {
+            accesses.push(' ');
+        }
+        panic!("error[B0002]: ResMut<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access or using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
     }
 
     #[inline]
@@ -891,17 +761,11 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        let value = world
-            .get_resource_mut_by_id(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    DebugName::type_name::<T>()
-                );
-            });
-        ResMut {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        let value = world.get_resource_mut_by_id(component_id).ok_or_else(|| {
+            SystemParamValidationError::invalid::<Self>("Resource does not exist")
+        })?;
+        Ok(ResMut {
             value: value.value.deref_mut::<T>(),
             ticks: ComponentTicksMut {
                 added: value.ticks.added,
@@ -910,7 +774,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-        }
+        })
     }
 }
 
@@ -948,9 +812,9 @@ unsafe impl SystemParam for &'_ World {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: Read-only access to the entire world was registered in `init_state`.
-        unsafe { world.world() }
+        Ok(unsafe { world.world() })
     }
 }
 
@@ -980,9 +844,9 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: Upheld by caller
-        unsafe { world.into_deferred() }
+        Ok(unsafe { world.into_deferred() })
     }
 }
 
@@ -1171,8 +1035,8 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        Local(state.get())
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(Local(state.get()))
     }
 }
 
@@ -1375,8 +1239,8 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        Deferred(state.get())
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(Deferred(state.get()))
     }
 }
 
@@ -1406,8 +1270,8 @@ unsafe impl SystemParam for ExclusiveMarker {
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
-        Self(PhantomData)
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        Ok(Self(PhantomData))
     }
 }
 
@@ -1440,8 +1304,8 @@ unsafe impl SystemParam for NonSendMarker {
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
-        Self(PhantomData)
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        Ok(Self(PhantomData))
     }
 }
 
@@ -1471,32 +1335,12 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 
         let combined_access = component_access_set.combined_access();
         assert!(
-            !combined_access.has_resource_write(component_id),
+            !combined_access.has_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             DebugName::type_name::<T>(),
             system_meta.name,
         );
-        component_access_set.add_unfiltered_resource_read(component_id);
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        &mut component_id: &mut Self::State,
-        _system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to non-send metadata.
-        if unsafe { world.storages() }
-            .non_sends
-            .get(component_id)
-            .is_some_and(NonSendData::is_present)
-        {
-            Ok(())
-        } else {
-            Err(SystemParamValidationError::invalid::<Self>(
-                "Non-send resource does not exist",
-            ))
-        }
+        component_access_set.add_unfiltered_component_read(component_id);
     }
 
     #[inline]
@@ -1505,20 +1349,14 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .get_non_send_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    DebugName::type_name::<T>()
-                );
-            });
-        NonSend {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        let (ptr, ticks) = world.get_non_send_with_ticks(component_id).ok_or_else(|| {
+            SystemParamValidationError::invalid::<Self>("Non-send data not found")
+        })?;
+        Ok(NonSend {
             value: ptr.deref(),
             ticks: ComponentTicksRef::from_tick_cells(ticks, system_meta.last_run, change_tick),
-        }
+        })
     }
 }
 
@@ -1541,36 +1379,16 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_meta.set_non_send();
 
         let combined_access = component_access_set.combined_access();
-        if combined_access.has_resource_write(component_id) {
+        if combined_access.has_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_resource_read(component_id) {
+        } else if combined_access.has_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
         }
-        component_access_set.add_unfiltered_resource_write(component_id);
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        &mut component_id: &mut Self::State,
-        _system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to non-send metadata.
-        if unsafe { world.storages() }
-            .non_sends
-            .get(component_id)
-            .is_some_and(NonSendData::is_present)
-        {
-            Ok(())
-        } else {
-            Err(SystemParamValidationError::invalid::<Self>(
-                "Non-send resource does not exist",
-            ))
-        }
+        component_access_set.add_unfiltered_component_write(component_id);
     }
 
     #[inline]
@@ -1579,20 +1397,14 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .get_non_send_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    DebugName::type_name::<T>()
-                );
-            });
-        NonSendMut {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        let (ptr, ticks) = world.get_non_send_with_ticks(component_id).ok_or_else(|| {
+            SystemParamValidationError::invalid::<Self>("Non-send data not found")
+        })?;
+        Ok(NonSendMut {
             value: ptr.assert_unique().deref_mut(),
             ticks: ComponentTicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
-        }
+        })
     }
 }
 
@@ -1620,8 +1432,8 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        world.archetypes()
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(world.archetypes())
     }
 }
 
@@ -1649,8 +1461,8 @@ unsafe impl<'a> SystemParam for &'a Components {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        world.components()
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(world.components())
     }
 }
 
@@ -1678,8 +1490,8 @@ unsafe impl<'a> SystemParam for &'a Entities {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        world.entities()
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(world.entities())
     }
 }
 
@@ -1707,8 +1519,8 @@ unsafe impl<'a> SystemParam for &'a EntityAllocator {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        world.entity_allocator()
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(world.entity_allocator())
     }
 }
 
@@ -1736,8 +1548,8 @@ unsafe impl<'a> SystemParam for &'a Bundles {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        world.bundles()
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(world.bundles())
     }
 }
 
@@ -1794,11 +1606,11 @@ unsafe impl SystemParam for SystemChangeTick {
         system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        SystemChangeTick {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(SystemChangeTick {
             last_run: system_meta.last_run,
             this_run: change_tick,
-        }
+        })
     }
 }
 
@@ -1827,13 +1639,9 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: Upheld by caller
-        unsafe {
-            T::validate_param(state, system_meta, world)
-                .ok()
-                .map(|()| T::get_param(state, system_meta, world, change_tick))
-        }
+        Ok(unsafe { T::get_param(state, system_meta, world, change_tick) }.ok())
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1873,12 +1681,9 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: Upheld by caller
-        unsafe {
-            T::validate_param(state, system_meta, world)
-                .map(|()| T::get_param(state, system_meta, world, change_tick))
-        }
+        Ok(unsafe { T::get_param(state, system_meta, world, change_tick) })
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1966,27 +1771,19 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
     }
 
     #[inline]
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Upheld by caller
-        unsafe { T::validate_param(state, system_meta, world) }.map_err(|mut e| {
-            e.skipped = true;
-            e
-        })
-    }
-
-    #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: Upheld by caller.
-        If(unsafe { T::get_param(state, system_meta, world, change_tick) })
+        unsafe { T::get_param(state, system_meta, world, change_tick) }
+            .map(If)
+            .map_err(|mut e| {
+                e.skipped = true;
+                e
+            })
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2024,25 +1821,12 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
     }
 
     #[inline]
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        for state in state {
-            // SAFETY: Upheld by caller
-            unsafe { T::validate_param(state, system_meta, world)? };
-        }
-        Ok(())
-    }
-
-    #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         state
             .iter_mut()
             // SAFETY:
@@ -2103,13 +1887,23 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
-        ParamSet {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        // Validate each sub-param eagerly so that the system is correctly
+        // skipped by the executor when any sub-param is unavailable.
+        // PERF: the sub-params will be fetched again lazily when accessed through
+        // the ParamSet, but this is no worse than the previous
+        // validate_param + get_param pattern.
+        for s in state.iter_mut() {
+            // SAFETY: Upheld by caller.
+            drop(unsafe { T::get_param(s, system_meta, world, change_tick) }?);
+        }
+
+        Ok(ParamSet {
             param_states: state,
             system_meta: system_meta.clone(),
             world,
             change_tick,
-        }
+        })
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2140,6 +1934,7 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
                 self.world,
                 self.change_tick,
             )
+            .unwrap()
         }
     }
 
@@ -2151,7 +1946,8 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
                 // - We initialized the access for each parameter, so the caller ensures we have access to any world data needed by any param.
                 //   We have mutable access to the ParamSet, so no other params in the set are active.
                 // - The caller of `get_param` ensured that this was the world used to initialize our state, and we used that world to initialize parameter states
-                unsafe { T::get_param(state, &self.system_meta, self.world, self.change_tick) },
+                unsafe { T::get_param(state, &self.system_meta, self.world, self.change_tick) }
+                    .unwrap_or_else(|err| panic!("ParamSet parameter validation failed: {err}")),
             );
         });
     }
@@ -2208,34 +2004,13 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            unsafe fn validate_param(
-                state: &mut Self::State,
-                system_meta: &SystemMeta,
-                world: UnsafeWorldCell,
-            ) -> Result<(), SystemParamValidationError> {
-                let ($($param,)*) = state;
-
-                #[allow(
-                    unused_unsafe,
-                    reason = "Zero-length tuples won't have any params to validate."
-                )]
-                // SAFETY: Upheld by caller
-                unsafe {
-                    $(
-                        $param::validate_param($param, system_meta, world)?;
-                    )*
-                }
-                Ok(())
-            }
-
-            #[inline]
             #[track_caller]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
                 change_tick: Tick,
-            ) -> Self::Item<'w, 's> {
+            ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
                 let ($($param,)*) = state;
 
                 #[allow(
@@ -2248,7 +2023,7 @@ macro_rules! impl_system_param_tuple {
                         clippy::unused_unit,
                         reason = "Zero-length tuples won't have any params to get."
                     )]
-                    ($($param::get_param($param, system_meta, world, change_tick),)*)
+                    Ok(($($param::get_param($param, system_meta, world, change_tick)?,)*))
                 }
             }
         }
@@ -2397,24 +2172,14 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     }
 
     #[inline]
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Upheld by caller
-        unsafe { P::validate_param(state, system_meta, world) }
-    }
-
-    #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: Defer to the safety of P::SystemParam
-        StaticSystemParam(unsafe { P::get_param(state, system_meta, world, change_tick) })
+        unsafe { P::get_param(state, system_meta, world, change_tick) }.map(StaticSystemParam)
     }
 }
 
@@ -2439,8 +2204,8 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
-        PhantomData
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        Ok(PhantomData)
     }
 }
 
@@ -2614,12 +2379,12 @@ where
 {
     state
         .downcast_mut::<ParamState<T::Item<'static, 'static>>>()
-        .map(|state| {
+        .and_then(|state| {
             // SAFETY:
             // - The caller ensures the world has access for the underlying system param,
             //   and since the downcast succeeded, the underlying system param is T.
             // - The caller ensures the `world` matches.
-            unsafe { T::Item::get_param(&mut state.0, system_meta, world, change_tick) }
+            unsafe { T::Item::get_param(&mut state.0, system_meta, world, change_tick) }.ok()
         })
 }
 
@@ -2651,14 +2416,15 @@ trait DynParamState: Sync + Send + Any {
         world: &mut World,
     );
 
-    /// Refer to [`SystemParam::validate_param`].
+    /// Validates the inner parameter by calling [`SystemParam::get_param`] and discarding the value.
     ///
     /// # Safety
-    /// Refer to [`SystemParam::validate_param`].
-    unsafe fn validate_param(
+    /// Refer to [`SystemParam::get_param`].
+    unsafe fn validate(
         &mut self,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
+        change_tick: Tick,
     ) -> Result<(), SystemParamValidationError>;
 }
 
@@ -2683,13 +2449,14 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         T::init_access(&self.0, system_meta, component_access_set, world);
     }
 
-    unsafe fn validate_param(
+    unsafe fn validate(
         &mut self,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
+        change_tick: Tick,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Upheld by caller
-        unsafe { T::validate_param(&mut self.0, system_meta, world) }
+        // SAFETY: Upheld by caller.
+        unsafe { T::get_param(&mut self.0, system_meta, world, change_tick) }.map(drop)
     }
 }
 
@@ -2715,28 +2482,24 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     }
 
     #[inline]
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Upheld by caller.
-        unsafe { state.0.validate_param(system_meta, world) }
-    }
-
-    #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        // Validate the inner parameter eagerly so that systems using DynSystemParam
+        // are correctly skipped by the executor when the inner param is unavailable.
+        // SAFETY: Upheld by caller.
+        unsafe { state.0.validate(system_meta, world, change_tick) }?;
         // SAFETY:
         // - `state.0` is a boxed `ParamState<T>`.
         // - `init_access` calls `DynParamState::init_access`, which calls `init_access` on the inner parameter,
         //   so the caller ensures the world has the necessary access.
         // - The caller ensures that the provided world is the same and has the required access.
-        unsafe { DynSystemParam::new(state.0.as_mut(), world, system_meta.clone(), change_tick) }
+        Ok(unsafe {
+            DynSystemParam::new(state.0.as_mut(), world, system_meta.clone(), change_tick)
+        })
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2773,13 +2536,10 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
-        if access.has_read_all_resources() {
-            component_access_set.add_unfiltered_read_all_resources();
-        } else {
-            for component_id in access.resource_reads_and_writes() {
-                component_access_set.add_unfiltered_resource_read(component_id);
-            }
-        }
+        let mut filter = FilteredAccess::matches_everything();
+        filter.access_mut().extend(access);
+        filter.and_with(IS_RESOURCE);
+        component_access_set.add(filter);
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -2787,10 +2547,10 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
         // and we registered all resource access in `state``.
-        unsafe { FilteredResources::new(world, state, system_meta.last_run, change_tick) }
+        Ok(unsafe { FilteredResources::new(world, state, system_meta.last_run, change_tick) })
     }
 }
 
@@ -2822,21 +2582,10 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
 
-        if access.has_read_all_resources() {
-            component_access_set.add_unfiltered_read_all_resources();
-        } else {
-            for component_id in access.resource_reads() {
-                component_access_set.add_unfiltered_resource_read(component_id);
-            }
-        }
-
-        if access.has_write_all_resources() {
-            component_access_set.add_unfiltered_write_all_resources();
-        } else {
-            for component_id in access.resource_writes() {
-                component_access_set.add_unfiltered_resource_write(component_id);
-            }
-        }
+        let mut filter = FilteredAccess::matches_everything();
+        filter.access_mut().extend(access);
+        filter.and_with(IS_RESOURCE);
+        component_access_set.add(filter);
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -2844,17 +2593,17 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
         // and we registered all resource access in `state``.
-        unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
+        Ok(unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) })
     }
 }
 
 /// An error that occurs when a system parameter is not valid,
 /// used by system executors to determine what to do with a system.
 ///
-/// Returned as an error from [`SystemParam::validate_param`],
+/// Returned as an error from [`SystemParam::get_param`],
 /// and handled using the unified error handling mechanisms defined in [`bevy_ecs::error`].
 #[derive(Debug, PartialEq, Eq, Clone, Error)]
 pub struct SystemParamValidationError {
@@ -2941,7 +2690,10 @@ impl Display for SystemParamValidationError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::query::Without;
+    use crate::resource::IsResource;
     use crate::system::assert_is_system;
+    use crate::world::EntityMut;
     use core::cell::RefCell;
 
     #[test]
@@ -2958,6 +2710,44 @@ mod tests {
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems(my_system);
         schedule.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn non_send_and_entities() {
+        #[derive(Resource)]
+        struct A(usize);
+        fn my_system(mut ns: NonSendMut<A>, _: Query<EntityMut>) {
+            ns.0 += 1;
+        }
+        assert_is_system(my_system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn res_and_entities() {
+        #[derive(Resource)]
+        struct A(usize);
+        fn my_system(mut res: ResMut<A>, _: Query<EntityMut>) {
+            res.0 += 1;
+        }
+        assert_is_system(my_system);
+    }
+
+    #[test]
+    fn res_and_entities_filtered() {
+        #[derive(Resource)]
+        struct A(usize);
+        fn res_system(mut res: ResMut<A>, _: Query<EntityMut, Without<IsResource>>) {
+            res.0 += 1;
+        }
+        assert_is_system(res_system);
+
+        fn non_send_system(mut ns: NonSendMut<A>, _: Query<EntityMut, Without<A>>) {
+            ns.0 += 1;
+        }
+
+        assert_is_system(non_send_system);
     }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.

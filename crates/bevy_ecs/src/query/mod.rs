@@ -113,18 +113,15 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{
-        archetype::Archetype,
-        change_detection::Tick,
-        component::{Component, ComponentId, Components},
-        prelude::{AnyOf, Changed, Entity, Or, QueryState, Resource, With, Without},
+        component::Component,
+        prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without},
         query::{
-            ArchetypeFilter, ArchetypeQueryData, FilteredAccess, Has, IterQueryData,
-            QueryCombinationIter, QueryData, QueryFilter, ReadOnlyQueryData, WorldQuery,
+            ArchetypeFilter, ArchetypeQueryData, Has, QueryCombinationIter, QueryData, QueryFilter,
+            ReadOnlyQueryData,
         },
         schedule::{IntoScheduleConfigs, Schedule},
-        storage::{Table, TableRow},
-        system::{assert_is_system, IntoSystem, Query, System, SystemState},
-        world::{unsafe_world_cell::UnsafeWorldCell, World},
+        system::{IntoSystem, Query, System, SystemState},
+        world::World,
     };
     use alloc::{vec, vec::Vec};
     use core::{any::type_name, fmt::Debug, hash::Hash};
@@ -777,7 +774,7 @@ mod tests {
 
         // system param
         let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
-        let q = q.get_mut(&mut world);
+        let q = q.get_mut(&mut world).unwrap();
         let _: Option<&Foo> = q.iter().next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>().next();
         let _: Option<&Foo> = q.iter_many([e]).next();
@@ -816,115 +813,5 @@ mod tests {
 
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(2)]);
-    }
-
-    #[derive(Resource)]
-    struct R;
-
-    /// `QueryData` that performs read access on R to test that resource access is tracked
-    struct ReadsRData;
-
-    // SAFETY:
-    // `update_component_access` adds resource read access for `R`.
-    unsafe impl WorldQuery for ReadsRData {
-        type Fetch<'w> = ();
-        type State = ComponentId;
-
-        fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
-
-        unsafe fn init_fetch<'w, 's>(
-            _world: UnsafeWorldCell<'w>,
-            _state: &'s Self::State,
-            _last_run: Tick,
-            _this_run: Tick,
-        ) -> Self::Fetch<'w> {
-        }
-
-        const IS_DENSE: bool = true;
-
-        #[inline]
-        unsafe fn set_archetype<'w, 's>(
-            _fetch: &mut Self::Fetch<'w>,
-            _state: &'s Self::State,
-            _archetype: &'w Archetype,
-            _table: &Table,
-        ) {
-        }
-
-        #[inline]
-        unsafe fn set_table<'w, 's>(
-            _fetch: &mut Self::Fetch<'w>,
-            _state: &'s Self::State,
-            _table: &'w Table,
-        ) {
-        }
-
-        fn update_component_access(&component_id: &Self::State, access: &mut FilteredAccess) {
-            assert!(
-                !access.access().has_resource_write(component_id),
-                "ReadsRData conflicts with a previous access in this query. Shared access cannot coincide with exclusive access."
-            );
-            access.add_resource_read(component_id);
-        }
-
-        fn init_state(world: &mut World) -> Self::State {
-            world.components_registrator().register_component::<R>()
-        }
-
-        fn get_state(components: &Components) -> Option<Self::State> {
-            components.component_id::<R>()
-        }
-
-        fn matches_component_set(
-            _state: &Self::State,
-            _set_contains_id: &impl Fn(ComponentId) -> bool,
-        ) -> bool {
-            true
-        }
-    }
-
-    // SAFETY: `Self` is the same as `Self::ReadOnly`
-    unsafe impl QueryData for ReadsRData {
-        const IS_READ_ONLY: bool = true;
-        const IS_ARCHETYPAL: bool = true;
-        type ReadOnly = Self;
-        type Item<'w, 's> = ();
-
-        fn shrink<'wlong: 'wshort, 'wshort, 's>(
-            _item: Self::Item<'wlong, 's>,
-        ) -> Self::Item<'wshort, 's> {
-        }
-
-        #[inline(always)]
-        unsafe fn fetch<'w, 's>(
-            _state: &'s Self::State,
-            _fetch: &mut Self::Fetch<'w>,
-            _entity: Entity,
-            _table_row: TableRow,
-        ) -> Option<Self::Item<'w, 's>> {
-            Some(())
-        }
-
-        fn iter_access(
-            state: &Self::State,
-        ) -> impl Iterator<Item = super::access_iter::EcsAccessType<'_>> {
-            core::iter::once(super::access_iter::EcsAccessType::Resource(
-                super::access_iter::ResourceAccessLevel::Read(*state),
-            ))
-        }
-    }
-
-    // SAFETY: access is read only
-    unsafe impl ReadOnlyQueryData for ReadsRData {}
-
-    /// SAFETY: access is read only
-    unsafe impl IterQueryData for ReadsRData {}
-
-    impl ArchetypeQueryData for ReadsRData {}
-
-    #[test]
-    fn read_res_read_res_no_conflict() {
-        fn system(_q1: Query<ReadsRData, With<A>>, _q2: Query<ReadsRData, Without<A>>) {}
-        assert_is_system(system);
     }
 }

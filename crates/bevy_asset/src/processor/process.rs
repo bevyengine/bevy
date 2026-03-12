@@ -203,7 +203,12 @@ where
 
         let output_settings = self
             .saver
-            .save(writer, saved_asset, &settings.saver_settings)
+            .save(
+                writer,
+                saved_asset,
+                &settings.saver_settings,
+                context.path.clone(),
+            )
             .await
             .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
         Ok(output_settings)

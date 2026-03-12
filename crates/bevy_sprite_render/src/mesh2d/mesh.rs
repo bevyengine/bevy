@@ -340,19 +340,26 @@ impl GetBatchData for Mesh2dPipeline {
         SRes<RenderAssets<RenderMesh>>,
         SRes<MeshAllocator>,
     );
-    type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
+    type BatchSetCompareData = (Material2dBindGroupId, AssetId<Mesh>);
+    type BatchCompareData = ();
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
         (mesh_instances, _, _): &SystemParamItem<Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
-    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+    ) -> Option<(
+        Self::BufferData,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((
             Mesh2dUniform::from_components(&mesh_instance.transforms, mesh_instance.tag),
             mesh_instance.automatic_batching.then_some((
-                mesh_instance.material_bind_group_id,
-                mesh_instance.mesh_asset_id,
+                (
+                    mesh_instance.material_bind_group_id,
+                    mesh_instance.mesh_asset_id,
+                ),
+                (),
             )),
         ))
     }
@@ -375,7 +382,10 @@ impl GetFullBatchData for Mesh2dPipeline {
     fn get_index_and_compare_data(
         _: &SystemParamItem<Self::Param>,
         _query_item: MainEntity,
-    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
+    ) -> Option<(
+        NonMaxU32,
+        Option<(Self::BatchSetCompareData, Self::BatchCompareData)>,
+    )> {
         error!(
             "`get_index_and_compare_data` is only intended for GPU mesh uniform building, \
             but this is not yet implemented for 2d meshes"

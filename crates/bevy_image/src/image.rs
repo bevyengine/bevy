@@ -240,41 +240,55 @@ impl Plugin for ImagePlugin {
     }
 }
 
-pub const TEXTURE_ASSET_INDEX: u64 = 0;
-pub const SAMPLER_ASSET_INDEX: u64 = 1;
-
+/// The format of an on-disk image asset.
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
+    /// An image in basis universal format.
     #[cfg(feature = "basis-universal")]
     Basis,
+    /// An image in BMP format.
     #[cfg(feature = "bmp")]
     Bmp,
+    /// An image in DDS format.
     #[cfg(feature = "dds")]
     Dds,
+    /// An image in Farbfeld format.
     #[cfg(feature = "ff")]
     Farbfeld,
+    /// An image in GIF format.
     #[cfg(feature = "gif")]
     Gif,
+    /// An image in Open EXR format.
     #[cfg(feature = "exr")]
     OpenExr,
+    /// An image in Radiance HDR format.
     #[cfg(feature = "hdr")]
     Hdr,
+    /// An image in ICO format.
     #[cfg(feature = "ico")]
     Ico,
+    /// An image in JPEG format.
     #[cfg(feature = "jpeg")]
     Jpeg,
+    /// An image in Khronos KTX2 format.
     #[cfg(feature = "ktx2")]
     Ktx2,
+    /// An image in PNG format.
     #[cfg(feature = "png")]
     Png,
+    /// An image in general PNM format
     #[cfg(feature = "pnm")]
     Pnm,
+    /// An image in QOI format.
     #[cfg(feature = "qoi")]
     Qoi,
+    /// An image in TGA format.
     #[cfg(feature = "tga")]
     Tga,
+    /// An image in TIFF format.
     #[cfg(feature = "tiff")]
     Tiff,
+    /// An image in WEBP format.
     #[cfg(feature = "webp")]
     WebP,
 }
@@ -395,6 +409,9 @@ impl ImageFormat {
         }
     }
 
+    /// Returns the image format associated with the given MIME type.
+    ///
+    /// `None` is returned if the MIME type is unknown, or its format's feature is not enabled.
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         #[expect(
             clippy::allow_attributes,
@@ -428,6 +445,9 @@ impl ImageFormat {
         })
     }
 
+    /// Returns the image format associated with the given file extension.
+    ///
+    /// `None` is returned if the extension is unknown, or its format's feature is not enabled.
     pub fn from_extension(extension: &str) -> Option<Self> {
         #[expect(
             clippy::allow_attributes,
@@ -458,6 +478,7 @@ impl ImageFormat {
         })
     }
 
+    /// Returns the equivalent [`image::ImageFormat`] if available.
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
         #[expect(
             clippy::allow_attributes,
@@ -513,6 +534,9 @@ impl ImageFormat {
         })
     }
 
+    /// Returns the equivalent bevy [`ImageFormat`] of an [`image::ImageFormat`].
+    ///
+    /// Returns `None` if the format is unsupported, or its feature is disabled.
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
         #[expect(
             clippy::allow_attributes,
@@ -542,7 +566,9 @@ impl ImageFormat {
     }
 }
 
+/// A trait for creating [`Extent3d`] values.
 pub trait ToExtents {
+    /// Converts this type to an [`Extent3d`].
     fn to_extents(self) -> Extent3d;
 }
 impl ToExtents for UVec2 {
@@ -606,6 +632,7 @@ pub struct Image {
     /// - [`TextureViewDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
     ///   If you use assets, the label is purely a debugging aid.
     pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
+    /// Where this image asset will be used. See [`RenderAssetUsages`] for more.
     pub asset_usage: RenderAssetUsages,
     /// Whether this image should be copied on the GPU when resized.
     pub copy_on_resize: bool,
@@ -778,6 +805,7 @@ pub enum ImageSamplerBorderColor {
     reflect(Default, Debug, Clone)
 )]
 pub struct ImageSamplerDescriptor {
+    /// An optional label used to identify this sampler in logs.
     pub label: Option<String>,
     /// How to deal with out of bounds accesses in the u (i.e. x) direction.
     pub address_mode_u: ImageAddressMode,
@@ -875,6 +903,7 @@ impl ImageSamplerDescriptor {
         self
     }
 
+    /// Converts this sampler to its `wgpu` equivalent.
     pub fn as_wgpu(&self) -> SamplerDescriptor<Option<&str>> {
         SamplerDescriptor {
             label: self.label.as_deref(),
@@ -1967,20 +1996,30 @@ impl Image {
     }
 }
 
+/// A [UASTC] texture channel layout
+///
+/// [UASTC]: https://github.com/BinomialLLC/basis_universal/wiki/UASTC-Texture-Specification/b624c07ad3c659e7b0f0badcb36e9a6b8820a99d
 #[derive(Clone, Copy, Debug)]
-pub enum DataFormat {
+pub enum TextureChannelLayout {
+    /// 3-color
     Rgb,
+    /// 4-color
     Rgba,
+    /// 1-color (R) extended to 3 (RRR)
     Rrr,
+    /// 2-color (RG) extended to 4 (RRRG)
     Rrrg,
+    /// 2-color
     Rg,
 }
 
 /// Texture data need to be transcoded from this format for use with `wgpu`.
 #[derive(Clone, Copy, Debug)]
 pub enum TranscodeFormat {
+    /// Has to be transcoded from a compressed ETC1S texture.
     Etc1s,
-    Uastc(DataFormat),
+    /// Has to be transcoded from a compressed UASTC texture.
+    Uastc(TextureChannelLayout),
     /// Has to be transcoded from `R8UnormSrgb` to `R8Unorm` for use with `wgpu`.
     R8UnormSrgb,
     /// Has to be transcoded from `Rg8UnormSrgb` to `R8G8Unorm` for use with `wgpu`.
@@ -1992,25 +2031,56 @@ pub enum TranscodeFormat {
 /// An error that occurs when reinterpreting an image.
 #[derive(Error, Debug)]
 pub enum TextureReinterpretationError {
+    /// The pixel volumes of the original and reinterpreted extents were different.
     #[error("incompatible sizes: old = {old:?} new = {new:?}")]
-    IncompatibleSizes { old: Extent3d, new: Extent3d },
+    IncompatibleSizes {
+        /// The original image extent.
+        old: Extent3d,
+        /// The desired reinterpreted extent.
+        new: Extent3d,
+    },
+    /// The image was expected to be 2d.
     #[error("must be a 2d image")]
     WrongDimension,
+    /// The image was expected to have a single layer.
     #[error("must not already be a layered image")]
     InvalidLayerCount,
+    /// The stacked image could not be evenly divided into the desired number of image layers.
     #[error("can not evenly divide height = {height} by layers = {layers}")]
-    HeightNotDivisibleByLayers { height: u32, layers: u32 },
+    HeightNotDivisibleByLayers {
+        /// The total image height in pixels.
+        height: u32,
+        /// The desired number of image layers.
+        layers: u32,
+    },
 }
 
 /// An error that occurs when accessing specific pixels in a texture.
 #[derive(Error, Debug)]
 pub enum TextureAccessError {
+    /// Attempted to access a pixel outside the texture bounds.
     #[error("out of bounds (x: {x}, y: {y}, z: {z})")]
-    OutOfBounds { x: u32, y: u32, z: u32 },
+    OutOfBounds {
+        /// The pixel x-coordinate.
+        x: u32,
+        /// The pixel y-coordinate.
+        y: u32,
+        /// The pixel z-coordinate.
+        z: u32,
+    },
+    /// Attempted to perform an image operation on an unsupported texture format.
+    ///
+    /// Most often this is returned when attempting to access pixel data of compressed textures.
     #[error("unsupported texture format: {0:?}")]
     UnsupportedTextureFormat(TextureFormat),
+    /// Attempted to access the data of an image before it was initialized, or after it was moved
+    /// to the GPU.
+    ///
+    /// See [`RenderAssetUsages`] for more information about when an asset's data is moved, and
+    /// how to retain it if necessary.
     #[error("image data is not initialized")]
     Uninitialized,
+    /// The texture's dimension was different than indicated by the accessor used.
     #[error("attempt to access texture with different dimension")]
     WrongDimension,
 }
@@ -2062,6 +2132,12 @@ pub enum ImageType<'a> {
 }
 
 impl<'a> ImageType<'a> {
+    /// Attempts to detect the appropriate [`ImageFormat`] for this image type.
+    ///
+    /// # Errors
+    ///
+    /// A [`TextureError`] will be returned if this image type is a MIME type or file extension for
+    /// an unsupported or disabled format.
     pub fn to_image_format(&self) -> Result<ImageFormat, TextureError> {
         match self {
             ImageType::MimeType(mime_type) => ImageFormat::from_mime_type(mime_type)
@@ -2073,13 +2149,14 @@ impl<'a> ImageType<'a> {
     }
 }
 
-/// Used to calculate the volume of an item.
+/// Used to calculate the total number of pixels for an image size.
 pub trait Volume {
+    /// Calculates the total number of pixels in the item.
     fn volume(&self) -> usize;
 }
 
 impl Volume for Extent3d {
-    /// Calculates the volume of the [`Extent3d`].
+    /// Calculates the total number of pixels in the [`Extent3d`].
     fn volume(&self) -> usize {
         (self.width * self.height * self.depth_or_array_layers) as usize
     }
@@ -2103,17 +2180,45 @@ impl TextureFormatPixelInfo for TextureFormat {
 }
 
 bitflags::bitflags! {
+    /// A set of flags describing the compressed formats supported by a render device.
     #[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
     #[repr(transparent)]
     pub struct CompressedImageFormats: u32 {
+        /// No support for compressed textures.
         const NONE     = 0;
+        /// Support for Adaptive Scalable Texture Compression.
+        ///
+        /// For more information see:
+        /// - [`Features::TEXTURE_COMPRESSION_ASTC`]
+        /// - [ASTC Format Specification]
+        ///
+        /// [ASTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#ASTC
         const ASTC_LDR = 1 << 0;
+        /// Support for Block Compressed textures.
+        ///
+        /// For more information see:
+        /// - [`Features::TEXTURE_COMPRESSION_BC`]
+        /// - [S3TC Format Specification] (BC1, BC2, BC3)
+        /// - [RGTC Format Specification] (BC4, BC5)
+        /// - [BPTC Format Specification] (BC6, BC7)
+        ///
+        /// [S3TC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#S3TC
+        /// [RGTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#RGTC
+        /// [BPTC Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#BPTC
         const BC       = 1 << 1;
+        /// Support for Ericsson Texture Compression.
+        ///
+        /// For more information see:
+        /// - [`Features::TEXTURE_COMPRESSION_ETC2`]
+        /// - [ETC2 Format Specification]
+        ///
+        /// [ETC2 Format Specification]: https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html#ETC2
         const ETC2     = 1 << 2;
     }
 }
 
 impl CompressedImageFormats {
+    /// Get the supported texture compression formats from a wgpu device's features.
     pub fn from_features(features: Features) -> Self {
         let mut supported_compressed_formats = Self::default();
         if features.contains(Features::TEXTURE_COMPRESSION_ASTC) {
@@ -2128,6 +2233,10 @@ impl CompressedImageFormats {
         supported_compressed_formats
     }
 
+    /// Returns `true` if the given [`TextureFormat`] is supported by the available compression
+    /// features.
+    ///
+    /// Always returns `true` for uncompressed formats.
     pub fn supports(&self, format: TextureFormat) -> bool {
         match format {
             TextureFormat::Bc1RgbaUnorm

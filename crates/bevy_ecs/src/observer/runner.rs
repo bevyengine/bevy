@@ -102,20 +102,12 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
         #[cfg(feature = "hotpatching")]
         if world
             .get_resource_ref::<crate::HotPatchChanges>()
-            .map(|r| {
-                r.last_changed()
-                    .is_newer_than((*system).get_last_run(), world.change_tick())
-            })
-            .unwrap_or(true)
+            .is_none_or(|r| r.is_changed_after((*system).get_last_run()))
         {
             (*system).refresh_hotpatch();
         };
 
-        if let Err(RunSystemError::Failed(err)) = (*system)
-            .validate_param_unsafe(world)
-            .map_err(From::from)
-            .and_then(|()| (*system).run_unsafe(on, world))
-        {
+        if let Err(RunSystemError::Failed(err)) = (*system).run_unsafe(on, world) {
             let handler = state
                 .error_handler
                 .unwrap_or_else(|| world.default_error_handler());

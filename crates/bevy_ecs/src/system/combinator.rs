@@ -8,7 +8,7 @@ use crate::{
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn, SystemParamValidationError},
+    system::{input::SystemInput, SystemIn},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -168,10 +168,7 @@ where
             world: &mut PrivateUnsafeWorldCell,
         ) -> Result<S::Out, RunSystemError> {
             // SAFETY: see comment on `Func::combine` call
-            match (|| unsafe {
-                system.validate_param_unsafe(world.0)?;
-                system.run_unsafe(input, world.0)
-            })() {
+            match unsafe { system.run_unsafe(input, world.0) } {
                 // let the world's default error handler handle the error if `Failed(_)`
                 Err(RunSystemError::Failed(err)) => {
                     // SAFETY: We registered access to DefaultErrorHandler in `initialize`.
@@ -233,17 +230,6 @@ where
         self.b.queue_deferred(world);
     }
 
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        _world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // Both systems are validated in `Self::run_unsafe`, so that we get the
-        // chance to run the second system even if the first one fails to
-        // validate.
-        Ok(())
-    }
-
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
@@ -252,7 +238,7 @@ where
         // We might need to read the default error handler after the component
         // systems have run to report failures.
         let error_resource = world.register_resource::<crate::error::DefaultErrorHandler>();
-        a_access.add_unfiltered_resource_read(error_resource);
+        a_access.add_resource_read(error_resource);
         a_access
     }
 
@@ -415,9 +401,6 @@ where
         // SAFETY: Upheld by caller
         unsafe {
             let value = self.a.run_unsafe(input, world)?;
-            // `Self::validate_param_unsafe` already validated the first system,
-            // but we still need to validate the second system once the first one runs.
-            self.b.validate_param_unsafe(world)?;
             self.b.run_unsafe(value, world)
         }
     }
@@ -437,18 +420,6 @@ where
     fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
         self.a.queue_deferred(world.reborrow());
         self.b.queue_deferred(world);
-    }
-
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // We only validate parameters for the first system,
-        // since it may make changes to the world that affect
-        // whether the second system has valid parameters.
-        // The second system will be validated in `Self::run_unsafe`.
-        // SAFETY: Delegate to the `System` implementation for `a`.
-        unsafe { self.a.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
