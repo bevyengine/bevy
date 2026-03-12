@@ -53,7 +53,8 @@ pub fn extract_text_cursor(
             continue;
         };
 
-        let transform = Affine2::from(global_transform);
+        let transform =
+            Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
 
         if !text_layout_info.selection_rects.is_empty()
             && !cursor_style.selection_color.is_fully_transparent()
@@ -67,7 +68,7 @@ pub fn extract_text_cursor(
                     clip: maybe_clip.map(|clip| clip.clip),
                     image: AssetId::default(),
                     extracted_camera_entity,
-                    transform: transform * Affine2::from_translation(selection.min),
+                    transform: transform * Affine2::from_translation(selection.center()),
                     item: ExtractedUiItem::Node {
                         color: selection_color,
                         rect: Rect {
@@ -96,7 +97,7 @@ pub fn extract_text_cursor(
                 clip: maybe_clip.map(|clip| clip.clip),
                 image: AssetId::default(),
                 extracted_camera_entity,
-                transform: transform * Affine2::from_translation(cursor_rect.min),
+                transform: transform * Affine2::from_translation(cursor_rect.center()),
                 item: ExtractedUiItem::Node {
                     color: cursor_style.color.to_linear(),
                     rect: Rect {

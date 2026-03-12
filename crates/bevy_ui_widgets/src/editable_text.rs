@@ -15,6 +15,7 @@ use bevy_input::{ButtonInput, InputSystems};
 use bevy_input_focus::{InputFocus, InputFocusSystems};
 use bevy_text::{EditableText, TextEdit};
 use bevy_ui::{widget::TextNodeFlags, ContentSize, Node};
+use smol_str::SmolStr;
 
 /// System that processes keyboard input events into text edit actions for focused [`EditableText`] widgets.
 ///
@@ -49,6 +50,13 @@ pub fn process_text_inputs(
                 ..
             } => {
                 editable_text.queue_edit(TextEdit::Insert(c.clone()));
+            }
+            KeyboardInput {
+                logical_key: Key::Space,
+                state: bevy_input::ButtonState::Pressed,
+                ..
+            } => {
+                editable_text.queue_edit(TextEdit::Insert(SmolStr::new_inline(" ")));
             }
             KeyboardInput {
                 logical_key: Key::Backspace,

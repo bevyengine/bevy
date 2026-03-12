@@ -72,7 +72,7 @@ fn setup(
 
     // Set up an EditableText widget
     let (text_input_left, text_input_left_edit) =
-        build_input_text(&mut commands, &font, true, 70.0);
+        build_input_text(&mut commands, &font, true, 30.0);
     let (text_input_right, _text_input_right_edit) =
         build_input_text(&mut commands, &font, false, 50.0);
 
@@ -163,7 +163,7 @@ fn build_input_text(
             },
             TextCursorStyle {
                 color: RED.into(),
-                selection_color: GREEN.into(),
+                selection_color: Color::from(GREEN).with_alpha(0.5),
                 selected_text_color: Some(BLUE.into()),
             },
             UiTransform::from_translation(Val2 {

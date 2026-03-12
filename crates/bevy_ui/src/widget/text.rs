@@ -24,6 +24,9 @@ use bevy_text::{
     TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
     TextWriter,
 };
+extern crate alloc;
+use alloc::borrow::Cow;
+use parley::{FontStack, StyleProperty};
 use taffy::style::AvailableSpace;
 use tracing::error;
 
@@ -405,7 +408,14 @@ pub fn measure_editable_text_system(
 
         let logical_viewport_size = computed_target.logical_size();
 
-        if check_style_and_cursor(&mut text, logical_viewport_size, &text_font, &rem_size) {
+        let (font_changes_required, font_size) =
+            check_style(&mut text, logical_viewport_size, &text_font, &rem_size);
+        if font_changes_required {
+            let editor = text.editor_mut();
+
+            editor.set_scale(computed_target.scale_factor);
+            text.cursor_width = font_size * CURSOR_SCALE;
+
             text_flags.needs_measure_fn = true;
 
             continue;
@@ -458,22 +468,23 @@ pub fn measure_editable_text_system(
     }
 }
 
-fn check_style_and_cursor(
-    text: &mut Mut<EditableText>,
+// TODO: this factor is a guess
+const CURSOR_SCALE: f32 = 0.28;
+
+fn check_style<'a>(
+    text: &mut Mut<'a, EditableText>,
     logical_viewport_size: Vec2,
     text_font: &Ref<TextFont>,
     rem_size: &Res<RemSize>,
-) -> bool {
-    // TODO: these factors don't have any science to them
-    const CURSOR_SCALE: f32 = 0.28;
-    const STYLE_SCALE: f32 = 1.52;
-
+) -> (bool, f32) {
     let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);
+
+    // NOTE: this is messy as the editor doesn't expose much to read
 
     let editor = text.editor_mut();
     let styles = editor.edit_styles();
 
-    let target_font_size_style = parley::StyleProperty::FontSize(font_size * STYLE_SCALE);
+    let target_font_size_style = StyleProperty::FontSize(font_size);
 
     let dis = core::mem::discriminant(&target_font_size_style);
 
@@ -482,28 +493,27 @@ fn check_style_and_cursor(
     let mut font_changes_required = false;
 
     if let Some(current_font_size) = maybe_current_font_size {
-        if let parley::StyleProperty::FontSize(x) = current_font_size
-            && (x - font_size * STYLE_SCALE).abs() > 1e-5
+        if let StyleProperty::FontSize(x) = current_font_size
+            && (x - font_size).abs() > 1e-5
         {
-            styles.insert(target_font_size_style);
-
-            font_changes_required = true;
-        }
-
-        if (text.cursor_width - font_size * CURSOR_SCALE).abs() > 1e-5 {
-            text.cursor_width = font_size * CURSOR_SCALE;
-
             font_changes_required = true;
         }
     } else {
-        styles.insert(target_font_size_style);
-
-        text.cursor_width = font_size * CURSOR_SCALE;
-
         font_changes_required = true;
     }
 
-    font_changes_required
+    if font_changes_required {
+        styles.insert(target_font_size_style);
+
+        // TODO: don't hardcode this
+        // let family = font_system.get_family(&text_font.font);
+        // Above returns None, as its a Handle<Font> ?
+        styles.insert(StyleProperty::FontStack(FontStack::Source(Cow::Borrowed(
+            "monospace",
+        ))));
+    }
+
+    (font_changes_required, font_size)
 }
 
 /// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
