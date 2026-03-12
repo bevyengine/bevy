@@ -108,10 +108,11 @@ pub struct ActionRequest(pub accesskit::ActionRequest);
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(opaque),
     reflect(Default, Clone, Resource)
 )]
-pub struct AccessibilityRequested(Arc<AtomicBool>);
+pub struct AccessibilityRequested(
+    #[cfg_attr(feature = "bevy_reflect", reflect(skip_serializing))] Arc<AtomicBool>,
+);
 
 impl AccessibilityRequested {
     /// Checks if any assistive technology has requested accessibility
