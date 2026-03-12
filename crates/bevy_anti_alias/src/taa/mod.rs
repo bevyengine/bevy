@@ -71,7 +71,7 @@ impl Plugin for TemporalAntiAliasPlugin {
         render_app.add_systems(
             Core3d,
             temporal_anti_alias
-                .after(motion_blur)
+                .before(motion_blur)
                 .before(bloom)
                 .in_set(Core3dSystems::PostProcess),
         );

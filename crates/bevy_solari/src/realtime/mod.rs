@@ -7,6 +7,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_camera::Hdr;
 use bevy_core_pipeline::{
+    core_3d::main_opaque_pass_3d,
     prepass::{
         DeferredPrepass, DeferredPrepassDoubleBuffer, DepthPrepass, DepthPrepassDoubleBuffer,
         MotionVectorPrepass,
@@ -68,7 +69,12 @@ impl Plugin for SolariLightingPlugin {
                 Render,
                 prepare_solari_lighting_resources.in_set(RenderSystems::PrepareResources),
             )
-            .add_systems(Core3d, solari_lighting.in_set(Core3dSystems::MainPass));
+            .add_systems(
+                Core3d,
+                solari_lighting
+                    .before(main_opaque_pass_3d)
+                    .in_set(Core3dSystems::MainPass),
+            );
     }
 }
 

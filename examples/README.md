@@ -246,7 +246,9 @@ Example | Description
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
 [Render Recovery](../examples/app/render_recovery.rs) | Demonstrates how bevy can recover from rendering failures.
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
+[Save Window Position](../examples/window/persisting_window_settings.rs) | Demonstrates saving window position in preferences
 [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
+[User Preferences](../examples/app/persisting_preferences.rs) | Demonstrates persistence of user preferences
 [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
 
 ### Assets
@@ -258,7 +260,8 @@ Example | Description
 [Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
-[Asset Saving](../examples/asset/asset_saving.rs) | Demonstrates how to save an asset (with subassets)
+[Asset Saving](../examples/asset/asset_saving.rs) | Demonstrates how to save an asset
+[Asset Saving with Subassets](../examples/asset/asset_saving_with_subassets.rs) | Demonstrates how to save an asset with subassets
 [Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader

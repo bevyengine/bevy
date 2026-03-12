@@ -226,35 +226,27 @@ fn menu_on_key_event(
                 }
 
                 // Focus the adjacent item in the up direction
-                KeyCode::ArrowUp => {
-                    if menu.layout == MenuLayout::Column {
-                        ev.propagate(false);
-                        focus.0 = tab_navigation.navigate(&focus, NavAction::Previous).ok();
-                    }
+                KeyCode::ArrowUp if menu.layout == MenuLayout::Column => {
+                    ev.propagate(false);
+                    focus.0 = tab_navigation.navigate(&focus, NavAction::Previous).ok();
                 }
 
                 // Focus the adjacent item in the down direction
-                KeyCode::ArrowDown => {
-                    if menu.layout == MenuLayout::Column {
-                        ev.propagate(false);
-                        focus.0 = tab_navigation.navigate(&focus, NavAction::Next).ok();
-                    }
+                KeyCode::ArrowDown if menu.layout == MenuLayout::Column => {
+                    ev.propagate(false);
+                    focus.0 = tab_navigation.navigate(&focus, NavAction::Next).ok();
                 }
 
                 // Focus the adjacent item in the left direction
-                KeyCode::ArrowLeft => {
-                    if menu.layout == MenuLayout::Row {
-                        ev.propagate(false);
-                        focus.0 = tab_navigation.navigate(&focus, NavAction::Previous).ok();
-                    }
+                KeyCode::ArrowLeft if menu.layout == MenuLayout::Row => {
+                    ev.propagate(false);
+                    focus.0 = tab_navigation.navigate(&focus, NavAction::Previous).ok();
                 }
 
                 // Focus the adjacent item in the right direction
-                KeyCode::ArrowRight => {
-                    if menu.layout == MenuLayout::Row {
-                        ev.propagate(false);
-                        focus.0 = tab_navigation.navigate(&focus, NavAction::Next).ok();
-                    }
+                KeyCode::ArrowRight if menu.layout == MenuLayout::Row => {
+                    ev.propagate(false);
+                    focus.0 = tab_navigation.navigate(&focus, NavAction::Next).ok();
                 }
 
                 // Focus the first item
