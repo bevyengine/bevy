@@ -153,7 +153,7 @@ pub struct ApplyDeferred;
 
 /// Returns `true` if the [`System`] is an instance of [`ApplyDeferred`].
 pub(super) fn is_apply_deferred(system: &dyn System<In = (), Out = ()>) -> bool {
-    system.type_id() == TypeId::of::<ApplyDeferred>()
+    system.system_type() == TypeId::of::<ApplyDeferred>()
 }
 
 impl System for ApplyDeferred {
