@@ -5,7 +5,7 @@ use bevy_ecs::{
     hierarchy::ChildOf,
     prelude::Entity,
     query::QueryEntityError,
-    system::{Query, SystemParam, InfallibleSystemParam},
+    system::{InfallibleSystemParam, Query, SystemParam},
 };
 use thiserror::Error;
 

@@ -490,9 +490,7 @@ pub fn derive_infallible_system_param(input: TokenStream) -> TokenStream {
         Err(e) => e.into_compile_error().into(),
     }
 }
-fn derive_infallible_system_param_impl(
-    ast: DeriveInput,
-) -> syn::Result<TokenStream> {
+fn derive_infallible_system_param_impl(ast: DeriveInput) -> syn::Result<TokenStream> {
     let fields = get_struct_fields(&ast.data, "derive(InfallibleSystemParam)")?;
     let path = bevy_ecs_path();
 
@@ -519,7 +517,7 @@ fn derive_infallible_system_param_impl(
 
     let struct_name = &ast.ident;
 
-    Ok(TokenStream::from(quote!{
+    Ok(TokenStream::from(quote! {
         impl #impl_generics #path::system::InfallibleSystemParam for
                 #struct_name #type_generics #where_clause
         {
