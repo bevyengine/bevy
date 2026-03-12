@@ -292,7 +292,7 @@ pub unsafe trait SystemParam: Sized {
 /// It is always possible to create a query, even if it would not match anything.
 ///
 /// In contrast, [`Res`] and [`ResMut`] are fallible because the resource may not exist,
-/// as are types like [`MessageReader`] that use resources internally.
+/// as are types like [`MessageReader`](crate::message::MessageReader) that use resources internally.
 ///
 /// # Derive
 ///
