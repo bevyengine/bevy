@@ -482,12 +482,12 @@ fn check_style_and_cursor(
     let mut font_changes_required = false;
 
     if let Some(current_font_size) = maybe_current_font_size {
-        if let parley::StyleProperty::FontSize(x) = current_font_size {
-            if (x - font_size * STYLE_SCALE).abs() > 1e-5 {
-                styles.insert(target_font_size_style);
+        if let parley::StyleProperty::FontSize(x) = current_font_size
+            && (x - font_size * STYLE_SCALE).abs() > 1e-5
+        {
+            styles.insert(target_font_size_style);
 
-                font_changes_required = true;
-            }
+            font_changes_required = true;
         }
 
         if (text.cursor_width - font_size * CURSOR_SCALE).abs() > 1e-5 {
