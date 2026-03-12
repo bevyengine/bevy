@@ -32,6 +32,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 /// See `ExtractComponentPlugin` to actually perform the extraction.
 ///
 /// If you only want to extract a component conditionally, you may use the `extract_component_filter` attribute.
+/// To specify `SyncComponent::Target`, you can use the `extract_component_sync_target` attribute.
 ///
 /// # Example
 ///
@@ -41,6 +42,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 ///
 /// #[derive(Component, Clone, ExtractComponent)]
 /// #[extract_component_filter(With<Camera>)]
+/// #[extract_component_sync_target((Self, OtherNeedsCleanup))]
 /// pub struct Foo {
 ///     pub should_foo: bool,
 /// }

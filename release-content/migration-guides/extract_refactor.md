@@ -26,6 +26,7 @@ impl ExtractComponent for MyComponent {
 ```
 
 You can also specify the sync target (default to `Self`) using `extract_component_sync_target` attribute in derive macros.
+
 ```rust,ignore
 #[derive(Component, ExtractComponent)]
 #[extract_component_sync_target((Self, OtherDerivedComponents))]
