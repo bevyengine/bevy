@@ -25,8 +25,8 @@ bevy_text = { path = "../bevy_text", version = "0.19.0-dev" }
 
 # other
 accesskit = "0.24"
-parley = "0.7"     # Must match bevy_text's parley version 
-smol_str = "0.2"   # Must match winit's smol_str version
+parley = { version = "0.7", default-features = false }
+smol_str = "0.2"
 
 [features]
 default = []

@@ -40,7 +40,7 @@ inputs:
   fontconfig:
     description: Install fontconfig (libfontconfig1-dev)
     required: false
-    default: "true"
+    default: "false"
 runs:
   using: composite
   steps:
