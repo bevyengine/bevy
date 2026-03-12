@@ -73,7 +73,7 @@ pub struct MeshPipelineViewLayout {
 bitflags::bitflags! {
     /// A key that uniquely identifies a [`MeshPipelineViewLayout`].
     ///
-    /// Used to generate all possible layouts for the mesh pipeline in [`generate_view_layouts`],
+    /// Used to generate all possible layouts for the mesh pipeline in [`layout_entries`],
     /// so special care must be taken to not add too many flags, as the number of possible layouts
     /// will grow exponentially.
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -540,47 +540,6 @@ impl MeshPipelineViewLayouts {
 
         layout
     }
-}
-
-/// Generates all possible view layouts for the mesh pipeline, based on all combinations of
-/// [`MeshPipelineViewLayoutKey`] flags.
-#[deprecated(since = "0.19.0", note = "Use `layout_entries` instead")]
-pub fn generate_view_layouts(
-    render_device: &RenderDevice,
-    render_adapter: &RenderAdapter,
-    clustered_forward_buffer_binding_type: BufferBindingType,
-    visibility_ranges_buffer_binding_type: BufferBindingType,
-) -> [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT] {
-    array::from_fn(|i| {
-        let key = MeshPipelineViewLayoutKey::from_bits_truncate(i as u32);
-        let entries = layout_entries(
-            clustered_forward_buffer_binding_type,
-            visibility_ranges_buffer_binding_type,
-            key,
-            render_device,
-            render_adapter,
-        );
-
-        #[cfg(debug_assertions)]
-        let texture_count: usize = entries
-            .iter()
-            .flat_map(|e| {
-                e.iter()
-                    .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
-            })
-            .count();
-
-        MeshPipelineViewLayout {
-            main_layout: BindGroupLayoutDescriptor::new(key.label(), &entries[0]),
-            binding_array_layout: BindGroupLayoutDescriptor::new(
-                format!("{}_binding_array", key.label()),
-                &entries[1],
-            ),
-            empty_layout: BindGroupLayoutDescriptor::new(format!("{}_empty", key.label()), &[]),
-            #[cfg(debug_assertions)]
-            texture_count,
-        }
-    })
 }
 
 #[derive(Component)]
