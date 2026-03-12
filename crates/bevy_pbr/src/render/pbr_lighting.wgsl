@@ -1050,7 +1050,7 @@ fn rect_light(
         vec3<f32>(0.0, 1.0, 0.0),
         vec3<f32>(0.0, 0.0, 1.0),
     );
-    let diff = select(0.0, ltc_integrate_quad(N, V, P, identity, corners), enable_diffuse) / PI;
+    let diff = select(0.0, ltc_integrate_quad(N, V, P, identity, corners), enable_diffuse);
 
     // t2.x encodes the bsdf magnitude and t2.y the fresnel direction
     let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
