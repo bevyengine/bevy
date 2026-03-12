@@ -108,6 +108,7 @@ pub struct ActionRequest(pub accesskit::ActionRequest);
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
+    reflect(opaque),
     reflect(Default, Clone, Resource)
 )]
 pub struct AccessibilityRequested(Arc<AtomicBool>);
