@@ -920,6 +920,13 @@ impl Default for WindowResolution {
     }
 }
 
+/// Returns `true` if a scale factor is valid for use with the windowing backend.
+///
+/// A valid scale factor must be finite, positive, and normal (not zero, subnormal, NaN, or infinity).
+fn is_valid_scale_factor(scale_factor: f32) -> bool {
+    scale_factor.is_normal() && scale_factor > 0.0
+}
+
 impl WindowResolution {
     /// Creates a new [`WindowResolution`].
     pub fn new(physical_width: u32, physical_height: u32) -> Self {
@@ -977,6 +984,7 @@ impl WindowResolution {
     /// `physical_pixels = logical_pixels * scale_factor`
     pub fn scale_factor(&self) -> f32 {
         self.scale_factor_override
+            .filter(|sf| is_valid_scale_factor(*sf))
             .unwrap_or_else(|| self.base_scale_factor())
     }
 
@@ -994,6 +1002,7 @@ impl WindowResolution {
     #[inline]
     pub fn scale_factor_override(&self) -> Option<f32> {
         self.scale_factor_override
+            .filter(|sf| is_valid_scale_factor(*sf))
     }
 
     /// Set the window's logical resolution.
@@ -1039,6 +1048,15 @@ impl WindowResolution {
     /// size is not within the limits.
     #[inline]
     pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f32>) {
+        if let Some(sf) = scale_factor_override
+            && !is_valid_scale_factor(sf)
+        {
+            warn!(
+                "Ignoring invalid scale factor override `{sf}`. \
+                 Scale factor must be a finite, positive, normal number."
+            );
+            return;
+        }
         self.scale_factor_override = scale_factor_override;
     }
 }
@@ -1545,5 +1563,101 @@ mod tests {
 
         window.set_physical_cursor_position(Some(DVec2::new(400., 600.)));
         assert!(window.physical_cursor_position().is_none());
+    }
+
+    #[test]
+    fn is_valid_scale_factor_rejects_invalid_values() {
+        assert!(!is_valid_scale_factor(0.0));
+        assert!(!is_valid_scale_factor(-1.0));
+        assert!(!is_valid_scale_factor(-0.0));
+        assert!(!is_valid_scale_factor(f32::NAN));
+        assert!(!is_valid_scale_factor(f32::INFINITY));
+        assert!(!is_valid_scale_factor(f32::NEG_INFINITY));
+        // Subnormal value
+        assert!(!is_valid_scale_factor(f32::MIN_POSITIVE / 2.0));
+    }
+
+    #[test]
+    fn is_valid_scale_factor_accepts_valid_values() {
+        assert!(is_valid_scale_factor(1.0));
+        assert!(is_valid_scale_factor(0.5));
+        assert!(is_valid_scale_factor(2.0));
+        assert!(is_valid_scale_factor(3.5));
+        assert!(is_valid_scale_factor(f32::MIN_POSITIVE));
+    }
+
+    #[test]
+    fn set_scale_factor_override_rejects_zero() {
+        let mut res = WindowResolution::new(800, 600);
+        res.set_scale_factor_override(Some(0.0));
+        assert_eq!(res.scale_factor_override(), None);
+        // Falls back to base scale factor (1.0 by default)
+        assert_eq!(res.scale_factor(), 1.0);
+    }
+
+    #[test]
+    fn set_scale_factor_override_rejects_nan() {
+        let mut res = WindowResolution::new(800, 600);
+        res.set_scale_factor_override(Some(f32::NAN));
+        assert_eq!(res.scale_factor_override(), None);
+        assert_eq!(res.scale_factor(), 1.0);
+    }
+
+    #[test]
+    fn set_scale_factor_override_rejects_infinity() {
+        let mut res = WindowResolution::new(800, 600);
+        res.set_scale_factor_override(Some(f32::INFINITY));
+        assert_eq!(res.scale_factor_override(), None);
+        assert_eq!(res.scale_factor(), 1.0);
+    }
+
+    #[test]
+    fn set_scale_factor_override_rejects_negative() {
+        let mut res = WindowResolution::new(800, 600);
+        res.set_scale_factor_override(Some(-1.0));
+        assert_eq!(res.scale_factor_override(), None);
+        assert_eq!(res.scale_factor(), 1.0);
+    }
+
+    #[test]
+    fn set_scale_factor_override_accepts_valid_value() {
+        let mut res = WindowResolution::new(800, 600);
+        res.set_scale_factor_override(Some(2.0));
+        assert_eq!(res.scale_factor_override(), Some(2.0));
+        assert_eq!(res.scale_factor(), 2.0);
+    }
+
+    #[test]
+    fn set_scale_factor_override_accepts_none_to_clear() {
+        let mut res = WindowResolution::new(800, 600);
+        res.set_scale_factor_override(Some(2.0));
+        assert_eq!(res.scale_factor_override(), Some(2.0));
+        res.set_scale_factor_override(None);
+        assert_eq!(res.scale_factor_override(), None);
+        assert_eq!(res.scale_factor(), 1.0);
+    }
+
+    #[test]
+    fn scale_factor_getter_filters_invalid_reflect_bypass() {
+        let mut res = WindowResolution::new(800, 600);
+        // Simulate a Reflect bypass by directly setting the field
+        res.scale_factor_override = Some(0.0);
+        // Getter should filter it out
+        assert_eq!(res.scale_factor_override(), None);
+        assert_eq!(res.scale_factor(), 1.0);
+    }
+
+    #[test]
+    fn with_scale_factor_override_rejects_invalid() {
+        let res = WindowResolution::new(800, 600).with_scale_factor_override(0.0);
+        assert_eq!(res.scale_factor_override(), None);
+        assert_eq!(res.scale_factor(), 1.0);
+    }
+
+    #[test]
+    fn with_scale_factor_override_accepts_valid() {
+        let res = WindowResolution::new(800, 600).with_scale_factor_override(1.5);
+        assert_eq!(res.scale_factor_override(), Some(1.5));
+        assert_eq!(res.scale_factor(), 1.5);
     }
 }
