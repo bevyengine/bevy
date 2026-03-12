@@ -12,6 +12,11 @@ use thiserror::Error;
 pub const MAX_TEXTURE_WIDTH: u32 = 2048;
 
 /// Max target count available for [morph targets](MorphWeights).
+///
+/// This value is used to allocate buffers. The current value is chosen
+/// because it is guaranteed to work on all GPUs and platforms. Allowing
+/// bigger values would require checking the GPU limits at runtime, which
+/// would mean not using consts anymore.
 pub const MAX_MORPH_WEIGHTS: usize = 256;
 
 /// The maximum number of morph target components, if morph target textures are

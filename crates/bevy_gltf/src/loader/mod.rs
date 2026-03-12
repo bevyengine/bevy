@@ -77,7 +77,11 @@ use self::{
 };
 use crate::convert_coordinates::GltfConvertCoordinates;
 
+/// Maximum number of joints supported for skinned meshes.
+///
 /// Must match [`MAX_JOINTS`](https://docs.rs/bevy/latest/bevy/pbr/constant.MAX_JOINTS.html)
+/// in `bevy_pbr`. This value is used to allocate buffers and is chosen
+/// because it is guaranteed to work on all GPUs and platforms.
 pub const MAX_JOINTS: usize = 256;
 
 /// An error that occurs when loading a glTF file.
