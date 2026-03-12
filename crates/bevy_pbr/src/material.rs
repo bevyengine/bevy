@@ -929,7 +929,7 @@ pub(crate) fn specialize_material_meshes(
             mut specialized_material_pipeline_cache,
             mut pending_mesh_material_queues,
             dirty_specializations,
-        } = state.get_mut(world);
+        } = state.get_mut(world).unwrap();
 
         for (view, visible_entities) in &views {
             all_views.insert(view.retained_view_entity);
