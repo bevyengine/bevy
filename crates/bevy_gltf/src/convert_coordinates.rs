@@ -33,13 +33,14 @@ use thiserror::Error;
 /// [`rotate_nodes`](GltfConvertCoordinates::rotate_nodes), and [`rotate_meshes`](GltfConvertCoordinates::rotate_meshes).
 ///
 /// Second, the source and target semantics can be overridden. So instead of
-/// converting from the standard glTF semantics to Bevy semantics, one or both
-/// can be overridden with, say, "+X forward, -Z up". See [`GltfConvertSemantics`].
+/// converting from standard glTF semantics to Bevy semantics, one or both can
+/// be overridden with, say, "+X forward, -Z up". See [`GltfConvertSemantics`].
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
     /// If true, rotate all scenes to match the target semantics.
     ///
-    /// This only affects the transforms of the root nodes of each scene.
+    /// This only affects the transforms of the root node entities of each
+    /// scene.
     pub rotate_scenes: bool,
 
     /// If true, rotate the local transforms of nodes to match the target
@@ -70,7 +71,7 @@ pub struct GltfConvertCoordinates {
 }
 
 impl GltfConvertCoordinates {
-    /// Convert scenes, nodes and meshes from glTF and Bevy semantics.
+    /// Convert scenes, nodes and meshes from glTF to Bevy semantics.
     pub const ALL: Self = Self {
         rotate_scenes: true,
         rotate_nodes: true,
@@ -137,7 +138,7 @@ pub(crate) struct ResolvedConvertCoordinates {
 }
 
 impl ResolvedConvertCoordinates {
-    pub(crate) fn node_converter(&self, node: &Node) -> RotationConverter {
+    pub(crate) fn node_rotation_converter(&self, node: &Node) -> RotationConverter {
         if node.camera().is_some() || node.light().is_some() {
             // Cameras and lights are not converted. glTF requires cameras and
             // lights to be -Z forward, which means they already follow Bevy
@@ -156,17 +157,17 @@ impl ResolvedConvertCoordinates {
         let parent_node = parents.get(node.index()).cloned().flatten();
 
         let parent_converter = if let Some(parent_node) = parent_node {
-            self.node_converter(&parent_node)
+            self.node_rotation_converter(&parent_node)
         } else {
             self.scene_converter
         };
 
-        let local_converter = self.node_converter(node);
+        let local_converter = self.node_rotation_converter(node);
 
         HierarchyConverter::from_local_and_parent(local_converter, parent_converter)
     }
 
-    pub(crate) fn mesh_converter(&self) -> RotationConverter {
+    pub(crate) fn mesh_entity_rotation_converter(&self) -> RotationConverter {
         self.mesh_converter
     }
 
@@ -175,7 +176,7 @@ impl ResolvedConvertCoordinates {
     pub(crate) fn mesh_entity_hierarchy_converter(&self, parent_node: &Node) -> HierarchyConverter {
         HierarchyConverter::from_local_and_parent(
             self.mesh_converter,
-            self.node_converter(parent_node),
+            self.node_rotation_converter(parent_node),
         )
     }
 
@@ -685,8 +686,8 @@ impl RotationConverter {
             Vec4::new(0.0, 0.0, 0.0, 1.0),
         );
 
-        // TODO: Mat4 to Quat gives the right result, but could be more
-        // efficient.
+        // TODO: Mat4 to Quat gives the right result, but another method could
+        // be more efficient?
         let rotation = Quat::from_mat4(&matrix);
 
         Self {
@@ -709,8 +710,8 @@ impl RotationConverter {
     }
 }
 
-/// Helper for converting the semantics of transforms in scene hierarchy, where
-/// each transform may have different semantics.
+/// Helper for converting the semantics of transforms in a scene hierarchy,
+/// where each transform may have different semantics.
 ///
 /// To explain how this works, let's start with a scene containing one mesh. The
 /// diagram shows a top-down view of the scene - the axes in the middle of the
@@ -937,6 +938,11 @@ mod tests {
     #[test]
     fn named_semantics() {
         assert_eq!(
+            ValidSemantics::GLTF,
+            ValidSemantics::try_from(Semantics::GLTF).unwrap()
+        );
+
+        assert_eq!(
             ValidSemantics::BEVY,
             ValidSemantics::try_from(Semantics::BEVY).unwrap()
         );
@@ -955,23 +961,19 @@ mod tests {
             Dir3::from(ValidSemantics::BEVY.right()),
             Transform::IDENTITY.right()
         );
-
-        assert_eq!(
-            ValidSemantics::GLTF,
-            ValidSemantics::try_from(Semantics::GLTF).unwrap()
-        );
     }
 
-    // Create a test direction that involves all the semantic
+    // For coverage, create a test direction that has a mix of forward, up, and
+    // right.
     fn test_direction(semantics: ValidSemantics) -> Vec3 {
         (Vec3::from(semantics.forward()) * 3.0)
             + (Vec3::from(semantics.up()) * 2.0)
             + Vec3::from(semantics.right())
     }
 
-    #[test]
     // Test that all the converters in `RotationConverter` are correct and
     // equivalent.
+    #[test]
     fn rotation_converter() {
         for source_semantics in semantics_permutations() {
             for target_semantics in semantics_permutations() {

@@ -963,8 +963,10 @@ impl GltfLoader {
                                 // to joint-space, so it's affected by the conversion
                                 // of both meshes and joint nodes.
 
-                                let mesh_converter = convert_coordinates.mesh_converter();
-                                let node_converter = convert_coordinates.node_converter(&node);
+                                let mesh_converter =
+                                    convert_coordinates.mesh_entity_rotation_converter();
+                                let node_converter =
+                                    convert_coordinates.node_rotation_converter(&node);
 
                                 node_converter.matrix().transpose()
                                     * Mat4::from_cols_array_2d(&mat)
