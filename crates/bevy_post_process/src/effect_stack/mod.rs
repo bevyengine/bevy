@@ -46,7 +46,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::GpuImage,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderStartup, RenderSystems,
+    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::prelude::default;
@@ -147,8 +147,8 @@ impl Plugin for EffectStackPlugin {
 
         render_app
             .insert_resource(DefaultChromaticAberrationLut(default_lut))
-            .init_resource::<SpecializedRenderPipelines<PostProcessingPipeline>>()
-            .init_resource::<PostProcessingUniformBuffers>()
+            .init_gpu_resource::<SpecializedRenderPipelines<PostProcessingPipeline>>()
+            .init_gpu_resource::<PostProcessingUniformBuffers>()
             .add_systems(RenderStartup, init_post_processing_pipeline)
             .add_systems(
                 Render,

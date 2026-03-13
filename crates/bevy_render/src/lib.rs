@@ -95,7 +95,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
-use bevy_app::{App, AppLabel, Plugin};
+use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
@@ -207,6 +207,27 @@ pub enum RenderSystems {
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct RenderStartup;
 
+/// Constructs a `T` resource with `from_world` and inserts it.
+pub fn init_gpu_resource<T: Resource + FromWorld>(world: &mut World) {
+    let res = T::from_world(world);
+    world.insert_resource(res);
+}
+
+/// Convenience methods for render-recovery-aware resource initialization.
+pub trait GpuResourceAppExt {
+    /// Shorthand for:
+    /// ```ignore
+    /// app.add_systems(RenderStartup, init_gpu_resource::<T>);
+    /// ```
+    fn init_gpu_resource<T: Resource + FromWorld>(&mut self) -> &mut Self;
+}
+
+impl GpuResourceAppExt for SubApp {
+    fn init_gpu_resource<T: Resource + FromWorld>(&mut self) -> &mut Self {
+        self.add_systems(RenderStartup, init_gpu_resource::<T>)
+    }
+}
+
 /// The render recovery schedule. This schedule runs the [`Render`] schedule if
 /// we are in [`RenderState::Ready`], and is otherwise hidden from users.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
@@ -316,7 +337,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderErrorHandler>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
-            render_app.init_resource::<renderer::PendingCommandBuffers>();
+            render_app.init_gpu_resource::<renderer::PendingCommandBuffers>();
             render_app.insert_resource(sender);
             render_app.insert_resource(asset_server);
             render_app.insert_resource(RenderState::Initializing);
