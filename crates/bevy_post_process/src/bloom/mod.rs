@@ -230,11 +230,7 @@ pub fn bloom(
             &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - mip - 1) as usize],
             &[uniform_index.index()],
         );
-        let blend = compute_blend_factor(
-            bloom_settings,
-            mip as f32,
-            (bloom_texture.mip_count - 1) as f32,
-        );
+        let blend = compute_blend_factor(bloom_settings, mip, bloom_texture.mip_count - 1);
         upsampling_pass.set_blend_constant(LinearRgba::gray(blend).into());
         upsampling_pass.draw(0..3, 0..1);
     }
@@ -265,7 +261,7 @@ pub fn bloom(
                 viewport.depth.end,
             );
         }
-        let blend = compute_blend_factor(bloom_settings, 0.0, (bloom_texture.mip_count - 1) as f32);
+        let blend = compute_blend_factor(bloom_settings, 0, bloom_texture.mip_count - 1);
         upsampling_final_pass.set_blend_constant(LinearRgba::gray(blend).into());
         upsampling_final_pass.draw(0..3, 0..1);
     }
@@ -322,21 +318,19 @@ fn prepare_bloom_textures(
 ) {
     for (entity, camera, bloom) in &views {
         if let Some(viewport) = camera.physical_viewport_size {
-            // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
-            let mip_height_ratio = if viewport.y != 0 {
-                bloom.max_mip_dimension as f32 / viewport.y as f32
-            } else {
-                0.
-            };
+            let size = (viewport.as_vec2() * bloom.mip_resolution_scale)
+                .round()
+                .as_uvec2()
+                .max(UVec2::ONE)
+                .to_extents();
+            let mip_count = size
+                .max_mips(TextureDimension::D2)
+                .min(bloom.max_mip_count)
+                .max(1);
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
-                size: (viewport.as_vec2() * mip_height_ratio)
-                    .round()
-                    .as_uvec2()
-                    .max(UVec2::ONE)
-                    .to_extents(),
+                size,
                 mip_level_count: mip_count,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -483,15 +477,17 @@ fn prepare_bloom_bind_groups(
 ///
 /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
 /// [`Bloom`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
-fn compute_blend_factor(bloom: &Bloom, mip: f32, max_mip: f32) -> f32 {
-    let mut lf_boost =
-        (1.0 - ops::powf(
-            1.0 - (mip / max_mip),
-            1.0 / (1.0 - bloom.low_frequency_boost_curvature),
-        )) * bloom.low_frequency_boost;
-    let high_pass_lq = 1.0
-        - (((mip / max_mip) - bloom.high_pass_frequency) / bloom.high_pass_frequency)
-            .clamp(0.0, 1.0);
+fn compute_blend_factor(bloom: &Bloom, mip: u32, max_mip: u32) -> f32 {
+    let x = if max_mip == 0 {
+        0.0
+    } else {
+        mip as f32 / max_mip as f32
+    };
+    let mut lf_boost = (1.0
+        - ops::powf(1.0 - x, 1.0 / (1.0 - bloom.low_frequency_boost_curvature)))
+        * bloom.low_frequency_boost;
+    let high_pass_lq =
+        1.0 - ((x - bloom.high_pass_frequency) / bloom.high_pass_frequency).clamp(0.0, 1.0);
     lf_boost *= match bloom.composite_mode {
         BloomCompositeMode::EnergyConserving => 1.0 - bloom.intensity,
         BloomCompositeMode::Additive => 1.0,
