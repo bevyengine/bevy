@@ -544,6 +544,23 @@ impl VertexAttributeValues {
             VertexAttributeValues::Snorm8x4(values) => bytes_of(&values[i]),
             VertexAttributeValues::Uint8x4(values) => bytes_of(&values[i]),
             VertexAttributeValues::Unorm8x4(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Uint8(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Sint8(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Unorm8(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Snorm8(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Uint16(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Sint16(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Unorm16(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Snorm16(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float16(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float16x2(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float16x4(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float64(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float64x2(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float64x3(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float64x4(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Unorm10_10_10_2(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Unorm8x4Bgra(values) => bytes_of(&values[i]),
         }
     }
 
@@ -679,6 +696,94 @@ impl VertexAttributeValues {
                 this.push(source[i]);
             }
             (VertexAttributeValues::Unorm8x4(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Uint8(this), VertexAttributeValues::Uint8(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Uint8(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Sint8(this), VertexAttributeValues::Sint8(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Sint8(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Unorm8(this), VertexAttributeValues::Unorm8(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Unorm8(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Snorm8(this), VertexAttributeValues::Snorm8(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Snorm8(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Uint16(this), VertexAttributeValues::Uint16(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Uint16(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Sint16(this), VertexAttributeValues::Sint16(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Sint16(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Unorm16(this), VertexAttributeValues::Unorm16(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Unorm16(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Snorm16(this), VertexAttributeValues::Snorm16(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Snorm16(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Float16(this), VertexAttributeValues::Float16(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float16(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Float16x2(this), VertexAttributeValues::Float16x2(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float16x2(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (VertexAttributeValues::Float16x4(this), VertexAttributeValues::Float16x4(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float16x4(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (VertexAttributeValues::Float64(this), VertexAttributeValues::Float64(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float64(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Float64x2(this), VertexAttributeValues::Float64x2(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float64x2(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (VertexAttributeValues::Float64x3(this), VertexAttributeValues::Float64x3(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float64x3(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (VertexAttributeValues::Float64x4(this), VertexAttributeValues::Float64x4(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float64x4(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (
+                VertexAttributeValues::Unorm10_10_10_2(this),
+                VertexAttributeValues::Unorm10_10_10_2(source),
+            ) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Unorm10_10_10_2(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (
+                VertexAttributeValues::Unorm8x4Bgra(this),
+                VertexAttributeValues::Unorm8x4Bgra(source),
+            ) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Unorm8x4Bgra(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
         }
     }
 
@@ -716,6 +821,23 @@ impl VertexAttributeValues {
             VertexAttributeValues::Snorm8x4(v) => v.shrink_to_fit(),
             VertexAttributeValues::Uint8x4(v) => v.shrink_to_fit(),
             VertexAttributeValues::Unorm8x4(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Uint8(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Sint8(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Unorm8(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Snorm8(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Uint16(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Sint16(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Unorm16(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Snorm16(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float16(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float16x2(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float16x4(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float64(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float64x2(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float64x3(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float64x4(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Unorm10_10_10_2(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Unorm8x4Bgra(v) => v.shrink_to_fit(),
         }
     }
 }
