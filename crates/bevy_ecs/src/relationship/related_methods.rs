@@ -139,6 +139,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Replaces all the related entities with a new set of entities.
+    ///
+    /// The [`RelationshipTarget`] component is not replaced but mutated, meaning lifecycle events do not fire but change detection types will pick it up.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         type Collection<R> =
             <<R as Relationship>::RelationshipTarget as RelationshipTarget>::Collection;
@@ -149,24 +151,23 @@ impl<'w> EntityWorldMut<'w> {
             return self;
         }
 
+        let id = self.id();
         let Some(existing_relations) = self.get_mut::<R::RelationshipTarget>() else {
             return self.add_related::<R>(related);
         };
 
-        // We replace the component here with a dummy value so we can modify it without taking it (this would create archetype move).
+        // We replace the component here with a dummy value so we can modify it without taking it (this would create archetype move). We need a non empty dummy value. Otherwise breaking the relationship between the target and a replaced entity could trigger Remove of the target.
         // SAFETY: We eventually return the correctly initialized collection into the target.
+        let mut dummy = Collection::<R>::with_capacity(1);
+        dummy.add(id);
         let mut relations = mem::replace(
             existing_relations.into_inner(),
-            <R as Relationship>::RelationshipTarget::from_collection_risky(
-                Collection::<R>::with_capacity(0),
-            ),
+            <R as Relationship>::RelationshipTarget::from_collection_risky(dummy),
         );
 
         let collection = relations.collection_mut_risky();
-
         let mut potential_relations = EntityHashSet::from_iter(related.iter().copied());
 
-        let id = self.id();
         self.world_scope(|world| {
             for related in collection.iter() {
                 if !potential_relations.remove(related) {
@@ -185,17 +186,17 @@ impl<'w> EntityWorldMut<'w> {
             }
         });
 
-        // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
+        // SAFETY: Making good on our promise by replacing the dummy value with the correctly initialized collection.
         collection.clear();
         collection.extend_from_iter(related.iter().copied());
-        self.insert(relations);
+        *self.get_mut::<R::RelationshipTarget>().unwrap() = relations;
 
         self
     }
 
     /// Replaces all the related entities with a new set of entities.
     ///
-    /// This is a more efficient of [`Self::replace_related`] which doesn't allocate.
+    /// This is a more efficient version of [`Self::replace_related`] which doesn't allocate.
     /// The passed in arguments must adhere to these invariants:
     /// - `entities_to_unrelate`: A slice of entities to remove from the relationship source.
     ///   Entities need not be related to this entity, but must not appear in `entities_to_relate`
@@ -489,12 +490,12 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Warning
     ///
-    /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
+    /// Failing to maintain the function's invariants may lead to erratic engine behavior including random crashes.
     /// Refer to [`EntityWorldMut::replace_related_with_difference`] for a list of these invariants.
     ///
     /// # Panics
     ///
-    /// Panics when debug assertions are enable, an invariant is are broken and the command is executed.
+    /// Panics when debug assertions are enabled, an invariant is broken and the command is executed.
     pub fn replace_related_with_difference<R: Relationship>(
         &mut self,
         entities_to_unrelate: &[Entity],
@@ -655,7 +656,10 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::{ChildOf, Children, Component};
+    use crate::{
+        prelude::{ChildOf, Children, Component, Insert, On, Replace},
+        spawn::SpawnRelated,
+    };
 
     #[derive(Component, Clone, Copy)]
     struct TestComponent;
@@ -920,5 +924,30 @@ mod tests {
         world.entity_mut(parent).despawn_related::<Children>();
 
         assert!(world.get::<ObserverResult>(result_entity).unwrap().success);
+    }
+
+    #[test]
+    fn replace_related_runs_no_lifecycle_events_of_target() {
+        let mut world = World::new();
+        let parent = world.spawn(Children::spawn_one(())).id();
+        let replacement = world.spawn_empty().id();
+        world.add_observer(|_: On<Insert, Children>| panic!("Children inserted"));
+        world.add_observer(|_: On<Replace, Children>| panic!("Children replaced"));
+        world.entity_mut(parent).replace_children(&[replacement]);
+    }
+
+    #[test]
+    fn replace_related_with_difference_runs_no_lifecycle_events_of_target() {
+        let mut world = World::new();
+        let replaced = world.spawn_empty().id();
+        let replacement = world.spawn_empty().id();
+        let parent = world.spawn_empty().add_child(replaced).id();
+        world.add_observer(|_: On<Insert, Children>| panic!("Children inserted"));
+        world.add_observer(|_: On<Replace, Children>| panic!("Children replaced"));
+        world.entity_mut(parent).replace_children_with_difference(
+            &[replaced],
+            &[replacement],
+            &[replacement],
+        );
     }
 }
