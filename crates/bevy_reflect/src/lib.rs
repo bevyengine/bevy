@@ -380,6 +380,45 @@
 //! See the [dynamic types example](https://github.com/bevyengine/bevy/blob/latest/examples/reflection/dynamic_types.rs)
 //! for more information and usage details.
 //!
+//! # Custom Attributes
+//!
+//! Types, fields, and variants can have [custom attributes] attached to them
+//! using the `#[reflect(@...)]` syntax with the [derive macro].
+//! These attributes can store arbitrary compile-time data that can be retrieved at runtime.
+//!
+//! This is useful for annotating fields with metadata such as value ranges,
+//! tooltips, or other domain-specific data used by editors and tools.
+//!
+//! ```
+//! # use bevy_reflect::{Reflect, Typed, TypeInfo};
+//! use core::ops::RangeInclusive;
+//!
+//! #[derive(Reflect)]
+//! struct Slider {
+//!   #[reflect(@RangeInclusive::<f32>::new(0.0, 1.0))]
+//!   value: f32,
+//! }
+//!
+//! let TypeInfo::Struct(info) = <Slider as Typed>::type_info() else {
+//!   panic!("expected struct info");
+//! };
+//!
+//! let range = info.field("value").unwrap().get_attribute::<RangeInclusive<f32>>().unwrap();
+//! assert_eq!(0.0..=1.0, *range);
+//! ```
+//!
+//! Any expression that implements [`Reflect`] can be used as a custom attribute.
+//! Attributes are stored by [`TypeId`], so there can only be one attribute per type
+//! on any given item. Custom attributes can be applied to:
+//! * Struct, tuple struct, and enum containers
+//! * Struct and tuple struct fields
+//! * Enum variants and their fields
+//!
+//! See the [`attributes`] module and the [derive macro documentation] for more details.
+//!
+//! [custom attributes]: attributes::CustomAttributes
+//! [`TypeId`]: core::any::TypeId
+//!
 //! # Serialization
 //!
 //! By using reflection, we are also able to get serialization capabilities for free.
