@@ -181,15 +181,8 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// Pathing for [`Enum`] elements works a bit differently than in normal Rust.
 /// Usually, you would need to pattern match an enum, branching off on the desired variants.
 /// Paths used by this trait do not have any pattern matching capabilities;
-/// instead, they assume the variant is already known ahead of time.
+/// instead, they rely on the variant's index.
 ///
-/// The syntax used, therefore, depends on the variant being accessed:
-/// - Struct variants use the struct syntax (outlined above)
-/// - Tuple variants use the tuple syntax (outlined above)
-/// - Unit variants have no fields to access
-///
-/// If the variant cannot be known ahead of time, the path will need to be split up
-/// and proper enum pattern matching will need to be handled manually.
 ///
 /// ### Example
 /// ```
@@ -204,16 +197,16 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// }
 ///
 /// let tuple_variant = MyEnum::Tuple(true);
-/// assert_eq!(tuple_variant.path::<bool>(".0").unwrap(), &true);
+/// assert_eq!(tuple_variant.path::<bool>("{1.0}").unwrap(), &true);
 ///
 /// let struct_variant = MyEnum::Struct { value: 123 };
 /// // Access via field name
-/// assert_eq!(struct_variant.path::<u32>(".value").unwrap(), &123);
+/// assert_eq!(struct_variant.path::<u32>("{2.value}").unwrap(), &123);
 /// // Access via field index
-/// assert_eq!(struct_variant.path::<u32>("#0").unwrap(), &123);
+/// assert_eq!(struct_variant.path::<u32>("{2#0}").unwrap(), &123);
 ///
 /// // Error: Expected struct variant
-/// assert!(matches!(tuple_variant.path::<u32>(".value"), Err(_)));
+/// assert!(matches!(tuple_variant.path::<u32>("{1.value}"), Err(_)));
 /// ```
 ///
 /// # Chaining
@@ -233,7 +226,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 ///   value: vec![None, None, Some(123)],
 /// };
 /// assert_eq!(
-///   my_struct.path::<u32>(".value[2].0").unwrap(),
+///   my_struct.path::<u32>(".value[2]{1.0}").unwrap(),
 ///   &123,
 /// );
 /// ```
@@ -381,6 +374,9 @@ impl ParsedPath {
     /// - Unnamed field access (`.1`)
     /// - Field index access (`#0`)
     /// - Sequence access (`[2]`)
+    /// - Enum Unit Variant access (`{0}`) - ex, `Option::None`
+    /// - Enum Tuple Variant access (`{1.0}`) - ex, `Option::Some(true)`
+    /// - Enum Struct Variant access (`{2.some_field_name}`)
     ///
     /// # Example
     /// ```
@@ -404,7 +400,7 @@ impl ParsedPath {
     ///   },
     /// };
     ///
-    /// let parsed_path = ParsedPath::parse("bar#0.1[2].0").unwrap();
+    /// let parsed_path = ParsedPath::parse("bar#0.1[2]{1.0}").unwrap();
     /// // Breakdown:
     /// //   "bar" - Access struct field named "bar"
     /// //   "#0" - Access struct field at index 0
@@ -679,10 +675,10 @@ mod tests {
         let f = ParsedPath::parse("z.0.1").unwrap();
         let g = ParsedPath::parse("x#0").unwrap();
         let h = ParsedPath::parse("x#1#0").unwrap();
-        let i = ParsedPath::parse("unit_variant").unwrap();
-        let j = ParsedPath::parse("tuple_variant.1").unwrap();
-        let k = ParsedPath::parse("struct_variant.東京").unwrap();
-        let l = ParsedPath::parse("struct_variant#0").unwrap();
+        let i = ParsedPath::parse("unit_variant{0}").unwrap();
+        let j = ParsedPath::parse("tuple_variant{1.1}").unwrap();
+        let k = ParsedPath::parse("struct_variant{2.東京}").unwrap();
+        let l = ParsedPath::parse("struct_variant{2#0}").unwrap();
         let m = ParsedPath::parse("array[2]").unwrap();
         let n = ParsedPath::parse("tuple.1").unwrap();
 
@@ -758,10 +754,10 @@ mod tests {
         assert_eq!(*a.path::<usize>("x#0").unwrap(), 10);
         assert_eq!(*a.path::<f32>("x#1#0").unwrap(), 3.14);
 
-        assert_eq!(*a.path::<F>("unit_variant").unwrap(), F::Unit);
-        assert_eq!(*a.path::<u32>("tuple_variant.1").unwrap(), 321);
-        assert_eq!(*a.path::<char>("struct_variant.東京").unwrap(), 'm');
-        assert_eq!(*a.path::<char>("struct_variant#0").unwrap(), 'm');
+        assert_eq!(*a.path::<F>("unit_variant{0}").unwrap(), F::Unit);
+        assert_eq!(*a.path::<u32>("tuple_variant{1.1}").unwrap(), 321);
+        assert_eq!(*a.path::<char>("struct_variant{2.東京}").unwrap(), 'm');
+        assert_eq!(*a.path::<char>("struct_variant{2#0}").unwrap(), 'm');
 
         assert_eq!(*a.path::<i32>("array[2]").unwrap(), 309);
 
@@ -772,7 +768,7 @@ mod tests {
         *a.path_mut::<f32>("y[1].mосква").unwrap() = 3.0;
         assert_eq!(a.y[1].mосква, 3.0);
 
-        *a.path_mut::<u32>("tuple_variant.0").unwrap() = 1337;
+        *a.path_mut::<u32>("tuple_variant{1.0}").unwrap() = 1337;
         assert_eq!(a.tuple_variant, F::Tuple(1337, 321));
 
         assert_eq!(
@@ -785,16 +781,39 @@ mod tests {
         );
 
         assert_eq!(
-            a.reflect_path("unit_variant.0").err().unwrap(),
+            a.reflect_path("unit_variant{0.0}").err().unwrap(),
             ReflectPathError::InvalidAccess(AccessError {
                 kind: AccessErrorKind::IncompatibleEnumVariantTypes {
                     actual: VariantType::Unit,
                     expected: VariantType::Tuple,
                 },
-                access: ParsedPath::parse_static("unit_variant.0").unwrap()[1]
+                access: ParsedPath::parse_static("unit_variant{0.0}").unwrap()[1]
                     .access
                     .clone(),
                 offset: Some(13),
+            })
+        );
+        assert_eq!(
+            a.reflect_path("unit_variant{4.0}").err().unwrap(),
+            ReflectPathError::InvalidAccess(AccessError {
+                kind: AccessErrorKind::IncorrectEnumVariantIndex {
+                    expected: 4,
+                    actual: 0
+                },
+                access: ParsedPath::parse_static("unit_variant{4.0}").unwrap()[1]
+                    .access
+                    .clone(),
+                offset: Some(13),
+            })
+        );
+        assert_eq!(
+            a.reflect_path("tuple_variant{1.32}").err().unwrap(),
+            ReflectPathError::InvalidAccess(AccessError {
+                kind: AccessErrorKind::MissingField(ReflectKind::Enum),
+                access: ParsedPath::parse_static("tuple_variant{1.32}").unwrap()[1]
+                    .access
+                    .clone(),
+                offset: Some(14)
             })
         );
         assert_eq!(
