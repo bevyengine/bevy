@@ -5,7 +5,8 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
