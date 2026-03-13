@@ -135,6 +135,33 @@ pub trait Event: Send + Sync + Sized + 'static {
 /// struct Explode(#[event_target] Entity);
 /// ```
 ///
+/// You may also use any type which implements [`ContainsEntity`](crate::entity::ContainsEntity) as the event target:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// struct Bomb(Entity);
+///
+/// impl ContainsEntity for Bomb {
+///     fn entity(&self) -> Entity {
+///         self.0
+///     }
+/// }
+///
+/// #[derive(EntityEvent)]
+/// struct Explode(Bomb);
+/// ```
+///
+/// By default, an [`EntityEvent`] is immutable. This means the event data, including the target, does not change while the event
+/// is triggered. However, to support event propagation, your event must also implement the [`SetEntityEventTarget`] trait.
+///
+/// This trait is automatically implemented for you if you enable event propagation:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(EntityEvent)]
+/// #[entity_event(propagate)]
+/// struct Explode(Entity);
+/// ```
+///
 /// ## Trigger Behavior
 ///
 /// When derived, [`EntityEvent`] defaults to setting [`Event::Trigger`] to [`EntityTrigger`], which will run all normal "untargeted"
@@ -284,11 +311,21 @@ pub trait Event: Send + Sync + Sized + 'static {
 pub trait EntityEvent: Event {
     /// The [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
     fn event_target(&self) -> Entity;
-    /// Returns a mutable reference to the [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
+}
+
+/// A trait which is used to set the target of an [`EntityEvent`].
+///
+/// By default, entity events are immutable; meaning their target does not change during the lifetime of the event. However, some events
+/// may require mutable access to provide features such as event propagation.
+///
+/// You should never need to implement this trait manually if you use `#[derive(EntityEvent)]`. It is automatically implemented for you if you
+/// use `#[entity_event(propagate)]`.
+pub trait SetEntityEventTarget: EntityEvent {
+    /// Sets the [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
     ///
-    /// Note: In general, this should not be mutated from within an [`Observer`](crate::observer::Observer), as this will not "retarget"
+    /// Note: In general, this should not be called from within an [`Observer`](crate::observer::Observer), as this will not "retarget"
     /// the event in any of Bevy's built-in [`Trigger`] implementations.
-    fn event_target_mut(&mut self) -> &mut Entity;
+    fn set_event_target(&mut self, entity: Entity);
 }
 
 impl World {
@@ -336,34 +373,6 @@ struct EventWrapperComponent<E: Event>(PhantomData<E>);
 /// [observers]: crate::observer
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct EventKey(pub(crate) ComponentId);
-
-/// This is deprecated. See [`MessageCursor`](crate::message::MessageCursor)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageCursor`.")]
-pub type EventCursor<E> = crate::message::MessageCursor<E>;
-
-/// This is deprecated. See [`MessageMutator`](crate::message::MessageMutator)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageMutator`.")]
-pub type EventMutator<'w, 's, E> = crate::message::MessageMutator<'w, 's, E>;
-
-/// This is deprecated. See [`MessageReader`](crate::message::MessageReader)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageReader`.")]
-pub type EventReader<'w, 's, E> = crate::message::MessageReader<'w, 's, E>;
-
-/// This is deprecated. See [`MessageWriter`](crate::message::MessageWriter)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageWriter`.")]
-pub type EventWriter<'w, E> = crate::message::MessageWriter<'w, E>;
-
-/// This is deprecated. See [`Messages`](crate::message::Messages)
-#[deprecated(since = "0.17.0", note = "Renamed to `Messages`.")]
-pub type Events<E> = crate::message::Messages<E>;
-
-/// This is deprecated. See [`MessageIterator`](crate::message::MessageIterator)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageIterator`.")]
-pub type EventIterator<'a, E> = crate::message::MessageIterator<'a, E>;
-
-/// This is deprecated. See [`MessageMutIterator`](crate::message::MessageMutIterator)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageIterator`.")]
-pub type EventMutIterator<'a, E> = crate::message::MessageMutIterator<'a, E>;
 
 #[cfg(test)]
 mod tests {
@@ -958,5 +967,128 @@ mod tests {
             assert!(events.is_empty());
         });
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_derive_entity_event() {
+        use bevy_ecs::prelude::*;
+
+        struct Entitoid(Entity);
+
+        impl ContainsEntity for Entitoid {
+            fn entity(&self) -> Entity {
+                self.0
+            }
+        }
+
+        struct MutableEntitoid(Entity);
+
+        impl ContainsEntity for MutableEntitoid {
+            fn entity(&self) -> Entity {
+                self.0
+            }
+        }
+
+        impl From<Entity> for MutableEntitoid {
+            fn from(value: Entity) -> Self {
+                Self(value)
+            }
+        }
+
+        #[derive(EntityEvent)]
+        struct A(Entity);
+
+        #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct AP(Entity);
+
+        #[derive(EntityEvent)]
+        struct B {
+            entity: Entity,
+        }
+
+        #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct BP {
+            entity: Entity,
+        }
+
+        #[derive(EntityEvent)]
+        struct C {
+            #[event_target]
+            target: Entity,
+        }
+
+        #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct CP {
+            #[event_target]
+            target: Entity,
+        }
+
+        #[derive(EntityEvent)]
+        struct D(Entitoid);
+
+        // SHOULD NOT COMPILE:
+        // #[derive(EntityEvent)]
+        // #[entity_event(propagate)]
+        // struct DP(Entitoid);
+
+        #[derive(EntityEvent)]
+        struct E {
+            entity: Entitoid,
+        }
+
+        // SHOULD NOT COMPILE:
+        // #[derive(EntityEvent)]
+        // #[entity_event(propagate)]
+        // struct EP {
+        //     entity: Entitoid,
+        // }
+
+        #[derive(EntityEvent)]
+        struct F {
+            #[event_target]
+            target: Entitoid,
+        }
+
+        // SHOULD NOT COMPILE:
+        // #[derive(EntityEvent)]
+        // #[entity_event(propagate)]
+        // struct FP {
+        //     #[event_target]
+        //     target: Entitoid,
+        // }
+
+        #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct G(MutableEntitoid);
+
+        impl From<Entity> for G {
+            fn from(value: Entity) -> Self {
+                Self(value.into())
+            }
+        }
+
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+
+        world.entity_mut(entity).trigger(A);
+        world.entity_mut(entity).trigger(AP);
+        world.trigger(B { entity });
+        world.trigger(BP { entity });
+        world.trigger(C { target: entity });
+        world.trigger(CP { target: entity });
+        world.trigger(D(Entitoid(entity)));
+        world.trigger(E {
+            entity: Entitoid(entity),
+        });
+        world.trigger(F {
+            target: Entitoid(entity),
+        });
+        world.trigger(G(MutableEntitoid(entity)));
+        world.entity_mut(entity).trigger(G::from);
+
+        // No asserts; test just needs to compile
     }
 }

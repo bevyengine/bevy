@@ -233,8 +233,6 @@ where
 {
     /// Draw a wireframe rectangle with rounded corners in 3D.
     ///
-    /// This should be called for each frame the rectangle needs to be rendered.
-    ///
     /// # Arguments
     ///
     /// - `isometry` defines the translation and rotation of the rectangle.
@@ -286,8 +284,6 @@ where
     }
 
     /// Draw a wireframe rectangle with rounded corners in 2D.
-    ///
-    /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Arguments
     ///
@@ -343,8 +339,6 @@ where
     }
 
     /// Draw a wireframe cuboid with rounded corners in 3D.
-    ///
-    /// This should be called for each frame the cuboid needs to be rendered.
     ///
     /// # Arguments
     ///

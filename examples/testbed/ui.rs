@@ -4,25 +4,61 @@
 
 mod helpers;
 
+use argh::FromArgs;
 use bevy::prelude::*;
+
 use helpers::Next;
 
+#[derive(FromArgs)]
+/// ui testbed
+pub struct Args {
+    #[argh(positional)]
+    scene: Option<Scene>,
+}
+
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args: Args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
-    app.add_plugins((DefaultPlugins,))
-        .init_state::<Scene>()
-        .add_systems(OnEnter(Scene::Image), image::setup)
-        .add_systems(OnEnter(Scene::Text), text::setup)
-        .add_systems(OnEnter(Scene::Grid), grid::setup)
-        .add_systems(OnEnter(Scene::Borders), borders::setup)
-        .add_systems(OnEnter(Scene::BoxShadow), box_shadow::setup)
-        .add_systems(OnEnter(Scene::TextWrap), text_wrap::setup)
-        .add_systems(OnEnter(Scene::Overflow), overflow::setup)
-        .add_systems(OnEnter(Scene::Slice), slice::setup)
-        .add_systems(OnEnter(Scene::LayoutRounding), layout_rounding::setup)
-        .add_systems(OnEnter(Scene::LinearGradient), linear_gradient::setup)
-        .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
-        .add_systems(Update, switch_scene);
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            // The ViewportCoords scene relies on these specific viewport dimensions,
+            // so let's explicitly define them and set resizable to false
+            resolution: (1280, 720).into(),
+            resizable: false,
+            ..Default::default()
+        }),
+        ..Default::default()
+    }))
+    .add_systems(OnEnter(Scene::Image), image::setup)
+    .add_systems(OnEnter(Scene::Text), text::setup)
+    .add_systems(OnEnter(Scene::Grid), grid::setup)
+    .add_systems(OnEnter(Scene::Borders), borders::setup)
+    .add_systems(OnEnter(Scene::BoxShadow), box_shadow::setup)
+    .add_systems(OnEnter(Scene::TextWrap), text_wrap::setup)
+    .add_systems(OnEnter(Scene::Overflow), overflow::setup)
+    .add_systems(OnEnter(Scene::Slice), slice::setup)
+    .add_systems(OnEnter(Scene::LayoutRounding), layout_rounding::setup)
+    .add_systems(OnEnter(Scene::LinearGradient), linear_gradient::setup)
+    .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
+    .add_systems(OnEnter(Scene::Transformations), transformations::setup)
+    .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
+    .add_systems(OnEnter(Scene::OuterColor), outer_color::setup)
+    .add_systems(Update, switch_scene);
+
+    match args.scene {
+        None => app.init_state::<Scene>(),
+        Some(scene) => app.insert_state(scene),
+    };
+
+    #[cfg(feature = "bevy_ui_debug")]
+    {
+        app.add_systems(OnEnter(Scene::DebugOutlines), debug_outlines::setup);
+        app.add_systems(OnExit(Scene::DebugOutlines), debug_outlines::teardown);
+    }
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
@@ -45,6 +81,26 @@ enum Scene {
     LayoutRounding,
     LinearGradient,
     RadialGradient,
+    Transformations,
+    #[cfg(feature = "bevy_ui_debug")]
+    DebugOutlines,
+    ViewportCoords,
+    OuterColor,
+}
+
+impl std::str::FromStr for Scene {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut isit = Self::default();
+        while s.to_lowercase() != format!("{isit:?}").to_lowercase() {
+            isit = isit.next();
+            if isit == Self::default() {
+                return Err(format!("Invalid Scene name: {s}"));
+            }
+        }
+        Ok(isit)
+    }
 }
 
 impl Next for Scene {
@@ -60,7 +116,15 @@ impl Next for Scene {
             Scene::Slice => Scene::LayoutRounding,
             Scene::LayoutRounding => Scene::LinearGradient,
             Scene::LinearGradient => Scene::RadialGradient,
-            Scene::RadialGradient => Scene::Image,
+            #[cfg(feature = "bevy_ui_debug")]
+            Scene::RadialGradient => Scene::DebugOutlines,
+            #[cfg(feature = "bevy_ui_debug")]
+            Scene::DebugOutlines => Scene::Transformations,
+            #[cfg(not(feature = "bevy_ui_debug"))]
+            Scene::RadialGradient => Scene::Transformations,
+            Scene::Transformations => Scene::ViewportCoords,
+            Scene::ViewportCoords => Scene::OuterColor,
+            Scene::OuterColor => Scene::Image,
         }
     }
 }
@@ -89,126 +153,481 @@ mod image {
 }
 
 mod text {
-    use bevy::{color::palettes::css::*, prelude::*};
+    use bevy::{color::palettes::css::*, prelude::*, text::FontSmoothing};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
-        commands.spawn((
+
+        let mut container = commands.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+        ));
+
+        container.with_child((
             Text::new("Hello World."),
             TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 200.,
+                font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                font_size: FontSize::Px(200.),
                 ..default()
             },
-            DespawnOnExit(super::Scene::Text),
         ));
 
-        commands.spawn((
-            Node {
-                left: px(100.),
-                top: px(250.),
-                ..Default::default()
-            },
-            Text::new("white "),
-            TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        container.with_children(|builder| {
+            let mut grid = builder.spawn(Node {
+                display: Display::Grid,
+                grid_template_columns: vec![GridTrack::flex(1.0), GridTrack::flex(1.0)],
+                padding: UiRect::horizontal(px(5.)),
                 ..default()
-            },
-            DespawnOnExit(super::Scene::Text),
-            children![
-                (TextSpan::new("red "), TextColor(RED.into()),),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
-                (
-                    TextSpan::new("black"),
-                    TextColor(Color::BLACK),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
-                    TextBackgroundColor(Color::WHITE)
-                ),
-            ],
-        ));
+            });
 
-        commands.spawn((
-            Node {
-                left: px(100.),
-                top: px(300.),
-                ..Default::default()
-            },
-            Text::new(""),
-            TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                ..default()
-            },
-            DespawnOnExit(super::Scene::Text),
-            children![
-                (
-                    TextSpan::new("white "),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            grid.with_children(|grid| {
+                for hinting in [FontHinting::Enabled, FontHinting::Disabled] {
+                    let mut content = grid.spawn(Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(5.),
                         ..default()
+                    });
+
+                    content.with_child((
+                        Text::new(format!("FontHinting::{:?}", hinting)),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            ..default()
+                        },
+                        hinting,
+                    ));
+
+                    content.with_child((
+                        Text::new("white "),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            ..default()
+                        },
+                        hinting,
+                        children![
+                            (TextSpan::new("red "), TextColor(RED.into()),),
+                            (TextSpan::new("green "), TextColor(GREEN.into()),),
+                            (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                            (
+                                TextSpan::new("black"),
+                                TextColor(Color::BLACK),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                                    ..default()
+                                },
+                                TextBackgroundColor(Color::WHITE)
+                            ),
+                        ],
+                    ));
+
+                    content.with_child((
+                        Text::new(""),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            ..default()
+                        },
+                        hinting,
+                        children![
+                            (
+                                TextSpan::new("white "),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                                    ..default()
+                                }
+                            ),
+                            (TextSpan::new("red "), TextColor(RED.into()),),
+                            (TextSpan::new("green "), TextColor(GREEN.into()),),
+                            (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                            (
+                                TextSpan::new("black"),
+                                TextColor(Color::BLACK),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                                    ..default()
+                                },
+                                TextBackgroundColor(Color::WHITE)
+                            ),
+                        ],
+                    ));
+
+                    content.with_child((
+                        Text::new(""),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            ..default()
+                        },
+                        hinting,
+                        children![
+                            (TextSpan::new(""), TextColor(YELLOW.into()),),
+                            TextSpan::new(""),
+                            (
+                                TextSpan::new("white "),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                                    ..default()
+                                }
+                            ),
+                            TextSpan::new(""),
+                            (TextSpan::new("red "), TextColor(RED.into()),),
+                            TextSpan::new(""),
+                            TextSpan::new(""),
+                            (TextSpan::new("green "), TextColor(GREEN.into()),),
+                            (TextSpan::new(""), TextColor(YELLOW.into()),),
+                            (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                            TextSpan::new(""),
+                            (TextSpan::new(""), TextColor(YELLOW.into()),),
+                            (
+                                TextSpan::new("black"),
+                                TextColor(Color::BLACK),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                                    ..default()
+                                },
+                                TextBackgroundColor(Color::WHITE)
+                            ),
+                            TextSpan::new(""),
+                        ],
+                    ));
+
+                    content.with_child((
+                        hinting,
+                        Text::new("FiraSans_"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            font_size: FontSize::Px(25.),
+                            ..default()
+                        },
+                        children![
+                            (
+                                TextSpan::new("MonaSans_"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/MonaSans-VariableFont.ttf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                }
+                            ),
+                            (
+                                TextSpan::new("EBGaramond_"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/EBGaramond12-Regular.otf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                            (
+                                TextSpan::new("FiraMono"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                        ],
+                    ));
+
+                    content.with_child((
+                        hinting,
+                        Text::new("FiraSans "),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            font_size: FontSize::Px(25.),
+                            ..default()
+                        },
+                        children![
+                            (
+                                TextSpan::new("MonaSans "),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/MonaSans-VariableFont.ttf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                }
+                            ),
+                            (
+                                TextSpan::new("EBGaramond "),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/EBGaramond12-Regular.otf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                            (
+                                TextSpan::new("FiraMono"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                        ],
+                    ));
+
+                    content.with_child((
+                        hinting,
+                        Text::new("FiraSans "),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            font_size: FontSize::Px(25.),
+                            ..default()
+                        },
+                        children![
+                            (
+                                TextSpan::new("MonaSans_"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/MonaSans-VariableFont.ttf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                }
+                            ),
+                            (
+                                TextSpan::new("EBGaramond "),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/EBGaramond12-Regular.otf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                            (
+                                TextSpan::new("FiraMono"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                        ],
+                    ));
+
+                    content.with_child((
+                        hinting,
+                        Text::new("FiraSans"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            font_size: FontSize::Px(25.),
+                            ..default()
+                        },
+                        children![
+                            TextSpan::new(" "),
+                            (
+                                TextSpan::new("MonaSans"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/MonaSans-VariableFont.ttf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                }
+                            ),
+                            TextSpan::new(" "),
+                            (
+                                TextSpan::new("EBGaramond"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/EBGaramond12-Regular.otf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                            TextSpan::new(" "),
+                            (
+                                TextSpan::new("FiraMono"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                        ],
+                    ));
+
+                    content.with_child((
+                        hinting,
+                        Text::new("Fira Sans_"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            font_size: FontSize::Px(25.),
+                            ..default()
+                        },
+                        children![
+                            (
+                                TextSpan::new("Mona Sans_"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/MonaSans-VariableFont.ttf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                }
+                            ),
+                            (
+                                TextSpan::new("EB Garamond_"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/EBGaramond12-Regular.otf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                            (
+                                TextSpan::new("Fira Mono"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                        ],
+                    ));
+
+                    content.with_child((
+                        hinting,
+                        Text::new("FontWeight(100)_"),
+                        TextFont {
+                            font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                            font_size: FontSize::Px(25.),
+                            weight: FontWeight(100),
+                            ..default()
+                        },
+                        children![
+                            (
+                                TextSpan::new("FontWeight(500)_"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/MonaSans-VariableFont.ttf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    weight: FontWeight(500),
+                                    ..default()
+                                }
+                            ),
+                            (
+                                TextSpan::new("FontWeight(900)"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/MonaSans-VariableFont.ttf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    weight: FontWeight(900),
+                                    ..default()
+                                },
+                            ),
+                        ],
+                    ));
+
+                    content.with_child((
+                        hinting,
+                        Text::new("FiraSans_"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            font_size: FontSize::Px(25.),
+                            weight: FontWeight(900),
+                            ..default()
+                        },
+                        children![
+                            (
+                                TextSpan::new("MonaSans_"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/MonaSans-VariableFont.ttf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    weight: FontWeight(700),
+                                    ..default()
+                                }
+                            ),
+                            (
+                                TextSpan::new("EBGaramond_"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/EBGaramond12-Regular.otf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    weight: FontWeight(500),
+                                    ..default()
+                                },
+                            ),
+                            (
+                                TextSpan::new("FiraMono"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                                    font_size: FontSize::Px(25.),
+                                    weight: FontWeight(300),
+                                    ..default()
+                                },
+                            ),
+                        ],
+                    ));
+
+                    content.with_child((
+                        hinting,
+                        Text::new("FiraSans\t"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                            font_size: FontSize::Px(25.),
+                            ..default()
+                        },
+                        children![
+                            (
+                                TextSpan::new("MonaSans\t"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/MonaSans-VariableFont.ttf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                }
+                            ),
+                            (
+                                TextSpan::new("EBGaramond\t"),
+                                TextFont {
+                                    font: asset_server
+                                        .load("fonts/EBGaramond12-Regular.otf")
+                                        .into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                            (
+                                TextSpan::new("FiraMono"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                                    font_size: FontSize::Px(25.),
+                                    ..default()
+                                },
+                            ),
+                        ],
+                    ));
+
+                    for font_smoothing in [FontSmoothing::AntiAliased, FontSmoothing::None] {
+                        content.with_child((
+                            Text::new(format!("FontSmoothing::{:?}", font_smoothing)),
+                            TextFont {
+                                font: asset_server.load("fonts/MonaSans-VariableFont.ttf").into(),
+                                font_size: FontSize::Px(25.),
+                                font_smoothing,
+                                ..default()
+                            },
+                        ));
                     }
-                ),
-                (TextSpan::new("red "), TextColor(RED.into()),),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
-                (
-                    TextSpan::new("black"),
-                    TextColor(Color::BLACK),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
-                    TextBackgroundColor(Color::WHITE)
-                ),
-            ],
-        ));
-
-        commands.spawn((
-            Node {
-                left: px(100.),
-                top: px(350.),
-                ..Default::default()
-            },
-            Text::new(""),
-            TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                ..default()
-            },
-            DespawnOnExit(super::Scene::Text),
-            children![
-                (TextSpan::new(""), TextColor(YELLOW.into()),),
-                TextSpan::new(""),
-                (
-                    TextSpan::new("white "),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    }
-                ),
-                TextSpan::new(""),
-                (TextSpan::new("red "), TextColor(RED.into()),),
-                TextSpan::new(""),
-                TextSpan::new(""),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
-                (TextSpan::new(""), TextColor(YELLOW.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
-                TextSpan::new(""),
-                (TextSpan::new(""), TextColor(YELLOW.into()),),
-                (
-                    TextSpan::new("black"),
-                    TextColor(Color::BLACK),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
-                    TextBackgroundColor(Color::WHITE)
-                ),
-                TextSpan::new(""),
-            ],
-        ));
+                }
+            });
+        });
     }
 }
 
@@ -337,6 +756,16 @@ mod borders {
                             margin: UiRect::all(px(30)),
                             align_items: AlignItems::Center,
                             justify_content: JustifyContent::Center,
+                            border_radius: if rounded {
+                                BorderRadius::px(
+                                    border_size(border.left, border.top),
+                                    border_size(border.right, border.top),
+                                    border_size(border.right, border.bottom),
+                                    border_size(border.left, border.bottom),
+                                )
+                            } else {
+                                BorderRadius::ZERO
+                            },
                             ..default()
                         },
                         BackgroundColor(MAROON.into()),
@@ -348,16 +777,6 @@ mod borders {
                         },
                     ))
                     .id();
-
-                if rounded {
-                    let border_radius = BorderRadius::px(
-                        border_size(border.left, border.top),
-                        border_size(border.right, border.top),
-                        border_size(border.right, border.bottom),
-                        border_size(border.left, border.bottom),
-                    );
-                    commands.entity(border_node).insert(border_radius);
-                }
 
                 commands.entity(root).add_child(border_node);
             }
@@ -430,10 +849,10 @@ mod box_shadow {
                             width: px(size.x),
                             height: px(size.y),
                             border: UiRect::all(px(2)),
+                            border_radius,
                             ..default()
                         },
                         BorderColor::all(WHITE),
-                        border_radius,
                         BackgroundColor(BLUE.into()),
                         BoxShadow::new(
                             Color::BLACK.with_alpha(0.9),
@@ -878,6 +1297,475 @@ mod radial_gradient {
                                 });
                         }
                     }
+                }
+            });
+    }
+}
+
+mod transformations {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Transformations)));
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    display: Display::Block,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::Transformations),
+            ))
+            .with_children(|parent| {
+                for (transformation, label, background) in [
+                    (
+                        UiTransform::from_rotation(Rot2::degrees(45.)),
+                        "Rotate 45 degrees",
+                        RED,
+                    ),
+                    (
+                        UiTransform::from_scale(Vec2::new(2., 0.5)),
+                        "Scale 2.x 0.5y",
+                        GREEN,
+                    ),
+                    (
+                        UiTransform::from_translation(Val2::px(-50., 50.)),
+                        "Translate -50px x +50px y",
+                        BLUE,
+                    ),
+                    (
+                        UiTransform {
+                            translation: Val2::px(50., 0.),
+                            scale: Vec2::new(-1., 1.),
+                            rotation: Rot2::degrees(30.),
+                        },
+                        "T 50px x\nS -1.x (refl)\nR 30deg",
+                        DARK_CYAN,
+                    ),
+                ] {
+                    parent
+                        .spawn((Node {
+                            width: percent(100),
+                            margin: UiRect {
+                                top: px(50),
+                                bottom: px(50),
+                                ..default()
+                            },
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::SpaceAround,
+                            ..default()
+                        },))
+                        .with_children(|row| {
+                            row.spawn((
+                                Text::new("Before Tf"),
+                                Node {
+                                    width: px(100),
+                                    height: px(100),
+                                    border_radius: BorderRadius::bottom_right(px(25.)),
+                                    ..default()
+                                },
+                                BackgroundColor(background.into()),
+                                TextFont::default(),
+                            ));
+                            row.spawn((
+                                Text::new(label),
+                                Node {
+                                    width: px(100),
+                                    height: px(100),
+                                    border_radius: BorderRadius::bottom_right(px(25.)),
+                                    ..default()
+                                },
+                                BackgroundColor(background.into()),
+                                transformation,
+                                TextFont::default(),
+                            ));
+                        });
+                }
+            });
+    }
+}
+
+#[cfg(feature = "bevy_ui_debug")]
+mod debug_outlines {
+    use bevy::{
+        color::palettes::css::{BLUE, GRAY, RED},
+        prelude::*,
+        ui_render::UiDebugOptions,
+    };
+
+    pub fn setup(mut commands: Commands, mut debug_options: ResMut<GlobalUiDebugOptions>) {
+        debug_options.enabled = true;
+        debug_options.line_width = 5.;
+        debug_options.line_color_override = Some(LinearRgba::GREEN);
+        debug_options.show_hidden = true;
+        debug_options.show_clipped = true;
+
+        let debug_options: UiDebugOptions = (*debug_options.as_ref()).into();
+
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::DebugOutlines)));
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(50),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::DebugOutlines),
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Node {
+                        width: px(100),
+                        height: px(100),
+                        ..default()
+                    },
+                    BackgroundColor(GRAY.into()),
+                    UiTransform::from_rotation(Rot2::degrees(45.)),
+                ));
+
+                parent.spawn((Text::new("Regular Text"), TextFont::default()));
+
+                parent.spawn((
+                    Node {
+                        width: px(100),
+                        height: px(100),
+                        ..default()
+                    },
+                    Text::new("Invisible"),
+                    BackgroundColor(GRAY.into()),
+                    TextFont::default(),
+                    Visibility::Hidden,
+                ));
+
+                parent
+                    .spawn((
+                        Node {
+                            width: px(100),
+                            height: px(100),
+                            padding: UiRect {
+                                left: px(25),
+                                top: px(25),
+                                ..Default::default()
+                            },
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        BackgroundColor(RED.into()),
+                    ))
+                    .with_children(|child| {
+                        child.spawn((
+                            Node {
+                                min_width: px(100),
+                                min_height: px(100),
+                                ..default()
+                            },
+                            BackgroundColor(BLUE.into()),
+                        ));
+                    });
+            });
+
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(50),
+                    top: percent(50),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::DebugOutlines),
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Node {
+                        width: px(200),
+                        height: px(200),
+                        border: UiRect {
+                            top: px(10),
+                            bottom: px(20),
+                            left: px(30),
+                            right: px(40),
+                        },
+                        border_radius: BorderRadius::bottom_right(px(10)),
+                        padding: UiRect {
+                            top: px(40),
+                            bottom: px(30),
+                            left: px(20),
+                            right: px(10),
+                        },
+                        ..default()
+                    },
+                    children![(
+                        Text::new("border padding content outlines"),
+                        TextFont::default(),
+                        UiDebugOptions {
+                            enabled: false,
+                            ..default()
+                        }
+                    )],
+                    UiDebugOptions {
+                        outline_border_box: true,
+                        outline_padding_box: true,
+                        outline_content_box: true,
+                        ignore_border_radius: false,
+                        ..debug_options
+                    },
+                ));
+
+                // Vertical scrollbar (non-functional)
+                parent.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        width: px(90),
+                        height: px(230),
+                        overflow: Overflow::scroll_y(),
+                        scrollbar_width: 20.,
+                        ..default()
+                    },
+                    ScrollPosition(Vec2::new(180., 180.)),
+                    UiDebugOptions {
+                        line_width: 3.,
+                        outline_scrollbars: true,
+                        show_hidden: false,
+                        show_clipped: false,
+                        ..debug_options
+                    },
+                    Children::spawn(SpawnIter((0..20).map(move |i| {
+                        (
+                            Node::default(),
+                            children![(
+                                Text(format!("Item {i}")),
+                                UiDebugOptions {
+                                    enabled: false,
+                                    ..default()
+                                }
+                            )],
+                            UiDebugOptions {
+                                enabled: false,
+                                ..default()
+                            },
+                        )
+                    }))),
+                ));
+
+                // Horizontal scrollbar (non-functional)
+                parent.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        width: px(156),
+                        height: px(70),
+                        overflow: Overflow::scroll_x(),
+                        scrollbar_width: 10.,
+                        ..default()
+                    },
+                    UiDebugOptions {
+                        line_width: 3.,
+                        outline_scrollbars: true,
+                        show_hidden: false,
+                        show_clipped: false,
+                        ..debug_options
+                    },
+                    Children::spawn(SpawnIter((0..20).map(move |i| {
+                        (
+                            Node::default(),
+                            children![(
+                                Text(format!("Item {i}")),
+                                UiDebugOptions {
+                                    enabled: false,
+                                    ..default()
+                                }
+                            )],
+                            UiDebugOptions {
+                                enabled: false,
+                                ..default()
+                            },
+                        )
+                    }))),
+                ));
+
+                // bi-directional scrollbar (non-functional)
+                parent.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        width: px(230),
+                        height: px(125),
+                        overflow: Overflow::scroll(),
+                        scrollbar_width: 20.,
+                        ..default()
+                    },
+                    ScrollPosition(Vec2::new(300., 0.)),
+                    UiDebugOptions {
+                        line_width: 3.,
+                        outline_scrollbars: true,
+                        show_hidden: false,
+                        show_clipped: false,
+                        ..debug_options
+                    },
+                    Children::spawn(SpawnIter((0..6).map(move |i| {
+                        (
+                            Node {
+                                flex_direction: FlexDirection::Row,
+                                ..default()
+                            },
+                            Children::spawn(SpawnIter((0..6).map({
+                                move |j| {
+                                    (
+                                        Text(format!("Item {}", (i * 5) + j)),
+                                        UiDebugOptions {
+                                            enabled: false,
+                                            ..default()
+                                        },
+                                    )
+                                }
+                            }))),
+                            UiDebugOptions {
+                                enabled: false,
+                                ..default()
+                            },
+                        )
+                    }))),
+                ));
+            });
+    }
+
+    pub fn teardown(mut debug_options: ResMut<GlobalUiDebugOptions>) {
+        *debug_options = GlobalUiDebugOptions::default();
+    }
+}
+
+mod viewport_coords {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    const PALETTE: [Srgba; 9] = [RED, WHITE, BEIGE, AQUA, CRIMSON, NAVY, AZURE, LIME, BLACK];
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::ViewportCoords)));
+        commands
+            .spawn((
+                Node {
+                    width: vw(100),
+                    height: vh(100),
+                    border: UiRect::axes(vw(5), vh(5)),
+                    flex_wrap: FlexWrap::Wrap,
+                    ..default()
+                },
+                BorderColor::all(PALETTE[0]),
+                DespawnOnExit(super::Scene::ViewportCoords),
+            ))
+            .with_children(|builder| {
+                builder.spawn((
+                    Node {
+                        width: vw(30),
+                        height: vh(30),
+                        border: UiRect::all(vmin(5)),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[1].into()),
+                    BorderColor::all(PALETTE[8]),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: vw(60),
+                        height: vh(30),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[2].into()),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: vw(45),
+                        height: vh(30),
+                        border: UiRect::left(vmax(45. / 2.)),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[3].into()),
+                    BorderColor::all(PALETTE[7]),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: vw(45),
+                        height: vh(30),
+                        border: UiRect::right(vmax(45. / 2.)),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[4].into()),
+                    BorderColor::all(PALETTE[7]),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: vw(60),
+                        height: vh(30),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[5].into()),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: vw(30),
+                        height: vh(30),
+                        border: UiRect::all(vmin(5)),
+                        ..default()
+                    },
+                    BackgroundColor(PALETTE[6].into()),
+                    BorderColor::all(PALETTE[8]),
+                ));
+            });
+    }
+}
+
+mod outer_color {
+    use bevy::prelude::*;
+
+    pub fn setup(mut commands: Commands) {
+        let radius = percent(33.);
+        let width = px(10.);
+
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::OuterColor)));
+        commands
+            .spawn((
+                Node {
+                    display: Display::Grid,
+                    grid_template_columns: RepeatedGridTrack::px(3, 200.),
+                    grid_template_rows: RepeatedGridTrack::px(3, 200.),
+                    margin: UiRect::AUTO,
+                    ..default()
+                },
+                DespawnOnExit(super::Scene::OuterColor),
+            ))
+            .with_children(|builder| {
+                for (border, border_radius, invert) in [
+                    (UiRect::ZERO, BorderRadius::bottom_right(radius), true),
+                    (UiRect::top(width), BorderRadius::top(radius), false),
+                    (UiRect::ZERO, BorderRadius::bottom_left(radius), true),
+                    (UiRect::left(width), BorderRadius::left(radius), false),
+                    (UiRect::all(width), BorderRadius::all(radius), true),
+                    (UiRect::right(width), BorderRadius::right(radius), false),
+                    (UiRect::ZERO, BorderRadius::top_right(radius), true),
+                    (UiRect::bottom(width), BorderRadius::bottom(radius), false),
+                    (UiRect::ZERO, BorderRadius::top_left(radius), true),
+                ] {
+                    builder
+                        .spawn((
+                            Node {
+                                width: px(200.),
+                                height: px(200.),
+                                border_radius,
+                                border,
+                                ..default()
+                            },
+                            BorderColor::all(bevy::color::palettes::css::RED),
+                        ))
+                        .insert_if(BackgroundColor(Color::WHITE), || !invert)
+                        .insert_if(OuterColor(Color::WHITE), || invert);
                 }
             });
     }

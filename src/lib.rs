@@ -1,7 +1,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![expect(
     clippy::doc_markdown,
-    reason = "Android GameActivity does not need to be code-formatted."
+    reason = "Clippy lints for un-backticked identifiers within the cargo features list, which we don't want."
 )]
 //! [![Bevy Logo](https://bevy.org/assets/bevy_logo_docs.svg)](https://bevy.org)
 //!

@@ -7,7 +7,7 @@ use bevy::{
         processor::LoadTransformAndSave,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
-        AssetLoader, AsyncWriteExt, LoadContext,
+        AssetLoader, AssetPath, AsyncWriteExt, LoadContext,
     },
     prelude::*,
     reflect::TypePath,
@@ -69,7 +69,7 @@ impl Plugin for TextPlugin {
 #[derive(Asset, TypePath, Debug)]
 struct Text(String);
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct TextLoader;
 
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -120,7 +120,7 @@ struct CoolText {
     dependencies: Vec<Handle<Text>>,
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct CoolTextLoader;
 
 #[derive(Debug, Error)]
@@ -182,7 +182,7 @@ impl AssetLoader for CoolTextLoader {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct CoolTextTransformer;
 
 #[derive(Default, Serialize, Deserialize)]
@@ -206,6 +206,7 @@ impl AssetTransformer for CoolTextTransformer {
     }
 }
 
+#[derive(TypePath)]
 struct CoolTextSaver;
 
 impl AssetSaver for CoolTextSaver {
@@ -217,8 +218,9 @@ impl AssetSaver for CoolTextSaver {
     async fn save(
         &self,
         writer: &mut Writer,
-        asset: SavedAsset<'_, Self::Asset>,
+        asset: SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
+        _asset_path: AssetPath<'_>,
     ) -> Result<TextSettings, Self::Error> {
         writer.write_all(asset.text.as_bytes()).await?;
         Ok(TextSettings::default())

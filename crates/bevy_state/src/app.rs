@@ -5,8 +5,9 @@ use log::warn;
 
 use crate::{
     state::{
-        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-        StateTransition, StateTransitionEvent, StateTransitionSystems, States, SubStates,
+        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState,
+        PreviousState, State, StateTransition, StateTransitionEvent, StateTransitionSystems,
+        States, SubStates,
     },
     state_scoped::{despawn_entities_on_enter_state, despawn_entities_on_exit_state},
 };
@@ -57,16 +58,6 @@ pub trait AppExtStates {
     /// This method is idempotent: it has no effect when called again using the same generic type.
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self;
 
-    /// Enable state-scoped entity clearing for state `S`.
-    ///
-    /// Since state scoped entities are enabled by default, this method does nothing anymore.
-    #[doc(hidden)]
-    #[deprecated(
-        since = "0.17.0",
-        note = "State scoped entities are enabled by default. This method does nothing anymore, you can safely remove it."
-    )]
-    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
-
     #[cfg(feature = "bevy_reflect")]
     /// Registers the state type `T` using [`App::register_type`],
     /// and adds [`ReflectState`](crate::reflect::ReflectState) type data to `T` in the type registry.
@@ -111,6 +102,8 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -134,6 +127,8 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -145,6 +140,9 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
+                // Not configurable for the moment. This controls whether inserting a state with the same value as a pre-existing state should run state transitions.
+                // Leaving it at `true` makes state insertion idempotent. Neat!
+                allow_same_state_transitions: true,
             });
         }
 
@@ -169,6 +167,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
+                allow_same_state_transitions: S::ALLOW_SAME_STATE_TRANSITIONS,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -198,6 +197,8 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
+                // makes no difference: the state didn't exist before anyways
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -208,11 +209,6 @@ impl AppExtStates for SubApp {
         self
     }
 
-    #[doc(hidden)]
-    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
-        self
-    }
-
     #[cfg(feature = "bevy_reflect")]
     fn register_type_state<S>(&mut self) -> &mut Self
     where
@@ -220,6 +216,7 @@ impl AppExtStates for SubApp {
     {
         self.register_type::<S>();
         self.register_type::<State<S>>();
+        self.register_type::<PreviousState<S>>();
         self.register_type_data::<S, crate::reflect::ReflectState>();
         self
     }
@@ -232,6 +229,7 @@ impl AppExtStates for SubApp {
         self.register_type::<S>();
         self.register_type::<State<S>>();
         self.register_type::<NextState<S>>();
+        self.register_type::<PreviousState<S>>();
         self.register_type_data::<S, crate::reflect::ReflectState>();
         self.register_type_data::<S, crate::reflect::ReflectFreelyMutableState>();
         self
@@ -281,11 +279,6 @@ impl AppExtStates for App {
 
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
         self.main_mut().add_sub_state::<S>();
-        self
-    }
-
-    #[doc(hidden)]
-    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
         self
     }
 

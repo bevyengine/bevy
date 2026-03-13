@@ -17,8 +17,6 @@ where
 {
     /// Draw an arc, which is a part of the circumference of a circle, in 2D.
     ///
-    /// This should be called for each frame the arc needs to be rendered.
-    ///
     /// # Arguments
     /// - `isometry` defines the translation and rotation of the arc.
     ///   - the translation specifies the center of the arc
@@ -131,8 +129,6 @@ where
     /// - starting at `Vec3::X`
     /// - embedded in the XZ plane
     /// - rotates counterclockwise
-    ///
-    /// This should be called for each frame the arc needs to be rendered.
     ///
     /// # Arguments
     /// - `angle`: sets how much of a circle circumference is passed, e.g. PI is half a circle. This

@@ -1,20 +1,21 @@
 //! Types for declaring and storing [`Component`]s.
 
 mod clone;
+mod constants;
 mod info;
 mod register;
 mod required;
-mod tick;
 
 pub use clone::*;
+pub use constants::*;
 pub use info::*;
 pub use register::*;
 pub use required::*;
-pub use tick::*;
 
 use crate::{
     entity::EntityMapper,
     lifecycle::ComponentHook,
+    relationship::ComponentRelationshipAccessor,
     system::{Local, SystemParam},
     world::{FromWorld, World},
 };
@@ -355,7 +356,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
 /// - `#[component(on_add = on_add_function)]`
 /// - `#[component(on_insert = on_insert_function)]`
-/// - `#[component(on_replace = on_replace_function)]`
+/// - `#[component(on_discard = on_discard_function)]`
 /// - `#[component(on_remove = on_remove_function)]`
 ///
 /// ```
@@ -372,8 +373,8 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// // Another possible way of configuring hooks:
 /// // #[component(on_add = my_on_add_hook, on_insert = my_on_insert_hook)]
 /// //
-/// // We don't have a replace or remove hook, so we can leave them out:
-/// // #[component(on_replace = my_on_replace_hook, on_remove = my_on_remove_hook)]
+/// // We don't have a discard or remove hook, so we can leave them out:
+/// // #[component(on_discard = my_on_discard_hook, on_remove = my_on_remove_hook)]
 /// struct ComponentA;
 ///
 /// fn my_on_add_hook(world: DeferredWorld, context: HookContext) {
@@ -406,12 +407,35 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// }
 ///
 /// ```
+///
+/// A hook's function path can be elided if it is `Self::on_add`, `Self::on_insert` etc.
+/// ```
+/// # use bevy_ecs::lifecycle::HookContext;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::world::DeferredWorld;
+/// #
+/// #[derive(Component, Debug)]
+/// #[component(on_add)]
+/// struct DoubleOnSpawn(usize);
+///
+/// impl DoubleOnSpawn {
+///     fn on_add(mut world: DeferredWorld, context: HookContext) {
+///         let mut entity = world.get_mut::<Self>(context.entity).unwrap();
+///         entity.0 *= 2;
+///     }
+/// }
+/// #
+/// # let mut world = World::new();
+/// # let entity = world.spawn(DoubleOnSpawn(2));
+/// # assert_eq!(entity.get::<DoubleOnSpawn>().unwrap().0, 4);
+/// ```
+///
 /// # Setting the clone behavior
 ///
 /// You can specify how the [`Component`] is cloned when deriving it.
 ///
 /// Your options are the functions and variants of [`ComponentCloneBehavior`]
-/// See [Handlers section of `EntityClonerBuilder`](crate::entity::EntityClonerBuilder#handlers) to understand how this affects handler priority.
+/// See [Clone Behaviors section of `EntityCloner`](crate::entity::EntityCloner#clone-behaviors) to understand how this affects handler priority.
 /// ```
 /// # use bevy_ecs::prelude::*;
 ///
@@ -506,8 +530,8 @@ pub trait Component: Send + Sync + 'static {
         None
     }
 
-    /// Gets the `on_replace` [`ComponentHook`] for this [`Component`] if one is defined.
-    fn on_replace() -> Option<ComponentHook> {
+    /// Gets the `on_discard` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_discard() -> Option<ComponentHook> {
         None
     }
 
@@ -534,7 +558,7 @@ pub trait Component: Send + Sync + 'static {
 
     /// Called when registering this component, allowing to override clone function (or disable cloning altogether) for this component.
     ///
-    /// See [Handlers section of `EntityClonerBuilder`](crate::entity::EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    /// See [Clone Behaviors section of `EntityCloner`](crate::entity::EntityCloner#clone-behaviors) to understand how this affects handler priority.
     #[inline]
     fn clone_behavior() -> ComponentCloneBehavior {
         ComponentCloneBehavior::Default
@@ -625,6 +649,13 @@ pub trait Component: Send + Sync + 'static {
     /// You can use the turbofish (`::<A,B,C>`) to specify parameters when a function is generic, using either M or _ for the type of the mapper parameter.
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
+
+    /// Returns [`ComponentRelationshipAccessor`] required for working with relationships in dynamic contexts.
+    ///
+    /// If component is not a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget), this should return `None`.
+    fn relationship_accessor() -> Option<ComponentRelationshipAccessor<Self>> {
+        None
+    }
 }
 
 mod private {
@@ -642,7 +673,7 @@ mod private {
 /// `&mut ...`, created while inserted onto an entity.
 /// In all other ways, they are identical to mutable components.
 /// This restriction allows hooks to observe all changes made to an immutable
-/// component, effectively turning the `Insert` and `Replace` hooks into a
+/// component, effectively turning the `Insert` and `Discard` hooks into a
 /// `OnMutate` hook.
 /// This is not practical for mutable components, as the runtime cost of invoking
 /// a hook for every exclusive reference created would be far too high.

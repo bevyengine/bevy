@@ -7,7 +7,6 @@ use bevy_ecs::{
     lifecycle::RemovedComponents,
     message::MessageWriter,
     prelude::{Changed, Component},
-    query::QueryFilter,
     system::{Local, NonSendMarker, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
@@ -48,7 +47,7 @@ use crate::{
 ///
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
-pub fn create_windows<F: QueryFilter + 'static>(
+pub fn create_windows(
     event_loop: &ActiveEventLoop,
     (
         mut commands,
@@ -57,7 +56,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         mut handlers,
         accessibility_requested,
         monitors,
-    ): SystemParamItem<CreateWindowParams<F>>,
+    ): SystemParamItem<CreateWindowParams>,
 ) {
     WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
         ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
@@ -355,6 +354,26 @@ pub(crate) fn changed_windows(
                     }
             }
 
+            // Set position before size so the window is on the correct monitor
+            // (and thus using the correct scale factor) when size is applied.
+            if window.position != cache.position
+                && let Some(position) = crate::winit_window_position(
+                    &window.position,
+                    &window.resolution,
+                    &monitors,
+                    winit_window.primary_monitor(),
+                    winit_window.current_monitor(),
+                ) {
+                    let should_set = match winit_window.outer_position() {
+                        Ok(current_position) => current_position != position,
+                        _ => true,
+                    };
+
+                    if should_set {
+                        winit_window.set_outer_position(position);
+                    }
+                }
+
             if window.resolution != cache.resolution {
                 let mut physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
@@ -436,28 +455,14 @@ pub(crate) fn changed_windows(
                 };
 
                 winit_window.set_min_inner_size(Some(min_inner_size));
-                if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
-                    winit_window.set_max_inner_size(Some(max_inner_size));
-                }
+                winit_window.set_max_inner_size(
+                    if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
+                        Some(max_inner_size)
+                    } else {
+                        None
+                    },
+                );
             }
-
-            if window.position != cache.position
-                && let Some(position) = crate::winit_window_position(
-                    &window.position,
-                    &window.resolution,
-                    &monitors,
-                    winit_window.primary_monitor(),
-                    winit_window.current_monitor(),
-                ) {
-                    let should_set = match winit_window.outer_position() {
-                        Ok(current_position) => current_position != position,
-                        _ => true,
-                    };
-
-                    if should_set {
-                        winit_window.set_outer_position(position);
-                    }
-                }
 
             if let Some(maximized) = window.internal.take_maximize_request() {
                 winit_window.set_maximized(maximized);

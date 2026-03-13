@@ -17,6 +17,7 @@ use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_text::{FontSize, FontWeight};
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, PositionType, UiRect, UiTransform, Val,
@@ -53,6 +54,11 @@ struct CheckboxMark;
 /// * `props` - construction properties for the checkbox.
 /// * `overrides` - a bundle of components that are merged in with the normal checkbox components.
 /// * `label` - the label of the checkbox.
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the checkbox changes state.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
     overrides: B,
     label: C,
@@ -74,7 +80,8 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         ThemeFontColor(tokens::CHECKBOX_TEXT),
         InheritableFont {
             font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
-            font_size: 14.0,
+            font_size: FontSize::Px(14.0),
+            weight: FontWeight::NORMAL,
         },
         overrides,
         Children::spawn((
@@ -83,10 +90,10 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
                     width: size::CHECKBOX_SIZE,
                     height: size::CHECKBOX_SIZE,
                     border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::all(Val::Px(4.0)),
                     ..Default::default()
                 },
                 CheckboxOutline,
-                BorderRadius::all(Val::Px(4.0)),
                 ThemeBackgroundColor(tokens::CHECKBOX_BG),
                 ThemeBorderColor(tokens::CHECKBOX_BORDER),
                 children![(
@@ -284,7 +291,7 @@ fn set_checkbox_styles(
 
     // Change mark visibility
     commands.entity(mark_ent).insert(match checked {
-        true => Visibility::Visible,
+        true => Visibility::Inherited,
         false => Visibility::Hidden,
     });
 

@@ -4,8 +4,8 @@ use bevy::{
     math::{prelude::*, vec3, NormedVectorSpace},
     prelude::*,
 };
+use chacha20::ChaCha8Rng;
 use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
@@ -70,7 +70,7 @@ fn setup(
     commands.spawn((
         PointLight {
             intensity: 15_000_000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

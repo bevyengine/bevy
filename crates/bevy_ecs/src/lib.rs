@@ -1,7 +1,3 @@
-#![expect(
-    unsafe_op_in_unsafe_fn,
-    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
-)]
 #![doc = include_str!("../README.md")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
@@ -68,26 +64,23 @@ use message::Message;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    #[expect(
-        deprecated,
-        reason = "`Trigger` was deprecated in favor of `On`, and `OnX` lifecycle events were deprecated in favor of `X` events."
-    )]
     pub use crate::{
         bundle::Bundle,
-        change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
+        change_detection::{
+            ContiguousMut, ContiguousRef, DetectChanges, DetectChangesMut, Mut, Ref,
+        },
         children,
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
-        event::{EntityEvent, Event, EventReader, EventWriter, Events},
+        event::{EntityEvent, Event},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
-        lifecycle::{
-            Add, Despawn, Insert, OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, Remove,
-            RemovedComponents, Replace,
+        lifecycle::{Add, Despawn, Discard, Insert, Remove, RemovedComponents},
+        message::{
+            Message, MessageMutator, MessageReader, MessageWriter, Messages, PopulatedMessageReader,
         },
-        message::{Message, MessageMutator, MessageReader, MessageWriter, Messages},
         name::{Name, NameOrEntity},
-        observer::{Observer, On, Trigger},
+        observer::{Observer, ObserverSystemExt, On},
         query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
@@ -116,7 +109,7 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{
-        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+        AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectFromWorld, ReflectResource,
     };
 
     #[doc(hidden)]
@@ -161,12 +154,12 @@ mod tests {
         bundle::Bundle,
         change_detection::Ref,
         component::Component,
-        entity::{Entity, EntityMapper},
+        entity::{Entity, EntityMapper, EntityNotSpawnedError},
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         resource::Resource,
-        world::{EntityMut, EntityRef, Mut, World},
+        world::{error::EntityDespawnError, EntityMut, EntityRef, Mut, World},
     };
     use alloc::{string::String, sync::Arc, vec, vec::Vec};
     use bevy_platform::collections::HashSet;
@@ -178,8 +171,10 @@ mod tests {
     };
     use std::sync::Mutex;
 
-    #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
+    #[derive(Component, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
+    #[derive(Resource, Debug, PartialEq, Eq)]
+    struct ResA(usize);
     #[derive(Component, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct B(usize);
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
@@ -249,10 +244,8 @@ mod tests {
             x: TableStored,
             y: SparseStored,
         }
-        let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        let ids: Vec<_> =
+            <FooBundle as Bundle>::component_ids(&mut world.components_registrator()).collect();
 
         assert_eq!(
             ids,
@@ -299,10 +292,8 @@ mod tests {
             b: B,
         }
 
-        let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        let ids: Vec<_> =
+            <NestedBundle as Bundle>::component_ids(&mut world.components_registrator()).collect();
 
         assert_eq!(
             ids,
@@ -351,13 +342,9 @@ mod tests {
             ignored: Ignored,
         }
 
-        let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(
-            &mut world.components_registrator(),
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        let ids: Vec<_> =
+            <BundleWithIgnored as Bundle>::component_ids(&mut world.components_registrator())
+                .collect();
 
         assert_eq!(ids, &[world.register_component::<C>(),]);
 
@@ -378,6 +365,39 @@ mod tests {
                 ignored: Ignored,
             }
         );
+    }
+
+    #[test]
+    fn spawning_with_manual_entity_allocation() {
+        let mut world = World::new();
+        let start = world.entities().count_spawned();
+        let e1 = world.entity_allocator_mut().alloc();
+        world.spawn_at(e1, (TableStored("abc"), A(123))).unwrap();
+
+        let e2 = world.entity_allocator_mut().alloc();
+        assert!(matches!(
+            world.try_despawn_no_free(e2),
+            Err(EntityDespawnError(
+                EntityNotSpawnedError::ValidButNotSpawned(_)
+            ))
+        ));
+        assert!(!world.despawn(e2));
+        world.entity_allocator_mut().free(e2);
+
+        let e3 = world.entity_allocator_mut().alloc();
+        let e3 = world
+            .spawn_at(e3, (TableStored("junk"), A(0)))
+            .unwrap()
+            .despawn_no_free();
+        world.spawn_at(e3, (TableStored("def"), A(456))).unwrap();
+
+        assert_eq!(world.entities.count_spawned(), start + 2);
+        assert!(world.despawn(e1));
+        assert_eq!(world.entities.count_spawned(), start + 1);
+        assert!(world.get::<TableStored>(e1).is_none());
+        assert!(world.get::<A>(e1).is_none());
+        assert_eq!(world.get::<TableStored>(e3).unwrap().0, "def");
+        assert_eq!(world.get::<A>(e3).unwrap().0, 456);
     }
 
     #[test]
@@ -1207,16 +1227,6 @@ mod tests {
     }
 
     #[test]
-    fn reserve_and_spawn() {
-        let mut world = World::default();
-        let e = world.entities().reserve_entity();
-        world.flush_entities();
-        let mut e_mut = world.entity_mut(e);
-        e_mut.insert(A(0));
-        assert_eq!(e_mut.get::<A>().unwrap(), &A(0));
-    }
-
-    #[test]
     fn changed_query() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0))).id();
@@ -1243,7 +1253,6 @@ mod tests {
 
         #[derive(Resource, PartialEq, Debug)]
         struct BigNum(u64);
-
         let mut world = World::default();
         assert!(world.get_resource::<Num>().is_none());
         assert!(!world.contains_resource::<Num>());
@@ -1251,10 +1260,7 @@ mod tests {
         assert!(!world.is_resource_changed::<Num>());
 
         world.insert_resource(Num(123));
-        let resource_id = world
-            .components()
-            .get_resource_id(TypeId::of::<Num>())
-            .unwrap();
+        let resource_id = world.components().get_id(TypeId::of::<Num>()).unwrap();
 
         assert_eq!(world.resource::<Num>().0, 123);
         assert!(world.contains_resource::<Num>());
@@ -1308,10 +1314,7 @@ mod tests {
             "other resources are unaffected"
         );
 
-        let current_resource_id = world
-            .components()
-            .get_resource_id(TypeId::of::<Num>())
-            .unwrap();
+        let current_resource_id = world.components().get_id(TypeId::of::<Num>()).unwrap();
         assert_eq!(
             resource_id, current_resource_id,
             "resource id does not change after removing / re-adding"
@@ -1410,30 +1413,30 @@ mod tests {
     }
 
     #[test]
-    fn non_send_resource() {
+    fn non_send() {
         let mut world = World::default();
-        world.insert_non_send_resource(123i32);
-        world.insert_non_send_resource(456i64);
-        assert_eq!(*world.non_send_resource::<i32>(), 123);
-        assert_eq!(*world.non_send_resource_mut::<i64>(), 456);
+        world.insert_non_send(123i32);
+        world.insert_non_send(456i64);
+        assert_eq!(*world.non_send::<i32>(), 123);
+        assert_eq!(*world.non_send_mut::<i64>(), 456);
     }
 
     #[test]
-    fn non_send_resource_points_to_distinct_data() {
+    fn non_send_points_to_distinct_data() {
         let mut world = World::default();
-        world.insert_resource(A(123));
-        world.insert_non_send_resource(A(456));
-        assert_eq!(*world.resource::<A>(), A(123));
-        assert_eq!(*world.non_send_resource::<A>(), A(456));
+        world.insert_resource(ResA(123));
+        world.insert_non_send(ResA(456));
+        assert_eq!(*world.resource::<ResA>(), ResA(123));
+        assert_eq!(*world.non_send::<ResA>(), ResA(456));
     }
 
     #[test]
     #[should_panic]
-    fn non_send_resource_panic() {
+    fn non_send_panic() {
         let mut world = World::default();
-        world.insert_non_send_resource(0i32);
+        world.insert_non_send(0i32);
         std::thread::spawn(move || {
-            let _ = world.non_send_resource_mut::<i32>();
+            let _ = world.non_send_mut::<i32>();
         })
         .join()
         .unwrap();
@@ -1539,8 +1542,8 @@ mod tests {
         let mut expected = FilteredAccess::default();
         let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();
         let b_id = world.components.get_id(TypeId::of::<B>()).unwrap();
-        expected.add_component_write(a_id);
-        expected.add_component_read(b_id);
+        expected.add_write(a_id);
+        expected.add_read(b_id);
         assert!(
             query.component_access.eq(&expected),
             "ComponentId access from query fetch and query filter should be combined"
@@ -1553,8 +1556,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        let _ = query.get(&world_a, Entity::from_raw_u32(0).unwrap());
-        let _ = query.get(&world_b, Entity::from_raw_u32(0).unwrap());
+        let _ = query.get(&world_a, Entity::from_raw_u32(10_000).unwrap());
+        let _ = query.get(&world_b, Entity::from_raw_u32(10_000).unwrap());
     }
 
     #[test]
@@ -1570,20 +1573,53 @@ mod tests {
     #[test]
     fn resource_scope() {
         let mut world = World::default();
-        assert!(world.try_resource_scope::<A, _>(|_, _| {}).is_none());
-        world.insert_resource(A(0));
-        world.resource_scope(|world: &mut World, mut value: Mut<A>| {
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        world.resource_scope(|world: &mut World, mut value: Mut<ResA>| {
             value.0 += 1;
-            assert!(!world.contains_resource::<A>());
+            assert!(!world.contains_resource::<ResA>());
         });
-        assert_eq!(world.resource::<A>().0, 1);
+        assert_eq!(world.resource::<ResA>().0, 1);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn resource_scope_unwind() {
+        #[derive(Debug, PartialEq)]
+        struct Panic;
+
+        let mut world = World::default();
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        let panic = std::panic::catch_unwind(core::panic::AssertUnwindSafe(|| {
+            world.resource_scope(|world: &mut World, _value: Mut<ResA>| {
+                assert!(!world.contains_resource::<ResA>());
+                std::panic::panic_any(Panic);
+            });
+            unreachable!();
+        }));
+        assert_eq!(panic.unwrap_err().downcast_ref::<Panic>(), Some(&Panic));
+        assert!(world.contains_resource::<ResA>());
+    }
+
+    #[test]
+    fn resource_scope_resources_cleared() {
+        let mut world = World::default();
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        let r = world.try_resource_scope(|world: &mut World, _value: Mut<ResA>| {
+            assert!(!world.contains_resource::<ResA>());
+            world.clear_resources();
+        });
+        assert_eq!(r, Some(()));
+        assert!(world.contains_resource::<ResA>());
     }
 
     #[test]
     #[should_panic]
-    fn non_send_resource_drop_from_different_thread() {
+    fn non_send_drop_from_different_thread() {
         let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
+        world.insert_non_send(NonSendA::default());
 
         let thread = std::thread::spawn(move || {
             // Dropping the non-send resource on a different thread
@@ -1597,9 +1633,9 @@ mod tests {
     }
 
     #[test]
-    fn non_send_resource_drop_from_same_thread() {
+    fn non_send_drop_from_same_thread() {
         let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
+        world.insert_non_send(NonSendA::default());
         drop(world);
     }
 
@@ -1636,17 +1672,15 @@ mod tests {
     fn clear_entities() {
         let mut world = World::default();
 
-        world.insert_resource(A(0));
+        world.insert_resource(ResA(0));
         world.spawn(A(1));
         world.spawn(SparseStored(1));
 
         let mut q1 = world.query::<&A>();
         let mut q2 = world.query::<&SparseStored>();
-        let mut q3 = world.query::<()>();
 
         assert_eq!(q1.query(&world).count(), 1);
         assert_eq!(q2.query(&world).count(), 1);
-        assert_eq!(q3.query(&world).count(), 2);
 
         world.clear_entities();
 
@@ -1661,14 +1695,9 @@ mod tests {
             "world should not contain sparse set components"
         );
         assert_eq!(
-            q3.query(&world).count(),
-            0,
-            "world should not have any entities"
-        );
-        assert_eq!(
-            world.resource::<A>().0,
-            0,
-            "world should still contain resources"
+            world.get_resource::<ResA>(),
+            None,
+            "world should not contain resources"
         );
     }
 
@@ -1794,7 +1823,7 @@ mod tests {
     fn try_insert_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e1 = Entity::from_raw_u32(10_000).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
@@ -1818,7 +1847,7 @@ mod tests {
     fn try_insert_batch_if_new() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e1 = Entity::from_raw_u32(10_000).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 

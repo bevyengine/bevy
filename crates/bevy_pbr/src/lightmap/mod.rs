@@ -388,7 +388,7 @@ impl RenderLightmaps {
         slab.remove(fallback_images, slot_index);
 
         if !slab.is_full() {
-            self.free_slabs.grow_and_insert(slot_index.into());
+            self.free_slabs.grow_and_insert(slab_index.into());
         }
     }
 }
@@ -417,6 +417,10 @@ impl LightmapSlab {
     }
 
     fn allocate(&mut self, image_id: AssetId<Image>) -> LightmapSlotIndex {
+        assert!(
+            !self.is_full(),
+            "Attempting to allocate on a full lightmap slab"
+        );
         let index = LightmapSlotIndex::from(self.free_slots_bitmask.trailing_zeros());
         self.free_slots_bitmask &= !(1 << u32::from(index));
         self.lightmaps[usize::from(index)].asset_id = Some(image_id);

@@ -11,11 +11,11 @@ use bevy_ecs::{
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
+use bevy_log::{debug, error};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::render_asset::RenderAssetBytesPerFrameLimiter;
 use core::marker::PhantomData;
 use thiserror::Error;
-use tracing::{debug, error};
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
@@ -28,10 +28,6 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 /// The system set during which we extract modified assets to the render world.
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct AssetExtractionSystems;
-
-/// Deprecated alias for [`AssetExtractionSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `AssetExtractionSystems`.")]
-pub type ExtractAssetsSet = AssetExtractionSystems;
 
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
@@ -129,6 +125,7 @@ impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
             render_app
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<ErasedRenderAssets<A::ErasedAsset>>()
+                .allow_ambiguous_resource::<ErasedRenderAssets<A::ErasedAsset>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(
                     ExtractSchedule,
@@ -251,7 +248,7 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
 ) {
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractErasedRenderAssetSystemState<A>>| {
-            let (mut events, mut assets) = cached_state.state.get_mut(world);
+            let (mut events, mut assets) = cached_state.state.get_mut(world).unwrap();
 
             let mut needs_extracting = <HashSet<_>>::default();
             let mut removed = <HashSet<_>>::default();

@@ -3,17 +3,17 @@
 
 use bevy::{
     anti_alias::fxaa::Fxaa,
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::DepthPrepass,
     pbr::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
     prelude::*,
 };
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FreeCamPlugin))
+        .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .add_systems(Startup, setup)
         .run();
 }
@@ -44,7 +44,7 @@ fn setup(
     commands.spawn((
         Name::new("Camera"),
         Camera3d::default(),
-        FreeCam::default(),
+        FreeCamera::default(),
         // Must enable the depth prepass to render forward decals
         DepthPrepass,
         // Must disable MSAA to use decals on WebGPU
@@ -92,7 +92,7 @@ fn setup(
     commands.spawn((
         Name::new("Light"),
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

@@ -95,16 +95,12 @@ impl Default for GradientMeta {
 
 #[derive(Resource)]
 pub struct GradientPipeline {
-    pub view_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_gradient_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let view_layout = render_device.create_bind_group_layout(
+pub fn init_gradient_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let view_layout = BindGroupLayoutDescriptor::new(
         "ui_gradient_view_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -401,7 +397,7 @@ pub fn extract_gradients(
                     extracted_uinodes.uinodes.push(ExtractedUiNode {
                         z_order: uinode.stack_index as f32
                             + match node_type {
-                                NodeType::Rect => stack_z_offsets::GRADIENT,
+                                NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
                                 NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                             },
                         image: AssetId::default(),
@@ -620,14 +616,14 @@ pub fn queue_gradient(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (gradient.render_entity, gradient.main_entity),
             sort_key: FloatOrd(
                 gradient.stack_index as f32
                     + match gradient.node_type {
-                        NodeType::Rect => stack_z_offsets::GRADIENT,
+                        NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
                         NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                     },
             ),
@@ -696,6 +692,7 @@ pub fn prepare_gradient(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<GradientMeta>,
     mut extracted_gradients: ResMut<ExtractedGradients>,
     mut extracted_color_stops: ResMut<ExtractedColorStops>,
@@ -711,7 +708,7 @@ pub fn prepare_gradient(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "gradient_view_bind_group",
-            &gradients_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&gradients_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -780,7 +777,8 @@ pub fn prepare_gradient(
                         corner_points[3] + positions_diff[3],
                     ];
 
-                    let transformed_rect_size = gradient.transform.transform_vector2(rect_size);
+                    let transformed_rect_size =
+                        gradient.transform.transform_vector2(rect_size).abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -867,10 +865,10 @@ pub fn prepare_gradient(
                                     gradient.border_radius.bottom_left,
                                 ],
                                 border: [
-                                    gradient.border.left,
-                                    gradient.border.top,
-                                    gradient.border.right,
-                                    gradient.border.bottom,
+                                    gradient.border.min_inset.x,
+                                    gradient.border.min_inset.y,
+                                    gradient.border.max_inset.x,
+                                    gradient.border.max_inset.y,
                                 ],
                                 size: rect_size.xy().into(),
                                 g_start,

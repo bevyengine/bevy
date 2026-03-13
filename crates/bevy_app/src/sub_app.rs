@@ -2,6 +2,7 @@ use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     message::MessageRegistry,
+    observer::IntoObserver,
     prelude::*,
     schedule::{
         InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy,
@@ -13,7 +14,7 @@ use bevy_platform::collections::{HashMap, HashSet};
 use core::fmt::Debug;
 
 #[cfg(feature = "trace")]
-use tracing::info_span;
+use tracing::{info_span, warn};
 
 type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 
@@ -261,7 +262,16 @@ impl SubApp {
     /// See [`App::add_schedule`].
     pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(schedule);
+        let _old_schedule = schedules.insert(schedule);
+
+        #[cfg(feature = "trace")]
+        if let Some(schedule) = _old_schedule {
+            warn!(
+                "Schedule {:?} was re-inserted, all previous configuration has been removed",
+                schedule.label()
+            );
+        }
+
         self
     }
 
@@ -350,13 +360,10 @@ impl SubApp {
         self
     }
 
-    /// See [`App::add_message`].
-    #[deprecated(since = "0.17.0", note = "Use `add_message` instead.")]
-    pub fn add_event<T>(&mut self) -> &mut Self
-    where
-        T: Message,
-    {
-        self.add_message::<T>()
+    /// See [`App::add_observer`].
+    pub fn add_observer<M>(&mut self, observer: impl IntoObserver<M>) -> &mut Self {
+        self.world_mut().add_observer(observer);
+        self
     }
 
     /// See [`App::add_message`].

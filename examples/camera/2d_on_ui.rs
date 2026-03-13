@@ -45,9 +45,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 min_height: px(150),
                 min_width: px(150),
                 border: UiRect::all(px(2)),
+                border_radius: BorderRadius::all(percent(25)),
                 ..default()
             },
-            BorderRadius::all(percent(25)),
             BorderColor::all(Color::WHITE),
         )],
     ));

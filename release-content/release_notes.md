@@ -1,6 +1,6 @@
 # Bevy's Release Notes Process
 
-Hi! Did someone add `M-Needs-Release-Note` to your PR? If so, you're in the right place.
+Hi! Did someone add `M-Release-Note` to your PR? If so, you're in the right place.
 Let's talk about how this process works.
 
 When we make high-impact changes to Bevy, we need to communicate them to users (and potential users!).

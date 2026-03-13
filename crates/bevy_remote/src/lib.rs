@@ -160,15 +160,15 @@
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",
-//!     "method": "bevy/query",
+//!     "method": "world.query",
 //!     "id": 0,
 //!     "params": {
 //!         "data": {
 //!             "components": ["bevy_transform::components::transform::Transform"]
 //!             "option": [],
 //!             "has": []
-//!        },
-//!        "filter": {
+//!         },
+//!         "filter": {
 //!           "with": [],
 //!           "without": []
 //!         },
@@ -182,15 +182,15 @@
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",
-//!     "method": "bevy/query",
+//!     "method": "world.query",
 //!     "id": 0,
 //!     "params": {
 //!         "data": {
 //!             "components": []
 //!             "option": "all",
 //!             "has": []
-//!        },
-//!        "filter": {
+//!         },
+//!         "filter": {
 //!            "with": [],
 //!           "without": []
 //!         },
@@ -202,90 +202,88 @@
 //! This should return you something like the below (in a larger list):
 //! ```json
 //! {
-//!      "components": {
-//!        "bevy_camera::Camera3d": {
-//!          "depth_load_op": {
-//!            "Clear": 0.0
-//!          },
-//!          "depth_texture_usages": 16,
-//!          "screen_space_specular_transmission_quality": "Medium",
-//!          "screen_space_specular_transmission_steps": 1
-//!        },
-//!        "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
-//!        "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",
-//!        "bevy_light::cluster::ClusterConfig": {
-//!          "FixedZ": {
-//!         "dynamic_resizing": true,
-//!            "total": 4096,
-//!            "z_config": {
-//!              "far_z_mode": "MaxClusterableObjectRange",
-//!              "first_slice_depth": 5.0
-//!            },
-//!            "z_slices": 24
-//!          }
-//!        },
-//!        "bevy_camera::Camera": {
-//!          "clear_color": "Default",
-//!          "is_active": true,
-//!          "msaa_writeback": true,
-//!          "order": 0,
-//!          "sub_camera_view": null,
-//!          "target": {
-//!            "Window": "Primary"
-//!          },
-//!       "viewport": null
-//!        },
-//!        "bevy_camera::Projection": {
-//!          "Perspective": {
-//!            "aspect_ratio": 1.7777777910232544,
-//!            "far": 1000.0,
-//!            "fov": 0.7853981852531433,
-//!            "near": 0.10000000149011612
-//!          }
-//!        },
-//!        "bevy_camera::primitives::Frustum": {},
-//!     "bevy_render::sync_world::RenderEntity": 4294967291,
-//!        "bevy_render::sync_world::SyncToRenderWorld": {},
-//!        "bevy_render::view::Msaa": "Sample4",
-//!        "bevy_camera::visibility::InheritedVisibility": true,
-//!        "bevy_camera::visibility::ViewVisibility": false,
-//!        "bevy_camera::visibility::Visibility": "Inherited",
-//!        "bevy_camera::visibility::VisibleEntities": {},
-//!        "bevy_transform::components::global_transform::GlobalTransform": [
-//!          0.9635179042816162,
-//!          -3.725290298461914e-9,
-//!          0.26764383912086487,
-//!          0.11616238951683044,
-//!          0.9009039402008056,
-//!          -0.4181846082210541,
-//!          -0.24112138152122495,
-//!          0.4340185225009918,
-//!          0.8680371046066284,
-//!          -2.5,
-//!          4.5,
-//!          9.0
-//!        ],
-//!        "bevy_transform::components::transform::Transform": {
-//!       "rotation": [
-//!            -0.22055435180664065,
-//!            -0.13167093694210052,
-//!            -0.03006339818239212,
-//!            0.9659786224365234
-//!          ],
-//!          "scale": [
-//!            1.0,
-//!            1.0,
-//!            1.0
+//!   "components": {
+//!     "bevy_camera::Camera3d": {
+//!       "depth_load_op": {
+//!         "Clear": 0.0
+//!       },
+//!       "depth_texture_usages": 16,
+//!     },
+//!     "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
+//!     "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",
+//!     "bevy_light::cluster::ClusterConfig": {
+//!       "FixedZ": {
+//!      "dynamic_resizing": true,
+//!         "total": 4096,
+//!         "z_config": {
+//!           "far_z_mode": "MaxClusterableObjectRange",
+//!           "first_slice_depth": 5.0
+//!         },
+//!         "z_slices": 24
+//!       }
+//!     },
+//!     "bevy_camera::Camera": {
+//!       "clear_color": "Default",
+//!       "is_active": true,
+//!       "msaa_writeback": true,
+//!       "order": 0,
+//!       "sub_camera_view": null,
+//!       "target": {
+//!         "Window": "Primary"
+//!       },
+//!    "viewport": null
+//!     },
+//!     "bevy_camera::Projection": {
+//!       "Perspective": {
+//!         "aspect_ratio": 1.7777777910232544,
+//!         "far": 1000.0,
+//!         "fov": 0.7853981852531433,
+//!         "near": 0.10000000149011612
+//!       }
+//!     },
+//!     "bevy_camera::primitives::Frustum": {},
+//!  "bevy_render::sync_world::RenderEntity": 4294967291,
+//!     "bevy_render::sync_world::SyncToRenderWorld": {},
+//!     "bevy_render::view::Msaa": "Sample4",
+//!     "bevy_camera::visibility::InheritedVisibility": true,
+//!     "bevy_camera::visibility::ViewVisibility": false,
+//!     "bevy_camera::visibility::Visibility": "Inherited",
+//!     "bevy_camera::visibility::VisibleEntities": {},
+//!     "bevy_transform::components::global_transform::GlobalTransform": [
+//!       0.9635179042816162,
+//!       -3.725290298461914e-9,
+//!       0.26764383912086487,
+//!       0.11616238951683044,
+//!       0.9009039402008056,
+//!       -0.4181846082210541,
+//!       -0.24112138152122495,
+//!       0.4340185225009918,
+//!       0.8680371046066284,
+//!       -2.5,
+//!       4.5,
+//!       9.0
+//!     ],
+//!     "bevy_transform::components::transform::Transform": {
+//!    "rotation": [
+//!         -0.22055435180664065,
+//!         -0.13167093694210052,
+//!         -0.03006339818239212,
+//!         0.9659786224365234
 //!       ],
-//!          "translation": [
-//!            -2.5,
-//!          4.5,
-//!            9.0
-//!          ]
-//!        },
-//!        "bevy_transform::components::transform::TransformTreeChanged": null
-//!      },
-//!      "entity": 4294967261
+//!       "scale": [
+//!         1.0,
+//!         1.0,
+//!         1.0
+//!    ],
+//!       "translation": [
+//!         -2.5,
+//!       4.5,
+//!         9.0
+//!       ]
+//!     },
+//!     "bevy_transform::components::transform::TransformTreeChanged": null
+//!   },
+//!   "entity": 4294967261
 //!},
 //! ```
 //!
@@ -455,6 +453,16 @@
 //!
 //! `result`: An array of [fully-qualified type names] of registered resource types.
 //!
+//! ### `world.trigger_event`
+//!
+//! Triggers an event.
+//!
+//! `params`:
+//! - `event`: The [fully-qualified type name] of the event to trigger.
+//! - `value`: The value of the event to trigger.
+//!
+//! `result`: null.
+//!
 //! ### `registry.schema`
 //!
 //! Retrieve schema information about registered types in the Bevy app's type registry.
@@ -538,7 +546,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 use bevy_utils::prelude::default;
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::RwLock;
 
@@ -670,6 +678,10 @@ impl Default for RemotePlugin {
                 builtin_methods::process_remote_list_resources_request,
             )
             .with_method(
+                builtin_methods::BRP_TRIGGER_EVENT_METHOD,
+                builtin_methods::process_remote_trigger_event_request,
+            )
+            .with_method(
                 builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
                 builtin_methods::export_registry_types,
             )
@@ -734,10 +746,6 @@ pub enum RemoteSystems {
     /// Cleanup (remove closed watchers etc)
     Cleanup,
 }
-
-/// Deprecated alias for [`RemoteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RemoteSystems`.")]
-pub type RemoteSet = RemoteSystems;
 
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]
@@ -852,25 +860,124 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///         params: None,
 ///     };
 /// ```
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct BrpRequest {
-    /// This field is mandatory and must be set to `"2.0"` for the request to be accepted.
-    pub jsonrpc: String,
-
     /// The action to be performed.
     pub method: String,
 
     /// Arbitrary data that will be returned verbatim to the client as part of
     /// the response.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Value>,
 
     /// The parameters, specific to each method.
     ///
     /// These are passed as the first argument to the method handler.
     /// Sometimes params can be omitted.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<Value>,
+}
+
+// BRP uses json-rpc 2.0, so we need to include `"jsonrpc":"2.0"` in the json output
+// and check for it's presence in the input.
+// This is similar to the inverse of `#[serde(skip)]`, but serde doesn't provide
+// an attribute for this behavior so we need a manual ser/de implementation.
+impl Serialize for BrpRequest {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(None)?;
+        map.serialize_entry("jsonrpc", "2.0")?;
+        map.serialize_entry("method", &self.method)?;
+        if self.id.is_some() {
+            map.serialize_entry("id", &self.id)?;
+        }
+        if self.params.is_some() {
+            map.serialize_entry("params", &self.params)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for BrpRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        use serde::de;
+
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            JsonRpc,
+            Method,
+            Id,
+            Params,
+        }
+
+        struct Visitor;
+
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = BrpRequest;
+
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+                formatter.write_str("struct BrpRequest")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            where
+                V: de::MapAccess<'de>,
+            {
+                let mut jsonrpc = false;
+                let mut method = None;
+                let mut id = None;
+                let mut params = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::JsonRpc => {
+                            let value = map.next_value::<String>()?;
+                            if value != "2.0" {
+                                return Err(de::Error::invalid_value(
+                                    de::Unexpected::Str(&value),
+                                    &"2.0",
+                                ));
+                            }
+                            if jsonrpc {
+                                return Err(de::Error::duplicate_field("jsonrpc"));
+                            }
+                            jsonrpc = true;
+                        }
+                        Field::Method => {
+                            if method.is_some() {
+                                return Err(de::Error::duplicate_field("method"));
+                            }
+                            method = Some(map.next_value()?);
+                        }
+                        Field::Id => {
+                            if id.is_some() {
+                                return Err(de::Error::duplicate_field("id"));
+                            }
+                            id = Some(map.next_value()?);
+                        }
+                        Field::Params => {
+                            if params.is_some() {
+                                return Err(de::Error::duplicate_field("params"));
+                            }
+                            params = Some(map.next_value()?);
+                        }
+                    }
+                }
+                if !jsonrpc {
+                    return Err(de::Error::missing_field("jsonrpc"));
+                }
+                let method = method.ok_or_else(|| de::Error::missing_field("method"))?;
+                let id = id.ok_or_else(|| de::Error::missing_field("id"))?;
+                let params = params.ok_or_else(|| de::Error::missing_field("params"))?;
+                Ok(BrpRequest { method, id, params })
+            }
+        }
+
+        deserializer.deserialize_map(Visitor)
+    }
 }
 
 /// A response according to BRP.
@@ -919,7 +1026,7 @@ impl From<BrpResult> for BrpPayload {
 }
 
 /// An error a request might return.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpError {
     /// Defines the general type of the error.
     pub code: i16,

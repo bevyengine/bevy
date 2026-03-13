@@ -11,7 +11,6 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    spawn::SpawnRelated,
     system::{Commands, Query},
     world::Mut,
 };
@@ -43,17 +42,22 @@ struct ToggleSwitchSlide;
 /// # Arguments
 /// * `props` - construction properties for the toggle switch.
 /// * `overrides` - a bundle of components that are merged in with the normal toggle switch components.
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
+///
+/// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
 pub fn toggle_switch<B: Bundle>(overrides: B) -> impl Bundle {
     (
         Node {
             width: size::TOGGLE_WIDTH,
             height: size::TOGGLE_HEIGHT,
             border: UiRect::all(Val::Px(2.0)),
+            border_radius: BorderRadius::all(Val::Px(5.0)),
             ..Default::default()
         },
         Checkbox,
         ToggleSwitchOutline,
-        BorderRadius::all(Val::Px(5.0)),
         ThemeBackgroundColor(tokens::SWITCH_BG),
         ThemeBorderColor(tokens::SWITCH_BORDER),
         AccessibilityNode(accesskit::Node::new(Role::Switch)),
@@ -68,9 +72,9 @@ pub fn toggle_switch<B: Bundle>(overrides: B) -> impl Bundle {
                 top: Val::Px(0.),
                 bottom: Val::Px(0.),
                 width: Val::Percent(50.),
+                border_radius: BorderRadius::all(Val::Px(3.0)),
                 ..Default::default()
             },
-            BorderRadius::all(Val::Px(3.0)),
             ToggleSwitchSlide,
             ThemeBackgroundColor(tokens::SWITCH_SLIDE),
         )],

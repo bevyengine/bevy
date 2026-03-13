@@ -1,32 +1,35 @@
-use crate::{Image, TextureAccessError, TextureFormatPixelInfo};
+use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
+use bevy_reflect::TypePath;
 use image::ImageDecoder;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads EXR textures as Texture assets
-#[derive(Clone, Default)]
+#[derive(Clone, Default, TypePath)]
 #[cfg(feature = "exr")]
 pub struct ExrTextureLoader;
 
+/// Settings for [`ExrTextureLoader`].
 #[derive(Serialize, Deserialize, Default, Debug)]
 #[cfg(feature = "exr")]
 pub struct ExrTextureLoaderSettings {
+    /// Where the asset will be used - see the docs on [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
 }
 
 /// Possible errors that can be produced by [`ExrTextureLoader`]
 #[non_exhaustive]
-#[derive(Debug, Error)]
+#[derive(Debug, Error, TypePath)]
 #[cfg(feature = "exr")]
 pub enum ExrTextureLoaderError {
+    /// I/O Error.
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    /// Failed to decode the texture.
     #[error(transparent)]
     ImageError(#[from] image::ImageError),
-    #[error("Texture access error: {0}")]
-    TextureAccess(#[from] TextureAccessError),
 }
 
 impl AssetLoader for ExrTextureLoader {
@@ -42,7 +45,8 @@ impl AssetLoader for ExrTextureLoader {
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
         debug_assert_eq!(
-            format.pixel_size()?,
+            // `Rgba32Float` will always return a valid pixel size
+            format.pixel_size().unwrap(),
             4 * 4,
             "Format should have 32bit x 4 size"
         );

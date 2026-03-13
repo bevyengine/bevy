@@ -21,7 +21,11 @@
 @group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;
 @group(0) @binding(2) var hilbert_index_lut: texture_2d<u32>;
+#ifdef USE_R16FLOAT
 @group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r16float, write>;
+#else
+@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r32float, write>;
+#endif
 @group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
 @group(0) @binding(5) var<uniform> globals: Globals;
 @group(0) @binding(6) var<uniform> thickness: f32;

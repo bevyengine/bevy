@@ -1,6 +1,6 @@
 use crate::{
     change_detection::Mut,
-    component::Tick,
+    change_detection::Tick,
     message::{MessageRegistry, ShouldUpdateMessages},
     system::{Local, Res, ResMut},
     world::World,
@@ -12,10 +12,6 @@ use core::hash::Hash;
 #[doc(hidden)]
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MessageUpdateSystems;
-
-/// Deprecated alias for [`MessageUpdateSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageUpdateSystems`.")]
-pub type EventUpdates = MessageUpdateSystems;
 
 /// Signals the [`message_update_system`] to run after `FixedUpdate` systems.
 ///

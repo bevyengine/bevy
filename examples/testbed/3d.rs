@@ -4,13 +4,25 @@
 
 mod helpers;
 
+use argh::FromArgs;
 use bevy::prelude::*;
 use helpers::Next;
 
+#[derive(FromArgs)]
+/// 3d testbed
+pub struct Args {
+    #[argh(positional)]
+    scene: Option<Scene>,
+}
+
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args: Args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,))
-        .init_state::<Scene>()
         .add_systems(OnEnter(Scene::Light), light::setup)
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Gltf), gltf::setup)
@@ -20,6 +32,14 @@ fn main() {
             OnEnter(Scene::GltfCoordinateConversion),
             gltf_coordinate_conversion::setup,
         )
+        .add_systems(
+            OnEnter(Scene::WhiteFurnaceSolidColorLight),
+            white_furnace_solid_color_light::setup,
+        )
+        .add_systems(
+            OnEnter(Scene::WhiteFurnaceEnvironmentMapLight),
+            white_furnace_environment_map_light::setup,
+        )
         .add_systems(Update, switch_scene)
         .add_systems(Update, gizmos::draw_gizmos.run_if(in_state(Scene::Gizmos)))
         .add_systems(
@@ -27,6 +47,11 @@ fn main() {
             gltf_coordinate_conversion::draw_gizmos
                 .run_if(in_state(Scene::GltfCoordinateConversion)),
         );
+
+    match args.scene {
+        None => app.init_state::<Scene>(),
+        Some(scene) => app.insert_state(scene),
+    };
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
@@ -43,6 +68,23 @@ enum Scene {
     Animation,
     Gizmos,
     GltfCoordinateConversion,
+    WhiteFurnaceSolidColorLight,
+    WhiteFurnaceEnvironmentMapLight,
+}
+
+impl std::str::FromStr for Scene {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let mut isit = Self::default();
+        while s.to_lowercase() != format!("{isit:?}").to_lowercase() {
+            isit = isit.next();
+            if isit == Self::default() {
+                return Err(format!("Invalid Scene name: {s}"));
+            }
+        }
+        Ok(isit)
+    }
 }
 
 impl Next for Scene {
@@ -53,7 +95,9 @@ impl Next for Scene {
             Scene::Gltf => Scene::Animation,
             Scene::Animation => Scene::Gizmos,
             Scene::Gizmos => Scene::GltfCoordinateConversion,
-            Scene::GltfCoordinateConversion => Scene::Light,
+            Scene::GltfCoordinateConversion => Scene::WhiteFurnaceSolidColorLight,
+            Scene::WhiteFurnaceSolidColorLight => Scene::WhiteFurnaceEnvironmentMapLight,
+            Scene::WhiteFurnaceEnvironmentMapLight => Scene::Light,
         }
     }
 }
@@ -108,7 +152,7 @@ mod light {
             PointLight {
                 intensity: 100_000.0,
                 color: RED.into(),
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             Transform::from_xyz(1.0, 2.0, 0.0),
@@ -119,7 +163,7 @@ mod light {
             SpotLight {
                 intensity: 100_000.0,
                 color: LIME.into(),
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 inner_angle: 0.6,
                 outer_angle: 0.8,
                 ..default()
@@ -131,7 +175,7 @@ mod light {
         commands.spawn((
             DirectionalLight {
                 illuminance: light_consts::lux::OVERCAST_DAY,
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             Transform {
@@ -216,7 +260,7 @@ mod gltf {
 
         commands.spawn((
             DirectionalLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             DespawnOnExit(CURRENT_SCENE),
@@ -268,7 +312,7 @@ mod animation {
         commands.spawn((
             Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
             DirectionalLight {
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             DespawnOnExit(CURRENT_SCENE),
@@ -326,6 +370,14 @@ mod gizmos {
             .sphere(Isometry3d::from_translation(Vec3::X * -3.5), 0.75, GREEN)
             .resolution(30_000 / 3);
 
+        gizmos.text(
+            Isometry3d::from_translation(Vec3::Y * 1.5),
+            "text gizmo",
+            0.3,
+            Vec2 { x: 0., y: 0. },
+            Color::WHITE,
+        );
+
         // 3d grids with all variations of outer edges on or off
         for i in 0..8 {
             let x = 1.5 * (i % 4) as f32;
@@ -351,7 +403,10 @@ mod gizmos {
 
 mod gltf_coordinate_conversion {
     use bevy::{
-        color::palettes::basic::*, gltf::GltfLoaderSettings, prelude::*, scene::SceneInstanceReady,
+        color::palettes::basic::*,
+        gltf::{convert_coordinates::GltfConvertCoordinates, GltfLoaderSettings},
+        prelude::*,
+        scene::SceneInstanceReady,
     };
 
     const CURRENT_SCENE: super::Scene = super::Scene::GltfCoordinateConversion;
@@ -395,7 +450,10 @@ mod gltf_coordinate_conversion {
                 SceneRoot(asset_server.load_with_settings(
                     GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
                     |s: &mut GltfLoaderSettings| {
-                        s.use_model_forward_direction = Some(true);
+                        s.convert_coordinates = Some(GltfConvertCoordinates {
+                            rotate_scene_entity: true,
+                            rotate_meshes: true,
+                        });
                     },
                 )),
                 DespawnOnExit(CURRENT_SCENE),
@@ -421,5 +479,232 @@ mod gltf_coordinate_conversion {
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
         gizmos.axes(Transform::IDENTITY, 1.0);
+    }
+}
+
+mod white_furnace_solid_color_light {
+    use bevy::{
+        asset::RenderAssetUsages,
+        camera::{Hdr, ScalingMode},
+        core_pipeline::tonemapping::Tonemapping,
+        light::Skybox,
+        prelude::*,
+        render::render_resource::{
+            Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+        },
+    };
+
+    const CURRENT_SCENE: super::Scene = super::Scene::WhiteFurnaceSolidColorLight;
+
+    /// Creates a pure white cubemap
+    fn create_white_cubemap(size: u32) -> Image {
+        // f16 bytes for 1.0 (white): [0, 60] in little-endian
+        const WHITE_F16: [u8; 2] = [0, 60];
+        const WHITE_PIXEL: [u8; 8] = [
+            WHITE_F16[0],
+            WHITE_F16[1], // R
+            WHITE_F16[0],
+            WHITE_F16[1], // G
+            WHITE_F16[0],
+            WHITE_F16[1], // B
+            WHITE_F16[0],
+            WHITE_F16[1], // A
+        ];
+
+        let pixel_data: Vec<u8> = (0..6 * size * size).flat_map(|_| WHITE_PIXEL).collect();
+
+        Image {
+            texture_view_descriptor: Some(TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::Cube),
+                ..Default::default()
+            }),
+            ..Image::new(
+                Extent3d {
+                    width: size,
+                    height: size,
+                    depth_or_array_layers: 6,
+                },
+                TextureDimension::D2,
+                pixel_data,
+                TextureFormat::Rgba16Float,
+                RenderAssetUsages::RENDER_WORLD,
+            )
+        }
+    }
+
+    pub fn setup(
+        mut commands: Commands,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
+        mut images: ResMut<Assets<Image>>,
+    ) {
+        let sphere_mesh = meshes.add(Sphere::new(0.45));
+
+        // Light should come from the environment map only
+        commands.insert_resource(GlobalAmbientLight::NONE);
+
+        // add entities to the world
+        for y in -2..=2 {
+            for x in -5..=5 {
+                let x01 = (x + 5) as f32 / 10.0;
+                let y01 = (y + 2) as f32 / 4.0;
+                // sphere
+                commands.spawn((
+                    Mesh3d(sphere_mesh.clone()),
+                    MeshMaterial3d(materials.add(StandardMaterial {
+                        base_color: LinearRgba::WHITE.into(),
+                        // vary key PBR parameters on a grid of spheres to show the effect
+                        metallic: y01,
+                        perceptual_roughness: x01,
+                        ..default()
+                    })),
+                    Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
+                    DespawnOnExit(CURRENT_SCENE),
+                ));
+            }
+        }
+
+        // Create a pure white cubemap
+        let white_cubemap = create_white_cubemap(256);
+        let white_cubemap_handle = images.add(white_cubemap);
+
+        let mut solid_color_light = EnvironmentMapLight::solid_color(&mut images, Color::WHITE);
+        solid_color_light.intensity = 500.0;
+
+        // camera
+        commands.spawn((
+            Camera3d::default(),
+            Hdr,
+            Tonemapping::None,
+            Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
+            Projection::from(OrthographicProjection {
+                scale: 0.01,
+                scaling_mode: ScalingMode::WindowSize,
+                ..OrthographicProjection::default_3d()
+            }),
+            Skybox {
+                image: white_cubemap_handle,
+                // middle gray
+                brightness: 500.0,
+                ..default()
+            },
+            solid_color_light,
+            DespawnOnExit(CURRENT_SCENE),
+        ));
+    }
+}
+
+mod white_furnace_environment_map_light {
+    use bevy::{
+        asset::RenderAssetUsages,
+        camera::{Hdr, ScalingMode},
+        core_pipeline::tonemapping::Tonemapping,
+        light::Skybox,
+        prelude::*,
+        render::render_resource::{
+            Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+        },
+    };
+
+    const CURRENT_SCENE: super::Scene = super::Scene::WhiteFurnaceEnvironmentMapLight;
+
+    /// Creates a pure white cubemap
+    fn create_white_cubemap(size: u32) -> Image {
+        // f16 bytes for 1.0 (white): [0, 60] in little-endian
+        const WHITE_F16: [u8; 2] = [0, 60];
+        const WHITE_PIXEL: [u8; 8] = [
+            WHITE_F16[0],
+            WHITE_F16[1], // R
+            WHITE_F16[0],
+            WHITE_F16[1], // G
+            WHITE_F16[0],
+            WHITE_F16[1], // B
+            WHITE_F16[0],
+            WHITE_F16[1], // A
+        ];
+
+        let pixel_data: Vec<u8> = (0..6 * size * size).flat_map(|_| WHITE_PIXEL).collect();
+
+        Image {
+            texture_view_descriptor: Some(TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::Cube),
+                ..Default::default()
+            }),
+            ..Image::new(
+                Extent3d {
+                    width: size,
+                    height: size,
+                    depth_or_array_layers: 6,
+                },
+                TextureDimension::D2,
+                pixel_data,
+                TextureFormat::Rgba16Float,
+                RenderAssetUsages::RENDER_WORLD,
+            )
+        }
+    }
+
+    pub fn setup(
+        mut commands: Commands,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
+        mut images: ResMut<Assets<Image>>,
+    ) {
+        let sphere_mesh = meshes.add(Sphere::new(0.45));
+
+        // Light should come from the environment map only
+        commands.insert_resource(GlobalAmbientLight::NONE);
+
+        // add entities to the world
+        for y in -2..=2 {
+            for x in -5..=5 {
+                let x01 = (x + 5) as f32 / 10.0;
+                let y01 = (y + 2) as f32 / 4.0;
+                // sphere
+                commands.spawn((
+                    Mesh3d(sphere_mesh.clone()),
+                    MeshMaterial3d(materials.add(StandardMaterial {
+                        base_color: LinearRgba::WHITE.into(),
+                        // vary key PBR parameters on a grid of spheres to show the effect
+                        metallic: y01,
+                        perceptual_roughness: x01,
+                        ..default()
+                    })),
+                    Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
+                    DespawnOnExit(CURRENT_SCENE),
+                ));
+            }
+        }
+
+        // Create a pure white cubemap
+        let white_cubemap = create_white_cubemap(256);
+        let white_cubemap_handle = images.add(white_cubemap);
+
+        let generated_light = GeneratedEnvironmentMapLight {
+            environment_map: white_cubemap_handle.clone(),
+            intensity: 500.0,
+            ..default()
+        };
+
+        // camera
+        commands.spawn((
+            Camera3d::default(),
+            Hdr,
+            Tonemapping::None,
+            Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
+            Projection::from(OrthographicProjection {
+                scale: 0.01,
+                scaling_mode: ScalingMode::WindowSize,
+                ..OrthographicProjection::default_3d()
+            }),
+            Skybox {
+                image: white_cubemap_handle,
+                // middle gray
+                brightness: 500.0,
+                ..default()
+            },
+            generated_light,
+            DespawnOnExit(CURRENT_SCENE),
+        ));
     }
 }

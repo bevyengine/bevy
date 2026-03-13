@@ -10,8 +10,8 @@ use self::sealed::StateSetSealed;
 use super::{
     computed_states::ComputedStates, internal_apply_state_transition, last_transition, run_enter,
     run_exit, run_transition, sub_states::SubStates, take_next_state, ApplyStateTransition,
-    EnterSchedules, ExitSchedules, NextState, State, StateTransitionEvent, StateTransitionSystems,
-    States, TransitionSchedules,
+    EnterSchedules, ExitSchedules, NextState, PreviousState, State, StateTransitionEvent,
+    StateTransitionSystems, States, TransitionSchedules,
 };
 
 mod sealed {
@@ -57,7 +57,7 @@ pub trait StateSet: StateSetSealed {
 /// The isolation works because it is implemented for both S & [`Option<S>`], and has the `RawState` associated type
 /// that allows it to know what the resource in the world should be. We can then essentially "unwrap" it in our
 /// `StateSet` implementation - and the behavior of that unwrapping will depend on the arguments expected by the
-/// the [`ComputedStates`] & [`SubStates]`.
+/// [`ComputedStates`] & [`SubStates]`.
 trait InnerStateSet: Sized {
     type RawState: States;
 
@@ -99,6 +99,7 @@ impl<S: InnerStateSet> StateSet for S {
              event: MessageWriter<StateTransitionEvent<T>>,
              commands: Commands,
              current_state: Option<ResMut<State<T>>>,
+             previous_state: Option<ResMut<PreviousState<T>>>,
              state_set: Option<Res<State<S::RawState>>>| {
                 if parent_changed.is_empty() {
                     return;
@@ -112,7 +113,14 @@ impl<S: InnerStateSet> StateSet for S {
                         None
                     };
 
-                internal_apply_state_transition(event, commands, current_state, new_state);
+                internal_apply_state_transition(
+                    event,
+                    commands,
+                    current_state,
+                    previous_state,
+                    new_state,
+                    T::ALLOW_SAME_STATE_TRANSITIONS,
+                );
             };
 
         schedule.configure_sets((
@@ -170,6 +178,7 @@ impl<S: InnerStateSet> StateSet for S {
              event: MessageWriter<StateTransitionEvent<T>>,
              commands: Commands,
              current_state_res: Option<ResMut<State<T>>>,
+             previous_state: Option<ResMut<PreviousState<T>>>,
              next_state_res: Option<ResMut<NextState<T>>>,
              state_set: Option<Res<State<S::RawState>>>| {
                 let parent_changed = parent_changed.read().last().is_some();
@@ -190,9 +199,27 @@ impl<S: InnerStateSet> StateSet for S {
                 } else {
                     current_state.clone()
                 };
-                let new_state = initial_state.map(|x| next_state.or(current_state).unwrap_or(x));
+                let same_state_enforced = next_state
+                    .as_ref()
+                    .map(|(_, same_state_enforced)| same_state_enforced)
+                    .cloned()
+                    .unwrap_or_default();
 
-                internal_apply_state_transition(event, commands, current_state_res, new_state);
+                let new_state = initial_state.map(|x| {
+                    next_state
+                        .map(|(next, _)| next)
+                        .or(current_state)
+                        .unwrap_or(x)
+                });
+
+                internal_apply_state_transition(
+                    event,
+                    commands,
+                    current_state_res,
+                    previous_state,
+                    new_state,
+                    same_state_enforced,
+                );
             };
 
         schedule.configure_sets((
@@ -247,6 +274,7 @@ macro_rules! impl_state_set_sealed_tuples {
                      message: MessageWriter<StateTransitionEvent<T>>,
                      commands: Commands,
                      current_state: Option<ResMut<State<T>>>,
+                     previous_state: Option<ResMut<PreviousState<T>>>,
                      ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
                         if ($($evt.is_empty())&&*) {
                             return;
@@ -259,7 +287,7 @@ macro_rules! impl_state_set_sealed_tuples {
                             None
                         };
 
-                        internal_apply_state_transition(message, commands, current_state, new_state);
+                        internal_apply_state_transition(message, commands, current_state, previous_state, new_state, false);
                     };
 
                 schedule.configure_sets((
@@ -291,6 +319,7 @@ macro_rules! impl_state_set_sealed_tuples {
                      message: MessageWriter<StateTransitionEvent<T>>,
                      commands: Commands,
                      current_state_res: Option<ResMut<State<T>>>,
+                     previous_state: Option<ResMut<PreviousState<T>>>,
                      next_state_res: Option<ResMut<NextState<T>>>,
                      ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
                         let parent_changed = ($($evt.read().last().is_some())||*);
@@ -311,9 +340,21 @@ macro_rules! impl_state_set_sealed_tuples {
                         } else {
                             current_state.clone()
                         };
-                        let new_state = initial_state.map(|x| next_state.or(current_state).unwrap_or(x));
 
-                        internal_apply_state_transition(message, commands, current_state_res, new_state);
+                        let same_state_enforced = next_state
+                            .as_ref()
+                            .map(|(_, same_state_enforced)| same_state_enforced)
+                            .cloned()
+                            .unwrap_or_default();
+
+                        let new_state = initial_state.map(|x| {
+                            next_state
+                                .map(|(next, _)| next)
+                                .or(current_state)
+                                .unwrap_or(x)
+                        });
+
+                        internal_apply_state_transition(message, commands, current_state_res, previous_state, new_state, same_state_enforced);
                     };
 
                 schedule.configure_sets((

@@ -29,7 +29,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight::NONE)
+        .insert_resource(GlobalAmbientLight::NONE)
         .add_plugins(DefaultPlugins)
         .add_systems(
             Startup,
@@ -115,7 +115,7 @@ fn setup_pyramid_scene(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(0.0, 1.0, 0.0),

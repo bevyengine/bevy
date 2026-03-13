@@ -120,7 +120,7 @@ fn setup(
 
     // ambient light
     // ambient lights' brightnesses are measured in candela per meter square, calculable as (color * brightness)
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         color: ORANGE_RED.into(),
         brightness: 200.0,
         ..default()
@@ -131,7 +131,7 @@ fn setup(
         PointLight {
             intensity: 100_000.0,
             color: RED.into(),
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(1.0, 2.0, 0.0),
@@ -150,7 +150,7 @@ fn setup(
         SpotLight {
             intensity: 100_000.0,
             color: LIME.into(),
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             inner_angle: 0.6,
             outer_angle: 0.8,
             ..default()
@@ -172,7 +172,7 @@ fn setup(
         PointLight {
             intensity: 100_000.0,
             color: BLUE.into(),
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(0.0, 4.0, 0.0),
@@ -190,7 +190,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: light_consts::lux::OVERCAST_DAY,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform {
@@ -290,7 +290,7 @@ fn update_exposure(
 
 fn toggle_ambient_light(
     key_input: Res<ButtonInput<KeyCode>>,
-    mut ambient_light: ResMut<AmbientLight>,
+    mut ambient_light: ResMut<GlobalAmbientLight>,
     text: Single<Entity, With<Text>>,
     mut writer: TextUiWriter,
 ) {

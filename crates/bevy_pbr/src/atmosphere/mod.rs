@@ -38,50 +38,54 @@ mod node;
 pub mod resources;
 
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::embedded_asset;
+use bevy_asset::{embedded_asset, AssetId};
 use bevy_camera::Camera3d;
-use bevy_core_pipeline::core_3d::graph::Node3d;
+use bevy_core_pipeline::{
+    core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
+    schedule::{Core3d, Core3dSystems},
+};
 use bevy_ecs::{
     component::Component,
     query::{Changed, QueryItem, With},
     schedule::IntoScheduleConfigs,
-    system::{lifetimeless::Read, Query},
+    system::{lifetimeless::Read, Commands, Local, Query},
 };
+use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
-    view::Hdr,
-    RenderStartup,
+    renderer::RenderDevice,
+    sync_component::SyncComponent,
+    sync_world::RenderEntity,
+    Extract, ExtractSchedule, RenderStartup,
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{TextureFormat, TextureUsages},
     renderer::RenderAdapter,
     Render, RenderApp, RenderSystems,
 };
 
-use bevy_core_pipeline::core_3d::graph::Core3d;
 use bevy_shader::load_shader_library;
 use environment::{
-    init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
+    atmosphere_environment, init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
     prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_components,
-    prepare_probe_textures, AtmosphereEnvironmentMap, EnvironmentNode,
+    prepare_probe_textures, AtmosphereEnvironmentMap,
 };
+use node::{atmosphere_luts, render_sky};
 use resources::{
-    prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
-    RenderSkyBindGroupLayouts,
+    prepare_atmosphere_transforms, prepare_atmosphere_uniforms, queue_render_sky_pipelines,
+    AtmosphereTransforms, GpuAtmosphere, RenderSkyBindGroupLayouts,
 };
 use tracing::warn;
 
-use self::{
-    node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
-    resources::{
-        prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-        AtmosphereLutPipelines, AtmosphereSamplers,
-    },
+use crate::resources::{init_atmosphere_buffer, write_atmosphere_buffer};
+
+use self::resources::{
+    prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
+    AtmosphereLutPipelines, AtmosphereSampler,
 };
 
 #[doc(hidden)]
@@ -102,13 +106,17 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "environment.wgsl");
 
         app.add_plugins((
-            ExtractComponentPlugin::<Atmosphere>::default(),
             ExtractComponentPlugin::<GpuAtmosphereSettings>::default(),
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
-            UniformComponentPlugin::<Atmosphere>::default(),
+            UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))
+        .register_required_components::<Atmosphere, AtmosphereSettings>()
         .add_systems(Update, prepare_atmosphere_probe_components);
+
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_systems(ExtractSchedule, extract_atmosphere);
+        }
     }
 
     fn finish(&self, app: &mut App) {
@@ -136,200 +144,95 @@ impl Plugin for AtmospherePlugin {
             return;
         }
 
+        // Check the `RenderDevice` in addition to the `RenderAdapter`. The
+        // former takes the `WGPU_SETTINGS_PRIO` environment variable into
+        // account, and the latter doesn't.
+        let render_device = render_app.world().resource::<RenderDevice>();
+        if render_device.limits().max_storage_textures_per_shader_stage == 0 {
+            warn!("AtmospherePlugin not loaded. GPU lacks support: `max_storage_textures_per_shader_stage` is 0");
+            return;
+        }
+
         render_app
-            .init_resource::<AtmosphereBindGroupLayouts>()
+            .insert_resource(AtmosphereBindGroupLayouts::new())
             .init_resource::<RenderSkyBindGroupLayouts>()
-            .init_resource::<AtmosphereSamplers>()
+            .init_resource::<AtmosphereSampler>()
             .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
             .add_systems(
                 RenderStartup,
-                (init_atmosphere_probe_layout, init_atmosphere_probe_pipeline).chain(),
+                (
+                    init_atmosphere_probe_layout,
+                    init_atmosphere_probe_pipeline,
+                    init_atmosphere_buffer,
+                )
+                    .chain(),
             )
             .add_systems(
                 Render,
                 (
-                    configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
+                    configure_camera_depth_usages.in_set(RenderSystems::PrepareViews),
                     queue_render_sky_pipelines.in_set(RenderSystems::Queue),
                     prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
                     prepare_probe_textures
                         .in_set(RenderSystems::PrepareResources)
                         .after(prepare_atmosphere_textures),
+                    prepare_atmosphere_uniforms
+                        .in_set(RenderSystems::Prepare)
+                        .before(RenderSystems::PrepareResources),
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                    write_atmosphere_buffer.in_set(RenderSystems::PrepareResources),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
-                Core3d,
-                AtmosphereNode::RenderLuts,
-            )
-            .add_render_graph_edges(
+            .add_systems(
                 Core3d,
                 (
-                    // END_PRE_PASSES -> RENDER_LUTS -> MAIN_PASS
-                    Node3d::EndPrepasses,
-                    AtmosphereNode::RenderLuts,
-                    Node3d::StartMainPass,
-                ),
-            )
-            .add_render_graph_node::<ViewNodeRunner<RenderSkyNode>>(
-                Core3d,
-                AtmosphereNode::RenderSky,
-            )
-            .add_render_graph_node::<EnvironmentNode>(Core3d, AtmosphereNode::Environment)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::MainOpaquePass,
-                    AtmosphereNode::RenderSky,
-                    Node3d::MainTransparentPass,
+                    (atmosphere_luts, atmosphere_environment)
+                        .chain()
+                        .after(Core3dSystems::Prepass)
+                        .before(Core3dSystems::MainPass),
+                    render_sky
+                        .after(main_opaque_pass_3d)
+                        .before(main_transparent_pass_3d),
                 ),
             );
     }
 }
 
-/// This component describes the atmosphere of a planet, and when added to a camera
-/// will enable atmospheric scattering for that camera. This is only compatible with
-/// HDR cameras.
-///
-/// Most atmospheric particles scatter and absorb light in two main ways:
-///
-/// Rayleigh scattering occurs among very small particles, like individual gas
-/// molecules. It's wavelength dependent, and causes colors to separate out as
-/// light travels through the atmosphere. These particles *don't* absorb light.
-///
-/// Mie scattering occurs among slightly larger particles, like dust and sea spray.
-/// These particles *do* absorb light, but Mie scattering and absorption is
-/// *wavelength independent*.
-///
-/// Ozone acts differently from the other two, and is special-cased because
-/// it's very important to the look of Earth's atmosphere. It's wavelength
-/// dependent, but only *absorbs* light. Also, while the density of particles
-/// participating in Rayleigh and Mie scattering falls off roughly exponentially
-/// from the planet's surface, ozone only exists in a band centered at a fairly
-/// high altitude.
-#[derive(Clone, Component, Reflect, ShaderType)]
-#[require(AtmosphereSettings, Hdr)]
-#[reflect(Clone, Default)]
-pub struct Atmosphere {
-    /// Radius of the planet
-    ///
-    /// units: m
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type Atmosphere
+pub fn extract_atmosphere(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &Atmosphere), With<Camera3d>>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, item) in &query {
+        values.push((
+            entity,
+            ExtractedAtmosphere {
+                bottom_radius: item.bottom_radius,
+                top_radius: item.top_radius,
+                ground_albedo: item.ground_albedo,
+                medium: item.medium.id(),
+            },
+        ));
+    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
+}
+
+/// The render-world representation of an `Atmosphere`, but which
+/// hasn't been converted into shader uniforms yet.
+#[derive(Clone, Component)]
+pub struct ExtractedAtmosphere {
     pub bottom_radius: f32,
-
-    /// Radius at which we consider the atmosphere to 'end' for our
-    /// calculations (from center of planet)
-    ///
-    /// units: m
     pub top_radius: f32,
-
-    /// An approximation of the average albedo (or color, roughly) of the
-    /// planet's surface. This is used when calculating multiscattering.
-    ///
-    /// units: N/A
     pub ground_albedo: Vec3,
-
-    /// The rate of falloff of rayleigh particulate with respect to altitude:
-    /// optical density = exp(-rayleigh_density_exp_scale * altitude in meters).
-    ///
-    /// THIS VALUE MUST BE POSITIVE
-    ///
-    /// units: N/A
-    pub rayleigh_density_exp_scale: f32,
-
-    /// The scattering optical density of rayleigh particulate, or how
-    /// much light it scatters per meter
-    ///
-    /// units: m^-1
-    pub rayleigh_scattering: Vec3,
-
-    /// The rate of falloff of mie particulate with respect to altitude:
-    /// optical density = exp(-mie_density_exp_scale * altitude in meters)
-    ///
-    /// THIS VALUE MUST BE POSITIVE
-    ///
-    /// units: N/A
-    pub mie_density_exp_scale: f32,
-
-    /// The scattering optical density of mie particulate, or how much light
-    /// it scatters per meter.
-    ///
-    /// units: m^-1
-    pub mie_scattering: f32,
-
-    /// The absorbing optical density of mie particulate, or how much light
-    /// it absorbs per meter.
-    ///
-    /// units: m^-1
-    pub mie_absorption: f32,
-
-    /// The "asymmetry" of mie scattering, or how much light tends to scatter
-    /// forwards, rather than backwards or to the side.
-    ///
-    /// domain: (-1, 1)
-    /// units: N/A
-    pub mie_asymmetry: f32, //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
-
-    /// The altitude at which the ozone layer is centered.
-    ///
-    /// units: m
-    pub ozone_layer_altitude: f32,
-
-    /// The width of the ozone layer
-    ///
-    /// units: m
-    pub ozone_layer_width: f32,
-
-    /// The optical density of ozone, or how much of each wavelength of
-    /// light it absorbs per meter.
-    ///
-    /// units: m^-1
-    pub ozone_absorption: Vec3,
-}
-
-impl Atmosphere {
-    pub const EARTH: Atmosphere = Atmosphere {
-        bottom_radius: 6_360_000.0,
-        top_radius: 6_460_000.0,
-        ground_albedo: Vec3::splat(0.3),
-        rayleigh_density_exp_scale: 1.0 / 8_000.0,
-        rayleigh_scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
-        mie_density_exp_scale: 1.0 / 1_200.0,
-        mie_scattering: 3.996e-6,
-        mie_absorption: 0.444e-6,
-        mie_asymmetry: 0.8,
-        ozone_layer_altitude: 25_000.0,
-        ozone_layer_width: 30_000.0,
-        ozone_absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
-    };
-
-    pub fn with_density_multiplier(mut self, mult: f32) -> Self {
-        self.rayleigh_scattering *= mult;
-        self.mie_scattering *= mult;
-        self.mie_absorption *= mult;
-        self.ozone_absorption *= mult;
-        self
-    }
-}
-
-impl Default for Atmosphere {
-    fn default() -> Self {
-        Self::EARTH
-    }
-}
-
-impl ExtractComponent for Atmosphere {
-    type QueryData = Read<Atmosphere>;
-
-    type QueryFilter = With<Camera3d>;
-
-    type Out = Atmosphere;
-
-    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        Some(item.clone())
-    }
+    pub medium: AssetId<ScatteringMedium>,
 }
 
 /// This component controls the resolution of the atmosphere LUTs, and
@@ -469,12 +372,13 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
     }
 }
 
+impl SyncComponent for GpuAtmosphereSettings {
+    type Out = Self;
+}
+
 impl ExtractComponent for GpuAtmosphereSettings {
     type QueryData = Read<AtmosphereSettings>;
-
     type QueryFilter = (With<Camera3d>, With<Atmosphere>);
-
-    type Out = GpuAtmosphereSettings;
 
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone().into())
@@ -482,7 +386,7 @@ impl ExtractComponent for GpuAtmosphereSettings {
 }
 
 fn configure_camera_depth_usages(
-    mut cameras: Query<&mut Camera3d, (Changed<Camera3d>, With<Atmosphere>)>,
+    mut cameras: Query<&mut Camera3d, (Changed<Camera3d>, With<ExtractedAtmosphere>)>,
 ) {
     for mut camera in &mut cameras {
         camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();

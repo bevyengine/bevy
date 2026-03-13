@@ -8,8 +8,6 @@ use syn::{
 pub const EVENT: &str = "event";
 pub const ENTITY_EVENT: &str = "entity_event";
 pub const PROPAGATE: &str = "propagate";
-#[deprecated(since = "0.17.0", note = "This has been renamed to `propagate`.")]
-pub const TRAVERSAL: &str = "traversal";
 pub const AUTO_PROPAGATE: &str = "auto_propagate";
 pub const TRIGGER: &str = "trigger";
 pub const EVENT_TARGET: &str = "event_target";
@@ -90,12 +88,6 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
                 processed_attrs.push(AUTO_PROPAGATE);
                 Ok(())
             }
-            #[expect(deprecated, reason = "we want to continue supporting this for a release")]
-            Some(ident) if ident == TRAVERSAL => {
-                Err(meta.error(
-                    "`traversal` has been renamed to `propagate`, use that instead. If you were writing `traversal = &'static ChildOf`, you can now just write `propagate`, which defaults to the `ChildOf` traversal."
-                ))
-            }
             Some(ident) if ident == PROPAGATE => {
                 propagate = true;
                 if meta.input.peek(Token![=]) {
@@ -142,6 +134,19 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     } else {
         quote! {#bevy_ecs_path::event::EntityTrigger}
     };
+
+    let set_entity_event_target_impl = if propagate {
+        quote! {
+            impl #impl_generics #bevy_ecs_path::event::SetEntityEventTarget for #struct_name #type_generics #where_clause {
+                fn set_event_target(&mut self, entity: #bevy_ecs_path::entity::Entity) {
+                    self.#entity_field = Into::into(entity);
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
             type Trigger<'a> = #trigger;
@@ -149,14 +154,11 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
 
         impl #impl_generics #bevy_ecs_path::event::EntityEvent for #struct_name #type_generics #where_clause {
             fn event_target(&self) -> #bevy_ecs_path::entity::Entity {
-                self.#entity_field
-            }
-
-            fn event_target_mut(&mut self) -> &mut #bevy_ecs_path::entity::Entity {
-                &mut self.#entity_field
+                #bevy_ecs_path::entity::ContainsEntity::entity(&self.#entity_field)
             }
         }
 
+        #set_entity_event_target_impl
     })
 }
 

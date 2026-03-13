@@ -5,9 +5,9 @@ use bevy::ecs::{error::warn, world::DeferredWorld};
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
+use chacha20::ChaCha8Rng;
 use rand::distr::Distribution;
 use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
 
 fn main() {
     let mut app = App::new();
@@ -73,7 +73,7 @@ fn setup(
     // Spawn a light:
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

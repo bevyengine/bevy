@@ -8,11 +8,7 @@ If you don't see your distro present in the list, feel free to add the instructi
 
 ```bash
 sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
-```
-
-if using Wayland, you will also need to install
-
-```bash
+# optional if you disabled the wayland feature
 sudo apt-get install libwayland-dev libxkbcommon-dev
 ```
 
@@ -37,11 +33,7 @@ Following advice from before WSLg's release can lead to additional conflicts.
 
 ```bash
 sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel
-```
-
-if using Wayland, you will also need to install
-
-```bash
+# optional if you disabled the wayland feature
 sudo dnf install wayland-devel libxkbcommon-devel
 ```
 
@@ -159,19 +151,21 @@ Add a `flake.nix` file to the root of your GitHub repository containing:
                 vulkan-tools
                 # Other dependencies
                 libudev-zero
-                xorg.libX11
-                xorg.libXcursor
-                xorg.libXi
-                xorg.libXrandr
+                libx11
+                libxcursor
+                libxi
+                libxrandr
                 libxkbcommon
+                wayland
               ];
             RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
             LD_LIBRARY_PATH = lib.makeLibraryPath [
               vulkan-loader
-              xorg.libX11
-              xorg.libXi
-              xorg.libXcursor
+              libx11
+              libxi
+              libxcursor
               libxkbcommon
+              wayland
             ];
           };
       }
@@ -197,7 +191,7 @@ mkShell rec {
   ];
   buildInputs = [
     udev alsa-lib-with-plugins vulkan-loader
-    xorg.libX11 xorg.libXcursor xorg.libXi xorg.libXrandr # To use the x11 feature
+    libx11 libxcursor libxi libxrandr # To use the x11 feature
     libxkbcommon wayland # To use the wayland feature
   ];
   LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
@@ -226,7 +220,7 @@ for more information about `devShells`.
 Note that this template does not add Rust to the environment because there are many ways to do it.
 For example, to use stable Rust from nixpkgs, you can add `cargo` and `rustc` to `nativeBuildInputs`.
 
-[Here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/ju/jumpy/package.nix)
+[nixpkgs#Jumpy](https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/ju/jumpy/package.nix)
 is an example of packaging a Bevy program in nix.
 
 ## [OpenSUSE](https://www.opensuse.org/)
@@ -278,11 +272,7 @@ rustflags = ["-C", "target-feature=-crt-static"]
 ```sh
 sudo eopkg it -c system.devel
 sudo eopkg it g++ libx11-devel alsa-lib-devel
-```
-
-If using Wayland, you may also need to install
-
-```sh
+# optional if you disabled the wayland feature
 sudo eopkg it wayland-devel libxkbcommon-devel
 ```
 

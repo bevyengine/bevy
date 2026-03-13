@@ -3,6 +3,10 @@
 //!
 //! This pattern is useful for managing menus, levels, or other state-specific
 //! content that should only exist during certain states.
+//!
+//! If the entity was already despawned then no error will be logged. This means
+//! that you don't have to worry about duplicate [`DespawnOnExit`] and
+//! [`DespawnOnEnter`] components deep in your hierarchy.
 
 use bevy::prelude::*;
 
@@ -36,7 +40,7 @@ fn on_a_enter(mut commands: Commands) {
         DespawnOnExit(GameState::A),
         Text::new("Game is in state 'A'"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -46,6 +50,7 @@ fn on_a_enter(mut commands: Commands) {
             left: px(0),
             ..default()
         },
+        (children![DespawnOnExit(GameState::A)]),
     ));
 }
 
@@ -55,7 +60,7 @@ fn on_a_exit(mut commands: Commands) {
         DespawnOnEnter(GameState::A),
         Text::new("Game state 'A' will be back in 1 second"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -65,6 +70,10 @@ fn on_a_exit(mut commands: Commands) {
             left: px(500),
             ..default()
         },
+        // You can apply this even when the parent has a state scoped component.
+        // It is unnecessary but in complex hierarchies it saves you from having to
+        // mentally track which components are found at the top level.
+        (children![DespawnOnEnter(GameState::A)]),
     ));
 }
 
@@ -74,7 +83,7 @@ fn on_b_enter(mut commands: Commands) {
         DespawnOnExit(GameState::B),
         Text::new("Game is in state 'B'"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -84,6 +93,7 @@ fn on_b_enter(mut commands: Commands) {
             left: px(0),
             ..default()
         },
+        (children![DespawnOnExit(GameState::B)]),
     ));
 }
 
@@ -93,7 +103,7 @@ fn on_b_exit(mut commands: Commands) {
         DespawnOnEnter(GameState::B),
         Text::new("Game state 'B' will be back in 1 second"),
         TextFont {
-            font_size: 33.0,
+            font_size: FontSize::Px(33.0),
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
@@ -103,6 +113,7 @@ fn on_b_exit(mut commands: Commands) {
             left: px(500),
             ..default()
         },
+        (children![DespawnOnEnter(GameState::B)]),
     ));
 }
 

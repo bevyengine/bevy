@@ -5,7 +5,7 @@ use bevy_utils::prelude::DebugName;
 
 use crate::{
     component::ComponentId,
-    entity::{Entity, EntityDoesNotExistError},
+    entity::{Entity, EntityNotSpawnedError},
     schedule::InternedScheduleLabel,
 };
 
@@ -33,7 +33,7 @@ pub struct TryInsertBatchError {
 /// An error that occurs when a specified [`Entity`] could not be despawned.
 #[derive(thiserror::Error, Debug, Clone, Copy)]
 #[error("Could not despawn entity: {0}")]
-pub struct EntityDespawnError(#[from] pub EntityMutableFetchError);
+pub struct EntityDespawnError(#[from] pub EntityNotSpawnedError);
 
 /// An error that occurs when dynamically retrieving components from an entity.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,13 +49,13 @@ pub enum EntityComponentError {
 /// An error that occurs when fetching entities mutably from a world.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntityMutableFetchError {
-    /// The entity with the given ID does not exist.
+    /// The entity is not spawned.
     #[error(
         "{0}\n
     If you were attempting to apply a command to this entity,
     and want to handle this error gracefully, consider using `EntityCommands::queue_handled` or `queue_silenced`."
     )]
-    EntityDoesNotExist(#[from] EntityDoesNotExistError),
+    NotSpawned(#[from] EntityNotSpawnedError),
     /// The entity with the given ID was requested mutably more than once.
     #[error("The entity with ID {0} was requested mutably more than once")]
     AliasedMutability(Entity),

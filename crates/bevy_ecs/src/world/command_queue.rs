@@ -98,9 +98,6 @@ impl CommandQueue {
     /// This clears the queue.
     #[inline]
     pub fn apply(&mut self, world: &mut World) {
-        // flush the previously queued entities
-        world.flush_entities();
-
         // flush the world's internal queue
         world.flush_commands();
 

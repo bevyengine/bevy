@@ -157,6 +157,8 @@ where
 
 /// A [`Command`] that runs the given system with the given input value,
 /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
+///
+/// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
 pub fn run_system_cached_with<I, M, S>(system: S, input: I::Inner<'static>) -> impl Command<Result>
 where
     I: SystemInput<Inner<'static>: Send> + Send + 'static,
@@ -246,11 +248,4 @@ pub fn write_message<M: Message>(message: M) -> impl Command {
         let mut messages = world.resource_mut::<Messages<M>>();
         messages.write_with_caller(message, caller);
     }
-}
-
-/// A [`Command`] that writes an arbitrary [`Message`].
-#[track_caller]
-#[deprecated(since = "0.17.0", note = "Use `write_message` instead.")]
-pub fn send_event<E: Message>(event: E) -> impl Command {
-    write_message(event)
 }
