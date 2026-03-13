@@ -128,11 +128,27 @@ impl<'w> UnsafeWorldCell<'w> {
         }
     }
 
+    /// Creates a pointer from ['UnsafeWorldCell']
+    /// This function is safe because to use a raw pointer once must dereference it in an unsafe
+    /// block
+    pub fn as_ptr_mut(self) -> *mut World {
+        #[cfg(debug_assertions)]
+        self.assert_allows_mutable_access();
+        self.ptr
+    }
+
+    /// Creates a pointer from ['UnsafeWorldCell']
+    /// This function is safe because to use a raw pointer once must dereference it in an unsafe
+    /// block
+    pub fn as_ptr_ref(self) -> *const World {
+        self.ptr as *const World
+    }
+
     /// Creates [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
     /// everything mutably
     /// # Safety
-    /// - `world` must be a pointer within the lifetime of the original `&mut World` it was obtained
-    ///   from.
+    /// - `world` must be a pointer obtained from [`UnsafeWorldCell::as_ptr_mut`]
+    ///   within the lifetime of the original [`UnsafeWorldCell`] it was obtained from
     #[inline]
     pub unsafe fn new_mutable_from_ptr(world: *mut World) -> Self {
         Self {
@@ -146,8 +162,8 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Creates a [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
     /// everything immutably
     /// # Safety
-    /// - `world` must be a pointer within the lifetime of the original `&World` it was obtained
-    ///   from.
+    /// - `world` must be a pointer obtained from [`UnsafeWorldCell::as_ptr_ref`]
+    ///   within the lifetime of the original [`UnsafeWorldCell`] it was obtained from
     #[inline]
     pub unsafe fn new_readonly_from_ptr(world: *const World) -> Self {
         Self {
