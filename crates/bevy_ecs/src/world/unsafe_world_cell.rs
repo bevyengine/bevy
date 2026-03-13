@@ -141,7 +141,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// This function is safe because to use a raw pointer once must dereference it in an unsafe
     /// block
     pub fn as_ptr_ref(self) -> *const World {
-        self.ptr as *const World
+        self.ptr.cast_const()
     }
 
     /// Creates [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
