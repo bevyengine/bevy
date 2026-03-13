@@ -16,6 +16,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
+    sync_component::SyncComponent,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -75,10 +76,13 @@ pub struct CasUniform {
     sharpness: f32,
 }
 
+impl SyncComponent for ContrastAdaptiveSharpening {
+    type Out = (DenoiseCas, CasUniform);
+}
+
 impl ExtractComponent for ContrastAdaptiveSharpening {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
-    type Out = (DenoiseCas, CasUniform);
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         if !item.enabled || item.sharpening_strength == 0.0 {

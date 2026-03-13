@@ -7,16 +7,15 @@ use crate::{
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
     event::{EntityComponentsTrigger, EntityEvent},
-    lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
-    observer::Observer,
+    lifecycle::{Despawn, Discard, Remove, DESPAWN, DISCARD, REMOVE},
+    observer::IntoEntityObserver,
     query::{
         has_conflicts, DebugCheckedUnwrap, QueryAccessError, ReadOnlyQueryData,
-        ReleaseStateQueryData,
+        ReleaseStateQueryData, SingleEntityQueryData,
     },
     relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSets, Table},
-    system::IntoObserverSystem,
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
         DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut,
@@ -296,7 +295,9 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity does not have the components required by the query `Q` or if the entity
     /// has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_, 'static> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
+        &self,
+    ) -> Q::Item<'_, 'static> {
         self.as_readonly().components::<Q>()
     }
 
@@ -307,7 +308,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
         &self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         self.as_readonly().get_components::<Q>()
@@ -345,7 +346,7 @@ impl<'w> EntityWorldMut<'w> {
     /// /// # See also
     ///
     /// - [`Self::get_components_mut`] for the safe version that performs aliasing checks
-    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
+    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &mut self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
@@ -375,7 +376,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Note that this does a O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
     /// consideration you should use [`Self::get_components_mut_unchecked`] instead.
-    pub fn get_components_mut<Q: ReleaseStateQueryData>(
+    pub fn get_components_mut<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &mut self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         self.as_mutable().into_components_mut::<Q>()
@@ -413,7 +414,9 @@ impl<'w> EntityWorldMut<'w> {
     /// # See also
     ///
     /// - [`Self::into_components_mut`] for the safe version that performs aliasing checks
-    pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
+    pub unsafe fn into_components_mut_unchecked<
+        Q: ReleaseStateQueryData + SingleEntityQueryData,
+    >(
         self,
     ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
@@ -461,7 +464,7 @@ impl<'w> EntityWorldMut<'w> {
     /// // This panics, as the `&mut X`s would alias:
     /// entity.into_components_mut::<(&mut X, &mut X)>();
     /// ```
-    pub fn into_components_mut<Q: ReleaseStateQueryData>(
+    pub fn into_components_mut<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         self,
     ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         has_conflicts::<Q>(self.world.components())?;
@@ -521,7 +524,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Temporarily removes a [`Component`] `T` from this [`Entity`] and runs the
     /// provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// This will trigger the `Remove` and `Discard` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -574,7 +577,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Temporarily removes a [`Component`] `T` from this [`Entity`] and runs the
     /// provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// This will trigger the `Remove` and `Discard` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -737,6 +740,18 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         self.as_readonly().get_change_ticks::<T>()
+    }
+
+    /// Get the [`MaybeLocation`] from where the given [`Component`] was last changed from.
+    /// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
+    /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn get_changed_by<T: Component>(&self) -> Option<MaybeLocation> {
+        self.as_readonly().get_changed_by::<T>()
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -1590,6 +1605,8 @@ impl<'w> EntityWorldMut<'w> {
                     },
                     &mut EntityComponentsTrigger {
                         components: archetype.components(),
+                        old_archetype: Some(archetype),
+                        new_archetype: None,
                     },
                     caller,
                 );
@@ -1600,20 +1617,22 @@ impl<'w> EntityWorldMut<'w> {
                 archetype.iter_components(),
                 caller,
             );
-            if archetype.has_replace_observer() {
-                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+            if archetype.has_discard_observer() {
+                // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                 deferred_world.trigger_raw(
-                    REPLACE,
-                    &mut Replace {
+                    DISCARD,
+                    &mut Discard {
                         entity: self.entity,
                     },
                     &mut EntityComponentsTrigger {
                         components: archetype.components(),
+                        old_archetype: Some(archetype),
+                        new_archetype: None,
                     },
                     caller,
                 );
             }
-            deferred_world.trigger_on_replace(
+            deferred_world.trigger_on_discard(
                 archetype,
                 self.entity,
                 archetype.iter_components(),
@@ -1629,6 +1648,8 @@ impl<'w> EntityWorldMut<'w> {
                     },
                     &mut EntityComponentsTrigger {
                         components: archetype.components(),
+                        old_archetype: Some(archetype),
+                        new_archetype: None,
                     },
                     caller,
                 );
@@ -1886,7 +1907,7 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
-    /// Creates an [`Observer`] watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
+    /// Creates an [`Observer`](crate::observer::Observer) watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
     /// targets this entity.
     ///
     /// # Panics
@@ -1895,20 +1916,17 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the given system is an exclusive system.
     #[track_caller]
-    pub fn observe<E: EntityEvent, B: Bundle, M>(
-        &mut self,
-        observer: impl IntoObserverSystem<E, B, M>,
-    ) -> &mut Self {
+    pub fn observe<M>(&mut self, observer: impl IntoEntityObserver<M>) -> &mut Self {
         self.observe_with_caller(observer, MaybeLocation::caller())
     }
 
-    pub(crate) fn observe_with_caller<E: EntityEvent, B: Bundle, M>(
+    pub(crate) fn observe_with_caller<M>(
         &mut self,
-        observer: impl IntoObserverSystem<E, B, M>,
+        observer: impl IntoEntityObserver<M>,
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
-        let bundle = Observer::new(observer).with_entity(self.entity);
+        let bundle = observer.into_observer_for_entity(self.entity);
         move_as_ptr!(bundle);
         self.world.spawn_with_caller(bundle, caller);
         self.world.flush();

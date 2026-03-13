@@ -156,6 +156,7 @@ fn vertical_slider() -> impl Bundle {
         Hovered::default(),
         Slider {
             track_click: TrackClick::Snap,
+            ..Default::default()
         },
         SliderValue(50.0),
         SliderRange::new(0.0, 100.0),
@@ -214,6 +215,7 @@ fn horizontal_slider() -> impl Bundle {
         Hovered::default(),
         Slider {
             track_click: TrackClick::Snap,
+            ..Default::default()
         },
         SliderValue(50.0),
         SliderRange::new(0.0, 100.0),

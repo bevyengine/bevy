@@ -1,47 +1,49 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+//! Provides component types for lighting a bevy scene. This includes the usual
+//! directional, point, and spot lights, as well as light probes, atmosphere,
+//! other volumetrics, and shadow configuration.
 
 extern crate alloc;
 
-use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::AssetApp;
+use bevy_app::{App, Plugin, PostUpdate, Update};
+use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
         CascadesVisibleEntities, CubemapVisibleEntities, InheritedVisibility, NoFrustumCulling,
-        RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems, VisibleEntityRanges,
-        VisibleMeshEntities,
+        RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems, VisibleEntities,
+        VisibleEntityRanges, VisibleMeshEntities,
     },
-    CameraUpdateSystems,
+    Camera3d, CameraUpdateSystems,
 };
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
+#[cfg(feature = "bevy_gizmos")]
+use bevy_gizmos::frustum::FrustumGizmoSystems;
 use bevy_math::Vec3A;
 use bevy_mesh::Mesh3d;
 use bevy_reflect::prelude::*;
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::Parallel;
-use core::ops::DerefMut;
+use core::{any::TypeId, mem, ops::DerefMut};
 
 pub mod cluster;
+use cluster::assign::assign_objects_to_clusters;
 pub use cluster::ClusteredDecal;
-use cluster::{
-    add_clusters, assign::assign_objects_to_clusters, GlobalVisibleClusterableObjects,
-    VisibleClusterableObjects,
-};
 mod ambient_light;
 pub use ambient_light::{AmbientLight, GlobalAmbientLight};
 use bevy_camera::visibility::SetViewVisibility;
 
 mod probe;
 pub use probe::{
-    AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
-    IrradianceVolume, LightProbe, NoParallaxCorrection, Skybox,
+    automatically_add_parallax_correction_components, AtmosphereEnvironmentMapLight,
+    EnvironmentMapLight, GeneratedEnvironmentMapLight, IrradianceVolume, LightProbe,
+    ParallaxCorrection, Skybox,
 };
 pub mod atmosphere;
 pub use atmosphere::Atmosphere;
 mod volumetric;
 pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
 pub mod cascade;
-use cascade::{build_directional_light_cascades, clear_directional_light_cascades};
+use cascade::build_directional_light_cascades;
 pub use cascade::{CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades};
 mod point_light;
 pub use point_light::{
@@ -57,6 +59,7 @@ pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
     DirectionalLightTexture, SunDisk,
 };
+/// Provides gizmo drawing for visualizing light positions.
 #[cfg(feature = "bevy_gizmos")]
 pub mod gizmos;
 
@@ -75,7 +78,13 @@ pub mod prelude {
     pub use crate::gizmos::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
-use crate::{atmosphere::ScatteringMedium, directional_light::validate_shadow_map_size};
+use crate::{
+    atmosphere::{extract_chromatic_phase_textures, ScatteringMedium},
+    cluster::{add_light_probe_and_decal_aabbs, ClusterVisibilityClass, Clusters},
+    directional_light::validate_shadow_map_size,
+    point_light::update_point_light_bounding_spheres,
+    spot_light::update_spot_light_bounding_spheres,
+};
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
@@ -91,11 +100,14 @@ pub mod light_consts {
     /// [visible light]: https://en.wikipedia.org/wiki/Visible_light
     /// [International System of Units]: https://en.wikipedia.org/wiki/International_System_of_Units
     pub mod lumens {
+        /// The conversion factor used to determine how many lumens a typical LED light of a given wattage produces.
         pub const LUMENS_PER_LED_WATTS: f32 = 90.0;
+        /// The conversion factor used to determine how many lumens a typical incandescent light of a given wattage produces.
         pub const LUMENS_PER_INCANDESCENT_WATTS: f32 = 13.8;
+        /// The conversion factor used to determine how many lumens a typical halogen light of a given wattage produces.
         pub const LUMENS_PER_HALOGEN_WATTS: f32 = 19.8;
         /// 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
-        /// default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+        /// default [`bevy_camera::Exposure::BLENDER`] exposure level. For "indoor lighting" with a lower exposure,
         /// this would be way too bright.
         pub const VERY_LARGE_CINEMA_LIGHT: f32 = 1_000_000.0;
     }
@@ -130,6 +142,7 @@ pub mod light_consts {
         /// The amount of light (lux) on an overcast day; typical TV studio lighting
         pub const OVERCAST_DAY: f32 = 1000.;
         /// The amount of light (lux) from ambient daylight (not direct sunlight).
+        /// This is the default for [`DirectionalLight`](crate::DirectionalLight)s in Bevy.
         pub const AMBIENT_DAYLIGHT: f32 = 10_000.;
         /// The amount of light (lux) in full daylight (not direct sun).
         pub const FULL_DAYLIGHT: f32 = 20_000.;
@@ -140,41 +153,31 @@ pub mod light_consts {
     }
 }
 
+/// Sets up all the light visibility and clustering infrastructure needed for rendering lights.
 #[derive(Default)]
 pub struct LightPlugin;
 
 impl Plugin for LightPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GlobalVisibleClusterableObjects>()
-            .init_resource::<GlobalAmbientLight>()
+        app.init_resource::<GlobalAmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .init_asset::<ScatteringMedium>()
-            .configure_sets(
-                PostUpdate,
-                SimulationLightSystems::UpdateDirectionalLightCascades
-                    .ambiguous_with(SimulationLightSystems::UpdateDirectionalLightCascades),
-            )
+            .register_required_components::<Camera3d, Clusters>()
             .configure_sets(
                 PostUpdate,
                 SimulationLightSystems::CheckLightVisibility
                     .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
             )
+            .add_systems(Update, automatically_add_parallax_correction_components)
             .add_systems(
                 PostUpdate,
                 (
                     validate_shadow_map_size.before(build_directional_light_cascades),
-                    add_clusters
-                        .in_set(SimulationLightSystems::AddClusters)
-                        .after(CameraUpdateSystems),
                     assign_objects_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystems::Propagate)
                         .after(VisibilitySystems::CheckVisibility)
-                        .after(CameraUpdateSystems),
-                    clear_directional_light_cascades
-                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        .after(TransformSystems::Propagate)
                         .after(CameraUpdateSystems),
                     update_directional_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
@@ -190,6 +193,13 @@ impl Plugin for LightPlugin {
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystems::Propagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
+                    #[cfg(feature = "bevy_gizmos")]
+                    update_spot_light_frusta
+                        .in_set(SimulationLightSystems::UpdateLightFrusta)
+                        .before(FrustumGizmoSystems)
+                        .after(TransformSystems::Propagate)
+                        .after(SimulationLightSystems::AssignLightsToClusters),
+                    #[cfg(not(feature = "bevy_gizmos"))]
                     update_spot_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystems::Propagate)
@@ -208,9 +218,18 @@ impl Plugin for LightPlugin {
                         // entity visibility and mark as visible before they can be hidden.
                         .after(VisibilitySystems::CheckVisibility)
                         .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
+                    (
+                        update_point_light_bounding_spheres,
+                        update_spot_light_bounding_spheres,
+                        add_light_probe_and_decal_aabbs,
+                    )
+                        .in_set(SimulationLightSystems::UpdateBounds)
+                        .before(VisibilitySystems::UpdateFrusta),
                     build_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        .after(clear_directional_light_cascades),
+                        .after(TransformSystems::Propagate)
+                        .after(CameraUpdateSystems),
+                    extract_chromatic_phase_textures.after(AssetEventSystems),
                 ),
             );
 
@@ -246,7 +265,7 @@ pub struct NotShadowReceiver;
 #[reflect(Component, Default, Debug)]
 pub struct TransmittedShadowReceiver;
 
-/// Add this component to a [`Camera3d`](bevy_camera::Camera3d)
+/// Add this component to a [`Camera3d`]
 /// to control how to anti-alias shadow edges.
 ///
 /// The different modes use different approaches to
@@ -285,12 +304,13 @@ pub enum ShadowFilteringMethod {
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
-    AddClusters,
+    /// The set that adds AABBs and bounding spheres to clustered objects.
+    UpdateBounds,
+    /// After this set, all lights have been clustered.
     AssignLightsToClusters,
-    /// System order ambiguities between systems in this set are ignored:
-    /// each [`build_directional_light_cascades`] system is independent of the others,
-    /// and should operate on distinct sets of entities.
+    /// After this set, all directional light cascades are up to date.
     UpdateDirectionalLightCascades,
+    /// After this set, the frusta of shadow-casting point lights, spot lights, and directional lights are up to date.
     UpdateLightFrusta,
     /// System order ambiguities between systems in this set are ignored:
     /// the order of systems within this set is irrelevant, as the various visibility-checking systems
@@ -298,22 +318,7 @@ pub enum SimulationLightSystems {
     CheckLightVisibility,
 }
 
-fn shrink_entities(visible_entities: &mut Vec<Entity>) {
-    // Check that visible entities capacity() is no more than two times greater than len()
-    let capacity = visible_entities.capacity();
-    let reserved = capacity
-        .checked_div(visible_entities.len())
-        .map_or(0, |reserve| {
-            if reserve > 2 {
-                capacity / (reserve / 2)
-            } else {
-                capacity
-            }
-        });
-
-    visible_entities.shrink_to(reserved);
-}
-
+/// Updates the visibility for [`DirectionalLight`]s so that shadow map rendering can work.
 pub fn check_dir_light_mesh_visibility(
     mut commands: Commands,
     mut directional_lights: Query<
@@ -356,7 +361,6 @@ pub fn check_dir_light_mesh_visibility(
             match frusta.frusta.get(view) {
                 Some(view_frusta) => {
                     cascade_view_entities.resize(view_frusta.len(), Default::default());
-                    cascade_view_entities.iter_mut().for_each(|x| x.clear());
                 }
                 None => views_to_remove.push(*view),
             };
@@ -374,6 +378,7 @@ pub fn check_dir_light_mesh_visibility(
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
         if !directional_light.shadow_maps_enabled || !light_view_visibility.get() {
+            visible_entities.entities.clear();
             continue;
         }
 
@@ -443,30 +448,28 @@ pub fn check_dir_light_mesh_visibility(
                 },
             );
             // collect entities from parallel queue
-            for entities in view_visible_entities_queue.iter_mut() {
-                visible_entities
-                    .entities
-                    .get_mut(view)
-                    .unwrap()
-                    .iter_mut()
-                    .zip(entities.iter_mut())
-                    .for_each(|(dst, source)| {
-                        dst.append(source);
-                    });
-            }
-        }
-
-        for (_, cascade_view_entities) in &mut visible_entities.entities {
-            cascade_view_entities
+            for (view_dest_index, view_dest) in visible_entities
+                .entities
+                .get_mut(view)
+                .unwrap()
                 .iter_mut()
-                .map(DerefMut::deref_mut)
-                .for_each(shrink_entities);
+                .enumerate()
+            {
+                view_dest.entities.clear();
+                for thread_entity_queue in view_visible_entities_queue.iter_mut() {
+                    view_dest
+                        .entities
+                        .append(&mut thread_entity_queue[view_dest_index]);
+                }
+                view_dest.shrink();
+                view_dest.entities.sort_unstable();
+            }
         }
     }
 
     // Defer marking view visibility so this system can run in parallel with check_point_light_mesh_visibility
     // TODO: use resource to avoid unnecessary memory alloc
-    let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
+    let mut defer_queue = mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
         let mut query = world.query::<&mut ViewVisibility>();
         for entities in defer_queue.iter_mut() {
@@ -478,8 +481,10 @@ pub fn check_dir_light_mesh_visibility(
     });
 }
 
+/// Updates the visibility for [`PointLight`]s and [`SpotLight`]s so that
+/// shadow map rendering can work.
 pub fn check_point_light_mesh_visibility(
-    visible_point_lights: Query<&VisibleClusterableObjects>,
+    visible_point_lights: Query<&VisibleEntities>,
     mut point_lights: Query<(
         &PointLight,
         &GlobalTransform,
@@ -520,7 +525,7 @@ pub fn check_point_light_mesh_visibility(
 
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
-        for light_entity in visible_lights.point_and_spot_lights.iter().copied() {
+        for &light_entity in visible_lights.get(TypeId::of::<ClusterVisibilityClass>()) {
             if !checked_lights.insert(light_entity) {
                 continue;
             }
@@ -534,10 +539,6 @@ pub fn check_point_light_mesh_visibility(
                 maybe_view_mask,
             )) = point_lights.get_mut(light_entity)
             {
-                for visible_entities in cubemap_visible_entities.iter_mut() {
-                    visible_entities.entities.clear();
-                }
-
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
                 if !point_light.shadow_maps_enabled {
                     continue;
@@ -608,16 +609,17 @@ pub fn check_point_light_mesh_visibility(
                     },
                 );
 
-                for entities in cubemap_visible_entities_queue.iter_mut() {
-                    for (dst, source) in
-                        cubemap_visible_entities.iter_mut().zip(entities.iter_mut())
-                    {
-                        dst.entities.append(source);
+                // Collect the entities from each parallel queue.
+                for (view_dest_index, view_dest) in cubemap_visible_entities.iter_mut().enumerate()
+                {
+                    view_dest.entities.clear();
+                    for thread_entity_queue in cubemap_visible_entities_queue.iter_mut() {
+                        view_dest
+                            .entities
+                            .append(&mut thread_entity_queue[view_dest_index]);
                     }
-                }
-
-                for visible_entities in cubemap_visible_entities.iter_mut() {
-                    shrink_entities(visible_entities);
+                    view_dest.shrink();
+                    view_dest.entities.sort_unstable();
                 }
             }
 
@@ -625,8 +627,6 @@ pub fn check_point_light_mesh_visibility(
             if let Ok((point_light, transform, frustum, mut visible_entities, maybe_view_mask)) =
                 spot_lights.get_mut(light_entity)
             {
-                visible_entities.clear();
-
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
                 if !point_light.shadow_maps_enabled {
                     continue;
@@ -690,11 +690,12 @@ pub fn check_point_light_mesh_visibility(
                     },
                 );
 
-                for entities in spot_visible_entities_queue.iter_mut() {
-                    visible_entities.append(entities);
+                visible_entities.entities.clear();
+                for thread_entity_queue in spot_visible_entities_queue.iter_mut() {
+                    visible_entities.entities.append(thread_entity_queue);
                 }
-
-                shrink_entities(visible_entities.deref_mut());
+                visible_entities.shrink();
+                visible_entities.entities.sort_unstable();
             }
         }
     }

@@ -16,6 +16,7 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
+    sync_component::SyncComponent,
     view::ExtractedView,
     Render, RenderApp, RenderSystems,
 };
@@ -79,10 +80,13 @@ impl From<ContactShadows> for ContactShadowsUniform {
     }
 }
 
+impl SyncComponent for ContactShadows {
+    type Out = Self;
+}
+
 impl ExtractComponent for ContactShadows {
     type QueryData = &'static ContactShadows;
     type QueryFilter = ();
-    type Out = ContactShadows;
 
     fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(*settings)

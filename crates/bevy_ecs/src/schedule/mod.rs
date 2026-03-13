@@ -35,6 +35,7 @@ mod tests {
 
     pub use crate::{
         prelude::World,
+        resource::IsResource,
         resource::Resource,
         schedule::{Schedule, SystemSet},
         system::{Res, ResMut},
@@ -988,6 +989,16 @@ mod tests {
 
             let _ = schedule.initialize(&mut world);
 
+            // this should fail, since resources are components
+            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
+
+            schedule = Schedule::default();
+            schedule.add_systems((
+                resmut_system,
+                |_query: Query<EntityRef, Without<IsResource>>| {},
+            ));
+
+            // this should not fail, since the queries are disjoint
             assert_eq!(schedule.graph().conflicting_systems().len(), 0);
         }
 
@@ -1001,6 +1012,17 @@ mod tests {
 
             let _ = schedule.initialize(&mut world);
 
+            // this should fail, since resources are components and non_sends also do access with components
+            assert_eq!(schedule.graph().conflicting_systems().len(), 2);
+
+            schedule = Schedule::default();
+            schedule.add_systems((
+                res_system,
+                nonsend_system,
+                |_query: Query<EntityMut, Without<IsResource>>| {},
+            ));
+
+            // this should not fail, since the queries are disjoint
             assert_eq!(schedule.graph().conflicting_systems().len(), 0);
         }
 
@@ -1282,7 +1304,7 @@ mod tests {
                 // start a new frame by running ihe begin_frame() system
                 let mut system_state: SystemState<Option<ResMut<Stepping>>> =
                     SystemState::new(&mut world);
-                let res = system_state.get_mut(&mut world);
+                let res = system_state.get_mut(&mut world).unwrap();
                 Stepping::begin_frame(res);
 
                 // now run the schedule; this will panic if the executor doesn't

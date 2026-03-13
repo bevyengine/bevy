@@ -2,32 +2,22 @@ use bevy_asset::Asset;
 use bevy_color::{Alpha, ColorToComponents};
 use bevy_material::OpaqueRendererMethod;
 use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
-use bevy_mesh::MeshVertexBufferLayoutRef;
+use bevy_mesh::{MeshVertexBufferLayoutRef, UvChannel};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
 use bitflags::bitflags;
 
 use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 
-/// An enum to define which UV attribute to use for a texture.
-///
-/// It is used for every texture in the [`StandardMaterial`].
-/// It only supports two UV attributes, [`bevy_mesh::Mesh::ATTRIBUTE_UV_0`] and
-/// [`bevy_mesh::Mesh::ATTRIBUTE_UV_1`].
-/// The default is [`UvChannel::Uv0`].
-#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
-#[reflect(Default, Debug, Clone, PartialEq)]
-pub enum UvChannel {
-    #[default]
-    Uv0,
-    Uv1,
-}
-
 /// A material with "standard" properties used in PBR lighting.
 /// Standard property values with pictures here:
 /// <https://google.github.io/filament/notes/material_properties.html>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
+///
+/// The `StandardMaterial` can be extended with more data and custom
+/// shaders using [`ExtendedMaterial`]. Examples of how to do this can
+/// be found in the Bevy examples.
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[data(0, StandardMaterialUniform, binding_array(10))]
@@ -438,6 +428,11 @@ pub struct StandardMaterial {
     ///
     /// The material will be less lit in places where this texture is dark.
     /// This is similar to ambient occlusion, but built into the model.
+    ///
+    /// It is very common to use an RGB texture that uses the red channel for the [`StandardMaterial::occlusion_texture`],
+    /// and the B and G channels for [`StandardMaterial::metallic_roughness_texture`].
+    /// In such cases, use the same image handle for both fields.
+    /// Notably, this is the setup used by [glTF](https://docs.blender.org/manual/en/latest/addons/import_export/scene_gltf2.html#baked-ambient-occlusion).
     #[texture(7)]
     #[sampler(8)]
     #[dependency]

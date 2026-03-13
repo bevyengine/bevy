@@ -229,7 +229,8 @@ fn extract_screenshots(
         *system_state = Some(SystemState::new(&mut main_world));
     }
     let system_state = system_state.as_mut().unwrap();
-    let (mut commands, primary_window, screenshots) = system_state.get_mut(&mut main_world);
+    let (mut commands, primary_window, screenshots) =
+        system_state.get_mut(&mut main_world).unwrap();
 
     targets.clear();
     seen_targets.clear();
@@ -434,7 +435,7 @@ impl Plugin for ScreenshotPlugin {
                 prepare_screenshots
                     .after(prepare_view_attachments)
                     .before(prepare_view_targets)
-                    .in_set(RenderSystems::ManageViews),
+                    .in_set(RenderSystems::PrepareViews),
             );
     }
 }

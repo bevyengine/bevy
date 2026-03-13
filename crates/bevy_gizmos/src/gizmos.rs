@@ -16,7 +16,7 @@ use bevy_ecs::{
         Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
         SystemParamValidationError,
     },
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -224,16 +224,8 @@ where
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
-    #[inline]
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Delegated to existing `SystemParam` implementations.
-        unsafe {
-            GizmosState::<Config, Clear>::validate_param(&mut state.state, system_meta, world)
-        }
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        GizmosState::<Config, Clear>::queue(&mut state.state, system_meta, world);
     }
 
     #[inline]
@@ -242,7 +234,7 @@ where
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
         let (mut f0, f1) = unsafe {
             GizmosState::<Config, Clear>::get_param(
@@ -250,20 +242,27 @@ where
                 system_meta,
                 world,
                 change_tick,
-            )
+            )?
         };
 
         // Accessing the GizmoConfigStore in every API call reduces performance significantly.
         // Implementing SystemParam manually allows us to cache whether the config is currently enabled.
         // Having this available allows for cheap early returns when gizmos are disabled.
-        let (config, config_ext) = f1.into_inner().config::<Config>();
+        //
+        // We use `get_config` instead of `config` to accommodate `Option<Gizmos>`:
+        // the user may decide not to initialize a gizmo group, so its config will not exist.
+        let (config, config_ext) = f1.into_inner().get_config::<Config>().ok_or_else(|| {
+            SystemParamValidationError::invalid::<Self>(
+                format!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", 
+                Config::type_path()))
+        })?;
         f0.enabled = config.enabled;
 
-        Gizmos {
+        Ok(Gizmos {
             buffer: f0,
             config,
             config_ext,
-        }
+        })
     }
 }
 
@@ -347,12 +346,20 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        let mut storage = world.resource_mut::<GizmoStorage<Config, Clear>>();
-        storage.list_positions.append(&mut self.list_positions);
-        storage.list_colors.append(&mut self.list_colors);
-        storage.strip_positions.append(&mut self.strip_positions);
-        storage.strip_colors.append(&mut self.strip_colors);
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        if let Some(mut storage) = world.get_resource_mut::<GizmoStorage<Config, Clear>>() {
+            storage.list_positions.append(&mut self.list_positions);
+            storage.list_colors.append(&mut self.list_colors);
+            storage.strip_positions.append(&mut self.strip_positions);
+            storage.strip_colors.append(&mut self.strip_colors);
+        } else {
+            // Prevent the buffer from growing indefinitely if GizmoStorage
+            // for the config group has not been initialized
+            self.list_positions.clear();
+            self.list_colors.clear();
+            self.strip_positions.clear();
+            self.strip_colors.clear();
+        }
     }
 }
 
