@@ -966,9 +966,9 @@ impl GltfLoader {
                                 let mesh_converter = convert_coordinates.mesh_converter();
                                 let node_converter = convert_coordinates.node_converter(&node);
 
-                                node_converter.matrix()
+                                node_converter.matrix().transpose()
                                     * Mat4::from_cols_array_2d(&mat)
-                                    * mesh_converter.matrix().transpose()
+                                    * mesh_converter.matrix()
                             })
                             .collect()
                     })

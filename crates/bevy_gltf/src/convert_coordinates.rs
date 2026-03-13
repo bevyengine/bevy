@@ -131,18 +131,18 @@ impl Default for GltfConvertSemantics {
 /// A [`GltfConvertCoordinates`] that has been resolved to converters.
 #[derive(Debug)]
 pub(crate) struct ResolvedConvertCoordinates {
-    scene_converter: Converter,
-    node_converter: Converter,
-    mesh_converter: Converter,
+    scene_converter: RotationConverter,
+    node_converter: RotationConverter,
+    mesh_converter: RotationConverter,
 }
 
 impl ResolvedConvertCoordinates {
-    pub(crate) fn node_converter(&self, node: &Node) -> Converter {
+    pub(crate) fn node_converter(&self, node: &Node) -> RotationConverter {
         if node.camera().is_some() || node.light().is_some() {
             // Cameras and lights are not converted. glTF requires cameras and
             // lights to be -Z forward, which means they already follow Bevy
             // semantics.
-            Converter::IDENTITY
+            RotationConverter::IDENTITY
         } else {
             self.node_converter
         }
@@ -166,7 +166,7 @@ impl ResolvedConvertCoordinates {
         HierarchyConverter::from_local_and_parent(local_converter, parent_converter)
     }
 
-    pub(crate) fn mesh_converter(&self) -> Converter {
+    pub(crate) fn mesh_converter(&self) -> RotationConverter {
         self.mesh_converter
     }
 
@@ -183,8 +183,8 @@ impl ResolvedConvertCoordinates {
     pub(crate) fn mesh_vertex_hierarchy_converter(&self) -> HierarchyConverter {
         // Mesh vertices are considered children of the mesh entities. The
         // semantics of mesh vertices are not converted, but their translation
-        // is affected by their parent's conversion.
-        HierarchyConverter::from_local_and_parent(Converter::IDENTITY, self.mesh_converter)
+        // is affected by the mesh entity's conversion.
+        HierarchyConverter::from_local_and_parent(RotationConverter::IDENTITY, self.mesh_converter)
     }
 }
 
@@ -196,17 +196,17 @@ impl TryFrom<GltfConvertCoordinates> for ResolvedConvertCoordinates {
             scene_converter: if value.rotate_scenes {
                 value.semantics.scenes().try_into()?
             } else {
-                Converter::IDENTITY
+                RotationConverter::IDENTITY
             },
             node_converter: if value.rotate_nodes {
                 value.semantics.nodes().try_into()?
             } else {
-                Converter::IDENTITY
+                RotationConverter::IDENTITY
             },
             mesh_converter: if value.rotate_meshes {
                 value.semantics.meshes().try_into()?
             } else {
-                Converter::IDENTITY
+                RotationConverter::IDENTITY
             },
         })
     }
@@ -536,14 +536,38 @@ impl SemanticsConversion {
     };
 }
 
-/// Converts between semantics by swapping and/or flipping components. This
-/// is usually faster and more accurate than rotation by a matrix or quaternion.
+/// Converts between semantics by swapping and/or flipping the X/Y/Z components
+/// of a vector.
+///
+/// This is effectively a rotation, but is usually faster and more accurate than
+/// rotating by a matrix or quaternion. It can also convert scales.
+///
+/// The behaviour of the conversion can be unintuitive. If the source semantics
+/// are "+X forward" and the target semantics are "+Z forward", then converting
+/// `Vec3::X` will *not* return `Vec3::Z`. Instead the reverse happens -
+/// converting `Vec3::Z` will return `Vec3::X`.
+///
+/// One way to explain this is that we're not converting something *within* a
+/// coordinate system - we're converting the coordinate system *itself*. So when
+/// converting a node in a scene hierarchy from "+X forward" to "+Z forward",
+/// we're rotating it so that the new +Z forward axis is the same direction as
+/// the old +X forward axis.
+///
+/// ```ignore
+///                 Before            After
+///     ^
+///     |            x                   z
+///     |            |                   |
+///     |            O--z             x--O
+///  Forward
+/// ```
+
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct RemappingConverter {
-    /// Maps from target axis index to source axis.
-    target_to_source: [Axis; 3],
+    /// Maps from source axis index to target axis.
+    source_to_target: [Axis; 3],
 
-    /// Sign flip, applied by multiplying after `axis` remapping,
+    /// Sign flip, applied by multiplying after `source_to_target`.
     flip: Vec3,
 }
 
@@ -555,63 +579,76 @@ impl RemappingConverter {
         let (sf, su, sr) = (source.forward(), source.up(), source.right());
         let (tf, tu, tr) = (target.forward(), target.up(), target.right());
 
-        let mut target_to_source = [Axis::X; 3];
+        let mut source_to_target = [Axis::X; 3];
 
-        target_to_source[tf.axis.index()] = sf.axis;
-        target_to_source[tu.axis.index()] = su.axis;
-        target_to_source[tr.axis.index()] = sr.axis;
+        source_to_target[sf.axis.index()] = tf.axis;
+        source_to_target[su.axis.index()] = tu.axis;
+        source_to_target[sr.axis.index()] = tr.axis;
 
         let mut flip = Vec3::ZERO;
 
-        flip[tf.axis.index()] = tf.sign.multiplier() * sf.sign.multiplier();
-        flip[tu.axis.index()] = tu.sign.multiplier() * su.sign.multiplier();
-        flip[tr.axis.index()] = tr.sign.multiplier() * sr.sign.multiplier();
+        flip[sf.axis.index()] = tf.sign.multiplier() * sf.sign.multiplier();
+        flip[su.axis.index()] = tu.sign.multiplier() * su.sign.multiplier();
+        flip[sr.axis.index()] = tr.sign.multiplier() * sr.sign.multiplier();
 
         Self {
-            target_to_source,
+            source_to_target,
             flip,
         }
     }
 
     pub(crate) const IDENTITY: RemappingConverter = RemappingConverter {
-        target_to_source: [Axis::X, Axis::Y, Axis::Z],
+        source_to_target: [Axis::X, Axis::Y, Axis::Z],
         flip: Vec3::ONE,
     };
 
-    pub(crate) fn convert_translation(&self, source: Vec3) -> Vec3 {
+    pub(crate) fn convert_translation(&self, value: Vec3) -> Vec3 {
         Vec3::new(
-            source[self.target_to_source[0].index()],
-            source[self.target_to_source[1].index()],
-            source[self.target_to_source[2].index()],
+            value[self.source_to_target[0].index()],
+            value[self.source_to_target[1].index()],
+            value[self.source_to_target[2].index()],
         ) * self.flip
     }
 
-    pub(crate) fn convert_scale(&self, source: Vec3) -> Vec3 {
+    pub(crate) fn inverse_convert_translation(&self, value: Vec3) -> Vec3 {
+        let mut result = Vec3::ZERO;
+
+        result[self.source_to_target[0].index()] = value[0] * self.flip[0];
+        result[self.source_to_target[1].index()] = value[1] * self.flip[1];
+        result[self.source_to_target[2].index()] = value[2] * self.flip[2];
+
+        result
+    }
+
+    #[expect(unused, reason = "Currently unused, but kept for future use.")]
+    pub(crate) fn convert_scale(&self, value: Vec3) -> Vec3 {
         Vec3::new(
-            source[self.target_to_source[0].index()],
-            source[self.target_to_source[1].index()],
-            source[self.target_to_source[2].index()],
+            value[self.source_to_target[0].index()],
+            value[self.source_to_target[1].index()],
+            value[self.source_to_target[2].index()],
         )
     }
 
-    pub(crate) fn convert_aabb(&self, source: Aabb3d) -> Aabb3d {
-        let min = self.convert_translation(source.min.into());
-        let max = self.convert_translation(source.max.into());
+    pub(crate) fn inverse_convert_scale(&self, value: Vec3) -> Vec3 {
+        let mut result = Vec3::ZERO;
 
-        Aabb3d::from_min_max(min.min(max), min.max(max))
+        result[self.source_to_target[0].index()] = value[0];
+        result[self.source_to_target[1].index()] = value[1];
+        result[self.source_to_target[2].index()] = value[2];
+
+        result
     }
 }
 
-/// Converts between semantics using various methods - quaternion, matrix or
-/// [`RemappingConverter`].
+/// A convenient bundle of equivalent rotation conversions.
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct Converter {
+pub(crate) struct RotationConverter {
     rotation: Quat,
     matrix: Mat4,
     remapping: RemappingConverter,
 }
 
-impl TryFrom<SemanticsConversion> for Converter {
+impl TryFrom<SemanticsConversion> for RotationConverter {
     type Error = SemanticsError;
 
     fn try_from(value: SemanticsConversion) -> Result<Self, Self::Error> {
@@ -622,14 +659,17 @@ impl TryFrom<SemanticsConversion> for Converter {
     }
 }
 
-impl Converter {
-    const IDENTITY: Converter = Converter {
+impl RotationConverter {
+    const IDENTITY: RotationConverter = RotationConverter {
         rotation: Quat::IDENTITY,
         matrix: Mat4::IDENTITY,
         remapping: RemappingConverter::IDENTITY,
     };
 
-    pub(crate) fn from_source_target(source: ValidSemantics, target: ValidSemantics) -> Converter {
+    pub(crate) fn from_source_target(
+        source: ValidSemantics,
+        target: ValidSemantics,
+    ) -> RotationConverter {
         let remapping = RemappingConverter::from_source_target(source, target);
 
         let matrix = Mat4::from_cols(
@@ -645,7 +685,8 @@ impl Converter {
             Vec4::new(0.0, 0.0, 0.0, 1.0),
         );
 
-        // TODO: Mat4 to Quat is a bit brute force. Is there a better way?
+        // TODO: Mat4 to Quat gives the right result, but could be more
+        // efficient.
         let rotation = Quat::from_mat4(&matrix);
 
         Self {
@@ -668,8 +709,8 @@ impl Converter {
     }
 }
 
-/// Helper for converting the semantics of things in a hierarchy, where each
-/// thing may have different semantics.
+/// Helper for converting the semantics of transforms in scene hierarchy, where
+/// each transform may have different semantics.
 ///
 /// To explain how this works, let's start with a scene containing one mesh. The
 /// diagram shows a top-down view of the scene - the axes in the middle of the
@@ -688,136 +729,141 @@ impl Converter {
 /// S--z
 /// ```
 ///
-/// We want to convert the mesh's semantics from +X forward to +Z forward, but the
-/// mesh's vertices should stay at the same position in scene-space. This can be
-/// done by rotating the mesh 90 degrees *counter-clockwise*, then rotating its
-/// vertices 90 degrees *clockwise*.
+/// We want to convert the mesh's semantics from +X forward to +Z forward, but
+/// the mesh's vertices should stay at the same position in scene-space. This
+/// can be done by rotating the mesh 90 degrees counter-clockwise, then
+/// rotating its vertices 90 degrees clockwise.
 ///
 /// ```ignore
-///          Before             Counter-Rotate Mesh       Rotate Vertices
+///          Before                   Rotate Mesh        Counter-Rotate Vertices
 ///
 ///        +-----------+              +-----------+          +-----------+
-///        |           +-+          +-+           |          |           +-+
-///        |      x      |          |      z      |          |      z      |
+///        |      x    +-+          +-+    z      |          |      z    +-+
 ///        |      |      |          |      |      |          |      |      |
 ///        |      M--z   |          |   x--M      |          |   x--M      |
+///        |             |          |             |          |             |
 ///        |             |          |             |          |             |
 /// x      +-------------+          +-------------+          +-------------+
 /// |
 /// S--z
 /// ```
 ///
-/// Conceptually, what's happening is that we have the following hierarchy:
+/// Conceptually, the scenes has the following hierarchy:
 ///
-/// - Scene
-///   - Mesh
-///     - Mesh Vertices
+/// - Scene.
+///   - Mesh.
+///     - Mesh vertices.
 ///
-/// And only the mesh is having its semantics converted - the semantics of the
-/// scene and vertices stay the same.
+/// Only the mesh is having its semantics converted - the semantics of the scene
+/// and vertices stay the same.
 ///
-/// The rules for converting the semantics of a thing in a hierarchy are:
+/// The rules for converting the semantics of a transform in a hierarchy are:
 ///
-/// - Apply the thing's *parent's* conversion to parent-space transform of the
-///   thing.
-/// - Apply the thing's *inverse* conversion to the local-space transform of the
-///   thing
+/// - Apply the transform's rotation conversion to the local-space of the
+///   transform.
+/// - Apply the parent's *inverse* rotation conversion to the parent-space of
+///   the transform.
+///
+/// The inverse parent rotation is needed because we want to maintain the
+/// scene-space position of the child. So when the parent is rotated we need the
+/// child to compensate by applying the opposite rotation.
 ///
 /// Applying these rules to the mesh's vertices, we get:
 ///
-/// - Apply the mesh's conversion to the vertices.
-/// - Apply the vertices' inverse conversion to the vertices - the vertices
-///   have no conversion so nothing is done.
+/// - Apply the vertices' conversion to the vertices - the vertices have no
+///   conversion so nothing is done.
+/// - Apply the mesh's inverse conversion to the vertices.
 ///
 /// And for the mesh:
 ///
-/// - Apply the scene's conversion to the mesh - the scene has no conversion so
-///   nothing is done.
-/// - Apply the mesh's inverse conversion to the mesh.
+/// - Apply the mesh's conversion to the mesh.
+/// - Apply the scene's inverse conversion to the mesh - the scene has no
+///   conversion so   nothing is done.
 ///
 /// If we take both cases and remove the rules that don't do anything, we end up
 /// with:
 ///
-/// - Apply the mesh's conversion to the vertices.
-/// - Apply the mesh's inverse conversion to the mesh.
+/// - Apply the mesh's conversion to the mesh.
+/// - Apply the mesh's inverse conversion to the vertices.
 ///
-/// Note that even though the vertices do not have their own conversion, they
-/// still get affected by their mesh's conversion. Or to put it another way,
-/// children without a conversion still get affected by their parent's
-/// conversion.
+/// Note that even though the semantics of the vertices are not being converted,
+/// their translation is still affected by the mesh's conversion.
 ///
 /// Let's apply the same rules to scene nodes. Say we have two nodes A and B,
-/// where A is the parent of B, and we want to convert the semantics of *both* A
-/// and B from +X forward to +Y forward. The conversion should look like this:
+/// where A is the parent of B, and we want to convert the semantics of both A
+/// and B from +X forward to +Z forward. The conversion should look like this:
 ///
 /// ```ignore
 ///          Before                After
 ///
-///                X                       Z
+///                x                       z
 ///                |                       |
-///                B--Z                 X--B
+///                B--z                 x--B
 ///              .`                      .`
-///        X   .`                  Z   .`
+///        X   .`                  z   .`
 ///        | .`                    | .`
-///        A--Z                 X--A
+///        A--z                 x--A
 /// ```
 ///
 /// Unlike the mesh example, both the parent and the child want the same
 /// conversion. So the rules for A are:
 ///
-/// 1. Apply the scene's conversion to A - the scene has no conversion.
-/// 2. Apply A's inverse conversion to A.
+/// 1. Apply the scene's inverse conversion to A - the scene has no conversion.
+/// 2. Apply A's conversion to A.
 ///
 /// And B:
 ///
-/// 1. Apply A's conversion to B.
-/// 2. Apply B's inverse conversion to B.
+/// 1. Apply A's inverse conversion to B.
+/// 2. Apply B's conversion to B.
 ///
 /// Applying these step by step, we get:
 ///
 /// ```ignore
-///               Before                 Apply A's inverse conversion to A
-///             
-///                     x                      z
-///                     |                      |
-///                     B--z                x--B
-///                   .`                        `.
-///             x   .`                            `.  z
-///             | .`                                `.|
-///             A--z                               x--A
-///     
-///     
-///      Apply A's conversion to B       Apply B's inverse conversion to B
-///     
-///                     X                                     Z
-///                     |                                     |
-///                     B--Z                               X--B
-///                   .`                                    .`
-///             X   .`                                Z   .`
-///             | .`                                  | .`
-///             A--Z                               X--A
+///                Before                     Apply A's conversion to A
+///
+///                         x                      z
+///                         |                      |
+///                         B--z                x--B
+///                       .`                        `.
+///                 x   .`                            `.  z
+///                 | .`                                `.|
+///                 A--z                               x--A
+///
+///
+///    Apply A's inverse conversion to B      Apply B's conversion to B
+///
+///                         x                                     z
+///                         |                                     |
+///                         B--z                               x--B
+///                       .`                                    .`
+///                 x   .`                                z   .`
+///                 | .`                                  | .`
+///                 A--z                               x--A
 /// ```
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct HierarchyConverter {
-    local: Converter,
-    parent: Converter,
+    local: RotationConverter,
+    parent: RotationConverter,
 }
 
 impl HierarchyConverter {
-    pub(crate) fn from_local_and_parent(local: Converter, parent: Converter) -> Self {
+    pub(crate) fn from_local_and_parent(
+        local: RotationConverter,
+        parent: RotationConverter,
+    ) -> Self {
         Self { local, parent }
     }
 
     pub(crate) fn convert_translation(&self, t: Vec3) -> Vec3 {
-        self.parent.remapping().convert_translation(t)
+        self.parent.remapping().inverse_convert_translation(t)
     }
 
     pub(crate) fn convert_rotation(&self, r: Quat) -> Quat {
-        self.parent.rotation() * r * self.local.rotation().inverse()
+        self.parent.rotation().inverse() * r * self.local.rotation()
     }
 
     pub(crate) fn convert_scale(&self, s: Vec3) -> Vec3 {
-        self.local.remapping().convert_scale(s)
+        self.local.remapping().inverse_convert_scale(s)
     }
 
     pub(crate) fn convert_transform(&self, t: Transform) -> Transform {
@@ -827,7 +873,16 @@ impl HierarchyConverter {
     }
 
     pub(crate) fn convert_aabb(&self, aabb: Aabb3d) -> Aabb3d {
-        self.parent.remapping().convert_aabb(aabb)
+        let min = self
+            .parent
+            .remapping()
+            .inverse_convert_translation(aabb.min.into());
+        let max = self
+            .parent
+            .remapping()
+            .inverse_convert_translation(aabb.max.into());
+
+        Aabb3d::from_min_max(min.min(max), min.max(max))
     }
 }
 
@@ -907,75 +962,32 @@ mod tests {
         );
     }
 
-    // A variety of directions generated from a semantics.
-    #[derive(Debug)]
-    struct TestDirections {
-        forward: Vec3,
-        up: Vec3,
-        right: Vec3,
-        diagonal: Vec3,
-    }
-
-    impl From<ValidSemantics> for TestDirections {
-        fn from(value: ValidSemantics) -> Self {
-            let forward = value.forward().into();
-            let up = value.up().into();
-            let right = value.right().into();
-            let diagonal = forward + (2.0 * up) + (3.0 * right);
-
-            TestDirections {
-                forward,
-                up,
-                right,
-                diagonal,
-            }
-        }
-    }
-
-    impl TestDirections {
-        fn remapped(&self, converter: RemappingConverter) -> TestDirections {
-            TestDirections {
-                forward: converter.convert_translation(self.forward),
-                up: converter.convert_translation(self.up),
-                right: converter.convert_translation(self.right),
-                diagonal: converter.convert_translation(self.diagonal),
-            }
-        }
-
-        fn rotated(&self, converter: Quat) -> TestDirections {
-            TestDirections {
-                forward: converter * self.forward,
-                up: converter * self.up,
-                right: converter * self.right,
-                diagonal: converter * self.diagonal,
-            }
-        }
-    }
-
-    impl PartialEq for TestDirections {
-        fn eq(&self, other: &Self) -> bool {
-            self.forward.abs_diff_eq(other.forward, 1e-6)
-                && self.up.abs_diff_eq(other.up, 1e-6)
-                && self.right.abs_diff_eq(other.right, 1e-6)
-                && self.diagonal.abs_diff_eq(other.diagonal, 1e-6)
-        }
+    // Create a test direction that involves all the semantic
+    fn test_direction(semantics: ValidSemantics) -> Vec3 {
+        (Vec3::from(semantics.forward()) * 3.0)
+            + (Vec3::from(semantics.up()) * 2.0)
+            + Vec3::from(semantics.right())
     }
 
     #[test]
-    // Generate directions from semantics and check that they match when
-    // converted between semantics.
-    fn converter() {
+    // Test that all the converters in `RotationConverter` are correct and
+    // equivalent.
+    fn rotation_converter() {
         for source_semantics in semantics_permutations() {
             for target_semantics in semantics_permutations() {
-                let converter = Converter::from_source_target(source_semantics, target_semantics);
-                let source = TestDirections::from(source_semantics);
-                let target = TestDirections::from(target_semantics);
+                let converter =
+                    RotationConverter::from_source_target(source_semantics, target_semantics);
 
-                let remapped = source.remapped(converter.remapping());
-                let rotated = source.rotated(converter.rotation());
+                let source_direction = test_direction(source_semantics);
+                let target_direction = test_direction(target_semantics);
 
-                assert_eq!(remapped, target);
-                assert_eq!(rotated, target);
+                let remapping = converter.remapping().convert_translation(target_direction);
+                let rotation = converter.rotation() * target_direction;
+                let matrix = converter.matrix().transform_vector3(target_direction);
+
+                assert!(source_direction.abs_diff_eq(remapping, 1e-6));
+                assert!(source_direction.abs_diff_eq(rotation, 1e-6));
+                assert!(source_direction.abs_diff_eq(matrix, 1e-6));
             }
         }
     }
@@ -1013,9 +1025,9 @@ mod tests {
 
     struct RandomConverters(RandomSemantics);
 
-    impl Distribution<Converter> for RandomConverters {
-        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Converter {
-            Converter::from_source_target(self.0.sample(rng), self.0.sample(rng))
+    impl Distribution<RotationConverter> for RandomConverters {
+        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> RotationConverter {
+            RotationConverter::from_source_target(self.0.sample(rng), self.0.sample(rng))
         }
     }
 
@@ -1044,13 +1056,19 @@ mod tests {
             ];
 
             let hierarchy_converters = [
-                HierarchyConverter::from_local_and_parent(node_converters[0], Converter::IDENTITY),
+                HierarchyConverter::from_local_and_parent(
+                    node_converters[0],
+                    RotationConverter::IDENTITY,
+                ),
                 HierarchyConverter::from_local_and_parent(node_converters[1], node_converters[0]),
                 // The leaf node uses the identity conversion. This means that
                 // whatever conversions are applied to other nodes in the
                 // hierarchy, a transform in the leaf node's space should always
                 // result in the same transform in scene-space.
-                HierarchyConverter::from_local_and_parent(Converter::IDENTITY, node_converters[1]),
+                HierarchyConverter::from_local_and_parent(
+                    RotationConverter::IDENTITY,
+                    node_converters[1],
+                ),
             ];
 
             let original_hierarchy = RandomSmallTransforms
