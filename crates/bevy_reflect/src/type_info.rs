@@ -3,7 +3,7 @@ use crate::{
     enums::{DynamicEnum, EnumInfo},
     list::{DynamicList, ListInfo},
     map::{DynamicMap, MapInfo},
-    set::SetInfo,
+    set::{DynamicSet, SetInfo},
     structs::{DynamicStruct, StructInfo},
     tuple::{DynamicTuple, TupleInfo},
     tuple_struct::{DynamicTupleStruct, TupleStructInfo},
@@ -145,6 +145,8 @@ impl MaybeTyped for DynamicList {}
 impl MaybeTyped for DynamicArray {}
 
 impl MaybeTyped for DynamicTuple {}
+
+impl MaybeTyped for DynamicSet {}
 
 /// Dynamic dispatch for [`Typed`].
 ///
@@ -366,6 +368,7 @@ impl TypeInfo {
     impl_cast_method!(as_list: List => ListInfo);
     impl_cast_method!(as_array: Array => ArrayInfo);
     impl_cast_method!(as_map: Map => MapInfo);
+    impl_cast_method!(as_set: Set => SetInfo);
     impl_cast_method!(as_enum: Enum => EnumInfo);
     impl_cast_method!(as_opaque: Opaque => OpaqueInfo);
 }
