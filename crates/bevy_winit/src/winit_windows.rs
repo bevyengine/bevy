@@ -85,20 +85,26 @@ impl WinitWindows {
             WindowMode::BorderlessFullscreen(_) => winit_window_attributes
                 .with_fullscreen(Some(Fullscreen::Borderless(maybe_selected_monitor.clone()))),
             WindowMode::Fullscreen(monitor_selection, video_mode_selection) => {
-                let select_monitor = &maybe_selected_monitor
-                    .clone()
-                    .expect("Unable to get monitor.");
-
-                if let Some(video_mode) =
-                    get_selected_videomode(select_monitor, &video_mode_selection)
-                {
-                    winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(video_mode)))
+                if let Some(select_monitor) = maybe_selected_monitor.as_ref() {
+                    if let Some(video_mode) =
+                        get_selected_videomode(select_monitor, &video_mode_selection)
+                    {
+                        winit_window_attributes
+                            .with_fullscreen(Some(Fullscreen::Exclusive(video_mode)))
+                    } else {
+                        warn!(
+                            "Could not find valid fullscreen video mode for {:?} {:?}",
+                            monitor_selection, video_mode_selection
+                        );
+                        winit_window_attributes
+                    }
                 } else {
                     warn!(
-                        "Could not find valid fullscreen video mode for {:?} {:?}",
-                        monitor_selection, video_mode_selection
+                        "Unable to get monitor for exclusive fullscreen; falling back to borderless"
                     );
-                    winit_window_attributes
+                    winit_window_attributes.with_fullscreen(Some(Fullscreen::Borderless(
+                        maybe_selected_monitor.clone(),
+                    )))
                 }
             }
             WindowMode::Windowed => {
