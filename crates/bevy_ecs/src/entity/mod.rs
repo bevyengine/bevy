@@ -704,7 +704,7 @@ impl SparseSetIndex for Entity {
 /// See the module docs for how these ids and this allocator participate in the life cycle of an entity.
 #[derive(Default, Debug)]
 pub struct EntityAllocator {
-    inner: remote_allocator::Allocator,
+    pub(crate) inner: remote_allocator::Allocator,
 }
 
 impl EntityAllocator {
@@ -723,19 +723,6 @@ impl EntityAllocator {
     /// and its allocated [`Entity`] values can still be used in this world.
     pub fn has_remote_allocator(&self, allocator: &RemoteAllocator) -> bool {
         allocator.is_connected_to(&self.inner)
-    }
-
-    /// The total number of indices given out.
-    pub fn total_entity_indices(&self) -> u32 {
-        self.inner.total_entity_indices()
-    }
-
-    /// Flushes the entities that have been freed locally into the full allocator.
-    /// This is not public because it is subject to change.
-    /// It is sometimes useful to call this for tests that depend on the entity allocator behaving more predictably.
-    #[cfg(test)]
-    pub(crate) fn flush_freed(&mut self) {
-        self.inner.flush_freed();
     }
 
     /// This allows `freed` to be retrieved from [`alloc`](Self::alloc), etc.
