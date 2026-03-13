@@ -247,12 +247,15 @@ impl<'w> BundleRemover<'w> {
 
         // Handle table change
         let new_location = if let Some((mut old_table, mut new_table)) = self.old_and_new_table {
+            let removed_columns = self.bundle_info.as_ref().explicit_components();
             let move_result = if needs_drop {
                 // SAFETY: old_table_row exists
                 unsafe {
-                    old_table
-                        .as_mut()
-                        .move_to_and_drop_missing_unchecked(location.table_row, new_table.as_mut())
+                    old_table.as_mut().move_to_and_drop_missing_unchecked(
+                        location.table_row,
+                        new_table.as_mut(),
+                        removed_columns,
+                    )
                 }
             } else {
                 // SAFETY: old_table_row exists
@@ -260,6 +263,7 @@ impl<'w> BundleRemover<'w> {
                     old_table.as_mut().move_to_and_forget_missing_unchecked(
                         location.table_row,
                         new_table.as_mut(),
+                        removed_columns,
                     )
                 }
             };
