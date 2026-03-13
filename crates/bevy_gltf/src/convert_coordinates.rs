@@ -225,6 +225,10 @@ pub(crate) fn convert_attribute_coordinates(
     values: VertexAttributeValues,
     converter: HierarchyConverter,
 ) -> Result<VertexAttributeValues, CoordinateConversionAttributeError> {
+    if converter == HierarchyConverter::IDENTITY {
+        return Ok(values);
+    }
+
     match attribute {
         Mesh::ATTRIBUTE_POSITION | Mesh::ATTRIBUTE_NORMAL | Mesh::ATTRIBUTE_TANGENT => match values
         {
@@ -563,7 +567,7 @@ impl SemanticsConversion {
 ///  Forward
 /// ```
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct RemappingConverter {
     /// Maps from source axis index to target axis.
     source_to_target: [Axis; 3],
@@ -642,7 +646,7 @@ impl RemappingConverter {
 }
 
 /// A convenient bundle of equivalent rotation conversions.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct RotationConverter {
     rotation: Quat,
     matrix: Mat4,
@@ -841,13 +845,18 @@ impl RotationConverter {
 ///                 | .`                                  | .`
 ///                 A--z                               x--A
 /// ```
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct HierarchyConverter {
     local: RotationConverter,
     parent: RotationConverter,
 }
 
 impl HierarchyConverter {
+    const IDENTITY: Self = Self {
+        local: RotationConverter::IDENTITY,
+        parent: RotationConverter::IDENTITY,
+    };
+
     pub(crate) fn from_local_and_parent(
         local: RotationConverter,
         parent: RotationConverter,
