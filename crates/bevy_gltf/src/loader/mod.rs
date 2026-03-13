@@ -1756,13 +1756,12 @@ fn load_node(
                     mesh_entity.insert(MeshMorphWeights::Reference(parent_entity));
                 }
 
-                let mesh_vertex_coordinate_converter =
-                    convert_coordinates.mesh_vertex_hierarchy_converter();
-
-                let aabb = mesh_vertex_coordinate_converter.convert_aabb(Aabb3d::from_min_max(
-                    Vec3::from_slice(&bounds.min),
-                    Vec3::from_slice(&bounds.max),
-                ));
+                let aabb = convert_coordinates
+                    .mesh_vertex_hierarchy_converter()
+                    .convert_aabb(Aabb3d::from_min_max(
+                        Vec3::from_slice(&bounds.min),
+                        Vec3::from_slice(&bounds.max),
+                    ));
 
                 mesh_entity.insert(Aabb::from(aabb));
 
