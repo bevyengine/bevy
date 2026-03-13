@@ -54,7 +54,7 @@ use downcast_rs::{impl_downcast, Downcast};
 /// }
 /// # fn damp_flickering() {}
 /// ```
-pub trait Plugin: Downcast + Any + Send + Sync {
+pub trait Plugin: Downcast + Any + Send {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
 

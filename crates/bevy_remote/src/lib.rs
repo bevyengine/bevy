@@ -534,6 +534,8 @@
 
 extern crate alloc;
 
+use core::cell::Cell;
+
 use async_channel::{Receiver, Sender};
 use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
@@ -548,7 +550,6 @@ use bevy_platform::collections::HashMap;
 use bevy_utils::prelude::default;
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::RwLock;
 
 pub mod builtin_methods;
 #[cfg(feature = "http")]
@@ -565,7 +566,7 @@ const CHANNEL_SIZE: usize = 16;
 /// [crate-level documentation]: crate
 pub struct RemotePlugin {
     /// The verbs that the server will recognize and respond to.
-    methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
+    methods: Cell<Vec<(String, RemoteMethodHandler)>>,
 }
 
 impl RemotePlugin {
@@ -573,7 +574,7 @@ impl RemotePlugin {
     /// any associated methods.
     fn empty() -> Self {
         Self {
-            methods: RwLock::new(vec![]),
+            methods: Cell::new(vec![]),
         }
     }
 
@@ -584,7 +585,7 @@ impl RemotePlugin {
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
     ) -> Self {
-        self.methods.get_mut().unwrap().push((
+        self.methods.get_mut().push((
             name.into(),
             RemoteMethodHandler::Instant(Box::new(IntoSystem::into_system(handler))),
         ));
@@ -598,7 +599,7 @@ impl RemotePlugin {
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
     ) -> Self {
-        self.methods.get_mut().unwrap().push((
+        self.methods.get_mut().push((
             name.into(),
             RemoteMethodHandler::Watching(Box::new(IntoSystem::into_system(handler))),
         ));
@@ -692,8 +693,7 @@ impl Plugin for RemotePlugin {
     fn build(&self, app: &mut App) {
         let mut remote_methods = RemoteMethods::new();
 
-        let plugin_methods = &mut *self.methods.write().unwrap();
-        for (name, handler) in plugin_methods.drain(..) {
+        for (name, handler) in self.methods.take() {
             remote_methods.insert(
                 name,
                 match handler {
