@@ -13,7 +13,7 @@
 use bevy::{
     camera::{Exposure, Hdr},
     core_pipeline::tonemapping::Tonemapping,
-    light::{NoParallaxCorrection, Skybox},
+    light::{ParallaxCorrection, Skybox},
     pbr::generate::generate_environment_map_light,
     prelude::*,
     render::render_resource::TextureUsages,
@@ -153,7 +153,7 @@ fn spawn_sphere(
 // Spawns the reflection probe.
 fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
     commands.spawn((
-        LightProbe,
+        LightProbe::default(),
         EnvironmentMapLight {
             diffuse_map: cubemaps.diffuse_environment_map.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
@@ -164,7 +164,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
         Transform::from_scale(Vec3::splat(2.0)),
         // Disable parallax correction because the reflected scene is quite
         // distant.
-        NoParallaxCorrection,
+        ParallaxCorrection::None,
     ));
 }
 
@@ -371,7 +371,7 @@ impl FromWorld for Cubemaps {
 }
 
 fn setup_environment_map_usage(cubemaps: Res<Cubemaps>, mut images: ResMut<Assets<Image>>) {
-    if let Some(image) = images.get_mut(&cubemaps.specular_environment_map)
+    if let Some(mut image) = images.get_mut(&cubemaps.specular_environment_map)
         && !image
             .texture_descriptor
             .usage
@@ -419,7 +419,7 @@ fn change_sphere_roughness(
 
         // Update the sphere material
         for material_handle in sphere_query.iter() {
-            if let Some(material) = materials.get_mut(&material_handle.0) {
+            if let Some(mut material) = materials.get_mut(&material_handle.0) {
                 material.perceptual_roughness = app_status.sphere_roughness;
             }
         }

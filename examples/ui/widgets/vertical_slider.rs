@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                         Text::new("Vertical"),
                         TextFont {
                             font: assets.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: 20.0,
+                            font_size: FontSize::Px(20.0),
                             ..default()
                         },
                         TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                             Text::new("50"),
                             TextFont {
                                 font: assets.load("fonts/FiraSans-Bold.ttf").into(),
-                                font_size: 24.0,
+                                font_size: FontSize::Px(24.0),
                                 ..default()
                             },
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -112,7 +112,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                         Text::new("Horizontal"),
                         TextFont {
                             font: assets.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: 20.0,
+                            font_size: FontSize::Px(20.0),
                             ..default()
                         },
                         TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -123,7 +123,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                             Text::new("50"),
                             TextFont {
                                 font: assets.load("fonts/FiraSans-Bold.ttf").into(),
-                                font_size: 24.0,
+                                font_size: FontSize::Px(24.0),
                                 ..default()
                             },
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -156,6 +156,7 @@ fn vertical_slider() -> impl Bundle {
         Hovered::default(),
         Slider {
             track_click: TrackClick::Snap,
+            ..Default::default()
         },
         SliderValue(50.0),
         SliderRange::new(0.0, 100.0),
@@ -214,6 +215,7 @@ fn horizontal_slider() -> impl Bundle {
         Hovered::default(),
         Slider {
             track_click: TrackClick::Snap,
+            ..Default::default()
         },
         SliderValue(50.0),
         SliderRange::new(0.0, 100.0),

@@ -12,11 +12,11 @@ use bevy::{
 };
 
 use argh::FromArgs;
+use chacha20::ChaCha8Rng;
 use rand::{
     seq::{IndexedRandom, IteratorRandom},
-    Rng, SeedableRng,
+    RngExt, SeedableRng,
 };
-use rand_chacha::ChaCha8Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
@@ -197,11 +197,11 @@ fn print_counts(
 }
 
 fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<Font>) -> TextFont {
-    let font_size = if args.many_font_sizes {
+    let font_size = FontSize::Px(if args.many_font_sizes {
         *[10.0, 20.0, 30.0, 40.0, 50.0, 60.0].choose(rng).unwrap()
     } else {
         60.0
-    };
+    });
 
     TextFont {
         font_size,
@@ -219,7 +219,7 @@ fn random_text(rng: &mut ChaCha8Rng, args: &Args) -> String {
         .choose(rng)
         .unwrap()
         .clone()
-        .choose_multiple(rng, 4)
+        .sample(rng, 4)
         .into_iter()
         .map(|cp| char::from_u32(cp).unwrap())
         .collect::<String>()

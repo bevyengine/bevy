@@ -422,14 +422,13 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.index_u32() < self.entity_count()).then_some(
-            // SAFETY: `row.as_usize()` < `len`
-            unsafe {
-                self.get_column(component_id)?
-                    .changed_ticks
-                    .get_unchecked(row.index())
-            },
-        )
+        if row.index_u32() >= self.entity_count() {
+            return None;
+        }
+
+        // SAFETY: `row.index()` < `len`
+        self.get_column(component_id)
+            .map(|col| unsafe { col.changed_ticks.get_unchecked(row.index()) })
     }
 
     /// Get the specific [`added tick`](Tick) of the component matching `component_id` in `row`.
@@ -438,14 +437,13 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.index_u32() < self.entity_count()).then_some(
-            // SAFETY: `row.as_usize()` < `len`
-            unsafe {
-                self.get_column(component_id)?
-                    .added_ticks
-                    .get_unchecked(row.index())
-            },
-        )
+        if row.index_u32() >= self.entity_count() {
+            return None;
+        }
+
+        // SAFETY: `row.index()` < `len`
+        self.get_column(component_id)
+            .map(|col| unsafe { col.added_ticks.get_unchecked(row.index()) })
     }
 
     /// Get the specific calling location that changed the component matching `component_id` in `row`
@@ -455,15 +453,16 @@ impl Table {
         row: TableRow,
     ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
         MaybeLocation::new_with_flattened(|| {
-            (row.index_u32() < self.entity_count()).then_some(
-                // SAFETY: `row.as_usize()` < `len`
-                unsafe {
-                    self.get_column(component_id)?
-                        .changed_by
-                        .as_ref()
-                        .map(|changed_by| changed_by.get_unchecked(row.index()))
-                },
-            )
+            if row.index_u32() >= self.entity_count() {
+                return None;
+            }
+
+            self.get_column(component_id).map(|col| {
+                // SAFETY: `row.index()` < `len`
+                col.changed_by
+                    .as_ref()
+                    .map(|changed_by| unsafe { changed_by.get_unchecked(row.index()) })
+            })
         })
     }
 

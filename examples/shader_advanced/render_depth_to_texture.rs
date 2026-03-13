@@ -281,8 +281,8 @@ fn spawn_instructions(commands: &mut Commands) {
         Text::new("Use WASD to move the secondary camera"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12.0),
+            left: px(12.0),
             ..Node::default()
         },
     ));

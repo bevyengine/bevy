@@ -104,9 +104,15 @@ pub enum ImageFormatSetting {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum ImageArrayLayout {
     /// Interpret the image as a vertical stack of *n* images.
-    RowCount { rows: u32 },
+    RowCount {
+        /// The total number of images in the stack.
+        rows: u32,
+    },
     /// Interpret the image as a vertical stack of images, each *n* pixels tall.
-    RowHeight { pixels: u32 },
+    RowHeight {
+        /// The height of a single image in the stack.
+        pixels: u32,
+    },
 }
 
 /// Settings for loading an [`Image`] using an [`ImageLoader`].
@@ -119,7 +125,7 @@ pub struct ImageLoaderSettings {
     /// in a shader.
     /// Ex: data that would be `R16Uint` that needs to
     /// be sampled as a float using `R16Snorm`.
-    #[serde(skip)]
+    #[serde(default)]
     pub texture_format: Option<wgpu_types::TextureFormat>,
     /// Specifies whether image data is linear
     /// or in sRGB space when this is not determined by

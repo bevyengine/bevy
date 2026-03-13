@@ -431,7 +431,7 @@ fn example_control_system(
     let randomize_colors = input.just_pressed(KeyCode::KeyC);
 
     for (material_handle, controls) in &controllable {
-        let material = materials.get_mut(material_handle).unwrap();
+        let mut material = materials.get_mut(material_handle).unwrap();
         if controls.specular_transmission {
             material.specular_transmission = state.specular_transmission;
             material.thickness = state.thickness;
@@ -489,36 +489,28 @@ fn example_control_system(
         }
     }
 
-    if input.just_pressed(KeyCode::KeyO)
-        && transmission.screen_space_specular_transmission_steps > 0
-    {
-        transmission.screen_space_specular_transmission_steps -= 1;
+    if input.just_pressed(KeyCode::KeyO) && transmission.steps > 0 {
+        transmission.steps -= 1;
     }
 
-    if input.just_pressed(KeyCode::KeyP)
-        && transmission.screen_space_specular_transmission_steps < 4
-    {
-        transmission.screen_space_specular_transmission_steps += 1;
+    if input.just_pressed(KeyCode::KeyP) && transmission.steps < 4 {
+        transmission.steps += 1;
     }
 
     if input.just_pressed(KeyCode::KeyJ) {
-        transmission.screen_space_specular_transmission_quality =
-            ScreenSpaceTransmissionQuality::Low;
+        transmission.quality = ScreenSpaceTransmissionQuality::Low;
     }
 
     if input.just_pressed(KeyCode::KeyK) {
-        transmission.screen_space_specular_transmission_quality =
-            ScreenSpaceTransmissionQuality::Medium;
+        transmission.quality = ScreenSpaceTransmissionQuality::Medium;
     }
 
     if input.just_pressed(KeyCode::KeyL) {
-        transmission.screen_space_specular_transmission_quality =
-            ScreenSpaceTransmissionQuality::High;
+        transmission.quality = ScreenSpaceTransmissionQuality::High;
     }
 
     if input.just_pressed(KeyCode::Semicolon) {
-        transmission.screen_space_specular_transmission_quality =
-            ScreenSpaceTransmissionQuality::Ultra;
+        transmission.quality = ScreenSpaceTransmissionQuality::Ultra;
     }
 
     let rotation = if input.pressed(KeyCode::ArrowRight) {
@@ -565,8 +557,8 @@ fn example_control_system(
             "             D  Depth Prepass: {}\n",
             "             T  TAA: {}\n",
         ),
-        transmission.screen_space_specular_transmission_quality,
-        transmission.screen_space_specular_transmission_steps,
+        transmission.quality,
+        transmission.steps,
         state.diffuse_transmission,
         state.specular_transmission,
         state.thickness,

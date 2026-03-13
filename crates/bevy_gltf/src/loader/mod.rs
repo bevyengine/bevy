@@ -27,17 +27,15 @@ use bevy_image::{
 };
 use bevy_light::{DirectionalLight, PointLight, SpotLight};
 use bevy_math::{Mat4, Vec3};
+#[cfg(feature = "pbr_transmission_textures")]
+use bevy_mesh::UvChannel;
 use bevy_mesh::{
-    morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
+    morph::{MeshMorphWeights, MorphAttributes, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
 };
-#[cfg(feature = "pbr_transmission_textures")]
-use bevy_pbr::UvChannel;
-use bevy_pbr::{MeshMaterial3d, StandardMaterial, MAX_JOINTS};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
-use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
@@ -54,11 +52,12 @@ use smallvec::SmallVec;
 use std::{io::Error, sync::Mutex};
 use thiserror::Error;
 use tracing::{error, info_span, warn};
+use wgpu_types::Face;
 
 use crate::{
     convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
-    GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfMeshName,
-    GltfNode, GltfSceneExtras, GltfSkin, GltfSkinnedMeshBoundsPolicy,
+    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
+    GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -77,6 +76,9 @@ use self::{
     },
 };
 use crate::convert_coordinates::GltfConvertCoordinates;
+
+/// Must match [`MAX_JOINTS`](https://docs.rs/bevy/latest/bevy/pbr/constant.MAX_JOINTS.html)
+pub const MAX_JOINTS: usize = 256;
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -128,6 +130,21 @@ pub enum GltfError {
     /// Failed to generate morph targets.
     #[error("failed to generate morph targets: {0}")]
     MorphTarget(#[from] bevy_mesh::morph::MorphBuildError),
+    /// Zero or 2+ `gltf::Mesh`s were returned in a `gltf::Document` from the `on_primitive` hook
+    #[error(
+        "expected exactly one Mesh in Document returned from on_gltf_primitive hook, got: {0}"
+    )]
+    OnPrimitiveMeshCount(usize),
+    /// Zero or 2+ `gltf::Primitive`s were returned in a `gltf::Document` from the `on_primitive` hook
+    #[error(
+        "expected exactly one Primitive in Mesh returned from on_gltf_primitive hook, got: {0}"
+    )]
+    OnPrimitivePrimitiveCount(usize),
+    /// Zero or 2+ `Vec<u8>`s were returned in the `Vec<Vec<u8>>` from the `on_primitive` hook
+    #[error(
+        "expected exactly one Vec<u8> in buffers returned from on_gltf_primitive hook, got: {0}"
+    )]
+    OnPrimitiveBufferCount(usize),
     /// Circular children in Nodes
     #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
     #[from(ignore)]
@@ -205,6 +222,8 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
+    /// If false, the loader will load gltf json without validation, for unsupported extension it will ignore validation check.
+    pub validate: bool,
     /// Overrides the default glTF coordinate conversion setting.
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
@@ -224,6 +243,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
+            validate: true,
             convert_coordinates: None,
             skinned_mesh_bounds_policy: None,
         }
@@ -238,7 +258,11 @@ impl GltfLoader {
         load_context: &'b mut LoadContext<'c>,
         settings: &'b GltfLoaderSettings,
     ) -> Result<Gltf, GltfError> {
-        let gltf = gltf::Gltf::from_slice(bytes)?;
+        let gltf = if settings.validate {
+            gltf::Gltf::from_slice(bytes)?
+        } else {
+            gltf::Gltf::from_slice_without_validation(bytes)?
+        };
 
         // clone extensions to start with a fresh processing state
         let mut extensions = loader.extensions.read().await.clone();
@@ -247,7 +271,7 @@ impl GltfLoader {
         // Let extensions process the root data for the extension ids
         // they've subscribed to.
         for extension in extensions.iter_mut() {
-            extension.on_root(&gltf);
+            extension.on_root(load_context, &gltf);
         }
 
         let file_name = load_context
@@ -667,22 +691,27 @@ impl GltfLoader {
         if !settings.load_materials.is_empty() {
             // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
             for material in gltf.materials() {
-                let handle = {
-                    let (label, material) = load_material(
-                        &material,
-                        &texture_handles,
-                        false,
-                        load_context.path().clone(),
-                    );
-                    load_context.add_labeled_asset(label, material)
-                };
+                let (label, gltf_material) = load_material(
+                    &material,
+                    &texture_handles,
+                    false,
+                    load_context.path().clone(),
+                );
+                let handle = load_context.add_labeled_asset(label.clone(), gltf_material.clone());
+
                 if let Some(name) = material.name() {
                     named_materials.insert(name.into(), handle.clone());
                 }
 
                 // let extensions handle material data
                 for extension in extensions.iter_mut() {
-                    extension.on_material(load_context, &material, handle.clone());
+                    extension.on_material(
+                        load_context,
+                        &material,
+                        handle.clone(),
+                        &gltf_material,
+                        &label.clone(),
+                    );
                 }
 
                 materials.push(handle);
@@ -712,6 +741,49 @@ impl GltfLoader {
 
                 let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
 
+                let mut out_doc: Option<gltf::Document> = None;
+                let mut out_data: Option<Vec<Vec<u8>>> = None;
+                for extension in extensions.iter_mut() {
+                    extension.on_gltf_primitive(
+                        load_context,
+                        &gltf,
+                        &primitive,
+                        &buffer_data,
+                        &mut out_doc,
+                        &mut out_data,
+                    );
+                }
+
+                // if there is a `gltf::Document`, then we have transformed
+                // mesh output, such as decompressed data, and need to validate
+                // what we expect to exist in the document.
+                let primitive = if let Some(doc) = &out_doc {
+                    let mesh_count = doc.meshes().len();
+                    if mesh_count != 1 {
+                        return Err(GltfError::OnPrimitiveMeshCount(mesh_count));
+                    }
+                    let mesh = doc.meshes().next().unwrap();
+                    let primitive_count = mesh.primitives().len();
+                    if primitive_count != 1 {
+                        return Err(GltfError::OnPrimitivePrimitiveCount(primitive_count));
+                    }
+                    mesh.primitives().next().unwrap()
+                } else {
+                    // otherwise, re-use the original primitive since no transformation
+                    // has occurred.
+                    primitive
+                };
+
+                let buffer_data = if let Some(data) = &out_data {
+                    let buffer_count = data.len();
+                    if buffer_count != 1 {
+                        return Err(GltfError::OnPrimitiveBufferCount(buffer_count));
+                    }
+                    data
+                } else {
+                    &buffer_data
+                };
+
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
                     if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
@@ -729,7 +801,7 @@ impl GltfLoader {
                     match convert_attribute(
                         semantic,
                         accessor,
-                        &buffer_data,
+                        buffer_data,
                         &loader.custom_vertex_attributes,
                         convert_coordinates.rotate_meshes,
                     ) {
@@ -752,26 +824,17 @@ impl GltfLoader {
                 {
                     let morph_target_reader = reader.read_morph_targets();
                     if morph_target_reader.len() != 0 {
-                        let morph_targets_label = GltfAssetLabel::MorphTarget {
-                            mesh: gltf_mesh.index(),
-                            primitive: primitive.index(),
-                        };
-                        let morph_target_image = MorphTargetImage::new(
-                            morph_target_reader.map(|i| PrimitiveMorphAttributesIter {
-                                convert_coordinates: convert_coordinates.rotate_meshes,
-                                positions: i.0,
-                                normals: i.1,
-                                tangents: i.2,
-                            }),
-                            mesh.count_vertices(),
-                            RenderAssetUsages::default(),
-                        )?;
-                        let handle = load_context.add_labeled_asset(
-                            morph_targets_label.to_string(),
-                            morph_target_image.0,
+                        mesh.set_morph_targets(
+                            morph_target_reader
+                                .flat_map(|i| PrimitiveMorphAttributesIter {
+                                    convert_coordinates: convert_coordinates.rotate_meshes,
+                                    positions: i.0,
+                                    normals: i.1,
+                                    tangents: i.2,
+                                })
+                                .collect(),
                         );
 
-                        mesh.set_morph_targets(handle);
                         let extras = gltf_mesh.extras().as_ref();
                         if let Some(names) = extras.and_then(|extras| {
                             serde_json::from_str::<MorphTargetNames>(extras.get()).ok()
@@ -992,7 +1055,16 @@ impl GltfLoader {
             let world_root_transform = convert_coordinates.scene_conversion_transform();
 
             let world_root_id = world
-                .spawn((world_root_transform, Visibility::default()))
+                .spawn((
+                    world_root_transform,
+                    Visibility::default(),
+                    Name::new(
+                        scene
+                            .name()
+                            .map(ToOwned::to_owned)
+                            .unwrap_or_else(|| format!("Scene{}", scene.index())),
+                    ),
+                ))
                 .with_children(|parent| {
                     for node in scene.nodes() {
                         let result = load_node(
@@ -1021,6 +1093,12 @@ impl GltfLoader {
                     }
                 })
                 .id();
+
+            if let Some(scene_name) = scene.name() {
+                world
+                    .entity_mut(world_root_id)
+                    .insert(GltfSceneName(scene_name.to_owned()));
+            };
 
             if let Some(extras) = scene.extras().as_ref() {
                 world.entity_mut(world_root_id).insert(GltfSceneExtras {
@@ -1199,16 +1277,13 @@ async fn load_image<'a, 'b>(
     }
 }
 
-/// Loads a glTF material as a bevy [`StandardMaterial`] and returns the label and material.
-// Note: this function intentionally **does not** take a `LoadContext` and insert the asset here,
-// since we don't use the `LoadContext` otherwise, and this prevents accidentally using the context
-// without `labeled_asset_scope`.
+/// Loads a glTF material as a bevy [`GltfMaterial`] and returns the label and material.
 fn load_material(
     material: &Material,
     textures: &[Handle<Image>],
     is_scale_inverted: bool,
     asset_path: AssetPath<'_>,
-) -> (String, StandardMaterial) {
+) -> (String, GltfMaterial) {
     let pbr = material.pbr_metallic_roughness();
 
     // TODO: handle missing label handle errors here?
@@ -1367,7 +1442,7 @@ fn load_material(
     let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
     let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
 
-    let standard_material = StandardMaterial {
+    let gltf_material = GltfMaterial {
         base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
         base_color_channel,
         base_color_texture,
@@ -1446,12 +1521,11 @@ fn load_material(
         specular_tint_channel: specular.specular_color_channel,
         #[cfg(feature = "pbr_specular_textures")]
         specular_tint_texture: specular.specular_color_texture,
-        ..Default::default()
     };
 
     (
         material_label(material, is_scale_inverted).to_string(),
-        standard_material,
+        gltf_material,
     )
 }
 
@@ -1569,7 +1643,7 @@ fn load_node(
     // Map node index to entity
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
-    let mut morph_weights = None;
+    let mut max_morph_target_count = 0;
 
     node.with_children(|parent| {
         // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
@@ -1579,22 +1653,33 @@ fn load_node(
             // append primitives
             for primitive in mesh.primitives() {
                 let material = primitive.material();
-                let material_label = material_label(&material, is_scale_inverted).to_string();
+                let mat_label = material_label(&material, is_scale_inverted);
+                let material_label = mat_label.to_string();
 
-                // This will make sure we load the default material now since it would not have been
-                // added when iterating over all the gltf materials (since the default material is
-                // not explicitly listed in the gltf).
-                // It also ensures an inverted scale copy is instantiated if required.
+                // This adds materials that Bevy modifies depending on how they're used, like those with inverted scale.
                 if !root_load_context.has_labeled_asset(&material_label)
                     && !load_context.has_labeled_asset(&material_label)
                 {
-                    let (label, material) = load_material(
+                    let (label, gltf_material) = load_material(
                         &material,
                         textures,
                         is_scale_inverted,
                         load_context.path().clone(),
                     );
-                    load_context.add_labeled_asset(label, material);
+                    // TODO: maybe move this into `load_material` ?
+                    let handle =
+                        load_context.add_labeled_asset(label.clone(), gltf_material.clone());
+
+                    // let extensions handle material data
+                    for extension in extensions.iter_mut() {
+                        extension.on_material(
+                            load_context,
+                            &material,
+                            handle.clone(),
+                            &gltf_material,
+                            &label.clone(),
+                        );
+                    }
                 }
 
                 let primitive_label = GltfAssetLabel::Primitive {
@@ -1602,6 +1687,7 @@ fn load_node(
                     primitive: primitive.index(),
                 };
                 let bounds = primitive.bounding_box();
+                let parent_entity = parent.target_entity();
 
                 // Apply the inverse of the conversion transform that's been
                 // applied to the mesh asset. This preserves the mesh's relation
@@ -1611,9 +1697,7 @@ fn load_node(
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
                     Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
-                    MeshMaterial3d::<StandardMaterial>(
-                        load_context.get_label_handle(&material_label),
-                    ),
+                    // TODO: could add the `GltfMaterial` here
                     mesh_entity_transform,
                 ));
 
@@ -1631,22 +1715,8 @@ fn load_node(
 
                 let target_count = primitive.morph_targets().len();
                 if target_count != 0 {
-                    let weights = match mesh.weights() {
-                        Some(weights) => weights.to_vec(),
-                        None => vec![0.0; target_count],
-                    };
-
-                    if morph_weights.is_none() {
-                        morph_weights = Some(weights.clone());
-                    }
-
-                    // unwrap: the parent's call to `MeshMorphWeights::new`
-                    // means this code doesn't run if it returns an `Err`.
-                    // According to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#morph-targets
-                    // they should all have the same length.
-                    // > All morph target accessors MUST have the same count as
-                    // > the accessors of the original primitive.
-                    mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
+                    max_morph_target_count = max_morph_target_count.max(target_count);
+                    mesh_entity.insert(MeshMorphWeights::Reference(parent_entity));
                 }
 
                 let mut bounds_min = Vec3::from_slice(&bounds.min);
@@ -1704,6 +1774,7 @@ fn load_node(
                         &mesh,
                         &material,
                         &mut mesh_entity,
+                        &mat_label.to_string(),
                     );
                 }
             }
@@ -1816,15 +1887,31 @@ fn load_node(
 
     // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
     if !settings.load_meshes.is_empty()
-        && let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights)
+        && let Some(mesh) = gltf_node.mesh()
     {
-        let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
-            mesh: mesh.index(),
-            primitive: p.index(),
-        });
-        let first_mesh =
-            primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
-        node.insert(MorphWeights::new(weights, first_mesh)?);
+        // Create the `MorphWeights` component. The weights will be copied
+        // from `mesh.weights()` if present. If not then the weights are
+        // zero.
+        //
+        // The glTF spec says that all primitives within a mesh must have
+        // the same number of morph targets, and `mesh.weights()` should be
+        // equal to that number if present. We're more forgiving and take
+        // whichever is largest, leaving any unspecified weights at zero.
+        if (max_morph_target_count > 0) || mesh.weights().is_some() {
+            let mut weights = Vec::from(mesh.weights().unwrap_or(&[]));
+
+            if max_morph_target_count > weights.len() {
+                weights.resize(max_morph_target_count, 0.0);
+            }
+
+            let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
+                mesh: mesh.index(),
+                primitive: p.index(),
+            });
+            let first_mesh =
+                primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
+            node.insert(MorphWeights::new(weights, first_mesh)?);
+        }
     }
 
     // let extensions process node data
@@ -1992,6 +2079,9 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
             position: position.map(Into::into).unwrap_or(Vec3::ZERO),
             normal: normal.map(Into::into).unwrap_or(Vec3::ZERO),
             tangent: tangent.map(Into::into).unwrap_or(Vec3::ZERO),
+            pad_a: 0.0,
+            pad_b: 0.0,
+            pad_c: 0.0,
         };
 
         if self.convert_coordinates {
@@ -1999,6 +2089,9 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
                 position: attributes.position.convert_coordinates(),
                 normal: attributes.normal.convert_coordinates(),
                 tangent: attributes.tangent.convert_coordinates(),
+                pad_a: 0.0,
+                pad_b: 0.0,
+                pad_c: 0.0,
             }
         }
 
@@ -2028,21 +2121,23 @@ struct MorphTargetNames {
 mod test {
     use std::path::Path;
 
-    use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
+    use crate::{
+        extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+        Gltf, GltfAssetLabel, GltfMaterial, GltfNode, GltfSkin,
+    };
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
             AssetSourceBuilder, AssetSourceId,
         },
-        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadState,
+        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext, LoadState,
     };
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_image::{Image, ImageLoaderSettings};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
-    use bevy_pbr::StandardMaterial;
     use bevy_reflect::TypePath;
     use bevy_scene::ScenePlugin;
 
@@ -2534,7 +2629,7 @@ mod test {
     fn reads_images_in_custom_asset_source() {
         let (mut app, dir) = test_app_custom_asset_source();
 
-        app.init_asset::<StandardMaterial>();
+        app.init_asset::<GltfMaterial>();
 
         // Note: We need the material here since otherwise we don't store the texture handle, which
         // can result in the image getting dropped leading to the gltf never being loaded with
@@ -2592,7 +2687,7 @@ mod test {
                 &self,
                 _reader: &mut dyn bevy_asset::io::Reader,
                 _settings: &Self::Settings,
-                _load_context: &mut bevy_asset::LoadContext<'_>,
+                _load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
                 Ok(Image::default())
             }
@@ -2614,5 +2709,222 @@ mod test {
                 .is_loaded_with_dependencies(&handle)
                 .then_some(())
         });
+    }
+    fn load_gltf_into_app_with_extension(
+        gltf_path: &str,
+        gltf: &str,
+        extension: Box<dyn GltfExtensionHandler>,
+    ) -> App {
+        #[expect(
+            dead_code,
+            reason = "This struct is used to keep the handle alive. As such, we have no need to handle the handle directly."
+        )]
+        #[derive(Resource)]
+        struct GltfHandle(Handle<Gltf>);
+
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new(gltf_path), gltf);
+        let mut app = test_app(dir);
+        app.world_mut()
+            .resource_mut::<GltfExtensionHandlers>()
+            .0
+            .write_blocking()
+            .push(extension);
+        app.update();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load(gltf_path.to_string());
+        let handle_id = handle.id();
+        app.insert_resource(GltfHandle(handle));
+        app.update();
+        run_app_until(&mut app, |_world| {
+            let load_state = asset_server.get_load_state(handle_id).unwrap();
+            match load_state {
+                LoadState::Loaded => Some(()),
+                LoadState::Failed(err) => panic!("{err}"),
+                _ => None,
+            }
+        });
+        app
+    }
+
+    const TRIANGLE_GLTF_DATA: &str = r#"
+{
+  "asset": {
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [0]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "triangle-object"
+    }
+  ],
+  "meshes": [
+    {
+      "name": "triangle-mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0
+          },
+          "indices": 1
+        }
+      ]
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 3,
+      "max": [0.9971705079078674, 0, 0.9971704483032227],
+      "min": [0, 0, 0],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5123,
+      "count": 3,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 36,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 6,
+      "byteOffset": 36,
+      "target": 34963
+    }
+  ],
+  "buffers": [
+    {
+        "byteLength": 44,
+        "uri" : "data:application/gltf-buffer;base64,AAAAAAAAAAAAAACAAAAAAAAAAACQRn8/kUZ/PwAAAACQRn8/AQACAAAAAAA="
+    }
+  ]
+}
+"#;
+
+    // Test to ensure that the loader will fail if a Document is constructed with
+    // no Mesh
+    #[test]
+    #[should_panic(
+        expected = "Failed to load asset 'test.gltf' with asset loader 'bevy_gltf::loader::GltfLoader': expected exactly one Mesh in Document returned from on_gltf_primitive hook, got: 0"
+    )]
+    fn on_gltf_primitive_doc_fail() {
+        #[derive(Default, Clone)]
+        struct PrimitiveExtension {}
+
+        impl GltfExtensionHandler for PrimitiveExtension {
+            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+                Box::new((*self).clone())
+            }
+            fn on_gltf_primitive(
+                &mut self,
+                _load_context: &mut LoadContext<'_>,
+                _gltf_document: &gltf::Gltf,
+                _gltf_primitive: &gltf::Primitive,
+                _buffer_data: &[Vec<u8>],
+                out_doc: &mut Option<gltf::Document>,
+                _out_data: &mut Option<Vec<Vec<u8>>>,
+            ) {
+                *out_doc = Some(gltf::Document::from_json_without_validation(
+                    gltf::json::Root::default(),
+                ));
+            }
+        }
+        let gltf_path = "test.gltf";
+        let _ = load_gltf_into_app_with_extension(
+            gltf_path,
+            TRIANGLE_GLTF_DATA,
+            Box::new(PrimitiveExtension::default()),
+        );
+    }
+
+    // Test to ensure that the loader will fail if a Document is constructed with
+    // a single Mesh, but no Primitive
+    #[test]
+    #[should_panic(
+        expected = "Failed to load asset 'test.gltf' with asset loader 'bevy_gltf::loader::GltfLoader': expected exactly one Primitive in Mesh returned from on_gltf_primitive hook, got: 0"
+    )]
+    fn on_gltf_primitive_prim_fail() {
+        #[derive(Default, Clone)]
+        struct PrimitiveExtension {}
+
+        impl GltfExtensionHandler for PrimitiveExtension {
+            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+                Box::new((*self).clone())
+            }
+            fn on_gltf_primitive(
+                &mut self,
+                _load_context: &mut LoadContext<'_>,
+                _gltf_document: &gltf::Gltf,
+                _gltf_primitive: &gltf::Primitive,
+                _buffer_data: &[Vec<u8>],
+                out_doc: &mut Option<gltf::Document>,
+                _out_data: &mut Option<Vec<Vec<u8>>>,
+            ) {
+                let mut root = gltf::json::Root::default();
+                root.push(gltf::json::Mesh {
+                    extensions: Default::default(),
+                    extras: Default::default(),
+                    name: Some("Empty Mesh".into()),
+                    primitives: vec![],
+                    weights: None,
+                });
+                *out_doc = Some(gltf::Document::from_json_without_validation(root));
+            }
+        }
+        let gltf_path = "test.gltf";
+        let _ = load_gltf_into_app_with_extension(
+            gltf_path,
+            TRIANGLE_GLTF_DATA,
+            Box::new(PrimitiveExtension::default()),
+        );
+    }
+
+    // Test to ensure that the loader will fail if no buffers are returned
+    #[test]
+    #[should_panic(
+        expected = "Failed to load asset 'test.gltf' with asset loader 'bevy_gltf::loader::GltfLoader': expected exactly one Vec<u8> in buffers returned from on_gltf_primitive hook, got: 0"
+    )]
+    fn on_gltf_buffer_count_fail() {
+        #[derive(Default, Clone)]
+        struct PrimitiveExtension {}
+
+        impl GltfExtensionHandler for PrimitiveExtension {
+            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+                Box::new((*self).clone())
+            }
+            fn on_gltf_primitive(
+                &mut self,
+                _load_context: &mut LoadContext<'_>,
+                _gltf_document: &gltf::Gltf,
+                _gltf_primitive: &gltf::Primitive,
+                _buffer_data: &[Vec<u8>],
+                _out_doc: &mut Option<gltf::Document>,
+                out_data: &mut Option<Vec<Vec<u8>>>,
+            ) {
+                *out_data = Some(vec![]);
+            }
+        }
+        let gltf_path = "test.gltf";
+        let _ = load_gltf_into_app_with_extension(
+            gltf_path,
+            TRIANGLE_GLTF_DATA,
+            Box::new(PrimitiveExtension::default()),
+        );
     }
 }

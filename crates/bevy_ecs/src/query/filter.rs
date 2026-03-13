@@ -3,7 +3,7 @@ use crate::{
     change_detection::Tick,
     component::{Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity},
-    query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
+    query::{DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -477,6 +477,16 @@ macro_rules! impl_or_query_filter {
                 *access = new_access;
             }
 
+            fn init_nested_access(
+                state: &Self::State,
+                _system_name: Option<&str>,
+                _component_access_set: &mut FilteredAccessSet,
+                _world: UnsafeWorldCell,
+            ) {
+                let ($($state,)*) = state;
+                $($filter::init_nested_access($state, _system_name, _component_access_set, _world);)*
+            }
+
             fn init_state(world: &mut World) -> Self::State {
                 ($($filter::init_state(world),)*)
             }
@@ -488,6 +498,11 @@ macro_rules! impl_or_query_filter {
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = state;
                 false $(|| $filter::matches_component_set($filter, set_contains_id))*
+            }
+
+            fn update_archetypes(state: &mut Self::State, _world: UnsafeWorldCell) {
+                let ($($filter,)*) = state;
+                $($filter::update_archetypes($filter, _world);)*
             }
         }
 
@@ -563,7 +578,6 @@ macro_rules! impl_tuple_query_filter {
                 true $(&& unsafe { $name::filter_fetch($state, $name, entity, table_row) })*
             }
         }
-
     };
 }
 
@@ -812,10 +826,10 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess) {
-        if access.access().has_component_write(id) {
+        if access.access().has_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", DebugName::type_name::<T>());
         }
-        access.add_component_read(id);
+        access.add_read(id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -1039,10 +1053,10 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess) {
-        if access.access().has_component_write(id) {
+        if access.access().has_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", DebugName::type_name::<T>());
         }
-        access.add_component_read(id);
+        access.add_read(id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -1240,8 +1254,9 @@ unsafe impl QueryFilter for Spawned {
 
 /// A marker trait to indicate that the filter works at an archetype level.
 ///
-/// This is needed to implement [`ExactSizeIterator`] for
-/// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
+/// This is needed to:
+/// - implement [`ExactSizeIterator`] for [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
+/// - ensure table filtering for [`QueryContiguousIter`](crate::query::QueryContiguousIter).
 ///
 /// The trait must only be implemented for filters where its corresponding [`QueryFilter::IS_ARCHETYPAL`]
 /// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.

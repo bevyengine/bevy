@@ -125,6 +125,7 @@ impl<A: ErasedRenderAsset, AFTER: ErasedRenderAssetDependency + 'static> Plugin
             render_app
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<ErasedRenderAssets<A::ErasedAsset>>()
+                .allow_ambiguous_resource::<ErasedRenderAssets<A::ErasedAsset>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(
                     ExtractSchedule,
@@ -247,7 +248,7 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
 ) {
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractErasedRenderAssetSystemState<A>>| {
-            let (mut events, mut assets) = cached_state.state.get_mut(world);
+            let (mut events, mut assets) = cached_state.state.get_mut(world).unwrap();
 
             let mut needs_extracting = <HashSet<_>>::default();
             let mut removed = <HashSet<_>>::default();

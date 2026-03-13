@@ -46,11 +46,12 @@
 
 use bevy_asset::AssetId;
 use bevy_ecs::{
-    query::{Has, QueryData, QueryItem},
+    query::{QueryData, QueryItem},
     system::lifetimeless::Read,
 };
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, NoParallaxCorrection};
+use bevy_light::{EnvironmentMapLight, ParallaxCorrection};
+use bevy_math::{Affine3A, Vec3};
 use bevy_render::{
     extract_instances::ExtractInstance,
     render_asset::RenderAssets,
@@ -246,7 +247,7 @@ impl LightProbeComponent for EnvironmentMapLight {
     // view.
     type ViewLightProbeInfo = EnvironmentMapViewLightProbeInfo;
 
-    type QueryData = Has<NoParallaxCorrection>;
+    type QueryData = Option<Read<ParallaxCorrection>>;
 
     fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
         if image_assets.get(&self.diffuse_map).is_none()
@@ -267,13 +268,15 @@ impl LightProbeComponent for EnvironmentMapLight {
 
     fn flags(
         &self,
-        no_parallax_correction: <Self::QueryData as QueryData>::Item<'_, '_>,
+        maybe_parallax_correction: &<Self::QueryData as QueryData>::Item<'_, '_>,
     ) -> RenderLightProbeFlags {
         let mut flags = RenderLightProbeFlags::empty();
         if self.affects_lightmapped_mesh_diffuse {
             flags.insert(RenderLightProbeFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE);
         }
-        if !no_parallax_correction {
+        if maybe_parallax_correction.is_some_and(|parallax_correction| {
+            !matches!(*parallax_correction, ParallaxCorrection::None)
+        }) {
             flags.insert(RenderLightProbeFlags::ENABLE_PARALLAX_CORRECTION);
         }
         flags
@@ -315,6 +318,22 @@ impl LightProbeComponent for EnvironmentMapLight {
         };
 
         render_view_light_probes
+    }
+
+    fn get_world_from_light_matrix(&self, original_transform: &Affine3A) -> Affine3A {
+        // Take the `rotation` field into account.
+        *original_transform * Affine3A::from_quat(self.rotation)
+    }
+
+    fn parallax_correction_bounds(
+        &self,
+        maybe_parallax_correction: &<Self::QueryData as QueryData>::Item<'_, '_>,
+    ) -> Vec3 {
+        match *maybe_parallax_correction {
+            Some(&ParallaxCorrection::Custom(bounds)) => bounds,
+            Some(&ParallaxCorrection::Auto) => Vec3::splat(0.5),
+            Some(&ParallaxCorrection::None) | None => Vec3::ZERO,
+        }
     }
 }
 
