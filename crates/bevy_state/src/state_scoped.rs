@@ -63,18 +63,22 @@ use crate::state::{StateTransitionEvent, States};
 /// See also [`DespawnOnExit`] and [`DespawnOnEnter`].
 #[derive(Component)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
-pub struct DespawnWhen<S: States>(
-    pub Box<dyn Fn(&StateTransitionEvent<S>) -> bool + Sync + Send + 'static>,
-);
+pub struct DespawnWhen<S: States> {
+    /// The predicate that is ran when message [`StateTransitionEvent<S>`] is sent.
+    pub state_transition_evaluator:
+        Box<dyn Fn(&StateTransitionEvent<S>) -> bool + Sync + Send + 'static>,
+}
 
 impl<S: States> DespawnWhen<S> {
     /// Creates a [`DespawnWhen`] for the given predicate.
     pub fn new(f: impl Fn(&StateTransitionEvent<S>) -> bool + Sync + Send + 'static) -> Self {
-        Self(Box::new(f))
+        Self {
+            state_transition_evaluator: Box::new(f),
+        }
     }
 }
 
-/// Despawns entities marked with [`DespawnWhen<S>`] when the state transition event matches their
+/// Despawns entities marked with [`DespawnWhen<S>`] when the state transition message matches their
 /// predicate.
 ///
 /// If the entity has already been despawned no warning will be emitted.
@@ -93,7 +97,7 @@ pub fn despawn_entities_when_state<S: States>(
         return;
     }
     for (entity, when) in &query {
-        if when.0(transition) {
+        if (when.state_transition_evaluator)(transition) {
             commands.entity(entity).try_despawn();
         }
     }
