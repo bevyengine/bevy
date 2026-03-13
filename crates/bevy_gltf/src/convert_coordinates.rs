@@ -547,7 +547,7 @@ impl SemanticsConversion {
 /// This is effectively a rotation, but is usually faster and more accurate than
 /// rotating by a matrix or quaternion. It can also convert scales.
 ///
-/// The behaviour of the conversion can be unintuitive. If the source semantics
+/// The behavior of the conversion can be unintuitive. If the source semantics
 /// are "+X forward" and the target semantics are "+Z forward", then converting
 /// `Vec3::X` will *not* return `Vec3::Z`. Instead the reverse happens -
 /// converting `Vec3::Z` will return `Vec3::X`.
@@ -753,7 +753,7 @@ impl RotationConverter {
 /// S--z
 /// ```
 ///
-/// Conceptually, the scenes has the following hierarchy:
+/// Conceptually, the scene has the following hierarchy:
 ///
 /// - Scene.
 ///   - Mesh.
