@@ -112,7 +112,7 @@ impl Plugin for DeferredPbrLightingPlugin {
             )
             .add_systems(
                 Render,
-                (prepare_deferred_lighting_pipelines.in_set(RenderSystems::Prepare),),
+                prepare_deferred_lighting_pipelines.in_set(RenderSystems::Prepare),
             )
             .add_systems(
                 Core3d,
