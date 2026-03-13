@@ -917,7 +917,7 @@ impl Allocator {
 
     /// The total number of indices given out.
     #[inline]
-    fn total_entity_indices(&self) -> u32 {
+    pub(super) fn total_entity_indices(&self) -> u32 {
         self.shared.fresh.total_entity_indices()
     }
 
@@ -930,7 +930,7 @@ impl Allocator {
 
     /// Flushes the [`local_free`](Self::local_free) list to the shared allocator.
     #[inline]
-    fn flush_freed(&mut self) {
+    pub(super) fn flush_freed(&mut self) {
         // SAFETY: We have `&mut self`.
         unsafe {
             self.shared.free.free(self.local_free.as_slice());

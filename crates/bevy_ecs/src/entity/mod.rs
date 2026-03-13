@@ -725,6 +725,18 @@ impl EntityAllocator {
         allocator.is_connected_to(&self.inner)
     }
 
+    /// The total number of indices given out.
+    pub fn total_entity_indices(&self) -> u32 {
+        self.inner.total_entity_indices()
+    }
+
+    /// Flushes the entities that have been freed locally into the full allocator.
+    /// This is not public because it is subject to change.
+    /// It is sometimes useful to call this for tests that depend on the entity allocator behaving more predictably.
+    pub(crate) fn flush_freed(&mut self) {
+        self.inner.flush_freed()
+    }
+
     /// This allows `freed` to be retrieved from [`alloc`](Self::alloc), etc.
     /// Freeing an [`Entity`] such that one [`EntityIndex`] is in the allocator in multiple places can cause panics when spawning the allocated entity.
     /// Additionally, to differentiate versions of an [`Entity`], updating the [`EntityGeneration`] before freeing is a good idea
