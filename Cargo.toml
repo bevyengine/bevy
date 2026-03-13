@@ -4711,7 +4711,7 @@ doc-scrape-examples = true
 name = "Depth of field"
 description = "Demonstrates depth of field"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "volumetric_fog"
