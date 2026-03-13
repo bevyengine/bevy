@@ -57,6 +57,12 @@ pub trait ConditionalSendFuture: Future + ConditionalSend {}
 
 impl<T: Future + ConditionalSend> ConditionalSendFuture for T {}
 
+/// Use [`ConditionalSendStream`] for a stream with an optional Send trait bound, as on certain platforms (eg. Wasm),
+/// futures aren't Send.
+pub trait ConditionalSendStream: Stream + ConditionalSend {}
+
+impl<T: Stream + ConditionalSend> ConditionalSendStream for T {}
+
 use alloc::boxed::Box;
 
 /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
@@ -76,6 +82,7 @@ cfg::async_executor! {
     }
 }
 
+use futures_lite::Stream;
 // Exports
 pub use iter::ParallelIterator;
 pub use slice::{ParallelSlice, ParallelSliceMut};
