@@ -22,7 +22,7 @@ use bevy_app::{App, Plugin, PreUpdate};
 
 use crate::{
     renderer::{PendingCommandBuffers, RenderGraph, RenderGraphSystems},
-    RenderApp,
+    GpuResourceAppExt, RenderApp,
 };
 
 use self::internal::{sync_diagnostics, Pass, RenderDiagnosticsMutex, WriteTimestamp};
@@ -79,7 +79,7 @@ impl Plugin for RenderDiagnosticsPlugin {
             return;
         };
 
-        render_app.init_resource::<DiagnosticsRecorder>();
+        render_app.init_gpu_resource::<DiagnosticsRecorder>();
 
         render_app.add_systems(
             RenderGraph,
