@@ -558,7 +558,7 @@ impl SemanticsConversion {
 /// we're rotating it so that the new +Z forward axis is the same direction as
 /// the old +X forward axis.
 ///
-/// ```ignore
+/// ```text
 ///                 Before            After
 ///     ^
 ///     |            x                   z
@@ -722,7 +722,7 @@ impl RotationConverter {
 /// mesh represent mesh-space, and the axes in the bottom left represent
 /// scene-space.
 ///
-/// ```ignore
+/// ```text
 ///        +-----------+
 ///        |           +-+
 ///        |      x      |
@@ -739,7 +739,7 @@ impl RotationConverter {
 /// can be done by rotating the mesh 90 degrees counter-clockwise, then
 /// rotating its vertices 90 degrees clockwise.
 ///
-/// ```ignore
+/// ```text
 ///          Before                   Rotate Mesh        Counter-Rotate Vertices
 ///
 ///        +-----------+              +-----------+          +-----------+
@@ -798,7 +798,7 @@ impl RotationConverter {
 /// where A is the parent of B, and we want to convert the semantics of both A
 /// and B from +X forward to +Z forward. The conversion should look like this:
 ///
-/// ```ignore
+/// ```text
 ///          Before                After
 ///
 ///                x                       z
@@ -823,7 +823,7 @@ impl RotationConverter {
 ///
 /// Applying these step by step, we get:
 ///
-/// ```ignore
+/// ```text
 ///                Before                     Apply A's conversion to A
 ///
 ///                         x                      z
