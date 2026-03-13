@@ -463,10 +463,21 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
                     fn iter_access(
                         _state: &Self::State,
-                    ) -> impl core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
-                        core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
+                    ) -> impl ::core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
+                        ::core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
                     }
                 }
+
+                // SAFETY: Access is read-only
+                unsafe impl #user_impl_generics #path::query::IterQueryData
+                for #read_only_struct_name #user_ty_generics #user_where_clauses {}
+
+                // SAFETY: All fields only access the current entity
+                unsafe impl #user_impl_generics #path::query::SingleEntityQueryData
+                for #read_only_struct_name #user_ty_generics #user_where_clauses
+                // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+                // See https://github.com/rust-lang/rust/issues/48214
+                where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::SingleEntityQueryData>,)* {}
 
                 impl #user_impl_generics #path::query::ReleaseStateQueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses
@@ -534,10 +545,24 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
                 fn iter_access(
                     _state: &Self::State,
-                ) -> impl core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
-                    core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
+                ) -> impl ::core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
+                    ::core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
                 }
             }
+
+            // SAFETY: All fields are iterable
+            unsafe impl #user_impl_generics #path::query::IterQueryData
+            for #struct_name #user_ty_generics #user_where_clauses
+            // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+            // See https://github.com/rust-lang/rust/issues/48214
+            where #(for<'__a> #field_types: #path::query::IterQueryData,)* {}
+
+            // SAFETY: All fields only access the current entity
+            unsafe impl #user_impl_generics #path::query::SingleEntityQueryData
+            for #struct_name #user_ty_generics #user_where_clauses
+            // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+            // See https://github.com/rust-lang/rust/issues/48214
+            where #(for<'__a> #field_types: #path::query::SingleEntityQueryData,)* {}
 
             impl #user_impl_generics #path::query::ReleaseStateQueryData
             for #struct_name #user_ty_generics #user_where_clauses

@@ -584,15 +584,14 @@ pub fn scene_spawner_system(world: &mut World) {
                 AssetEvent::Added { id } => {
                     scene_spawner.debounced_scene_asset_events.insert(*id, 0);
                 }
-                AssetEvent::Modified { id } => {
+                AssetEvent::Modified { id }
                     if scene_spawner
                         .debounced_scene_asset_events
                         .insert(*id, 0)
                         .is_none()
-                        && scene_spawner.spawned_scenes.contains_key(id)
-                    {
-                        updated_spawned_scenes.push(*id);
-                    }
+                        && scene_spawner.spawned_scenes.contains_key(id) =>
+                {
+                    updated_spawned_scenes.push(*id);
                 }
                 _ => {}
             }
@@ -608,15 +607,14 @@ pub fn scene_spawner_system(world: &mut World) {
                         .debounced_dynamic_scene_asset_events
                         .insert(*id, 0);
                 }
-                AssetEvent::Modified { id } => {
+                AssetEvent::Modified { id }
                     if scene_spawner
                         .debounced_dynamic_scene_asset_events
                         .insert(*id, 0)
                         .is_none()
-                        && scene_spawner.spawned_dynamic_scenes.contains_key(id)
-                    {
-                        updated_spawned_dynamic_scenes.push(*id);
-                    }
+                        && scene_spawner.spawned_dynamic_scenes.contains_key(id) =>
+                {
+                    updated_spawned_dynamic_scenes.push(*id);
                 }
                 _ => {}
             }
@@ -717,7 +715,7 @@ mod tests {
         component::Component,
         hierarchy::Children,
         observer::On,
-        prelude::ReflectComponent,
+        prelude::{ReflectComponent, ReflectResource},
         query::With,
         system::{Commands, Query, Res, ResMut, RunSystemOnce},
     };
@@ -748,6 +746,7 @@ mod tests {
         app.add_plugins(ScheduleRunnerPlugin::default())
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin);
+        app.register_type::<ComponentA>();
         app.update();
 
         let mut scene_world = World::new();
@@ -856,7 +855,8 @@ mod tests {
     #[reflect(Component)]
     struct ComponentF;
 
-    #[derive(Resource, Default)]
+    #[derive(Resource, Default, Reflect)]
+    #[reflect(Resource)]
     struct TriggerCount(u32);
 
     fn setup() -> App {
@@ -1070,6 +1070,8 @@ mod tests {
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin)
             .register_type::<ComponentA>()
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
             .register_type::<ComponentF>();
         app.update();
 

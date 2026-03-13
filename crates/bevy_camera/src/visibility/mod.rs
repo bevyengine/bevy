@@ -29,6 +29,13 @@ use crate::{
 };
 use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d};
 
+/// Use this component to opt-out of the built-in CPU frustum culling, see
+/// [`Frustum`]. This can be attached to a [`Camera`] or to individual entities.
+///
+/// It can be used for example:
+/// - disabling CPU culling completely for a [`Camera`], using only GPU culling.
+/// - when overwriting a [`Mesh`]'s transform on the GPU side (e.g. overwriting `MeshInputUniform`'s
+///   `world_from_local`), resulting in stale CPU-side positions.
 #[derive(Component, Default)]
 pub struct NoCpuCulling;
 
@@ -340,11 +347,31 @@ impl VisibleEntities {
 ///
 /// This component contains all mesh entities visible from the current light view.
 /// The collection is updated automatically by `bevy_pbr::SimulationLightSystems`.
-#[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct VisibleMeshEntities {
     #[reflect(ignore, clone)]
     pub entities: Vec<Entity>,
+}
+
+impl VisibleMeshEntities {
+    /// Resizes the entity vector so that its capacity isn't too much higher
+    /// than its size.
+    pub fn shrink(&mut self) {
+        // Check that visible entities capacity() is no more than two times greater than len()
+        let capacity = self.entities.capacity();
+        let reserved = capacity
+            .checked_div(self.entities.len())
+            .map_or(0, |reserve| {
+                if reserve > 2 {
+                    capacity / (reserve / 2)
+                } else {
+                    capacity
+                }
+            });
+
+        self.entities.shrink_to(reserved);
+    }
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
@@ -650,15 +677,17 @@ pub fn check_visibility(
         Option<&VisibilityClass>,
         Option<&RenderLayers>,
         Option<&Aabb>,
+        Option<&Sphere>,
         &GlobalTransform,
         Has<NoFrustumCulling>,
         Has<VisibilityRange>,
+        Has<NoCpuCulling>,
     )>,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
-    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
+    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling_camera) in
         &mut view_query
     {
         if !camera.is_active {
@@ -677,9 +706,11 @@ pub fn check_visibility(
                     visibility_class,
                     maybe_entity_mask,
                     maybe_model_aabb,
+                    maybe_model_sphere,
                     transform,
                     no_frustum_culling,
                     has_visibility_range,
+                    no_cpu_culling_entity,
                 ) = query_item;
 
                 // Skip computing visibility for entities that are configured to be hidden.
@@ -702,22 +733,26 @@ pub fn check_visibility(
                     return;
                 }
 
-                // If we have an aabb, do frustum culling
-                if !no_frustum_culling
-                    && !no_cpu_culling
-                    && let Some(model_aabb) = maybe_model_aabb
-                {
-                    let world_from_local = transform.affine();
-                    let model_sphere = Sphere {
-                        center: world_from_local.transform_point3a(model_aabb.center),
-                        radius: transform.radius_vec3a(model_aabb.half_extents),
-                    };
-                    // Do quick sphere-based frustum culling
-                    if !frustum.intersects_sphere(&model_sphere, false) {
-                        return;
-                    }
-                    // Do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                // If we have an aabb or a bounding sphere, do frustum culling
+                if !no_frustum_culling && !no_cpu_culling_camera && !no_cpu_culling_entity {
+                    if let Some(model_aabb) = maybe_model_aabb {
+                        let world_from_local = transform.affine();
+                        let model_sphere = Sphere {
+                            center: world_from_local.transform_point3a(model_aabb.center),
+                            radius: transform.radius_vec3a(model_aabb.half_extents),
+                        };
+                        // Do quick sphere-based frustum culling
+                        if !frustum.intersects_sphere(&model_sphere, false) {
+                            return;
+                        }
+                        // Do aabb-based frustum culling
+                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                            return;
+                        }
+                    } else if let Some(model_sphere) = maybe_model_sphere
+                        && !frustum.intersects_sphere(model_sphere, false)
+                    {
+                        // Do sphere-based frustum culling in this case
                         return;
                     }
                 }
@@ -744,6 +779,12 @@ pub fn check_visibility(
             for (class, entities) in class_queues {
                 visible_entities.get_mut(*class).append(entities);
             }
+        }
+
+        // The list must be sorted in order for the O(n) diffing algorithm that
+        // visibility determination uses to work, so do that now.
+        for visible_entities in visible_entities.entities.values_mut() {
+            visible_entities.sort_unstable();
         }
     }
 }

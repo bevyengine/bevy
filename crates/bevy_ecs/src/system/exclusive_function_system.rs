@@ -15,7 +15,7 @@ use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
-use super::{RunSystemError, SystemParamValidationError, SystemStateFlags};
+use super::{RunSystemError, SystemStateFlags};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -117,7 +117,7 @@ where
             let params = F::Param::get_param(
                 self.param_state.as_mut().expect(PARAM_MESSAGE),
                 &self.system_meta,
-            );
+            )?;
 
             #[cfg(feature = "hotpatching")]
             let out = {
@@ -164,15 +164,6 @@ where
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system
         // might have buffers to apply, but this is handled by `PipeSystem`.
-    }
-
-    #[inline]
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        _world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // All exclusive system params are always available.
-        Ok(())
     }
 
     #[inline]

@@ -28,6 +28,9 @@ mod atmosphere;
 mod cluster;
 mod components;
 pub mod contact_shadows;
+#[cfg(feature = "bevy_gltf")]
+mod gltf;
+use bevy_render::sync_component::SyncComponent;
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -55,10 +58,7 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
-use bevy_light::{
-    AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SimulationLightSystems,
-    SpotLight,
-};
+use bevy_light::{AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SpotLight};
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use components::*;
@@ -96,7 +96,8 @@ pub mod prelude {
     };
 }
 
-use crate::deferred::DeferredPbrLightingPlugin;
+use crate::gpu::GpuClusteringPlugin;
+use crate::{deferred::DeferredPbrLightingPlugin, gpu::extract_clusters_for_gpu_clustering};
 use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
@@ -140,6 +141,8 @@ pub struct PbrPlugin {
     pub use_gpu_instance_buffer_builder: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
+    /// Builds and inserts `StandardMaterial` when loading glTF files
+    pub gltf_enable_standard_materials: bool,
 }
 
 impl Default for PbrPlugin {
@@ -149,6 +152,7 @@ impl Default for PbrPlugin {
             add_default_deferred_lighting_plugin: true,
             use_gpu_instance_buffer_builder: true,
             debug_flags: RenderDebugFlags::default(),
+            gltf_enable_standard_materials: true,
         }
     }
 }
@@ -201,7 +205,7 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceAmbientOcclusionPlugin,
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
-                SyncComponentPlugin::<ShadowFilteringMethod>::default(),
+                SyncComponentPlugin::<ShadowFilteringMethod, Self>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
                 GpuMeshPreprocessPlugin {
@@ -215,20 +219,21 @@ impl Plugin for PbrPlugin {
             ))
             .add_plugins((
                 decal::ForwardDecalPlugin,
-                SyncComponentPlugin::<DirectionalLight>::default(),
-                SyncComponentPlugin::<PointLight>::default(),
-                SyncComponentPlugin::<SpotLight>::default(),
-                SyncComponentPlugin::<AmbientLight>::default(),
+                SyncComponentPlugin::<DirectionalLight, Self>::default(),
+                SyncComponentPlugin::<PointLight, Self>::default(),
+                SyncComponentPlugin::<SpotLight, Self>::default(),
+                SyncComponentPlugin::<AmbientLight, Self>::default(),
             ))
-            .add_plugins((ScatteringMediumPlugin, AtmospherePlugin))
-            .configure_sets(
-                PostUpdate,
-                (
-                    SimulationLightSystems::AddClusters,
-                    SimulationLightSystems::AssignLightsToClusters,
-                )
-                    .chain(),
-            );
+            .add_plugins((
+                ScatteringMediumPlugin,
+                AtmospherePlugin,
+                GpuClusteringPlugin,
+            ));
+
+        #[cfg(feature = "bevy_gltf")]
+        if self.gltf_enable_standard_materials {
+            gltf::add_gltf(app);
+        }
 
         if self.add_default_deferred_lighting_plugin {
             app.add_plugins(DeferredPbrLightingPlugin);
@@ -293,7 +298,15 @@ impl Plugin for PbrPlugin {
             .add_systems(
                 ExtractSchedule,
                 (
-                    extract_clusters,
+                    extract_clusters_for_cpu_clustering
+                        .run_if(not(gpu_clustering_is_enabled_during_extraction)),
+                    extract_clusters_for_gpu_clustering
+                        .run_if(gpu_clustering_is_enabled_during_extraction),
+                ),
+            )
+            .add_systems(
+                ExtractSchedule,
+                (
                     extract_lights,
                     extract_ambient_light_resource,
                     extract_ambient_light,
@@ -305,13 +318,14 @@ impl Plugin for PbrPlugin {
                 Render,
                 (
                     prepare_lights
-                        .in_set(RenderSystems::ManageViews)
+                        .in_set(RenderSystems::CreateViews)
                         .after(sort_cameras),
-                    prepare_clusters.in_set(RenderSystems::PrepareResources),
+                    prepare_clusters_for_cpu_clustering.in_set(RenderSystems::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>()
-            .init_resource::<RenderMaterialBindings>();
+            .init_resource::<RenderMaterialBindings>()
+            .allow_ambiguous_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
         render_app
@@ -365,4 +379,20 @@ pub fn stbn_placeholder() -> Image {
         asset_usage: RenderAssetUsages::RENDER_WORLD,
         copy_on_resize: false,
     }
+}
+
+impl SyncComponent<PbrPlugin> for DirectionalLight {
+    type Out = Self;
+}
+impl SyncComponent<PbrPlugin> for PointLight {
+    type Out = Self;
+}
+impl SyncComponent<PbrPlugin> for SpotLight {
+    type Out = Self;
+}
+impl SyncComponent<PbrPlugin> for AmbientLight {
+    type Out = Self;
+}
+impl SyncComponent<PbrPlugin> for ShadowFilteringMethod {
+    type Out = Self;
 }

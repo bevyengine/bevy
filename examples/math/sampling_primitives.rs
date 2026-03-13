@@ -9,8 +9,8 @@ use bevy::{
     post_process::bloom::Bloom,
     prelude::*,
 };
-use rand::{seq::IndexedRandom, Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{seq::IndexedRandom, RngExt, SeedableRng};
 
 fn main() {
     App::new()
@@ -174,7 +174,7 @@ impl Shape {
 
 impl ShapeSample for Shape {
     type Output = Vec3;
-    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
+    fn sample_interior<R: RngExt + ?Sized>(&self, rng: &mut R) -> Vec3 {
         match self {
             Shape::Cuboid => CUBOID.sample_interior(rng),
             Shape::Sphere => SPHERE.sample_interior(rng),
@@ -185,7 +185,7 @@ impl ShapeSample for Shape {
         }
     }
 
-    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+    fn sample_boundary<R: RngExt + ?Sized>(&self, rng: &mut R) -> Self::Output {
         match self {
             Shape::Cuboid => CUBOID.sample_boundary(rng),
             Shape::Sphere => SPHERE.sample_boundary(rng),

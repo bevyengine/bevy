@@ -21,7 +21,11 @@ struct MeshInput {
     timestamp: u32,
     // User supplied index to identify the mesh instance
     tag: u32,
-    pad: u32,
+    // The index of the morph descriptor for this mesh instance in the
+    // `morph_descriptors` table.
+    //
+    // If the mesh has no morph targets, this is `u32::MAX`.
+    morph_descriptor_index: u32,
     // AABB for decompressing positions.
     aabb_center: vec3<f32>,
     pad2_: u32,
