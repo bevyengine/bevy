@@ -68,7 +68,7 @@ impl<'w, 's, M: Message> MessageMutator<'w, 's, M> {
         self.reader.read_mut(&mut self.messages)
     }
 
-    /// Like [`read`](Self::read), except also returning the [`MessageId`](super::MessageId) of the messages.
+    /// Like [`read`](Self::read), except also returning the [`MessageId`] of the messages.
     pub fn read_with_id(&mut self) -> MessageMutIteratorWithId<'_, M> {
         self.reader.read_mut_with_id(&mut self.messages)
     }
