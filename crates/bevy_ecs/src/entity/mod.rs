@@ -733,8 +733,9 @@ impl EntityAllocator {
     /// Flushes the entities that have been freed locally into the full allocator.
     /// This is not public because it is subject to change.
     /// It is sometimes useful to call this for tests that depend on the entity allocator behaving more predictably.
+    #[cfg(test)]
     pub(crate) fn flush_freed(&mut self) {
-        self.inner.flush_freed()
+        self.inner.flush_freed();
     }
 
     /// This allows `freed` to be retrieved from [`alloc`](Self::alloc), etc.
