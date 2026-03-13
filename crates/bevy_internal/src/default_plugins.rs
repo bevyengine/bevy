@@ -88,6 +88,9 @@ plugin_group! {
         #[cfg(feature = "hotpatching")]
         bevy_app::hotpatch:::HotPatchPlugin,
         #[plugin_group]
+        #[cfg(feature = "bevy_ui_widgets")]
+        bevy_ui_widgets:::UiWidgetsPlugins,
+        #[plugin_group]
         #[cfg(feature = "bevy_picking")]
         bevy_picking:::DefaultPickingPlugins,
         #[doc(hidden)]

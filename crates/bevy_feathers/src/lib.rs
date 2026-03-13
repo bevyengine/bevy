@@ -23,11 +23,10 @@ use bevy_app::{
 };
 use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
-use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin};
+use bevy_input_focus::tab_navigation::TabNavigationPlugin;
 use bevy_text::{TextColor, TextFont};
 use bevy_ui::UiSystems;
 use bevy_ui_render::UiMaterialPlugin;
-use bevy_ui_widgets::UiWidgetsPlugins;
 
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
@@ -101,8 +100,6 @@ pub struct FeathersPlugins;
 impl PluginGroup for FeathersPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add_group(UiWidgetsPlugins)
-            .add(InputDispatchPlugin)
             .add(TabNavigationPlugin)
             .add(FeathersPlugin)
     }
