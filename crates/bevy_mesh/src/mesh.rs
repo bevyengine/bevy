@@ -280,7 +280,6 @@ bitflags::bitflags! {
     #[reflect(opaque)]
     #[reflect(Hash, Clone, PartialEq, Debug)]
     pub struct MeshAttributeCompressionFlags: u8 {
-        const COMPRESS_NONE = 0;
         const COMPRESS_POSITION = 1 << 0;
         const COMPRESS_NORMAL = 1 << 1;
         const COMPRESS_TANGENT = 1 << 2;
@@ -297,12 +296,6 @@ impl MeshAttributeCompressionFlags {
     const COMPRESS_COLOR_MASK_BIT: u8 = 0b11;
     const COMPRESS_COLOR_SHIFT_BIT: u8 =
         Self::COMPRESS_JOINT_WEIGHT.bits().trailing_zeros() as u8 + 1;
-}
-
-impl Default for MeshAttributeCompressionFlags {
-    fn default() -> Self {
-        Self::COMPRESS_NONE
-    }
 }
 
 impl Mesh {
@@ -394,7 +387,7 @@ impl Mesh {
             morph_target_names: MeshExtractableData::NoData,
             asset_usage,
             enable_raytracing: true,
-            attribute_compression: MeshAttributeCompressionFlags::default(),
+            attribute_compression: MeshAttributeCompressionFlags::empty(),
             final_aabb: None,
             skinned_mesh_bounds: None,
         }

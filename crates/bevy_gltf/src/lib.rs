@@ -251,7 +251,7 @@ impl Default for GltfPlugin {
             custom_vertex_attributes: HashMap::default(),
             convert_coordinates: GltfConvertCoordinates::default(),
             skinned_mesh_bounds_policy: Default::default(),
-            mesh_attribute_compression: MeshAttributeCompressionFlags::default(),
+            mesh_attribute_compression: MeshAttributeCompressionFlags::empty(),
             mesh_index_compression: false,
         }
     }
