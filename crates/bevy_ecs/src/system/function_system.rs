@@ -188,7 +188,33 @@ impl SystemMeta {
 /// // If you are using `Commands`, you can choose when you want to apply them to the world.
 /// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
 /// ```
-/// Caching:
+/// Caching with exclusive systems (preferred):
+///
+/// The easiest way to cache a `SystemState` is to use it as a parameter in an exclusive system.
+/// Since [`ExclusiveSystemParam`] is implemented for `&mut SystemState<P>`, the ECS will
+/// automatically create and cache the `SystemState` for you:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::SystemState;
+/// #
+/// # #[derive(Message)]
+/// # struct MyMessage;
+/// #
+/// fn exclusive_system(world: &mut World, system_state: &mut SystemState<MessageReader<MyMessage>>) {
+///     let mut message_reader = system_state.get_mut(world).unwrap();
+///
+///     for message in message_reader.read() {
+///         println!("Hello World!");
+///     }
+/// }
+/// ```
+///
+/// Manual caching:
+///
+/// If you need to cache a `SystemState` outside of an exclusive system (for example, in a
+/// resource), you can create and store it manually:
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
@@ -219,22 +245,6 @@ impl SystemMeta {
 ///         println!("Hello World!");
 ///     }
 /// });
-/// ```
-/// Exclusive System:
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::system::SystemState;
-/// #
-/// # #[derive(Message)]
-/// # struct MyMessage;
-/// #
-/// fn exclusive_system(world: &mut World, system_state: &mut SystemState<MessageReader<MyMessage>>) {
-///     let mut message_reader = system_state.get_mut(world).unwrap();
-///
-///     for message in message_reader.read() {
-///         println!("Hello World!");
-///     }
-/// }
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
