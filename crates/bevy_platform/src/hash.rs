@@ -114,6 +114,31 @@ impl<V: Copy, H> Copy for Hashed<V, H> {}
 
 impl<V: Eq, H> Eq for Hashed<V, H> {}
 
+#[cfg(feature = "serialize")]
+const _: () = {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    impl<V: Serialize, H> Serialize for Hashed<V, H> {
+        #[inline]
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            self.value.serialize(serializer)
+        }
+    }
+
+    impl<'de, V: Hash + Deserialize<'de>, H: BuildHasher + Default> Deserialize<'de> for Hashed<V, H> {
+        #[inline]
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            V::deserialize(deserializer).map(Self::new)
+        }
+    }
+};
+
 /// A [`BuildHasher`] that results in a [`PassHasher`].
 #[derive(Default, Clone)]
 pub struct PassHash;
@@ -182,5 +207,46 @@ impl Hasher for NoOpHasher {
     #[inline]
     fn write_u64(&mut self, i: u64) {
         self.0 = i;
+    }
+}
+
+#[cfg(all(test, feature = "serialize"))]
+mod serde_tests {
+    use serde_json::{from_value, to_value};
+
+    use crate::collections::HashMap;
+
+    use super::*;
+
+    #[test]
+    fn test_serde_hashed() {
+        let value = Hashed::<_, FixedHasher>::new((1, 2));
+
+        let serialized = to_value(value).unwrap();
+        assert_eq!(to_value((1, 2)).unwrap(), serialized);
+
+        let deserialized: Hashed<_, FixedHasher> = from_value(serialized).unwrap();
+        assert_eq!(deserialized, value);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn test_serde_hashed_map() {
+        use alloc::string::String;
+
+        type StringIntMap = HashMap<Hashed<String, FixedHasher>, i32, PassHash>;
+
+        let mut map = StringIntMap::default();
+        map.insert(Hashed::new("abc".into()), 1);
+        map.insert(Hashed::new("def".into()), 2);
+
+        let serialized = to_value(&map).unwrap();
+        let serialized_map = serialized.as_object().unwrap();
+        assert_eq!(serialized_map.len(), 2);
+        assert_eq!(serialized_map.get("abc"), Some(&1.into()));
+        assert_eq!(serialized_map.get("def"), Some(&2.into()));
+
+        let deserialized: StringIntMap = from_value(serialized).unwrap();
+        assert_eq!(deserialized, map);
     }
 }
