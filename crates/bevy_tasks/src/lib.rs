@@ -138,3 +138,106 @@ pub fn available_parallelism() -> usize {
         }
     }}
 }
+
+/// Represents different priority levels that can be assigned to a thread.
+///
+/// These priority levels are hints to the operating system’s scheduler. The actual behavior can vary based on the OS,
+/// system load, and other factors.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub enum ThreadPriority {
+    /// Background priority: For tasks that should only run when CPU is idle.
+    ///
+    /// # Platform Specifc Behavior
+    ///
+    ///  * **Linux:** Typically uses `SCHED_OTHER` policy with a high `nice` value (e.g., 19).
+    Background,
+    /// Lowest priority: For tasks that are not time-sensitive but more important than background.
+    ///
+    /// # Platform Specifc Behavior
+    ///
+    ///  * **Linux:** Typically uses `SCHED_OTHER` with a `nice` value (e.g., 15).
+    Lowest,
+    /// Below normal priority: For tasks that are less critical than normal operations.
+    ///
+    /// # Platform Specifc Behavior
+    ///
+    ///  * **Linux:** Typically uses `SCHED_OTHER` with a `nice` value (e.g., 10).
+    BelowNormal,
+    /// Normal priority: The default priority for most threads.
+    ///
+    /// # Platform Specifc Behavior
+    ///
+    ///  * **Linux:** Typically uses SCHED_OTHER with a `nice` value of 0.
+    ///    spikes under heavy load.
+    #[default]
+    Normal,
+    /// Above normal priority: For tasks that are more important than normal but not critical.
+    ///
+    /// # Platform Specifc Behavior
+    ///
+    ///  *  **Linux:** Typically uses `SCHED_OTHER` with a negative `nice` value (e.g., -5).
+    AboveNormal,
+    /// Highest priority: For critical tasks that are deadline-sensitive.
+    ///
+    /// # Platform Specifc Behavior
+    ///
+    ///  * **General:** Often maps to a real-time scheduling policy.
+    ///  * **Linux:** Typically maps to `SCHED_RR` (Round Robin) with a high real-time priority.
+    ///    Requires `CAP_SYS_NICE` capability or root privileges.
+    Highest,
+    /// Realtime priority: For extremely sensitive tasks requiring minimum latency.
+    ///
+    /// **Use with extreme caution.** This level gives threads the highest possible precedence and can potentially
+    /// starve other system processes if not managed carefully.
+    ///
+    /// # Platform Specifc Behavior
+    ///
+    /// * **General:** Maps to the highest available real-time scheduling priority.
+    /// * **Linux:* Typically maps to `SCHED_RR` with a very high (often maximum) real-time priority.
+    ///   Requires CAP_SYS_NICE capability or root privileges.
+    Realtime,
+}
+
+/// Errors from [`set_thread_priority`].
+pub enum ThreadPriorityError {
+    /// The thread priority is not supported on this platform.
+    UnsupportedPlatform,
+    /// The current execution context does not have the permissoins to use this thread priority.
+    PermissionDenied,
+    /// An unknown, platform-specific error occured.
+    Unknown,
+}
+
+/// Sets the priority of the current thread.
+///
+/// This affectss how regularly the OS scheduler will preemptively interrupt the current thread to allow other threads
+/// and processes to use the CPU.
+///
+/// The interpretation of priority levels can vary between operating systems. Refer to the `ThreadPriority` enum for available levels.
+///
+/// # Platform Specific Behavior
+/// This will always return `ThreadPriority::UnsupportedPlatform` in web builds.
+pub fn set_thread_priority(thread_priority: ThreadPriority) -> Result<(), ThreadPriorityError> {
+    crate::cfg::web! {
+        if {
+            Err(ThreadPriorityError::UnsupportedPlatform)
+        } else {
+            let gdt_priority = match thread_priority {
+                ThreadPriority::Background => gdt_cpus::ThreadPriority::Background,
+                ThreadPriority::Lowest => gdt_cpus::ThreadPriority::Lowest,
+                ThreadPriority::BelowNormal => gdt_cpus::ThreadPriority::BelowNormal,
+                ThreadPriority::Normal => gdt_cpus::ThreadPriority::Normal,
+                ThreadPriority::AboveNormal => gdt_cpus::ThreadPriority::AboveNormal,
+                ThreadPriority::Highest => gdt_cpus::ThreadPriority::Highest,
+                ThreadPriority::Realtime => gdt_cpus::ThreadPriority::TimeCritical,
+            };
+
+            Err(match gdt_cpus::set_thread_priority(gdt_priority) {
+                Ok(()) => return Ok(()),
+                Err(gdt_cpus::Error::Unsupported(_)) => ThreadPriorityError::UnsupportedPlatform,
+                Err(gdt_cpus::Error::PermissionDenied(_)) => ThreadPriorityError::PermissionDenied,
+                _ => ThreadPriorityError::Unknown,
+            })
+        }
+    }
+}
