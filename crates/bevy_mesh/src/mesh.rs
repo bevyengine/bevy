@@ -15,7 +15,11 @@ use crate::morph::MorphAttributes;
 use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, RenderAssetUsages};
-use bevy_math::{bounding::Aabb3d, primitives::Triangle3d, *};
+use bevy_math::{
+    bounding::{Aabb2d, Aabb3d},
+    primitives::Triangle3d,
+    *,
+};
 use bevy_platform::collections::{hash_map, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bytemuck::cast_slice;
@@ -1190,7 +1194,7 @@ impl Mesh {
         }
     }
 
-    /// Create a [`Mesh`] with the given compression flags.
+    /// Create a [`Mesh`] with the given compression flags to reduce memory bandwidth on GPU, with the tradeoff of reduced precision of vertex attributes.
     ///
     /// See [`MeshAttributeCompressionFlags`] for more context.
     /// if vertex attributes are already compressed, they are unchanged and won't decompress.
@@ -3437,6 +3441,66 @@ mod tests {
     }
 
     #[test]
+    fn merge_duplicate_vertices() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        // Quad made of two triangles.
+        let positions = vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            // This will be deduplicated.
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            // Position is equal to the first one but UV is different so it won't be deduplicated.
+            [0.0, 0.0, 0.0],
+        ];
+        let uvs = vec![
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
+            // This will be deduplicated.
+            [1.0, 1.0],
+            [0.0, 1.0],
+            // Use different UV here so it won't be deduplicated.
+            [0.0, 0.5],
+        ];
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            VertexAttributeValues::Float32x3(positions.clone()),
+        );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_UV_0,
+            VertexAttributeValues::Float32x2(uvs.clone()),
+        );
+
+        let res = mesh.merge_duplicate_vertices();
+        assert!(res.is_ok());
+        assert_eq!(6, mesh.indices().unwrap().len());
+        // Note we have 5 unique vertices, not 6.
+        assert_eq!(5, mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().len());
+        assert_eq!(5, mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap().len());
+
+        // Duplicate back.
+        mesh.duplicate_vertices();
+        assert!(mesh.indices().is_none());
+        let VertexAttributeValues::Float32x3(new_positions) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap()
+        else {
+            panic!("Unexpected attribute type")
+        };
+        let VertexAttributeValues::Float32x2(new_uvs) =
+            mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap()
+        else {
+            panic!("Unexpected attribute type")
+        };
+        assert_eq!(&positions, new_positions);
+        assert_eq!(&uvs, new_uvs);
+    }
+
+    #[test]
     fn compress_mesh() {
         let custom_attr = MeshVertexAttribute::new(
             "custom_attr",
@@ -3593,64 +3657,5 @@ mod tests {
                 [1.0, 0.10998535, 0.13000488, 1.0].map(half::f16::from_f32)
             ]))
         );
-
-    #[test]
-    fn merge_duplicate_vertices() {
-        let mut mesh = Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
-        );
-        // Quad made of two triangles.
-        let positions = vec![
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [1.0, 1.0, 0.0],
-            // This will be deduplicated.
-            [1.0, 1.0, 0.0],
-            [0.0, 1.0, 0.0],
-            // Position is equal to the first one but UV is different so it won't be deduplicated.
-            [0.0, 0.0, 0.0],
-        ];
-        let uvs = vec![
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 1.0],
-            // This will be deduplicated.
-            [1.0, 1.0],
-            [0.0, 1.0],
-            // Use different UV here so it won't be deduplicated.
-            [0.0, 0.5],
-        ];
-        mesh.insert_attribute(
-            Mesh::ATTRIBUTE_POSITION,
-            VertexAttributeValues::Float32x3(positions.clone()),
-        );
-        mesh.insert_attribute(
-            Mesh::ATTRIBUTE_UV_0,
-            VertexAttributeValues::Float32x2(uvs.clone()),
-        );
-
-        let res = mesh.merge_duplicate_vertices();
-        assert!(res.is_ok());
-        assert_eq!(6, mesh.indices().unwrap().len());
-        // Note we have 5 unique vertices, not 6.
-        assert_eq!(5, mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().len());
-        assert_eq!(5, mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap().len());
-
-        // Duplicate back.
-        mesh.duplicate_vertices();
-        assert!(mesh.indices().is_none());
-        let VertexAttributeValues::Float32x3(new_positions) =
-            mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap()
-        else {
-            panic!("Unexpected attribute type")
-        };
-        let VertexAttributeValues::Float32x2(new_uvs) =
-            mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap()
-        else {
-            panic!("Unexpected attribute type")
-        };
-        assert_eq!(&positions, new_positions);
-        assert_eq!(&uvs, new_uvs);
     }
 }

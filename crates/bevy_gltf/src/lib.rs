@@ -240,7 +240,7 @@ pub struct GltfPlugin {
     /// Mesh attribute compression flags for the loaded meshes.
     pub mesh_attribute_compression: MeshAttributeCompressionFlags,
 
-    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices is u32.
+    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
     pub mesh_index_compression: bool,
 }
 

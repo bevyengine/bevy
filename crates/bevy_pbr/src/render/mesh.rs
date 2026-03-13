@@ -601,9 +601,9 @@ pub struct MeshInputUniform {
     pub morph_descriptor_index: u32,
     /// AABB for decompressing positions.
     pub aabb_center: Vec3,
-    pub pad2: u32,
+    pub pad1: u32,
     pub aabb_half_extents: Vec3,
-    pub pad3: u32,
+    pub pad2: u32,
     /// UVs range for decompressing UVs coordinates.
     pub uv0_range: Vec4,
     pub uv1_range: Vec4,
@@ -669,14 +669,14 @@ impl MeshUniform {
             material_and_lightmap_bind_group_slot: u32::from(material_bind_group_slot)
                 | ((lightmap_bind_group_slot as u32) << 16),
             tag: tag.unwrap_or(0),
-            aabb_center: aabb.map(|a| a.center().into()).unwrap_or(Vec3::ZERO),
-            aabb_half_extents: aabb.map(|a| a.half_size().into()).unwrap_or(Vec3::ZERO),
-            uv0_range: uv_range_to_vec4(uv0_range),
-            uv1_range: uv_range_to_vec4(uv1_range),
             morph_descriptor_index: match morph_descriptor_index {
                 Some(morph_descriptor_index) => morph_descriptor_index.0,
                 None => u32::MAX,
             },
+            aabb_center: aabb.map(|a| a.center().into()).unwrap_or(Vec3::ZERO),
+            aabb_half_extents: aabb.map(|a| a.half_size().into()).unwrap_or(Vec3::ZERO),
+            uv0_range: uv_range_to_vec4(uv0_range),
+            uv1_range: uv_range_to_vec4(uv1_range),
         }
     }
 }
@@ -1421,7 +1421,7 @@ impl RenderMeshInstanceGpuBuilder {
         };
 
         let (aabb, uv0_range, uv1_range) = meshes
-            .get(self.shared.mesh_asset_id)
+            .get(AssetId::<Mesh>::from(self.shared.asset_id))
             .map(|m| (m.aabb, m.uv0_range, m.uv1_range))
             .unwrap_or_default();
 
@@ -1451,8 +1451,8 @@ impl RenderMeshInstanceGpuBuilder {
                 .unwrap_or(Vec3::ZERO),
             uv0_range: uv_range_to_vec4(uv0_range),
             uv1_range: uv_range_to_vec4(uv1_range),
+            pad1: 0,
             pad2: 0,
-            pad3: 0,
         };
 
         let world_from_local = &self.world_from_local;
@@ -2142,6 +2142,7 @@ pub fn collect_meshes_for_gpu_building(
     morph_indices: Res<MorphIndices>,
     frame_count: Res<FrameCount>,
     mut meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
+    meshes: Res<RenderAssets<RenderMesh>>,
 ) {
     let RenderMeshInstances::GpuBuilding(render_mesh_instances) =
         render_mesh_instances.into_inner()
@@ -2186,6 +2187,7 @@ pub fn collect_meshes_for_gpu_building(
         let previous_input_buffer = &*previous_input_buffer;
         let mesh_culling_data_buffer = &*mesh_culling_data_buffer;
         let morph_indices = &*morph_indices;
+        let meshes = &meshes;
 
         // Spawn workers on the taskpool to prepare and update meshes in parallel.
         ComputeTaskPool::get().scope(|scope| {
@@ -2255,6 +2257,7 @@ pub fn collect_meshes_for_gpu_building(
                                         skin_uniforms,
                                         morph_indices,
                                         frame_count,
+                                        meshes,
                                     ) {
                                         Some(mut prepared) => {
                                             if let Some(render_mesh_instance) =
@@ -2511,7 +2514,7 @@ impl GetBatchData for MeshPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
+        (mesh_instances, lightmaps, meshes, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
             Self::Param,
         >,
         (_entity, main_entity): (Entity, MainEntity),
@@ -2527,12 +2530,12 @@ impl GetBatchData for MeshPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
-        let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
-                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
-                None => 0,
-            };
-        let mesh_slabs = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())?;
+        let mesh_asset_id = mesh_instance.mesh_asset_id();
+        let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&mesh_asset_id) {
+            Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+            None => 0,
+        };
+        let mesh_slabs = mesh_allocator.mesh_slabs(&mesh_asset_id)?;
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
@@ -2548,6 +2551,7 @@ impl GetBatchData for MeshPipeline {
                 current_skin_index,
                 morph_descriptor_index,
                 Some(mesh_instance.tag()),
+                meshes.get(mesh_asset_id),
             ),
             mesh_instance.should_batch().then_some((
                 MeshBatchSetCompareData {
@@ -2599,7 +2603,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
+        (mesh_instances, lightmaps, meshes, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
             Self::Param,
         >,
         main_entity: MainEntity,
@@ -2611,11 +2615,11 @@ impl GetFullBatchData for MeshPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
-        let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
-                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
-                None => 0,
-            };
+        let mesh_asset_id = mesh_instance.mesh_asset_id();
+        let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&mesh_asset_id) {
+            Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+            None => 0,
+        };
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
@@ -2629,6 +2633,7 @@ impl GetFullBatchData for MeshPipeline {
             current_skin_index,
             morph_descriptor_index,
             Some(mesh_instance.tag()),
+            meshes.get(mesh_asset_id),
         ))
     }
 

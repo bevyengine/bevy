@@ -555,6 +555,7 @@ impl VertexAttributeValues {
         }
         Some(VertexAttributeValues::Unorm16x2(values))
     }
+
     #[expect(
         clippy::match_same_arms,
         reason = "Although the `values` binding on some match arms may have matching types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
@@ -589,6 +590,9 @@ impl VertexAttributeValues {
             VertexAttributeValues::Snorm8x4(values) => bytes_of(&values[i]),
             VertexAttributeValues::Uint8x4(values) => bytes_of(&values[i]),
             VertexAttributeValues::Unorm8x4(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float16(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float16x2(values) => bytes_of(&values[i]),
+            VertexAttributeValues::Float16x4(values) => bytes_of(&values[i]),
         }
     }
 
@@ -724,6 +728,24 @@ impl VertexAttributeValues {
                 this.push(source[i]);
             }
             (VertexAttributeValues::Unorm8x4(_), _) => panic!("Mismatched vertex attribute values"),
+            (VertexAttributeValues::Float16(this), VertexAttributeValues::Float16(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float16(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (VertexAttributeValues::Float16x2(this), VertexAttributeValues::Float16x2(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float16x2(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
+            (VertexAttributeValues::Float16x4(this), VertexAttributeValues::Float16x4(source)) => {
+                this.push(source[i]);
+            }
+            (VertexAttributeValues::Float16x4(_), _) => {
+                panic!("Mismatched vertex attribute values")
+            }
         }
     }
 
@@ -761,6 +783,9 @@ impl VertexAttributeValues {
             VertexAttributeValues::Snorm8x4(v) => v.shrink_to_fit(),
             VertexAttributeValues::Uint8x4(v) => v.shrink_to_fit(),
             VertexAttributeValues::Unorm8x4(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float16(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float16x2(v) => v.shrink_to_fit(),
+            VertexAttributeValues::Float16x4(v) => v.shrink_to_fit(),
         }
     }
 }

@@ -14,7 +14,6 @@ use std::ops::Range;
 
 use bevy::camera::Viewport;
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
-use bevy::math::Affine3Ext;
 use bevy::mesh::MeshAttributeCompressionFlags;
 use bevy::pbr::{MeshPipelineSet, SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
@@ -388,24 +387,16 @@ impl GetBatchData for StencilPipeline {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
-        let mesh_uniform = {
-            let mesh_transforms = &mesh_instance.transforms;
-            let (local_from_world_transpose_a, local_from_world_transpose_b) =
-                mesh_transforms.world_from_local.inverse_transpose_3x3();
-            MeshUniform {
-                world_from_local: mesh_transforms.world_from_local.to_transpose(),
-                previous_world_from_local: mesh_transforms.previous_world_from_local.to_transpose(),
-                lightmap_uv_rect: UVec2::ZERO,
-                local_from_world_transpose_a,
-                local_from_world_transpose_b,
-                flags: mesh_transforms.flags,
-                first_vertex_index,
-                current_skin_index: u32::MAX,
-                material_and_lightmap_bind_group_slot: 0,
-                tag: 0,
-                morph_descriptor_index: u32::MAX,
-            }
-        };
+        let mesh_uniform = MeshUniform::new(
+            &mesh_instance.transforms,
+            first_vertex_index,
+            mesh_instance.material_bindings_index().slot,
+            None,
+            None,
+            None,
+            Some(mesh_instance.tag()),
+            meshes.get(mesh_instance.mesh_asset_id()),
+        );
         Some((mesh_uniform, None))
     }
 }
