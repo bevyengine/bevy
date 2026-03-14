@@ -16,7 +16,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::{FontSize, TextFont};
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, UiRect, Val,
@@ -27,7 +27,6 @@ use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
     font_styles::InheritableFont,
-    handle_or_path::HandleOrPath,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
     tokens,
 };
@@ -72,11 +71,11 @@ pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
         ThemeFontColor(tokens::RADIO_TEXT),
-        InheritableFont {
-            font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
+        InheritableFont(TextFont {
+            font: fonts::REGULAR,
             font_size: FontSize::Px(14.0),
-            weight: FontWeight::NORMAL,
-        },
+            ..Default::default()
+        }),
         overrides,
         Children::spawn((
             Spawn((
