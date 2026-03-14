@@ -357,6 +357,26 @@ pub(crate) fn changed_windows(
                     }
             }
 
+            // Set position before size so the window is on the correct monitor
+            // (and thus using the correct scale factor) when size is applied.
+            if window.position != cache.position
+                && let Some(position) = crate::winit_window_position(
+                    &window.position,
+                    &window.resolution,
+                    &monitors,
+                    winit_window.primary_monitor(),
+                    winit_window.current_monitor(),
+                ) {
+                    let should_set = match winit_window.outer_position() {
+                        Ok(current_position) => current_position != position,
+                        _ => true,
+                    };
+
+                    if should_set {
+                        winit_window.set_outer_position(position);
+                    }
+                }
+
             if window.resolution != cache.resolution {
                 let mut physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
@@ -446,24 +466,6 @@ pub(crate) fn changed_windows(
                     },
                 );
             }
-
-            if window.position != cache.position
-                && let Some(position) = crate::winit_window_position(
-                    &window.position,
-                    &window.resolution,
-                    &monitors,
-                    winit_window.primary_monitor(),
-                    winit_window.current_monitor(),
-                ) {
-                    let should_set = match winit_window.outer_position() {
-                        Ok(current_position) => current_position != position,
-                        _ => true,
-                    };
-
-                    if should_set {
-                        winit_window.set_outer_position(position);
-                    }
-                }
 
             if let Some(monitor_link) = monitor_relationship {
                 if let Some(winit_monitor) = winit_window.current_monitor() {
