@@ -387,7 +387,7 @@ free_camera = ["bevy_internal/free_camera"]
 pan_camera = ["bevy_internal/pan_camera"]
 
 # Enable the Bevy Remote Protocol
-bevy_remote = ["bevy_internal/bevy_remote"]
+bevy_remote = ["bevy_internal/bevy_remote", "dep:bevy_remote"]
 
 # Enable integration with `tracing` and `log`
 bevy_log = ["bevy_internal/bevy_log"]
@@ -713,9 +713,12 @@ debug = ["bevy_internal/debug"]
 bevy_internal = { path = "crates/bevy_internal", version = "0.19.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 
-# Wasm does not support dynamic linking.
+# Wasm does not support dynamic linking nor HTTP.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.19.0-dev", default-features = false, optional = true }
+bevy_remote = { path = "crates/bevy_remote", version = "0.19.0-dev", default-features = false, features = [
+  "http",
+], optional = true }
 
 [dev-dependencies]
 rand = "0.10.0"
