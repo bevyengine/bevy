@@ -26,7 +26,7 @@ When you clone the repo locally to run the examples, use `git checkout` to get t
 # `latest` always points to the newest release
 git checkout latest
 # or use a specific version
-git checkout v0.4.0
+git checkout v0.17.0
 ```
 
 ---
