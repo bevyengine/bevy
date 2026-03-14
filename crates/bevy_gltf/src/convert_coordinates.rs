@@ -545,7 +545,7 @@ impl SemanticsConversion {
 /// of a vector.
 ///
 /// This is effectively a rotation, but is usually faster and more accurate than
-/// rotating by a matrix or quaternion. It can also convert scales.
+/// rotating by a matrix or quaternion.
 ///
 /// The behavior of the conversion can be unintuitive. If the source semantics
 /// are "+X forward" and the target semantics are "+Z forward", then converting
@@ -553,10 +553,10 @@ impl SemanticsConversion {
 /// converting `Vec3::Z` will return `Vec3::X`.
 ///
 /// One way to explain this is that we're not converting something *within* a
-/// coordinate system - we're converting the coordinate system *itself*. So when
-/// converting a node in a scene hierarchy from "+X forward" to "+Z forward",
-/// we're rotating it so that the new +Z forward axis is the same direction as
-/// the old +X forward axis.
+/// coordinate system - we're converting the coordinate system *itself*. Let's
+/// say we're converting a node in a scene hierarchy from "+X forward" to
+/// "+Z forward". We want to rotate it so that the new +Z forward axis points in
+/// the same direction as the old +X forward axis.
 ///
 /// ```text
 ///                 Before            After
@@ -645,7 +645,8 @@ impl RemappingConverter {
     }
 }
 
-/// A convenient bundle of equivalent rotation conversions.
+/// A single semantics conversion expressed three different ways - as a
+/// quaternion, a matrix, and a [`RemappingConverter`].
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct RotationConverter {
     rotation: Quat,
@@ -714,137 +715,115 @@ impl RotationConverter {
     }
 }
 
-/// Helper for converting the semantics of transforms in a scene hierarchy,
-/// where each transform may have different semantics.
+/// A semantics converter for nodes in a scene hierarchy, where each node may
+/// have different semantics.
 ///
-/// To explain how this works, let's start with a scene containing one mesh. The
-/// diagram shows a top-down view of the scene - the axes in the middle of the
-/// mesh represent mesh-space, and the axes in the bottom left represent
+/// When converting node hierarchies, the goal is to rotate each node to its
+/// new semantics without affecting the position of the node's children in
 /// scene-space.
+///
+/// Say we have two nodes A and B, where B is a child of A. We want to convert
+/// just A from +X forward to +Z forward. The diagram below shows them before
+/// and after conversion:
+///
+/// ```text
+///               Before                     After
+///    
+///                         x                          x
+///                         |                          |
+///                         B--z                       B--z
+///                       .`                         .`
+///                 x   .`                     z   .`
+///                 | .`                       | .`
+///                 A--z                    x--A
+/// ```
+///
+/// We do this in two steps. First, we apply A's conversion rotation to A in
+/// local-space. Since B is a child of A, this implicitly rotates B.
+///
+/// ```ignore
+/// a.rotation = a.rotation * a.conversion;
+/// ```
+/// ```text
+///          z
+///          |
+///       x--B
+///           `.
+///             `.  z
+///               `.|
+///              x--A
+/// ```
+///
+/// Then we finish by applying the inverse of A's conversion rotation to B in
+/// parent-space. The effectively undoes the rotation that A's conversion
+/// implicitly applied to B.
+///
+/// ```ignore
+/// b.rotation = a.conversion.inverse() * b.rotation;
+/// b.translation = a.conversion.inverse() * b.translation;
+/// ```
+/// ```text
+///                         x
+///                         |
+///                         B--z
+///                       .`
+///                 z   .`
+///                 | .`
+///              x--A
+/// ```
+///
+/// Combining the steps, we get the following rule for any given node. Note that
+/// node and its parent may have different conversions.
+///
+/// ```ignore
+/// node.rotation = parent.conversion.inverse() * node.rotation * node.conversion;
+/// node.translation = parent.conversion.inverse() * node.translation;
+/// ```
+///
+/// Meshes are converted in a similar way. The mesh and its vertices are
+/// treated like nodes, where the vertices are children of the mesh. Only the
+/// mesh's semantics are converted - the semantics of vertices don't change.
+///
+/// Below is a mesh that we want to convert from +X forward to +Z forward.
 ///
 /// ```text
 ///        +-----------+
-///        |           +-+
-///        |      x      |
+///        |      x    +-+
 ///        |      |      |
 ///        |      M--z   |
 ///        |             |
-/// x      +-------------+
-/// |
-/// S--z
+///        |             |
+///        +-------------+
 /// ```
 ///
-/// We want to convert the mesh's semantics from +X forward to +Z forward, but
-/// the mesh's vertices should stay at the same position in scene-space. This
-/// can be done by rotating the mesh 90 degrees counter-clockwise, then
-/// rotating its vertices 90 degrees clockwise.
+/// First the rotation of mesh is converted, which implicitly rotates the
+/// vertices.
 ///
 /// ```text
-///          Before                   Rotate Mesh        Counter-Rotate Vertices
-///
-///        +-----------+              +-----------+          +-----------+
-///        |      x    +-+          +-+    z      |          |      z    +-+
-///        |      |      |          |      |      |          |      |      |
-///        |      M--z   |          |   x--M      |          |   x--M      |
-///        |             |          |             |          |             |
-///        |             |          |             |          |             |
-/// x      +-------------+          +-------------+          +-------------+
-/// |
-/// S--z
+///          +-----------+
+///        +-+    z      |
+///        |      |      |
+///        |   x--M      |
+///        |             |
+///        |             |
+///        +-------------+
 /// ```
 ///
-/// Conceptually, the scene has the following hierarchy:
+/// Then the vertice's translations are rotated by the inverse of the mesh
+/// conversion:
 ///
-/// - Scene.
-///   - Mesh.
-///     - Mesh vertices.
-///
-/// Only the mesh is having its semantics converted - the semantics of the scene
-/// and vertices stay the same.
-///
-/// The rules for converting the semantics of a transform in a hierarchy are:
-///
-/// - Apply the transform's rotation conversion to the local-space of the
-///   transform.
-/// - Apply the parent's *inverse* rotation conversion to the parent-space of
-///   the transform.
-///
-/// The inverse parent rotation is needed because we want to maintain the
-/// scene-space position of the child. So when the parent is rotated we need the
-/// child to compensate by applying the opposite rotation.
-///
-/// Applying these rules to the mesh's vertices, we get:
-///
-/// - Apply the vertices' conversion to the vertices - the vertices have no
-///   conversion so nothing is done.
-/// - Apply the mesh's inverse conversion to the vertices.
-///
-/// And for the mesh:
-///
-/// - Apply the mesh's conversion to the mesh.
-/// - Apply the scene's inverse conversion to the mesh - the scene has no
-///   conversion so   nothing is done.
-///
-/// If we take both cases and remove the rules that don't do anything, we end up
-/// with:
-///
-/// - Apply the mesh's conversion to the mesh.
-/// - Apply the mesh's inverse conversion to the vertices.
+/// ```text
+///        +-----------+
+///        |      z    +-+
+///        |      |      |
+///        |   x--M      |
+///        |             |
+///        |             |
+///        +-------------+
+/// ```
 ///
 /// Note that even though the semantics of the vertices are not being converted,
 /// their translation is still affected by the mesh's conversion.
-///
-/// Let's apply the same rules to scene nodes. Say we have two nodes A and B,
-/// where A is the parent of B, and we want to convert the semantics of both A
-/// and B from +X forward to +Z forward. The conversion should look like this:
-///
-/// ```text
-///          Before                After
-///
-///                x                       z
-///                |                       |
-///                B--z                 x--B
-///              .`                      .`
-///        X   .`                  z   .`
-///        | .`                    | .`
-///        A--z                 x--A
-/// ```
-///
-/// Unlike the mesh example, both the parent and the child want the same
-/// conversion. So the rules for A are:
-///
-/// 1. Apply the scene's inverse conversion to A - the scene has no conversion.
-/// 2. Apply A's conversion to A.
-///
-/// And B:
-///
-/// 1. Apply A's inverse conversion to B.
-/// 2. Apply B's conversion to B.
-///
-/// Applying these step by step, we get:
-///
-/// ```text
-///                Before                     Apply A's conversion to A
-///
-///                         x                      z
-///                         |                      |
-///                         B--z                x--B
-///                       .`                        `.
-///                 x   .`                            `.  z
-///                 | .`                                `.|
-///                 A--z                               x--A
-///
-///
-///    Apply A's inverse conversion to B      Apply B's conversion to B
-///
-///                         x                                     z
-///                         |                                     |
-///                         B--z                               x--B
-///                       .`                                    .`
-///                 x   .`                                z   .`
-///                 | .`                                  | .`
-///                 A--z                               x--A
-/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct HierarchyConverter {
     local: RotationConverter,
@@ -873,6 +852,9 @@ impl HierarchyConverter {
     }
 
     pub(crate) fn convert_scale(&self, s: Vec3) -> Vec3 {
+        // We want the scale to stay the same in scene-space. The conversion
+        // that's applied to the rotation will effectively rotate the scale, so
+        // we need to apply the inverse of that conversion.
         self.local.remapping().inverse_convert_scale(s)
     }
 
