@@ -122,10 +122,17 @@ pub mod prelude {
 
 /// Gets the logical CPU core count available to the current process.
 ///
-/// This is identical to `std::thread::available_parallelism`, except
+/// This is identical to [`std::thread::available_parallelism`], except
 /// it will return a default value of 1 if it internally errors out.
 ///
 /// This will always return at least 1.
+///
+/// # Note
+///
+/// This reports hardware capabilities, not the number of threads that `bevy_tasks` will
+/// actually use. Without the `multi_threaded` feature enabled, task pools are limited to a
+/// single thread regardless of what this function returns. To check how many threads a
+/// pool is using, call [`TaskPool::thread_num()`] instead.
 pub fn available_parallelism() -> usize {
     cfg::switch! {{
         cfg::std => {

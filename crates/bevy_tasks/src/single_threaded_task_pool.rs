@@ -24,14 +24,19 @@ crate::cfg::std! {
 }
 
 /// Used to create a [`TaskPool`].
+///
+/// This is the single-threaded version of `TaskPoolBuilder`, which is used when the
+/// `multi_threaded` feature is not enabled. All builder methods that configure threading
+/// (such as [`num_threads`](Self::num_threads)) are no-ops in this mode. Enable the
+/// `multi_threaded` feature for actual multi-threaded task execution.
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {}
 
-/// This is a dummy struct for wasm support to provide the same api as with the multithreaded
-/// task pool. In the case of the multithreaded task pool this struct is used to spawn
-/// tasks on a specific thread. But the wasm task pool just calls
-/// `wasm_bindgen_futures::spawn_local` for spawning which just runs tasks on the main thread
-/// and so the [`ThreadExecutor`] does nothing.
+/// A dummy implementation that provides the same API as the multi-threaded [`ThreadExecutor`].
+///
+/// In the multi-threaded task pool, this struct is used to spawn tasks on a specific thread.
+/// In this single-threaded fallback (active without the `multi_threaded` feature, or on Wasm
+/// targets), it does nothing.
 #[derive(Default)]
 pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
 impl<'a> ThreadExecutor<'a> {
@@ -47,27 +52,27 @@ impl TaskPoolBuilder {
         Self::default()
     }
 
-    /// No op on the single threaded task pool
+    /// No-op. Thread count is always 1 without the `multi_threaded` feature.
     pub fn num_threads(self, _num_threads: usize) -> Self {
         self
     }
 
-    /// No op on the single threaded task pool
+    /// No-op. Stack size configuration requires the `multi_threaded` feature.
     pub fn stack_size(self, _stack_size: usize) -> Self {
         self
     }
 
-    /// No op on the single threaded task pool
+    /// No-op. Thread naming requires the `multi_threaded` feature.
     pub fn thread_name(self, _thread_name: String) -> Self {
         self
     }
 
-    /// No op on the single threaded task pool
+    /// No-op. Thread spawn callbacks require the `multi_threaded` feature.
     pub fn on_thread_spawn(self, _f: impl Fn() + Send + Sync + 'static) -> Self {
         self
     }
 
-    /// No op on the single threaded task pool
+    /// No-op. Thread destroy callbacks require the `multi_threaded` feature.
     pub fn on_thread_destroy(self, _f: impl Fn() + Send + Sync + 'static) -> Self {
         self
     }
@@ -80,6 +85,10 @@ impl TaskPoolBuilder {
 
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool. In this case - main thread only.
+///
+/// This is the single-threaded implementation, active when the `multi_threaded` feature is not
+/// enabled. All tasks run sequentially on the calling thread. To get actual parallel execution,
+/// enable the `multi_threaded` feature on `bevy_tasks`.
 #[derive(Debug, Default, Clone)]
 pub struct TaskPool {}
 

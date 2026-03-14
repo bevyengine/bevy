@@ -17,12 +17,33 @@ or ordering of spawned tasks.
 It is based on [`async-executor`][async-executor], a lightweight executor that allows the end user to manage their own threads.
 `async-executor` is based on async-task, a core piece of async-std.
 
+## Enabling Multi-Threading
+
+By default, `bevy_tasks` runs all tasks on a single thread. To enable actual multi-threaded
+task execution, you must activate the `multi_threaded` feature:
+
+```toml
+[dependencies]
+bevy_tasks = { version = "0.19", features = ["multi_threaded"] }
+```
+
+Without this feature, the `TaskPool` API is still available, but all tasks run sequentially
+on a single thread. Methods like `TaskPoolBuilder::num_threads()` become no-ops, and
+`TaskPool::thread_num()` always returns `1`.
+
+Note that the full `bevy` crate enables this feature by default through its own `multi_threaded`
+feature flag. This mainly affects users who depend on `bevy_tasks` directly as a standalone crate.
+
+> **Tip:** `available_parallelism()` reports the number of hardware threads available to the process
+> (mirroring `std::thread::available_parallelism`). It does not reflect whether the `multi_threaded`
+> feature is enabled. Check `TaskPool::thread_num()` to see how many threads a pool is actually using.
+
 ## Usage
 
 In order to be able to optimize task execution in multi-threaded environments,
 bevy provides three different thread pools via which tasks of different kinds can be spawned.
 (The same API is used in single-threaded environments, even if execution is limited to a single thread.
-This currently applies to Wasm targets.)
+This currently applies to Wasm targets and to builds without the `multi_threaded` feature.)
 The determining factor for what kind of work should go in each pool is latency requirements:
 
 * For CPU-intensive work (tasks that generally spin until completion) we have a standard
