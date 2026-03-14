@@ -32,14 +32,28 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         return err.into_compile_error().into();
     }
 
+    let attrs = match parse_resource_attr(&ast) {
+        Ok(attrs) => attrs,
+        Err(e) => return e.into_compile_error().into(),
+    };
+
+    let relationship = match derive_relationship(&ast, &attrs, &bevy_ecs_path) {
+        Ok(value) => value,
+        Err(err) => err.into_compile_error().into(),
+    };
+    let relationship_target = match derive_relationship_target(&ast, &attrs, &bevy_ecs_path) {
+        Ok(value) => value,
+        Err(err) => err.into_compile_error().into(),
+    };
+
     // Implement the Component trait.
     let map_entities = map_entities(
         &ast.data,
         &bevy_ecs_path,
         Ident::new("this", Span::call_site()),
-        false,
-        false,
-        None
+        relationship.is_some(),
+        relationship_target.is_some(),
+        attrs.map_entities
     ).map(|map_entities_impl| quote! {
         fn map_entities<M: #bevy_ecs_path::entity::EntityMapper>(this: &mut Self, mapper: &mut M) {
             use #bevy_ecs_path::entity::MapEntities;
@@ -47,19 +61,85 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         }
     });
 
-    let storage = storage_path(&bevy_ecs_path, StorageTy::Table);
+    let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
-    let on_add_path = None;
-    let on_remove_path = None;
-    let on_insert_path = None;
-    let on_replace_path = None;
-    let on_despawn_path = None;
+    let on_add_path = attrs
+        .on_add
+        .map(|path| path.to_token_stream(&bevy_ecs_path));
+    let on_remove_path = attrs
+        .on_remove
+        .map(|path| path.to_token_stream(&bevy_ecs_path));
+
+    let on_insert_path = if relationship.is_some() {
+        if attrs.on_insert.is_some() {
+            return syn::Error::new(
+                ast.span(),
+                "Custom on_insert hooks are not supported as relationships already define an on_insert hook",
+            )
+            .into_compile_error()
+            .into();
+        }
+
+        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert))
+    } else {
+        attrs
+            .on_insert
+            .map(|path| path.to_token_stream(&bevy_ecs_path))
+    };
+
+    let on_discard_path = if relationship.is_some() {
+        if attrs.on_discard.is_some() {
+            return syn::Error::new(
+                ast.span(),
+                "Custom on_discard hooks are not supported as Relationships already define an on_discard hook",
+            )
+            .into_compile_error()
+            .into();
+        }
+
+        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_discard))
+    } else if attrs.relationship_target.is_some() {
+        if attrs.on_discard.is_some() {
+            return syn::Error::new(
+                ast.span(),
+                "Custom on_discard hooks are not supported as RelationshipTarget already defines an on_discard hook",
+            )
+            .into_compile_error()
+            .into();
+        }
+
+        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_discard))
+    } else {
+        attrs
+            .on_discard
+            .map(|path| path.to_token_stream(&bevy_ecs_path))
+    };
+
+    let on_despawn_path = if attrs
+        .relationship_target
+        .is_some_and(|target| target.linked_spawn)
+    {
+        if attrs.on_despawn.is_some() {
+            return syn::Error::new(
+                ast.span(),
+                "Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the 'linked_spawn' attribute",
+            )
+            .into_compile_error()
+            .into();
+        }
+
+        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn))
+    } else {
+        attrs
+            .on_despawn
+            .map(|path| path.to_token_stream(&bevy_ecs_path))
+    };
 
     let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
-    let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
     let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_path);
-    let on_replace =
-        hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, on_replace_path);
+    let on_discard =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_discard}, on_discard_path);
+    let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
     let on_despawn =
         hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_path);
 
@@ -71,8 +151,8 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    let mut register_required = Vec::with_capacity(1);
-    // We add the component_id existence check here to avoid recursive init during required components initialization.
+    let requires = &attrs.requires;
+    let mut register_required = Vec::with_capacity(attrs.requires.iter().len() + 1);
     register_required.push(quote! {
         let resource_component_id = if let Some(id) = required_components.components_registrator().component_id::<#struct_name #type_generics>() {
             id
@@ -81,13 +161,88 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         };
         required_components.register_required::<#bevy_ecs_path::resource::IsResource>(move || #bevy_ecs_path::resource::IsResource::new(resource_component_id));
     });
+    if let Some(requires) = requires {
+        for require in requires {
+            let ident = &require.path;
+            let constructor = match &require.func {
+                Some(func) => quote! { || { let x: #ident = (#func)().into(); x } },
+                None => quote! { <#ident as Default>::default },
+            };
+            register_required.push(quote! {
+                required_components.register_required::<#ident>(#constructor);
+            });
+        }
+    }
+
+    let required_component_docs = attrs.requires.map(|r| {
+        let paths = r
+            .iter()
+            .map(|r| format!("[`{}`]", r.path.to_token_stream()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let doc = format!("**Required Components**: {paths}. \n\n A component's Required Components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.");
+        quote! {
+            #[doc = #doc]
+        }
+    });
+
+    let mutable_type = (attrs.immutable || relationship.is_some())
+        .then_some(quote! { #bevy_ecs_path::component::Immutable })
+        .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
+
+    let clone_behavior = if relationship_target.is_some() || relationship.is_some() {
+        quote!(
+            use #bevy_ecs_path::relationship::{
+                RelationshipCloneBehaviorBase, RelationshipCloneBehaviorViaClone, RelationshipCloneBehaviorViaReflect,
+                RelationshipTargetCloneBehaviorViaClone, RelationshipTargetCloneBehaviorViaReflect, RelationshipTargetCloneBehaviorHierarchy
+                };
+            (&&&&&&&#bevy_ecs_path::relationship::RelationshipCloneBehaviorSpecialization::<Self>::default()).default_clone_behavior()
+        )
+    } else if let Some(behavior) = attrs.clone_behavior {
+        quote!(#bevy_ecs_path::component::ComponentCloneBehavior::#behavior)
+    } else {
+        quote!(
+            use #bevy_ecs_path::component::{DefaultCloneBehaviorBase, DefaultCloneBehaviorViaClone};
+            (&&&#bevy_ecs_path::component::DefaultCloneBehaviorSpecialization::<Self>::default()).default_clone_behavior()
+        )
+    };
+
+    let relationship_accessor = if (relationship.is_some() || relationship_target.is_some())
+        && let Data::Struct(DataStruct {
+            fields,
+            struct_token,
+            ..
+        }) = &ast.data
+        && let Ok(field) = relationship_field(fields, "Relationship", struct_token.span())
+    {
+        let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
+        if relationship.is_some() {
+            quote! {
+                Some(
+                    // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
+                    unsafe {
+                        #bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship(
+                            ::core::mem::offset_of!(Self, #relationship_member)
+                        )
+                    }
+                )
+            }
+        } else {
+            quote! {
+                Some(#bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship_target())
+            }
+        }
+    } else {
+        quote! {None}
+    };
 
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     let component_derive_token_stream = TokenStream::from(quote! {
+        #required_component_docs
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
-            type Mutability = #bevy_ecs_path::component::Mutable;
+            type Mutability = #mutable_type;
             fn register_required_components(
                 _requiree: #bevy_ecs_path::component::ComponentId,
                 required_components: &mut #bevy_ecs_path::component::RequiredComponentsRegistrator,
@@ -97,20 +252,24 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
             #on_add
             #on_insert
-            #on_replace
+            #on_discard
             #on_remove
             #on_despawn
 
             fn clone_behavior() -> #bevy_ecs_path::component::ComponentCloneBehavior {
-                #bevy_ecs_path::component::ComponentCloneBehavior::Default
+                #clone_behavior
             }
 
             #map_entities
 
             fn relationship_accessor() -> Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
-                None
+                #relationship_accessor
             }
         }
+
+        #relationship
+
+        #relationship_target
     });
 
     // Implement the Resource trait.
@@ -455,6 +614,7 @@ pub(crate) fn map_entities(
 }
 
 pub const COMPONENT: &str = "component";
+pub const RESOURCE: &str = "resource";
 pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
 pub const RELATIONSHIP: &str = "relationship";
@@ -639,6 +799,110 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     let mut require_paths = HashSet::new();
     for attr in ast.attrs.iter() {
         if attr.path().is_ident(COMPONENT) {
+            attr.parse_nested_meta(|nested| {
+                if nested.path.is_ident(STORAGE) {
+                    attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
+                        s if s == TABLE => StorageTy::Table,
+                        s if s == SPARSE_SET => StorageTy::SparseSet,
+                        s => {
+                            return Err(nested.error(format!(
+                                "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
+                            )));
+                        }
+                    };
+                    Ok(())
+                } else if nested.path.is_ident(ON_ADD) {
+                    attrs.on_add = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_add }
+                    })?);
+                    Ok(())
+                } else if nested.path.is_ident(ON_INSERT) {
+                    attrs.on_insert = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_insert }
+                    })?);
+                    Ok(())
+                } else if nested.path.is_ident(ON_DISCARD) {
+                    attrs.on_discard = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_discard }
+                    })?);
+                    Ok(())
+                } else if nested.path.is_ident(ON_REMOVE) {
+                    attrs.on_remove = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_remove }
+                    })?);
+                    Ok(())
+                } else if nested.path.is_ident(ON_DESPAWN) {
+                    attrs.on_despawn = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_despawn }
+                    })?);
+                    Ok(())
+                } else if nested.path.is_ident(IMMUTABLE) {
+                    attrs.immutable = true;
+                    Ok(())
+                } else if nested.path.is_ident(CLONE_BEHAVIOR) {
+                    attrs.clone_behavior = Some(nested.value()?.parse()?);
+                    Ok(())
+                } else if nested.path.is_ident(MAP_ENTITIES) {
+                    attrs.map_entities = Some(nested.input.parse::<MapEntitiesAttributeKind>()?);
+                    Ok(())
+                } else {
+                    Err(nested.error("Unsupported attribute"))
+                }
+            })?;
+        } else if attr.path().is_ident(REQUIRE) {
+            let punctuated =
+                attr.parse_args_with(Punctuated::<Require, Comma>::parse_terminated)?;
+            for require in punctuated.iter() {
+                if !require_paths.insert(require.path.to_token_stream().to_string()) {
+                    return Err(syn::Error::new(
+                        require.path.span(),
+                        "Duplicate required components are not allowed.",
+                    ));
+                }
+            }
+            if let Some(current) = &mut attrs.requires {
+                current.extend(punctuated);
+            } else {
+                attrs.requires = Some(punctuated);
+            }
+        } else if attr.path().is_ident(RELATIONSHIP) {
+            let relationship = attr.parse_args::<Relationship>()?;
+            attrs.relationship = Some(relationship);
+        } else if attr.path().is_ident(RELATIONSHIP_TARGET) {
+            let relationship_target = attr.parse_args::<RelationshipTarget>()?;
+            attrs.relationship_target = Some(relationship_target);
+        }
+    }
+
+    if attrs.relationship_target.is_some() && attrs.clone_behavior.is_some() {
+        return Err(syn::Error::new(
+                attrs.clone_behavior.span(),
+                "A Relationship Target already has its own clone behavior, please remove `clone_behavior = ...`",
+            ));
+    }
+
+    Ok(attrs)
+}
+
+fn parse_resource_attr(ast: &DeriveInput) -> Result<Attrs> {
+    let mut attrs = Attrs {
+        storage: StorageTy::Table,
+        on_add: None,
+        on_insert: None,
+        on_discard: None,
+        on_remove: None,
+        on_despawn: None,
+        requires: None,
+        relationship: None,
+        relationship_target: None,
+        immutable: false,
+        clone_behavior: None,
+        map_entities: None,
+    };
+
+    let mut require_paths = HashSet::new();
+    for attr in ast.attrs.iter() {
+        if attr.path().is_ident(RESOURCE) {
             attr.parse_nested_meta(|nested| {
                 if nested.path.is_ident(STORAGE) {
                     attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
