@@ -13,7 +13,7 @@ use bevy::{
 };
 use futures_timer::Delay;
 use rand::Rng;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const NUM_CUBES: i32 = 16;
 const LIGHT_RADIUS: f32 = 8.0;
@@ -25,8 +25,13 @@ fn main() {
             Startup,
             (setup_env, setup_assets, spawn_tasks.after(setup_assets)),
         )
+        .add_systems(PreUpdate, async_system)
         .add_systems(Update, rotate_light)
         .run();
+}
+
+fn async_system(world: &mut World) {
+    run_async_ecs_system(world, async_system);
 }
 
 /// Spawns a grid of async tasks to simulate delayed cube creation.
@@ -39,49 +44,66 @@ fn main() {
 /// and ECS access happens only inside scheduled closures.
 fn spawn_tasks(world_id: WorldId) {
     let pool = AsyncComputeTaskPool::get();
-    let task_id = EcsTask::new(world_id);
+    let task = world_id.ecs_task::<(
+        Local<u32>,
+        Commands,
+        Res<BoxMeshHandle>,
+        Res<BoxMaterialHandle>,
+    )>();
+    pool.spawn(async move {
+        println!("I am here!");
+        let task = world_id.ecs_task::<()>();
+        let mut timings = vec![];
+        for _ in 0..50 {
+            let start = Instant::now();
+            task
+                .run_system(async_system, |()| {
+
+                })
+                .await;
+            let end = start.elapsed();
+            timings.push(end);
+        }
+        timings.sort_by(|a, b| a.cmp(b));
+        println!("{:#?}", timings);
+    }).detach();
     for x in -NUM_CUBES..NUM_CUBES {
         for z in -NUM_CUBES..NUM_CUBES {
-            let task_id = task_id.clone();
             // Spawn a task on the async compute pool
+            let task = task.clone();
             pool.spawn(async move {
                 let delay = Duration::from_secs_f32(rand::rng().random_range(2.0..8.0));
                 // Simulate a delay before task completion
                 println!("delaying for {:?}", delay);
                 Delay::new(delay).await;
-                let value = async_access::<
-                    (
-                        Local<u32>,
-                        Commands,
-                        Res<BoxMeshHandle>,
-                        Res<BoxMaterialHandle>,
-                    ),
-                    _,
-                    _,
-                >(
-                    task_id,
-                    Update,
-                    |(mut local, mut commands, box_mesh, box_material)| {
-                        *local += 1;
-                        println!("spawning {}", *local);
-                        commands.spawn((
-                            Mesh3d(box_mesh.clone()),
-                            MeshMaterial3d(box_material.clone()),
-                            Transform::from_xyz(x as f32, 0.5, z as f32),
-                        ));
-                        *local
-                    },
-                )
-                .await;
+                let value = task
+                    .run_system(
+                        async_system,
+                        |(mut local, mut commands, box_mesh, box_material)| {
+                            *local += 1;
+                            println!("spawning {}", *local);
+                            commands.spawn((
+                                Mesh3d(box_mesh.clone()),
+                                MeshMaterial3d(box_material.clone()),
+                                Transform::from_xyz(x as f32, 0.5, z as f32),
+                            ));
+                            *local
+                        },
+                    )
+                    .await;
                 if value as i32 == (NUM_CUBES * 2) * (NUM_CUBES * 2) {
                     println!("DONE");
                 }
                 // Showcasing how you can mutably access variables from outside the closure
                 let mut my_thing = String::new();
-                async_access::<(), _, _>(world_id, PreUpdate, |()| {
-                    my_thing.push('h');
-                })
-                .await;
+                world_id
+                    .ecs_task::<()>()
+                    .run_system(async_system, |()| {
+                        my_thing.push('h');
+                    })
+                    .await;
+                // Benchmarks how long it tasks from queuing onto the async ecs task to
+                // actually getting run
                 my_thing.push('i');
             })
             .detach();

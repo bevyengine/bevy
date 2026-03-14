@@ -111,10 +111,7 @@ pub mod prelude {
 
     #[doc(hidden)]
     #[cfg(feature = "std")]
-    pub use crate::{
-        schedule::executor::async_ecs::{async_access, EcsTask},
-        system::ParallelCommands,
-    };
+    pub use crate::{system::async_ecs::*, system::ParallelCommands};
 
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
