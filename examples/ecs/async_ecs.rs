@@ -56,17 +56,14 @@ fn spawn_tasks(world_id: WorldId) {
         let mut timings = vec![];
         for _ in 0..50 {
             let start = Instant::now();
-            task
-                .run_system(async_system, |()| {
-
-                })
-                .await;
+            task.run_system(async_system, |()| {}).await;
             let end = start.elapsed();
             timings.push(end);
         }
         timings.sort_by(|a, b| a.cmp(b));
         println!("{:#?}", timings);
-    }).detach();
+    })
+    .detach();
     for x in -NUM_CUBES..NUM_CUBES {
         for z in -NUM_CUBES..NUM_CUBES {
             // Spawn a task on the async compute pool
