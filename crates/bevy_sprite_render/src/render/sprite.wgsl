@@ -9,8 +9,9 @@
 
 #import bevy_sprite::sprite_view_bindings::view
 
-const TEXT_EFFECT_NONE: u32 = 0u;
-const TEXT_EFFECT_SHADOW: u32 = 1u;
+const TEXT_EFFECT_TEXT: u32 = 1u;
+const TEXT_EFFECT_SHADOW: u32 = 2u;
+const TEXT_EFFECT_OUTLINE: u32 = 4u;
 
 struct VertexInput {
     @builtin(vertex_index) index: u32,
@@ -24,7 +25,8 @@ struct VertexInput {
     @location(4) i_uv_offset_scale: vec4<f32>,
     @location(5) i_effect_params: vec4<f32>,
     @location(6) i_shadow_color: vec4<f32>,
-    @location(7) i_effect_flags: vec4<u32>,
+    @location(7) i_outline_color: vec4<f32>,
+    @location(8) i_effect_flags: vec4<u32>,
 }
 
 struct VertexOutput {
@@ -32,8 +34,9 @@ struct VertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) @interpolate(flat) color: vec4<f32>,
     @location(2) @interpolate(flat) shadow_color: vec4<f32>,
-    @location(3) @interpolate(flat) effect_params: vec4<f32>,
-    @location(4) @interpolate(flat) effect_kind: u32,
+    @location(3) @interpolate(flat) outline_color: vec4<f32>,
+    @location(4) @interpolate(flat) effect_params: vec4<f32>,
+    @location(5) @interpolate(flat) effect_flags: u32,
 };
 
 @vertex
@@ -54,8 +57,9 @@ fn vertex(in: VertexInput) -> VertexOutput {
     out.uv = vec2<f32>(vertex_position.xy) * in.i_uv_offset_scale.zw + in.i_uv_offset_scale.xy;
     out.color = in.i_color;
     out.shadow_color = in.i_shadow_color;
+    out.outline_color = in.i_outline_color;
     out.effect_params = in.i_effect_params;
-    out.effect_kind = in.i_effect_flags.x;
+    out.effect_flags = in.i_effect_flags.x;
 
     return out;
 }
@@ -65,20 +69,28 @@ fn vertex(in: VertexInput) -> VertexOutput {
 
 fn composite_text_layers(
     fill_color: vec4<f32>,
+    outline_color: vec4<f32>,
     shadow_color: vec4<f32>,
     fill_cov: f32,
+    outline_cov: f32,
     shadow_cov: f32,
 ) -> vec4<f32> {
     let fill_alpha = fill_color.a * fill_cov;
+    let outline_alpha = outline_color.a * outline_cov;
     let shadow_alpha = shadow_color.a * shadow_cov;
-    let shadow_weight = shadow_alpha * (1.0 - fill_alpha);
-    let alpha = fill_alpha + shadow_weight;
+    let outline_weight = outline_alpha * (1.0 - fill_alpha);
+    let shadow_weight = shadow_alpha * (1.0 - fill_alpha) * (1.0 - outline_alpha);
+    let alpha = fill_alpha + outline_weight + shadow_weight;
 
     if alpha <= 0.0 {
         return vec4<f32>(0.0);
     }
 
-    let rgb = (fill_color.rgb * fill_alpha + shadow_color.rgb * shadow_weight) / alpha;
+    let rgb = (
+        fill_color.rgb * fill_alpha
+        + outline_color.rgb * outline_weight
+        + shadow_color.rgb * shadow_weight
+    ) / alpha;
     return vec4<f32>(rgb, alpha);
 }
 
@@ -87,20 +99,26 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = vec4<f32>(0.0);
     let base_sample = textureSample(sprite_texture, sprite_sampler, in.uv);
 
-    if in.effect_kind == TEXT_EFFECT_NONE {
+    if (in.effect_flags & TEXT_EFFECT_TEXT) == 0u {
         color = in.color * base_sample;
     } else {
         let fill_cov = base_sample.a;
-        if in.effect_kind == TEXT_EFFECT_SHADOW {
+        let outline_cov = select(0.0, base_sample.r, (in.effect_flags & TEXT_EFFECT_OUTLINE) != 0u);
+        var shadow_cov = 0.0;
+        if (in.effect_flags & TEXT_EFFECT_SHADOW) != 0u {
             let shadow_uv = in.uv - in.effect_params.xy;
-            let shadow_cov = textureSampleLevel(sprite_texture, sprite_sampler, shadow_uv, 0.0).a;
-            color = composite_text_layers(
-                in.color,
-                in.shadow_color,
-                fill_cov,
-                shadow_cov * (1.0 - fill_cov),
-            );
+            shadow_cov = textureSampleLevel(sprite_texture, sprite_sampler, shadow_uv, 0.0).a
+                * (1.0 - max(fill_cov, outline_cov));
         }
+
+        color = composite_text_layers(
+            in.color,
+            in.outline_color,
+            in.shadow_color,
+            fill_cov,
+            outline_cov,
+            shadow_cov,
+        );
     }
 
 #ifdef TONEMAP_IN_SHADER

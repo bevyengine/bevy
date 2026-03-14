@@ -185,7 +185,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
         };
 
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
-            array_stride: 128,
+            array_stride: 144,
             step_mode: VertexStepMode::Instance,
             attributes: vec![
                 // @location(0) i_model_transpose_col0: vec4<f32>,
@@ -230,11 +230,17 @@ impl SpecializedRenderPipeline for SpritePipeline {
                     offset: 96,
                     shader_location: 6,
                 },
-                // @location(7) i_effect_flags: vec4<u32>,
+                // @location(7) i_outline_color: vec4<f32>,
                 VertexAttribute {
-                    format: VertexFormat::Uint32x4,
+                    format: VertexFormat::Float32x4,
                     offset: 112,
                     shader_location: 7,
+                },
+                // @location(8) i_effect_flags: vec4<u32>,
+                VertexAttribute {
+                    format: VertexFormat::Uint32x4,
+                    offset: 128,
+                    shader_location: 8,
                 },
             ],
         };
@@ -294,29 +300,41 @@ pub struct ExtractedSlice {
 }
 
 pub const EXTRACTED_TEXT_EFFECT_NONE: u32 = 0;
-pub const EXTRACTED_TEXT_EFFECT_SHADOW: u32 = 1;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ExtractedTextEffectKind {
-    #[default]
-    None = EXTRACTED_TEXT_EFFECT_NONE as isize,
-    Shadow = EXTRACTED_TEXT_EFFECT_SHADOW as isize,
-}
+pub const EXTRACTED_TEXT_EFFECT_TEXT: u32 = 1;
+pub const EXTRACTED_TEXT_EFFECT_SHADOW: u32 = 1 << 1;
+pub const EXTRACTED_TEXT_EFFECT_OUTLINE: u32 = 1 << 2;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ExtractedTextEffect {
-    pub kind: ExtractedTextEffectKind,
-    pub params: Vec4,
+    pub flags: u32,
+    pub shadow_offset: Vec2,
     pub shadow_color: LinearRgba,
+    pub outline_color: LinearRgba,
 }
 
 impl ExtractedTextEffect {
-    pub fn shadow(sample_offset: Vec2, shadow_color: LinearRgba) -> Self {
-        Self {
-            kind: ExtractedTextEffectKind::Shadow,
-            params: Vec4::new(sample_offset.x, sample_offset.y, 0.0, 0.0),
-            shadow_color,
+    pub fn text(shadow: Option<(LinearRgba, Vec2)>, outline: Option<LinearRgba>) -> Self {
+        let mut text_effect = Self {
+            flags: EXTRACTED_TEXT_EFFECT_TEXT,
+            ..Default::default()
+        };
+
+        if let Some((shadow_color, shadow_offset)) = shadow {
+            text_effect.flags |= EXTRACTED_TEXT_EFFECT_SHADOW;
+            text_effect.shadow_offset = shadow_offset;
+            text_effect.shadow_color = shadow_color;
         }
+
+        if let Some(outline_color) = outline {
+            text_effect.flags |= EXTRACTED_TEXT_EFFECT_OUTLINE;
+            text_effect.outline_color = outline_color;
+        }
+
+        text_effect
+    }
+
+    pub fn is_none(self) -> bool {
+        self.flags == EXTRACTED_TEXT_EFFECT_NONE
     }
 }
 
@@ -466,6 +484,7 @@ struct SpriteInstance {
     pub i_uv_offset_scale: [f32; 4],
     pub i_effect_params: [f32; 4],
     pub i_shadow_color: [f32; 4],
+    pub i_outline_color: [f32; 4],
     pub i_effect_flags: [u32; 4],
 }
 
@@ -486,9 +505,16 @@ impl SpriteInstance {
             ],
             i_color: color.to_f32_array(),
             i_uv_offset_scale: uv_offset_scale.to_array(),
-            i_effect_params: text_effect.params.to_array(),
+            i_effect_params: Vec4::new(
+                text_effect.shadow_offset.x,
+                text_effect.shadow_offset.y,
+                0.0,
+                0.0,
+            )
+            .to_array(),
             i_shadow_color: text_effect.shadow_color.to_f32_array(),
-            i_effect_flags: [text_effect.kind as u32, 0, 0, 0],
+            i_outline_color: text_effect.outline_color.to_f32_array(),
+            i_effect_flags: [text_effect.flags, 0, 0, 0],
         }
     }
 }
@@ -851,17 +877,13 @@ pub fn prepare_sprite_image_bind_groups(
                                 (slice.size * -Vec2::splat(0.5) + slice.offset).extend(0.0),
                             );
 
-                        let text_effect =
-                            if extracted_sprite.text_effect.kind == ExtractedTextEffectKind::None {
-                                ExtractedTextEffect::default()
-                            } else {
-                                let mut text_effect = extracted_sprite.text_effect;
-                                text_effect.params.x /= batch_image_size.x;
-                                text_effect.params.y /= batch_image_size.y;
-                                text_effect
-                            };
-
                         // Store the vertex data and add the item to the render phase
+                        let mut text_effect = extracted_sprite.text_effect;
+                        if !text_effect.is_none() {
+                            text_effect.shadow_offset.x /= batch_image_size.x;
+                            text_effect.shadow_offset.y /= batch_image_size.y;
+                        }
+
                         sprite_meta
                             .sprite_instance_buffer
                             .push(SpriteInstance::from(

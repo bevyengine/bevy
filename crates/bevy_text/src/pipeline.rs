@@ -271,6 +271,7 @@ impl TextPipeline {
         justify: Justify,
         hinting: FontHinting,
         text_effect_padding: bool,
+        outline_width: Option<f32>,
     ) -> Result<(), TextError> {
         computed.needs_rerender = false;
         layout_info.clear();
@@ -297,6 +298,7 @@ impl TextPipeline {
                         hinting,
                         font_smoothing,
                         text_effect_padding,
+                        outline_width_bits: outline_width.map(f32::to_bits),
                     };
 
                     let Some(font_ref) =
@@ -332,20 +334,20 @@ impl TextPipeline {
                                         font_smoothing,
                                         glyph_id,
                                         text_effect_padding,
+                                        outline_width,
                                     )
                                 })?;
 
                         let glyph_pos = Vec2::new(glyph.x, glyph.y);
+                        let glyph_pos = if font_smoothing == FontSmoothing::None {
+                            glyph_pos.floor()
+                        } else {
+                            glyph_pos
+                        };
                         let size = atlas_info.rect.size();
 
                         layout_info.glyphs.push(PositionedGlyph {
-                            position: size / 2.
-                                + if font_smoothing == FontSmoothing::None {
-                                    glyph_pos.floor()
-                                } else {
-                                    glyph_pos
-                                }
-                                + atlas_info.offset,
+                            position: size / 2. + glyph_pos + atlas_info.offset,
                             atlas_info,
                             span_index,
                             byte_index: text_range.start,
@@ -373,6 +375,7 @@ impl TextPipeline {
 
         layout_info.size = Vec2::new(layout.full_width(), layout.height()).ceil();
         layout_info.uses_text_effect_padding = text_effect_padding;
+        layout_info.outline_atlas_width = outline_width;
         Ok(())
     }
 }
@@ -414,6 +417,8 @@ pub struct TextLayoutInfo {
     pub scale_factor: f32,
     /// Whether the layout's cached glyph atlas rects include text-effect padding.
     pub uses_text_effect_padding: bool,
+    /// The cached physical outline width used to select outline atlases.
+    pub outline_atlas_width: Option<f32>,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
     /// Geometry of each text run used to render text decorations like background colors, strikethrough, and underline.
@@ -431,6 +436,7 @@ impl TextLayoutInfo {
     pub fn clear(&mut self) {
         self.scale_factor = 1.;
         self.uses_text_effect_padding = false;
+        self.outline_atlas_width = None;
         self.glyphs.clear();
         self.run_geometry.clear();
         self.size = Vec2::ZERO;

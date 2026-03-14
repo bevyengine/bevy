@@ -53,7 +53,7 @@ pub mod prelude {
     #[cfg(feature = "bevy_picking")]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
-    pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
+    pub use crate::widget::{Text, TextOutline, TextShadow, TextUiReader, TextUiWriter};
     #[doc(hidden)]
     pub use {
         crate::{

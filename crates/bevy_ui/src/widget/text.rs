@@ -22,6 +22,7 @@ use bevy_text::{
     ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak, LineHeight,
     RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
     TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    TEXT_EFFECT_PADDING,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -146,7 +147,6 @@ impl From<String> for Text {
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct TextShadow {
     /// Shadow displacement in logical pixels
-    ///
     /// Clamped to 16 px after layout scaling
     pub offset: Vec2,
     /// Color of the shadow.
@@ -158,6 +158,27 @@ impl Default for TextShadow {
         Self {
             offset: Vec2::splat(4.),
             color: Color::linear_rgba(0., 0., 0., 0.75),
+        }
+    }
+}
+
+/// Adds an outline around text.
+///
+/// Use the `Text2dOutline` component for `Text2d` outlines.
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+pub struct TextOutline {
+    /// Outline color.
+    pub color: Color,
+    /// Outline width in logical pixels.
+    pub width: f32,
+}
+
+impl Default for TextOutline {
+    fn default() -> Self {
+        Self {
+            color: Color::BLACK,
+            width: 1.,
         }
     }
 }
@@ -345,18 +366,33 @@ pub fn text_system(
         &mut ComputedTextBlock,
         Ref<FontHinting>,
         Has<TextShadow>,
+        Option<Ref<TextOutline>>,
     )>,
     mut scale_cx: ResMut<ScaleCx>,
 ) {
-    for (node, block, mut text_layout_info, mut text_flags, mut computed, hinting, has_shadow) in
-        &mut text_query
+    for (
+        node,
+        block,
+        mut text_layout_info,
+        mut text_flags,
+        mut computed,
+        hinting,
+        has_shadow,
+        maybe_outline,
+    ) in &mut text_query
     {
-        let text_effect_padding = has_shadow;
+        let node_scale_factor = node.inverse_scale_factor().recip();
+        let outline_width = maybe_outline.and_then(|outline| {
+            (outline.width > 0.0)
+                .then_some((outline.width * node_scale_factor).min(TEXT_EFFECT_PADDING as f32))
+        });
+        let text_effect_padding = has_shadow || outline_width.is_some();
 
         if node.is_changed()
             || text_flags.needs_recompute
             || hinting.is_changed()
             || text_layout_info.uses_text_effect_padding != text_effect_padding
+            || text_layout_info.outline_atlas_width != outline_width
         {
             // Skip the text node if it is waiting for a new measure func
             if text_flags.needs_measure_fn {
@@ -381,6 +417,7 @@ pub fn text_system(
                 block.justify,
                 *hinting,
                 text_effect_padding,
+                outline_width,
             ) {
                 Err(
                     TextError::NoSuchFont
