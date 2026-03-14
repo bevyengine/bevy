@@ -181,7 +181,7 @@ impl SystemMeta {
 ///     Query<&MyComponent>,
 /// )> = SystemState::new(&mut world);
 ///
-/// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
+/// // Use system_state.try_get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
 /// let (message_writer, maybe_resource, query) = system_state.try_get_mut(&mut world).unwrap();
 ///

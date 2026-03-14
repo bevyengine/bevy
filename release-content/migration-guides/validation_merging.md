@@ -144,7 +144,7 @@ impl InfallibleSystemParam for MyParam<'_> {
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         // fetch logic
-        Ok(MyParam { /* ... */ })
+        MyParam { /* ... */ }
     }
 }
 ```

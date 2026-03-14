@@ -2257,7 +2257,7 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
     /// Accesses the parameter at the given index.
     /// No other parameters may be accessed while this one is active.
     ///
-    /// To obtain the value of an in fallible [`SystemParam`]
+    /// To obtain the value of an infallible [`SystemParam`]
     /// without needing to unwrap a result, instead call [`Self::get_mut`].
     pub fn try_get_mut(
         &mut self,
