@@ -214,7 +214,7 @@ impl TryFrom<GltfConvertCoordinates> for ResolvedConvertCoordinates {
 }
 
 #[derive(Error, Debug)]
-pub(crate) enum CoordinateConversionAttributeError {
+pub(crate) enum ConvertCoordinateAttributesError {
     #[error("Cannot apply coordinate conversion to attribute {0} - unsupported format {1:?}")]
     UnsupportedFormat(&'static str, VertexFormat),
 }
@@ -224,7 +224,7 @@ pub(crate) fn convert_attribute_coordinates(
     attribute: MeshVertexAttribute,
     values: VertexAttributeValues,
     converter: HierarchyConverter,
-) -> Result<VertexAttributeValues, CoordinateConversionAttributeError> {
+) -> Result<VertexAttributeValues, ConvertCoordinateAttributesError> {
     if converter == HierarchyConverter::IDENTITY {
         return Ok(values);
     }
@@ -251,7 +251,7 @@ pub(crate) fn convert_attribute_coordinates(
                 Ok(VertexAttributeValues::Float32x4(values))
             }
 
-            _ => Err(CoordinateConversionAttributeError::UnsupportedFormat(
+            _ => Err(ConvertCoordinateAttributesError::UnsupportedFormat(
                 attribute.name,
                 VertexFormat::from(&values),
             )),
@@ -643,6 +643,21 @@ impl RemappingConverter {
 
         result
     }
+
+    #[cfg(test)] // Currently only used by tests.
+    pub(crate) fn convert_aabb(&self, aabb: Aabb3d) -> Aabb3d {
+        let min = self.convert_translation(aabb.min.into());
+        let max = self.convert_translation(aabb.max.into());
+
+        Aabb3d::from_min_max(min.min(max), min.max(max))
+    }
+
+    pub(crate) fn inverse_convert_aabb(&self, aabb: Aabb3d) -> Aabb3d {
+        let min = self.inverse_convert_translation(aabb.min.into());
+        let max = self.inverse_convert_translation(aabb.max.into());
+
+        Aabb3d::from_min_max(min.min(max), min.max(max))
+    }
 }
 
 /// A single semantics conversion expressed three different ways - as a
@@ -865,22 +880,14 @@ impl HierarchyConverter {
     }
 
     pub(crate) fn convert_aabb(&self, aabb: Aabb3d) -> Aabb3d {
-        let min = self
-            .parent
-            .remapping()
-            .inverse_convert_translation(aabb.min.into());
-        let max = self
-            .parent
-            .remapping()
-            .inverse_convert_translation(aabb.max.into());
-
-        Aabb3d::from_min_max(min.min(max), min.max(max))
+        self.parent.remapping().inverse_convert_aabb(aabb)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_math::bounding::BoundingVolume;
     use bevy_transform::components::GlobalTransform;
     use rand::{distr::Distribution, rngs::StdRng, seq::IndexedRandom, Rng, RngExt, SeedableRng};
 
@@ -954,16 +961,24 @@ mod tests {
         );
     }
 
-    // For coverage, create a test direction that has a mix of forward, up, and
+    // For coverage, create a test translation that has a mix of forward, up, and
     // right.
-    fn test_direction(semantics: ValidSemantics) -> Vec3 {
+    fn test_translation(semantics: ValidSemantics) -> Vec3 {
         (Vec3::from(semantics.forward()) * 3.0)
             + (Vec3::from(semantics.up()) * 2.0)
             + Vec3::from(semantics.right())
     }
 
+    fn test_aabb(semantics: ValidSemantics) -> Aabb3d {
+        let t0 = test_translation(semantics);
+        let t1 = test_translation(semantics) * 5.0;
+
+        Aabb3d::from_min_max(t0.min(t1), t0.max(t1))
+    }
+
     // Test that all the converters in `RotationConverter` are correct and
-    // equivalent.
+    // equivalent. Also test that `RemappingConverter::convert_aabb` is
+    // equivalent to `Aabb3d::rotated_by`.
     #[test]
     fn rotation_converter() {
         for source_semantics in semantics_permutations() {
@@ -971,16 +986,61 @@ mod tests {
                 let converter =
                     RotationConverter::from_source_target(source_semantics, target_semantics);
 
-                let source_direction = test_direction(source_semantics);
-                let target_direction = test_direction(target_semantics);
+                // Translation.
+                {
+                    let source = test_translation(source_semantics);
+                    let target = test_translation(target_semantics);
 
-                let remapping = converter.remapping().convert_translation(target_direction);
-                let rotation = converter.rotation() * target_direction;
-                let matrix = converter.matrix().transform_vector3(target_direction);
+                    // Regular conversion.
+                    {
+                        let remapping = converter.remapping().convert_translation(target);
+                        let rotation = converter.rotation() * target;
+                        let matrix = converter.matrix().transform_vector3(target);
 
-                assert!(source_direction.abs_diff_eq(remapping, 1e-6));
-                assert!(source_direction.abs_diff_eq(rotation, 1e-6));
-                assert!(source_direction.abs_diff_eq(matrix, 1e-6));
+                        assert!(source.abs_diff_eq(remapping, 1e-4));
+                        assert!(source.abs_diff_eq(rotation, 1e-4));
+                        assert!(source.abs_diff_eq(matrix, 1e-4));
+                    }
+
+                    // Inverse conversion.
+                    {
+                        let remapping = converter.remapping().inverse_convert_translation(source);
+                        let rotation = converter.rotation().inverse() * source;
+                        let matrix = converter.matrix().transpose().transform_vector3(source);
+
+                        assert!(target.abs_diff_eq(remapping, 1e-4));
+                        assert!(target.abs_diff_eq(rotation, 1e-4));
+                        assert!(target.abs_diff_eq(matrix, 1e-4));
+                    }
+                }
+
+                // AABB.
+                {
+                    let source = test_aabb(source_semantics);
+                    let target = test_aabb(target_semantics);
+
+                    // Regular conversion.
+                    {
+                        let remapping = converter.remapping().convert_aabb(target);
+                        let rotation = target.rotated_by(converter.rotation());
+
+                        assert!(remapping.min.abs_diff_eq(source.min, 1e-4));
+                        assert!(remapping.max.abs_diff_eq(source.max, 1e-4));
+                        assert!(rotation.min.abs_diff_eq(source.min, 1e-4));
+                        assert!(rotation.max.abs_diff_eq(source.max, 1e-4));
+                    }
+
+                    // Inverse conversion.
+                    {
+                        let remapping = converter.remapping().inverse_convert_aabb(source);
+                        let rotation = source.rotated_by(converter.rotation().inverse());
+
+                        assert!(remapping.min.abs_diff_eq(target.min, 1e-4));
+                        assert!(remapping.max.abs_diff_eq(target.max, 1e-4));
+                        assert!(rotation.min.abs_diff_eq(target.min, 1e-4));
+                        assert!(rotation.max.abs_diff_eq(target.max, 1e-4));
+                    }
+                }
             }
         }
     }

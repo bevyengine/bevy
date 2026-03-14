@@ -7,7 +7,7 @@ use gltf::{
 use thiserror::Error;
 
 use crate::convert_coordinates::{
-    convert_attribute_coordinates, CoordinateConversionAttributeError, HierarchyConverter,
+    convert_attribute_coordinates, ConvertCoordinateAttributesError, HierarchyConverter,
 };
 
 /// Represents whether integer data requires normalization
@@ -250,7 +250,7 @@ pub(crate) enum ConvertAttributeError {
     #[error("Unknown vertex attribute {0}")]
     UnknownName(String),
     #[error(transparent)]
-    CoordinateConversion(#[from] CoordinateConversionAttributeError),
+    CoordinateConversion(#[from] ConvertCoordinateAttributesError),
 }
 
 pub(crate) fn convert_attribute(
