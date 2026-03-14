@@ -131,7 +131,7 @@ unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
 [features]
-default = ["2d", "3d", "ui"]
+default = ["2d", "3d", "ui", "audio"]
 
 # PROFILE: The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.
 2d = [
@@ -140,7 +140,6 @@ default = ["2d", "3d", "ui"]
   "2d_bevy_render",
   "ui",
   "scene",
-  "audio",
   "picking",
 ]
 
@@ -151,7 +150,6 @@ default = ["2d", "3d", "ui"]
   "3d_bevy_render",
   "ui",
   "scene",
-  "audio",
   "picking",
 ]
 
@@ -162,7 +160,6 @@ ui = [
   "ui_api",
   "ui_bevy_render",
   "scene",
-  "audio",
   "picking",
   "bevy_ui_widgets",
 ]
@@ -409,6 +406,9 @@ bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
 # Headless widget collection for Bevy UI.
 bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
+
+# Load and save user preferences
+bevy_settings = ["bevy_internal/bevy_settings"]
 
 # Feathers widget collection.
 experimental_bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
@@ -1039,7 +1039,7 @@ wasm = true
 name = "tilemap_chunk_orientation"
 path = "examples/2d/tilemap_chunk_orientation.rs"
 # Causes an ICE on docs.rs
-doc-scrape-examples = false
+doc-scrape-examples = true
 
 [package.metadata.example.tilemap_chunk_orientation]
 name = "Tilemap Chunk with Orientations"
@@ -1967,11 +1967,23 @@ wasm = false
 name = "asset_saving"
 path = "examples/asset/asset_saving.rs"
 doc-scrape-examples = true
-required-features = ["ui_picking", "sprite_picking"]
+required-features = ["ui_picking", "sprite_picking", "png"]
 
 [package.metadata.example.asset_saving]
 name = "Asset Saving"
-description = "Demonstrates how to save an asset (with subassets)"
+description = "Demonstrates how to save an asset"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "asset_saving_with_subassets"
+path = "examples/asset/asset_saving_with_subassets.rs"
+doc-scrape-examples = true
+required-features = ["ui_picking", "sprite_picking"]
+
+[package.metadata.example.asset_saving_with_subassets]
+name = "Asset Saving with Subassets"
+description = "Demonstrates how to save an asset with subassets"
 category = "Assets"
 wasm = true
 
@@ -2284,6 +2296,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "callbacks"
+path = "examples/ecs/callbacks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.callbacks]
+name = "Callbacks"
+description = "Store arbitrary systems in components and run them on demand"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "component_hooks"
 path = "examples/ecs/component_hooks.rs"
 doc-scrape-examples = true
@@ -2336,17 +2359,6 @@ doc-scrape-examples = true
 [package.metadata.example.message]
 name = "Message"
 description = "Illustrates message creation, activation, and reception"
-category = "ECS (Entity Component System)"
-wasm = false
-
-[[example]]
-name = "send_and_receive_messages"
-path = "examples/ecs/send_and_receive_messages.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.send_and_receive_messages]
-name = "Send and receive messages"
-description = "Demonstrates how to send and receive messages of the same type in a single system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2947,7 +2959,8 @@ wasm = false
 [[example]]
 name = "type_data"
 path = "examples/reflection/type_data.rs"
-doc-scrape-examples = true
+# causes ICE due to impl in a fn: https://github.com/rust-lang/rust/issues/149089
+doc-scrape-examples = false
 
 [package.metadata.example.type_data]
 name = "Type Data"
@@ -4275,17 +4288,6 @@ wasm = true
 
 # Math
 [[example]]
-name = "sampling_primitives"
-path = "examples/math/sampling_primitives.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.sampling_primitives]
-name = "Sampling Primitives"
-description = "Demonstrates all the primitives which can be sampled."
-category = "Math"
-wasm = true
-
-[[example]]
 name = "custom_primitives"
 path = "examples/math/custom_primitives.rs"
 doc-scrape-examples = true
@@ -5180,6 +5182,30 @@ name = "Scrollbars"
 description = "Demonstrates use of core scrollbar in Bevy UI"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "persisting_preferences"
+path = "examples/app/persisting_preferences.rs"
+doc-scrape-examples = true
+required-features = ["bevy_settings"]
+
+[package.metadata.example.persisting_preferences]
+name = "User Preferences"
+description = "Demonstrates persistence of user preferences"
+category = "Application"
+wasm = true
+
+[[example]]
+name = "persisting_window_settings"
+path = "examples/window/persisting_window_settings.rs"
+doc-scrape-examples = true
+required-features = ["bevy_settings"]
+
+[package.metadata.example.persisting_window_settings]
+name = "Save Window Position"
+description = "Demonstrates saving window position in preferences"
+category = "Application"
+wasm = false
 
 [[example]]
 name = "system_fonts"

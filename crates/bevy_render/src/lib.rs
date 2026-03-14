@@ -20,7 +20,8 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -86,7 +87,7 @@ use crate::{
     render_asset::prepare_assets,
     render_resource::PipelineCache,
     renderer::{render_system, RenderAdapterInfo, RenderGraph},
-    settings::RenderCreation,
+    settings::{RenderCreation, WgpuLimits},
     storage::StoragePlugin,
     texture::TexturePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -109,7 +110,7 @@ use render_asset::{
     RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
 };
 use settings::RenderResources;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -471,4 +472,11 @@ pub fn get_mali_driver_version(adapter_info: &RenderAdapterInfo) -> Option<u32> 
     }
 
     None
+}
+
+/// Returns true if storage buffers are unsupported on this platform or false
+/// if they are supported.
+pub fn storage_buffers_are_unsupported(limits: &WgpuLimits) -> bool {
+    static STORAGE_BUFFERS_UNSUPPORTED: OnceLock<bool> = OnceLock::new();
+    *STORAGE_BUFFERS_UNSUPPORTED.get_or_init(|| limits.max_storage_buffers_per_shader_stage == 0)
 }

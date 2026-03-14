@@ -66,6 +66,9 @@ fn main() {
             default_color: WHITE.into(),
             ..default()
         })
+        // Like in many realistic large scenes, many of the objects don't move
+        // We can accelerate transform propagation by optimizing for this case
+        .insert_resource(StaticTransformOptimizations::Enabled)
         .add_systems(
             Startup,
             (
@@ -85,7 +88,7 @@ fn setup(mut commands: Commands, mut scattering_mediums: ResMut<Assets<Scatterin
         Hdr,
         Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamera::default(),
-        Atmosphere::earthlike(scattering_mediums.add(ScatteringMedium::default())),
+        Atmosphere::earth(scattering_mediums.add(ScatteringMedium::default())),
         AtmosphereSettings::default(),
         // The directional light illuminance used in this scene is
         // quite bright, so raising the exposure compensation helps

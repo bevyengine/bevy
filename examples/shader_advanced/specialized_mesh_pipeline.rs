@@ -1,8 +1,8 @@
 //! Demonstrates how to define and use specialized mesh pipeline
 //!
 //! This example shows how to use the built-in [`SpecializedMeshPipeline`]
-//! functionality with a custom [`RenderCommand`] to allow custom mesh rendering with
-//! more flexibility than the material api.
+//! functionality with a custom [`RenderCommand`](bevy::render::render_phase::RenderCommand)
+//! to allow custom mesh rendering with more flexibility than the material api.
 //!
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
@@ -355,8 +355,9 @@ fn queue_custom_mesh_pipeline(
                 continue;
             };
 
-            let (vertex_slab, index_slab) =
-                mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id());
+            let Some(mesh_slabs) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id()) else {
+                continue;
+            };
 
             // Specialize the key for the current mesh entity
             // For this example we only specialize based on the mesh topology
@@ -386,8 +387,7 @@ fn queue_custom_mesh_pipeline(
                     draw_function,
                     pipeline: pipeline_id,
                     material_bind_group_index: None,
-                    vertex_slab: vertex_slab.unwrap_or_default(),
-                    index_slab,
+                    slabs: mesh_slabs,
                     lightmap_slab: None,
                 },
                 // For this example we can use the mesh asset id as the bin key,

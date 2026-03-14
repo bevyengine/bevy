@@ -3,7 +3,7 @@
 //! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
 //!
-//! [`Material2d`]: bevy::sprite::Material2d
+//! [`Material2d`]: bevy::sprite_render::Material2d
 
 use bevy::{
     asset::RenderAssetUsages,

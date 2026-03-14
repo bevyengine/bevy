@@ -1012,8 +1012,8 @@ mod tests {
 
             let _ = schedule.initialize(&mut world);
 
-            // this should fail, since resources are components
-            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
+            // this should fail, since resources are components and non_sends also do access with components
+            assert_eq!(schedule.graph().conflicting_systems().len(), 2);
 
             schedule = Schedule::default();
             schedule.add_systems((
@@ -1304,7 +1304,7 @@ mod tests {
                 // start a new frame by running ihe begin_frame() system
                 let mut system_state: SystemState<Option<ResMut<Stepping>>> =
                     SystemState::new(&mut world);
-                let res = system_state.get_mut(&mut world);
+                let res = system_state.get_mut(&mut world).unwrap();
                 Stepping::begin_frame(res);
 
                 // now run the schedule; this will panic if the executor doesn't
