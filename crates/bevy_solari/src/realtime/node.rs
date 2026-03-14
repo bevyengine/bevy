@@ -2,7 +2,7 @@ use super::{
     prepare::{SolariLightingResources, LIGHT_TILE_BLOCKS, WORLD_CACHE_SIZE},
     SolariLighting,
 };
-use crate::scene::RaytracingSceneBindings;
+use crate::{realtime::prepare::LIGHT_CACHE_LIGHTS_PER_CELL, scene::RaytracingSceneBindings};
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_anti_alias::dlss::ViewDlssRayReconstructionTextures;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
@@ -43,7 +43,8 @@ pub struct SolariLightingPipelines {
     sample_gi_for_world_cache_pipeline: CachedComputePipelineId,
     blend_new_world_cache_samples_pipeline: CachedComputePipelineId,
     presample_light_tiles_pipeline: CachedComputePipelineId,
-    di_initial_and_temporal_pipeline: CachedComputePipelineId,
+    di_initial_pipeline: CachedComputePipelineId,
+    di_temporal_pipeline: CachedComputePipelineId,
     di_spatial_and_shade_pipeline: CachedComputePipelineId,
     gi_initial_and_temporal_pipeline: CachedComputePipelineId,
     gi_spatial_and_shade_pipeline: CachedComputePipelineId,
@@ -129,7 +130,8 @@ pub fn solari_lighting(
         Some(sample_gi_for_world_cache_pipeline),
         Some(blend_new_world_cache_samples_pipeline),
         Some(presample_light_tiles_pipeline),
-        Some(di_initial_and_temporal_pipeline),
+        Some(di_initial_pipeline),
+        Some(di_temporal_pipeline),
         Some(di_spatial_and_shade_pipeline),
         Some(gi_initial_and_temporal_pipeline),
         Some(gi_spatial_and_shade_pipeline),
@@ -152,7 +154,8 @@ pub fn solari_lighting(
         pipeline_cache.get_compute_pipeline(pipelines.sample_gi_for_world_cache_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.blend_new_world_cache_samples_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.presample_light_tiles_pipeline),
-        pipeline_cache.get_compute_pipeline(pipelines.di_initial_and_temporal_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.di_initial_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.di_temporal_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.di_spatial_and_shade_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.gi_initial_and_temporal_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.gi_spatial_and_shade_pipeline),
@@ -208,6 +211,7 @@ pub fn solari_lighting(
             s.world_cache_b.as_entire_binding(),
             s.world_cache_active_cell_indices.as_entire_binding(),
             s.world_cache_active_cells_count.as_entire_binding(),
+            s.light_cache.as_entire_binding(),
         )),
     );
     let bind_group_world_cache_active_cells_dispatch = render_device.create_bind_group(
@@ -334,7 +338,14 @@ pub fn solari_lighting(
 
     let d = diagnostics.time_span(&mut pass, "solari_lighting/direct_lighting");
 
-    pass.set_pipeline(di_initial_and_temporal_pipeline);
+    pass.set_pipeline(di_initial_pipeline);
+    pass.set_immediates(
+        0,
+        bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+    );
+    pass.dispatch_workgroups(dx, dy, 1);
+
+    pass.set_pipeline(di_temporal_pipeline);
     pass.set_immediates(
         0,
         bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
@@ -429,6 +440,7 @@ pub fn init_solari_lighting_pipelines(
                 storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
                 storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
             ),
         ),
     );
@@ -465,10 +477,13 @@ pub fn init_solari_lighting_pipelines(
             layout.push(extra_bind_group_layout.clone());
         }
 
-        let mut shader_defs = vec![ShaderDefVal::UInt(
-            "WORLD_CACHE_SIZE".into(),
-            WORLD_CACHE_SIZE as u32,
-        )];
+        let mut shader_defs = vec![
+            ShaderDefVal::UInt("WORLD_CACHE_SIZE".into(), WORLD_CACHE_SIZE as u32),
+            ShaderDefVal::UInt(
+                "LIGHT_CACHE_LIGHTS_PER_CELL".into(),
+                LIGHT_CACHE_LIGHTS_PER_CELL as u32,
+            ),
+        ];
         shader_defs.extend_from_slice(&extra_shader_defs);
 
         pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -545,9 +560,16 @@ pub fn init_solari_lighting_pipelines(
             None,
             vec![],
         ),
-        di_initial_and_temporal_pipeline: create_pipeline(
+        di_initial_pipeline: create_pipeline(
             "solari_lighting_di_initial_and_temporal_pipeline",
-            "initial_and_temporal",
+            "initial",
+            load_embedded_asset!(asset_server.as_ref(), "restir_di.wgsl"),
+            None,
+            vec![],
+        ),
+        di_temporal_pipeline: create_pipeline(
+            "solari_lighting_di_initial_and_temporal_pipeline",
+            "temporal",
             load_embedded_asset!(asset_server.as_ref(), "restir_di.wgsl"),
             None,
             vec![],

@@ -33,11 +33,11 @@ fn pack_resolved_light_sample(sample: ResolvedLightSample) -> ResolvedLightSampl
     );
 }
 
-fn unpack_resolved_light_sample(packed: ResolvedLightSamplePacked, exposure: f32) -> ResolvedLightSample {
+fn unpack_resolved_light_sample(packed: ResolvedLightSamplePacked) -> ResolvedLightSample {
     return ResolvedLightSample(
         vec4(packed.world_position_x, packed.world_position_y, packed.world_position_z, select(1.0, 0.0, packed.inverse_pdf < 0.0)),
         octahedral_decode(unpack2x16unorm(packed.world_normal)),
-        (exp2(rgb9e5_to_vec3_(packed.radiance)) - 1.0) / exposure,
+        (exp2(rgb9e5_to_vec3_(packed.radiance)) - 1.0) / view.exposure,
         abs(packed.inverse_pdf),
     );
 }
