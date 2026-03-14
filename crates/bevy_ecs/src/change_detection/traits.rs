@@ -572,6 +572,100 @@ macro_rules! impl_methods {
                 self.reborrow().map_unchanged(|v| v.deref_mut())
             }
 
+            /// Maps to an inner value and sets it if not equal, combining
+            /// [`map_unchanged`](Self::map_unchanged) and [`DetectChangesMut::set_if_neq`].
+            ///
+            /// This is useful for setting a single field on a component without
+            /// triggering change detection when the value hasn't changed.
+            ///
+            /// Returns `true` if the value was overwritten.
+            ///
+            /// ```
+            /// # use bevy_ecs::prelude::*;
+            /// # #[derive(PartialEq)] pub struct Vec2;
+            /// # impl Vec2 { pub const ZERO: Self = Self; }
+            /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
+            /// fn reset_positions(mut transforms: Query<&mut Transform>) {
+            ///     for transform in &mut transforms {
+            ///         transform.map_unchanged_set_if_neq(|t| &mut t.translation, Vec2::ZERO);
+            ///     }
+            /// }
+            /// # bevy_ecs::system::assert_is_system(reset_positions);
+            /// ```
+            #[inline]
+            #[track_caller]
+            pub fn map_unchanged_set_if_neq<U: PartialEq>(
+                self,
+                f: impl FnOnce(&mut $target) -> &mut U,
+                value: U,
+            ) -> bool {
+                self.map_unchanged(f).set_if_neq(value)
+            }
+
+            /// Maps to an inner value and replaces it if not equal, combining
+            /// [`map_unchanged`](Self::map_unchanged) and [`DetectChangesMut::replace_if_neq`].
+            ///
+            /// Returns the previous value if it was overwritten, or `None` if it was already equal.
+            ///
+            /// ```
+            /// # use bevy_ecs::prelude::*;
+            /// # #[derive(PartialEq)] pub struct Vec2(f32, f32);
+            /// # impl Vec2 { pub const ZERO: Self = Self(0.0, 0.0); }
+            /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
+            /// fn reset_positions(mut transforms: Query<&mut Transform>) {
+            ///     for transform in &mut transforms {
+            ///         if let Some(old) = transform.map_unchanged_replace_if_neq(
+            ///             |t| &mut t.translation,
+            ///             Vec2::ZERO,
+            ///         ) {
+            ///             // Handle the previous value
+            ///         }
+            ///     }
+            /// }
+            /// # bevy_ecs::system::assert_is_system(reset_positions);
+            /// ```
+            #[inline]
+            #[track_caller]
+            pub fn map_unchanged_replace_if_neq<U: PartialEq>(
+                self,
+                f: impl FnOnce(&mut $target) -> &mut U,
+                value: U,
+            ) -> Option<U> {
+                self.map_unchanged(f).replace_if_neq(value)
+            }
+
+            /// Maps to an inner value and clones from the given value if not equal, combining
+            /// [`map_unchanged`](Self::map_unchanged) and [`DetectChangesMut::clone_from_if_neq`].
+            ///
+            /// This is useful when you only have a borrowed form of the value,
+            /// e.g. writing a `&str` into a `String` field.
+            ///
+            /// Returns `true` if the value was overwritten.
+            ///
+            /// ```
+            /// # use bevy_ecs::prelude::*;
+            /// # #[derive(Component)] pub struct Label { text: String }
+            /// fn update_labels(mut labels: Query<&mut Label>) {
+            ///     for label in &mut labels {
+            ///         label.map_unchanged_clone_from_if_neq(|l| &mut l.text, "updated");
+            ///     }
+            /// }
+            /// # bevy_ecs::system::assert_is_system(update_labels);
+            /// ```
+            #[inline]
+            #[track_caller]
+            pub fn map_unchanged_clone_from_if_neq<U, V>(
+                self,
+                f: impl FnOnce(&mut $target) -> &mut U,
+                value: &V,
+            ) -> bool
+            where
+                V: alloc::borrow::ToOwned<Owned = U> + ?Sized,
+                U: PartialEq<V>,
+            {
+                self.map_unchanged(f).clone_from_if_neq(value)
+            }
+
         }
     };
 }

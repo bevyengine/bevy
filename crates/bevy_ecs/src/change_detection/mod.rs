@@ -317,6 +317,102 @@ mod tests {
         );
     }
 
+    #[derive(Resource, PartialEq, Debug)]
+    struct Outer {
+        value: u32,
+        label: alloc::string::String,
+    }
+
+    #[test]
+    fn map_unchanged_set_if_neq() {
+        let mut world = World::new();
+
+        world.insert_resource(Outer {
+            value: 0,
+            label: "hello".into(),
+        });
+        world.increment_change_tick();
+        world.clear_trackers();
+
+        let r = world.resource_mut::<Outer>();
+        assert!(!r.is_changed());
+
+        // Setting to same value should not trigger change
+        let changed = r.map_unchanged_set_if_neq(|o| &mut o.value, 0);
+        assert!(!changed);
+
+        let r = world.resource_mut::<Outer>();
+        assert!(!r.is_changed());
+
+        // Setting to different value should trigger change
+        let changed = r.map_unchanged_set_if_neq(|o| &mut o.value, 42);
+        assert!(changed);
+
+        let r = world.resource_mut::<Outer>();
+        assert!(r.is_changed());
+        assert_eq!((*r).value, 42);
+    }
+
+    #[test]
+    fn map_unchanged_replace_if_neq() {
+        let mut world = World::new();
+
+        world.insert_resource(Outer {
+            value: 10,
+            label: "hello".into(),
+        });
+        world.increment_change_tick();
+        world.clear_trackers();
+
+        let r = world.resource_mut::<Outer>();
+        assert!(!r.is_changed());
+
+        // Same value returns None
+        let old = r.map_unchanged_replace_if_neq(|o| &mut o.value, 10);
+        assert_eq!(old, None);
+
+        let r = world.resource_mut::<Outer>();
+        assert!(!r.is_changed());
+
+        // Different value returns previous
+        let old = r.map_unchanged_replace_if_neq(|o| &mut o.value, 20);
+        assert_eq!(old, Some(10));
+
+        let r = world.resource_mut::<Outer>();
+        assert!(r.is_changed());
+        assert_eq!((*r).value, 20);
+    }
+
+    #[test]
+    fn map_unchanged_clone_from_if_neq() {
+        let mut world = World::new();
+
+        world.insert_resource(Outer {
+            value: 0,
+            label: "hello".into(),
+        });
+        world.increment_change_tick();
+        world.clear_trackers();
+
+        let r = world.resource_mut::<Outer>();
+        assert!(!r.is_changed());
+
+        // Same value should not trigger change
+        let changed = r.map_unchanged_clone_from_if_neq(|o| &mut o.label, "hello");
+        assert!(!changed);
+
+        let r = world.resource_mut::<Outer>();
+        assert!(!r.is_changed());
+
+        // Different value should trigger change
+        let changed = r.map_unchanged_clone_from_if_neq(|o| &mut o.label, "world");
+        assert!(changed);
+
+        let r = world.resource_mut::<Outer>();
+        assert!(r.is_changed());
+        assert_eq!((*r).label, "world");
+    }
+
     #[test]
     fn mut_untyped_to_reflect() {
         let last_run = Tick::new(2);
