@@ -9,7 +9,7 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    query::With,
+    query::{Has, With},
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},
     world::Ref,
@@ -146,9 +146,10 @@ impl From<String> for Text {
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct TextShadow {
     /// Shadow displacement in logical pixels
-    /// With a value of zero the shadow will be hidden directly behind the text
+    ///
+    /// Clamped to 16 px after layout scaling
     pub offset: Vec2,
-    /// Color of the shadow
+    /// Color of the shadow.
     pub color: Color,
 }
 
@@ -343,13 +344,20 @@ pub fn text_system(
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
         Ref<FontHinting>,
+        Has<TextShadow>,
     )>,
     mut scale_cx: ResMut<ScaleCx>,
 ) {
-    for (node, block, mut text_layout_info, mut text_flags, mut computed, hinting) in
+    for (node, block, mut text_layout_info, mut text_flags, mut computed, hinting, has_shadow) in
         &mut text_query
     {
-        if node.is_changed() || text_flags.needs_recompute || hinting.is_changed() {
+        let text_effect_padding = has_shadow;
+
+        if node.is_changed()
+            || text_flags.needs_recompute
+            || hinting.is_changed()
+            || text_layout_info.uses_text_effect_padding != text_effect_padding
+        {
             // Skip the text node if it is waiting for a new measure func
             if text_flags.needs_measure_fn {
                 continue;
@@ -372,6 +380,7 @@ pub fn text_system(
                 physical_node_size,
                 block.justify,
                 *hinting,
+                text_effect_padding,
             ) {
                 Err(
                     TextError::NoSuchFont

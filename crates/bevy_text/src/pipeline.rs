@@ -270,6 +270,7 @@ impl TextPipeline {
         bounds: TextBounds,
         justify: Justify,
         hinting: FontHinting,
+        text_effect_padding: bool,
     ) -> Result<(), TextError> {
         computed.needs_rerender = false;
         layout_info.clear();
@@ -295,6 +296,7 @@ impl TextPipeline {
                         variations_hash,
                         hinting,
                         font_smoothing,
+                        text_effect_padding,
                     };
 
                     let Some(font_ref) =
@@ -329,6 +331,7 @@ impl TextPipeline {
                                         &mut scaler,
                                         font_smoothing,
                                         glyph_id,
+                                        text_effect_padding,
                                     )
                                 })?;
 
@@ -369,6 +372,7 @@ impl TextPipeline {
         }
 
         layout_info.size = Vec2::new(layout.full_width(), layout.height()).ceil();
+        layout_info.uses_text_effect_padding = text_effect_padding;
         Ok(())
     }
 }
@@ -408,6 +412,8 @@ fn resolve_font_source<'a>(
 pub struct TextLayoutInfo {
     /// The target scale factor for this text layout
     pub scale_factor: f32,
+    /// Whether the layout's cached glyph atlas rects include text-effect padding.
+    pub uses_text_effect_padding: bool,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
     /// Geometry of each text run used to render text decorations like background colors, strikethrough, and underline.
@@ -424,6 +430,7 @@ impl TextLayoutInfo {
     /// Clear the layout, retaining capacity
     pub fn clear(&mut self) {
         self.scale_factor = 1.;
+        self.uses_text_effect_padding = false;
         self.glyphs.clear();
         self.run_geometry.clear();
         self.size = Vec2::ZERO;
