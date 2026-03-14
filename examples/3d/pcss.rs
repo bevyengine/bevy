@@ -129,10 +129,9 @@ fn main() {
         ))
         .add_message::<WidgetClickEvent<AppSetting>>()
         .add_systems(Startup, setup)
-        .add_systems(Update, widgets::handle_ui_interactions::<AppSetting>)
         .add_systems(
             Update,
-            update_radio_buttons.after(widgets::handle_ui_interactions::<AppSetting>),
+            update_radio_buttons.run_if(resource_changed::<AppStatus>),
         )
         .add_systems(
             Update,
@@ -140,9 +139,9 @@ fn main() {
                 handle_light_type_change,
                 handle_shadow_filter_change,
                 handle_pcss_toggle,
-            )
-                .after(widgets::handle_ui_interactions::<AppSetting>),
+            ),
         )
+        .add_observer(widgets::handle_ui_button_interaction_on_click::<AppSetting>)
         .run();
 }
 

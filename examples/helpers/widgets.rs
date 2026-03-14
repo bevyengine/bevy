@@ -164,17 +164,20 @@ pub fn ui_text(label: &str, color: Color) -> impl Bundle + use<> {
 
 /// Checks for clicks on the radio buttons and sends `RadioButtonChangeEvent`s
 /// as necessary.
-pub fn handle_ui_interactions<T>(
-    mut interactions: Query<(&Interaction, &WidgetClickSender<T>), With<Button>>,
+pub fn handle_ui_button_interaction_on_click<T>(
+    click: On<Pointer<Click>>,
+    mut widget_click_sender_query: Query<
+        &WidgetClickSender<T>,
+        Or<(With<Button>, With<bevy::ui_widgets::Button>)>,
+    >,
     mut widget_click_events: MessageWriter<WidgetClickEvent<T>>,
 ) where
     T: Clone + Send + Sync + 'static,
 {
-    for (interaction, click_event) in interactions.iter_mut() {
-        if *interaction == Interaction::Pressed {
-            widget_click_events.write(WidgetClickEvent((**click_event).clone()));
-        }
-    }
+    let Ok(click_event) = widget_click_sender_query.get_mut(click.event_target()) else {
+        return;
+    };
+    widget_click_events.write(WidgetClickEvent((**click_event).clone()));
 }
 
 /// Updates the style of the button part of a radio button to reflect its

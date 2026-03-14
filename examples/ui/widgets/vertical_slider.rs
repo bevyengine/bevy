@@ -1,10 +1,7 @@
 //! Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
 
 use bevy::{
-    input_focus::{
-        tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
     ui_widgets::{
@@ -18,12 +15,7 @@ const SLIDER_THUMB: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            UiWidgetsPlugins,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (update_slider_visuals, update_value_labels))
         .run();
@@ -153,6 +145,7 @@ fn vertical_slider() -> impl Bundle {
         },
         DemoSlider,
         VerticalSlider,
+        // Hover detection
         Hovered::default(),
         Slider {
             track_click: TrackClick::Snap,
@@ -212,6 +205,7 @@ fn horizontal_slider() -> impl Bundle {
             ..default()
         },
         DemoSlider,
+        // Hover detection
         Hovered::default(),
         Slider {
             track_click: TrackClick::Snap,

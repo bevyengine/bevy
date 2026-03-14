@@ -10,7 +10,7 @@ use bevy::{
     color::palettes::basic::*,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin, InputFocus,
+        InputFocus,
     },
     picking::hover::Hovered,
     prelude::*,
@@ -26,12 +26,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            UiWidgetsPlugins,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins, TabNavigationPlugin))
         .insert_resource(DemoWidgetStates {
             slider_value: 50.0,
             slider_click: TrackClick::Snap,
@@ -63,6 +58,11 @@ const SLIDER_THUMB: Color = Color::srgb(0.35, 0.75, 0.35);
 const ELEMENT_OUTLINE: Color = Color::srgb(0.45, 0.45, 0.45);
 const ELEMENT_FILL: Color = Color::srgb(0.35, 0.75, 0.35);
 const ELEMENT_FILL_DISABLED: Color = Color::srgb(0.5019608, 0.5019608, 0.5019608);
+
+/// Marker which detects the hover.
+#[derive(Component)]
+#[require(Button, Hovered)]
+struct HoverableButton;
 
 /// Marker which identifies buttons with a particular style, in this case the "Demo style".
 #[derive(Component)]
@@ -206,8 +206,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
             ..default()
         },
         DemoButton,
-        Button,
-        Hovered::default(),
+        HoverableButton,
         TabIndex(0),
         BorderColor::all(Color::BLACK),
         BackgroundColor(NORMAL_BUTTON),
@@ -243,7 +242,7 @@ fn menu_button(asset_server: &AssetServer) -> impl Bundle {
             },
             DemoMenuButton,
             MenuButton,
-            Hovered::default(),
+            HoverableButton,
             TabIndex(0),
             BorderColor::all(Color::BLACK),
             BackgroundColor(NORMAL_BUTTON),
@@ -396,7 +395,7 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
             ..default()
         },
         Name::new("Slider"),
-        Hovered::default(),
+        HoverableButton,
         DemoSlider,
         Slider {
             track_click: TrackClick::Snap,
@@ -536,7 +535,7 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
             ..default()
         },
         Name::new("Checkbox"),
-        Hovered::default(),
+        HoverableButton,
         DemoCheckbox,
         Checkbox,
         TabIndex(0),
@@ -749,7 +748,7 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
             ..default()
         },
         Name::new("RadioButton"),
-        Hovered::default(),
+        HoverableButton,
         DemoRadio(value),
         RadioButton,
         Children::spawn((
@@ -886,7 +885,7 @@ fn menu_item(asset_server: &AssetServer) -> impl Bundle {
         },
         DemoMenuItem,
         MenuItem,
-        Hovered::default(),
+        HoverableButton,
         TabIndex(0),
         BackgroundColor(NORMAL_BUTTON),
         children![(

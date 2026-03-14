@@ -8,6 +8,7 @@ use bevy::{
     input::mouse::AccumulatedMouseMotion,
     light::ClusteredDecal,
     pbr::{decal, ExtendedMaterial, MaterialExtension},
+    picking::hover::Hovered,
     prelude::*,
     render::{
         render_resource::AsBindGroup,
@@ -135,11 +136,13 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, draw_gizmos)
         .add_systems(Update, rotate_cube)
-        .add_systems(Update, widgets::handle_ui_interactions::<Selection>)
         .add_systems(
             Update,
-            (handle_selection_change, update_radio_buttons)
-                .after(widgets::handle_ui_interactions::<Selection>),
+            (
+                handle_selection_change,
+                update_radio_buttons.run_if(resource_changed::<AppStatus>),
+            )
+                .chain(),
         )
         .add_systems(Update, process_move_input)
         .add_systems(Update, process_scale_input)
@@ -147,6 +150,7 @@ fn main() {
         .add_systems(Update, switch_drag_mode)
         .add_systems(Update, update_help_text)
         .add_systems(Update, update_button_visibility)
+        .add_observer(widgets::handle_ui_button_interaction_on_click::<Selection>)
         .run();
 }
 
@@ -288,6 +292,8 @@ fn drag_button(label: &str) -> impl Bundle {
         },
         Button,
         BackgroundColor(Color::BLACK),
+        // Detect the hover.
+        Hovered::default(),
         BUTTON_BORDER_COLOR,
         children![widgets::ui_text(label, Color::WHITE)],
     )
@@ -490,7 +496,7 @@ fn create_help_string(app_status: &AppStatus) -> String {
 /// mode back to its default value of [`DragMode::Move`].
 fn switch_drag_mode(
     mut commands: Commands,
-    mut interactions: Query<(&Interaction, &DragMode)>,
+    mut button_interactions: Query<(&Hovered, &DragMode), With<Button>>,
     mut windows: Query<Entity, With<Window>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mut app_status: ResMut<AppStatus>,
@@ -499,8 +505,8 @@ fn switch_drag_mode(
         return;
     }
 
-    for (interaction, drag_mode) in &mut interactions {
-        if *interaction != Interaction::Hovered {
+    for (hovered, drag_mode) in &mut button_interactions {
+        if !hovered.0 {
             continue;
         }
 

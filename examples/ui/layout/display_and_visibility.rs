@@ -3,6 +3,7 @@
 use bevy::{
     color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW},
     ecs::{component::Mutable, hierarchy::ChildSpawnerCommands},
+    picking::hover::Hovered,
     prelude::*,
 };
 
@@ -13,14 +14,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                buttons_handler::<Display>,
-                buttons_handler::<Visibility>,
-                text_hover,
-            ),
-        )
+        .add_systems(Update, (text_hover,))
+        .add_observer(buttons_handler::<Display>)
+        .add_observer(buttons_handler::<Visibility>)
         .run();
 }
 
@@ -381,6 +377,8 @@ where
     parent
         .spawn((
             Button,
+            // Detect the hover
+            Hovered::default(),
             Node {
                 align_self: AlignSelf::FlexStart,
                 padding: UiRect::axes(px(5), px(1)),
@@ -399,56 +397,56 @@ where
 }
 
 fn buttons_handler<T>(
+    press: On<Pointer<Click>>,
     mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
-    mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
+    visibility_button_query: Query<(&Target<T>, &Children)>,
     mut text_query: Query<(&mut Text, &mut TextColor)>,
 ) where
     T: Send + Sync,
     Target<T>: TargetUpdate + Component,
 {
-    for (target, interaction, children) in visibility_button_query.iter_mut() {
-        if matches!(interaction, Interaction::Pressed) {
-            let mut target_value = left_panel_query.get_mut(target.id).unwrap();
-            for &child in children {
-                if let Ok((mut text, mut text_color)) = text_query.get_mut(child) {
-                    **text = target.update_target(target_value.as_mut());
-                    text_color.0 = if text.contains("None") || text.contains("Hidden") {
-                        Color::srgb(1.0, 0.7, 0.7)
-                    } else {
-                        Color::WHITE
-                    };
-                }
-            }
+    let Ok((target, children)) = visibility_button_query.get(press.event_target()) else {
+        return;
+    };
+    let mut target_value = left_panel_query.get_mut(target.id).unwrap();
+    for &child in children {
+        if let Ok((mut text, mut text_color)) = text_query.get_mut(child) {
+            **text = target.update_target(target_value.as_mut());
+            text_color.0 = if text.contains("None") || text.contains("Hidden") {
+                Color::srgb(1.0, 0.7, 0.7)
+            } else {
+                Color::WHITE
+            };
         }
     }
 }
 
 fn text_hover(
-    mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
+    mut button_query: Query<
+        (&Hovered, &mut BackgroundColor, &Children),
+        (Changed<Hovered>, With<Button>),
+    >,
     mut text_query: Query<(&Text, &mut TextColor)>,
 ) {
-    for (interaction, mut color, children) in button_query.iter_mut() {
-        match interaction {
-            Interaction::Hovered => {
-                *color = Color::BLACK.with_alpha(0.6).into();
-                for &child in children {
-                    if let Ok((_, mut text_color)) = text_query.get_mut(child) {
-                        // Bypass change detection to avoid recomputation of the text when only changing the color
-                        text_color.bypass_change_detection().0 = YELLOW.into();
-                    }
+    for (hovered, mut color, children) in button_query.iter_mut() {
+        if hovered.get() {
+            *color = Color::BLACK.with_alpha(0.6).into();
+            for &child in children {
+                if let Ok((_, mut text_color)) = text_query.get_mut(child) {
+                    // Bypass change detection to avoid recomputation of the text when only changing the color
+                    text_color.bypass_change_detection().0 = YELLOW.into();
                 }
             }
-            _ => {
-                *color = Color::BLACK.with_alpha(0.5).into();
-                for &child in children {
-                    if let Ok((text, mut text_color)) = text_query.get_mut(child) {
-                        text_color.bypass_change_detection().0 =
-                            if text.contains("None") || text.contains("Hidden") {
-                                HIDDEN_COLOR
-                            } else {
-                                Color::WHITE
-                            };
-                    }
+        } else {
+            *color = Color::BLACK.with_alpha(0.5).into();
+            for &child in children {
+                if let Ok((text, mut text_color)) = text_query.get_mut(child) {
+                    text_color.bypass_change_detection().0 =
+                        if text.contains("None") || text.contains("Hidden") {
+                            HIDDEN_COLOR
+                        } else {
+                            Color::WHITE
+                        };
                 }
             }
         }

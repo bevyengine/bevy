@@ -27,7 +27,7 @@ use bevy::{
 mod widgets;
 
 use widgets::{
-    handle_ui_interactions, main_ui_node, option_buttons, update_ui_radio_button,
+    handle_ui_button_interaction_on_click, main_ui_node, option_buttons, update_ui_radio_button,
     update_ui_radio_button_text, RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender,
     BUTTON_BORDER, BUTTON_BORDER_COLOR, BUTTON_BORDER_RADIUS_SIZE, BUTTON_PADDING,
 };
@@ -221,7 +221,7 @@ fn main() {
         .add_systems(Update, rotate_model)
         .add_systems(Update, move_camera)
         .add_systems(Update, adjust_app_settings)
-        .add_systems(Update, handle_ui_interactions::<ExampleSetting>)
+        .add_observer(handle_ui_button_interaction_on_click::<ExampleSetting>)
         .run();
 }
 

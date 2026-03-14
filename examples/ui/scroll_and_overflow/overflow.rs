@@ -1,12 +1,21 @@
 //! Simple example demonstrating overflow behavior.
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{
+    color::palettes::css::*,
+    picking::hover::Hovered,
+    prelude::*,
+    reflect::Is,
+    ui::Pressed,
+    ui_widgets::Button,
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, update_outlines)
+        .add_observer(update_outlines_on_interaction::<Add, Pressed>)
+        .add_observer(update_outlines_on_interaction::<Remove, Pressed>)
+        .add_observer(update_outlines_on_interaction::<Insert, Hovered>)
         .run();
 }
 
@@ -81,7 +90,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         min_height: px(100),
                                         ..default()
                                     },
-                                    Interaction::default(),
+                                    Button,
+                                    // Hover detection
+                                    Hovered::default(),
                                     Outline {
                                         width: px(2),
                                         offset: px(2),
@@ -94,14 +105,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) {
-    for (mut outline, interaction) in outlines_query.iter_mut() {
-        if interaction.is_changed() {
-            outline.color = match *interaction {
-                Interaction::Pressed => RED.into(),
-                Interaction::Hovered => WHITE.into(),
-                Interaction::None => Color::NONE,
-            };
+fn update_outlines_on_interaction<E: EntityEvent, C: Component>(
+    event: On<E, C>,
+    mut outline_query: Query<(&Hovered, Has<Pressed>, &mut Outline), With<Button>>,
+) {
+    if let Ok((hovered, pressed, mut outline)) = outline_query.get_mut(event.event_target()) {
+        let hovered = hovered.get();
+        let pressed = pressed && !(E::is::<Remove>() && C::is::<Pressed>());
+        outline.color = match (hovered, pressed) {
+            (true, true) => RED.into(),
+            (true, false) => WHITE.into(),
+            (false, _) => Color::NONE,
         }
     }
 }

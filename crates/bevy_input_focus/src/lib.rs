@@ -219,6 +219,7 @@ impl Traversal<AcquireFocus> for WindowTraversal {
 ///
 /// To add bubbling to your own input events, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// as described in the docs for [`FocusedInput`].
+#[derive(Default)]
 pub struct InputDispatchPlugin;
 
 impl Plugin for InputDispatchPlugin {

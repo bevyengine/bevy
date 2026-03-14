@@ -104,13 +104,9 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (
-                handle_button_presses,
-                adjust_color_grading_option,
-                update_ui_state,
-            )
-                .chain(),
+            (adjust_color_grading_option, update_ui_state).chain(),
         )
+        .add_observer(handle_button_presses)
         .run();
 }
 
@@ -508,16 +504,15 @@ impl SelectedColorGradingOption {
 
 /// Handles mouse clicks on the buttons when the user clicks on a new one.
 fn handle_button_presses(
-    mut interactions: Query<(&Interaction, &ColorGradingOptionWidget), Changed<Interaction>>,
+    press: On<Pointer<Click>>,
+    mut color_grading_option_widget_query: Query<&ColorGradingOptionWidget>,
     mut currently_selected_option: ResMut<SelectedColorGradingOption>,
 ) {
-    for (interaction, widget) in interactions.iter_mut() {
-        if widget.widget_type == ColorGradingOptionWidgetType::Button
-            && *interaction == Interaction::Pressed
-        {
-            *currently_selected_option = widget.option;
-        }
-    }
+    let Ok(widget) = color_grading_option_widget_query.get_mut(press.event_target()) else {
+        return;
+    };
+
+    *currently_selected_option = widget.option;
 }
 
 /// Updates the state of the UI based on the current state.

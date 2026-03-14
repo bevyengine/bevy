@@ -12,6 +12,10 @@ plugin_group! {
         bevy_transform:::TransformPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
         bevy_input:::InputPlugin,
+        // NOTE: Assuming FeathersPlugin is added when "bevy_feathers" is enabled,
+        // This is not included due to the redundancy.
+        #[custom(cfg(all(feature = "bevy_input_focus", not(feature = "bevy_feathers"))))]
+        bevy_input_focus:::InputDispatchPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]
         bevy_app:::ScheduleRunnerPlugin,
         #[cfg(feature = "bevy_window")]
@@ -65,6 +69,8 @@ plugin_group! {
         bevy_ui:::UiPlugin,
         #[cfg(feature = "bevy_ui_render")]
         bevy_ui_render:::UiRenderPlugin,
+        #[custom(cfg(any(feature = "bevy_ui_widgets", feature = "bevy_feathers")))]
+        bevy_ui_widgets:::UiWidgetsButtonPlugin,
         #[cfg(feature = "bevy_gltf")]
         bevy_gltf:::GltfPlugin,
         #[cfg(feature = "bevy_pbr")]

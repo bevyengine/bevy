@@ -113,9 +113,10 @@ fn button_on_pointer_cancel(
 }
 
 /// Plugin that adds the observers for the [`Button`] widget.
-pub struct ButtonPlugin;
+#[derive(Default)]
+pub struct UiWidgetsButtonPlugin;
 
-impl Plugin for ButtonPlugin {
+impl Plugin for UiWidgetsButtonPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(button_on_key_event)
             .add_observer(button_on_pointer_down)

@@ -1,7 +1,15 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
-use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
+use bevy::{
+    color::palettes::basic::*,
+    input_focus::InputFocus,
+    picking::hover::Hovered,
+    prelude::*,
+    reflect::Is,
+    ui::Pressed,
+    ui_widgets::Button,
+};
 
 fn main() {
     App::new()
@@ -9,7 +17,9 @@ fn main() {
         // `InputFocus` must be set for accessibility to recognize the button.
         .init_resource::<InputFocus>()
         .add_systems(Startup, setup)
-        .add_systems(Update, button_system)
+        .add_observer(button_on_interaction::<Add, Pressed>)
+        .add_observer(button_on_interaction::<Remove, Pressed>)
+        .add_observer(button_on_interaction::<Insert, Hovered>)
         .run();
 }
 
@@ -17,28 +27,22 @@ const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
-fn button_system(
+fn button_on_interaction<E: EntityEvent, C: Component>(
+    event: On<E, C>,
     mut input_focus: ResMut<InputFocus>,
-    mut interaction_query: Query<
-        (
-            Entity,
-            &Interaction,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &mut Button,
-            &Children,
-        ),
-        Changed<Interaction>,
+    mut button_query: Query<
+        (Entity, &Hovered, Has<Pressed>, &mut BackgroundColor, &mut BorderColor, &mut Button, &Children),
+        With<Button>
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (entity, interaction, mut color, mut border_color, mut button, children) in
-        &mut interaction_query
-    {
-        let mut text = text_query.get_mut(children[0]).unwrap();
-
-        match *interaction {
-            Interaction::Pressed => {
+    if let Ok((entity, hovered, pressed, mut color, mut border_color, mut button, children)) = button_query.get_mut(event.event_target()) {
+        let Some(child) = children.first() else { return; };
+        let mut text = text_query.get_mut(*child).unwrap();
+        let hovered = hovered.get();
+        let pressed = pressed && !(E::is::<Remove>() && C::is::<Pressed>());
+        match (hovered, pressed) {
+            (true, true) => {
                 input_focus.set(entity);
                 **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
@@ -47,14 +51,14 @@ fn button_system(
                 // The accessibility system's only update the button's state when the `Button` component is marked as changed.
                 button.set_changed();
             }
-            Interaction::Hovered => {
+            (true, false) => {
                 input_focus.set(entity);
                 **text = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
                 *border_color = BorderColor::all(Color::WHITE);
                 button.set_changed();
             }
-            Interaction::None => {
+            (false, _) => {
                 input_focus.clear();
                 **text = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
@@ -81,6 +85,8 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
         },
         children![(
             Button,
+            // detect the hover
+            Hovered::default(),
             Node {
                 width: px(150),
                 height: px(65),

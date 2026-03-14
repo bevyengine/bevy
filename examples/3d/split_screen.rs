@@ -10,7 +10,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (set_camera_viewports, button_system))
+        .add_systems(Update, set_camera_viewports)
+        .add_observer(handle_buttons)
         .run();
 }
 
@@ -178,27 +179,24 @@ fn set_camera_viewports(
     }
 }
 
-fn button_system(
-    interaction_query: Query<
-        (&Interaction, &ComputedUiTargetCamera, &RotateCamera),
-        (Changed<Interaction>, With<Button>),
-    >,
+fn handle_buttons(
+    click: On<Pointer<Click>>,
+    button_query: Query<(&ComputedUiTargetCamera, &RotateCamera), With<Button>>,
     mut camera_query: Query<&mut Transform, With<Camera>>,
 ) {
-    for (interaction, computed_target, RotateCamera(direction)) in &interaction_query {
-        if let Interaction::Pressed = *interaction {
-            // Since TargetCamera propagates to the children, we can use it to find
-            // which side of the screen the button is on.
-            if let Some(mut camera_transform) = computed_target
-                .get()
-                .and_then(|camera| camera_query.get_mut(camera).ok())
-            {
-                let angle = match direction {
-                    Direction::Left => -0.1,
-                    Direction::Right => 0.1,
-                };
-                camera_transform.rotate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, angle));
-            }
-        }
+    let Ok((computed_target, RotateCamera(direction))) = button_query.get(click.event_target()) else {
+        return;
+    };
+    // Since TargetCamera propagates to the children, we can use it to find
+    // which side of the screen the button is on.
+    if let Some(mut camera_transform) = computed_target
+        .get()
+        .and_then(|camera| camera_query.get_mut(camera).ok())
+    {
+        let angle = match direction {
+            Direction::Left => -0.1,
+            Direction::Right => 0.1,
+        };
+        camera_transform.rotate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, angle));
     }
 }

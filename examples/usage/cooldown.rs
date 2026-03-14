@@ -11,11 +11,9 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (
-                activate_ability,
-                animate_cooldowns.run_if(any_with_component::<ActiveCooldown>),
-            ),
+            animate_cooldowns.run_if(any_with_component::<ActiveCooldown>),
         )
+        .add_observer(activate_ability)
         .run();
 }
 
@@ -127,35 +125,33 @@ struct Cooldown(Timer);
 struct ActiveCooldown;
 
 fn activate_ability(
+    press: On<Pointer<Click>>,
     mut commands: Commands,
-    mut interaction_query: Query<
+    mut button_query: Query<
         (
             Entity,
-            &Interaction,
             &mut Cooldown,
             &Name,
             Option<&ActiveCooldown>,
         ),
-        (Changed<Interaction>, With<Button>),
+        With<Button>,
     >,
-    mut text: Query<&mut Text>,
-) -> Result {
-    for (entity, interaction, mut cooldown, name, on_cooldown) in &mut interaction_query {
-        if *interaction == Interaction::Pressed {
-            if on_cooldown.is_none() {
-                cooldown.0.reset();
-                commands.entity(entity).insert(ActiveCooldown);
-                **text.single_mut()? = format!("You ate {name}");
-            } else {
-                **text.single_mut()? = format!(
-                    "You can eat {name} again in {} seconds.",
-                    cooldown.0.remaining_secs().ceil()
-                );
-            }
-        }
+    mut text: Single<&mut Text>,
+) {
+    let Ok((entity, mut cooldown, name, on_cooldown)) = button_query.get_mut(press.event_target()) else {
+        return;
+    };
+    if on_cooldown.is_none() {
+        cooldown.0.reset();
+        commands.entity(entity).insert(ActiveCooldown);
+        **text = format!("You ate {name}").into();
+    } else {
+        **text = format!(
+            "You can eat {name} again in {} seconds.",
+            cooldown.0.remaining_secs().ceil()
+        )
+        .into();
     }
-
-    Ok(())
 }
 
 fn animate_cooldowns(

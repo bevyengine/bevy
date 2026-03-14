@@ -103,7 +103,6 @@ fn main() {
         }))
         .add_systems(Startup, (setup_scene, setup_ui))
         .add_systems(Update, setup_animation_graph_once_loaded)
-        .add_systems(Update, handle_button_toggles)
         .add_systems(Update, update_ui)
         .insert_resource(GlobalAmbientLight {
             color: WHITE.into(),
@@ -111,6 +110,7 @@ fn main() {
             ..default()
         })
         .init_resource::<AppState>()
+        .add_observer(handle_button_toggles)
         .run();
 }
 
@@ -410,43 +410,39 @@ fn setup_animation_graph_once_loaded(
 // A system that handles requests from the user to toggle mask groups on and
 // off.
 fn handle_button_toggles(
-    mut interactions: Query<(&Interaction, &mut AnimationControl), Changed<Interaction>>,
+    press: On<Pointer<Click>>,
+    mut animation_control_query: Query<(&mut AnimationControl)>,
     mut animation_players: Query<&AnimationGraphHandle, With<AnimationPlayer>>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
-    mut animation_nodes: Option<ResMut<AnimationNodes>>,
+    animation_nodes: Option<ResMut<AnimationNodes>>,
     mut app_state: ResMut<AppState>,
 ) {
-    let Some(ref mut animation_nodes) = animation_nodes else {
+    // We only care about press events.
+    let (Some(ref mut animation_nodes), Ok(animation_control)) = (
+        animation_nodes, animation_control_query.get_mut(press.event_target())) else {
         return;
     };
 
-    for (interaction, animation_control) in interactions.iter_mut() {
-        // We only care about press events.
-        if *interaction != Interaction::Pressed {
+    // Toggle the state of the clip.
+    app_state.0[animation_control.group_id as usize].clip = animation_control.label as u8;
+
+    // Now grab the animation player. (There's only one in our case, but we
+    // iterate just for clarity's sake.)
+    for animation_graph_handle in animation_players.iter_mut() {
+        // The animation graph needs to have loaded.
+        let Some(mut animation_graph) = animation_graphs.get_mut(animation_graph_handle) else {
             continue;
-        }
+        };
 
-        // Toggle the state of the clip.
-        app_state.0[animation_control.group_id as usize].clip = animation_control.label as u8;
-
-        // Now grab the animation player. (There's only one in our case, but we
-        // iterate just for clarity's sake.)
-        for animation_graph_handle in animation_players.iter_mut() {
-            // The animation graph needs to have loaded.
-            let Some(mut animation_graph) = animation_graphs.get_mut(animation_graph_handle) else {
+        for (clip_index, &animation_node_index) in animation_nodes.0.iter().enumerate() {
+            let Some(animation_node) = animation_graph.get_mut(animation_node_index) else {
                 continue;
             };
 
-            for (clip_index, &animation_node_index) in animation_nodes.0.iter().enumerate() {
-                let Some(animation_node) = animation_graph.get_mut(animation_node_index) else {
-                    continue;
-                };
-
-                if animation_control.label as usize == clip_index {
-                    animation_node.mask &= !(1 << animation_control.group_id);
-                } else {
-                    animation_node.mask |= 1 << animation_control.group_id;
-                }
+            if animation_control.label as usize == clip_index {
+                animation_node.mask &= !(1 << animation_control.group_id);
+            } else {
+                animation_node.mask |= 1 << animation_control.group_id;
             }
         }
     }

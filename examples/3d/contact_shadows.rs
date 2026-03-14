@@ -98,11 +98,12 @@ fn main() {
         .add_systems(
             Update,
             (
-                widgets::handle_ui_interactions::<ExampleSetting>,
-                update_radio_buttons.after(widgets::handle_ui_interactions::<ExampleSetting>),
-                handle_setting_change.after(widgets::handle_ui_interactions::<ExampleSetting>),
-            ),
+                handle_setting_change,
+                update_radio_buttons.run_if(resource_changed::<AppStatus>),
+            )
+                .chain(),
         )
+        .add_observer(widgets::handle_ui_button_interaction_on_click::<ExampleSetting>)
         .run();
 }
 
