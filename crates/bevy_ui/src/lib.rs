@@ -248,6 +248,7 @@ fn build_text_interop(app: &mut App) {
                 // Text2d and bevy_ui text are entirely on separate entities
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
+            widget::update_editor_system.in_set(UiSystems::PostLayout),
         ),
     );
 
