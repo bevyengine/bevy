@@ -1,6 +1,6 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 
-//! Raytraced global illumination and lighting.
+//! Pathtraced rendering and lighting.
 //!
 //! See [`SolariPlugins`] for more info.
 //!

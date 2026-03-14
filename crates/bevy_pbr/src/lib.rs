@@ -6,7 +6,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Physically based rendering, clustered forward shading, and shadow mapping.
+//! Physically based rendering and shadow mapping.
 
 extern crate alloc;
 

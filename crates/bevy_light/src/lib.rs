@@ -1,4 +1,4 @@
-//! Light sources, shadows, and atmospheric effects.
+//! Light source and shadow components for use with rendering backends.
 //!
 //! Includes directional, point, and spot lights, as well as light probes,
 //! atmosphere, other volumetrics, and shadow configuration.

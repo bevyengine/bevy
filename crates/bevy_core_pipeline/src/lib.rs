@@ -6,7 +6,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Core 2D and 3D render pipelines and render graph setup.
+//! Core 2D and 3D render graph setup.
 
 pub mod blit;
 pub mod core_2d;

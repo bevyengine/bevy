@@ -5,7 +5,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Anti-aliasing techniques: FXAA, SMAA, TAA, and more.
+//! Anti-aliasing techniques: FXAA, SMAA, and TAA.
 
 use bevy_app::Plugin;
 use contrast_adaptive_sharpening::CasPlugin;
