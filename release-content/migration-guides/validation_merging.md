@@ -137,7 +137,7 @@ unsafe impl SystemParam for MyParam<'_> {
 
 impl InfallibleSystemParam for MyParam<'_> {
     // ...
-    unsafe fn param<'w, 's>(
+    unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
@@ -169,7 +169,7 @@ impl ExclusiveSystemParam for MyExclusiveParam {
 // After
 impl ExclusiveSystemParam for MyExclusiveParam {
     // ...
-    fn get_param<'s>(
+    fn try_get_param<'s>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
     ) -> Result<Self::Item<'s>, SystemParamValidationError> {
