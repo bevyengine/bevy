@@ -505,11 +505,9 @@ impl World {
     ///
     /// # Type inference when using `?`
     ///
-    /// If the system you're calling returns `Result` (or any type that implements
-    /// [`IntoResult`](crate::system::IntoResult)), the compiler may fail to infer the
-    /// output type `O` when you use `?` on the result. This happens because the output
-    /// type is generic and the `?` conversion doesn't give the compiler enough
-    /// information to pin it down.
+    /// Because the output type `O` is generic, the compiler may fail to infer it
+    /// when you use `?` on the result. The `?` conversion doesn't give the compiler
+    /// enough information to pin down the type.
     ///
     /// ```compile_fail
     /// # use bevy_ecs::prelude::*;
@@ -556,10 +554,8 @@ impl World {
     ///
     /// # Type inference when using `?`
     ///
-    /// If the system you're calling returns `Result` (or any type that implements
-    /// [`IntoResult`](crate::system::IntoResult)), you may need to provide a type hint
-    /// for the output when using `?`. See [`World::run_system_cached`] for details and
-    /// workarounds.
+    /// Because the output type `O` is generic, you may need to provide a type hint
+    /// when using `?`. See [`World::run_system_cached`] for details and workarounds.
     pub fn run_system_cached_with<I, O, M, S>(
         &mut self,
         system: S,
