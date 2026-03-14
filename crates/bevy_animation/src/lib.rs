@@ -39,7 +39,7 @@ use crate::{
 
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
-use bevy_ecs::{prelude::*, world::EntityMutExcept};
+use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
@@ -1032,7 +1032,10 @@ pub fn animate_targets(
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
     players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
-    mut targets: Query<(Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut)>,
+    mut targets: Query<
+        (Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut),
+        Without<IsResource>,
+    >,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
@@ -1241,11 +1244,6 @@ impl Plugin for AnimationPlugin {
                     // it to its own system set after `Update` but before
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
-                    #[cfg(feature = "bevy_mesh")]
-                    animate_targets
-                        .before(bevy_mesh::InheritWeightSystems)
-                        .ambiguous_with_all(),
-                    #[cfg(not(feature = "bevy_mesh"))]
                     animate_targets.ambiguous_with_all(),
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,
@@ -1263,13 +1261,7 @@ impl AnimationTargetId {
     /// Typically, this will be the path from the animation root to the
     /// animation target (e.g. bone) that is to be animated.
     pub fn from_names<'a>(names: impl Iterator<Item = &'a Name>) -> Self {
-        let mut blake3 = blake3::Hasher::new();
-        blake3.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
-        for name in names {
-            blake3.update(name.as_bytes());
-        }
-        let hash = blake3.finalize().as_bytes()[0..16].try_into().unwrap();
-        Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
+        AnimationTargetId::from_iter(names.map(Name::as_str))
     }
 
     /// Creates a new [`AnimationTargetId`] by hashing a single name.
@@ -1287,6 +1279,9 @@ impl<T: AsRef<str>> FromIterator<T> for AnimationTargetId {
         let mut blake3 = blake3::Hasher::new();
         blake3.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
         for str in iter {
+            // Include the string's length in the hash. This avoids ["ab"] and
+            // ["a", "b"] returning the same id.
+            blake3.update(&str.as_ref().len().to_le_bytes());
             blake3.update(str.as_ref().as_bytes());
         }
         let hash = blake3.finalize().as_bytes()[0..16].try_into().unwrap();
@@ -1522,7 +1517,7 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 #[cfg(test)]
 mod tests {
     use crate as bevy_animation;
-    use bevy_reflect::{DynamicMap, Map};
+    use bevy_reflect::map::{DynamicMap, Map};
 
     use super::*;
 
@@ -1663,5 +1658,48 @@ mod tests {
             Box::new(AnimationNodeIndex::new(0)),
             Box::new(ActiveAnimation::default()),
         );
+    }
+
+    #[test]
+    fn test_animation_target_id() {
+        let paths = &[
+            vec![],
+            vec![""],
+            vec!["", ""],
+            vec!["a"],
+            vec!["a", "a"],
+            vec!["a", "b"],
+            vec!["b", "a"],
+            vec!["aa"],
+            vec!["ab"],
+            vec!["ba"],
+            vec!["abc"],
+            vec!["a", "b", "c"],
+            vec!["ab", "c"],
+            vec!["a", "bc"],
+        ];
+
+        // Test that different paths map to a different `AnimationTargetId`.
+        for (li, lp) in paths.iter().enumerate() {
+            for rp in paths.iter().skip(li + 1) {
+                let lt = AnimationTargetId::from_iter(lp.iter());
+                let rt = AnimationTargetId::from_iter(rp.iter());
+
+                assert!(lt != rt, "{:?} and {:?} collided. {:?} ", lp, rp, lt);
+            }
+        }
+
+        // Test that `from_iter` is equivalent to `from_names`.
+        for str_path in paths {
+            let name_path = str_path.iter().map(|&s| Name::from(s)).collect::<Vec<_>>();
+
+            assert_eq!(
+                AnimationTargetId::from_iter(str_path),
+                AnimationTargetId::from_names(name_path.iter()),
+                "{:?} {:?}",
+                str_path,
+                &name_path
+            );
+        }
     }
 }

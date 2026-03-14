@@ -158,7 +158,7 @@ fn main() {
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
                     let terms = filtered_entity
                         .access()
-                        .try_iter_component_access()
+                        .try_iter_access()
                         .unwrap()
                         .map(|component_access| {
                             let id = *component_access.index();

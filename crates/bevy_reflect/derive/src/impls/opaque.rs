@@ -30,7 +30,7 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
     let type_path_impl = impl_type_path(meta);
     let full_reflect_impl = impl_full_reflect(&where_clause_options);
-    let common_methods = common_partial_reflect_methods(meta, || None, || None);
+    let common_methods = common_partial_reflect_methods(meta, || None, || None, || None);
     let clone_fn = meta.attrs().get_clone_impl(bevy_reflect_path);
 
     let apply_impl = if let Some(remote_ty) = meta.remote_ty() {

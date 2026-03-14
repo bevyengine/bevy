@@ -4,10 +4,14 @@ use core::fmt::Write as _;
 use thiserror::Error;
 
 use crate::{
-    component::{ComponentId, Components},
+    component::Components,
     schedule::{
-        graph::{DiGraphToposortError, GraphNodeId},
-        NodeId, ScheduleGraph, SystemKey, SystemSetKey,
+        graph::{
+            DagCrossDependencyError, DagOverlappingGroupError, DagRedundancyError,
+            DiGraphToposortError, GraphNodeId,
+        },
+        AmbiguousSystemConflictsWarning, ConflictingSystems, NodeId, ScheduleGraph, SystemKey,
+        SystemSetKey, SystemTypeSetAmbiguityError,
     },
     world::World,
 };
@@ -26,14 +30,14 @@ pub enum ScheduleBuildError {
     #[error("Failed to topologically sort the flattened dependency graph: {0}")]
     FlatDependencySort(DiGraphToposortError<SystemKey>),
     /// Tried to order a system (set) relative to a system set it belongs to.
-    #[error("`{0:?}` and `{1:?}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
-    CrossDependency(NodeId, NodeId),
+    #[error("`{:?}` and `{:?}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.", .0.0, .0.1)]
+    CrossDependency(#[from] DagCrossDependencyError<NodeId>),
     /// Tried to order system sets that share systems.
-    #[error("`{0:?}` and `{1:?}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
-    SetsHaveOrderButIntersect(SystemSetKey, SystemSetKey),
+    #[error("`{:?}` and `{:?}` have a `before`-`after` relationship (which may be transitive) but share systems.", .0.0, .0.1)]
+    SetsHaveOrderButIntersect(#[from] DagOverlappingGroupError<SystemSetKey>),
     /// Tried to order a system (set) relative to all instances of some system function.
-    #[error("Tried to order against `{0:?}` in a schedule that has more than one `{0:?}` instance. `{0:?}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
-    SystemTypeSetAmbiguity(SystemSetKey),
+    #[error(transparent)]
+    SystemTypeSetAmbiguity(#[from] SystemTypeSetAmbiguityError),
     /// Tried to run a schedule before all of its systems have been initialized.
     #[error("Tried to run a schedule before all of its systems have been initialized.")]
     Uninitialized,
@@ -56,7 +60,7 @@ pub enum ScheduleBuildWarning {
     /// [`LogLevel::Ignore`]: crate::schedule::LogLevel::Ignore
     /// [`LogLevel::Error`]: crate::schedule::LogLevel::Error
     #[error("The hierarchy of system sets contains redundant edges: {0:?}")]
-    HierarchyRedundancy(Vec<(NodeId, NodeId)>),
+    HierarchyRedundancy(#[from] DagRedundancyError<NodeId>),
     /// Systems with conflicting access have indeterminate run order.
     ///
     /// This warning is **disabled** by default, but can be enabled by setting
@@ -66,8 +70,8 @@ pub enum ScheduleBuildWarning {
     /// [`ScheduleBuildSettings::ambiguity_detection`]: crate::schedule::ScheduleBuildSettings::ambiguity_detection
     /// [`LogLevel::Warn`]: crate::schedule::LogLevel::Warn
     /// [`LogLevel::Error`]: crate::schedule::LogLevel::Error
-    #[error("Systems with conflicting access have indeterminate run order: {0:?}")]
-    Ambiguity(Vec<(SystemKey, SystemKey, Vec<ComponentId>)>),
+    #[error(transparent)]
+    Ambiguity(#[from] AmbiguousSystemConflictsWarning),
 }
 
 impl ScheduleBuildError {
@@ -101,13 +105,13 @@ impl ScheduleBuildError {
             ScheduleBuildError::FlatDependencySort(DiGraphToposortError::Cycle(cycles)) => {
                 Self::dependency_cycle_to_string(cycles, graph)
             }
-            ScheduleBuildError::CrossDependency(a, b) => {
-                Self::cross_dependency_to_string(a, b, graph)
+            ScheduleBuildError::CrossDependency(error) => {
+                Self::cross_dependency_to_string(error, graph)
             }
-            ScheduleBuildError::SetsHaveOrderButIntersect(a, b) => {
+            ScheduleBuildError::SetsHaveOrderButIntersect(DagOverlappingGroupError(a, b)) => {
                 Self::sets_have_order_but_intersect_to_string(a, b, graph)
             }
-            ScheduleBuildError::SystemTypeSetAmbiguity(set) => {
+            ScheduleBuildError::SystemTypeSetAmbiguity(SystemTypeSetAmbiguityError(set)) => {
                 Self::system_type_set_ambiguity_to_string(set, graph)
             }
             ScheduleBuildError::Uninitialized => Self::uninitialized_to_string(),
@@ -195,7 +199,11 @@ impl ScheduleBuildError {
         message
     }
 
-    fn cross_dependency_to_string(a: &NodeId, b: &NodeId, graph: &ScheduleGraph) -> String {
+    fn cross_dependency_to_string(
+        error: &DagCrossDependencyError<NodeId>,
+        graph: &ScheduleGraph,
+    ) -> String {
+        let DagCrossDependencyError(a, b) = error;
         format!(
             "{} `{}` and {} `{}` have both `in_set` and `before`-`after` relationships (these might be transitive). \
             This combination is unsolvable as a system cannot run before or after a set it belongs to.",
@@ -227,7 +235,7 @@ impl ScheduleBuildError {
     }
 
     pub(crate) fn ambiguity_to_string(
-        ambiguities: &[(SystemKey, SystemKey, Vec<ComponentId>)],
+        ambiguities: &ConflictingSystems,
         graph: &ScheduleGraph,
         components: &Components,
     ) -> String {
@@ -236,7 +244,7 @@ impl ScheduleBuildError {
             "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
             Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
         );
-        let ambiguities = graph.conflicts_to_string(ambiguities, components);
+        let ambiguities = ambiguities.to_string(graph, components);
         for (name_a, name_b, conflicts) in ambiguities {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();
 
@@ -261,10 +269,10 @@ impl ScheduleBuildWarning {
     /// replaced with their names.
     pub fn to_string(&self, graph: &ScheduleGraph, world: &World) -> String {
         match self {
-            ScheduleBuildWarning::HierarchyRedundancy(transitive_edges) => {
+            ScheduleBuildWarning::HierarchyRedundancy(DagRedundancyError(transitive_edges)) => {
                 ScheduleBuildError::hierarchy_redundancy_to_string(transitive_edges, graph)
             }
-            ScheduleBuildWarning::Ambiguity(ambiguities) => {
+            ScheduleBuildWarning::Ambiguity(AmbiguousSystemConflictsWarning(ambiguities)) => {
                 ScheduleBuildError::ambiguity_to_string(ambiguities, graph, world.components())
             }
         }

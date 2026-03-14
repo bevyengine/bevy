@@ -10,11 +10,13 @@ use bevy_ecs::{
     change_detection::Tick,
     component::ComponentId,
     prelude::{Entity, Resource, World},
-    query::{FilteredAccess, QueryData, QueryFilter, ReadFetch, WorldQuery},
+    query::{FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, ReadFetch, WorldQuery},
+    resource::IS_RESOURCE,
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_platform::collections::HashMap;
+use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 use disqualified::ShortName;
 use tracing::error;
@@ -149,7 +151,7 @@ pub struct AssetChangedState<A: AsAssetId> {
 }
 
 #[expect(unsafe_code, reason = "WorldQuery is an unsafe trait.")]
-/// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
+// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     type Fetch<'w> = AssetChangedFetch<'w, A>;
 
@@ -166,8 +168,10 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         // SAFETY:
-        // - `AssetChanges` is private and only accessed mutably in the `AssetEventSystems` system set.
-        // - `resource_id` was obtained from the type ID of `AssetChanges<A::Asset>`.
+        // - `state.resource_id` was obtained from `world.init_resource::<AssetChanges<A::Asset>>()`,
+        //   so the untyped pointer returned by `get_resource_by_id` can safely be dereferenced into that type.
+        // - `init_nested_access` declares a read on `state.resource_id`, so it is safe to
+        //   read that resource here (see trait-level safety comments on `WorldQuery`)
         let Some(changes) = (unsafe {
             world
                 .get_resource_by_id(state.resource_id)
@@ -232,7 +236,26 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
         <&A>::update_component_access(&state.asset_id, access);
-        access.add_resource_read(state.resource_id);
+    }
+
+    // ChangedAsset accesses both the asset and the AssetChanges<A> resource.
+    // In order to access two different entities we implement init_nested_access.
+    fn init_nested_access(
+        state: &Self::State,
+        system_name: Option<&str>,
+        component_access_set: &mut FilteredAccessSet,
+        _world: UnsafeWorldCell,
+    ) {
+        let mut filter = FilteredAccess::default();
+        filter.add_read(state.resource_id);
+        filter.and_with(IS_RESOURCE);
+
+        let conflicts = component_access_set.get_conflicts_single(&filter);
+        if conflicts.is_empty() {
+            component_access_set.add(filter);
+            return;
+        }
+        panic!("error[B0002]: AssetChanged<{}> in system {:?} conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<A>(), system_name);
     }
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {
@@ -246,7 +269,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        let resource_id = components.resource_id::<AssetChanges<A::Asset>>()?;
+        let resource_id = components.component_id::<AssetChanges<A::Asset>>()?;
         let asset_id = components.component_id::<A>()?;
         Some(AssetChangedState {
             asset_id,
@@ -264,7 +287,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 }
 
 #[expect(unsafe_code, reason = "QueryFilter is an unsafe trait.")]
-/// SAFETY: read-only access
+// SAFETY: read-only access
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
 
@@ -288,13 +311,15 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use crate::{AssetEventSystems, AssetPlugin, Handle};
+    use crate::tests::create_app;
+    use crate::{AssetEventSystems, Handle};
     use alloc::{vec, vec::Vec};
+    use bevy_ecs::system::assert_is_system;
     use core::num::NonZero;
     use std::println;
 
     use crate::{AssetApp, Assets};
-    use bevy_app::{App, AppExit, PostUpdate, Startup, TaskPoolPlugin, Update};
+    use bevy_app::{App, AppExit, PostUpdate, Startup, Update};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::{
         component::Component,
@@ -320,11 +345,23 @@ mod tests {
         }
     }
 
+    #[test]
+    #[should_panic]
+    fn should_conflict() {
+        #[derive(Component)]
+        struct Foo;
+
+        fn system(
+            _: Query<&Foo, AssetChanged<MyComponent>>,
+            _: Query<&mut AssetChanges<MyAsset>, bevy_ecs::query::Without<Foo>>,
+        ) {
+        }
+        assert_is_system(system);
+    }
+
     fn run_app<Marker>(system: impl IntoSystem<(), (), Marker>) {
-        let mut app = App::new();
-        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<MyAsset>()
-            .add_systems(Update, system);
+        let mut app = create_app().0;
+        app.init_asset::<MyAsset>().add_systems(Update, system);
         app.update();
     }
 
@@ -361,7 +398,7 @@ mod tests {
                 .iter()
                 .find_map(|(h, a)| (a.0 == i).then_some(h))
                 .unwrap();
-            let asset = assets.get_mut(id).unwrap();
+            let mut asset = assets.get_mut(id).unwrap();
             println!("setting new value for {}", asset.0);
             asset.1 = "new_value";
         };
@@ -405,10 +442,9 @@ mod tests {
 
     #[test]
     fn added() {
-        let mut app = App::new();
+        let mut app = create_app().0;
 
-        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<MyAsset>()
+        app.init_asset::<MyAsset>()
             .insert_resource(Counter(vec![0, 0, 0, 0]))
             .add_systems(Update, add_some)
             .add_systems(PostUpdate, count_update.after(AssetEventSystems));
@@ -428,10 +464,9 @@ mod tests {
 
     #[test]
     fn changed() {
-        let mut app = App::new();
+        let mut app = create_app().0;
 
-        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<MyAsset>()
+        app.init_asset::<MyAsset>()
             .insert_resource(Counter(vec![0, 0]))
             .add_systems(
                 Startup,

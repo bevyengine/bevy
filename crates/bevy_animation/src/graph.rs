@@ -19,7 +19,7 @@ use bevy_ecs::{
     system::{Res, ResMut},
 };
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use derive_more::derive::From;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
@@ -238,7 +238,7 @@ pub enum AnimationNodeType {
 ///
 /// The canonical extension for [`AnimationGraph`]s is `.animgraph.ron`. Plain
 /// `.animgraph` is supported as well.
-#[derive(Default)]
+#[derive(Default, TypePath)]
 pub struct AnimationGraphAssetLoader;
 
 /// Errors that can occur when serializing animation graphs to RON.

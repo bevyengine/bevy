@@ -21,10 +21,12 @@ pub struct WinitMonitors {
 }
 
 impl WinitMonitors {
+    /// Gets the [`MonitorHandle`] at index `n`.
     pub fn nth(&self, n: usize) -> Option<MonitorHandle> {
         self.monitors.get(n).map(|(monitor, _)| monitor.clone())
     }
 
+    /// Gets the [`MonitorHandle`] associated with a `Monitor` entity.
     pub fn find_entity(&self, entity: Entity) -> Option<MonitorHandle> {
         self.monitors
             .iter()

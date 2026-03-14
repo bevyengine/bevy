@@ -17,7 +17,6 @@ use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_platform::time::Instant;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-use core::marker::PhantomData;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::EventLoopExtWebSys;
 use winit::{
@@ -42,13 +41,13 @@ use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
     converters, create_windows,
     system::{create_monitors, CachedWindow, WinitWindowPressedKeys},
-    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
-    RawWinitWindowEvent, UpdateMode, WinitSettings, WINIT_WINDOWS,
+    AppSendEvent, CreateMonitorParams, CreateWindowParams, RawWinitWindowEvent, UpdateMode,
+    WinitSettings, WinitUserEvent, WINIT_WINDOWS,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
-pub(crate) struct WinitAppRunnerState<T: Message> {
+pub(crate) struct WinitAppRunnerState {
     /// The running app.
     app: App,
     /// Exit value once the loop is finished.
@@ -78,7 +77,6 @@ pub(crate) struct WinitAppRunnerState<T: Message> {
     bevy_window_events: Vec<bevy_window::WindowEvent>,
     /// Raw Winit window events to send
     raw_winit_events: Vec<RawWinitWindowEvent>,
-    _marker: PhantomData<T>,
 
     message_writer_system_state: SystemState<(
         MessageWriter<'static, WindowResized>,
@@ -98,10 +96,8 @@ pub(crate) struct WinitAppRunnerState<T: Message> {
     scheduled_tick_start: Option<Instant>,
 }
 
-impl<M: Message> WinitAppRunnerState<M> {
+impl WinitAppRunnerState {
     fn new(mut app: App) -> Self {
-        app.add_message::<M>();
-
         let message_writer_system_state: SystemState<(
             MessageWriter<WindowResized>,
             MessageWriter<WindowBackendScaleFactorChanged>,
@@ -125,7 +121,6 @@ impl<M: Message> WinitAppRunnerState<M> {
             startup_forced_updates: 5,
             bevy_window_events: Vec::new(),
             raw_winit_events: Vec::new(),
-            _marker: PhantomData,
             message_writer_system_state,
             scheduled_tick_start: None,
         }
@@ -146,7 +141,7 @@ impl<M: Message> WinitAppRunnerState<M> {
     }
 }
 
-impl<M: Message> ApplicationHandler<M> for WinitAppRunnerState<M> {
+impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         if event_loop.exiting() {
             return;
@@ -179,17 +174,31 @@ impl<M: Message> ApplicationHandler<M> for WinitAppRunnerState<M> {
         };
     }
 
-    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // Mark the state as `WillResume`. This will let the schedule run one extra time
         // when actually resuming the app
         self.lifecycle = AppLifecycle::WillResume;
+
+        // Create the initial window if needed
+        let mut create_window = SystemState::<CreateWindowParams>::from_world(self.world_mut());
+        create_windows(event_loop, create_window.get_mut(self.world_mut()).unwrap());
+        create_window.apply(self.world_mut());
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: M) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: WinitUserEvent) {
         self.user_event_received = true;
 
-        self.world_mut().write_message(event);
-        self.redraw_requested = true;
+        match event {
+            WinitUserEvent::WakeUp => {
+                self.redraw_requested = true;
+            }
+            WinitUserEvent::WindowAdded => {
+                let mut create_window =
+                    SystemState::<CreateWindowParams>::from_world(self.world_mut());
+                create_windows(event_loop, create_window.get_mut(self.world_mut()).unwrap());
+                create_window.apply(self.world_mut());
+            }
+        }
     }
 
     fn window_event(
@@ -215,7 +224,8 @@ impl<M: Message> ApplicationHandler<M> for WinitAppRunnerState<M> {
                     mut windows,
                 ) = self
                     .message_writer_system_state
-                    .get_mut(self.app.world_mut());
+                    .get_mut(self.app.world_mut())
+                    .unwrap();
 
                 let Some(window) = winit_windows.get_window_entity(window_id) else {
                     warn!("Skipped event {event:?} for unknown winit Window Id {window_id:?}");
@@ -450,14 +460,11 @@ impl<M: Message> ApplicationHandler<M> for WinitAppRunnerState<M> {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let mut create_monitor = SystemState::<CreateMonitorParams>::from_world(self.world_mut());
-        // create any new windows
-        // (even if app did not update, some may have been created by plugin setup)
-        let mut create_window =
-            SystemState::<CreateWindowParams<Added<Window>>>::from_world(self.world_mut());
-        create_monitors(event_loop, create_monitor.get_mut(self.world_mut()));
+        create_monitors(
+            event_loop,
+            create_monitor.get_mut(self.world_mut()).unwrap(),
+        );
         create_monitor.apply(self.world_mut());
-        create_windows(event_loop, create_window.get_mut(self.world_mut()));
-        create_window.apply(self.world_mut());
 
         // TODO: This is a workaround for https://github.com/bevyengine/bevy/issues/17488
         //       while preserving the iOS fix in https://github.com/bevyengine/bevy/pull/11245
@@ -496,12 +503,16 @@ impl<M: Message> ApplicationHandler<M> for WinitAppRunnerState<M> {
     }
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        // Drop windows while event loop is still active, before TLS destruction.
+        // Prevents panic on macOS when exiting from exclusive fullscreen.
+        WINIT_WINDOWS.with(|ww| ww.borrow_mut().windows.clear());
+
         let world = self.world_mut();
         world.clear_all();
     }
 }
 
-impl<M: Message> WinitAppRunnerState<M> {
+impl WinitAppRunnerState {
     fn redraw_requested(&mut self, event_loop: &ActiveEventLoop) {
         let mut redraw_message_cursor = MessageCursor::<RequestRedraw>::default();
         let mut close_message_cursor = MessageCursor::<WindowCloseRequested>::default();
@@ -509,7 +520,7 @@ impl<M: Message> WinitAppRunnerState<M> {
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
 
-        let (config, windows) = focused_windows_state.get(self.world());
+        let (config, windows) = focused_windows_state.get(self.world()).unwrap();
         let focused = windows.iter().any(|(_, window)| window.focused);
 
         let mut update_mode = config.update_mode(focused);
@@ -565,7 +576,7 @@ impl<M: Message> WinitAppRunnerState<M> {
                                 SystemState::<CreateWindowParams>::from_world(self.world_mut());
 
                             let (.., mut handlers, accessibility_requested, monitors) =
-                                create_window.get_mut(self.world_mut());
+                                create_window.get_mut(self.world_mut()).unwrap();
 
                             let winit_window = winit_windows.create_window(
                                 event_loop,
@@ -598,7 +609,7 @@ impl<M: Message> WinitAppRunnerState<M> {
         let begin_frame_time = Instant::now();
 
         if should_update {
-            let (_, windows) = focused_windows_state.get(self.world());
+            let (_, windows) = focused_windows_state.get(self.world()).unwrap();
             // If no windows exist, this will evaluate to `true`.
             let all_invisible = windows.iter().all(|w| !w.1.visible);
 
@@ -641,7 +652,7 @@ impl<M: Message> WinitAppRunnerState<M> {
             }
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
-            let (config, windows) = focused_windows_state.get(self.world());
+            let (config, windows) = focused_windows_state.get(self.world()).unwrap();
             let focused = windows.iter().any(|(_, window)| window.focused);
             update_mode = config.update_mode(focused);
         }
@@ -873,14 +884,11 @@ impl<M: Message> WinitAppRunnerState<M> {
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
-pub fn winit_runner<M: Message>(mut app: App, event_loop: EventLoop<M>) -> AppExit {
+pub fn winit_runner(mut app: App, event_loop: EventLoop<WinitUserEvent>) -> AppExit {
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();
     }
-
-    app.world_mut()
-        .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));
 
     let runner_state = WinitAppRunnerState::new(app);
 

@@ -14,6 +14,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_text::{FontSize, FontWeight};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
 use bevy_ui_widgets::Button;
 
@@ -74,6 +75,7 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
             flex_grow: 1.0,
+            border_radius: props.corners.to_border_radius(4.0),
             ..Default::default()
         },
         Button,
@@ -81,12 +83,12 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
-        props.corners.to_border_radius(4.0),
         ThemeBackgroundColor(tokens::BUTTON_BG),
         ThemeFontColor(tokens::BUTTON_TEXT),
         InheritableFont {
             font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
-            font_size: 14.0,
+            font_size: FontSize::Px(14.0),
+            weight: FontWeight::NORMAL,
         },
         overrides,
         Children::spawn(children),

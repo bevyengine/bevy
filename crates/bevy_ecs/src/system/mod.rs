@@ -412,15 +412,15 @@ mod tests {
         lifecycle::RemovedComponents,
         name::Name,
         prelude::{Add, AnyOf, EntityRef, On},
-        query::{Added, Changed, Or, SpawnDetails, Spawned, With, Without},
+        query::{Added, Changed, NestedQuery, Or, SpawnDetails, Spawned, With, Without},
         resource::Resource,
         schedule::{
             common_conditions::resource_exists, ApplyDeferred, IntoScheduleConfigs, Schedule,
             SystemCondition,
         },
         system::{
-            Commands, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res,
-            ResMut, Single, StaticSystemParam, System, SystemState,
+            Commands, ExclusiveMarker, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet,
+            Query, Res, ResMut, Single, StaticSystemParam, System, SystemState,
         },
         world::{DeferredWorld, EntityMut, FromWorld, World},
     };
@@ -895,6 +895,33 @@ mod tests {
     }
 
     #[test]
+    #[should_panic = "error[B0001]"]
+    fn nested_query_conflicts_with_main_query() {
+        fn sys(_: Query<(&mut A, NestedQuery<&A>)>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn nested_query_conflicts_with_earlier_query() {
+        fn sys(_: Query<&mut A>, _: Query<NestedQuery<&A>>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn nested_query_conflicts_with_later_query() {
+        fn sys(_: Query<NestedQuery<&A>>, _: Query<&mut A>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     fn query_set_system() {
         fn sys(mut _set: ParamSet<(Query<&mut A>, Query<&A>)>) {}
         let mut world = World::default();
@@ -1007,7 +1034,7 @@ mod tests {
         // existence.
         struct NotSend1(alloc::rc::Rc<i32>);
         struct NotSend2(alloc::rc::Rc<i32>);
-        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(0)));
+        world.insert_non_send(NotSend1(alloc::rc::Rc::new(0)));
 
         fn sys(
             op: Option<NonSend<NotSend1>>,
@@ -1035,8 +1062,8 @@ mod tests {
         struct NotSend1(alloc::rc::Rc<i32>);
         struct NotSend2(alloc::rc::Rc<i32>);
 
-        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(1)));
-        world.insert_non_send_resource(NotSend2(alloc::rc::Rc::new(2)));
+        world.insert_non_send(NotSend1(alloc::rc::Rc::new(1)));
+        world.insert_non_send(NotSend2(alloc::rc::Rc::new(2)));
 
         fn sys(
             _op: NonSend<NotSend1>,
@@ -1045,6 +1072,24 @@ mod tests {
         ) {
             *system_ran = SystemRan::Yes;
         }
+
+        run_system(&mut world, sys);
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
+    }
+
+    #[test]
+    fn function_system_as_exclusive() {
+        let mut world = World::default();
+
+        world.insert_resource(SystemRan::No);
+
+        fn sys(_marker: ExclusiveMarker, mut system_ran: ResMut<SystemRan>) {
+            *system_ran = SystemRan::Yes;
+        }
+
+        let mut sys = IntoSystem::into_system(sys);
+        sys.initialize(&mut world);
+        assert!(sys.is_exclusive());
 
         run_system(&mut world, sys);
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
@@ -1139,7 +1184,7 @@ mod tests {
         ) {
             assert_eq!(query.iter().count(), 1, "entity exists");
             for entity in &query {
-                let location = entities.get(entity).unwrap();
+                let location = entities.get_spawned(entity).unwrap();
                 let archetype = archetypes.get(location.archetype_id).unwrap();
                 let archetype_components = archetype.components();
                 let bundle_id = bundles
@@ -1181,10 +1226,7 @@ mod tests {
         let y_access = y.initialize(&mut world);
 
         let conflicts = x_access.get_conflicts(&y_access);
-        let b_id = world
-            .components()
-            .get_resource_id(TypeId::of::<ResB>())
-            .unwrap();
+        let b_id = world.components().get_id(TypeId::of::<ResB>()).unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id].into());
     }
@@ -1277,7 +1319,7 @@ mod tests {
             Option<Single<&B>>,
             ParamSet<(Query<&C>, Query<&D>)>,
         )> = SystemState::new(&mut world);
-        let (a, query, _) = system_state.get(&world);
+        let (a, query, _) = system_state.get(&world).unwrap();
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
             **query.unwrap(),
@@ -1304,7 +1346,7 @@ mod tests {
         // The following line shouldn't compile because the parameters used are not ReadOnlySystemParam
         // let (a, query) = system_state.get(&world);
 
-        let (a, query) = system_state.get_mut(&mut world);
+        let (a, query) = system_state.get_mut(&mut world).unwrap();
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
             **query.unwrap(),
@@ -1324,18 +1366,18 @@ mod tests {
         let mut system_state: SystemState<Option<Single<&A, Changed<A>>>> =
             SystemState::new(&mut world);
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert_eq!(**query.unwrap(), A(1));
         }
 
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert!(query.is_none());
         }
 
         world.entity_mut(entity).get_mut::<A>().unwrap().0 = 2;
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert_eq!(**query.unwrap(), A(2));
         }
     }
@@ -1349,12 +1391,12 @@ mod tests {
         let mut system_state: SystemState<Option<Single<(&A, SpawnDetails), Spawned>>> =
             SystemState::new(&mut world);
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert_eq!(query.unwrap().1.spawn_tick(), spawn_tick);
         }
 
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert!(query.is_none());
         }
     }
@@ -1365,7 +1407,7 @@ mod tests {
         let mut world = World::default();
         let mut system_state = SystemState::<Query<&A>>::new(&mut world);
         let mismatched_world = World::default();
-        system_state.get(&mismatched_world);
+        system_state.get(&mismatched_world).unwrap();
     }
 
     #[test]
@@ -1381,7 +1423,7 @@ mod tests {
 
         let mut system_state = SystemState::<Query<&A>>::new(&mut world);
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert_eq!(
                 query.iter().collect::<Vec<_>>(),
                 vec![&A(1)],
@@ -1391,7 +1433,7 @@ mod tests {
 
         world.spawn((A(2), B(2)));
         {
-            let query = system_state.get(&world);
+            let query = system_state.get(&world).unwrap();
             assert_eq!(
                 query.iter().collect::<Vec<_>>(),
                 vec![&A(1), &A(2)],
@@ -1421,19 +1463,19 @@ mod tests {
 
         impl State {
             fn hold_res<'w>(&mut self, world: &'w World) -> ResourceHolder<'w> {
-                let a = self.state.get(world);
+                let a = self.state.get(world).unwrap();
                 ResourceHolder {
                     value: a.into_inner(),
                 }
             }
             fn hold_component<'w>(&mut self, world: &'w World, entity: Entity) -> Holder<'w> {
-                let q = self.state_q.get(world);
+                let q = self.state_q.get(world).unwrap();
                 let a = q.get_inner(entity).unwrap();
                 Holder { value: a }
             }
             fn hold_components<'w>(&mut self, world: &'w World) -> Vec<Holder<'w>> {
                 let mut components = Vec::new();
-                let q = self.state_q.get(world);
+                let q = self.state_q.get(world).unwrap();
                 for a in q.iter_inner() {
                     components.push(Holder { value: a });
                 }
@@ -1453,7 +1495,7 @@ mod tests {
 
         let mut system_state = SystemState::<Query<&mut A>>::new(&mut world);
         {
-            let mut query = system_state.get_mut(&mut world);
+            let mut query = system_state.get_mut(&mut world).unwrap();
             assert_eq!(
                 query.iter_mut().map(|m| *m).collect::<Vec<A>>(),
                 vec![A(1), A(2)],
@@ -1859,7 +1901,7 @@ mod tests {
                     res.0 += 2;
                 },
             )
-                .distributive_run_if(resource_exists::<A>.or(resource_exists::<B>)),
+                .distributive_run_if(resource_exists::<A>.or_eager(resource_exists::<B>)),
         );
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);
@@ -1867,6 +1909,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "debug"), ignore)]
     #[should_panic(
         expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_system::sys`: error"
     )]
@@ -1881,6 +1924,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "debug"), ignore)]
     #[should_panic(
         expected = "Encountered an error in system `bevy_ecs::system::tests::simple_fallible_exclusive_system::sys`: error"
     )]

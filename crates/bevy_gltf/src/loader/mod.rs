@@ -1,9 +1,8 @@
-mod extensions;
+pub mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
-use std::{io::Error, sync::Mutex};
-
+use async_lock::RwLock;
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
@@ -11,8 +10,9 @@ use bevy_asset::{
     ReadAssetBytesError, RenderAssetUsages,
 };
 use bevy_camera::{
-    primitives::Aabb, visibility::Visibility, Camera, Camera3d, OrthographicProjection,
-    PerspectiveProjection, Projection, ScalingMode,
+    primitives::Aabb,
+    visibility::{DynamicSkinnedMeshBounds, NoFrustumCulling, Visibility},
+    Camera, Camera3d, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode,
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
@@ -27,38 +27,37 @@ use bevy_image::{
 };
 use bevy_light::{DirectionalLight, PointLight, SpotLight};
 use bevy_math::{Mat4, Vec3};
+#[cfg(feature = "pbr_transmission_textures")]
+use bevy_mesh::UvChannel;
 use bevy_mesh::{
-    morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
+    morph::{MeshMorphWeights, MorphAttributes, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
 };
-#[cfg(feature = "pbr_transmission_textures")]
-use bevy_pbr::UvChannel;
-use bevy_pbr::{MeshMaterial3d, StandardMaterial, MAX_JOINTS};
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_render::render_resource::Face;
+use bevy_reflect::TypePath;
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-
 use gltf::{
     accessor::Iter,
     image::Source,
     mesh::{util::ReadIndices, Mode},
-    Document, Material, Node, Semantic,
+    Material, Node, Semantic,
 };
-
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "bevy_animation")]
 use smallvec::SmallVec;
-
+use std::{io::Error, sync::Mutex};
 use thiserror::Error;
 use tracing::{error, info_span, warn};
+use wgpu_types::Face;
 
 use crate::{
-    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
-    GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
+    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
+    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
+    GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -73,10 +72,13 @@ use self::{
         },
         mesh::{primitive_name, primitive_topology},
         scene::{node_name, node_transform},
-        texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
+        texture::{texture_sampler, texture_transform_to_affine2},
     },
 };
-use crate::convert_coordinates::ConvertCoordinates as _;
+use crate::convert_coordinates::GltfConvertCoordinates;
+
+/// Must match [`MAX_JOINTS`](https://docs.rs/bevy/latest/bevy/pbr/constant.MAX_JOINTS.html)
+pub const MAX_JOINTS: usize = 256;
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -128,6 +130,21 @@ pub enum GltfError {
     /// Failed to generate morph targets.
     #[error("failed to generate morph targets: {0}")]
     MorphTarget(#[from] bevy_mesh::morph::MorphBuildError),
+    /// Zero or 2+ `gltf::Mesh`s were returned in a `gltf::Document` from the `on_primitive` hook
+    #[error(
+        "expected exactly one Mesh in Document returned from on_gltf_primitive hook, got: {0}"
+    )]
+    OnPrimitiveMeshCount(usize),
+    /// Zero or 2+ `gltf::Primitive`s were returned in a `gltf::Document` from the `on_primitive` hook
+    #[error(
+        "expected exactly one Primitive in Mesh returned from on_gltf_primitive hook, got: {0}"
+    )]
+    OnPrimitivePrimitiveCount(usize),
+    /// Zero or 2+ `Vec<u8>`s were returned in the `Vec<Vec<u8>>` from the `on_primitive` hook
+    #[error(
+        "expected exactly one Vec<u8> in buffers returned from on_gltf_primitive hook, got: {0}"
+    )]
+    OnPrimitiveBufferCount(usize),
     /// Circular children in Nodes
     #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
     #[from(ignore)]
@@ -138,6 +155,7 @@ pub enum GltfError {
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
+#[derive(TypePath)]
 pub struct GltfLoader {
     /// List of compressed image formats handled by the loader.
     pub supported_compressed_formats: CompressedImageFormats,
@@ -149,17 +167,16 @@ pub struct GltfLoader {
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
     /// Arc to default [`ImageSamplerDescriptor`].
     pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
-    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global identity transforms,
-    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
-    /// - When set to `false`
-    ///   - glTF cameras and glTF lights: global -Z,
-    ///   - glTF models: global +Z.
-    /// - When set to `true`
-    ///   - glTF cameras and glTF lights: global +Z,
-    ///   - glTF models: global -Z.
-    ///
-    /// The default is `false`.
-    pub default_use_model_forward_direction: bool,
+    /// The default glTF coordinate conversion setting. This can be overridden
+    /// per-load by [`GltfLoaderSettings::convert_coordinates`].
+    pub default_convert_coordinates: GltfConvertCoordinates,
+    /// glTF extension data processors.
+    /// These are Bevy-side processors designed to access glTF
+    /// extension data during the loading process.
+    pub extensions: Arc<RwLock<Vec<Box<dyn extensions::GltfExtensionHandler>>>>,
+    /// The default policy for skinned mesh bounds. Can be overridden by
+    /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
+    pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -205,19 +222,14 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
-    /// _CAUTION: This is an experimental feature with [known issues](https://github.com/bevyengine/bevy/issues/20621). Behavior may change in future versions._
+    /// If false, the loader will load gltf json without validation, for unsupported extension it will ignore validation check.
+    pub validate: bool,
+    /// Overrides the default glTF coordinate conversion setting.
     ///
-    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global unit transforms,
-    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
-    /// - When set to `false`
-    ///   - glTF cameras and glTF lights: global -Z,
-    ///   - glTF models: global +Z.
-    /// - When set to `true`
-    ///   - glTF cameras and glTF lights: global +Z,
-    ///   - glTF models: global -Z.
-    ///
-    /// If `None`, uses the global default set by [`GltfPlugin::use_model_forward_direction`](crate::GltfPlugin::use_model_forward_direction).
-    pub use_model_forward_direction: Option<bool>,
+    /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
+    pub convert_coordinates: Option<GltfConvertCoordinates>,
+    /// Optionally overrides [`GltfPlugin::skinned_mesh_bounds_policy`](crate::GltfPlugin).
+    pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -231,7 +243,9 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
-            use_model_forward_direction: None,
+            validate: true,
+            convert_coordinates: None,
+            skinned_mesh_bounds_policy: None,
         }
     }
 }
@@ -244,10 +258,24 @@ impl GltfLoader {
         load_context: &'b mut LoadContext<'c>,
         settings: &'b GltfLoaderSettings,
     ) -> Result<Gltf, GltfError> {
-        let gltf = gltf::Gltf::from_slice(bytes)?;
+        let gltf = if settings.validate {
+            gltf::Gltf::from_slice(bytes)?
+        } else {
+            gltf::Gltf::from_slice_without_validation(bytes)?
+        };
+
+        // clone extensions to start with a fresh processing state
+        let mut extensions = loader.extensions.read().await.clone();
+
+        // Extensions can have data on the "root" of the glTF data.
+        // Let extensions process the root data for the extension ids
+        // they've subscribed to.
+        for extension in extensions.iter_mut() {
+            extension.on_root(load_context, &gltf);
+        }
 
         let file_name = load_context
-            .asset_path()
+            .path()
             .path()
             .to_str()
             .ok_or(GltfError::Gltf(gltf::Error::Io(Error::new(
@@ -273,10 +301,14 @@ impl GltfLoader {
             Default::default()
         };
 
-        let convert_coordinates = match settings.use_model_forward_direction {
+        let convert_coordinates = match settings.convert_coordinates {
             Some(convert_coordinates) => convert_coordinates,
-            None => loader.default_use_model_forward_direction,
+            None => loader.default_convert_coordinates,
         };
+
+        let skinned_mesh_bounds_policy = settings
+            .skinned_mesh_bounds_policy
+            .unwrap_or(loader.default_skinned_mesh_bounds_policy);
 
         #[cfg(feature = "bevy_animation")]
         let (animations, named_animations, animation_roots) = if settings.load_animations {
@@ -321,16 +353,7 @@ impl GltfLoader {
                         match outputs {
                             ReadOutputs::Translations(tr) => {
                                 let translation_property = animated_field!(Transform::translation);
-                                let translations: Vec<Vec3> = tr
-                                    .map(Vec3::from)
-                                    .map(|verts| {
-                                        if convert_coordinates {
-                                            Vec3::convert_coordinates(verts)
-                                        } else {
-                                            verts
-                                        }
-                                    })
-                                    .collect();
+                                let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         translation_property,
@@ -386,17 +409,8 @@ impl GltfLoader {
                             }
                             ReadOutputs::Rotations(rots) => {
                                 let rotation_property = animated_field!(Transform::rotation);
-                                let rotations: Vec<Quat> = rots
-                                    .into_f32()
-                                    .map(Quat::from_array)
-                                    .map(|quat| {
-                                        if convert_coordinates {
-                                            Quat::convert_coordinates(quat)
-                                        } else {
-                                            quat
-                                        }
-                                    })
-                                    .collect();
+                                let rotations: Vec<Quat> =
+                                    rots.into_f32().map(Quat::from_array).collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         rotation_property,
@@ -577,8 +591,27 @@ impl GltfLoader {
                 if let Some(name) = animation.name() {
                     named_animations.insert(name.into(), handle.clone());
                 }
+
+                // let extensions handle extension data placed on animations
+                for extension in extensions.iter_mut() {
+                    extension.on_animation(&animation, handle.clone());
+                }
+
                 animations.push(handle);
             }
+
+            // let extensions process the collection of animation data
+            // this only happens once for each GltfExtensionHandler because
+            // it is a hook for Bevy's finalized representation of the animations
+            for extension in extensions.iter_mut() {
+                extension.on_animations_collected(
+                    load_context,
+                    &animations,
+                    &named_animations,
+                    &animation_roots,
+                );
+            }
+
             (animations, named_animations, animation_roots)
         } else {
             Default::default()
@@ -594,27 +627,31 @@ impl GltfLoader {
         // In theory we could store a mapping between texture.index() and handle to use
         // later in the loader when looking up handles for materials. However this would mean
         // that the material's load context would no longer track those images as dependencies.
-        let mut _texture_handles = Vec::new();
+        let mut texture_handles = Vec::new();
         if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
             for texture in gltf.textures() {
                 let image = load_image(
-                    texture,
+                    texture.clone(),
                     &buffer_data,
                     &linear_textures,
-                    load_context.asset_path(),
+                    load_context.path(),
                     loader.supported_compressed_formats,
                     default_sampler,
                     settings,
                 )
                 .await?;
-                image.process_loaded_texture(load_context, &mut _texture_handles);
+                image.process_loaded_texture(load_context, &mut texture_handles);
+                // let extensions handle texture data
+                for extension in extensions.iter_mut() {
+                    extension.on_texture(&texture, texture_handles.last().unwrap().clone());
+                }
             }
         } else {
             #[cfg(not(target_arch = "wasm32"))]
             IoTaskPool::get()
                 .scope(|scope| {
                     gltf.textures().for_each(|gltf_texture| {
-                        let asset_path = load_context.asset_path().clone();
+                        let asset_path = load_context.path().clone();
                         let linear_textures = &linear_textures;
                         let buffer_data = &buffer_data;
                         scope.spawn(async move {
@@ -632,9 +669,15 @@ impl GltfLoader {
                     });
                 })
                 .into_iter()
-                .for_each(|result| match result {
+                // order is preserved if the futures are only spawned from the root scope
+                .zip(gltf.textures())
+                .for_each(|(result, texture)| match result {
                     Ok(image) => {
-                        image.process_loaded_texture(load_context, &mut _texture_handles);
+                        image.process_loaded_texture(load_context, &mut texture_handles);
+                        // let extensions handle texture data
+                        for extension in extensions.iter_mut() {
+                            extension.on_texture(&texture, texture_handles.last().unwrap().clone());
+                        }
                     }
                     Err(err) => {
                         warn!("Error loading glTF texture: {}", err);
@@ -648,10 +691,29 @@ impl GltfLoader {
         if !settings.load_materials.is_empty() {
             // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
             for material in gltf.materials() {
-                let handle = load_material(&material, load_context, &gltf.document, false);
+                let (label, gltf_material) = load_material(
+                    &material,
+                    &texture_handles,
+                    false,
+                    load_context.path().clone(),
+                );
+                let handle = load_context.add_labeled_asset(label.clone(), gltf_material.clone());
+
                 if let Some(name) = material.name() {
                     named_materials.insert(name.into(), handle.clone());
                 }
+
+                // let extensions handle material data
+                for extension in extensions.iter_mut() {
+                    extension.on_material(
+                        load_context,
+                        &material,
+                        handle.clone(),
+                        &gltf_material,
+                        &label.clone(),
+                    );
+                }
+
                 materials.push(handle);
             }
         }
@@ -679,6 +741,49 @@ impl GltfLoader {
 
                 let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
 
+                let mut out_doc: Option<gltf::Document> = None;
+                let mut out_data: Option<Vec<Vec<u8>>> = None;
+                for extension in extensions.iter_mut() {
+                    extension.on_gltf_primitive(
+                        load_context,
+                        &gltf,
+                        &primitive,
+                        &buffer_data,
+                        &mut out_doc,
+                        &mut out_data,
+                    );
+                }
+
+                // if there is a `gltf::Document`, then we have transformed
+                // mesh output, such as decompressed data, and need to validate
+                // what we expect to exist in the document.
+                let primitive = if let Some(doc) = &out_doc {
+                    let mesh_count = doc.meshes().len();
+                    if mesh_count != 1 {
+                        return Err(GltfError::OnPrimitiveMeshCount(mesh_count));
+                    }
+                    let mesh = doc.meshes().next().unwrap();
+                    let primitive_count = mesh.primitives().len();
+                    if primitive_count != 1 {
+                        return Err(GltfError::OnPrimitivePrimitiveCount(primitive_count));
+                    }
+                    mesh.primitives().next().unwrap()
+                } else {
+                    // otherwise, re-use the original primitive since no transformation
+                    // has occurred.
+                    primitive
+                };
+
+                let buffer_data = if let Some(data) = &out_data {
+                    let buffer_count = data.len();
+                    if buffer_count != 1 {
+                        return Err(GltfError::OnPrimitiveBufferCount(buffer_count));
+                    }
+                    data
+                } else {
+                    &buffer_data
+                };
+
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
                     if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
@@ -696,9 +801,9 @@ impl GltfLoader {
                     match convert_attribute(
                         semantic,
                         accessor,
-                        &buffer_data,
+                        buffer_data,
                         &loader.custom_vertex_attributes,
-                        convert_coordinates,
+                        convert_coordinates.rotate_meshes,
                     ) {
                         Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                         Err(err) => warn!("{}", err),
@@ -719,26 +824,17 @@ impl GltfLoader {
                 {
                     let morph_target_reader = reader.read_morph_targets();
                     if morph_target_reader.len() != 0 {
-                        let morph_targets_label = GltfAssetLabel::MorphTarget {
-                            mesh: gltf_mesh.index(),
-                            primitive: primitive.index(),
-                        };
-                        let morph_target_image = MorphTargetImage::new(
-                            morph_target_reader.map(|i| PrimitiveMorphAttributesIter {
-                                convert_coordinates,
-                                positions: i.0,
-                                normals: i.1,
-                                tangents: i.2,
-                            }),
-                            mesh.count_vertices(),
-                            RenderAssetUsages::default(),
-                        )?;
-                        let handle = load_context.add_labeled_asset(
-                            morph_targets_label.to_string(),
-                            morph_target_image.0,
+                        mesh.set_morph_targets(
+                            morph_target_reader
+                                .flat_map(|i| PrimitiveMorphAttributesIter {
+                                    convert_coordinates: convert_coordinates.rotate_meshes,
+                                    positions: i.0,
+                                    normals: i.1,
+                                    tangents: i.2,
+                                })
+                                .collect(),
                         );
 
-                        mesh.set_morph_targets(handle);
                         let extras = gltf_mesh.extras().as_ref();
                         if let Some(names) = extras.and_then(|extras| {
                             serde_json::from_str::<MorphTargetNames>(extras.get()).ok()
@@ -787,6 +883,13 @@ impl GltfLoader {
                     });
                 }
 
+                if (skinned_mesh_bounds_policy == GltfSkinnedMeshBoundsPolicy::Dynamic)
+                    && meshes_on_skinned_nodes.contains(&gltf_mesh.index())
+                    && let Err(err) = mesh.generate_skinned_mesh_bounds()
+                {
+                    warn!("Failed to generate skinned mesh bounds: {err}");
+                }
+
                 let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
@@ -815,6 +918,10 @@ impl GltfLoader {
             if let Some(name) = gltf_mesh.name() {
                 named_meshes.insert(name.into(), handle.clone());
             }
+            for extension in extensions.iter_mut() {
+                extension.on_gltf_mesh(load_context, &gltf_mesh, handle.clone());
+            }
+
             meshes.push(handle);
         }
 
@@ -825,15 +932,11 @@ impl GltfLoader {
                 let local_to_bone_bind_matrices: Vec<Mat4> = reader
                     .read_inverse_bind_matrices()
                     .map(|mats| {
-                        mats.map(|mat| Mat4::from_cols_array_2d(&mat))
-                            .map(|mat| {
-                                if convert_coordinates {
-                                    mat.convert_coordinates()
-                                } else {
-                                    mat
-                                }
-                            })
-                            .collect()
+                        mats.map(|mat| {
+                            Mat4::from_cols_array_2d(&mat)
+                                * convert_coordinates.mesh_conversion_mat4()
+                        })
+                        .collect()
                     })
                     .unwrap_or_else(|| {
                         core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
@@ -916,7 +1019,7 @@ impl GltfLoader {
                 &node,
                 children,
                 mesh,
-                node_transform(&node, convert_coordinates),
+                node_transform(&node),
                 skin,
                 node.extras().as_deref().map(GltfExtras::from),
             );
@@ -949,8 +1052,19 @@ impl GltfLoader {
             let mut entity_to_skin_index_map = EntityHashMap::default();
             let mut scene_load_context = load_context.begin_labeled_asset();
 
+            let world_root_transform = convert_coordinates.scene_conversion_transform();
+
             let world_root_id = world
-                .spawn((Transform::default(), Visibility::default()))
+                .spawn((
+                    world_root_transform,
+                    Visibility::default(),
+                    Name::new(
+                        scene
+                            .name()
+                            .map(ToOwned::to_owned)
+                            .unwrap_or_else(|| format!("Scene{}", scene.index())),
+                    ),
+                ))
                 .with_children(|parent| {
                     for node in scene.nodes() {
                         let result = load_node(
@@ -967,8 +1081,10 @@ impl GltfLoader {
                             &animation_roots,
                             #[cfg(feature = "bevy_animation")]
                             None,
-                            &gltf.document,
-                            convert_coordinates,
+                            &texture_handles,
+                            &convert_coordinates,
+                            &mut extensions,
+                            skinned_mesh_bounds_policy,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -977,6 +1093,12 @@ impl GltfLoader {
                     }
                 })
                 .id();
+
+            if let Some(scene_name) = scene.name() {
+                world
+                    .entity_mut(world_root_id)
+                    .insert(GltfSceneName(scene_name.to_owned()));
+            };
 
             if let Some(extras) = scene.extras().as_ref() {
                 world.entity_mut(world_root_id).insert(GltfSceneExtras {
@@ -1014,6 +1136,17 @@ impl GltfLoader {
                     joints: joint_entities,
                 });
             }
+
+            // let extensions handle scene extension data
+            for extension in extensions.iter_mut() {
+                extension.on_scene_completed(
+                    &mut scene_load_context,
+                    &scene,
+                    world_root_id,
+                    &mut world,
+                );
+            }
+
             let loaded_scene = scene_load_context.finish(Scene::new(world));
             let scene_handle = load_context.add_loaded_labeled_asset(
                 GltfAssetLabel::Scene(scene.index()).to_string(),
@@ -1131,264 +1264,269 @@ async fn load_image<'a, 'b>(
                 })
             } else {
                 let image_path = gltf_path
-                    .resolve_embed(uri)
+                    .resolve_embed_str(uri)
                     .map_err(|err| GltfError::InvalidImageUri(uri.to_owned(), err))?;
                 Ok(ImageOrPath::Path {
                     path: image_path,
                     is_srgb,
                     sampler_descriptor,
+                    render_asset_usages: settings.load_materials,
                 })
             }
         }
     }
 }
 
-/// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
+/// Loads a glTF material as a bevy [`GltfMaterial`] and returns the label and material.
 fn load_material(
     material: &Material,
-    load_context: &mut LoadContext,
-    document: &Document,
+    textures: &[Handle<Image>],
     is_scale_inverted: bool,
-) -> Handle<StandardMaterial> {
-    let material_label = material_label(material, is_scale_inverted);
-    load_context
-        .labeled_asset_scope::<_, ()>(material_label.to_string(), |load_context| {
-            let pbr = material.pbr_metallic_roughness();
+    asset_path: AssetPath<'_>,
+) -> (String, GltfMaterial) {
+    let pbr = material.pbr_metallic_roughness();
 
-            // TODO: handle missing label handle errors here?
-            let color = pbr.base_color_factor();
-            let base_color_channel = pbr
-                .base_color_texture()
-                .map(|info| uv_channel(material, "base color", info.tex_coord()))
-                .unwrap_or_default();
-            let base_color_texture = pbr
-                .base_color_texture()
-                .map(|info| texture_handle(&info.texture(), load_context));
+    // TODO: handle missing label handle errors here?
+    let color = pbr.base_color_factor();
+    let base_color_channel = pbr
+        .base_color_texture()
+        .map(|info| uv_channel(material, "base color", info.tex_coord()))
+        .unwrap_or_default();
+    let base_color_texture = pbr.base_color_texture().map(|info| {
+        textures
+            .get(info.texture().index())
+            .cloned()
+            .unwrap_or_default()
+    });
 
-            let uv_transform = pbr
-                .base_color_texture()
-                .and_then(|info| info.texture_transform().map(texture_transform_to_affine2))
-                .unwrap_or_default();
+    let uv_transform = pbr
+        .base_color_texture()
+        .and_then(|info| info.texture_transform().map(texture_transform_to_affine2))
+        .unwrap_or_default();
 
-            let normal_map_channel = material
-                .normal_texture()
-                .map(|info| uv_channel(material, "normal map", info.tex_coord()))
-                .unwrap_or_default();
-            let normal_map_texture: Option<Handle<Image>> =
-                material.normal_texture().map(|normal_texture| {
-                    // TODO: handle normal_texture.scale
-                    texture_handle(&normal_texture.texture(), load_context)
-                });
+    let normal_map_channel = material
+        .normal_texture()
+        .map(|info| uv_channel(material, "normal map", info.tex_coord()))
+        .unwrap_or_default();
+    let normal_map_texture: Option<Handle<Image>> =
+        material.normal_texture().map(|normal_texture| {
+            // TODO: handle normal_texture.scale
+            textures
+                .get(normal_texture.texture().index())
+                .cloned()
+                .unwrap_or_default()
+        });
 
-            let metallic_roughness_channel = pbr
-                .metallic_roughness_texture()
-                .map(|info| uv_channel(material, "metallic/roughness", info.tex_coord()))
-                .unwrap_or_default();
-            let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
-                warn_on_differing_texture_transforms(
-                    material,
-                    &info,
-                    uv_transform,
-                    "metallic/roughness",
-                );
-                texture_handle(&info.texture(), load_context)
-            });
+    let metallic_roughness_channel = pbr
+        .metallic_roughness_texture()
+        .map(|info| uv_channel(material, "metallic/roughness", info.tex_coord()))
+        .unwrap_or_default();
+    let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
+        warn_on_differing_texture_transforms(material, &info, uv_transform, "metallic/roughness");
+        textures
+            .get(info.texture().index())
+            .cloned()
+            .unwrap_or_default()
+    });
 
-            let occlusion_channel = material
-                .occlusion_texture()
-                .map(|info| uv_channel(material, "occlusion", info.tex_coord()))
-                .unwrap_or_default();
-            let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
-                // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-                texture_handle(&occlusion_texture.texture(), load_context)
-            });
+    let occlusion_channel = material
+        .occlusion_texture()
+        .map(|info| uv_channel(material, "occlusion", info.tex_coord()))
+        .unwrap_or_default();
+    let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
+        // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+        textures
+            .get(occlusion_texture.texture().index())
+            .cloned()
+            .unwrap_or_default()
+    });
 
-            let emissive = material.emissive_factor();
-            let emissive_channel = material
-                .emissive_texture()
-                .map(|info| uv_channel(material, "emissive", info.tex_coord()))
-                .unwrap_or_default();
-            let emissive_texture = material.emissive_texture().map(|info| {
-                // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-                warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
-                texture_handle(&info.texture(), load_context)
-            });
+    let emissive = material.emissive_factor();
+    let emissive_channel = material
+        .emissive_texture()
+        .map(|info| uv_channel(material, "emissive", info.tex_coord()))
+        .unwrap_or_default();
+    let emissive_texture = material.emissive_texture().map(|info| {
+        // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+        warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
+        textures
+            .get(info.texture().index())
+            .cloned()
+            .unwrap_or_default()
+    });
 
-            #[cfg(feature = "pbr_transmission_textures")]
-            let (
-                specular_transmission,
-                specular_transmission_channel,
-                specular_transmission_texture,
-            ) = material
-                .transmission()
-                .map_or((0.0, UvChannel::Uv0, None), |transmission| {
-                    let specular_transmission_channel = transmission
-                        .transmission_texture()
-                        .map(|info| uv_channel(material, "specular/transmission", info.tex_coord()))
-                        .unwrap_or_default();
-                    let transmission_texture: Option<Handle<Image>> = transmission
-                        .transmission_texture()
-                        .map(|transmission_texture| {
-                            texture_handle(&transmission_texture.texture(), load_context)
-                        });
-
-                    (
-                        transmission.transmission_factor(),
-                        specular_transmission_channel,
-                        transmission_texture,
-                    )
-                });
-
-            #[cfg(not(feature = "pbr_transmission_textures"))]
-            let specular_transmission = material
-                .transmission()
-                .map_or(0.0, |transmission| transmission.transmission_factor());
-
-            #[cfg(feature = "pbr_transmission_textures")]
-            let (
-                thickness,
-                thickness_channel,
-                thickness_texture,
-                attenuation_distance,
-                attenuation_color,
-            ) = material.volume().map_or(
-                (0.0, UvChannel::Uv0, None, f32::INFINITY, [1.0, 1.0, 1.0]),
-                |volume| {
-                    let thickness_channel = volume
-                        .thickness_texture()
-                        .map(|info| uv_channel(material, "thickness", info.tex_coord()))
-                        .unwrap_or_default();
-                    let thickness_texture: Option<Handle<Image>> =
-                        volume.thickness_texture().map(|thickness_texture| {
-                            texture_handle(&thickness_texture.texture(), load_context)
-                        });
-
-                    (
-                        volume.thickness_factor(),
-                        thickness_channel,
-                        thickness_texture,
-                        volume.attenuation_distance(),
-                        volume.attenuation_color(),
-                    )
-                },
-            );
-
-            #[cfg(not(feature = "pbr_transmission_textures"))]
-            let (thickness, attenuation_distance, attenuation_color) =
-                material
-                    .volume()
-                    .map_or((0.0, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
-                        (
-                            volume.thickness_factor(),
-                            volume.attenuation_distance(),
-                            volume.attenuation_color(),
-                        )
+    #[cfg(feature = "pbr_transmission_textures")]
+    let (specular_transmission, specular_transmission_channel, specular_transmission_texture) =
+        material
+            .transmission()
+            .map_or((0.0, UvChannel::Uv0, None), |transmission| {
+                let specular_transmission_channel = transmission
+                    .transmission_texture()
+                    .map(|info| uv_channel(material, "specular/transmission", info.tex_coord()))
+                    .unwrap_or_default();
+                let transmission_texture: Option<Handle<Image>> = transmission
+                    .transmission_texture()
+                    .map(|transmission_texture| {
+                        textures
+                            .get(transmission_texture.texture().index())
+                            .cloned()
+                            .unwrap_or_default()
                     });
 
-            let ior = material.ior().unwrap_or(1.5);
+                (
+                    transmission.transmission_factor(),
+                    specular_transmission_channel,
+                    transmission_texture,
+                )
+            });
 
-            // Parse the `KHR_materials_clearcoat` extension data if necessary.
-            let clearcoat =
-                ClearcoatExtension::parse(load_context, document, material).unwrap_or_default();
+    #[cfg(not(feature = "pbr_transmission_textures"))]
+    let specular_transmission = material
+        .transmission()
+        .map_or(0.0, |transmission| transmission.transmission_factor());
 
-            // Parse the `KHR_materials_anisotropy` extension data if necessary.
-            let anisotropy =
-                AnisotropyExtension::parse(load_context, document, material).unwrap_or_default();
+    #[cfg(feature = "pbr_transmission_textures")]
+    let (thickness, thickness_channel, thickness_texture, attenuation_distance, attenuation_color) =
+        material.volume().map_or(
+            (0.0, UvChannel::Uv0, None, f32::INFINITY, [1.0, 1.0, 1.0]),
+            |volume| {
+                let thickness_channel = volume
+                    .thickness_texture()
+                    .map(|info| uv_channel(material, "thickness", info.tex_coord()))
+                    .unwrap_or_default();
+                let thickness_texture: Option<Handle<Image>> =
+                    volume.thickness_texture().map(|thickness_texture| {
+                        textures
+                            .get(thickness_texture.texture().index())
+                            .cloned()
+                            .unwrap_or_default()
+                    });
 
-            // Parse the `KHR_materials_specular` extension data if necessary.
-            let specular =
-                SpecularExtension::parse(load_context, document, material).unwrap_or_default();
+                (
+                    volume.thickness_factor(),
+                    thickness_channel,
+                    thickness_texture,
+                    volume.attenuation_distance(),
+                    volume.attenuation_color(),
+                )
+            },
+        );
 
-            // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
-            let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
-            let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
+    #[cfg(not(feature = "pbr_transmission_textures"))]
+    let (thickness, attenuation_distance, attenuation_color) =
+        material
+            .volume()
+            .map_or((0.0, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+                (
+                    volume.thickness_factor(),
+                    volume.attenuation_distance(),
+                    volume.attenuation_color(),
+                )
+            });
 
-            Ok(StandardMaterial {
-                base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
-                base_color_channel,
-                base_color_texture,
-                perceptual_roughness: pbr.roughness_factor(),
-                metallic: pbr.metallic_factor(),
-                metallic_roughness_channel,
-                metallic_roughness_texture,
-                normal_map_channel,
-                normal_map_texture,
-                double_sided: material.double_sided(),
-                cull_mode: if material.double_sided() {
-                    None
-                } else if is_scale_inverted {
-                    Some(Face::Front)
-                } else {
-                    Some(Face::Back)
-                },
-                occlusion_channel,
-                occlusion_texture,
-                emissive,
-                emissive_channel,
-                emissive_texture,
-                specular_transmission,
-                #[cfg(feature = "pbr_transmission_textures")]
-                specular_transmission_channel,
-                #[cfg(feature = "pbr_transmission_textures")]
-                specular_transmission_texture,
-                thickness,
-                #[cfg(feature = "pbr_transmission_textures")]
-                thickness_channel,
-                #[cfg(feature = "pbr_transmission_textures")]
-                thickness_texture,
-                ior,
-                attenuation_distance,
-                attenuation_color: Color::linear_rgb(
-                    attenuation_color[0],
-                    attenuation_color[1],
-                    attenuation_color[2],
-                ),
-                unlit: material.unlit(),
-                alpha_mode: alpha_mode(material),
-                uv_transform,
-                clearcoat: clearcoat.clearcoat_factor.unwrap_or_default() as f32,
-                clearcoat_perceptual_roughness: clearcoat
-                    .clearcoat_roughness_factor
-                    .unwrap_or_default() as f32,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_channel: clearcoat.clearcoat_channel,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_texture: clearcoat.clearcoat_texture,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_roughness_channel: clearcoat.clearcoat_roughness_channel,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
-                #[cfg(feature = "pbr_multi_layer_material_textures")]
-                clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
-                anisotropy_strength: anisotropy.anisotropy_strength.unwrap_or_default() as f32,
-                anisotropy_rotation: anisotropy.anisotropy_rotation.unwrap_or_default() as f32,
-                #[cfg(feature = "pbr_anisotropy_texture")]
-                anisotropy_channel: anisotropy.anisotropy_channel,
-                #[cfg(feature = "pbr_anisotropy_texture")]
-                anisotropy_texture: anisotropy.anisotropy_texture,
-                // From the `KHR_materials_specular` spec:
-                // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
-                reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
-                #[cfg(feature = "pbr_specular_textures")]
-                specular_channel: specular.specular_channel,
-                #[cfg(feature = "pbr_specular_textures")]
-                specular_texture: specular.specular_texture,
-                specular_tint: match specular.specular_color_factor {
-                    Some(color) => {
-                        Color::linear_rgb(color[0] as f32, color[1] as f32, color[2] as f32)
-                    }
-                    None => Color::WHITE,
-                },
-                #[cfg(feature = "pbr_specular_textures")]
-                specular_tint_channel: specular.specular_color_channel,
-                #[cfg(feature = "pbr_specular_textures")]
-                specular_tint_texture: specular.specular_color_texture,
-                ..Default::default()
-            })
-        })
-        .unwrap()
+    let ior = material.ior().unwrap_or(1.5);
+
+    // Parse the `KHR_materials_clearcoat` extension data if necessary.
+    let clearcoat =
+        ClearcoatExtension::parse(material, textures, asset_path.clone()).unwrap_or_default();
+
+    // Parse the `KHR_materials_anisotropy` extension data if necessary.
+    let anisotropy =
+        AnisotropyExtension::parse(material, textures, asset_path.clone()).unwrap_or_default();
+
+    // Parse the `KHR_materials_specular` extension data if necessary.
+    let specular =
+        SpecularExtension::parse(material, textures, asset_path.clone()).unwrap_or_default();
+
+    // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
+    let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
+    let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
+
+    let gltf_material = GltfMaterial {
+        base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
+        base_color_channel,
+        base_color_texture,
+        perceptual_roughness: pbr.roughness_factor(),
+        metallic: pbr.metallic_factor(),
+        metallic_roughness_channel,
+        metallic_roughness_texture,
+        normal_map_channel,
+        normal_map_texture,
+        double_sided: material.double_sided(),
+        cull_mode: if material.double_sided() {
+            None
+        } else if is_scale_inverted {
+            Some(Face::Front)
+        } else {
+            Some(Face::Back)
+        },
+        occlusion_channel,
+        occlusion_texture,
+        emissive,
+        emissive_channel,
+        emissive_texture,
+        specular_transmission,
+        #[cfg(feature = "pbr_transmission_textures")]
+        specular_transmission_channel,
+        #[cfg(feature = "pbr_transmission_textures")]
+        specular_transmission_texture,
+        thickness,
+        #[cfg(feature = "pbr_transmission_textures")]
+        thickness_channel,
+        #[cfg(feature = "pbr_transmission_textures")]
+        thickness_texture,
+        ior,
+        attenuation_distance,
+        attenuation_color: Color::linear_rgb(
+            attenuation_color[0],
+            attenuation_color[1],
+            attenuation_color[2],
+        ),
+        unlit: material.unlit(),
+        alpha_mode: alpha_mode(material),
+        uv_transform,
+        clearcoat: clearcoat.clearcoat_factor.unwrap_or_default() as f32,
+        clearcoat_perceptual_roughness: clearcoat.clearcoat_roughness_factor.unwrap_or_default()
+            as f32,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_channel: clearcoat.clearcoat_channel,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_texture: clearcoat.clearcoat_texture,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_roughness_channel: clearcoat.clearcoat_roughness_channel,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
+        anisotropy_strength: anisotropy.anisotropy_strength.unwrap_or_default() as f32,
+        anisotropy_rotation: anisotropy.anisotropy_rotation.unwrap_or_default() as f32,
+        #[cfg(feature = "pbr_anisotropy_texture")]
+        anisotropy_channel: anisotropy.anisotropy_channel,
+        #[cfg(feature = "pbr_anisotropy_texture")]
+        anisotropy_texture: anisotropy.anisotropy_texture,
+        // From the `KHR_materials_specular` spec:
+        // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
+        reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_channel: specular.specular_channel,
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_texture: specular.specular_texture,
+        specular_tint: match specular.specular_color_factor {
+            Some(color) => Color::linear_rgb(color[0] as f32, color[1] as f32, color[2] as f32),
+            None => Color::WHITE,
+        },
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_tint_channel: specular.specular_color_channel,
+        #[cfg(feature = "pbr_specular_textures")]
+        specular_tint_texture: specular.specular_color_texture,
+    };
+
+    (
+        material_label(material, is_scale_inverted).to_string(),
+        gltf_material,
+    )
 }
 
 /// Loads a glTF node.
@@ -1411,11 +1549,13 @@ fn load_node(
     parent_transform: &Transform,
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
-    document: &Document,
-    convert_coordinates: bool,
+    textures: &[Handle<Image>],
+    convert_coordinates: &GltfConvertCoordinates,
+    extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
+    skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = node_transform(gltf_node, convert_coordinates);
+    let transform = node_transform(gltf_node);
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
@@ -1503,7 +1643,7 @@ fn load_node(
     // Map node index to entity
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
-    let mut morph_weights = None;
+    let mut max_morph_target_count = 0;
 
     node.with_children(|parent| {
         // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
@@ -1513,16 +1653,33 @@ fn load_node(
             // append primitives
             for primitive in mesh.primitives() {
                 let material = primitive.material();
-                let material_label = material_label(&material, is_scale_inverted).to_string();
+                let mat_label = material_label(&material, is_scale_inverted);
+                let material_label = mat_label.to_string();
 
-                // This will make sure we load the default material now since it would not have been
-                // added when iterating over all the gltf materials (since the default material is
-                // not explicitly listed in the gltf).
-                // It also ensures an inverted scale copy is instantiated if required.
+                // This adds materials that Bevy modifies depending on how they're used, like those with inverted scale.
                 if !root_load_context.has_labeled_asset(&material_label)
                     && !load_context.has_labeled_asset(&material_label)
                 {
-                    load_material(&material, load_context, document, is_scale_inverted);
+                    let (label, gltf_material) = load_material(
+                        &material,
+                        textures,
+                        is_scale_inverted,
+                        load_context.path().clone(),
+                    );
+                    // TODO: maybe move this into `load_material` ?
+                    let handle =
+                        load_context.add_labeled_asset(label.clone(), gltf_material.clone());
+
+                    // let extensions handle material data
+                    for extension in extensions.iter_mut() {
+                        extension.on_material(
+                            load_context,
+                            &material,
+                            handle.clone(),
+                            &gltf_material,
+                            &label.clone(),
+                        );
+                    }
                 }
 
                 let primitive_label = GltfAssetLabel::Primitive {
@@ -1530,39 +1687,42 @@ fn load_node(
                     primitive: primitive.index(),
                 };
                 let bounds = primitive.bounding_box();
+                let parent_entity = parent.target_entity();
+
+                // Apply the inverse of the conversion transform that's been
+                // applied to the mesh asset. This preserves the mesh's relation
+                // to the node transform.
+                let mesh_entity_transform = convert_coordinates.mesh_conversion_transform_inverse();
 
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
                     Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
-                    MeshMaterial3d::<StandardMaterial>(
-                        load_context.get_label_handle(&material_label),
-                    ),
+                    // TODO: could add the `GltfMaterial` here
+                    mesh_entity_transform,
                 ));
+
+                if gltf_node.skin().is_some() {
+                    match skinned_mesh_bounds_policy {
+                        GltfSkinnedMeshBoundsPolicy::Dynamic => {
+                            mesh_entity.insert(DynamicSkinnedMeshBounds);
+                        }
+                        GltfSkinnedMeshBoundsPolicy::NoFrustumCulling => {
+                            mesh_entity.insert(NoFrustumCulling);
+                        }
+                        _ => {}
+                    }
+                }
 
                 let target_count = primitive.morph_targets().len();
                 if target_count != 0 {
-                    let weights = match mesh.weights() {
-                        Some(weights) => weights.to_vec(),
-                        None => vec![0.0; target_count],
-                    };
-
-                    if morph_weights.is_none() {
-                        morph_weights = Some(weights.clone());
-                    }
-
-                    // unwrap: the parent's call to `MeshMorphWeights::new`
-                    // means this code doesn't run if it returns an `Err`.
-                    // According to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#morph-targets
-                    // they should all have the same length.
-                    // > All morph target accessors MUST have the same count as
-                    // > the accessors of the original primitive.
-                    mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
+                    max_morph_target_count = max_morph_target_count.max(target_count);
+                    mesh_entity.insert(MeshMorphWeights::Reference(parent_entity));
                 }
 
                 let mut bounds_min = Vec3::from_slice(&bounds.min);
                 let mut bounds_max = Vec3::from_slice(&bounds.max);
 
-                if convert_coordinates {
+                if convert_coordinates.rotate_meshes {
                     let converted_min = bounds_min.convert_coordinates();
                     let converted_max = bounds_max.convert_coordinates();
 
@@ -1604,6 +1764,19 @@ fn load_node(
                 if let Some(skin) = gltf_node.skin() {
                     entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
                 }
+
+                // enable extension processing for a Bevy-created construct
+                // that is the Mesh and Material merged on a single entity
+                for extension in extensions.iter_mut() {
+                    extension.on_spawn_mesh_and_material(
+                        load_context,
+                        &primitive,
+                        &mesh,
+                        &material,
+                        &mut mesh_entity,
+                        &mat_label.to_string(),
+                    );
+                }
             }
         }
 
@@ -1627,6 +1800,9 @@ fn load_node(
                             value: extras.get().to_string(),
                         });
                     }
+                    for extension in extensions.iter_mut() {
+                        extension.on_spawn_light_directional(load_context, gltf_node, &mut entity);
+                    }
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
                     let mut entity = parent.spawn(PointLight {
@@ -1646,6 +1822,9 @@ fn load_node(
                         entity.insert(GltfExtras {
                             value: extras.get().to_string(),
                         });
+                    }
+                    for extension in extensions.iter_mut() {
+                        extension.on_spawn_light_point(load_context, gltf_node, &mut entity);
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Spot {
@@ -1672,6 +1851,9 @@ fn load_node(
                             value: extras.get().to_string(),
                         });
                     }
+                    for extension in extensions.iter_mut() {
+                        extension.on_spawn_light_spot(load_context, gltf_node, &mut entity);
+                    }
                 }
             }
         }
@@ -1692,8 +1874,10 @@ fn load_node(
                 animation_roots,
                 #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
-                document,
+                textures,
                 convert_coordinates,
+                extensions,
+                skinned_mesh_bounds_policy,
             ) {
                 gltf_error = Some(err);
                 return;
@@ -1703,15 +1887,40 @@ fn load_node(
 
     // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
     if !settings.load_meshes.is_empty()
-        && let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights)
+        && let Some(mesh) = gltf_node.mesh()
     {
-        let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
-            mesh: mesh.index(),
-            primitive: p.index(),
-        });
-        let first_mesh =
-            primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
-        node.insert(MorphWeights::new(weights, first_mesh)?);
+        // Create the `MorphWeights` component. The weights will be copied
+        // from `mesh.weights()` if present. If not then the weights are
+        // zero.
+        //
+        // The glTF spec says that all primitives within a mesh must have
+        // the same number of morph targets, and `mesh.weights()` should be
+        // equal to that number if present. We're more forgiving and take
+        // whichever is largest, leaving any unspecified weights at zero.
+        if (max_morph_target_count > 0) || mesh.weights().is_some() {
+            let mut weights = Vec::from(mesh.weights().unwrap_or(&[]));
+
+            if max_morph_target_count > weights.len() {
+                weights.resize(max_morph_target_count, 0.0);
+            }
+
+            let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
+                mesh: mesh.index(),
+                primitive: p.index(),
+            });
+            let first_mesh =
+                primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
+            node.insert(MorphWeights::new(weights, first_mesh)?);
+        }
+    }
+
+    // let extensions process node data
+    // This can be *many* kinds of object, so we also
+    // give access to the gltf_node, which is needed for
+    // accessing Mesh and Material extension data, which
+    // are merged onto the same entity in Bevy
+    for extension in extensions.iter_mut() {
+        extension.on_gltf_node(load_context, gltf_node, &mut node);
     }
 
     if let Some(err) = gltf_error {
@@ -1744,8 +1953,8 @@ async fn load_buffers(
                     Err(()) => {
                         // TODO: Remove this and add dep
                         let buffer_path = load_context
-                            .asset_path()
-                            .resolve_embed(uri)
+                            .path()
+                            .resolve_embed_str(uri)
                             .map_err(|err| GltfError::InvalidBufferUri(uri.to_owned(), err))?;
                         load_context.read_asset_bytes(buffer_path).await?
                     }
@@ -1811,6 +2020,7 @@ enum ImageOrPath {
         path: AssetPath<'static>,
         is_srgb: bool,
         sampler_descriptor: ImageSamplerDescriptor,
+        render_asset_usages: RenderAssetUsages,
     },
 }
 
@@ -1833,11 +2043,13 @@ impl ImageOrPath {
                 path,
                 is_srgb,
                 sampler_descriptor,
+                render_asset_usages,
             } => load_context
                 .loader()
                 .with_settings(move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
                     settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
+                    settings.asset_usage = render_asset_usages;
                 })
                 .load(path),
         };
@@ -1867,6 +2079,9 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
             position: position.map(Into::into).unwrap_or(Vec3::ZERO),
             normal: normal.map(Into::into).unwrap_or(Vec3::ZERO),
             tangent: tangent.map(Into::into).unwrap_or(Vec3::ZERO),
+            pad_a: 0.0,
+            pad_b: 0.0,
+            pad_c: 0.0,
         };
 
         if self.convert_coordinates {
@@ -1874,6 +2089,9 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
                 position: attributes.position.convert_coordinates(),
                 normal: attributes.normal.convert_coordinates(),
                 tangent: attributes.tangent.convert_coordinates(),
+                pad_a: 0.0,
+                pad_b: 0.0,
+                pad_c: 0.0,
             }
         }
 
@@ -1903,21 +2121,24 @@ struct MorphTargetNames {
 mod test {
     use std::path::Path;
 
-    use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
+    use crate::{
+        extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+        Gltf, GltfAssetLabel, GltfMaterial, GltfNode, GltfSkin,
+    };
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
-            AssetSource, AssetSourceId,
+            AssetSourceBuilder, AssetSourceId,
         },
-        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadState,
+        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadContext, LoadState,
     };
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_image::{Image, ImageLoaderSettings};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
-    use bevy_pbr::StandardMaterial;
+    use bevy_reflect::TypePath;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {
@@ -1925,7 +2146,7 @@ mod test {
         let reader = MemoryAssetReader { root: dir };
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || Box::new(reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(reader.clone())),
         )
         .add_plugins((
             LogPlugin::default(),
@@ -2344,7 +2565,7 @@ mod test {
         // Create a default asset source so we definitely don't try to read from disk.
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || {
+            AssetSourceBuilder::new(move || {
                 Box::new(MemoryAssetReader {
                     root: Dir::default(),
                 })
@@ -2352,7 +2573,7 @@ mod test {
         )
         .register_asset_source(
             "custom",
-            AssetSource::build().with_reader(move || Box::new(custom_reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(custom_reader.clone())),
         )
         .add_plugins((
             LogPlugin::default(),
@@ -2408,7 +2629,7 @@ mod test {
     fn reads_images_in_custom_asset_source() {
         let (mut app, dir) = test_app_custom_asset_source();
 
-        app.init_asset::<StandardMaterial>();
+        app.init_asset::<GltfMaterial>();
 
         // Note: We need the material here since otherwise we don't store the texture handle, which
         // can result in the image getting dropped leading to the gltf never being loaded with
@@ -2454,6 +2675,7 @@ mod test {
         dir.insert_asset_text(Path::new("abc.png"), "Sup");
 
         /// A fake loader to avoid actually loading any image data and just return an image.
+        #[derive(TypePath)]
         struct FakePngLoader;
 
         impl AssetLoader for FakePngLoader {
@@ -2465,7 +2687,7 @@ mod test {
                 &self,
                 _reader: &mut dyn bevy_asset::io::Reader,
                 _settings: &Self::Settings,
-                _load_context: &mut bevy_asset::LoadContext<'_>,
+                _load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
                 Ok(Image::default())
             }
@@ -2487,5 +2709,222 @@ mod test {
                 .is_loaded_with_dependencies(&handle)
                 .then_some(())
         });
+    }
+    fn load_gltf_into_app_with_extension(
+        gltf_path: &str,
+        gltf: &str,
+        extension: Box<dyn GltfExtensionHandler>,
+    ) -> App {
+        #[expect(
+            dead_code,
+            reason = "This struct is used to keep the handle alive. As such, we have no need to handle the handle directly."
+        )]
+        #[derive(Resource)]
+        struct GltfHandle(Handle<Gltf>);
+
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new(gltf_path), gltf);
+        let mut app = test_app(dir);
+        app.world_mut()
+            .resource_mut::<GltfExtensionHandlers>()
+            .0
+            .write_blocking()
+            .push(extension);
+        app.update();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load(gltf_path.to_string());
+        let handle_id = handle.id();
+        app.insert_resource(GltfHandle(handle));
+        app.update();
+        run_app_until(&mut app, |_world| {
+            let load_state = asset_server.get_load_state(handle_id).unwrap();
+            match load_state {
+                LoadState::Loaded => Some(()),
+                LoadState::Failed(err) => panic!("{err}"),
+                _ => None,
+            }
+        });
+        app
+    }
+
+    const TRIANGLE_GLTF_DATA: &str = r#"
+{
+  "asset": {
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [0]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0,
+      "name": "triangle-object"
+    }
+  ],
+  "meshes": [
+    {
+      "name": "triangle-mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0
+          },
+          "indices": 1
+        }
+      ]
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 3,
+      "max": [0.9971705079078674, 0, 0.9971704483032227],
+      "min": [0, 0, 0],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5123,
+      "count": 3,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 36,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 6,
+      "byteOffset": 36,
+      "target": 34963
+    }
+  ],
+  "buffers": [
+    {
+        "byteLength": 44,
+        "uri" : "data:application/gltf-buffer;base64,AAAAAAAAAAAAAACAAAAAAAAAAACQRn8/kUZ/PwAAAACQRn8/AQACAAAAAAA="
+    }
+  ]
+}
+"#;
+
+    // Test to ensure that the loader will fail if a Document is constructed with
+    // no Mesh
+    #[test]
+    #[should_panic(
+        expected = "Failed to load asset 'test.gltf' with asset loader 'bevy_gltf::loader::GltfLoader': expected exactly one Mesh in Document returned from on_gltf_primitive hook, got: 0"
+    )]
+    fn on_gltf_primitive_doc_fail() {
+        #[derive(Default, Clone)]
+        struct PrimitiveExtension {}
+
+        impl GltfExtensionHandler for PrimitiveExtension {
+            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+                Box::new((*self).clone())
+            }
+            fn on_gltf_primitive(
+                &mut self,
+                _load_context: &mut LoadContext<'_>,
+                _gltf_document: &gltf::Gltf,
+                _gltf_primitive: &gltf::Primitive,
+                _buffer_data: &[Vec<u8>],
+                out_doc: &mut Option<gltf::Document>,
+                _out_data: &mut Option<Vec<Vec<u8>>>,
+            ) {
+                *out_doc = Some(gltf::Document::from_json_without_validation(
+                    gltf::json::Root::default(),
+                ));
+            }
+        }
+        let gltf_path = "test.gltf";
+        let _ = load_gltf_into_app_with_extension(
+            gltf_path,
+            TRIANGLE_GLTF_DATA,
+            Box::new(PrimitiveExtension::default()),
+        );
+    }
+
+    // Test to ensure that the loader will fail if a Document is constructed with
+    // a single Mesh, but no Primitive
+    #[test]
+    #[should_panic(
+        expected = "Failed to load asset 'test.gltf' with asset loader 'bevy_gltf::loader::GltfLoader': expected exactly one Primitive in Mesh returned from on_gltf_primitive hook, got: 0"
+    )]
+    fn on_gltf_primitive_prim_fail() {
+        #[derive(Default, Clone)]
+        struct PrimitiveExtension {}
+
+        impl GltfExtensionHandler for PrimitiveExtension {
+            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+                Box::new((*self).clone())
+            }
+            fn on_gltf_primitive(
+                &mut self,
+                _load_context: &mut LoadContext<'_>,
+                _gltf_document: &gltf::Gltf,
+                _gltf_primitive: &gltf::Primitive,
+                _buffer_data: &[Vec<u8>],
+                out_doc: &mut Option<gltf::Document>,
+                _out_data: &mut Option<Vec<Vec<u8>>>,
+            ) {
+                let mut root = gltf::json::Root::default();
+                root.push(gltf::json::Mesh {
+                    extensions: Default::default(),
+                    extras: Default::default(),
+                    name: Some("Empty Mesh".into()),
+                    primitives: vec![],
+                    weights: None,
+                });
+                *out_doc = Some(gltf::Document::from_json_without_validation(root));
+            }
+        }
+        let gltf_path = "test.gltf";
+        let _ = load_gltf_into_app_with_extension(
+            gltf_path,
+            TRIANGLE_GLTF_DATA,
+            Box::new(PrimitiveExtension::default()),
+        );
+    }
+
+    // Test to ensure that the loader will fail if no buffers are returned
+    #[test]
+    #[should_panic(
+        expected = "Failed to load asset 'test.gltf' with asset loader 'bevy_gltf::loader::GltfLoader': expected exactly one Vec<u8> in buffers returned from on_gltf_primitive hook, got: 0"
+    )]
+    fn on_gltf_buffer_count_fail() {
+        #[derive(Default, Clone)]
+        struct PrimitiveExtension {}
+
+        impl GltfExtensionHandler for PrimitiveExtension {
+            fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+                Box::new((*self).clone())
+            }
+            fn on_gltf_primitive(
+                &mut self,
+                _load_context: &mut LoadContext<'_>,
+                _gltf_document: &gltf::Gltf,
+                _gltf_primitive: &gltf::Primitive,
+                _buffer_data: &[Vec<u8>],
+                _out_doc: &mut Option<gltf::Document>,
+                out_data: &mut Option<Vec<Vec<u8>>>,
+            ) {
+                *out_data = Some(vec![]);
+            }
+        }
+        let gltf_path = "test.gltf";
+        let _ = load_gltf_into_app_with_extension(
+            gltf_path,
+            TRIANGLE_GLTF_DATA,
+            Box::new(PrimitiveExtension::default()),
+        );
     }
 }

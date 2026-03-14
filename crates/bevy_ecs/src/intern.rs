@@ -5,12 +5,15 @@
 //! and make comparisons for any type as fast as integers.
 
 use alloc::{borrow::ToOwned, boxed::Box};
+use core::{fmt::Debug, hash::Hash, ops::Deref};
+
 use bevy_platform::{
     collections::HashSet,
     hash::FixedHasher,
     sync::{PoisonError, RwLock},
 };
-use core::{fmt::Debug, hash::Hash, ops::Deref};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 
 /// An interned value. Will stay valid until the end of the program and will not drop.
 ///
@@ -39,9 +42,11 @@ use core::{fmt::Debug, hash::Hash, ops::Deref};
 /// // compare equal as they use different interner instances.
 /// assert_ne!(interner_1.intern(&Value(42)), interner_2.intern(&Value(42)));
 /// ```
-pub struct Interned<T: ?Sized + 'static>(pub &'static T);
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Clone, PartialEq, Hash))]
+pub struct Interned<T: ?Sized + Internable + 'static>(pub &'static T);
 
-impl<T: ?Sized> Deref for Interned<T> {
+impl<T: ?Sized + Internable> Deref for Interned<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -49,13 +54,13 @@ impl<T: ?Sized> Deref for Interned<T> {
     }
 }
 
-impl<T: ?Sized> Clone for Interned<T> {
+impl<T: ?Sized + Internable> Clone for Interned<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: ?Sized> Copy for Interned<T> {}
+impl<T: ?Sized + Internable> Copy for Interned<T> {}
 
 // Two Interned<T> should only be equal if they are clones from the same instance.
 // Therefore, we only use the pointer to determine equality.
@@ -74,13 +79,13 @@ impl<T: ?Sized + Internable> Hash for Interned<T> {
     }
 }
 
-impl<T: ?Sized + Debug> Debug for Interned<T> {
+impl<T: ?Sized + Internable + Debug> Debug for Interned<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<T> From<&Interned<T>> for Interned<T> {
+impl<T: ?Sized + Internable> From<&Interned<T>> for Interned<T> {
     fn from(value: &Interned<T>) -> Self {
         *value
     }

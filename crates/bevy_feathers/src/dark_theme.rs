@@ -95,6 +95,7 @@ pub fn create_dark_theme() -> ThemeProps {
                 tokens::SWITCH_SLIDE_DISABLED,
                 palette::LIGHT_GRAY_2.with_alpha(0.3),
             ),
+            (tokens::COLOR_PLANE_BG, palette::GRAY_1),
         ]),
     }
 }

@@ -54,11 +54,6 @@ pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 pub struct ArchetypeRow(NonMaxU32);
 
 impl ArchetypeRow {
-    /// Index indicating an invalid archetype row.
-    /// This is meant to be used as a placeholder.
-    // TODO: Deprecate in favor of options, since `INVALID` is, technically, valid.
-    pub const INVALID: ArchetypeRow = ArchetypeRow(NonMaxU32::MAX);
-
     /// Creates a `ArchetypeRow`.
     #[inline]
     pub const fn new(index: NonMaxU32) -> Self {
@@ -95,10 +90,6 @@ pub struct ArchetypeId(u32);
 impl ArchetypeId {
     /// The ID for the [`Archetype`] without any components.
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
-    /// # Safety:
-    ///
-    /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.
-    pub const INVALID: ArchetypeId = ArchetypeId(u32::MAX);
 
     /// Create an `ArchetypeId` from a plain value.
     ///
@@ -372,12 +363,12 @@ bitflags::bitflags! {
     pub(crate) struct ArchetypeFlags: u32 {
         const ON_ADD_HOOK    = (1 << 0);
         const ON_INSERT_HOOK = (1 << 1);
-        const ON_REPLACE_HOOK = (1 << 2);
+        const ON_DISCARD_HOOK = (1 << 2);
         const ON_REMOVE_HOOK = (1 << 3);
         const ON_DESPAWN_HOOK = (1 << 4);
         const ON_ADD_OBSERVER = (1 << 5);
         const ON_INSERT_OBSERVER = (1 << 6);
-        const ON_REPLACE_OBSERVER = (1 << 7);
+        const ON_DISCARD_OBSERVER = (1 << 7);
         const ON_REMOVE_OBSERVER = (1 << 8);
         const ON_DESPAWN_OBSERVER = (1 << 9);
     }
@@ -689,10 +680,10 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_INSERT_HOOK)
     }
 
-    /// Returns true if any of the components in this archetype have `on_replace` hooks
+    /// Returns true if any of the components in this archetype have `on_discard` hooks
     #[inline]
-    pub fn has_replace_hook(&self) -> bool {
-        self.flags().contains(ArchetypeFlags::ON_REPLACE_HOOK)
+    pub fn has_discard_hook(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_DISCARD_HOOK)
     }
 
     /// Returns true if any of the components in this archetype have `on_remove` hooks
@@ -723,12 +714,12 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one [`Replace`] observer
+    /// Returns true if any of the components in this archetype have at least one [`Discard`] observer
     ///
-    /// [`Replace`]: crate::lifecycle::Replace
+    /// [`Discard`]: crate::lifecycle::Discard
     #[inline]
-    pub fn has_replace_observer(&self) -> bool {
-        self.flags().contains(ArchetypeFlags::ON_REPLACE_OBSERVER)
+    pub fn has_discard_observer(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_DISCARD_OBSERVER)
     }
 
     /// Returns true if any of the components in this archetype have at least one [`Remove`] observer
@@ -945,7 +936,7 @@ impl Archetypes {
     }
 
     /// Get the component index
-    pub(crate) fn component_index(&self) -> &ComponentIndex {
+    pub fn component_index(&self) -> &ComponentIndex {
         &self.by_component
     }
 

@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 
 /// Stores the state for a [`MessageReader`] or [`MessageMutator`].
 ///
-/// Access to the [`Messages<E>`] resource is required to read any incoming messages.
+/// Access to the [`Messages<M>`] resource is required to read any incoming messages.
 ///
 /// In almost all cases, you should just use a [`MessageReader`] or [`MessageMutator`],
 /// which will automatically manage the state for you.
@@ -51,12 +51,12 @@ use core::marker::PhantomData;
 /// [`MessageReader`]: super::MessageReader
 /// [`MessageMutator`]: super::MessageMutator
 #[derive(Debug)]
-pub struct MessageCursor<E: Message> {
+pub struct MessageCursor<M: Message> {
     pub(super) last_message_count: usize,
-    pub(super) _marker: PhantomData<E>,
+    pub(super) _marker: PhantomData<M>,
 }
 
-impl<E: Message> Default for MessageCursor<E> {
+impl<M: Message> Default for MessageCursor<M> {
     fn default() -> Self {
         MessageCursor {
             last_message_count: 0,
@@ -65,7 +65,7 @@ impl<E: Message> Default for MessageCursor<E> {
     }
 }
 
-impl<E: Message> Clone for MessageCursor<E> {
+impl<M: Message> Clone for MessageCursor<M> {
     fn clone(&self) -> Self {
         MessageCursor {
             last_message_count: self.last_message_count,
@@ -74,36 +74,36 @@ impl<E: Message> Clone for MessageCursor<E> {
     }
 }
 
-impl<E: Message> MessageCursor<E> {
+impl<M: Message> MessageCursor<M> {
     /// See [`MessageReader::read`](super::MessageReader::read)
-    pub fn read<'a>(&'a mut self, messages: &'a Messages<E>) -> MessageIterator<'a, E> {
+    pub fn read<'a>(&'a mut self, messages: &'a Messages<M>) -> MessageIterator<'a, M> {
         self.read_with_id(messages).without_id()
     }
 
     /// See [`MessageMutator::read`](super::MessageMutator::read)
-    pub fn read_mut<'a>(&'a mut self, messages: &'a mut Messages<E>) -> MessageMutIterator<'a, E> {
+    pub fn read_mut<'a>(&'a mut self, messages: &'a mut Messages<M>) -> MessageMutIterator<'a, M> {
         self.read_mut_with_id(messages).without_id()
     }
 
     /// See [`MessageReader::read_with_id`](super::MessageReader::read_with_id)
     pub fn read_with_id<'a>(
         &'a mut self,
-        messages: &'a Messages<E>,
-    ) -> MessageIteratorWithId<'a, E> {
+        messages: &'a Messages<M>,
+    ) -> MessageIteratorWithId<'a, M> {
         MessageIteratorWithId::new(self, messages)
     }
 
     /// See [`MessageMutator::read_with_id`](super::MessageMutator::read_with_id)
     pub fn read_mut_with_id<'a>(
         &'a mut self,
-        messages: &'a mut Messages<E>,
-    ) -> MessageMutIteratorWithId<'a, E> {
+        messages: &'a mut Messages<M>,
+    ) -> MessageMutIteratorWithId<'a, M> {
         MessageMutIteratorWithId::new(self, messages)
     }
 
     /// See [`MessageReader::par_read`](super::MessageReader::par_read)
     #[cfg(feature = "multi_threaded")]
-    pub fn par_read<'a>(&'a mut self, messages: &'a Messages<E>) -> MessageParIter<'a, E> {
+    pub fn par_read<'a>(&'a mut self, messages: &'a Messages<M>) -> MessageParIter<'a, M> {
         MessageParIter::new(self, messages)
     }
 
@@ -111,13 +111,13 @@ impl<E: Message> MessageCursor<E> {
     #[cfg(feature = "multi_threaded")]
     pub fn par_read_mut<'a>(
         &'a mut self,
-        messages: &'a mut Messages<E>,
-    ) -> MessageMutParIter<'a, E> {
+        messages: &'a mut Messages<M>,
+    ) -> MessageMutParIter<'a, M> {
         MessageMutParIter::new(self, messages)
     }
 
     /// See [`MessageReader::len`](super::MessageReader::len)
-    pub fn len(&self, messages: &Messages<E>) -> usize {
+    pub fn len(&self, messages: &Messages<M>) -> usize {
         // The number of messages in this reader is the difference between the most recent message
         // and the last message seen by it. This will be at most the number of messages contained
         // with the messages (any others have already been dropped)
@@ -129,19 +129,19 @@ impl<E: Message> MessageCursor<E> {
     }
 
     /// Amount of messages we missed.
-    pub fn missed_messages(&self, messages: &Messages<E>) -> usize {
+    pub fn missed_messages(&self, messages: &Messages<M>) -> usize {
         messages
             .oldest_message_count()
             .saturating_sub(self.last_message_count)
     }
 
     /// See [`MessageReader::is_empty()`](super::MessageReader::is_empty)
-    pub fn is_empty(&self, messages: &Messages<E>) -> bool {
+    pub fn is_empty(&self, messages: &Messages<M>) -> bool {
         self.len(messages) == 0
     }
 
     /// See [`MessageReader::clear()`](super::MessageReader::clear)
-    pub fn clear(&mut self, messages: &Messages<E>) {
+    pub fn clear(&mut self, messages: &Messages<M>) {
         self.last_message_count = messages.message_count;
     }
 }

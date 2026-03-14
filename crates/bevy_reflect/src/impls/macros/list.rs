@@ -126,6 +126,10 @@ macro_rules! impl_reflect_for_veclike {
                     $crate::list::list_partial_eq(self, value)
                 }
 
+                fn reflect_partial_cmp(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<::core::cmp::Ordering> {
+                    $crate::list::list_partial_cmp(self, value)
+                }
+
                 fn apply(&mut self, value: &dyn $crate::reflect::PartialReflect) {
                     $crate::list::list_apply(self, value);
                 }

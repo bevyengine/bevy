@@ -16,7 +16,11 @@ use bevy::{
     camera::visibility::{NoCpuCulling, NoFrustumCulling},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     light::NotShadowCaster,
-    math::{DVec2, DVec3},
+    math::{
+        ops::{cbrt, sqrt},
+        DVec2, DVec3,
+    },
+    post_process::motion_blur::MotionBlur,
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
@@ -24,10 +28,10 @@ use bevy::{
         view::NoIndirectDrawing,
     },
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
-use rand::{seq::IndexedRandom, Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{seq::IndexedRandom, RngExt, SeedableRng};
 
 #[derive(FromArgs, Resource)]
 /// `many_cubes` stress test
@@ -52,6 +56,10 @@ struct Args {
     #[argh(option, default = "1")]
     mesh_count: usize,
 
+    /// the number of cubes
+    #[argh(option, default = "1600000")]
+    instance_count: usize,
+
     /// whether to disable all frustum culling. Stresses queuing and batching as all mesh material entities in the scene are always drawn.
     #[argh(switch)]
     no_frustum_culling: bool,
@@ -72,16 +80,25 @@ struct Args {
     #[argh(switch)]
     shadows: bool,
 
+    /// whether to continuously rotate individual cubes.
+    #[argh(switch)]
+    rotate_cubes: bool,
+
     /// animate the cube materials by updating the material from the cpu each frame
     #[argh(switch)]
     animate_materials: bool,
+
+    /// whether to enable motion blur.
+    #[argh(switch)]
+    motion_blur: bool,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq)]
 enum Layout {
     Cube,
     #[default]
     Sphere,
+    Dense,
 }
 
 impl FromStr for Layout {
@@ -91,8 +108,9 @@ impl FromStr for Layout {
         match s {
             "cube" => Ok(Self::Cube),
             "sphere" => Ok(Self::Sphere),
+            "dense" => Ok(Self::Dense),
             _ => Err(format!(
-                "Unknown layout value: '{s}', valid options: 'cube', 'sphere'"
+                "Unknown layout value: '{s}', valid options: 'cube', 'sphere', 'dense'"
             )),
         }
     }
@@ -118,12 +136,17 @@ fn main() {
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
-    .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::Continuous,
-    })
+    .insert_resource(WinitSettings::continuous())
     .add_systems(Startup, setup)
-    .add_systems(Update, (move_camera, print_mesh_count));
+    .add_systems(Update, print_mesh_count);
+
+    if args.layout != Layout::Dense {
+        app.add_systems(Update, move_camera);
+    }
+
+    if args.rotate_cubes {
+        app.add_systems(Update, rotate_cubes);
+    }
 
     if args.animate_materials {
         app.add_systems(Update, update_materials);
@@ -161,13 +184,13 @@ fn setup(
         Layout::Sphere => {
             // NOTE: This pattern is good for testing performance of culling as it provides roughly
             // the same number of visible meshes regardless of the viewing angle.
-            const N_POINTS: usize = WIDTH * HEIGHT * 4;
+            let n_points: usize = args.instance_count;
             // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
             let radius = WIDTH as f64 * 2.5;
             let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
-            for i in 0..N_POINTS {
+            for i in 0..n_points {
                 let spherical_polar_theta_phi =
-                    fibonacci_spiral_on_sphere(golden_ratio, i, N_POINTS);
+                    fibonacci_spiral_on_sphere(golden_ratio, i, n_points);
                 let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
                 let (mesh, transform) = meshes.choose(&mut material_rng).unwrap();
                 commands
@@ -190,6 +213,22 @@ fn setup(
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);
             }
+            if args.motion_blur {
+                camera.insert((
+                    MotionBlur {
+                        // Use an unrealistically large shutter angle so that motion blur is clearly visible.
+                        shutter_angle: 3.0,
+                        ..Default::default()
+                    },
+                    // MSAA and MotionBlur are not compatible on WebGL.
+                    #[cfg(all(
+                        feature = "webgl2",
+                        target_arch = "wasm32",
+                        not(feature = "webgpu")
+                    ))]
+                    Msaa::Off,
+                ));
+            }
 
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
@@ -199,12 +238,28 @@ fn setup(
                 NotShadowCaster,
             ));
         }
-        _ => {
+        Layout::Cube => {
             // NOTE: This pattern is good for demonstrating that frustum culling is working correctly
             // as the number of visible meshes rises and falls depending on the viewing angle.
             let scale = 2.5;
-            for x in 0..WIDTH {
-                for y in 0..HEIGHT {
+
+            // Scale the width and height by the same factor so that we have the
+            // right number of instances.
+            // Because of the moiré pattern check and the fact that we're
+            // spawning 4 instances per trip around the inner loop below, we're
+            // solving the following equation for the factor variable:
+            //
+            //      4 * (9/10 * factor * width * 9/10 * factor * height) = count
+            //
+            // The solution is the value below.
+            let factor = (5.0 / 9.0) * sqrt(args.instance_count as f32)
+                / (sqrt(HEIGHT as f32) * sqrt(WIDTH as f32));
+            let dimensions = (vec2(WIDTH as f32, HEIGHT as f32) * factor)
+                .ceil()
+                .as_uvec2();
+
+            for x in 0..dimensions.x {
+                for y in 0..dimensions.y {
                     // introduce spaces to break any kind of moiré pattern
                     if x % 10 == 0 || y % 10 == 0 {
                         continue;
@@ -220,7 +275,7 @@ fn setup(
                         MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
                         Transform::from_xyz(
                             (x as f32) * scale,
-                            HEIGHT as f32 * scale,
+                            dimensions.y as f32 * scale,
                             (y as f32) * scale,
                         ),
                     ));
@@ -237,7 +292,13 @@ fn setup(
                 }
             }
             // camera
-            let center = 0.5 * scale * Vec3::new(WIDTH as f32, HEIGHT as f32, WIDTH as f32);
+            let center = 0.5
+                * scale
+                * Vec3::new(
+                    dimensions.x as f32,
+                    dimensions.y as f32,
+                    dimensions.x as f32,
+                );
             commands.spawn((Camera3d::default(), Transform::from_translation(center)));
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
@@ -247,11 +308,39 @@ fn setup(
                 NotShadowCaster,
             ));
         }
+        Layout::Dense => {
+            // NOTE: This pattern is good for demonstrating a dense configuration of cubes
+            // overlapping each other, all within the camera frustum.
+            let count = args.instance_count;
+            let size = cbrt(count as f32).round();
+            let gap = 1.25;
+
+            let cubes = (0..count).map(move |i| {
+                let x = i as f32 % size;
+                let y = (i as f32 / size) % size;
+                let z = i as f32 / (size * size);
+                let pos = Vec3::new(x * gap, y * gap, z * gap);
+                (
+                    Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                    MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                    Transform::from_translation(pos),
+                )
+            });
+
+            // camera
+            commands.spawn((
+                Camera3d::default(),
+                Transform::from_xyz(100.0, 90.0, 100.0)
+                    .looking_at(Vec3::new(0.0, -10.0, 0.0), Vec3::Y),
+            ));
+
+            commands.spawn_batch(cubes);
+        }
     }
 
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: args.shadows,
+            shadow_maps_enabled: args.shadows,
             ..default()
         },
         Transform::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),
@@ -291,10 +380,7 @@ fn init_materials(
     assets: &mut Assets<StandardMaterial>,
 ) -> Vec<Handle<StandardMaterial>> {
     let capacity = if args.vary_material_data_per_instance {
-        match args.layout {
-            Layout::Cube => (WIDTH - WIDTH / 10) * (HEIGHT - HEIGHT / 10),
-            Layout::Sphere => WIDTH * HEIGHT * 4,
-        }
+        args.instance_count
     } else {
         args.material_texture_count
     }
@@ -498,6 +584,15 @@ fn update_materials(mut materials: ResMut<Assets<StandardMaterial>>, time: Res<T
         let color = fast_hue_to_rgb(hue);
         material.base_color = Color::linear_rgb(color.x, color.y, color.z);
     }
+}
+
+fn rotate_cubes(
+    mut query: Query<&mut Transform, (With<Mesh3d>, Without<NotShadowCaster>)>,
+    time: Res<Time>,
+) {
+    query.par_iter_mut().for_each(|mut transform| {
+        transform.rotate_y(10.0 * time.delta_secs());
+    });
 }
 
 #[inline]

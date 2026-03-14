@@ -104,7 +104,7 @@ fn custom_layer(app: &mut App) -> Option<BoxedLayer> {
     let layer = CaptureLayer { sender };
     let resource = CapturedLogMessages(receiver);
 
-    app.insert_non_send_resource(resource);
+    app.insert_non_send(resource);
     app.add_message::<LogMessage>();
     app.add_systems(Update, transfer_log_messages);
 

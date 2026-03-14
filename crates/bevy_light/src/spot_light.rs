@@ -1,16 +1,16 @@
 use bevy_asset::Handle;
 use bevy_camera::{
-    primitives::Frustum,
-    visibility::{self, Visibility, VisibilityClass, VisibleMeshEntities},
+    primitives::{Frustum, Sphere},
+    visibility::{self, ViewVisibility, Visibility, VisibilityClass, VisibleMeshEntities},
 };
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Vec3};
+use bevy_math::{primitives::ViewFrustum, Affine3A, Dir3, Mat3, Mat4, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use crate::cluster::{ClusterVisibilityClass, GlobalVisibleClusterableObjects};
+use crate::cluster::ClusterVisibilityClass;
 
 /// A light that emits light in a given direction from a central point.
 ///
@@ -53,7 +53,11 @@ pub struct SpotLight {
     /// Note that shadows are rather expensive and become more so with every
     /// light that casts them. In general, it's best to aggressively limit the
     /// number of lights with shadows enabled to one or two at most.
-    pub shadows_enabled: bool,
+    pub shadow_maps_enabled: bool,
+
+    /// Whether this light casts contact shadows. Cameras must also have the `ContactShadows`
+    /// component.
+    pub contact_shadows_enabled: bool,
 
     /// Whether soft shadows are enabled.
     ///
@@ -126,8 +130,11 @@ pub struct SpotLight {
 }
 
 impl SpotLight {
+    /// The default value of [`SpotLight::shadow_depth_bias`].
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
+    /// The default value of [`SpotLight::shadow_normal_bias`].
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
+    /// The default value of [`SpotLight::shadow_map_near_z`].
     pub const DEFAULT_SHADOW_MAP_NEAR_Z: f32 = 0.1;
 }
 
@@ -142,7 +149,8 @@ impl Default for SpotLight {
             intensity: 1_000_000.0,
             range: 20.0,
             radius: 0.0,
-            shadows_enabled: false,
+            shadow_maps_enabled: false,
+            contact_shadows_enabled: false,
             affects_lightmapped_mesh_diffuse: true,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
@@ -184,6 +192,7 @@ pub fn spot_light_world_from_view(transform: &GlobalTransform) -> Affine3A {
     Affine3A::from_mat3_translation(basis, transform.translation())
 }
 
+/// Creates the projection matrix that transforms the light's view space into the light's clip space.
 pub fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
     // spot light projection FOV is 2x the angle from spot light center to outer edge
     Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, near_z)
@@ -201,20 +210,42 @@ pub struct SpotLightTexture {
     pub image: Handle<Image>,
 }
 
-pub fn update_spot_light_frusta(
-    global_lights: Res<GlobalVisibleClusterableObjects>,
-    mut views: Query<
-        (Entity, &GlobalTransform, &SpotLight, &mut Frustum),
-        Or<(Changed<GlobalTransform>, Changed<SpotLight>)>,
+/// A system that updates the bounding [`Sphere`] for changed spot lights.
+///
+/// The [`Sphere`] component is used for frustum culling.
+pub fn update_spot_light_bounding_spheres(
+    mut commands: Commands,
+    spot_lights_query: Query<
+        (Entity, &SpotLight, &GlobalTransform),
+        Or<(Changed<SpotLight>, Changed<GlobalTransform>)>,
     >,
 ) {
-    for (entity, transform, spot_light, mut frustum) in &mut views {
+    for (spot_light_entity, spot_light, global_transform) in &spot_lights_query {
+        commands.entity(spot_light_entity).insert(Sphere {
+            center: global_transform.translation_vec3a(),
+            radius: spot_light.range,
+        });
+    }
+}
+
+/// Updates the frusta for all visible shadow mapped [`SpotLight`]s.
+pub fn update_spot_light_frusta(
+    mut views: Query<
+        (&GlobalTransform, &SpotLight, &mut Frustum, &ViewVisibility),
+        Or<(
+            Changed<GlobalTransform>,
+            Changed<SpotLight>,
+            Changed<ViewVisibility>,
+        )>,
+    >,
+) {
+    for (transform, spot_light, mut frustum, view_visibility) in &mut views {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
         // Also, if the light is not relevant for any cluster, it will not be in the
         // global lights set and so there is no need to update its frusta.
-        if !spot_light.shadows_enabled || !global_lights.entities.contains(&entity) {
+        if !spot_light.shadow_maps_enabled || !view_visibility.get() {
             continue;
         }
 
@@ -227,11 +258,11 @@ pub fn update_spot_light_frusta(
             spot_light_clip_from_view(spot_light.outer_angle, spot_light.shadow_map_near_z);
         let clip_from_world = spot_clip_from_view * spot_world_from_view.inverse();
 
-        *frustum = Frustum::from_clip_from_world_custom_far(
+        *frustum = Frustum(ViewFrustum::from_clip_from_world_custom_far(
             &clip_from_world,
             &transform.translation(),
             &view_backward,
             spot_light.range,
-        );
+        ));
     }
 }

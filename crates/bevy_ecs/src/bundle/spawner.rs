@@ -5,9 +5,8 @@ use bevy_ptr::{ConstNonNull, MovingPtr};
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
     bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
-    change_detection::MaybeLocation,
-    change_detection::Tick,
-    entity::{Entities, Entity, EntityLocation},
+    change_detection::{MaybeLocation, Tick},
+    entity::{Entity, EntityAllocator, EntityLocation},
     event::EntityComponentsTrigger,
     lifecycle::{Add, Insert, ADD, INSERT},
     relationship::RelationshipHookMode,
@@ -89,7 +88,7 @@ impl<'w> BundleSpawner<'w> {
     /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
     #[track_caller]
-    pub unsafe fn spawn_non_existent<T: DynamicBundle>(
+    pub unsafe fn spawn_at<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         bundle: MovingPtr<'_, T>,
@@ -120,8 +119,8 @@ impl<'w> BundleSpawner<'w> {
                 InsertMode::Replace,
                 caller,
             );
-            entities.set(entity.index(), Some(location));
-            entities.mark_spawn_despawn(entity.index(), caller, self.change_tick);
+            entities.set_location(entity.index(), Some(location));
+            entities.mark_spawned_or_despawned(entity.index(), caller, self.change_tick);
             location
         };
 
@@ -145,6 +144,8 @@ impl<'w> BundleSpawner<'w> {
                     &mut Add { entity },
                     &mut EntityComponentsTrigger {
                         components: bundle_info.contributed_components(),
+                        old_archetype: None,
+                        new_archetype: Some(archetype),
                     },
                     caller,
                 );
@@ -163,6 +164,8 @@ impl<'w> BundleSpawner<'w> {
                     &mut Insert { entity },
                     &mut EntityComponentsTrigger {
                         components: bundle_info.contributed_components(),
+                        old_archetype: None,
+                        new_archetype: Some(archetype),
                     },
                     caller,
                 );
@@ -186,22 +189,16 @@ impl<'w> BundleSpawner<'w> {
         bundle: MovingPtr<'_, T>,
         caller: MaybeLocation,
     ) -> Entity {
-        let entity = self.entities().alloc();
-        // SAFETY:
-        // - `entity` is allocated above
-        // - The caller ensures that `T` matches this `BundleSpawner`'s type.
-        // - The caller ensures that if `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must  be called exactly once on `bundle`
-        //   after this function returns before returning to safe code.
-        // - The caller ensures that the value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
-        //   or dropped.
-        unsafe { self.spawn_non_existent::<T>(entity, bundle, caller) };
+        let entity = self.allocator().alloc();
+        // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
+        let _ = unsafe { self.spawn_at(entity, bundle, caller) };
         entity
     }
 
     #[inline]
-    pub(crate) fn entities(&mut self) -> &mut Entities {
+    pub(crate) fn allocator(&mut self) -> &'w mut EntityAllocator {
         // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate our internal pointers
-        unsafe { &mut self.world.world_mut().entities }
+        unsafe { &mut self.world.world_mut().entity_allocator }
     }
 
     /// # Safety

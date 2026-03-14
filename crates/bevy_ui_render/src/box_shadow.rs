@@ -338,7 +338,7 @@ pub fn queue_shadows(
             },
         );
 
-        transparent_phase.add(TransparentUi {
+        transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline,
             entity: (entity, extracted_shadow.main_entity),
@@ -431,7 +431,7 @@ pub fn prepare_shadows(
                     positions[3] + positions_diff[3].extend(0.),
                 ];
 
-                let transformed_rect_size = box_shadow.transform.transform_vector2(rect_size);
+                let transformed_rect_size = box_shadow.transform.transform_vector2(rect_size).abs();
 
                 // Don't try to cull nodes that have a rotation
                 // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π

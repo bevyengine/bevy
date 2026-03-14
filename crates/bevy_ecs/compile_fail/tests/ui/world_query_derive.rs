@@ -12,7 +12,7 @@ struct MutableUnmarked {
 
 #[derive(QueryData)]
 #[query_data(mut)]
-//~^ ERROR: invalid attribute, expected `mutable` or `derive`
+//~^ ERROR: invalid attribute, expected `mutable`, `derive` or `contiguous`
 struct MutableInvalidAttribute {
     a: &'static mut Foo,
 }

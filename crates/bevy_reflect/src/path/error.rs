@@ -1,7 +1,7 @@
 use core::fmt;
 
 use super::Access;
-use crate::{ReflectKind, VariantType};
+use crate::{enums::VariantType, ReflectKind};
 
 /// The kind of [`AccessError`], along with some kind-specific information.
 #[derive(Debug, PartialEq, Eq, Clone)]

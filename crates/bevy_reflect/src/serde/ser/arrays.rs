@@ -1,4 +1,4 @@
-use crate::{serde::TypedReflectSerializer, Array, TypeRegistry};
+use crate::{array::Array, serde::TypedReflectSerializer, TypeRegistry};
 use serde::{ser::SerializeTuple, Serialize};
 
 use super::ReflectSerializerProcessor;

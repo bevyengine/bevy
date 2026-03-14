@@ -21,10 +21,10 @@
 //!
 //! With the actual text bounds defined, the `bevy_ui::widget::text::text_system` system (in a UI context)
 //! or `bevy_sprite::text2d::update_text2d_layout` system (in a 2d world space context)
-//! passes it into [`TextPipeline::queue_text`], which:
+//! passes it into [`TextPipeline::update_text_layout_info`], which:
 //!
-//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlas`]es if necessary.
-//! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
+//! 1. updates a [`Layout`](parley::Layout) from the [`TextSpan`]s, generating new [`FontAtlas`]es if necessary.
+//! 2. iterates over each glyph in the [`Layout`](parley::Layout) to create a [`PositionedGlyph`],
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
 //!    which contains all the information that downstream systems need for rendering.
@@ -38,6 +38,7 @@ mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
 mod glyph;
+mod parley_context;
 mod pipeline;
 mod text;
 mod text_access;
@@ -49,6 +50,7 @@ pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
+pub use parley_context::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text_access::*;
@@ -59,13 +61,14 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError,
-        TextFont, TextLayout, TextSpan, Underline, UnderlineColor,
+        Font, FontHinting, FontSize, FontSmoothing, FontSource, FontStyle, FontWeight, FontWidth,
+        Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError, TextFont,
+        TextLayout, TextSpan, Underline, UnderlineColor,
     };
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{AssetApp, AssetEventSystems};
+use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
 
 /// The raw data for the default font used by `bevy_text`
@@ -83,30 +86,32 @@ pub struct TextPlugin;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct Text2dUpdateSystems;
 
-/// Deprecated alias for [`Text2dUpdateSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `Text2dUpdateSystems`.")]
-pub type Update2dText = Text2dUpdateSystems;
-
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSet>()
             .init_resource::<TextPipeline>()
-            .init_resource::<CosmicFontSystem>()
-            .init_resource::<SwashCache>()
+            .init_resource::<FontCx>()
+            .init_resource::<LayoutCx>()
+            .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<RemSize>()
             .add_systems(
                 PostUpdate,
-                free_unused_font_atlases_system.before(AssetEventSystems),
+                (
+                    detect_text_needs_rerender,
+                    load_font_assets_into_font_collection,
+                )
+                    .chain(),
             )
-            .add_systems(Last, trim_cosmic_cache);
+            .add_systems(Last, trim_source_cache);
 
         #[cfg(feature = "default_font")]
         {
             use bevy_asset::{AssetId, Assets};
-            let mut assets = app.world_mut().resource_mut::<Assets<_>>();
-            let asset = Font::try_from_bytes(DEFAULT_FONT_DATA.to_vec()).unwrap();
+            let mut assets = app.world_mut().resource_mut::<Assets<Font>>();
+            let asset = Font::try_from_bytes(DEFAULT_FONT_DATA.to_vec(), "bevy default font");
             assets.insert(AssetId::default(), asset).unwrap();
         };
     }

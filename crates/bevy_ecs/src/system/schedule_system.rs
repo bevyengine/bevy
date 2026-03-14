@@ -8,7 +8,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
-use super::{IntoSystem, SystemParamValidationError, SystemStateFlags};
+use super::{IntoSystem, SystemStateFlags};
 
 /// See [`IntoSystem::with_input`] for details.
 pub struct WithInputWrapper<S, T>
@@ -66,7 +66,8 @@ where
         _input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
-        self.system.run_unsafe(&mut self.value, world)
+        // SAFETY: Upheld by caller
+        unsafe { self.system.run_unsafe(&mut self.value, world) }
     }
 
     #[cfg(feature = "hotpatching")]
@@ -81,13 +82,6 @@ where
 
     fn queue_deferred(&mut self, world: DeferredWorld) {
         self.system.queue_deferred(world);
-    }
-
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        self.system.validate_param_unsafe(world)
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
@@ -163,7 +157,8 @@ where
             .value
             .as_mut()
             .expect("System input value was not found. Did you forget to initialize the system before running it?");
-        self.system.run_unsafe(value, world)
+        // SAFETY: Upheld by caller
+        unsafe { self.system.run_unsafe(value, world) }
     }
 
     #[cfg(feature = "hotpatching")]
@@ -178,13 +173,6 @@ where
 
     fn queue_deferred(&mut self, world: DeferredWorld) {
         self.system.queue_deferred(world);
-    }
-
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        self.system.validate_param_unsafe(world)
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {

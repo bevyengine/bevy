@@ -2,7 +2,8 @@
 
 use bevy::{
     color::palettes::basic::RED,
-    pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
+    material::OpaqueRendererMethod,
+    pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
     render::render_resource::*,
     shader::ShaderRef,

@@ -94,10 +94,10 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
                 left: px(pos.x),
                 top: px(pos.y),
                 flex_direction: FlexDirection::Column,
+                border_radius: BorderRadius::all(px(4)),
                 ..default()
             },
             BorderColor::all(Color::BLACK),
-            BorderRadius::all(px(4)),
             BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1)),
             children![
                 context_item("fuchsia", basic::FUCHSIA),
@@ -135,7 +135,7 @@ fn context_item(text: &str, col: Srgba) -> impl Bundle {
             Pickable::IGNORE,
             Text::new(text),
             TextFont {
-                font_size: 24.0,
+                font_size: FontSize::Px(24.0),
                 ..default()
             },
             TextColor(Color::WHITE),
@@ -165,16 +165,16 @@ fn background_and_button() -> impl Bundle {
                         border: UiRect::all(px(5)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
+                        border_radius: BorderRadius::MAX,
                         ..default()
                     },
                     BorderColor::all(Color::BLACK),
-                    BorderRadius::MAX,
                     BackgroundColor(Color::BLACK),
                     children![(
                         Pickable::IGNORE,
                         Text::new("Context Menu"),
                         TextFont {
-                            font_size: 28.0,
+                            font_size: FontSize::Px(28.0),
                             ..default()
                         },
                         TextColor(Color::WHITE),

@@ -16,6 +16,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_text::{FontSize, FontWeight};
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, UiRect, Val,
@@ -73,7 +74,8 @@ pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         ThemeFontColor(tokens::RADIO_TEXT),
         InheritableFont {
             font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
-            font_size: 14.0,
+            font_size: FontSize::Px(14.0),
+            weight: FontWeight::NORMAL,
         },
         overrides,
         Children::spawn((
@@ -85,19 +87,19 @@ pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
                     width: size::RADIO_SIZE,
                     height: size::RADIO_SIZE,
                     border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::MAX,
                     ..Default::default()
                 },
                 RadioOutline,
-                BorderRadius::MAX,
                 ThemeBorderColor(tokens::RADIO_BORDER),
                 children![(
                     // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
                         width: Val::Px(8.),
                         height: Val::Px(8.),
+                        border_radius: BorderRadius::MAX,
                         ..Default::default()
                     },
-                    BorderRadius::MAX,
                     RadioMark,
                     ThemeBackgroundColor(tokens::RADIO_MARK),
                 )],
@@ -258,7 +260,7 @@ fn set_radio_styles(
 
     // Change mark visibility
     commands.entity(mark_ent).insert(match checked {
-        true => Visibility::Visible,
+        true => Visibility::Inherited,
         false => Visibility::Hidden,
     });
 

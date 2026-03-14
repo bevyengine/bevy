@@ -41,8 +41,8 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             (
                 TextSpan("text".repeat(i)),
                 TextFont {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: (4 + i % 10) as f32,
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                    font_size: FontSize::Px((4 + i % 10) as f32),
                     ..Default::default()
                 },
                 TextColor(BLUE.into()),
@@ -50,8 +50,8 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             (
                 TextSpan("pipeline".repeat(i)),
                 TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: (4 + i % 11) as f32,
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
+                    font_size: FontSize::Px((4 + i % 11) as f32),
                     ..default()
                 },
                 TextColor(YELLOW.into()),

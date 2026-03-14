@@ -34,7 +34,7 @@ impl AsRef<[u8]> for AudioSource {
 /// `.mp3` with `bevy/mp3`
 /// `.flac` with `bevy/flac`
 /// `.wav` with `bevy/wav`
-#[derive(Default)]
+#[derive(Default, TypePath)]
 pub struct AudioLoader;
 
 impl AssetLoader for AudioLoader {

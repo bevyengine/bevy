@@ -3,7 +3,8 @@
 
 use bevy::{
     color::palettes::css::RED,
-    core_pipeline::{tonemapping::Tonemapping, Skybox},
+    core_pipeline::tonemapping::Tonemapping,
+    light::Skybox,
     light::{FogVolume, VolumetricFog, VolumetricLight},
     math::vec3,
     post_process::bloom::Bloom,
@@ -86,7 +87,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     commands.spawn((
         Transform::from_xyz(-0.4, 1.9, 1.0),
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             range: 150.0,
             color: RED.into(),
             intensity: 10_000.0,
@@ -106,7 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         SpotLight {
             intensity: 50_000.0, // lumens
             color: Color::WHITE,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             inner_angle: 0.76,
             outer_angle: 0.94,
             ..default()
@@ -158,7 +159,7 @@ fn tweak_scene(
 ) {
     for (light, mut directional_light) in lights.iter_mut() {
         // Shadows are needed for volumetric lights to work.
-        directional_light.shadows_enabled = true;
+        directional_light.shadow_maps_enabled = true;
         commands.entity(light).insert(VolumetricLight);
     }
 }

@@ -14,10 +14,10 @@ use bevy::{
     camera::primitives::{Aabb, Sphere},
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
-    gltf::GltfPlugin,
+    gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
-    render::experimental::occlusion_culling::OcclusionCulling,
+    render::occlusion_culling::OcclusionCulling,
 };
 
 #[cfg(feature = "gltf_animation")]
@@ -49,17 +49,20 @@ struct Args {
     /// spawn a light even if the scene already has one
     #[argh(switch)]
     add_light: Option<bool>,
-    /// enable `GltfPlugin::use_model_forward_direction`
+    /// enable `GltfPlugin::convert_coordinates::scenes`
     #[argh(switch)]
-    use_model_forward_direction: Option<bool>,
+    convert_scene_coordinates: Option<bool>,
+    /// enable `GltfPlugin::convert_coordinates::meshes`
+    #[argh(switch)]
+    convert_mesh_coordinates: Option<bool>,
 }
 
 impl Args {
     fn rotation(&self) -> Quat {
-        if self.use_model_forward_direction == Some(true) {
+        if self.convert_scene_coordinates == Some(true) {
             // If the scene is converted then rotate everything else to match. This
             // makes comparisons easier - the scene will always face the same way
-            // relative to the camera.
+            // relative to the cameras and lights.
             Quat::from_xyzw(0.0, 1.0, 0.0, 0.0)
         } else {
             Quat::IDENTITY
@@ -92,7 +95,10 @@ fn main() {
                 ..default()
             })
             .set(GltfPlugin {
-                use_model_forward_direction: args.use_model_forward_direction.unwrap_or(false),
+                convert_coordinates: GltfConvertCoordinates {
+                    rotate_scene_entity: args.convert_scene_coordinates == Some(true),
+                    rotate_meshes: args.convert_mesh_coordinates == Some(true),
+                },
                 ..default()
             }),
         FreeCameraPlugin,
