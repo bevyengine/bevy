@@ -445,6 +445,43 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Use [`distributive_run_if`](IntoScheduleConfigs::distributive_run_if) if you want the
     /// condition to be evaluated for each individual system, right before one is run.
+    ///
+    /// # Multiple conditions
+    ///
+    /// Chaining multiple `.run_if` calls does **not** short-circuit. Every condition attached
+    /// to a system is evaluated each time the system is about to run, regardless of the results
+    /// of earlier conditions. This means all conditions will update their internal state (such
+    /// as change-detection ticks) every schedule run.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut schedule = Schedule::default();
+    /// # fn my_system() {}
+    /// # fn condition_a() -> bool { false }
+    /// # fn condition_b() -> bool { true }
+    /// // Both `condition_a` and `condition_b` will run every time,
+    /// // even when `condition_a` returns false.
+    /// schedule.add_systems(my_system.run_if(condition_a).run_if(condition_b));
+    /// ```
+    ///
+    /// If you want short-circuit behavior where later conditions are skipped once an earlier
+    /// one returns `false`, combine them with [`and_then`](SystemCondition::and_then):
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut schedule = Schedule::default();
+    /// # fn my_system() {}
+    /// # fn condition_a() -> bool { false }
+    /// # fn condition_b() -> bool { true }
+    /// // `condition_b` will only run when `condition_a` returns true.
+    /// schedule.add_systems(my_system.run_if(condition_a.and_then(condition_b)));
+    /// ```
+    ///
+    /// Note that short-circuiting affects change detection: a short-circuited condition
+    /// won't update its ticks, so it will react to changes that happened since the last time
+    /// it actually ran, not since the last schedule run. If you want eager evaluation (all
+    /// conditions always run) combined into a single `run_if` call, use
+    /// [`and_eager`](SystemCondition::and_eager) instead.
     fn run_if<M>(self, condition: impl SystemCondition<M>) -> ScheduleConfigs<T> {
         self.into_configs().run_if(condition)
     }
