@@ -22,6 +22,8 @@ pub struct FontAtlasKey {
     pub hinting: FontHinting,
     /// Antialiasing method
     pub font_smoothing: FontSmoothing,
+    /// Whether the atlas reserves padded glyph margins for text effects.
+    pub text_effect_padding: bool,
 }
 
 /// Set of rasterized fonts stored in [`FontAtlas`]es.
