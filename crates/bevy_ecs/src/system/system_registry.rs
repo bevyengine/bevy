@@ -502,6 +502,46 @@ impl World {
     /// Runs a cached system, registering it if necessary.
     ///
     /// See [`World::register_system_cached`] for more information.
+    ///
+    /// # Type inference when using `?`
+    ///
+    /// If the system you're calling returns `Result` (or any type that implements
+    /// [`IntoResult`](crate::system::IntoResult)), the compiler may fail to infer the
+    /// output type `O` when you use `?` on the result. This happens because the output
+    /// type is generic and the `?` conversion doesn't give the compiler enough
+    /// information to pin it down.
+    ///
+    /// ```compile_fail
+    /// # use bevy_ecs::prelude::*;
+    /// fn my_system() -> Result {
+    ///     Ok(())
+    /// }
+    ///
+    /// fn my_exclusive_system(world: &mut World) -> Result {
+    ///     // This won't compile: the compiler can't infer the output type.
+    ///     world.run_system_cached(my_system)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// To fix this, give the compiler a type hint by assigning the output to `()`:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// fn my_system() -> Result {
+    ///     Ok(())
+    /// }
+    ///
+    /// fn my_exclusive_system(world: &mut World) -> Result {
+    ///     () = world.run_system_cached(my_system)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// This is not needed when using [`Commands::run_system_cached`], which fixes
+    /// the output type to `()`.
+    ///
+    /// [`Commands::run_system_cached`]: crate::system::Commands::run_system_cached
     pub fn run_system_cached<O: 'static, M, S: IntoSystem<(), O, M> + 'static>(
         &mut self,
         system: S,
@@ -513,6 +553,13 @@ impl World {
     ///
     /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
     /// See [`World::register_system_cached`] for more information.
+    ///
+    /// # Type inference when using `?`
+    ///
+    /// If the system you're calling returns `Result` (or any type that implements
+    /// [`IntoResult`](crate::system::IntoResult)), you may need to provide a type hint
+    /// for the output when using `?`. See [`World::run_system_cached`] for details and
+    /// workarounds.
     pub fn run_system_cached_with<I, O, M, S>(
         &mut self,
         system: S,
