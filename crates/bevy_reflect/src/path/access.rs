@@ -1,6 +1,7 @@
 //! Representation for individual element accesses within a path.
 
 use alloc::borrow::Cow;
+use bevy_reflect_derive::impl_reflect_opaque;
 use core::fmt;
 
 use super::error::AccessErrorKind;
@@ -182,3 +183,7 @@ impl<'a> Access<'a> {
         }
     }
 }
+
+impl_reflect_opaque!(
+    (in crate::path::access) Access<'a: 'static>(Clone, Debug, Hash, PartialEq)
+);
