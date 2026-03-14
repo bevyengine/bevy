@@ -23,7 +23,6 @@ use crate::{
         },
         BoxedCondition, InternedSystemSet, ScheduleGraph,
     },
-    storage::SparseSetIndex,
     system::{ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
@@ -610,8 +609,7 @@ impl Systems {
                     match access_a.get_conflicts(access_b) {
                         AccessConflicts::Individual(conflicts) => {
                             let conflicts: Box<[_]> = conflicts
-                                .ones()
-                                .map(ComponentId::get_sparse_set_index)
+                                .iter()
                                 .filter(|id| !ignored_ambiguities.contains(id))
                                 .collect();
                             if !conflicts.is_empty() {
