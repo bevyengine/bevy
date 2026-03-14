@@ -29,6 +29,7 @@ pub(crate) fn new_tarjan_scc<N: GraphNodeId, S: BuildHasher>(
         .nodes()
         .map(|node| NodeData {
             root_index: None,
+            pending: None,
             neighbors: graph.neighbors(node),
         })
         .collect::<Vec<_>>();
@@ -46,8 +47,9 @@ pub(crate) fn new_tarjan_scc<N: GraphNodeId, S: BuildHasher>(
     }
 }
 
-struct NodeData<Neighbors: Iterator<Item: GraphNodeId>> {
+struct NodeData<N: GraphNodeId, Neighbors: Iterator<Item = N>> {
     root_index: Option<NonZeroUsize>,
+    pending: Option<N>,
     neighbors: Neighbors,
 }
 
@@ -75,7 +77,7 @@ where
     component_count: usize,
     /// Information about each [`GraphNodeId`], including a possible SCC index and an
     /// [`Iterator`] of possibly unvisited neighbors.
-    nodes: Vec<NodeData<Neighbors>>,
+    nodes: Vec<NodeData<N, Neighbors>>,
     /// A stack of [`GraphNodeId`]s where a SCC will be found starting at the top of the stack.
     stack: Vec<N>,
     /// A stack of [`GraphNodeId`]s which need to be visited to determine which SCC they belong to.
@@ -146,7 +148,8 @@ impl<
     /// current node as in need of visitation again.
     /// If no SCC can be found in the current visitation stack, returns `None`.
     fn visit_once(&mut self, v: N, mut v_is_local_root: bool) -> Option<usize> {
-        let node_v = &mut self.nodes[self.graph.to_index(v)];
+        let graph_index_v = self.graph.to_index(v);
+        let node_v = &mut self.nodes[graph_index_v];
 
         if node_v.root_index.is_none() {
             let v_index = self.index;
@@ -154,22 +157,31 @@ impl<
             self.index += 1;
         }
 
-        while let Some(w) = self.nodes[self.graph.to_index(v)].neighbors.next() {
+        if let Some(w) = node_v.pending.take() {
+            let graph_index_w = self.graph.to_index(w);
+            if self.nodes[graph_index_w].root_index < self.nodes[graph_index_v].root_index {
+                self.nodes[graph_index_v].root_index = self.nodes[graph_index_w].root_index;
+                v_is_local_root = false;
+            }
+        }
+
+        while let Some(w) = self.nodes[graph_index_v].neighbors.next() {
+            let graph_index_w = self.graph.to_index(w);
             // If a neighbor hasn't been visited yet...
-            if self.nodes[self.graph.to_index(w)].root_index.is_none() {
+            if self.nodes[graph_index_w].root_index.is_none() {
                 // Push the current node and the neighbor back onto the visitation stack.
                 // On the next execution of `visit_once`, the neighbor will be visited.
                 self.visitation_stack.push((v, v_is_local_root));
                 self.visitation_stack.push((w, true));
+                // Due to the removal of w from the iterator, if there is no pending field,
+                // `v` will not update based on the result of `w`. We need to handle it explicitly.
+                self.nodes[graph_index_v].pending = Some(w);
 
                 return None;
             }
 
-            if self.nodes[self.graph.to_index(w)].root_index
-                < self.nodes[self.graph.to_index(v)].root_index
-            {
-                self.nodes[self.graph.to_index(v)].root_index =
-                    self.nodes[self.graph.to_index(w)].root_index;
+            if self.nodes[graph_index_w].root_index < self.nodes[graph_index_v].root_index {
+                self.nodes[graph_index_v].root_index = self.nodes[graph_index_w].root_index;
                 v_is_local_root = false;
             }
         }
@@ -187,19 +199,18 @@ impl<
             .stack
             .iter()
             .rposition(|&w| {
-                if nodes[self.graph.to_index(v)].root_index
-                    > nodes[self.graph.to_index(w)].root_index
-                {
+                let graph_index_w = self.graph.to_index(w);
+                if nodes[graph_index_v].root_index > nodes[graph_index_w].root_index {
                     true
                 } else {
-                    nodes[self.graph.to_index(w)].root_index = c;
+                    nodes[graph_index_w].root_index = c;
                     index_adjustment += 1;
                     false
                 }
             })
             .map(|x| x + 1)
             .unwrap_or_default();
-        nodes[self.graph.to_index(v)].root_index = c;
+        nodes[graph_index_v].root_index = c;
         self.stack.push(v); // Pushing the component root to the back right before getting rid of it is somewhat ugly, but it lets it be included in f.
 
         self.start = Some(start);
@@ -230,5 +241,42 @@ impl<
     fn size_hint(&self) -> (usize, Option<usize>) {
         // There can be no more than the number of nodes in a graph worth of SCCs
         (0, Some(self.nodes.len()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::schedule::graph::Direction;
+
+    #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+    pub struct Node(i32);
+
+    impl GraphNodeId for Node {
+        type Adjacent = (Node, Direction);
+        type Edge = (Node, Node);
+        fn kind(&self) -> &'static str {
+            ""
+        }
+    }
+
+    #[test]
+    fn a_b_c_a() {
+        let mut graph = DiGraph::<Node>::with_capacity(3, 3);
+        graph.add_node(Node(1));
+        graph.add_node(Node(2));
+        graph.add_node(Node(3));
+        graph.add_edge(Node(1), Node(2));
+        graph.add_edge(Node(2), Node(3));
+        graph.add_edge(Node(3), Node(1));
+
+        let mut tarjan = new_tarjan_scc(&graph);
+        let scc = tarjan.next().unwrap();
+        let none = tarjan.next();
+        assert_eq!(scc.len(), 3);
+        assert!(scc.contains(&Node(1)));
+        assert!(scc.contains(&Node(2)));
+        assert!(scc.contains(&Node(3)));
+        assert!(none.is_none());
     }
 }
