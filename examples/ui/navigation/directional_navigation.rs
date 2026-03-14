@@ -467,6 +467,7 @@ fn interact_with_focused_button(
                     depth: 0.0,
                     position: None,
                     normal: None,
+                    extra: None,
                 },
                 duration: Duration::from_secs_f32(0.1),
             },
