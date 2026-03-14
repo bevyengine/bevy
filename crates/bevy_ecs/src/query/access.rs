@@ -609,8 +609,7 @@ impl Access {
 
         let archetypal = self
             .archetypal
-            .iter()
-            .filter(|&index| !self.writes.contains(index) && !self.read_and_writes.contains(index))
+            .difference(&self.read_and_writes)
             .map(ComponentAccessKind::Archetypal);
 
         Ok(reads_and_writes.chain(archetypal))
