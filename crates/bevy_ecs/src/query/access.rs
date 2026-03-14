@@ -530,8 +530,34 @@ impl Access {
     /// Currently, this is only used for [`Has<T>`].
     ///
     /// [`Has<T>`]: crate::query::Has
-    pub fn archetypal(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.archetypal.iter()
+    pub fn archetypal(&self) -> &ComponentIdSet {
+        &self.archetypal
+    }
+
+    /// Returns the set of components with read or write access,
+    /// or an error if the access is unbounded.
+    pub fn try_reads_and_writes(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
+        // writes_inverted is only ever true when read_and_writes_inverted is
+        // also true. Therefore it is sufficient to check just read_and_writes_inverted.
+        if self.read_and_writes_inverted {
+            return Err(UnboundedAccessError {
+                writes_inverted: self.writes_inverted,
+                read_and_writes_inverted: self.read_and_writes_inverted,
+            });
+        }
+        Ok(&self.read_and_writes)
+    }
+
+    /// Returns the set of components with write access,
+    /// or an error if the access is unbounded.
+    pub fn try_writes(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
+        if self.writes_inverted {
+            return Err(UnboundedAccessError {
+                writes_inverted: self.writes_inverted,
+                read_and_writes_inverted: self.read_and_writes_inverted,
+            });
+        }
+        Ok(&self.writes)
     }
 
     /// Returns an iterator over the component IDs and their [`ComponentAccessKind`].
@@ -575,16 +601,7 @@ impl Access {
     pub fn try_iter_access(
         &self,
     ) -> Result<impl Iterator<Item = ComponentAccessKind> + '_, UnboundedAccessError> {
-        // writes_inverted is only ever true when read_and_writes_inverted is
-        // also true. Therefore it is sufficient to check just read_and_writes_inverted.
-        if self.read_and_writes_inverted {
-            return Err(UnboundedAccessError {
-                writes_inverted: self.writes_inverted,
-                read_and_writes_inverted: self.read_and_writes_inverted,
-            });
-        }
-
-        let reads_and_writes = self.read_and_writes.iter().map(|index| {
+        let reads_and_writes = self.try_reads_and_writes()?.iter().map(|index| {
             if self.writes.contains(index) {
                 ComponentAccessKind::Exclusive(index)
             } else {
@@ -984,6 +1001,27 @@ impl FilteredAccess {
         self.required.is_subset(&other.required) && self.access().is_subset(other.access())
     }
 
+    /// Returns the set of components that must be present for this access to match.
+    /// These components will also be included in the [`AccessFilters::with`] collection
+    /// for every filter in [`Self::filter_sets`].
+    ///
+    /// This is used by [query transmutes](crate::system::Query::transmute_lens) to ensure that
+    /// components read by the query are present.
+    /// This will include components from query types like `&C`,
+    /// but not from filters like [`With<C>`](super::With),
+    /// and not from optional data like `Option<&C>`.
+    pub fn required(&self) -> &ComponentIdSet {
+        &self.required
+    }
+
+    /// The list of filters, expressed in disjunctive normal form.
+    ///
+    /// This [`FilteredAccess`] will match an entity if
+    /// *any* of the [`AccessFilters`] matches the entity.
+    pub fn filter_sets(&self) -> &[AccessFilters] {
+        &self.filter_sets
+    }
+
     /// Returns the indices of the elements that this access filters for.
     pub fn with_filters(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.filter_sets.iter().flat_map(|f| f.with.iter())
@@ -1006,8 +1044,11 @@ impl FilteredAccess {
     }
 }
 
+/// A clause in disjunctive normal form that filters entities by their components.
+/// An [`AccessFilters`] matches entities that have *all* the components in the
+/// `with` filters and *none* of the components in the `without` filters.
 #[derive(Eq, PartialEq, Default, Debug)]
-pub(crate) struct AccessFilters {
+pub struct AccessFilters {
     pub(crate) with: ComponentIdSet,
     pub(crate) without: ComponentIdSet,
 }
@@ -1028,6 +1069,16 @@ impl Clone for AccessFilters {
 }
 
 impl AccessFilters {
+    /// The set of components that must all be present for this [`AccessFilters`] to match.
+    pub fn with(&self) -> &ComponentIdSet {
+        &self.with
+    }
+
+    /// The set of components that must all be absent for this [`AccessFilters`] to match.
+    pub fn without(&self) -> &ComponentIdSet {
+        &self.without
+    }
+
     fn is_ruled_out_by(&self, other: &Self) -> bool {
         // Although not technically complete, we don't consider the case when `AccessFilters`'s
         // `without` bitset contradicts its own `with` bitset (e.g. `(With<A>, Without<A>)`).
