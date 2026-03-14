@@ -9,7 +9,7 @@ use crate::{
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     event::EntityComponentsTrigger,
-    lifecycle::{Discard, Remove, DISCARD, REMOVE},
+    lifecycle::{AfterRemove, Discard, Remove, AFTER_REMOVE, DISCARD, REMOVE},
     observer::Observers,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table},
@@ -24,6 +24,17 @@ pub(crate) struct BundleRemover<'w> {
     old_archetype: NonNull<Archetype>,
     new_archetype: NonNull<Archetype>,
     pub(crate) relationship_hook_mode: RelationshipHookMode,
+}
+
+#[inline]
+fn explicit_components_in_archetype<'a>(
+    explicit_components: &'a [ComponentId],
+    archetype: &'a Archetype,
+) -> impl Iterator<Item = ComponentId> + 'a {
+    explicit_components
+        .iter()
+        .copied()
+        .filter(move |component_id| archetype.contains(*component_id))
 }
 
 impl<'w> BundleRemover<'w> {
@@ -136,171 +147,222 @@ impl<'w> BundleRemover<'w> {
             &[ComponentId],
         ) -> (bool, T),
     ) -> (EntityLocation, T) {
-        // Hooks
+        let bundle_info = self.bundle_info.as_ref();
+        let explicit_components = bundle_info.explicit_components();
+        let old_archetype_id = location.archetype_id;
+        // Save flags before mutation invalidates archetype references.
+        let has_after_remove_hook = self.old_archetype.as_ref().has_after_remove_hook();
+        let has_after_remove_observer = self.old_archetype.as_ref().has_after_remove_observer();
+
         // SAFETY: all bundle components exist in World
         unsafe {
-            // SAFETY: We only keep access to archetype/bundle data.
+            let old_archetype = self.old_archetype.as_ref();
+            let new_archetype = self.new_archetype.as_ref();
+            let has_discard_observer = old_archetype.has_discard_observer();
+            let has_remove_observer = old_archetype.has_remove_observer();
+            let observer_components = (has_discard_observer || has_remove_observer).then(|| {
+                explicit_components_in_archetype(explicit_components, old_archetype)
+                    .collect::<Vec<_>>()
+            });
+
+            // SAFETY: We only keep access to archetype metadata.
             let mut deferred_world = self.world.into_deferred();
-            let bundle_components_in_archetype = || {
-                self.bundle_info
-                    .as_ref()
-                    .iter_explicit_components()
-                    .filter(|component_id| self.old_archetype.as_ref().contains(*component_id))
-            };
-            if self.old_archetype.as_ref().has_discard_observer() {
-                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+            if has_discard_observer {
+                let components = observer_components.as_ref().unwrap();
                 // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                 deferred_world.trigger_raw(
                     DISCARD,
                     &mut Discard { entity },
                     &mut EntityComponentsTrigger {
-                        components: &components,
-                        old_archetype: Some(self.old_archetype.as_ref()),
-                        new_archetype: Some(self.new_archetype.as_ref()),
+                        components,
+                        old_archetype: Some(old_archetype),
+                        new_archetype: Some(new_archetype),
                     },
                     caller,
                 );
             }
             deferred_world.trigger_on_discard(
-                self.old_archetype.as_ref(),
+                old_archetype,
                 entity,
-                bundle_components_in_archetype(),
+                explicit_components_in_archetype(explicit_components, old_archetype),
                 caller,
                 self.relationship_hook_mode,
             );
-            if self.old_archetype.as_ref().has_remove_observer() {
-                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+            if has_remove_observer {
+                let components = observer_components.as_ref().unwrap();
                 // SAFETY: the REMOVE event_key corresponds to the Remove event's type
                 deferred_world.trigger_raw(
                     REMOVE,
                     &mut Remove { entity },
                     &mut EntityComponentsTrigger {
-                        components: &components,
-                        old_archetype: Some(self.old_archetype.as_ref()),
-                        new_archetype: Some(self.new_archetype.as_ref()),
+                        components,
+                        old_archetype: Some(old_archetype),
+                        new_archetype: Some(new_archetype),
                     },
                     caller,
                 );
             }
             deferred_world.trigger_on_remove(
-                self.old_archetype.as_ref(),
+                old_archetype,
                 entity,
-                bundle_components_in_archetype(),
+                explicit_components_in_archetype(explicit_components, old_archetype),
                 caller,
             );
         }
 
-        // SAFETY: We still have the cell, so this is unique, it doesn't conflict with other references, and we drop it shortly.
-        let world = unsafe { self.world.world_mut() };
+        let (new_location, pre_remove_result) = {
+            // SAFETY: We still have the cell, so this is unique, it doesn't conflict with other references, and we drop it shortly.
+            let world = unsafe { self.world.world_mut() };
 
-        let (needs_drop, pre_remove_result) = pre_remove(
-            &mut world.storages.sparse_sets,
-            self.old_and_new_table
-                .as_ref()
-                // SAFETY: There is no conflicting access for this scope.
-                .map(|(old, _)| unsafe { &mut *old.as_ptr() }),
-            &world.components,
-            self.bundle_info.as_ref().explicit_components(),
-        );
+            let (needs_drop, pre_remove_result) = pre_remove(
+                &mut world.storages.sparse_sets,
+                self.old_and_new_table
+                    .as_ref()
+                    // SAFETY: There is no conflicting access for this scope.
+                    .map(|(old, _)| unsafe { &mut *old.as_ptr() }),
+                &world.components,
+                explicit_components,
+            );
 
-        // Handle sparse set removes
-        for component_id in self.bundle_info.as_ref().iter_explicit_components() {
-            if self.old_archetype.as_ref().contains(component_id) {
-                world.removed_components.write(component_id, entity);
+            {
+                let old_archetype = self.old_archetype.as_ref();
+                for &component_id in explicit_components {
+                    if !old_archetype.contains(component_id) {
+                        continue;
+                    }
+                    world.removed_components.write(component_id, entity);
 
-                // Make sure to drop components stored in sparse sets.
-                // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
-                if let Some(StorageType::SparseSet) =
-                    self.old_archetype.as_ref().get_storage_type(component_id)
-                {
-                    world
-                        .storages
-                        .sparse_sets
-                        .get_mut(component_id)
-                        // Set exists because the component existed on the entity
-                        .unwrap()
-                        // If it was already forgotten, it would not be in the set.
-                        .remove(entity);
+                    // Make sure to drop components stored in sparse sets.
+                    // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
+                    if let Some(StorageType::SparseSet) =
+                        old_archetype.get_storage_type(component_id)
+                    {
+                        world
+                            .storages
+                            .sparse_sets
+                            .get_mut(component_id)
+                            // Set exists because the component existed on the entity
+                            .unwrap()
+                            // If it was already forgotten, it would not be in the set.
+                            .remove(entity);
+                    }
                 }
             }
-        }
 
-        // Handle archetype change
-        let remove_result = self
-            .old_archetype
-            .as_mut()
-            .swap_remove(location.archetype_row);
-        // if an entity was moved into this entity's archetype row, update its archetype row
-        if let Some(swapped_entity) = remove_result.swapped_entity {
-            let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
-
-            world.entities.update_existing_location(
-                swapped_entity.index(),
-                Some(EntityLocation {
-                    archetype_id: swapped_location.archetype_id,
-                    archetype_row: location.archetype_row,
-                    table_id: swapped_location.table_id,
-                    table_row: swapped_location.table_row,
-                }),
-            );
-        }
-
-        // Handle table change
-        let new_location = if let Some((mut old_table, mut new_table)) = self.old_and_new_table {
-            let move_result = if needs_drop {
-                // SAFETY: old_table_row exists
-                unsafe {
-                    old_table
-                        .as_mut()
-                        .move_to_and_drop_missing_unchecked(location.table_row, new_table.as_mut())
-                }
-            } else {
-                // SAFETY: old_table_row exists
-                unsafe {
-                    old_table.as_mut().move_to_and_forget_missing_unchecked(
-                        location.table_row,
-                        new_table.as_mut(),
-                    )
-                }
-            };
-
-            // SAFETY: move_result.new_row is a valid position in new_archetype's table
-            let new_location = unsafe {
-                self.new_archetype
-                    .as_mut()
-                    .allocate(entity, move_result.new_row)
-            };
-
-            // if an entity was moved into this entity's table row, update its table row
-            if let Some(swapped_entity) = move_result.swapped_entity {
+            let remove_result = self
+                .old_archetype
+                .as_mut()
+                .swap_remove(location.archetype_row);
+            if let Some(swapped_entity) = remove_result.swapped_entity {
                 let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
 
                 world.entities.update_existing_location(
                     swapped_entity.index(),
                     Some(EntityLocation {
                         archetype_id: swapped_location.archetype_id,
-                        archetype_row: swapped_location.archetype_row,
+                        archetype_row: location.archetype_row,
                         table_id: swapped_location.table_id,
-                        table_row: location.table_row,
+                        table_row: swapped_location.table_row,
                     }),
                 );
-                world.archetypes[swapped_location.archetype_id]
-                    .set_entity_table_row(swapped_location.archetype_row, location.table_row);
             }
 
-            new_location
-        } else {
-            // The tables are the same
-            self.new_archetype
-                .as_mut()
-                .allocate(entity, location.table_row)
+            let new_location = if let Some((mut old_table, mut new_table)) = self.old_and_new_table
+            {
+                let move_result = if needs_drop {
+                    // SAFETY: old_table_row exists
+                    unsafe {
+                        old_table.as_mut().move_to_and_drop_missing_unchecked(
+                            location.table_row,
+                            new_table.as_mut(),
+                        )
+                    }
+                } else {
+                    // SAFETY: old_table_row exists
+                    unsafe {
+                        old_table.as_mut().move_to_and_forget_missing_unchecked(
+                            location.table_row,
+                            new_table.as_mut(),
+                        )
+                    }
+                };
+
+                // SAFETY: move_result.new_row is a valid position in new_archetype's table
+                let allocated_location = unsafe {
+                    self.new_archetype
+                        .as_mut()
+                        .allocate(entity, move_result.new_row)
+                };
+
+                if let Some(swapped_entity) = move_result.swapped_entity {
+                    let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
+
+                    world.entities.update_existing_location(
+                        swapped_entity.index(),
+                        Some(EntityLocation {
+                            archetype_id: swapped_location.archetype_id,
+                            archetype_row: swapped_location.archetype_row,
+                            table_id: swapped_location.table_id,
+                            table_row: location.table_row,
+                        }),
+                    );
+                    world.archetypes[swapped_location.archetype_id]
+                        .set_entity_table_row(swapped_location.archetype_row, location.table_row);
+                }
+
+                allocated_location
+            } else {
+                self.new_archetype
+                    .as_mut()
+                    .allocate(entity, location.table_row)
+            };
+
+            // SAFETY: The entity is valid and has been moved to the new location already.
+            unsafe {
+                world
+                    .entities
+                    .update_existing_location(entity.index(), Some(new_location));
+            }
+
+            (new_location, pre_remove_result)
         };
 
-        // SAFETY: The entity is valid and has been moved to the new location already.
-        unsafe {
-            world
-                .entities
-                .update_existing_location(entity.index(), Some(new_location));
+        // Trigger AfterRemove after the entity has moved and removed data is gone.
+        // SAFETY:
+        // - all bundle components exist in World
+        // - only type metadata is read from archetypes during these hooks
+        if has_after_remove_hook || has_after_remove_observer {
+            // SAFETY:
+            // - `old_archetype_id` and `new_location.archetype_id` are valid IDs
+            // - only type metadata is read from archetypes while triggering hooks/observers
+            unsafe {
+                let world = self.world;
+                let archetypes = world.archetypes();
+                let old_archetype = &archetypes[old_archetype_id];
+                let mut deferred_world = world.into_deferred();
+                deferred_world.trigger_after_remove(
+                    old_archetype,
+                    entity,
+                    explicit_components_in_archetype(explicit_components, old_archetype),
+                    caller,
+                );
+                if has_after_remove_observer {
+                    let new_archetype = &archetypes[new_location.archetype_id];
+                    let removed_components =
+                        explicit_components_in_archetype(explicit_components, old_archetype)
+                            .collect::<Vec<_>>();
+                    deferred_world.trigger_raw(
+                        AFTER_REMOVE,
+                        &mut AfterRemove { entity },
+                        &mut EntityComponentsTrigger {
+                            components: &removed_components,
+                            old_archetype: Some(old_archetype),
+                            new_archetype: Some(new_archetype),
+                        },
+                        caller,
+                    );
+                }
+            }
         }
 
         (new_location, pre_remove_result)

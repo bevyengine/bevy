@@ -49,12 +49,16 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, StorageTy::Table);
 
+    let before_add_path = None;
     let on_add_path = None;
     let on_remove_path = None;
     let on_insert_path = None;
     let on_replace_path = None;
     let on_despawn_path = None;
+    let after_remove_path = None;
 
+    let before_add =
+        hook_register_function_call(&bevy_ecs_path, quote! {before_add}, before_add_path);
     let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
     let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
     let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_path);
@@ -62,6 +66,8 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, on_replace_path);
     let on_despawn =
         hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_path);
+    let after_remove =
+        hook_register_function_call(&bevy_ecs_path, quote! {after_remove}, after_remove_path);
 
     ast.generics
         .make_where_clause()
@@ -95,11 +101,13 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
                 #(#register_required)*
             }
 
+            #before_add
             #on_add
             #on_insert
             #on_replace
             #on_remove
             #on_despawn
+            #after_remove
 
             fn clone_behavior() -> #bevy_ecs_path::component::ComponentCloneBehavior {
                 #bevy_ecs_path::component::ComponentCloneBehavior::Default
@@ -160,11 +168,17 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
+    let before_add_path = attrs
+        .before_add
+        .map(|path| path.to_token_stream(&bevy_ecs_path));
     let on_add_path = attrs
         .on_add
         .map(|path| path.to_token_stream(&bevy_ecs_path));
     let on_remove_path = attrs
         .on_remove
+        .map(|path| path.to_token_stream(&bevy_ecs_path));
+    let after_remove_path = attrs
+        .after_remove
         .map(|path| path.to_token_stream(&bevy_ecs_path));
 
     let on_insert_path = if relationship.is_some() {
@@ -232,6 +246,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .map(|path| path.to_token_stream(&bevy_ecs_path))
     };
 
+    let before_add =
+        hook_register_function_call(&bevy_ecs_path, quote! {before_add}, before_add_path);
     let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
     let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_path);
     let on_discard =
@@ -239,6 +255,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
     let on_despawn =
         hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_path);
+    let after_remove =
+        hook_register_function_call(&bevy_ecs_path, quote! {after_remove}, after_remove_path);
 
     ast.generics
         .make_where_clause()
@@ -338,11 +356,13 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 #(#register_required)*
             }
 
+            #before_add
             #on_add
             #on_insert
             #on_discard
             #on_remove
             #on_despawn
+            #after_remove
 
             fn clone_behavior() -> #bevy_ecs_path::component::ComponentCloneBehavior {
                 #clone_behavior
@@ -460,11 +480,13 @@ pub const REQUIRE: &str = "require";
 pub const RELATIONSHIP: &str = "relationship";
 pub const RELATIONSHIP_TARGET: &str = "relationship_target";
 
+pub const BEFORE_ADD: &str = "before_add";
 pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";
 pub const ON_DISCARD: &str = "on_discard";
 pub const ON_REMOVE: &str = "on_remove";
 pub const ON_DESPAWN: &str = "on_despawn";
+pub const AFTER_REMOVE: &str = "after_remove";
 pub const MAP_ENTITIES: &str = "map_entities";
 
 pub const IMMUTABLE: &str = "immutable";
@@ -583,11 +605,13 @@ impl Parse for MapEntitiesAttributeKind {
 struct Attrs {
     storage: StorageTy,
     requires: Option<Punctuated<Require, Comma>>,
+    before_add: Option<HookAttributeKind>,
     on_add: Option<HookAttributeKind>,
     on_insert: Option<HookAttributeKind>,
     on_discard: Option<HookAttributeKind>,
     on_remove: Option<HookAttributeKind>,
     on_despawn: Option<HookAttributeKind>,
+    after_remove: Option<HookAttributeKind>,
     relationship: Option<Relationship>,
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
@@ -623,11 +647,13 @@ const SPARSE_SET: &str = "SparseSet";
 fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     let mut attrs = Attrs {
         storage: StorageTy::Table,
+        before_add: None,
         on_add: None,
         on_insert: None,
         on_discard: None,
         on_remove: None,
         on_despawn: None,
+        after_remove: None,
         requires: None,
         relationship: None,
         relationship_target: None,
@@ -650,6 +676,11 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                             )));
                         }
                     };
+                    Ok(())
+                } else if nested.path.is_ident(BEFORE_ADD) {
+                    attrs.before_add = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::before_add }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_ADD) {
                     attrs.on_add = Some(HookAttributeKind::parse(nested.input, || {
@@ -674,6 +705,11 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 } else if nested.path.is_ident(ON_DESPAWN) {
                     attrs.on_despawn = Some(HookAttributeKind::parse(nested.input, || {
                         parse_quote! { Self::on_despawn }
+                    })?);
+                    Ok(())
+                } else if nested.path.is_ident(AFTER_REMOVE) {
+                    attrs.after_remove = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::after_remove }
                     })?);
                     Ok(())
                 } else if nested.path.is_ident(IMMUTABLE) {
