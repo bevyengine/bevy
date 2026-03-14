@@ -335,6 +335,7 @@ Example | Description
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
 [Error handling](../examples/ecs/error_handling.rs) | How to return and handle errors across the ECS
+[Extraction](../examples/ecs/extraction.rs) | Demonstrates different ways of extracting components, copying them from the main world to the render world
 [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
