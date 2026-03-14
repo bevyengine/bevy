@@ -49,7 +49,7 @@ pub(crate) fn impl_get_type_registration<'a>(
                 registration.insert::<#bevy_reflect_path::ReflectFromPtr>(#bevy_reflect_path::FromType::<Self>::from_type());
                 #from_reflect_data
                 #serialization_data
-                #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<Self>::from_type());)*
+                #(registration.register_type_data::<#registration_data, Self>();)*
                 registration
             }
 

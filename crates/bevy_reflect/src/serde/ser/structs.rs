@@ -1,6 +1,7 @@
 use crate::{
     serde::{ser::error_utils::make_custom_error, SerializationData, TypedReflectSerializer},
-    Struct, TypeInfo, TypeRegistry,
+    structs::Struct,
+    TypeInfo, TypeRegistry,
 };
 use serde::{ser::SerializeStruct, Serialize};
 
@@ -47,7 +48,7 @@ impl<P: ReflectSerializerProcessor> Serialize for StructSerializer<'_, P> {
             self.struct_value.field_len() - ignored_len,
         )?;
 
-        for (index, value) in self.struct_value.iter_fields().enumerate() {
+        for (index, (_, value)) in self.struct_value.iter_fields().enumerate() {
             if serialization_data.is_some_and(|data| data.is_field_skipped(index)) {
                 continue;
             }

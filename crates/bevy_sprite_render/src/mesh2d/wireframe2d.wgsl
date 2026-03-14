@@ -4,7 +4,7 @@ struct PushConstants {
     color: vec4<f32>
 }
 
-var<push_constant> push_constants: PushConstants;
+var<immediate> push_constants: PushConstants;
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {

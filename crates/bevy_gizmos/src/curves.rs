@@ -18,8 +18,6 @@ where
 {
     /// Draw a curve, at the given time points, sampling in 2D.
     ///
-    /// This should be called for each frame the curve needs to be rendered.
-    ///
     /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need
     /// to create a new curve with an extended domain.
@@ -51,8 +49,6 @@ where
     }
 
     /// Draw a curve, at the given time points, sampling in 3D.
-    ///
-    /// This should be called for each frame the curve needs to be rendered.
     ///
     /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need
@@ -88,8 +84,6 @@ where
     }
 
     /// Draw a curve, at the given time points, sampling in 2D, with a color gradient.
-    ///
-    /// This should be called for each frame the curve needs to be rendered.
     ///
     /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need
@@ -131,8 +125,6 @@ where
     }
 
     /// Draw a curve, at the given time points, sampling in 3D, with a color gradient.
-    ///
-    /// This should be called for each frame the curve needs to be rendered.
     ///
     /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need

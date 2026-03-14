@@ -3,6 +3,7 @@ use core::any::TypeId;
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
+use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
     component::ComponentCloneBehavior,
     entity::{Entity, EntityHashMap, SceneEntityMapper},
@@ -68,21 +69,25 @@ impl Scene {
         let self_dqf_id = self
             .world
             .components()
-            .get_resource_id(TypeId::of::<DefaultQueryFilters>());
+            .get_id(TypeId::of::<DefaultQueryFilters>());
 
         // Resources archetype
-        for (component_id, resource_data) in self.world.storages().resources.iter() {
-            if Some(component_id) == self_dqf_id {
+        for (component_id, source_entity) in self.world.resource_entities().iter() {
+            if Some(*component_id) == self_dqf_id {
                 continue;
             }
-            if !resource_data.is_present() {
+            if !world
+                .get_entity(*source_entity)
+                .ok()
+                .is_some_and(|entity_ref| entity_ref.contains_id(*component_id))
+            {
                 continue;
             }
 
             let component_info = self
                 .world
                 .components()
-                .get_info(component_id)
+                .get_info(*component_id)
                 .expect("component_ids in archetypes should have ComponentInfo");
 
             let type_id = component_info
@@ -95,17 +100,39 @@ impl Scene {
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {
                         std_type_name: component_info.name(),
                     })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+            registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
                     type_path: registration.type_info().type_path().to_string(),
                 }
             })?;
-            reflect_resource.copy(&self.world, world, &type_registry);
+            // reflect_resource existing, implies that reflect_component also exists
+            let reflect_component = registration
+                .data::<ReflectComponent>()
+                .expect("ReflectComponent is depended on ReflectResource");
+
+            // check if the resource already exists in the other world, if not spawn it
+            let destination_entity =
+                if let Some(entity) = world.resource_entities().get(*component_id) {
+                    *entity
+                } else {
+                    world.spawn_empty().id()
+                };
+
+            reflect_component.copy(
+                &self.world,
+                world,
+                *source_entity,
+                destination_entity,
+                &type_registry,
+            );
         }
 
         // Ensure that all scene entities have been allocated in the destination
         // world before handling components that may contain references that need mapping.
         for archetype in self.world.archetypes().iter() {
+            if archetype.contains(IS_RESOURCE) {
+                continue;
+            }
             for scene_entity in archetype.entities() {
                 entity_map
                     .entry(scene_entity.id())
@@ -114,6 +141,9 @@ impl Scene {
         }
 
         for archetype in self.world.archetypes().iter() {
+            if archetype.contains(IS_RESOURCE) {
+                continue;
+            }
             for scene_entity in archetype.entities() {
                 let entity = *entity_map
                     .get(&scene_entity.id())

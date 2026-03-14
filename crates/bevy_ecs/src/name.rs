@@ -278,7 +278,7 @@ mod tests {
         let mut query = world.query::<NameOrEntity>();
         let d1 = query.get(&world, e1).unwrap();
         // NameOrEntity Display for entities without a Name should be {index}v{generation}
-        assert_eq!(d1.to_string(), "0v0");
+        assert_eq!(d1.to_string(), "1v0");
         let d2 = query.get(&world, e2).unwrap();
         // NameOrEntity Display for entities with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");

@@ -57,7 +57,7 @@ fn setup(
         MessageText,
         Text2d::default(),
         TextFont {
-            font_size: 119.0,
+            font_size: FontSize::Px(119.0),
             ..default()
         },
         TextColor(Color::NONE),

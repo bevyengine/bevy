@@ -11,7 +11,6 @@ use bevy_ecs::{
     hierarchy::Children,
     query::{Changed, Or, With},
     schedule::IntoScheduleConfigs,
-    spawn::SpawnRelated,
     system::Query,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
@@ -23,7 +22,9 @@ use bevy_ui::{
     UiRect, UiTransform, Val, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
-use bevy_ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick};
+use bevy_ui_widgets::{
+    Slider, SliderOrientation, SliderRange, SliderThumb, SliderValue, TrackClick,
+};
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
@@ -197,6 +198,7 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
         },
         Slider {
             track_click: TrackClick::Snap,
+            orientation: SliderOrientation::Horizontal,
         },
         ColorSlider {
             channel: props.channel.clone(),
@@ -215,9 +217,9 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
                     right: Val::Px(0.),
                     top: Val::Px(TRACK_PADDING),
                     bottom: Val::Px(TRACK_PADDING),
+                    border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
                     ..Default::default()
                 },
-                RoundedCorners::All.to_border_radius(TRACK_RADIUS),
                 ColorSliderTrack,
                 AlphaPattern,
                 MaterialNode::<AlphaPatternMaterial>(Handle::default()),
@@ -226,9 +228,9 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
                     (
                         Node {
                             width: Val::Px(THUMB_SIZE * 0.5),
+                            border_radius: RoundedCorners::Left.to_border_radius(TRACK_RADIUS),
                             ..Default::default()
                         },
-                        RoundedCorners::Left.to_border_radius(TRACK_RADIUS),
                         BackgroundColor(palette::X_AXIS),
                     ),
                     // Track with gradient
@@ -255,11 +257,11 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
                                 width: Val::Px(THUMB_SIZE),
                                 height: Val::Px(THUMB_SIZE),
                                 border: UiRect::all(Val::Px(2.0)),
+                                border_radius: BorderRadius::MAX,
                                 ..Default::default()
                             },
                             SliderThumb,
                             ColorSliderThumb,
-                            BorderRadius::MAX,
                             BorderColor::all(palette::WHITE),
                             Outline {
                                 width: Val::Px(1.),
@@ -276,9 +278,9 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
                     (
                         Node {
                             width: Val::Px(THUMB_SIZE * 0.5),
+                            border_radius: RoundedCorners::Right.to_border_radius(TRACK_RADIUS),
                             ..Default::default()
                         },
-                        RoundedCorners::Right.to_border_radius(TRACK_RADIUS),
                         BackgroundColor(palette::Z_AXIS),
                     ),
                 ]

@@ -336,7 +336,8 @@ impl Column {
     /// - `T` must match the type of data that's stored in this [`Column`]
     /// - `len` must match the actual length of this column (number of elements stored)
     pub unsafe fn get_data_slice<T>(&self, len: usize) -> &[UnsafeCell<T>] {
-        self.data.get_sub_slice(len)
+        // SAFETY: Upheld by caller
+        unsafe { self.data.get_sub_slice(len) }
     }
 
     /// Get a slice to the added [`ticks`](Tick) in this [`Column`].
@@ -344,7 +345,8 @@ impl Column {
     /// # Safety
     /// - `len` must match the actual length of this column (number of elements stored)
     pub unsafe fn get_added_ticks_slice(&self, len: usize) -> &[UnsafeCell<Tick>] {
-        self.added_ticks.as_slice(len)
+        // SAFETY: Upheld by caller
+        unsafe { self.added_ticks.as_slice(len) }
     }
 
     /// Get a slice to the changed [`ticks`](Tick) in this [`Column`].
@@ -352,7 +354,8 @@ impl Column {
     /// # Safety
     /// - `len` must match the actual length of this column (number of elements stored)
     pub unsafe fn get_changed_ticks_slice(&self, len: usize) -> &[UnsafeCell<Tick>] {
-        self.changed_ticks.as_slice(len)
+        // SAFETY: Upheld by caller
+        unsafe { self.changed_ticks.as_slice(len) }
     }
 
     /// Get a slice to the calling locations that last changed each value in this [`Column`]
@@ -402,7 +405,8 @@ impl Column {
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
     pub unsafe fn get_added_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
-        self.added_ticks.get_unchecked(row.index())
+        // SAFETY: Upheld by caller
+        unsafe { self.added_ticks.get_unchecked(row.index()) }
     }
 
     /// Fetches the "changed" change detection tick for the value at `row`
@@ -412,7 +416,8 @@ impl Column {
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
     pub unsafe fn get_changed_tick_unchecked(&self, row: TableRow) -> &UnsafeCell<Tick> {
-        self.changed_ticks.get_unchecked(row.index())
+        // SAFETY: Upheld by caller
+        unsafe { self.changed_ticks.get_unchecked(row.index()) }
     }
 
     /// Fetches the change detection ticks for the value at `row`.

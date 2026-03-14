@@ -242,7 +242,7 @@ impl Table {
         if is_last {
             None
         } else {
-            // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+            // SAFETY: This was swap removed and was not last, so it must be in bounds.
             unsafe { Some(*self.entities.get_unchecked(row.index())) }
         }
     }
@@ -286,7 +286,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
@@ -328,7 +328,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
@@ -365,7 +365,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
@@ -422,14 +422,13 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.index_u32() < self.entity_count()).then_some(
-            // SAFETY: `row.as_usize()` < `len`
-            unsafe {
-                self.get_column(component_id)?
-                    .changed_ticks
-                    .get_unchecked(row.index())
-            },
-        )
+        if row.index_u32() >= self.entity_count() {
+            return None;
+        }
+
+        // SAFETY: `row.index()` < `len`
+        self.get_column(component_id)
+            .map(|col| unsafe { col.changed_ticks.get_unchecked(row.index()) })
     }
 
     /// Get the specific [`added tick`](Tick) of the component matching `component_id` in `row`.
@@ -438,14 +437,13 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.index_u32() < self.entity_count()).then_some(
-            // SAFETY: `row.as_usize()` < `len`
-            unsafe {
-                self.get_column(component_id)?
-                    .added_ticks
-                    .get_unchecked(row.index())
-            },
-        )
+        if row.index_u32() >= self.entity_count() {
+            return None;
+        }
+
+        // SAFETY: `row.index()` < `len`
+        self.get_column(component_id)
+            .map(|col| unsafe { col.added_ticks.get_unchecked(row.index()) })
     }
 
     /// Get the specific calling location that changed the component matching `component_id` in `row`
@@ -455,15 +453,16 @@ impl Table {
         row: TableRow,
     ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
         MaybeLocation::new_with_flattened(|| {
-            (row.index_u32() < self.entity_count()).then_some(
-                // SAFETY: `row.as_usize()` < `len`
-                unsafe {
-                    self.get_column(component_id)?
-                        .changed_by
-                        .as_ref()
-                        .map(|changed_by| changed_by.get_unchecked(row.index()))
-                },
-            )
+            if row.index_u32() >= self.entity_count() {
+                return None;
+            }
+
+            self.get_column(component_id).map(|col| {
+                // SAFETY: `row.index()` < `len`
+                col.changed_by
+                    .as_ref()
+                    .map(|changed_by| unsafe { changed_by.get_unchecked(row.index()) })
+            })
         })
     }
 
@@ -605,8 +604,8 @@ impl Table {
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
         let len = self.entity_count();
-        // SAFETY: No entity row may be in more than one table row at once, so there are no duplicates,
-        // and there can not be an entity row of u32::MAX. Therefore, this can not be max either.
+        // SAFETY: No entity index may be in more than one table row at once, so there are no duplicates,
+        // and there can not be an entity index of u32::MAX. Therefore, this can not be max either.
         let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(len)) };
         let len = len as usize;
         self.entities.push(entity);
@@ -871,7 +870,7 @@ mod tests {
     use crate::{
         change_detection::{MaybeLocation, Tick},
         component::{Component, ComponentIds, Components, ComponentsRegistrator},
-        entity::{Entity, EntityRow},
+        entity::{Entity, EntityIndex},
         ptr::OwningPtr,
         storage::{TableBuilder, TableId, TableRow, Tables},
     };
@@ -905,7 +904,7 @@ mod tests {
             .add_column(components.get_info(component_id).unwrap())
             .build();
         let entities = (0..200)
-            .map(|index| Entity::from_row(EntityRow::from_raw_u32(index).unwrap()))
+            .map(|index| Entity::from_index(EntityIndex::from_raw_u32(index).unwrap()))
             .collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards

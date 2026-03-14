@@ -22,6 +22,7 @@ mod kw {
     syn::custom_keyword!(type_path);
     syn::custom_keyword!(Debug);
     syn::custom_keyword!(PartialEq);
+    syn::custom_keyword!(PartialOrd);
     syn::custom_keyword!(Hash);
     syn::custom_keyword!(Clone);
     syn::custom_keyword!(no_field_bounds);
@@ -33,6 +34,7 @@ mod kw {
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
 const DEBUG_ATTR: &str = "Debug";
 const PARTIAL_EQ_ATTR: &str = "PartialEq";
+const PARTIAL_ORD_ATTR: &str = "PartialOrd";
 const HASH_ATTR: &str = "Hash";
 
 // The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
@@ -180,6 +182,7 @@ pub(crate) struct ContainerAttributes {
     clone: TraitImpl,
     debug: TraitImpl,
     hash: TraitImpl,
+    partial_ord: TraitImpl,
     partial_eq: TraitImpl,
     from_reflect_attrs: FromReflectAttrs,
     type_path_attrs: TypePathAttrs,
@@ -248,6 +251,8 @@ impl ContainerAttributes {
             self.parse_debug(input)
         } else if lookahead.peek(kw::Hash) {
             self.parse_hash(input)
+        } else if lookahead.peek(kw::PartialOrd) {
+            self.parse_partial_ord(input)
         } else if lookahead.peek(kw::PartialEq) {
             self.parse_partial_eq(input)
         } else if lookahead.peek(Ident::peek_any) {
@@ -266,7 +271,7 @@ impl ContainerAttributes {
 
         if input.peek(token::Paren) {
             return Err(syn::Error::new(ident.span(), format!(
-                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
+                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {PARTIAL_ORD_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
             )));
         }
 
@@ -337,6 +342,27 @@ impl ContainerAttributes {
             self.partial_eq.merge(TraitImpl::Custom(path, ident.span))?;
         } else {
             self.partial_eq = TraitImpl::Implemented(ident.span);
+        }
+
+        Ok(())
+    }
+
+    /// Parse special `PartialOrd` registration.
+    ///
+    /// Examples:
+    /// - `#[reflect(PartialOrd)]`
+    /// - `#[reflect(PartialOrd(custom_partial_cmp_fn))]`
+    fn parse_partial_ord(&mut self, input: ParseStream) -> syn::Result<()> {
+        let ident = input.parse::<kw::PartialOrd>()?;
+
+        if input.peek(token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            let path = content.parse::<Path>()?;
+            self.partial_ord
+                .merge(TraitImpl::Custom(path, ident.span))?;
+        } else {
+            self.partial_ord = TraitImpl::Implemented(ident.span);
         }
 
         Ok(())
@@ -540,6 +566,33 @@ impl ContainerAttributes {
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
                 fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
                     #FQOption::Some(#impl_fn(self, value))
+                }
+            }),
+            TraitImpl::NotImplemented => None,
+        }
+    }
+
+    /// Returns the implementation of `PartialReflect::reflect_partial_cmp` as a `TokenStream`.
+    ///
+    /// If `PartialOrd` was not registered, returns `None`.
+    pub fn get_partial_ord_impl(
+        &self,
+        bevy_reflect_path: &Path,
+    ) -> Option<proc_macro2::TokenStream> {
+        match &self.partial_ord {
+            &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
+                fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<::core::cmp::Ordering> {
+                    let value = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value);
+                    if let #FQOption::Some(value) = value {
+                        ::core::cmp::PartialOrd::partial_cmp(self, value)
+                    } else {
+                        #FQOption::None
+                    }
+                }
+            }),
+            &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
+                fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<::core::cmp::Ordering> {
+                    #impl_fn(self, value)
                 }
             }),
             TraitImpl::NotImplemented => None,

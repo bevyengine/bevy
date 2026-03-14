@@ -13,10 +13,6 @@ use core::hash::Hash;
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MessageUpdateSystems;
 
-/// Deprecated alias for [`MessageUpdateSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageUpdateSystems`.")]
-pub type EventUpdates = MessageUpdateSystems;
-
 /// Signals the [`message_update_system`] to run after `FixedUpdate` systems.
 ///
 /// This will change the behavior of the [`MessageRegistry`] to only run after a fixed update cycle has passed.

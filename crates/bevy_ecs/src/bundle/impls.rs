@@ -1,4 +1,4 @@
-use core::any::TypeId;
+use core::{any::TypeId, iter};
 
 use bevy_ptr::{MovingPtr, OwningPtr};
 use core::mem::MaybeUninit;
@@ -14,12 +14,14 @@ use crate::{
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 unsafe impl<C: Component> Bundle for C {
-    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
-        ids(components.register_component::<C>());
+    fn component_ids(
+        components: &mut ComponentsRegistrator,
+    ) -> impl Iterator<Item = ComponentId> + use<C> {
+        iter::once(components.register_component::<C>())
     }
 
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
-        ids(components.get_id(TypeId::of::<C>()));
+    fn get_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
+        iter::once(components.get_id(TypeId::of::<C>()))
     }
 }
 
@@ -71,12 +73,12 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, ids);)*
+            fn component_ids<'a>(components: &'a mut ComponentsRegistrator) -> impl Iterator<Item = ComponentId> + use<$($name,)*> {
+                iter::empty()$(.chain(<$name as Bundle>::component_ids(components)))*
             }
 
-            fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
-                $(<$name as Bundle>::get_component_ids(components, ids);)*
+            fn get_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
+                iter::empty()$(.chain(<$name as Bundle>::get_component_ids(components)))*
             }
         }
 
@@ -136,8 +138,14 @@ macro_rules! tuple_impl {
                 bevy_ptr::deconstruct_moving_ptr!({
                     let tuple { $($index: $alias,)* } = ptr;
                 });
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples will generate a function body equivalatent to (); however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+                )]
                 // SAFETY: Caller ensures requirements for calling `get_components` are met.
-                $( $name::get_components($alias, func); )*
+                unsafe {
+                    $( $name::get_components($alias, func); )*
+                }
             }
 
             #[allow(
@@ -149,8 +157,14 @@ macro_rules! tuple_impl {
                 bevy_ptr::deconstruct_moving_ptr!({
                     let MaybeUninit::<tuple> { $($index: $alias,)* } = ptr;
                 });
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+                )]
                 // SAFETY: Caller ensures requirements for calling `apply_effect` are met.
-                $( $name::apply_effect($alias, entity); )*
+                unsafe {
+                    $( $name::apply_effect($alias, entity); )*
+                }
             }
         }
 

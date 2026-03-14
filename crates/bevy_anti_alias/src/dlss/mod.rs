@@ -21,22 +21,23 @@ mod prepare;
 pub use dlss_wgpu::DlssPerfQualityMode;
 
 use bevy_app::{App, Plugin};
+use bevy_camera::Hdr;
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, MotionVectorPrepass},
+    schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
+use bevy_post_process::bloom::bloom;
 use bevy_reflect::{reflect_remote, Reflect};
 use bevy_render::{
     camera::{MipBias, TemporalJitter},
-    render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::{
         raw_vulkan_init::{AdditionalVulkanFeatures, RawVulkanInitSettings},
         RenderDevice, RenderQueue,
     },
     texture::CachedTexture,
-    view::{prepare_view_targets, Hdr},
+    view::prepare_view_targets,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use dlss_wgpu::{
@@ -185,28 +186,17 @@ impl Plugin for DlssPlugin {
                     prepare::prepare_dlss::<DlssSuperResolutionFeature>,
                     prepare::prepare_dlss::<DlssRayReconstructionFeature>,
                 )
-                    .in_set(RenderSystems::ManageViews)
+                    .in_set(RenderSystems::PrepareViews)
                     .before(prepare_view_targets),
-            )
-            .add_render_graph_node::<ViewNodeRunner<node::DlssNode<DlssSuperResolutionFeature>>>(
-                Core3d,
-                Node3d::DlssSuperResolution,
-            )
-            .add_render_graph_node::<ViewNodeRunner<node::DlssNode<DlssRayReconstructionFeature>>>(
-                Core3d,
-                Node3d::DlssRayReconstruction,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EndMainPass,
-                    Node3d::MotionBlur, // Running before DLSS reduces edge artifacts and noise
-                    Node3d::DlssSuperResolution,
-                    Node3d::DlssRayReconstruction,
-                    Node3d::Bloom,
-                    Node3d::Tonemapping,
-                ),
             );
+
+        app.sub_app_mut(RenderApp).add_systems(
+            Core3d,
+            (node::dlss_super_resolution, node::dlss_ray_reconstruction)
+                .chain()
+                .before(bloom)
+                .in_set(Core3dSystems::PostProcess),
+        );
     }
 }
 
@@ -275,11 +265,11 @@ impl DlssFeature for DlssSuperResolutionFeature {
     type Context = DlssSuperResolution;
 
     fn upscaled_resolution(context: &Self::Context) -> UVec2 {
-        context.upscaled_resolution()
+        context.upscaled_resolution().into()
     }
 
     fn render_resolution(context: &Self::Context) -> UVec2 {
-        context.render_resolution()
+        context.render_resolution().into()
     }
 
     fn suggested_jitter(
@@ -287,11 +277,13 @@ impl DlssFeature for DlssSuperResolutionFeature {
         frame_number: u32,
         render_resolution: UVec2,
     ) -> Vec2 {
-        context.suggested_jitter(frame_number, render_resolution)
+        context
+            .suggested_jitter(frame_number, render_resolution.to_array())
+            .into()
     }
 
     fn suggested_mip_bias(context: &Self::Context, render_resolution: UVec2) -> f32 {
-        context.suggested_mip_bias(render_resolution)
+        context.suggested_mip_bias(render_resolution.to_array())
     }
 
     fn new_context(
@@ -303,7 +295,7 @@ impl DlssFeature for DlssSuperResolutionFeature {
         queue: &RenderQueue,
     ) -> Result<Self::Context, dlss_wgpu::DlssError> {
         DlssSuperResolution::new(
-            upscaled_resolution,
+            upscaled_resolution.to_array(),
             perf_quality_mode,
             feature_flags,
             sdk,
@@ -323,11 +315,11 @@ impl DlssFeature for DlssRayReconstructionFeature {
     type Context = DlssRayReconstruction;
 
     fn upscaled_resolution(context: &Self::Context) -> UVec2 {
-        context.upscaled_resolution()
+        context.upscaled_resolution().into()
     }
 
     fn render_resolution(context: &Self::Context) -> UVec2 {
-        context.render_resolution()
+        context.render_resolution().into()
     }
 
     fn suggested_jitter(
@@ -335,11 +327,13 @@ impl DlssFeature for DlssRayReconstructionFeature {
         frame_number: u32,
         render_resolution: UVec2,
     ) -> Vec2 {
-        context.suggested_jitter(frame_number, render_resolution)
+        context
+            .suggested_jitter(frame_number, render_resolution.to_array())
+            .into()
     }
 
     fn suggested_mip_bias(context: &Self::Context, render_resolution: UVec2) -> f32 {
-        context.suggested_mip_bias(render_resolution)
+        context.suggested_mip_bias(render_resolution.to_array())
     }
 
     fn new_context(
@@ -351,7 +345,7 @@ impl DlssFeature for DlssRayReconstructionFeature {
         queue: &RenderQueue,
     ) -> Result<Self::Context, dlss_wgpu::DlssError> {
         DlssRayReconstruction::new(
-            upscaled_resolution,
+            upscaled_resolution.to_array(),
             perf_quality_mode,
             feature_flags,
             DlssRayReconstructionRoughnessMode::Packed,

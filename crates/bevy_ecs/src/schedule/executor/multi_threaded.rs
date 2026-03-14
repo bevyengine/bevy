@@ -448,12 +448,21 @@ impl ExecutorState {
         }
 
         #[cfg(feature = "hotpatching")]
-        let hotpatch_tick = context
-            .environment
-            .world_cell
-            .get_resource_ref::<HotPatchChanges>()
-            .map(|r| r.last_changed())
-            .unwrap_or_default();
+        #[expect(
+            clippy::undocumented_unsafe_blocks,
+            reason = "This actually could result in UB if a system tries to mutate
+            `HotPatchChanges`. We allow this as the resource only exists with the `hotpatching` feature.
+            and `hotpatching` should never be enabled in release."
+        )]
+        #[cfg(feature = "hotpatching")]
+        let hotpatch_tick = unsafe {
+            context
+                .environment
+                .world_cell
+                .get_resource_ref::<HotPatchChanges>()
+        }
+        .map(|r| r.last_changed())
+        .unwrap_or_default();
 
         // can't borrow since loop mutably borrows `self`
         let mut ready_systems = core::mem::take(&mut self.ready_systems_copy);
@@ -634,32 +643,6 @@ impl ExecutorState {
         }
 
         should_run &= system_conditions_met;
-
-        if should_run {
-            // SAFETY:
-            // - The caller ensures that `world` has permission to read any data
-            //   required by the system.
-            let valid_params = match unsafe { system.validate_param_unsafe(world) } {
-                Ok(()) => true,
-                Err(e) => {
-                    if !e.skipped {
-                        error_handler(
-                            e.into(),
-                            ErrorContext::System {
-                                name: system.name(),
-                                last_run: system.get_last_run(),
-                            },
-                        );
-                    }
-                    false
-                }
-            };
-            if !valid_params {
-                self.skipped_systems.insert(system_index);
-            }
-
-            should_run &= valid_params;
-        }
 
         should_run
     }
@@ -843,16 +826,7 @@ unsafe fn evaluate_and_fold_conditions(
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data
             //   required by the condition.
-            unsafe { condition.validate_param_unsafe(world) }
-                .map_err(From::from)
-                .and_then(|()| {
-                    // SAFETY:
-                    // - The caller ensures that `world` has permission to read any data
-                    //   required by the condition.
-                    unsafe {
-                        __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)
-                    }
-                })
+            unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
                 .unwrap_or_else(|err| {
                     if let RunSystemError::Failed(err) = err {
                         error_handler(

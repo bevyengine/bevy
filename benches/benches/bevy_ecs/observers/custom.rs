@@ -7,9 +7,9 @@ use bevy_ecs::{
     world::World,
 };
 
+use chacha20::ChaCha8Rng;
 use criterion::Criterion;
 use rand::{prelude::SliceRandom, SeedableRng};
-use rand_chacha::ChaCha8Rng;
 fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
 }

@@ -88,6 +88,14 @@ impl PartialReflect for &'static Location<'static> {
         }
     }
 
+    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            PartialOrd::partial_cmp(self, value)
+        } else {
+            None
+        }
+    }
+
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         if let Some(value) = value.try_downcast_ref::<Self>() {
             self.clone_from(value);

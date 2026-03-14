@@ -14,6 +14,7 @@ use bevy_reflect::{
 mod bundle;
 mod component;
 mod entity_commands;
+mod event;
 mod from_world;
 mod map_entities;
 mod resource;
@@ -22,9 +23,10 @@ use bevy_utils::prelude::DebugName;
 pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::ReflectCommandExt;
+pub use event::{ReflectEvent, ReflectEventFns};
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;
-pub use resource::{ReflectResource, ReflectResourceFns};
+pub use resource::ReflectResource;
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.

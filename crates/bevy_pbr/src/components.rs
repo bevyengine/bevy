@@ -1,16 +1,8 @@
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Component;
-use bevy_ecs::entity::{Entity, EntityHashMap};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::sync_world::MainEntity;
-
-#[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
-#[reflect(Component, Debug, Default, Clone)]
-pub struct RenderVisibleMeshEntities {
-    #[reflect(ignore, clone)]
-    pub entities: Vec<(Entity, MainEntity)>,
-}
+use bevy_render::view::RenderVisibleMeshEntities;
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]

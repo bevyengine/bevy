@@ -237,7 +237,7 @@ fn spawn_light_textures(
             intensity: 10e6,
             outer_angle: 0.25,
             inner_angle: 0.25,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_translation(Vec3::new(6.0, 1.0, 2.0)).looking_at(Vec3::ZERO, Vec3::Y),
@@ -267,7 +267,7 @@ fn spawn_light_textures(
                 PointLight {
                     color: Color::srgb(0.0, 0.0, 1.0),
                     intensity: 1e6,
-                    shadows_enabled: true,
+                    shadow_maps_enabled: true,
                     ..default()
                 },
                 PointLightTexture {
@@ -329,11 +329,11 @@ fn drag_button(label: &str) -> impl Bundle {
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             padding: BUTTON_PADDING,
+            border_radius: BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
             ..default()
         },
         Button,
         BackgroundColor(Color::BLACK),
-        BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
         BUTTON_BORDER_COLOR,
         children![widgets::ui_text(label, Color::WHITE),],
     )

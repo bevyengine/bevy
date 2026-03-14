@@ -6,8 +6,8 @@ use bevy::{
     mesh::SphereKind,
     prelude::*,
 };
+use chacha20::ChaCha8Rng;
 use rand::{distr::Distribution, SeedableRng};
-use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
@@ -82,7 +82,7 @@ fn setup(
     // A light:
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

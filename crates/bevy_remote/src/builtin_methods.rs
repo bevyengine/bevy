@@ -10,17 +10,18 @@ use bevy_ecs::{
     lifecycle::RemovedComponentEntity,
     message::MessageCursor,
     query::QueryBuilder,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectResource},
     system::{In, Local},
-    world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
+    world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
+    structs::DynamicStruct,
     GetPath, PartialReflect, TypeRegistration, TypeRegistry,
 };
-use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
+use serde::{de::DeserializeSeed as _, de::IntoDeserializer, Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::{
@@ -82,6 +83,9 @@ pub const BRP_MUTATE_RESOURCE_METHOD: &str = "world.mutate_resources";
 
 /// The method path for a `world.list_resources` request.
 pub const BRP_LIST_RESOURCES_METHOD: &str = "world.list_resources";
+
+/// The method path for a `world.trigger_event` request.
+pub const BRP_TRIGGER_EVENT_METHOD: &str = "world.trigger_event";
 
 /// The method path for a `registry.schema` request.
 pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "registry.schema";
@@ -299,6 +303,19 @@ pub struct BrpMutateResourcesParams {
     pub value: Value,
 }
 
+/// `world.trigger_event`:
+///
+/// The server responds with a null.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+struct BrpTriggerEventParams {
+    /// The [full path] of the event to trigger.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub event: String,
+    /// The serialized value of the event to be triggered, if any.
+    pub value: Option<Value>,
+}
+
 /// Describes the data that is to be fetched in a query.
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct BrpQuery {
@@ -463,7 +480,7 @@ pub struct BrpQueryRow {
 }
 
 /// A helper function used to parse a `serde_json::Value`.
-fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, BrpError> {
+pub fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, BrpError> {
     serde_json::from_value(value).map_err(|err| BrpError {
         code: error_codes::INVALID_PARAMS,
         message: err.to_string(),
@@ -472,7 +489,7 @@ fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, BrpError> {
 }
 
 /// A helper function used to parse a `serde_json::Value` wrapped in an `Option`.
-fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, BrpError> {
+pub fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, BrpError> {
     match value {
         Some(value) => parse(value),
         None => Err(BrpError {
@@ -514,10 +531,15 @@ pub fn process_remote_get_resources_request(
 
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
-    let reflect_resource =
-        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    let reflect_component =
+        get_reflect_component(&type_registry, &resource_path).map_err(BrpError::component_error)?;
+    let entity = get_resource_entity_pair(&type_registry, &resource_path, world)
+        .map_err(BrpError::resource_error)?
+        .0;
+    let entity_ref = world.get_entity(entity).map_err(BrpError::resource_error)?;
 
-    let Ok(reflected) = reflect_resource.reflect(world) else {
+    let Some(reflected) = reflect_component.reflect(entity_ref) else {
         return Err(BrpError::resource_not_present(&resource_path));
     };
 
@@ -665,7 +687,7 @@ fn reflect_components_to_response(
                 | BrpGetComponentsResponse::Lenient {
                     ref mut components, ..
                 } => {
-                    components.extend(serialized_object.into_iter());
+                    components.extend(serialized_object);
                 }
             },
             Err(err) => match response {
@@ -849,8 +871,9 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
                 let all_optionals =
                     entity_ref
                         .archetype()
-                        .iter_components()
-                        .filter_map(|component_id| {
+                        .components()
+                        .iter()
+                        .filter_map(|&component_id| {
                             let info = world.components().get_info(component_id)?;
                             let type_id = info.type_id()?;
                             // Skip required components (already included)
@@ -1031,9 +1054,15 @@ pub fn process_remote_insert_resources_request(
     let reflected_resource = deserialize_resource(&type_registry, &resource_path, value)
         .map_err(BrpError::resource_error)?;
 
-    let reflect_resource =
-        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
-    reflect_resource.insert(world, &*reflected_resource, &type_registry);
+    let resource_registration = get_resource_type_registration(&type_registry, &resource_path)
+        .map_err(BrpError::resource_error)?;
+    let type_id = resource_registration.type_id();
+    let resource_id = world
+        .components()
+        .get_id(type_id)
+        .ok_or(anyhow!("Resource is not registered: `{}`", resource_path))
+        .map_err(BrpError::resource_error)?;
+    world.insert_reflect_resource(resource_id, reflected_resource);
 
     Ok(Value::Null)
 }
@@ -1117,18 +1146,22 @@ pub fn process_remote_mutate_resources_request(
     let type_registry = app_type_registry.read();
 
     // Get the `ReflectResource` for the given resource path.
-    let reflect_resource =
-        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    let reflect_component =
+        get_reflect_component(&type_registry, &resource_path).map_err(BrpError::component_error)?;
+    let entity = get_resource_entity_pair(&type_registry, &resource_path, world)
+        .map_err(BrpError::resource_error)?
+        .0;
 
     // Get the actual resource value from the world as a `dyn Reflect`.
-    let mut reflected_resource = reflect_resource
-        .reflect_mut(world)
-        .map_err(|_| BrpError::resource_not_present(&resource_path))?;
+    let mut reflected_component = reflect_component
+        .reflect_mut(world.entity_mut(entity))
+        .ok_or(BrpError::resource_not_present(&resource_path))?;
 
     // Get the type registration for the field with the given path.
     let value_registration = type_registry
         .get_with_type_path(
-            reflected_resource
+            reflected_component
                 .reflect_path(field_path.as_str())
                 .map_err(BrpError::resource_error)?
                 .reflect_type_path(),
@@ -1144,7 +1177,7 @@ pub fn process_remote_mutate_resources_request(
             .map_err(BrpError::resource_error)?;
 
     // Apply the value to the resource.
-    reflected_resource
+    reflected_component
         .reflect_path_mut(field_path.as_str())
         .map_err(BrpError::resource_error)?
         .try_apply(&*deserialized_value)
@@ -1194,9 +1227,12 @@ pub fn process_remote_remove_resources_request(
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let reflect_resource =
-        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
-    reflect_resource.remove(world);
+    let (entity, component_id) = get_resource_entity_pair(&type_registry, &resource_path, world)
+        .map_err(BrpError::resource_error)?;
+    world
+        .get_entity_mut(entity)
+        .expect("Resource exists in the world")
+        .remove_by_id(component_id);
 
     Ok(Value::Null)
 }
@@ -1257,7 +1293,7 @@ pub fn process_remote_list_components_request(
     // If `Some`, return all components of the provided entity.
     if let Some(BrpListComponentsParams { entity }) = params.map(parse).transpose()? {
         let entity = get_entity(world, entity)?;
-        for component_id in entity.archetype().iter_components() {
+        for &component_id in entity.archetype().components().iter() {
             let Some(component_info) = world.components().get_info(component_id) else {
                 continue;
             };
@@ -1311,7 +1347,7 @@ pub fn process_remote_list_components_watching_request(
     let entity_ref = get_entity(world, entity)?;
     let mut response = BrpListComponentsWatchingResponse::default();
 
-    for component_id in entity_ref.archetype().iter_components() {
+    for &component_id in entity_ref.archetype().components().iter() {
         let ticks = entity_ref
             .get_change_ticks_by_id(component_id)
             .ok_or(BrpError::internal("Failed to get ticks"))?;
@@ -1347,6 +1383,44 @@ pub fn process_remote_list_components_watching_request(
     }
 }
 
+/// Handles a `world.trigger_event` request coming from a client.
+pub fn process_remote_trigger_event_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpTriggerEventParams { event, value } = parse_some(params)?;
+
+    world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+        let registry = registry.read();
+
+        let Some(registration) = registry.get_with_type_path(&event) else {
+            return Err(BrpError::resource_error(format!(
+                "Unknown event type: `{event}`"
+            )));
+        };
+        let Some(reflect_event) = registration.data::<ReflectEvent>() else {
+            return Err(BrpError::resource_error(format!(
+                "Event `{event}` is not reflectable"
+            )));
+        };
+
+        if let Some(payload) = value {
+            let payload: Box<dyn PartialReflect> =
+                TypedReflectDeserializer::new(registration, &registry)
+                    .deserialize(payload.into_deserializer())
+                    .map_err(|err| {
+                        BrpError::resource_error(format!("{event} is invalid: {err}"))
+                    })?;
+            reflect_event.trigger(world, &*payload, &registry);
+        } else {
+            let payload = DynamicStruct::default();
+            reflect_event.trigger(world, &payload, &registry);
+        }
+
+        Ok(Value::Null)
+    })
+}
+
 /// Handles a `registry.schema` request (list all registry types in form of schema) coming from a client.
 pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let filter: BrpJsonSchemaQueryFilter = match params {
@@ -1356,6 +1430,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
 
     let extra_info = world.resource::<crate::schemas::SchemaTypesMetadata>();
     let types = world.resource::<AppTypeRegistry>();
+    let components = world.components();
     let types = types.read();
     let schemas = types
         .iter()
@@ -1373,7 +1448,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     return None;
                 }
             }
-            let (id, schema) = export_type(type_reg, extra_info);
+            let (id, schema) = export_type(type_reg, extra_info, components);
 
             if !filter.type_limit.with.is_empty()
                 && !filter
@@ -1605,6 +1680,24 @@ fn get_resource_type_registration<'r>(
         .ok_or_else(|| anyhow!("Unknown resource type: `{}`", resource_path))
 }
 
+fn get_resource_entity_pair(
+    type_registry: &TypeRegistry,
+    resource_path: &str,
+    world: &World,
+) -> AnyhowResult<(Entity, ComponentId)> {
+    let resource_registration = get_resource_type_registration(type_registry, resource_path)?;
+    let type_id = resource_registration.type_id();
+    let component_id = world
+        .components()
+        .get_id(type_id)
+        .ok_or(anyhow!("Resource not registered: `{}`", resource_path))?;
+    let entity = world
+        .resource_entities()
+        .get(component_id)
+        .ok_or(anyhow!("Resource entity does not exist."))?;
+    Ok((*entity, component_id))
+}
+
 #[cfg(test)]
 mod tests {
     /// A generic function that tests serialization and deserialization of any type
@@ -1627,11 +1720,15 @@ mod tests {
     }
 
     use super::*;
+    use crate::schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind};
+    use bevy_ecs::{
+        component::Component, event::Event, observer::On, resource::Resource, system::ResMut,
+    };
+    use bevy_reflect::Reflect;
+    use serde_json::Value::Null;
 
     #[test]
     fn insert_reflect_only_component() {
-        use bevy_ecs::prelude::Component;
-        use bevy_reflect::Reflect;
         #[derive(Reflect, Component)]
         #[reflect(Component)]
         struct Player {
@@ -1656,6 +1753,103 @@ mod tests {
         world.insert_resource(atr);
         let e = world.spawn_empty();
         insert_reflected_components(e, deserialized_components).expect("FAIL");
+    }
+
+    #[test]
+    fn trigger_reflect_only_event() {
+        #[derive(Event, Reflect)]
+        #[reflect(Event)]
+        struct Pass;
+
+        #[derive(Resource)]
+        struct TestResult(pub bool);
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Pass>();
+        }
+        let mut world = World::new();
+        world.add_observer(move |_event: On<Pass>, mut result: ResMut<TestResult>| result.0 = true);
+        world.insert_resource(TestResult(false));
+        world.insert_resource(atr);
+
+        let params = serde_json::to_value(&BrpTriggerEventParams {
+            event: "bevy_remote::builtin_methods::tests::Pass".to_owned(),
+            value: None,
+        })
+        .expect("FAIL");
+        assert_eq!(
+            process_remote_trigger_event_request(In(Some(params)), &mut world),
+            Ok(Null)
+        );
+        assert!(world.resource::<TestResult>().0);
+    }
+
+    #[test]
+    fn export_registry_types_with_reliationship() {
+        #[derive(Component, Debug, Reflect)]
+        #[reflect(Component, Debug)]
+        #[require(bevy_ecs::name::Name)]
+        #[relationship(relationship_target = FollowedBy)]
+        struct Following(Entity);
+
+        #[derive(Component, Debug, Reflect)]
+        #[component(storage = "SparseSet")]
+        #[reflect(Component, Debug)]
+        #[relationship_target(relationship = Following)]
+        struct FollowedBy(Vec<Entity>);
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Following>();
+            register.register::<FollowedBy>();
+        }
+
+        let mut world = World::new();
+        world.init_resource::<crate::schemas::SchemaTypesMetadata>();
+        world.insert_resource(atr);
+        world.register_component::<Following>();
+        world.register_component::<FollowedBy>();
+
+        let params = BrpJsonSchemaQueryFilter::default();
+
+        let params_value = In(Some(
+            serde_json::to_value(params).expect("Failed to serialize"),
+        ));
+        let result_value =
+            export_registry_types(params_value, &world).expect("Failed to export registry types");
+
+        let result: HashMap<String, JsonSchemaBevyType> =
+            parse(result_value).expect("Failed to parse exported registry types");
+
+        let actual_following = result
+            .get("bevy_remote::builtin_methods::tests::Following")
+            .expect("Missing Following type in result")
+            .component_info
+            .clone();
+        let expected_following = Some(ComponentMetadata {
+            mutable: false,
+            storage_type: StorageKind::Table,
+            is_send_and_sync: true,
+            required_component_types: vec!["bevy_ecs::name::Name".to_owned()],
+            relationship_kind: Some(RelationshipKind::Relationship),
+        });
+        let actual_followed_by = result
+            .get("bevy_remote::builtin_methods::tests::FollowedBy")
+            .expect("Missing FollowedBy type in result")
+            .component_info
+            .clone();
+        let expected_followed_by = Some(ComponentMetadata {
+            mutable: true,
+            storage_type: StorageKind::SparseSet,
+            is_send_and_sync: true,
+            required_component_types: Vec::new(),
+            relationship_kind: Some(RelationshipKind::RelationshipTarget),
+        });
+        assert_eq!(actual_following, expected_following);
+        assert_eq!(actual_followed_by, expected_followed_by);
     }
 
     #[test]

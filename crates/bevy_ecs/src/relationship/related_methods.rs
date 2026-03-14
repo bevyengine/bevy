@@ -888,7 +888,7 @@ mod tests {
 
     #[test]
     fn despawn_related_observers_can_access_relationship_data() {
-        use crate::lifecycle::Replace;
+        use crate::lifecycle::Discard;
         use crate::observer::On;
         use crate::prelude::Has;
         use crate::system::Query;
@@ -905,7 +905,7 @@ mod tests {
         let result_entity = world.spawn(ObserverResult::default()).id();
 
         world.add_observer(
-            move |replace: On<Replace, MyComponent>,
+            move |replace: On<Discard, MyComponent>,
                   has_relationship: Query<Has<ChildOf>>,
                   mut results: Query<&mut ObserverResult>| {
                 if has_relationship.get(replace.entity).unwrap_or(false) {

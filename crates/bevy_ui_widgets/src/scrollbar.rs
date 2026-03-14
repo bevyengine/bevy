@@ -130,7 +130,8 @@ fn scrollbar_on_pointer_down(
         // Convert the click coordinates into a scroll position. If it's greater than the
         // current scroll position, scroll forward by one step (visible size) otherwise scroll
         // back.
-        let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
+        let visible_size = (scroll_content.size() - scroll_content.scrollbar_size)
+            * scroll_content.inverse_scale_factor;
         let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
         let max_range = (content_size - visible_size).max(Vec2::ZERO);
 
@@ -193,8 +194,11 @@ fn scrollbar_on_drag(
 
         if drag.dragging {
             let distance = ev.event().distance / ui_scale.0;
-            let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
+
+            let visible_size = (scroll_content.size() - scroll_content.scrollbar_size)
+                * scroll_content.inverse_scale_factor;
             let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
+
             let scrollbar_size = (node.size() * node.inverse_scale_factor).max(Vec2::ONE);
 
             match scrollbar.orientation {
@@ -250,7 +254,8 @@ fn update_scrollbar_thumb(
         };
 
         // Size of the visible scrolling area.
-        let visible_size = scroll_area.1.size() * scroll_area.1.inverse_scale_factor;
+        let visible_size = (scroll_area.1.size() - scroll_area.1.scrollbar_size)
+            * scroll_area.1.inverse_scale_factor;
 
         // Size of the scrolling content.
         let content_size = scroll_area.1.content_size() * scroll_area.1.inverse_scale_factor;
@@ -303,10 +308,20 @@ fn update_scrollbar_thumb(
                             scroll_area.0.x,
                         );
 
-                        thumb.top = Val::Px(0.);
-                        thumb.bottom = Val::Px(0.);
-                        thumb.left = Val::Px(thumb_pos);
-                        thumb.width = Val::Px(thumb_size);
+                        let top = Val::Px(0.);
+                        let bottom = Val::Px(0.);
+                        let left = Val::Px(thumb_pos);
+                        let width = Val::Px(thumb_size);
+                        if top != thumb.top
+                            || bottom != thumb.bottom
+                            || left != thumb.left
+                            || width != thumb.width
+                        {
+                            thumb.top = top;
+                            thumb.bottom = bottom;
+                            thumb.left = left;
+                            thumb.width = width;
+                        }
                     }
                     ControlOrientation::Vertical => {
                         let (thumb_size, thumb_pos) = size_and_pos(
@@ -317,10 +332,20 @@ fn update_scrollbar_thumb(
                             scroll_area.0.y,
                         );
 
-                        thumb.left = Val::Px(0.);
-                        thumb.right = Val::Px(0.);
-                        thumb.top = Val::Px(thumb_pos);
-                        thumb.height = Val::Px(thumb_size);
+                        let left = Val::Px(0.);
+                        let right = Val::Px(0.);
+                        let top = Val::Px(thumb_pos);
+                        let height = Val::Px(thumb_size);
+                        if thumb.left != left
+                            || thumb.right != right
+                            || thumb.top != top
+                            || thumb.height != height
+                        {
+                            thumb.left = left;
+                            thumb.right = right;
+                            thumb.top = top;
+                            thumb.height = height;
+                        }
                     }
                 };
             }

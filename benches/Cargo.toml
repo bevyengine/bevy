@@ -10,7 +10,8 @@ autobenches = false
 [dependencies]
 # The primary crate that runs and analyzes our benchmarks. This is a regular dependency because the
 # `bench!` macro refers to it in its documentation.
-criterion = { version = "0.6.0", features = ["html_reports"] }
+criterion = { version = "0.8.0", features = ["html_reports"] }
+seq-macro = "0.3.6"
 
 [dev-dependencies]
 # Bevy crates
@@ -29,12 +30,12 @@ bevy_platform = { path = "../crates/bevy_platform", default-features = false, fe
 ] }
 
 # Other crates
-glam = { version = "0.30.7", default-features = false, features = [
+glam = { version = "0.32.0", default-features = false, features = [
   "std",
   "rand",
 ] }
-rand = "0.9"
-rand_chacha = "0.9"
+rand = "0.10"
+chacha20 = { version = "0.10.0", default-features = false, features = ["rng"] }
 nonmax = { version = "0.5", default-features = false }
 
 [lints.clippy]

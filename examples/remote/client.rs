@@ -46,7 +46,6 @@ fn main() -> AnyhowResult<()> {
 
 fn run_query_all_components_and_entities(url: &str) -> Result<(), anyhow::Error> {
     let query_all_req = BrpRequest {
-        jsonrpc: String::from("2.0"),
         method: String::from(BRP_QUERY_METHOD),
         id: Some(serde_json::to_value(1)?),
         params: Some(
@@ -73,7 +72,6 @@ fn run_query_all_components_and_entities(url: &str) -> Result<(), anyhow::Error>
 
 fn run_transform_only_query(url: &str) -> Result<(), anyhow::Error> {
     let get_transform_request = BrpRequest {
-        jsonrpc: String::from("2.0"),
         method: String::from(BRP_QUERY_METHOD),
         id: Some(serde_json::to_value(1)?),
         params: Some(
@@ -99,7 +97,6 @@ fn run_transform_only_query(url: &str) -> Result<(), anyhow::Error> {
 
 fn run_query_root_entities(url: &str) -> Result<(), anyhow::Error> {
     let get_transform_request = BrpRequest {
-        jsonrpc: String::from("2.0"),
         method: String::from(BRP_QUERY_METHOD),
         id: Some(serde_json::to_value(1)?),
         params: Some(

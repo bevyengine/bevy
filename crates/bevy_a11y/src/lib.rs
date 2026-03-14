@@ -258,10 +258,6 @@ pub enum AccessibilitySystems {
     Update,
 }
 
-/// Deprecated alias for [`AccessibilitySystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `AccessibilitySystems`.")]
-pub type AccessibilitySystem = AccessibilitySystems;
-
 /// Plugin managing integration with accessibility APIs.
 ///
 /// Note that it doesn't handle GUI aspects of this integration, instead

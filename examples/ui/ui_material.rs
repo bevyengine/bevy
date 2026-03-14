@@ -41,6 +41,7 @@ fn setup(
                     width: px(905.0 * banner_scale_factor),
                     height: px(363.0 * banner_scale_factor),
                     border: UiRect::all(px(20)),
+                    border_radius: BorderRadius::all(px(20)),
                     ..default()
                 },
                 MaterialNode(ui_materials.add(CustomUiMaterial {
@@ -49,7 +50,6 @@ fn setup(
                     color_texture: asset_server.load("branding/banner.png"),
                     border_color: LinearRgba::WHITE.to_f32_array().into(),
                 })),
-                BorderRadius::all(px(20)),
                 // UI material nodes can have outlines and shadows like any other UI node
                 Outline {
                     width: px(2),
@@ -94,7 +94,7 @@ fn animate(
 ) {
     let duration = 2.0;
     for handle in &q {
-        if let Some(material) = materials.get_mut(handle) {
+        if let Some(mut material) = materials.get_mut(handle) {
             // rainbow color effect
             let new_color = Color::hsl((time.elapsed_secs() * 60.0) % 360.0, 1., 0.5);
             let border_color = Color::hsl((time.elapsed_secs() * 60.0) % 360.0, 0.75, 0.75);

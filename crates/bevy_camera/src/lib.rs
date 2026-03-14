@@ -34,15 +34,11 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         visibility::{InheritedVisibility, ViewVisibility, Visibility},
-        Camera, Camera2d, Camera3d, ClearColor, ClearColorConfig, OrthographicProjection,
-        PerspectiveProjection, Projection,
+        Camera, Camera2d, Camera3d, ClearColor, ClearColorConfig, MsaaWriteback,
+        OrthographicProjection, PerspectiveProjection, Projection,
     };
 }
 
 /// Label for `camera_system<T>`, shared across all `T`.
 #[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystems;
-
-/// Deprecated alias for [`CameraUpdateSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `CameraUpdateSystems`.")]
-pub type CameraUpdateSystem = CameraUpdateSystems;
