@@ -51,6 +51,9 @@ switch to `try_get` or `try_pN` as described above.
 If the type is defined using `#[derive(SystemParam)]` and only includes infallible parameters,
 you may instead `#[derive(SystemParam, InfallibleSystemParam)]`.
 
+If you were using `ParamSet<(MessageReader<M>, MessageWriter<M>)>` to send and receive messages in the same system,
+you may instead use `MessageMutator<M>`, which can read and write messages without needing `ParamSet` at all.
+
 When executing systems, we no longer check for system validation before running the systems.
 As a result of these changes, `System::validate_param` and `System::validate_param_unsafe` have been removed.
 Instead, validation has been moved to be part of the trait implementation for `System::run_unsafe`.
