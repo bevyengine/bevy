@@ -47,12 +47,17 @@ pub trait ExtractComponent<F = ()>: SyncComponent<F> {
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
     type QueryFilter: QueryFilter;
-    /// The output from extraction.
+    /// The output from extraction, i.e. [`ExtractComponent::extract_component`].
+    ///
+    /// The output components won't be removed automatically from the render world if the implementing component is removed,
+    /// unless you set them in the [`SyncComponent::Target`].
     type Out: Bundle<Effect: NoBundleEffect>;
+    // TODO: https://github.com/rust-lang/rust/issues/29661
+    // type Out: Bundle<Effect: NoBundleEffect> = Self;
 
     /// Defines how the component is transferred into the "render world".
     ///
-    /// Returning `None` based on the queried item will remove the `Target` of `SyncComponent` from the entity in
+    /// Returning `None` based on the queried item will remove the [`SyncComponent::Target`] from the entity in
     /// the render world.
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out>;
 }

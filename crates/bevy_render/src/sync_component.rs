@@ -42,7 +42,7 @@ pub trait SyncComponent<F = ()>: Component {
     /// implementing component is removed.
     type Target: Bundle<Effect: NoBundleEffect>;
     // TODO: https://github.com/rust-lang/rust/issues/29661
-    // type Target: Component = Self;
+    // type Target: Bundle<Effect: NoBundleEffect> = Self;
 }
 
 impl<C: SyncComponent<F>, F: Send + Sync + 'static> Plugin for SyncComponentPlugin<C, F> {
