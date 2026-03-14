@@ -834,4 +834,23 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn parsed_path_can_be_reflected_in_structs() {
+        // Validates the user need from #22974: deriving Reflect on a struct
+        // that contains a ParsedPath field.
+        #[derive(Reflect)]
+        struct MyStruct {
+            path: ParsedPath,
+        }
+
+        let path = ParsedPath::parse(".foo.bar").unwrap();
+        let my_struct = MyStruct { path };
+
+        // Verify we can access the ParsedPath through reflection
+        let reflect: &dyn Reflect = &my_struct;
+        let field = reflect.reflect_ref().as_struct().unwrap().field("path").unwrap();
+        let reflected_path = field.try_downcast_ref::<ParsedPath>().unwrap();
+        assert_eq!(*reflected_path, ParsedPath::parse(".foo.bar").unwrap());
+    }
 }
