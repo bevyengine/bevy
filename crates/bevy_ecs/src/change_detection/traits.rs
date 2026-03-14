@@ -323,8 +323,8 @@ pub trait DetectChangesMut: DetectChanges {
     /// pub struct Message(String);
     ///
     /// fn update_message(mut message: ResMut<Message>) {
-    ///     // Set the score to zero, unless it is already zero.
-    ///     ResMut::map_unchanged(message, |Message(msg)| msg).clone_from_if_neq("another string");
+    ///     // Update the message, unless it already matches.
+    ///     message.map_unchanged_clone_from_if_neq(|Message(msg)| msg, "another string");
     /// }
     /// # let mut world = World::new();
     /// # world.insert_resource(Message("initial string".into()));
@@ -342,6 +342,8 @@ pub trait DetectChangesMut: DetectChanges {
     /// # schedule.run(&mut world);
     /// # assert!(!message_changed.run((), &mut world).unwrap());
     /// ```
+    #[inline]
+    #[track_caller]
     fn clone_from_if_neq<T>(&mut self, value: &T) -> bool
     where
         T: ToOwned<Owned = Self::Inner> + ?Sized,
@@ -516,6 +518,12 @@ macro_rules! impl_methods {
             /// You should never modify the argument passed to the closure -- if you want to modify the data
             /// without flagging a change, consider using [`DetectChangesMut::bypass_change_detection`] to make your intent explicit.
             ///
+            /// If you want to map and then immediately call [`DetectChangesMut::set_if_neq`],
+            /// [`DetectChangesMut::replace_if_neq`], or [`DetectChangesMut::clone_from_if_neq`],
+            /// consider using [`map_unchanged_set_if_neq`](Self::map_unchanged_set_if_neq),
+            /// [`map_unchanged_replace_if_neq`](Self::map_unchanged_replace_if_neq), or
+            /// [`map_unchanged_clone_from_if_neq`](Self::map_unchanged_clone_from_if_neq) instead.
+            ///
             /// ```
             /// # use bevy_ecs::prelude::*;
             /// # #[derive(PartialEq)] pub struct Vec2;
@@ -524,15 +532,13 @@ macro_rules! impl_methods {
             /// // When run, zeroes the translation of every entity.
             /// fn reset_positions(mut transforms: Query<&mut Transform>) {
             ///     for transform in &mut transforms {
-            ///         // We pinky promise not to modify `t` within the closure.
-            ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
-            ///         let mut translation = transform.map_unchanged(|t| &mut t.translation);
-            ///         // Only reset the translation if it isn't already zero;
-            ///         translation.set_if_neq(Vec2::ZERO);
+            ///         // Prefer the combined helper for this common pattern:
+            ///         transform.map_unchanged_set_if_neq(|t| &mut t.translation, Vec2::ZERO);
             ///     }
             /// }
             /// # bevy_ecs::system::assert_is_system(reset_positions);
             /// ```
+            #[inline]
             pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'w, U> {
                 Mut {
                     value: f(self.value),
@@ -626,6 +632,7 @@ macro_rules! impl_methods {
             /// ```
             #[inline]
             #[track_caller]
+            #[must_use = "If you don't need the previous value, use `map_unchanged_set_if_neq` instead."]
             pub fn map_unchanged_replace_if_neq<U: PartialEq>(
                 self,
                 f: impl FnOnce(&mut $target) -> &mut U,

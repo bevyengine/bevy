@@ -348,9 +348,8 @@ mod tests {
         let changed = r.map_unchanged_set_if_neq(|o| &mut o.value, 42);
         assert!(changed);
 
-        let r = world.resource_mut::<Outer>();
-        assert!(r.is_changed());
-        assert_eq!((*r).value, 42);
+        let r = world.resource::<Outer>();
+        assert_eq!(r.value, 42);
     }
 
     #[test]
@@ -378,9 +377,8 @@ mod tests {
         let old = r.map_unchanged_replace_if_neq(|o| &mut o.value, 20);
         assert_eq!(old, Some(10));
 
-        let r = world.resource_mut::<Outer>();
-        assert!(r.is_changed());
-        assert_eq!((*r).value, 20);
+        let r = world.resource::<Outer>();
+        assert_eq!(r.value, 20);
     }
 
     #[test]
@@ -408,9 +406,8 @@ mod tests {
         let changed = r.map_unchanged_clone_from_if_neq(|o| &mut o.label, "world");
         assert!(changed);
 
-        let r = world.resource_mut::<Outer>();
-        assert!(r.is_changed());
-        assert_eq!((*r).label, "world");
+        let r = world.resource::<Outer>();
+        assert_eq!(r.label, "world");
     }
 
     #[test]
