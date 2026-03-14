@@ -12,6 +12,8 @@ plugin_group! {
         bevy_transform:::TransformPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
         bevy_input:::InputPlugin,
+        #[cfg(feature = "bevy_input_focus")]
+        bevy_input_focus:::InputDispatchPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]
         bevy_app:::ScheduleRunnerPlugin,
         #[cfg(feature = "bevy_window")]
@@ -87,6 +89,9 @@ plugin_group! {
         bevy_dev_tools::render_debug:::RenderDebugOverlayPlugin,
         #[cfg(feature = "hotpatching")]
         bevy_app::hotpatch:::HotPatchPlugin,
+        #[plugin_group]
+        #[cfg(feature = "bevy_ui_widgets")]
+        bevy_ui_widgets:::UiWidgetsPlugins,
         #[plugin_group]
         #[cfg(feature = "bevy_picking")]
         bevy_picking:::DefaultPickingPlugins,
