@@ -40,7 +40,7 @@ bevy_math = { path = ".", default-features = false, features = ["approx"] }
 glam = { version = "0.32.0", default-features = false, features = ["approx"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-getrandom = { version = "0.3", default-features = false, features = [
+getrandom = { version = "0.4", default-features = false, features = [
   "wasm_js",
 ] }
 
