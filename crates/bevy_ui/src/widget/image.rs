@@ -117,12 +117,19 @@ impl ImageNode {
         self
     }
 
+    /// Set a sub-region of the image to render, instead of rendering the full image.
+    ///
+    /// This is an easy one-off alternative to using a [`TextureAtlas`].
+    ///
+    /// When used with a [`TextureAtlas`], the rect is offset by the atlas's
+    /// minimal (top-left) corner position.
     #[must_use]
     pub const fn with_rect(mut self, rect: Rect) -> Self {
         self.rect = Some(rect);
         self
     }
 
+    /// Set the [`NodeImageMode`] to control how the image is fitted within the layout.
     #[must_use]
     pub const fn with_mode(mut self, mode: NodeImageMode) -> Self {
         self.image_mode = mode;
