@@ -37,7 +37,6 @@ pub use slider::*;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 use bevy_ecs::{entity::Entity, event::EntityEvent};
-use bevy_input_focus::InputDispatchPlugin;
 
 use crate::popover::PopoverPlugin;
 
@@ -56,7 +55,6 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(RadioGroupPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
-            .add(InputDispatchPlugin)
     }
 }
 
