@@ -54,9 +54,18 @@ where
     }
 }
 
-/// Macro to define a new label trait
+/// Macro to define a new label trait.
 ///
-/// # Example
+/// This creates a trait (with the given name) and a static [`Interner`](crate::intern::Interner)
+/// for it. The generated trait extends `Send + Sync + Debug + DynEq + DynHash` and includes a
+/// `dyn_clone` method that you must implement.
+///
+/// For Bevy's built-in label traits like [`ScheduleLabel`](crate::schedule::ScheduleLabel) and
+/// [`SystemSet`](crate::schedule::SystemSet), you can use derive macros instead of implementing
+/// the trait manually. This macro is primarily useful when you need to define your own label
+/// trait.
+///
+/// # Defining a label trait
 ///
 /// ```
 /// # use bevy_ecs::define_label;
@@ -65,13 +74,18 @@ where
 ///     MyNewLabelTrait,
 ///     MY_NEW_LABEL_TRAIT_INTERNER
 /// );
+/// ```
 ///
+/// You can also define label traits with extra methods:
+///
+/// ```
+/// # use bevy_ecs::define_label;
 /// define_label!(
 ///     /// Documentation of another label trait
 ///     MyNewExtendedLabelTrait,
 ///     MY_NEW_EXTENDED_LABEL_TRAIT_INTERNER,
 ///     extra_methods: {
-///         // Extra methods for the trait can be defined here
+///         /// Extra methods for the trait can be defined here.
 ///         fn additional_method(&self) -> i32;
 ///     },
 ///     extra_methods_impl: {
@@ -81,6 +95,35 @@ where
 ///         }
 ///     }
 /// );
+/// ```
+///
+/// # Implementing the generated trait
+///
+/// The generated trait requires you to implement `dyn_clone`, which should return a boxed clone
+/// of `self`. Your type must also implement `Clone`, `Debug`, `Eq`, and `Hash` to satisfy the
+/// trait's supertraits ([`DynEq`] and [`DynHash`]).
+///
+/// ```
+/// # use bevy_ecs::define_label;
+/// define_label!(
+///     /// A custom label trait.
+///     MyLabel,
+///     MY_LABEL_INTERNER
+/// );
+///
+/// #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+/// struct MyThing;
+///
+/// impl MyLabel for MyThing {
+///     fn dyn_clone(&self) -> Box<dyn MyLabel> {
+///         Box::new(self.clone())
+///     }
+/// }
+///
+/// // Labels can be interned for cheap comparison:
+/// let interned1 = MY_LABEL_INTERNER.intern(&MyThing);
+/// let interned2 = MY_LABEL_INTERNER.intern(&MyThing);
+/// assert_eq!(interned1, interned2);
 /// ```
 #[macro_export]
 macro_rules! define_label {
