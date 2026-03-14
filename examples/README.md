@@ -653,7 +653,6 @@ Example | Description
 [Screenshot](../examples/window/screenshot.rs) | Shows how to save screenshots to disk
 [Transparent Window](../examples/window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 [Window Drag Move](../examples/window/window_drag_move.rs) | Demonstrates drag move and drag resize without window decoration
-[Window Monitor Link](../examples/window/window_monitor_link.rs) | Demonstrates the link between Windows and Monitors
 [Window Resizing](../examples/window/window_resizing.rs) | Demonstrates resizing and responding to resizing a window
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
 

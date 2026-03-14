@@ -4153,17 +4153,6 @@ category = "Window"
 wasm = false
 
 [[example]]
-name = "window_monitor_link"
-path = "examples/window/window_monitor_link.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.window_monitor_link]
-name = "Window Monitor Link"
-description = "Demonstrates the link between Windows and Monitors"
-category = "Window"
-wasm = false
-
-[[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
 doc-scrape-examples = true
