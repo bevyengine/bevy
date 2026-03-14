@@ -63,11 +63,22 @@ thread_local! {
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 ///
-/// The `M` message type can be used to pass custom messages to the `winit`'s loop, and handled as messages
-/// in systems.
+/// ## Usage with `MinimalPlugins`
 ///
-/// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
-/// `WakeUp` is the default event that bevy uses.
+/// `WinitPlugin` is included in `DefaultPlugins` but not in `MinimalPlugins`. If you are
+/// building a custom plugin set starting from `MinimalPlugins`, you can add it with
+/// `WinitPlugin::default()`.
+///
+/// Note that `WinitPlugin` depends on several other plugins to function correctly.
+/// At a minimum, you will also need:
+/// - [`WindowPlugin`](bevy_window::WindowPlugin), which provides the [`Window`](bevy_window::Window) component and related resources
+/// - [`AccessibilityPlugin`](bevy_a11y::AccessibilityPlugin), which is required by the window creation system
+/// - [`InputPlugin`](bevy_input::InputPlugin), which handles keyboard focus tracking
+///
+/// If you want the window to actually display rendered content, you will also need
+/// [`RenderPlugin`](https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html)
+/// and its dependencies. For most use cases, [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html)
+/// (with unwanted plugins disabled) is easier than assembling plugins manually.
 #[derive(Default)]
 pub struct WinitPlugin {
     /// Allows the window (and the event loop) to be created on any thread
