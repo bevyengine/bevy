@@ -21,7 +21,7 @@ use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::Parallel;
 
-use super::{check_visibility, VisibilitySystems};
+use super::{check_visibility_cpu_culling, VisibilitySystems};
 use crate::{camera::Camera, primitives::Aabb};
 
 /// A plugin that enables [`VisibilityRange`]s, which allow entities to be
@@ -34,7 +34,7 @@ impl Plugin for VisibilityRangePlugin {
             PostUpdate,
             check_visibility_ranges
                 .in_set(VisibilitySystems::CheckVisibility)
-                .before(check_visibility),
+                .before(check_visibility_cpu_culling),
         );
     }
 }

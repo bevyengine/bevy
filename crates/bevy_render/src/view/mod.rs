@@ -129,6 +129,7 @@ impl Plugin for ViewPlugin {
                         .after(crate::render_asset::prepare_assets::<GpuImage>)
                         .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
                     prepare_view_uniforms.in_set(RenderSystems::PrepareResources),
+                    collect_visible_cpu_culled_entities.in_set(RenderSystems::PrepareAssets),
                 ),
             );
         }
