@@ -205,6 +205,11 @@ pub enum RenderSystems {
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct RenderStartup;
 
+/// The gpu resource initialization schedule run before every [`RenderStartup`].
+/// This is a separate schedule simply for ambiguity checking reasons.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+struct InitGpuResources;
+
 /// Constructs a `T` resource with `from_world` and inserts it.
 pub fn init_gpu_resource<T: Resource + FromWorld>(world: &mut World) {
     let res = T::from_world(world);
@@ -215,14 +220,17 @@ pub fn init_gpu_resource<T: Resource + FromWorld>(world: &mut World) {
 pub trait GpuResourceAppExt {
     /// Shorthand for:
     /// ```ignore
-    /// app.add_systems(RenderStartup, init_gpu_resource::<T>);
+    /// app.add_systems(InitGpuResources, init_gpu_resource::<T>);
     /// ```
     fn init_gpu_resource<T: Resource + FromWorld>(&mut self) -> &mut Self;
 }
 
 impl GpuResourceAppExt for SubApp {
     fn init_gpu_resource<T: Resource + FromWorld>(&mut self) -> &mut Self {
-        self.add_systems(RenderStartup, init_gpu_resource::<T>)
+        self.add_systems(
+            InitGpuResources,
+            init_gpu_resource::<T>.ambiguous_with_all(),
+        )
     }
 }
 
@@ -349,6 +357,7 @@ impl Plugin for RenderPlugin {
             render_app.add_schedule(RenderGraph::base_schedule());
 
             render_app.init_schedule(RenderStartup);
+            render_app.init_schedule(InitGpuResources);
             render_app.update_schedule = Some(RenderRecovery.intern());
             render_app.add_systems(
                 RenderRecovery,
