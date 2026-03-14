@@ -5,6 +5,11 @@ use crate::{
 
 /// Writes [`Message`]s of type `T`.
 ///
+/// This system parameter takes exclusive access to the [`Messages<T>`] resource,
+/// so a system cannot also have a [`MessageReader`](super::MessageReader) parameter of the same type.
+/// If you need to both read and write messages of the same type,
+/// use [`MessageMutator`](super::MessageMutator).
+///
 /// # Usage
 ///
 /// `MessageWriter`s are usually declared as a [`SystemParam`].

@@ -23,7 +23,9 @@ use bevy_ui::{
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
     PositionType, UiRect, Val,
 };
-use bevy_ui_widgets::{Slider, SliderPrecision, SliderRange, SliderValue, TrackClick};
+use bevy_ui_widgets::{
+    Slider, SliderOrientation, SliderPrecision, SliderRange, SliderValue, TrackClick,
+};
 
 use crate::{
     constants::{fonts, size},
@@ -91,6 +93,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
         },
         Slider {
             track_click: TrackClick::Drag,
+            orientation: SliderOrientation::Horizontal,
         },
         SliderStyle,
         SliderValue(props.value),

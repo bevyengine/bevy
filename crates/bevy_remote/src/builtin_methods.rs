@@ -687,7 +687,7 @@ fn reflect_components_to_response(
                 | BrpGetComponentsResponse::Lenient {
                     ref mut components, ..
                 } => {
-                    components.extend(serialized_object.into_iter());
+                    components.extend(serialized_object);
                 }
             },
             Err(err) => match response {
