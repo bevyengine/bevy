@@ -1,4 +1,4 @@
-//! This crate provides a set of standard widgets for Bevy UI, such as buttons, checkboxes, and sliders.
+//! Standard UI widgets: buttons, checkboxes, sliders, and more.
 //! These widgets have no inherent styling, it's the responsibility of the user to add styling
 //! appropriate for their game or application.
 //!

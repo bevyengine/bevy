@@ -1,4 +1,4 @@
-//! Provides Android functionality for Bevy Engine.
+//! Android platform support and lifecycle management.
 
 #[cfg(target_os = "android")]
 pub use android_activity;

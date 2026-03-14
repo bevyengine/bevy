@@ -5,8 +5,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Plugin providing an [`AssetLoader`](bevy_asset::AssetLoader) and type definitions
-//! for loading glTF 2.0 (a standard 3D scene definition format) files in Bevy.
+//! Support for loading glTF 2.0 files (a standard 3D scene definition format).
 //!
 //! The [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) defines the format of the glTF files.
 //!

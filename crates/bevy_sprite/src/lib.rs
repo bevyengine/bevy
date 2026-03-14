@@ -6,7 +6,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Provides 2D sprite functionality.
+//! 2D sprite components and atlas support.
 
 extern crate alloc;
 

@@ -1,4 +1,4 @@
-//! Provides a material abstraction for bevy
+//! Material abstraction and custom material support.
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),

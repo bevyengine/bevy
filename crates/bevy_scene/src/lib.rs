@@ -4,7 +4,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Provides scene definition, instantiation and serialization/deserialization.
+//! Scene definition, instantiation, and serialization.
 //!
 //! Scenes are collections of entities and their associated components that can be
 //! instantiated or removed from a world to allow composition. Scenes can be serialized/deserialized,

@@ -6,11 +6,11 @@
 )]
 #![no_std]
 
-//! Reusable accessibility primitives
+//! Accessibility integration using `AccessKit`.
 //!
-//! This crate provides accessibility integration for the engine. It exposes the
-//! [`AccessibilityPlugin`]. This plugin integrates `AccessKit`, a Rust crate
-//! providing OS-agnostic accessibility primitives, with Bevy's ECS.
+//! This module exposes the [`AccessibilityPlugin`], which integrates
+//! `AccessKit` (a library providing OS-agnostic accessibility primitives)
+//! with the ECS.
 //!
 //! ## Some notes on utility
 //!

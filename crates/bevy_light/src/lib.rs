@@ -1,6 +1,7 @@
-//! Provides component types for lighting a bevy scene. This includes the usual
-//! directional, point, and spot lights, as well as light probes, atmosphere,
-//! other volumetrics, and shadow configuration.
+//! Light sources, shadows, and atmospheric effects.
+//!
+//! Includes directional, point, and spot lights, as well as light probes,
+//! atmosphere, other volumetrics, and shadow configuration.
 
 extern crate alloc;
 

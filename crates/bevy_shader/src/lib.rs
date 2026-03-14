@@ -1,4 +1,4 @@
-//! Provides [`Shader`] assets for Bevy.
+//! [`Shader`] asset loading and management.
 
 extern crate alloc;
 

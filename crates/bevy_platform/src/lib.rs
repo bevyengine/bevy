@@ -5,9 +5,7 @@
 )]
 #![no_std]
 
-//! Platform compatibility support for first-party [Bevy] engine crates.
-//!
-//! [Bevy]: https://bevy.org/
+//! Platform compatibility primitives and abstractions.
 
 cfg::std! {
     extern crate std;

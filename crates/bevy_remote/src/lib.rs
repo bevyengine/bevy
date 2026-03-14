@@ -1,4 +1,4 @@
-//! An implementation of the Bevy Remote Protocol, to allow for remote control of a Bevy app.
+//! Remote control of a running app via the Bevy Remote Protocol.
 //!
 //! Adding the [`RemotePlugin`] to your [`App`] will setup everything needed without
 //! starting any transports. To start accepting remote connections you will need to

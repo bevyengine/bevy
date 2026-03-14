@@ -1,5 +1,7 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 
+//! Mesh data structures, vertex attributes, and mesh generation.
+
 extern crate alloc;
 extern crate core;
 

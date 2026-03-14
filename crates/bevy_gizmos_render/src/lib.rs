@@ -4,7 +4,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! This crate renders `bevy_gizmos` with `bevy_render`.
+//! Rendering backend for the [`gizmos`](bevy_gizmos) module.
 
 /// System set label for the systems handling the rendering of gizmos.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]

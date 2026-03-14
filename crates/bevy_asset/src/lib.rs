@@ -1,6 +1,9 @@
-//! In the context of game development, an "asset" is a piece of content that is loaded from disk and displayed in the game.
-//! Typically, these are authored by artists and designers (in contrast to code),
-//! are relatively large in size, and include everything from textures and models to sounds and music to levels and scripts.
+//! Loading, management, and hot-reloading of runtime assets.
+//!
+//! In the context of game development, an "asset" is a piece of content that is loaded from disk
+//! and displayed in the game. Typically, these are authored by artists and designers (in contrast
+//! to code), are relatively large in size, and include everything from textures and models to
+//! sounds and music to levels and scripts.
 //!
 //! This presents two main challenges:
 //! - Assets take up a lot of memory; simply storing a copy for each instance of an asset in the game would be prohibitively expensive.

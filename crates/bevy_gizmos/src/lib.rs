@@ -4,7 +4,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! This crate adds an immediate mode drawing api to Bevy for visual debugging.
+//! Immediate mode drawing API for visual debugging.
 //!
 //! # Example
 //! ```

@@ -6,7 +6,7 @@
 )]
 #![no_std]
 
-//! Input functionality for the [Bevy game engine](https://bevy.org/).
+//! Keyboard, mouse, gamepad, and touch input handling.
 //!
 //! # Supported input devices
 //!

@@ -5,9 +5,9 @@
 )]
 #![no_std]
 
-//! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
+//! Platform-agnostic window management types and events.
 //!
-//! This crate contains types for window management and events,
+//! Provides types for window management and events,
 //! used by windowing implementors such as `bevy_winit`.
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).

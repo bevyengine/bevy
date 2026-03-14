@@ -5,7 +5,7 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-//! Provides rendering functionality for `bevy_ui`.
+//! Rendering backend for the [`ui`](bevy_ui) module.
 
 pub mod box_shadow;
 mod color_space;

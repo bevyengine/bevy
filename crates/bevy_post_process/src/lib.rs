@@ -6,6 +6,8 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
+//! Post-processing effects: bloom, depth of field, motion blur, and more.
+
 pub mod auto_exposure;
 pub mod bloom;
 pub mod dof;

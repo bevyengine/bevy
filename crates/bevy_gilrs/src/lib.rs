@@ -5,9 +5,9 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Systems and type definitions for gamepad handling in Bevy.
+//! Gamepad handling using [GilRs](gilrs).
 //!
-//! This crate is built on top of [GilRs](gilrs), a library
+//! Built on top of [GilRs](gilrs), a library
 //! that handles abstracting over platform-specific gamepad APIs.
 
 mod converter;

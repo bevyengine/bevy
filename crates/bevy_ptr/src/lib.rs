@@ -1,3 +1,4 @@
+//! Type-erased, lifetime-safe pointer abstractions.
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]

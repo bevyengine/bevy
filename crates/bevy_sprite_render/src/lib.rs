@@ -6,7 +6,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Provides 2D sprite rendering functionality.
+//! Rendering backend for the [`sprite`](bevy_sprite) module.
 
 extern crate alloc;
 

@@ -1,5 +1,4 @@
-//! Framework for saving and loading user settings files (e.g. user preferences) in Bevy
-//! applications.
+//! Saving and loading persistent user settings and preferences.
 //!
 //! For purposes of this crate, the term "preferences" and "settings" are defined as:
 //! * **Preferences** are configuration files that store persistent choices made by the end user

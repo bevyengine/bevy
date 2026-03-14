@@ -1,6 +1,10 @@
 #![no_std]
 
-//! In Bevy, states are app-wide interdependent, finite state machines that are generally used to model the large scale structure of your program: whether a game is paused, if the player is in combat, if assets are loaded and so on.
+//! App-wide finite state machines for modeling program structure.
+//!
+//! States are interdependent finite state machines generally used to model the large scale
+//! structure of your program: whether a game is paused, if the player is in combat, if
+//! assets are loaded and so on.
 //!
 //! This module provides 3 distinct types of state, all of which implement the [`States`](state::States) trait:
 //!

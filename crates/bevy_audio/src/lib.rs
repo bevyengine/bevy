@@ -5,7 +5,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Audio support for the game engine Bevy
+//! Audio playback and spatial audio.
 //!
 //! ```no_run
 //! # use bevy_ecs::prelude::*;

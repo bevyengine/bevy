@@ -1,3 +1,4 @@
+//! A fast, flexible Entity Component System for defining game logic.
 #![doc = include_str!("../README.md")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),

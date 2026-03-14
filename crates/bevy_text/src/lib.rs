@@ -1,4 +1,4 @@
-//! This crate provides the tools for positioning and rendering text in Bevy.
+//! Text rendering and layout.
 //!
 //! # `Font`
 //!

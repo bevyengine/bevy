@@ -5,7 +5,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
+//! Window creation and event loop integration using [`winit`].
 //!
 //! Most commonly, the [`WinitPlugin`] is used as part of
 //! [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).

@@ -5,8 +5,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! This crate provides additional utilities for the [Bevy game engine](https://bevy.org),
-//! focused on improving developer experience.
+//! Tools and utilities for improving developer experience.
 
 extern crate alloc;
 

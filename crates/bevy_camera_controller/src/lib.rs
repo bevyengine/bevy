@@ -1,7 +1,6 @@
-//! A home for first-party camera controllers for Bevy,
-//! used for moving the camera around your scene.
+//! First-party camera controllers for moving the camera around a scene.
 //!
-//! This crate serves two key purposes:
+//! This module serves two key purposes:
 //!
 //! 1. It provides functional camera controllers to help users quickly get started.
 //! 2. It holds the camera controllers used by Bevy's own examples and tooling.

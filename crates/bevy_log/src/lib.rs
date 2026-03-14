@@ -4,8 +4,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! This crate provides logging functions and configuration for [Bevy](https://bevy.org)
-//! apps, and automatically configures platform specific log handlers (i.e. Wasm or Android).
+//! Logging and diagnostics output with platform-specific handlers.
 //!
 //! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
 //! and behave identically to it.

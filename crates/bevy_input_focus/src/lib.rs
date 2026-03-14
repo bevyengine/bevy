@@ -6,9 +6,9 @@
 )]
 #![no_std]
 
-//! A UI-centric focus system for Bevy.
+//! A UI-centric focus management system.
 //!
-//! This crate provides a system for managing input focus in Bevy applications, including:
+//! Provides a system for managing input focus, including:
 //! * [`InputFocus`], a resource for tracking which entity has input focus.
 //! * Methods for getting and setting input focus via [`InputFocus`] and [`IsFocusedHelper`].
 //! * A generic [`FocusedInput`] event for input events which bubble up from the focused entity.

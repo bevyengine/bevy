@@ -1,4 +1,7 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+
+//! Camera components, projections, and visibility determination.
+
 mod camera;
 mod clear_color;
 mod components;

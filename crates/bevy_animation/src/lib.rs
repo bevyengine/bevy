@@ -5,7 +5,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Animation for the game engine Bevy
+//! Animation playback and blending.
 
 extern crate alloc;
 

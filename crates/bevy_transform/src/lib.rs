@@ -1,3 +1,4 @@
+//! Position, rotation, and scale components with hierarchy propagation.
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(

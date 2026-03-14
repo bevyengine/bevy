@@ -1,4 +1,4 @@
-//! The Bevy game engine's GPU-oriented image type.
+//! GPU-oriented image types and conversions.
 
 extern crate alloc;
 

@@ -14,7 +14,7 @@
 )]
 #![no_std]
 
-//! This crate is about everything concerning the highest-level, application layer of a Bevy app.
+//! Application-level setup, plugins, and scheduling.
 
 #[cfg(feature = "std")]
 extern crate std;

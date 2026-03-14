@@ -1,8 +1,7 @@
-//! `bevy_feathers` is a collection of styled and themed widgets for building editors and
-//! inspectors.
+//! Styled and themed widgets for building editors and inspectors.
 //!
-//! The aesthetic choices made here are designed with a future Bevy Editor in mind,
-//! but this crate is deliberately exposed to the public to allow the broader ecosystem to easily create
+//! The aesthetic choices made here are designed with a future editor in mind,
+//! but this module is deliberately public to allow the broader ecosystem to easily create
 //! tooling for themselves and others that fits cohesively together.
 //!
 //! While it may be tempting to use this crate for your game's UI, it's deliberately not intended for that.

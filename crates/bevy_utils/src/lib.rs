@@ -5,9 +5,7 @@
 )]
 #![no_std]
 
-//! General utilities for first-party [Bevy] engine crates.
-//!
-//! [Bevy]: https://bevy.org/
+//! General-purpose utility types and helpers.
 
 /// Configuration information for this crate.
 pub mod cfg {
