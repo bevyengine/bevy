@@ -1020,13 +1020,13 @@ mod tests {
         for (i, &v) in vectors.iter().enumerate() {
             let encoded_normal = octahedral_encode_signed(v.xyz());
             let decoded_normal = octahedral_decode_signed(encoded_normal);
-            assert!(encoded_normal.distance(expected_encoded_normals[i]) < 1e6);
-            assert!(decoded_normal.distance(vectors[i].xyz()) < 1e-6);
+            assert!(encoded_normal.distance(expected_encoded_normals[i]) < 1e-8);
+            assert!(decoded_normal.distance(vectors[i].xyz()) < 1e-7);
 
             let encoded_tangent = octahedral_encode_tangent(v.xyz(), v.w);
-            let (decoded_tangent, sign) = octahedral_decode_tangent(encoded_tangent);
-            assert!(encoded_tangent.distance(expected_encoded_tangents[i]) < 1e6);
-            assert_eq!(v.w, sign);
+            let (decoded_tangent, decoded_sign) = octahedral_decode_tangent(encoded_tangent);
+            assert!(encoded_tangent.distance(expected_encoded_tangents[i]) < 1e-8);
+            assert_eq!(v.w, decoded_sign);
             assert!(decoded_tangent.distance(v.xyz()) < 1e-4);
         }
     }

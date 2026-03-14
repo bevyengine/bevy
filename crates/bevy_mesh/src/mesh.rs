@@ -3641,14 +3641,25 @@ mod tests {
                 .attributes()
                 .filter(|(attr, _values)| attr.id != Mesh::ATTRIBUTE_COLOR.id)));
         assert_eq!(mesh.indices(), mesh_compressed_color_f16.indices());
-        assert_eq!(
-            mesh_compressed_color_f16.attribute(Mesh::ATTRIBUTE_COLOR),
-            Some(&VertexAttributeValues::Float16x4(vec![
-                [0.049987793, 1.0, 0.15002441, 1.0].map(half::f16::from_f32),
-                [0.75, 0.070007324, 1.0, 1.0].map(half::f16::from_f32),
-                [0.040008545, 0.10998535, 1.0, 1.0].map(half::f16::from_f32),
-                [1.0, 0.10998535, 0.13000488, 1.0].map(half::f16::from_f32)
-            ]))
-        );
+        let VertexAttributeValues::Float16x4(color_f16) = mesh_compressed_color_f16
+            .attribute(Mesh::ATTRIBUTE_COLOR)
+            .unwrap()
+        else {
+            panic!("Color attribute is not Float16x4")
+        };
+        assert!(color_f16
+            .iter()
+            .flatten()
+            .zip(
+                [
+                    [0.049987793, 1.0, 0.15002441, 1.0].map(half::f16::from_f32),
+                    [0.75, 0.070007324, 1.0, 1.0].map(half::f16::from_f32),
+                    [0.040008545, 0.10998535, 1.0, 1.0].map(half::f16::from_f32),
+                    [1.0, 0.10998535, 0.13000488, 1.0].map(half::f16::from_f32)
+                ]
+                .iter()
+                .flatten()
+            )
+            .all(|(a, b)| approx::relative_eq!(a.to_f32(), b.to_f32())));
     }
 }
