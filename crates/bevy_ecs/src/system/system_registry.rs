@@ -524,7 +524,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// To fix this, give the compiler a type hint by assigning the output to `()`:
+    /// To fix this, give the compiler a type hint for the returned value:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
