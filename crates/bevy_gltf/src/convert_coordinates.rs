@@ -733,8 +733,8 @@ impl RotationConverter {
 /// A semantics converter for nodes in a scene hierarchy, where each node may
 /// have different semantics.
 ///
-/// When converting node hierarchies, the goal is to rotate each node to its
-/// new semantics without affecting the position of the node's children in
+/// When converting hierarchies, the goal is to rotate each node to its new
+/// semantics, and also keep the positions the node's children the same in
 /// scene-space.
 ///
 /// Say we have two nodes A and B, where B is a child of A. We want to convert
@@ -742,15 +742,15 @@ impl RotationConverter {
 /// and after conversion:
 ///
 /// ```text
-///               Before                     After
+///          Before                     After
 ///    
-///                         x                          x
-///                         |                          |
-///                         B--z                       B--z
-///                       .`                         .`
-///                 x   .`                     z   .`
-///                 | .`                       | .`
-///                 A--z                    x--A
+///                     x                          x
+///                     |                          |
+///                     B--z                       B--z
+///                   .`                         .`
+///             x   .`                     z   .`
+///             | .`                       | .`
+///             A--z                    x--A
 /// ```
 ///
 /// We do this in two steps. First, we apply A's conversion rotation to A in
@@ -760,13 +760,13 @@ impl RotationConverter {
 /// a.rotation = a.rotation * a.conversion;
 /// ```
 /// ```text
-///          z
-///          |
-///       x--B
-///           `.
-///             `.  z
-///               `.|
-///              x--A
+///      z
+///      |
+///   x--B
+///       `.
+///         `.  z
+///           `.|
+///          x--A
 /// ```
 ///
 /// Then we finish by applying the inverse of A's conversion rotation to B in
@@ -778,17 +778,17 @@ impl RotationConverter {
 /// b.translation = a.conversion.inverse() * b.translation;
 /// ```
 /// ```text
-///                         x
-///                         |
-///                         B--z
-///                       .`
-///                 z   .`
-///                 | .`
-///              x--A
+///                     x
+///                     |
+///                     B--z
+///                   .`
+///             z   .`
+///             | .`
+///          x--A
 /// ```
 ///
 /// Combining the steps, we get the following rule for any given node. Note that
-/// node and its parent may have different conversions.
+/// the node and its parent may have different conversions.
 ///
 /// ```ignore
 /// node.rotation = parent.conversion.inverse() * node.rotation * node.conversion;
@@ -799,46 +799,46 @@ impl RotationConverter {
 /// treated like nodes, where the vertices are children of the mesh. Only the
 /// mesh's semantics are converted - the semantics of vertices don't change.
 ///
-/// Below is a mesh that we want to convert from +X forward to +Z forward.
+/// Below is a mesh that we want to convert from +X forward to +Z forward:
+///
+/// ```text
+///      +-----------+
+///      |      x    +-+
+///      |      |      |
+///      |      M--z   |
+///      |             |
+///      |             |
+///      +-------------+
+/// ```
+///
+/// First we apply the conversion to the rotation of the mesh, which implicitly
+/// rotates the vertices:
 ///
 /// ```text
 ///        +-----------+
-///        |      x    +-+
-///        |      |      |
-///        |      M--z   |
-///        |             |
-///        |             |
-///        +-------------+
+///      +-+    z      |
+///      |      |      |
+///      |   x--M      |
+///      |             |
+///      |             |
+///      +-------------+
 /// ```
 ///
-/// First the rotation of mesh is converted, which implicitly rotates the
-/// vertices.
+/// Then we apply the inverse of the mesh conversion to the translation of the
+/// vertices:
 ///
 /// ```text
-///          +-----------+
-///        +-+    z      |
-///        |      |      |
-///        |   x--M      |
-///        |             |
-///        |             |
-///        +-------------+
+///      +-----------+
+///      |      z    +-+
+///      |      |      |
+///      |   x--M      |
+///      |             |
+///      |             |
+///      +-------------+
 /// ```
 ///
-/// Then the vertice's translations are rotated by the inverse of the mesh
-/// conversion:
-///
-/// ```text
-///        +-----------+
-///        |      z    +-+
-///        |      |      |
-///        |   x--M      |
-///        |             |
-///        |             |
-///        +-------------+
-/// ```
-///
-/// Note that even though the semantics of the vertices are not being converted,
-/// their translation is still affected by the mesh's conversion.
+/// Even though we're not converting the semantics of the vertices, their
+/// translations are still affected by the mesh's conversion.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct HierarchyConverter {
     local: RotationConverter,
