@@ -12,6 +12,8 @@ const BORDER_RIGHT: u32 = 1024u;
 const BORDER_BOTTOM: u32 = 2048u;
 const BORDER_ANY: u32 = BORDER_LEFT + BORDER_TOP + BORDER_RIGHT + BORDER_BOTTOM;
 const INVERT: u32 = 4096u;
+const TEXT_EFFECT_SHADOW: u32 = 8192u;
+const TEXT_EFFECT_MASK: u32 = TEXT_EFFECT_SHADOW;
 
 fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
@@ -25,11 +27,13 @@ struct VertexOutput {
 
     @location(2) @interpolate(flat) size: vec2<f32>,
     @location(3) @interpolate(flat) flags: u32,
-    @location(4) @interpolate(flat) radius: vec4<f32>,    
-    @location(5) @interpolate(flat) border: vec4<f32>,    
+    @location(4) @interpolate(flat) radius: vec4<f32>,
+    @location(5) @interpolate(flat) border: vec4<f32>,
 
     // Position relative to the center of the rectangle.
     @location(6) point: vec2<f32>,
+    @location(7) @interpolate(flat) shadow_color: vec4<f32>,
+    @location(8) @interpolate(flat) effect_params: vec4<f32>,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -47,9 +51,13 @@ fn vertex(
     @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
     @location(7) point: vec2<f32>,
+    @location(8) shadow_color: vec4<f32>,
+    @location(9) effect_params: vec4<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
+    out.shadow_color = shadow_color;
+    out.effect_params = effect_params;
     out.position = view.clip_from_world * vec4(vertex_position, 1.0);
     out.color = vertex_color;
     out.flags = flags;
@@ -63,6 +71,25 @@ fn vertex(
 
 @group(1) @binding(0) var sprite_texture: texture_2d<f32>;
 @group(1) @binding(1) var sprite_sampler: sampler;
+
+fn composite_text_layers(
+    fill_color: vec4<f32>,
+    shadow_color: vec4<f32>,
+    fill_cov: f32,
+    shadow_cov: f32,
+) -> vec4<f32> {
+    let fill_alpha = fill_color.a * fill_cov;
+    let shadow_alpha = shadow_color.a * shadow_cov;
+    let shadow_weight = shadow_alpha * (1.0 - fill_alpha);
+    let alpha = fill_alpha + shadow_weight;
+
+    if alpha <= 0.0 {
+        return vec4<f32>(0.0);
+    }
+
+    let rgb = (fill_color.rgb * fill_alpha + shadow_color.rgb * shadow_weight) / alpha;
+    return vec4<f32>(rgb, alpha);
+}
 
 // The returned value is the shortest distance from the given point to the boundary of the rounded 
 // box.
@@ -214,11 +241,24 @@ fn draw_uinode_background(
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
+    var color = in.color;
+    let base_sample = textureSample(sprite_texture, sprite_sampler, in.uv);
 
-    // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
-    // This allows us to draw both textured and untextured shapes together in the same batch.
-    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
+    if enabled(in.flags, TEXTURED) {
+        if enabled(in.flags, TEXT_EFFECT_MASK) {
+            let fill_cov = base_sample.a;
+            let shadow_uv = in.uv - in.effect_params.xy;
+            let shadow_cov = textureSampleLevel(sprite_texture, sprite_sampler, shadow_uv, 0.0).a;
+            color = composite_text_layers(
+                in.color,
+                in.shadow_color,
+                fill_cov,
+                shadow_cov * (1.0 - fill_cov),
+            );
+        } else {
+            color = in.color * base_sample;
+        }
+    }
 
     if enabled(in.flags, BORDER_ANY) {
         return draw_uinode_border(color, in.point, in.size, in.radius, in.border, in.flags);
