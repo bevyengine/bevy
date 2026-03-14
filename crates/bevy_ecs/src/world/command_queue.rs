@@ -26,6 +26,10 @@ struct CommandMeta {
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
+///
+/// Commands are applied in depth-first order: after each command runs, any new commands
+/// it queued are applied recursively before the next command in the original queue.
+/// See [`Commands`](crate::system::Commands#command-application-order) for details.
 // NOTE: [`CommandQueue`] is implemented via a `Vec<MaybeUninit<u8>>` instead of a `Vec<Box<dyn Command>>`
 // as an optimization. Since commands are used frequently in systems as a way to spawn
 // entities/components/resources, and it's not currently possible to parallelize these
@@ -513,6 +517,89 @@ mod test {
         world.commands().queue(add_index(5));
         world.flush_commands();
         assert_eq!(&world.resource::<Order>().0, &[1, 2, 3, 4, 5]);
+    }
+
+    /// Verify that commands are applied in depth-first order: when a command
+    /// queues additional commands, those run before any remaining sibling
+    /// commands in the original queue.
+    ///
+    /// Queue layout:
+    ///   A  (queues B and C)
+    ///   D
+    ///
+    /// Depth-first order: A, B, C, D
+    /// (Not breadth-first, which would be A, D, B, C)
+    #[test]
+    fn command_application_order_is_depth_first() {
+        #[derive(Resource, Default)]
+        struct Order(Vec<&'static str>);
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        // Command A queues B and C as sub-commands.
+        world.commands().queue(|world: &mut World| {
+            world.resource_mut::<Order>().0.push("A");
+            world.commands().queue(|world: &mut World| {
+                world.resource_mut::<Order>().0.push("B");
+            });
+            world.commands().queue(|world: &mut World| {
+                world.resource_mut::<Order>().0.push("C");
+            });
+        });
+
+        // Command D is queued after A at the top level.
+        world.commands().queue(|world: &mut World| {
+            world.resource_mut::<Order>().0.push("D");
+        });
+
+        world.flush_commands();
+
+        // B and C (children of A) run before D (sibling of A).
+        assert_eq!(
+            &world.resource::<Order>().0,
+            &["A", "B", "C", "D"],
+        );
+    }
+
+    /// Verify depth-first order with multiple levels of nesting: when a
+    /// sub-command itself queues further commands, those also run before any
+    /// remaining commands at higher levels.
+    ///
+    /// Queue layout:
+    ///   A  (queues B, which queues C)
+    ///   D
+    ///
+    /// Expected order: A, B, C, D
+    #[test]
+    fn command_application_order_is_depth_first_nested() {
+        #[derive(Resource, Default)]
+        struct Order(Vec<&'static str>);
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        // A queues B, and B queues C.
+        world.commands().queue(|world: &mut World| {
+            world.resource_mut::<Order>().0.push("A");
+            world.commands().queue(|world: &mut World| {
+                world.resource_mut::<Order>().0.push("B");
+                world.commands().queue(|world: &mut World| {
+                    world.resource_mut::<Order>().0.push("C");
+                });
+            });
+        });
+
+        world.commands().queue(|world: &mut World| {
+            world.resource_mut::<Order>().0.push("D");
+        });
+
+        world.flush_commands();
+
+        assert_eq!(
+            &world.resource::<Order>().0,
+            &["A", "B", "C", "D"],
+        );
     }
 
     // NOTE: `CommandQueue` is `Send` because `Command` is send.

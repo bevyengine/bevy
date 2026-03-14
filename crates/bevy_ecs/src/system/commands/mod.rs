@@ -87,6 +87,26 @@ use crate::{
 /// # }
 /// ```
 ///
+/// # Command application order
+///
+/// Commands are applied in depth-first order. When a command is applied and it queues
+/// additional commands (e.g. by calling methods on [`Commands`] or by triggering observers
+/// that queue their own commands), those newly queued commands are applied immediately,
+/// before any previously queued sibling commands.
+///
+/// For example, if you queue commands `A` and `D`, and `A` internally queues `B` and `C`,
+/// the final application order is `A, B, C, D`, not `A, D, B, C`.
+///
+/// This matters when building event-heavy systems where commands frequently trigger
+/// observers that queue further commands. Each command's side effects are fully
+/// resolved before moving on to the next command in the original queue.
+///
+/// Keep in mind that this ordering can lead to surprising situations with observers.
+/// For example, if command `A` despawns an entity and command `B` removes a component
+/// from that same entity, the remove observer for `B` might fire on an entity that
+/// no longer exists. When working with observers that reference entities modified by
+/// other commands, use [`Commands::get_entity`] to check if the entity is still alive.
+///
 /// # Error handling
 ///
 /// A [`Command`] can return a [`Result`](crate::error::Result),
