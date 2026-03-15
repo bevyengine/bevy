@@ -19,7 +19,10 @@ use bevy_text::{
 use parley::{swash::FontRef, BoundingBox};
 use parley::{FontFamily, FontStack, PositionedLayoutItem};
 
-pub fn update_editor_system(
+/// Updates [`EditableText::editor`] to match e.g. [`TextFont`]
+/// Writes layout to [`TextLayoutInfo`] for rendering
+/// Adds required glyphs to the texture atlas
+pub fn editable_text_system(
     fonts: Res<Assets<Font>>,
     mut font_cx: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,

@@ -11,6 +11,4 @@ pub struct TextCursorStyle {
     pub color: Color,
     /// Background color of selected text
     pub selection_color: Color,
-    /// Color of text under selection
-    pub selected_text_color: Option<Color>,
 }

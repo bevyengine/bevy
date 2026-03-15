@@ -5,7 +5,7 @@
 //! that includes e.g. a background, border, and text label.
 //!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
-use bevy::color::palettes::css::{BLUE, GREEN, RED, YELLOW};
+use bevy::color::palettes::css::{GREEN, RED, YELLOW};
 use bevy::input_focus::{InputDispatchPlugin, InputFocus};
 use bevy::prelude::*;
 use bevy::text::{EditableText, FontCx, LayoutCx, TextCursorStyle};
@@ -164,7 +164,6 @@ fn build_input_text(
             TextCursorStyle {
                 color: RED.into(),
                 selection_color: Color::from(GREEN).with_alpha(0.5),
-                selected_text_color: Some(BLUE.into()),
             },
             UiTransform::from_translation(Val2 {
                 x: Val::Px(10.0),

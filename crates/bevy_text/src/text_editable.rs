@@ -46,7 +46,6 @@
 //! - Click to place cursor
 //! - Cursor blinking
 //! - Clipboard operations (copy, cut, paste)
-//! - Text selection
 //! - Undo/redo functionality
 //! - Newline support for multi-line input
 //! - Input Method Editor (IME) support for complex scripts
@@ -108,11 +107,7 @@ pub struct EditableText {
     ///
     /// These edits are processed in first-in, first-out order.
     pub pending_edits: VecDeque<TextEdit>,
-    /// Does the contained text buffer need rerendering / relayout?
-    ///
-    /// Analogous to [`ComputedTextBlock::needs_rerender`](crate::ComputedTextBlock::needs_rerender).
-    pub(crate) needs_rerender: bool,
-    /// cursor width, relative to font size
+    /// Cursor width, relative to font size
     pub cursor_width: f32,
 }
 
@@ -122,7 +117,6 @@ impl Default for EditableText {
             // Defaults selected to match `Text::default()`
             editor: PlainEditor::new(100.),
             pending_edits: VecDeque::new(),
-            needs_rerender: true,
             cursor_width: 0.2,
         }
     }
@@ -169,7 +163,6 @@ impl EditableText {
         while let Some(edit) = pending_edits.pop_front() {
             driver = apply_edit(edit, driver);
         }
-        self.needs_rerender = true;
     }
 
     /// Clears the current input and resets the cursor position.
@@ -182,7 +175,6 @@ impl EditableText {
         let mut driver = self.editor_mut().driver(font_context, layout_context);
         driver.move_to_byte(0);
         self.pending_edits.clear();
-        self.needs_rerender = true;
     }
 }
 

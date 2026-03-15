@@ -13,6 +13,7 @@ Our initial text entry supports:
 
 - Press keys on your keyboard, get text (wow!)
 - A cursor that can be moved forward and back in response to the left and right arrow keys
+- Selection rectangles (hold shift)
 - Backspace and Delete
 - Unicode-aware navigation and editing: 1 byte/char != 1 character
 - Bidirectional text support, allowing both left-to-right and right-to-left scripts
@@ -20,6 +21,6 @@ Our initial text entry supports:
 `EditableText` integrate with Bevy's `InputFocus` resource, accepting keyboard inputs only when the selected
 `EditableText` entity is focused.
 
-Many important features are currently unimplemented (placeholder text, text selection, clipboard support, undo-redo...).
+Many important features are currently unimplemented (placeholder text, clipboard support, undo-redo...).
 While we've been careful to expose and document the internals so that you can readily implement these features in your own projects,
 we would like to continue to expand the functionality of the base widget: please consider making a PR!
