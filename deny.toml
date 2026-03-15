@@ -48,9 +48,6 @@ exceptions = [
   { name = "symphonia-codec-aac", allow = [
     "MPL-2.0",
   ] },
-  { name = "symphonia-codec-adpcm", allow = [
-    "MPL-2.0",
-  ] },
   { name = "symphonia-codec-pcm", allow = [
     "MPL-2.0",
   ] },
@@ -61,6 +58,9 @@ exceptions = [
     "MPL-2.0",
   ] },
   { name = "symphonia-format-isomp4", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-format-ogg", allow = [
     "MPL-2.0",
   ] },
   { name = "symphonia-format-riff", allow = [

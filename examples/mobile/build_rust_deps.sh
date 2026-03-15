@@ -54,7 +54,7 @@ for arch in $ARCHS; do
         TARGET=aarch64-apple-ios
       else
         # M1 iOS simulator
-        TARGET=aarch64-apple-ios-sim
+        TARGET=arm64-apple-ios-simulator
       fi
   esac
 
