@@ -95,7 +95,7 @@ use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
 pub struct EditableText {
     /// A [`parley::PlainEditor`], tracking both the text content and cursor position.
     ///
-    /// This serves as an analogue to [`ComputedTextBlock`] for editable text.
+    /// This serves as an analogue to [`ComputedTextBlock`](crate::ComputedTextBlock) for editable text.
     ///
     /// In most cases, you should queue text edits via the [`EditableText::queue_edit`] method instead of directly manipulating the editor,
     /// and then allow the [`apply_text_edits`] system to apply the edits at the appropriate time in the update cycle.

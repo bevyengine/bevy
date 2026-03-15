@@ -1,4 +1,4 @@
-use std::hash::BuildHasher;
+use core::hash::BuildHasher;
 
 use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, FixedMeasure, NodeMeasure};
 use bevy_asset::Assets;
@@ -176,7 +176,9 @@ pub fn update_editor_system(
                             underline_thickness: run.metrics().underline_size,
                         });
                     }
-                    _ => {}
+                    PositionedLayoutItem::InlineBox(_inline) => {
+                        // TODO: handle inline
+                    }
                 }
             }
         }
