@@ -23,7 +23,13 @@ struct Mesh {
     material_and_lightmap_bind_group_slot: u32,
     // User supplied index to identify the mesh instance
     tag: u32,
+    // AABB for decompressing positions.
+    aabb_center: vec3<f32>,
     morph_descriptor_index: u32,
+    aabb_half_extents: vec3<f32>,
+    // UVs range for decompressing UVs coordinates.
+    uv0_range: vec4<f32>,
+    uv1_range: vec4<f32>,
 };
 
 #ifdef SKINNED

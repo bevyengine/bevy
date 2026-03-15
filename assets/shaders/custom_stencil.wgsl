@@ -1,4 +1,4 @@
-//! A shader showing how to use the vertex position data to output the 
+//! A shader showing how to use the vertex position data to output the
 //! stencil in the right position
 
 // First we import everything we need from bevy_pbr
@@ -14,7 +14,11 @@ struct Vertex {
     @builtin(instance_index) instance_index: u32,
     // Like we defined for the vertex layout
     // position is at location 0
+#ifdef VERTEX_POSITIONS_COMPRESSED
+    @location(0) compressed_position: vec4<f32>,
+#else
     @location(0) position: vec3<f32>,
+#endif
 };
 
 // This is the output of the vertex shader and we also use it as the input for the fragment shader
@@ -29,7 +33,12 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     // This is how bevy computes the world position
     // The vertex.instance_index is very important. Especially if you are using batching and gpu preprocessing
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
-    out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4(vertex.position, 1.0));
+#ifdef VERTEX_POSITIONS_COMPRESSED
+    let vertex_position = mesh_functions::decompress_vertex_position(vertex.instance_index, vertex.compressed_position);
+#else
+    let vertex_position = vertex.position;
+#endif
+    out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4(vertex_position, 1.0));
     out.clip_position = position_world_to_clip(out.world_position.xyz);
     return out;
 }

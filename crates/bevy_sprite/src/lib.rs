@@ -159,7 +159,7 @@ pub fn calculate_bounds_2d(
     // New meshes require inserting a component
     for (entity, mesh_handle) in &new_mesh_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
-            && let Some(aabb) = mesh.compute_aabb()
+            && let Some(aabb) = mesh.get_aabb()
         {
             commands.entity(entity).try_insert(aabb);
         }
@@ -169,7 +169,7 @@ pub fn calculate_bounds_2d(
     update_mesh_aabb
         .par_iter_mut()
         .for_each(|(mesh_handle, mut aabb)| {
-            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
+            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::get_aabb) {
                 aabb.set_if_neq(new_aabb);
             }
         });

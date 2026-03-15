@@ -147,7 +147,7 @@ use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::Resource;
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats, ImageSamplerDescriptor};
-use bevy_mesh::MeshVertexAttribute;
+use bevy_mesh::{MeshAttributeCompressionFlags, MeshVertexAttribute};
 
 /// The glTF prelude.
 ///
@@ -236,6 +236,12 @@ pub struct GltfPlugin {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+
+    /// Mesh attribute compression flags for the loaded meshes.
+    pub mesh_attribute_compression: MeshAttributeCompressionFlags,
+
+    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
+    pub mesh_index_compression: bool,
 }
 
 impl Default for GltfPlugin {
@@ -245,6 +251,8 @@ impl Default for GltfPlugin {
             custom_vertex_attributes: HashMap::default(),
             convert_coordinates: GltfConvertCoordinates::default(),
             skinned_mesh_bounds_policy: Default::default(),
+            mesh_attribute_compression: MeshAttributeCompressionFlags::empty(),
+            mesh_index_compression: false,
         }
     }
 }
@@ -301,6 +309,8 @@ impl Plugin for GltfPlugin {
             default_convert_coordinates: self.convert_coordinates,
             extensions: extensions.0.clone(),
             default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
+            default_mesh_attribute_compression: self.mesh_attribute_compression,
+            default_mesh_index_compression: self.mesh_index_compression,
         });
     }
 }

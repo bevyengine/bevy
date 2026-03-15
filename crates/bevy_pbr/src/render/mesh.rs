@@ -31,10 +31,11 @@ use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
 };
+use bevy_math::bounding::{Aabb2d, BoundingVolume};
 use bevy_math::{Affine3, Affine3Ext, Rect, UVec2, Vec3, Vec4};
 use bevy_mesh::{
-    skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshTag, MeshVertexBufferLayoutRef,
-    VertexAttributeDescriptor,
+    skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshAttributeCompressionFlags,
+    MeshTag, MeshVertexBufferLayoutRef, VertexAttributeDescriptor,
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::impl_atomic_pod;
@@ -517,11 +518,18 @@ pub struct MeshUniform {
     pub material_and_lightmap_bind_group_slot: u32,
     /// User supplied tag to identify this mesh instance.
     pub tag: u32,
+    /// AABB center for decompressing vertex positions.
+    pub aabb_center: Vec3,
     /// The index of the morph descriptor for this mesh instance in the
     /// `morph_descriptors` table.
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
+    /// AABB half extents for decompressing vertex positions.
+    pub aabb_half_extents: Vec3,
+    /// UVs range for decompressing UVs coordinates. xy is the min UV value, zw is the length of range.
+    pub uv0_range: Vec4,
+    pub uv1_range: Vec4,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -591,6 +599,14 @@ pub struct MeshInputUniform {
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
+    /// AABB for decompressing positions.
+    pub aabb_center: Vec3,
+    pub pad1: u32,
+    pub aabb_half_extents: Vec3,
+    pub pad2: u32,
+    /// UVs range for decompressing UVs coordinates.
+    pub uv0_range: Vec4,
+    pub uv1_range: Vec4,
 }
 
 impl_atomic_pod!(MeshInputUniform, MeshInputUniformBlob);
@@ -629,6 +645,7 @@ impl MeshUniform {
         current_skin_index: Option<u32>,
         morph_descriptor_index: Option<MorphDescriptorIndex>,
         tag: Option<u32>,
+        mesh: Option<&RenderMesh>,
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
@@ -636,6 +653,9 @@ impl MeshUniform {
             None => u16::MAX,
             Some((slot_index, _)) => slot_index.into(),
         };
+        let (aabb, uv0_range, uv1_range) = mesh
+            .map(|m| (m.aabb, m.uv0_range, m.uv1_range))
+            .unwrap_or_default();
 
         Self {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
@@ -653,8 +673,18 @@ impl MeshUniform {
                 Some(morph_descriptor_index) => morph_descriptor_index.0,
                 None => u32::MAX,
             },
+            aabb_center: aabb.map(|a| a.center().into()).unwrap_or(Vec3::ZERO),
+            aabb_half_extents: aabb.map(|a| a.half_size().into()).unwrap_or(Vec3::ZERO),
+            uv0_range: uv_range_to_vec4(uv0_range),
+            uv1_range: uv_range_to_vec4(uv1_range),
         }
     }
+}
+
+fn uv_range_to_vec4(range: Option<Aabb2d>) -> Vec4 {
+    range
+        .map(|r| Vec4::new(r.min.x, r.min.y, r.max.x - r.min.x, r.max.y - r.min.y))
+        .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
@@ -1337,6 +1367,7 @@ impl RenderMeshInstanceGpuBuilder {
         skin_uniforms: &SkinUniforms,
         morph_indices: &MorphIndices,
         timestamp: FrameCount,
+        meshes: &RenderAssets<RenderMesh>,
     ) -> Option<RenderMeshInstanceGpuPrepared> {
         // Look up the material index. If we couldn't fetch the material index,
         // then the material hasn't been prepared yet, perhaps because it hasn't
@@ -1389,6 +1420,11 @@ impl RenderMeshInstanceGpuBuilder {
             None => u32::MAX,
         };
 
+        let (aabb, uv0_range, uv1_range) = meshes
+            .get(AssetId::<Mesh>::from(self.shared.asset_id))
+            .map(|m| (m.aabb, m.uv0_range, m.uv1_range))
+            .unwrap_or_default();
+
         // Create the mesh input uniform.
         let mesh_input_uniform = MeshInputUniform {
             world_from_local: self.world_from_local.to_transpose(),
@@ -1409,6 +1445,14 @@ impl RenderMeshInstanceGpuBuilder {
             ) | ((lightmap_slot as u32) << 16),
             tag: self.shared.tag,
             morph_descriptor_index,
+            aabb_center: aabb.map(|aabb| aabb.center().into()).unwrap_or(Vec3::ZERO),
+            aabb_half_extents: aabb
+                .map(|aabb| aabb.half_size().into())
+                .unwrap_or(Vec3::ZERO),
+            uv0_range: uv_range_to_vec4(uv0_range),
+            uv1_range: uv_range_to_vec4(uv1_range),
+            pad1: 0,
+            pad2: 0,
         };
 
         let world_from_local = &self.world_from_local;
@@ -2098,6 +2142,7 @@ pub fn collect_meshes_for_gpu_building(
     morph_indices: Res<MorphIndices>,
     frame_count: Res<FrameCount>,
     mut meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
+    meshes: Res<RenderAssets<RenderMesh>>,
 ) {
     let RenderMeshInstances::GpuBuilding(render_mesh_instances) =
         render_mesh_instances.into_inner()
@@ -2142,6 +2187,7 @@ pub fn collect_meshes_for_gpu_building(
         let previous_input_buffer = &*previous_input_buffer;
         let mesh_culling_data_buffer = &*mesh_culling_data_buffer;
         let morph_indices = &*morph_indices;
+        let meshes = &meshes;
 
         // Spawn workers on the taskpool to prepare and update meshes in parallel.
         ComputeTaskPool::get().scope(|scope| {
@@ -2174,6 +2220,7 @@ pub fn collect_meshes_for_gpu_building(
                                         skin_uniforms,
                                         morph_indices,
                                         frame_count,
+                                        meshes,
                                     ) {
                                         Some(prepared) => {
                                             prepared_tx.send((entity, prepared, None)).ok();
@@ -2210,6 +2257,7 @@ pub fn collect_meshes_for_gpu_building(
                                         skin_uniforms,
                                         morph_indices,
                                         frame_count,
+                                        meshes,
                                     ) {
                                         Some(mut prepared) => {
                                             if let Some(render_mesh_instance) =
@@ -2466,7 +2514,7 @@ impl GetBatchData for MeshPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
+        (mesh_instances, lightmaps, meshes, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
             Self::Param,
         >,
         (_entity, main_entity): (Entity, MainEntity),
@@ -2482,12 +2530,12 @@ impl GetBatchData for MeshPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
-        let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
-                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
-                None => 0,
-            };
-        let mesh_slabs = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())?;
+        let mesh_asset_id = mesh_instance.mesh_asset_id();
+        let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&mesh_asset_id) {
+            Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+            None => 0,
+        };
+        let mesh_slabs = mesh_allocator.mesh_slabs(&mesh_asset_id)?;
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
@@ -2503,6 +2551,7 @@ impl GetBatchData for MeshPipeline {
                 current_skin_index,
                 morph_descriptor_index,
                 Some(mesh_instance.tag()),
+                meshes.get(mesh_asset_id),
             ),
             mesh_instance.should_batch().then_some((
                 MeshBatchSetCompareData {
@@ -2554,7 +2603,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
+        (mesh_instances, lightmaps, meshes, mesh_allocator, skin_uniforms, morph_indices): &SystemParamItem<
             Self::Param,
         >,
         main_entity: MainEntity,
@@ -2566,11 +2615,11 @@ impl GetFullBatchData for MeshPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
-        let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id()) {
-                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
-                None => 0,
-            };
+        let mesh_asset_id = mesh_instance.mesh_asset_id();
+        let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&mesh_asset_id) {
+            Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+            None => 0,
+        };
         let maybe_lightmap = lightmaps.render_lightmaps.get(&main_entity);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
@@ -2584,6 +2633,7 @@ impl GetFullBatchData for MeshPipeline {
             current_skin_index,
             morph_descriptor_index,
             Some(mesh_instance.tag()),
+            meshes.get(mesh_asset_id),
         ))
     }
 
@@ -2896,28 +2946,63 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
             shader_defs.push("VERTEX_NORMALS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL)
+            {
+                shader_defs.push("VERTEX_NORMALS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_A".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV0)
+            {
+                shader_defs.push("VERTEX_UVS_A_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV1)
+            {
+                shader_defs.push("VERTEX_UVS_B_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push("VERTEX_TANGENTS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT)
+            {
+                shader_defs.push("VERTEX_TANGENTS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
         }
 
