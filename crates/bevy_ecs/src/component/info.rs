@@ -35,6 +35,7 @@ pub struct ComponentInfo {
     /// The set of components that require this components.
     /// Invariant: components in this set always appear after the components that they require.
     pub(super) required_by: IndexSet<ComponentId, FixedHasher>,
+    pub(super) mutually_exclusive: Vec<ComponentId>,
 }
 
 impl ComponentInfo {
@@ -108,6 +109,7 @@ impl ComponentInfo {
             hooks: Default::default(),
             required_components: Default::default(),
             required_by: Default::default(),
+            mutually_exclusive: Default::default(),
         }
     }
 
@@ -145,6 +147,11 @@ impl ComponentInfo {
     /// Returns [`RelationshipAccessor`] for this component if it is a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget) , `None` otherwise.
     pub fn relationship_accessor(&self) -> Option<&RelationshipAccessor> {
         self.descriptor.relationship_accessor.as_ref()
+    }
+
+    /// Returns components that cannot co-exist on the same entity as this component
+    pub fn mutually_exclusive(&self) -> &[ComponentId] {
+        &self.mutually_exclusive
     }
 }
 
@@ -732,5 +739,31 @@ impl Components {
     /// Gets an iterator over all components fully registered with this instance.
     pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter().filter_map(Option::as_ref)
+    }
+
+    pub(crate) fn register_mutually_exclusive(
+        &mut self,
+        component_id_a: ComponentId,
+        component_id_b: ComponentId,
+    ) {
+        let Ok([Some(comp_a), Some(comp_b)]) = self
+            .components
+            .get_disjoint_mut([component_id_a.index(), component_id_b.index()])
+        else {
+            return;
+        };
+        if comp_a.required_by.contains(&component_id_b)
+            || comp_b.required_by.contains(&component_id_a)
+        {
+            panic!(
+                "Cannot register component as mutually exclusive with a component that requires it"
+            )
+        }
+        if !comp_a.mutually_exclusive.contains(&component_id_b) {
+            comp_a.mutually_exclusive.push(component_id_b);
+        }
+        if !comp_b.mutually_exclusive.contains(&component_id_a) {
+            comp_b.mutually_exclusive.push(component_id_a);
+        }
     }
 }
