@@ -1,5 +1,5 @@
 use bevy_gltf::{
-    extensions::{GltfExtensionHandler, GltfExtensionHandlers},
+    extensions::{ErasedGltfExtensionHandler, GltfExtensionHandler, GltfExtensionHandlers},
     gltf, GltfAssetLabel, GltfMaterial,
 };
 
@@ -98,7 +98,7 @@ pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> Standard
 struct GltfExtensionHandlerPbr;
 
 impl GltfExtensionHandler for GltfExtensionHandlerPbr {
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
         Box::new((*self).clone())
     }
     fn on_root(&mut self, load_context: &mut LoadContext<'_>, _gltf: &gltf::Gltf) {
