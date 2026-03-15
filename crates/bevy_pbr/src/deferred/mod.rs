@@ -20,7 +20,6 @@ use bevy_core_pipeline::{
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
-use bevy_render::RenderStartup;
 use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
@@ -30,6 +29,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSystems,
 };
+use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
@@ -105,7 +105,7 @@ impl Plugin for DeferredPbrLightingPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
             .add_systems(
                 RenderStartup,
                 init_deferred_lighting_layout.after(MeshPipelineSet),

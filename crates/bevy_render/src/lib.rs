@@ -94,7 +94,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
-use bevy_app::{App, AppLabel, Plugin};
+use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
@@ -114,7 +114,7 @@ use std::sync::{Mutex, OnceLock};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
-/// Rendering is done in a [`SubApp`](bevy_app::SubApp), which exchanges data with the main app
+/// Rendering is done in a [`SubApp`], which exchanges data with the main app
 /// between main schedule iterations.
 ///
 /// Rendering can be executed between iterations of the main schedule,
@@ -205,6 +205,35 @@ pub enum RenderSystems {
 /// this schedule runs to initialize any gpu resources needed for rendering on it.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct RenderStartup;
+
+/// The gpu resource initialization schedule run before every [`RenderStartup`].
+/// This is a separate schedule simply for ambiguity checking reasons.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+struct InitGpuResources;
+
+/// Constructs a `T` resource with `from_world` and inserts it.
+pub fn init_gpu_resource<T: Resource + FromWorld>(world: &mut World) {
+    let res = T::from_world(world);
+    world.insert_resource(res);
+}
+
+/// Convenience methods for render-recovery-aware resource initialization.
+pub trait GpuResourceAppExt {
+    /// Shorthand for:
+    /// ```ignore
+    /// app.add_systems(InitGpuResources, init_gpu_resource::<T>);
+    /// ```
+    fn init_gpu_resource<T: Resource + FromWorld>(&mut self) -> &mut Self;
+}
+
+impl GpuResourceAppExt for SubApp {
+    fn init_gpu_resource<T: Resource + FromWorld>(&mut self) -> &mut Self {
+        self.add_systems(
+            InitGpuResources,
+            init_gpu_resource::<T>.ambiguous_with_all(),
+        )
+    }
+}
 
 /// The render recovery schedule. This schedule runs the [`Render`] schedule if
 /// we are in [`RenderState::Ready`], and is otherwise hidden from users.
@@ -314,7 +343,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderErrorHandler>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<RenderAssetBytesPerFrameLimiter>();
-            render_app.init_resource::<renderer::PendingCommandBuffers>();
+            render_app.init_gpu_resource::<renderer::PendingCommandBuffers>();
             render_app.insert_resource(sender);
             render_app.insert_resource(asset_server);
             render_app.insert_resource(RenderState::Initializing);
@@ -329,6 +358,7 @@ impl Plugin for RenderPlugin {
             render_app.add_schedule(RenderGraph::base_schedule());
 
             render_app.init_schedule(RenderStartup);
+            render_app.init_schedule(InitGpuResources);
             render_app.update_schedule = Some(RenderRecovery.intern());
             render_app.add_systems(
                 RenderRecovery,

@@ -2,7 +2,7 @@ use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
@@ -32,8 +32,8 @@ impl Plugin for WindowRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ExtractedWindows>()
-                .init_resource::<WindowSurfaces>()
+                .init_gpu_resource::<ExtractedWindows>()
+                .init_gpu_resource::<WindowSurfaces>()
                 .add_systems(ExtractSchedule, extract_windows)
                 .add_systems(
                     Render,

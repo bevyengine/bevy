@@ -186,7 +186,7 @@ impl Plugin for MeshRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<MeshCullingDataBuffer>()
+                .init_gpu_resource::<MeshCullingDataBuffer>()
                 .init_resource::<RenderMaterialInstances>()
                 .configure_sets(
                     ExtractSchedule,
@@ -226,9 +226,9 @@ impl Plugin for MeshRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<MorphIndices>()
-                .init_resource::<MorphUniforms>()
-                .init_resource::<ViewKeyCache>()
+                .init_gpu_resource::<MorphIndices>()
+                .init_gpu_resource::<MorphUniforms>()
+                .init_gpu_resource::<ViewKeyCache>()
                 .init_resource::<GpuPreprocessingSupport>()
                 .add_systems(RenderStartup, skin_uniforms_from_world)
                 .add_systems(
@@ -249,11 +249,11 @@ impl Plugin for MeshRenderPlugin {
 
             if use_gpu_instance_buffer_builder {
                 render_app
-                    .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<
+                    .init_gpu_resource::<gpu_preprocessing::BatchedInstanceBuffers<
                         MeshUniform,
                         MeshInputUniform
                     >>()
-                    .init_resource::<RenderMeshInstanceGpuQueues>()
+                    .init_gpu_resource::<RenderMeshInstanceGpuQueues>()
                     .init_resource::<MeshesToReextractNextFrame>()
                     .add_systems(
                         ExtractSchedule,

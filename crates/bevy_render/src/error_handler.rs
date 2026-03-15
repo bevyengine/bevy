@@ -12,7 +12,7 @@ use crate::{
     render_resource::PipelineCache,
     renderer::{RenderDevice, WgpuWrapper},
     settings::RenderCreation,
-    FutureRenderResources, RenderStartup,
+    FutureRenderResources, InitGpuResources, RenderStartup,
 };
 
 /// Resource to indicate renderer behavior upon error.
@@ -174,6 +174,7 @@ pub(crate) fn update_state(main_world: &mut World, render_world: &mut World) {
 
     match &state {
         RenderState::Initializing => {
+            render_world.run_schedule(InitGpuResources);
             render_world.run_schedule(RenderStartup);
             render_world.insert_resource(RenderState::Ready);
         }
