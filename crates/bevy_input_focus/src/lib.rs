@@ -233,11 +233,43 @@ impl Plugin for InputDispatchPlugin {
             PreUpdate,
             (
                 #[cfg(feature = "keyboard")]
-                dispatch_focused_input::<KeyboardInput>,
+                {
+                    let s = dispatch_focused_input::<KeyboardInput>;
+
+                    #[cfg(feature = "gamepad")]
+                    let s = s
+                        .ambiguous_with(dispatch_focused_input::<GamepadButtonChangedEvent>)
+                        .after(bevy_input::gamepad::gamepad_event_processing_system);
+
+                    #[cfg(feature = "mouse")]
+                    let s = s.ambiguous_with(dispatch_focused_input::<MouseWheel>);
+                    s
+                },
                 #[cfg(feature = "gamepad")]
-                dispatch_focused_input::<GamepadButtonChangedEvent>,
+                {
+                    let s = dispatch_focused_input::<GamepadButtonChangedEvent>
+                        .after(bevy_input::gamepad::gamepad_event_processing_system);
+
+                    #[cfg(feature = "keyboard")]
+                    let s = s.ambiguous_with(dispatch_focused_input::<KeyboardInput>);
+
+                    #[cfg(feature = "mouse")]
+                    let s = s.ambiguous_with(dispatch_focused_input::<MouseWheel>);
+                    s
+                },
                 #[cfg(feature = "mouse")]
-                dispatch_focused_input::<MouseWheel>,
+                {
+                    let s = dispatch_focused_input::<MouseWheel>;
+
+                    #[cfg(feature = "keyboard")]
+                    let s = s.ambiguous_with(dispatch_focused_input::<KeyboardInput>);
+
+                    #[cfg(feature = "gamepad")]
+                    let s = s
+                        .ambiguous_with(dispatch_focused_input::<GamepadButtonChangedEvent>)
+                        .after(bevy_input::gamepad::gamepad_event_processing_system);
+                    s
+                },
             )
                 .in_set(InputFocusSystems::Dispatch),
         );
