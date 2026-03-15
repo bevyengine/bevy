@@ -69,7 +69,7 @@ impl RawVulkanInitSettings {
 }
 
 pub(crate) fn create_raw_vulkan_instance(
-    instance_descriptor: &InstanceDescriptor,
+    instance_descriptor: InstanceDescriptor,
     settings: &RawVulkanInitSettings,
     additional_features: &mut AdditionalVulkanFeatures,
 ) -> Instance {
@@ -83,6 +83,9 @@ pub(crate) fn create_raw_vulkan_instance(
                 memory_budget_thresholds: instance_descriptor.memory_budget_thresholds,
                 backend_options: instance_descriptor.backend_options.clone(),
                 telemetry: None,
+                // display is only used on GLES. It is not
+                // used on Vulkan, Metal and Dx12
+                display: None,
             },
             Some(Box::new(|mut args| {
                 for callback in &settings.create_instance_callbacks {
