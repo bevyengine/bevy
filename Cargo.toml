@@ -2237,6 +2237,17 @@ description = "Shows how to directly play a simple pitch"
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "play_on_event"
+path = "examples/audio/play_on_event.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.play_on_event]
+name = "Play on Event"
+description = "Shows how to play a sound effect on an event"
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
