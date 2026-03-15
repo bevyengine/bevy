@@ -46,17 +46,11 @@ impl Drop for WakeSignal {
     }
 }
 
-/// Run this function inside your system with the system itself as the second parameter.
-/// This will pump the async ecs tasks and run them if they are ready.
-pub fn run_async_ecs_system<
-    Marker1,
-    Marker2,
-    T: IntoSystem<(), (), Marker1> + IntoSystemSet<Marker2>,
->(
-    world: &mut World,
-    system: T,
-) {
-    let interned = system.into_system_set().intern();
+/// Add this system to a schedule and use it as you would normally, then do
+/// `app.add_systems(Update, async_sync_point::<Marker>.after(other_system));`
+/// `world_id.ecs_task().run_system(async_sync_point::<Marker>, || {}).await;`
+pub fn async_sync_point<Marker: 'static>(world: &mut World) {
+    let interned = async_sync_point::<Marker>.into_system_set().intern();
     // we limit it here to prevent *unbounded* async calls if we have a loop somewhere
     for _ in 0..100 {
         if GLOBAL_WAKE_REGISTRY.wait(interned, world).is_none() && {
@@ -67,6 +61,9 @@ pub fn run_async_ecs_system<
         }
     }
 }
+
+/// Run this function inside your system with the system itself as the second parameter.
+/// This will pump the async ecs tasks and run them if they are ready.
 
 /// This is an abstraction that temporarily and soundly stores the `UnsafeWorldCell` in a static so we can access
 /// it from any async task, runtime, and thread.
@@ -257,7 +254,7 @@ impl<P: SystemParam + 'static> EcsTask<P> {
         &self,
         system: impl IntoSystemSet<M>,
         ecs_access: Func,
-    ) -> Out
+    ) -> core::result::Result<Out, SystemParamValidationError>
     where
         for<'w, 's> Func: FnOnce(P::Item<'w, 's>) -> Out,
     {
@@ -361,7 +358,7 @@ where
     P: SystemParam + 'static,
     for<'w, 's> Func: FnOnce(P::Item<'w, 's>) -> Out,
 {
-    type Output = Out;
+    type Output = core::result::Result<Out, SystemParamValidationError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match GLOBAL_WORLD_ACCESS.get(self.world_id_schedule.0, |world: UnsafeWorldCell| {
@@ -384,20 +381,11 @@ where
                 return Poll::Pending;
             };
             let out;
-            // SAFETY: This is safe because we have a fake-mutex around our world cell, so only one thing can have access to it at a time.
+            // SAFETY: This is safe because we have a mutex around our world cell, so only one thing can have access to it at a time.
             unsafe {
                 let default_error_handler = world.default_error_handler();
                 // Obtain params and immediately consume them with the closure,
                 // ensuring the borrow ends before `apply`.
-                if let Err(err) = SystemState::validate_param(system_state, world) {
-                    default_error_handler(
-                        err.into(),
-                        ErrorContext::System {
-                            name: system_state.meta().name().clone(),
-                            last_run: system_state.meta().last_run,
-                        },
-                    );
-                }
                 if !system_state.meta().is_send() {
                     default_error_handler(
                         SystemParamValidationError::invalid::<NonSend<()>>(
@@ -410,12 +398,17 @@ where
                         },
                     );
                 }
-                let state = system_state.get_unchecked(world);
+                let state = match system_state.get_unchecked(world) {
+                    Ok(state) => state,
+                    Err(err) => {
+                        return Poll::Ready(Err(err));
+                    }
+                };
                 out = ecs_func(state);
             }
             drop(system_state_guard);
             self.barrier.take();
-            Poll::Ready(out)
+            Poll::Ready(Ok(out))
         }) {
             Some(Poll::Ready(out)) => Poll::Ready(out),
             _ => {

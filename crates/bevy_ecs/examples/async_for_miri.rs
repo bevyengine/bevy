@@ -6,7 +6,7 @@
 //! To demonstrate change detection, there are some console outputs based on changes in
 //! the `EntityCounter` resource and updated Age components
 
-use bevy_ecs::prelude::{run_async_ecs_system, Schedule, World};
+use bevy_ecs::prelude::{async_sync_point, Schedule, World};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPool, TaskPoolBuilder};
 
@@ -18,7 +18,7 @@ fn main() {
 
     // Add systems to increase the counter and to print out the current value
     schedule.add_systems(
-        (async_runner, || {
+        (async_sync_point::<SyncPoint>, || {
             bevy_tasks::tick_global_task_pools_on_main_thread()
         })
             .chain(),
@@ -30,8 +30,8 @@ fn main() {
         .spawn(async move {
             world_id
                 .ecs_task::<()>()
-                .run_system(async_runner, |_| {})
-                .await;
+                .run_system(async_sync_point::<SyncPoint>, |_| {})
+                .await.unwrap();
         })
         .detach();
 
@@ -41,6 +41,4 @@ fn main() {
     }
 }
 
-fn async_runner(world: &mut World) {
-    run_async_ecs_system(world, async_runner);
-}
+struct SyncPoint;

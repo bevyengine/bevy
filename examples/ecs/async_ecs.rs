@@ -12,7 +12,7 @@ use bevy::{
     tasks::AsyncComputeTaskPool,
 };
 use futures_timer::Delay;
-use rand::Rng;
+use rand::{Rng, RngExt};
 use std::time::{Duration, Instant};
 
 const NUM_CUBES: i32 = 16;
@@ -25,14 +25,12 @@ fn main() {
             Startup,
             (setup_env, setup_assets, spawn_tasks.after(setup_assets)),
         )
-        .add_systems(PreUpdate, async_system)
+        .add_systems(PreUpdate, async_sync_point::<MySpecialSyncPoint>)
         .add_systems(Update, rotate_light)
         .run();
 }
 
-fn async_system(world: &mut World) {
-    run_async_ecs_system(world, async_system);
-}
+struct MySpecialSyncPoint;
 
 /// Spawns a grid of async tasks to simulate delayed cube creation.
 ///
@@ -56,7 +54,9 @@ fn spawn_tasks(world_id: WorldId) {
         let mut timings = vec![];
         for _ in 0..50 {
             let start = Instant::now();
-            task.run_system(async_system, |()| {}).await;
+            task.run_system(async_sync_point::<MySpecialSyncPoint>, |()| {})
+                .await
+                .unwrap();
             let end = start.elapsed();
             timings.push(end);
         }
@@ -75,7 +75,7 @@ fn spawn_tasks(world_id: WorldId) {
                 Delay::new(delay).await;
                 let value = task
                     .run_system(
-                        async_system,
+                        async_sync_point::<MySpecialSyncPoint>,
                         |(mut local, mut commands, box_mesh, box_material)| {
                             *local += 1;
                             println!("spawning {}", *local);
@@ -87,7 +87,7 @@ fn spawn_tasks(world_id: WorldId) {
                             *local
                         },
                     )
-                    .await;
+                    .await.unwrap();
                 if value as i32 == (NUM_CUBES * 2) * (NUM_CUBES * 2) {
                     println!("DONE");
                 }
@@ -95,10 +95,10 @@ fn spawn_tasks(world_id: WorldId) {
                 let mut my_thing = String::new();
                 world_id
                     .ecs_task::<()>()
-                    .run_system(async_system, |()| {
+                    .run_system(async_sync_point::<MySpecialSyncPoint>, |()| {
                         my_thing.push('h');
                     })
-                    .await;
+                    .await.unwrap();
                 // Benchmarks how long it tasks from queuing onto the async ecs task to
                 // actually getting run
                 my_thing.push('i');
@@ -147,7 +147,7 @@ fn setup_env(
     // Spawn a point light with shadows enabled
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            //shadows_enabled: true,
             ..default()
         },
         Transform::from_xyz(0.0, LIGHT_RADIUS, 4.0),
