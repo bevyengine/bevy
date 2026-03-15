@@ -9,6 +9,7 @@
 
 pub mod box_shadow;
 mod color_space;
+mod cursor;
 mod gradient;
 mod pipeline;
 mod render_pass;
@@ -63,8 +64,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Strikethrough, StrikethroughColor, TextBackgroundColor,
-    TextColor, TextLayoutInfo, Underline, UnderlineColor,
+    ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
+    TextBackgroundColor, TextColor, TextLayoutInfo, Underline, UnderlineColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -76,6 +77,7 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
+use crate::cursor::extract_text_cursor;
 use crate::shader_flags::INVERT;
 
 pub mod prelude {
@@ -109,7 +111,9 @@ pub mod stack_z_offsets {
     pub const BORDER_GRADIENT: f32 = 0.03;
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
+    pub const TEXT_SELECTION: f32 = 0.55;
     pub const TEXT: f32 = 0.06;
+    pub const TEXT_CURSOR: f32 = 0.065;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
 }
 
@@ -125,6 +129,7 @@ pub enum RenderUiSystems {
     ExtractTextBackgrounds,
     ExtractTextShadows,
     ExtractText,
+    ExtractCursor,
     ExtractDebug,
     ExtractGradient,
 }
@@ -222,6 +227,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractTextBackgrounds,
                     RenderUiSystems::ExtractTextShadows,
                     RenderUiSystems::ExtractText,
+                    RenderUiSystems::ExtractCursor,
                     RenderUiSystems::ExtractDebug,
                 )
                     .chain(),
@@ -238,6 +244,8 @@ impl Plugin for UiRenderPlugin {
                     extract_text_decorations.in_set(RenderUiSystems::ExtractTextBackgrounds),
                     extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
+                    extract_text_editable.in_set(RenderUiSystems::ExtractText),
+                    extract_text_cursor.in_set(RenderUiSystems::ExtractCursor),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
@@ -1067,7 +1075,13 @@ pub fn extract_text_shadows(
         }
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.span_index].entity;
+            let Some(section_entity) = computed_block
+                .entities()
+                .get(run.span_index)
+                .map(|t| t.entity)
+            else {
+                continue;
+            };
             let Ok((has_strikethrough, has_underline)) = text_decoration_query.get(section_entity)
             else {
                 continue;
@@ -1177,7 +1191,13 @@ pub fn extract_text_decorations(
             Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
 
         for run in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block.entities()[run.span_index].entity;
+            let Some(section_entity) = computed_block
+                .entities()
+                .get(run.span_index)
+                .map(|t| t.entity)
+            else {
+                continue;
+            };
             let Ok((
                 (text_background_color, maybe_strikethrough, maybe_underline),
                 text_color,
@@ -1272,6 +1292,92 @@ pub fn extract_text_decorations(
                     main_entity: entity.into(),
                 });
             }
+        }
+    }
+}
+
+pub fn extract_text_editable(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    uinode_query: Extract<
+        Query<
+            (
+                Entity,
+                &ComputedNode,
+                &UiGlobalTransform,
+                &InheritedVisibility,
+                Option<&CalculatedClip>,
+                &ComputedUiTargetCamera,
+                &TextColor,
+                &TextLayoutInfo,
+            ),
+            With<EditableText>,
+        >,
+    >,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let mut start = extracted_uinodes.glyphs.len();
+    let mut end = start + 1;
+
+    let mut camera_mapper = camera_map.get_mapper();
+    for (
+        entity,
+        uinode,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        text_color,
+        text_layout_info,
+    ) in &uinode_query
+    {
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
+
+        let color = text_color.0.to_linear();
+
+        for (
+            i,
+            PositionedGlyph {
+                position,
+                atlas_info,
+                ..
+            },
+        ) in text_layout_info.glyphs.iter().enumerate()
+        {
+            extracted_uinodes.glyphs.push(ExtractedGlyph {
+                color,
+                translation: *position,
+                rect: atlas_info.rect,
+            });
+
+            if text_layout_info
+                .glyphs
+                .get(i + 1)
+                .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
+            {
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    image: atlas_info.texture,
+                    clip: clip.map(|clip| clip.clip),
+                    extracted_camera_entity,
+                    item: ExtractedUiItem::Glyphs { range: start..end },
+                    main_entity: entity.into(),
+                    transform,
+                });
+                start = end;
+            }
+
+            end += 1;
         }
     }
 }

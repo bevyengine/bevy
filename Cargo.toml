@@ -1013,6 +1013,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "editable_text"
+path = "examples/ui/text/editable_text.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.editable_text]
+name = "Editable Text"
+description = "Demonstrates a simple, unstyled text input widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 doc-scrape-examples = true
