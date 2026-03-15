@@ -6,13 +6,13 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
     message::MessageWriter,
-    prelude::{Changed, Component},
+    prelude::{Changed, Commands, Component},
     system::{Local, NonSendMarker, Query, SystemParamItem},
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
-    ClosingWindow, CursorOptions, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window,
-    WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
+    ClosingWindow, CursorOptions, Monitor, OnMonitor, PrimaryMonitor, RawHandleWrapper, VideoMode,
+    Window, WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
     WindowResized, WindowWrapper,
 };
 use tracing::{error, info, warn};
@@ -21,14 +21,6 @@ use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::ActiveEventLoop,
 };
-
-use bevy_app::AppExit;
-use bevy_ecs::{prelude::MessageReader, query::With, system::Res};
-use bevy_math::{IVec2, UVec2};
-#[cfg(target_os = "ios")]
-use winit::platform::ios::WindowExtIOS;
-#[cfg(target_arch = "wasm32")]
-use winit::platform::web::WindowExtWebSys;
 
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
@@ -41,6 +33,13 @@ use crate::{
     winit_monitors::WinitMonitors,
     CreateMonitorParams, CreateWindowParams, WINIT_WINDOWS,
 };
+use bevy_app::AppExit;
+use bevy_ecs::{prelude::MessageReader, query::With, system::Res};
+use bevy_math::{IVec2, UVec2};
+#[cfg(target_os = "ios")]
+use winit::platform::ios::WindowExtIOS;
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::WindowExtWebSys;
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
 /// [`Window`] component.
@@ -298,13 +297,17 @@ pub(crate) struct CachedCursorOptions(CursorOptions);
 /// - [`Window::canvas`] cannot be changed after the window is created.
 /// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
 pub(crate) fn changed_windows(
-    mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
+    mut commands: Commands,
+    mut changed_windows: Query<
+        (Entity, &mut Window, &mut CachedWindow, Option<&OnMonitor>),
+        Changed<Window>,
+    >,
     monitors: Res<WinitMonitors>,
     mut window_resized: MessageWriter<WindowResized>,
     _non_send_marker: NonSendMarker,
 ) {
     WINIT_WINDOWS.with_borrow(|winit_windows| {
-        for (entity, mut window, mut cache) in &mut changed_windows {
+        for (entity, mut window, mut cache, monitor_relationship) in &mut changed_windows {
             let Some(winit_window) = winit_windows.get_window(entity) else {
                 continue;
             };
@@ -462,6 +465,24 @@ pub(crate) fn changed_windows(
                         None
                     },
                 );
+            }
+
+            if let Some(monitor_link) = monitor_relationship {
+                if let Some(winit_monitor) = winit_window.current_monitor() {
+                    if let Some(linked_monitor) = monitors.find_entity(monitor_link.0) &&
+                        winit_monitor != linked_monitor &&
+                        let Some((_, winit_monitor_entity)) = monitors.monitors.iter().find(|(h, _)| h == &winit_monitor) {
+                        commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
+                    }
+                } else {
+                    commands.entity(entity).remove::<OnMonitor>();
+                }
+            } else {
+                if let Some(winit_monitor) = winit_window.current_monitor()
+                    && let Some((_, winit_monitor_entity)) = monitors.monitors.iter()
+                    .find(|(h, _)| h == &winit_monitor) {
+                    commands.entity(entity).insert(OnMonitor(winit_monitor_entity.to_owned()));
+                }
             }
 
             if let Some(maximized) = window.internal.take_maximize_request() {
