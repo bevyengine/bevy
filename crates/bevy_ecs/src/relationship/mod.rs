@@ -740,6 +740,7 @@ impl<C> ComponentRelationshipAccessor<C> {
     where
         C: Relationship,
     {
+        // Due to https://github.com/taiki-e/portable-atomic/issues/143 we have to box this first, and then get the Arc from the box
         let getter: Box<dyn Fn(&Components) -> Option<ComponentId>> =
             Box::new(|components| components.get_id(TypeId::of::<C::RelationshipTarget>()));
         Self {
@@ -758,6 +759,7 @@ impl<C> ComponentRelationshipAccessor<C> {
     where
         C: RelationshipTarget,
     {
+        // Due to https://github.com/taiki-e/portable-atomic/issues/143 we have to box this first, and then get the Arc from the box
         let getter: Box<dyn Fn(&Components) -> Option<ComponentId>> =
             Box::new(|components| components.get_id(TypeId::of::<C::Relationship>()));
         Self {
