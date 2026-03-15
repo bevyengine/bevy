@@ -471,6 +471,12 @@ pub async fn initialize_renderer(
             max_multiview_view_count: limits
                 .max_multiview_view_count
                 .min(constrained_limits.max_multiview_view_count),
+            max_binding_array_acceleration_structure_elements_per_shader_stage: limits
+                .max_binding_array_acceleration_structure_elements_per_shader_stage
+                .min(
+                    constrained_limits
+                        .max_binding_array_acceleration_structure_elements_per_shader_stage,
+                ),
         };
     }
 
