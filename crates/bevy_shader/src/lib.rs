@@ -2,8 +2,11 @@
 
 extern crate alloc;
 
+mod compiler;
 mod shader;
 mod shader_cache;
+
+pub use compiler::*;
 pub use shader::*;
 pub use shader_cache::*;
 

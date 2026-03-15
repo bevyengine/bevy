@@ -1,4 +1,5 @@
 use super::ShaderDefVal;
+use crate::compiler::{ShaderKind, ShaderLanguage};
 use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
@@ -133,6 +134,7 @@ impl Shader {
     }
 
     /// Creates a new SPIR-V shader.
+    #[cfg(feature = "shader_format_spirv")]
     pub fn from_spirv(source: impl Into<Cow<'static, [u8]>>, path: impl Into<String>) -> Shader {
         let path = path.into();
         Shader {
@@ -152,36 +154,57 @@ impl Shader {
     pub fn from_wesl(source: impl Into<Cow<'static, str>>, path: impl Into<String>) -> Shader {
         let source = source.into();
         let path = path.into();
-        let (import_path, imports) = Shader::preprocess(&source, &path);
 
-        match import_path {
-            ShaderImport::AssetPath(asset_path) => {
-                // Create the shader import path - always starting with "/"
-                let shader_path = std::path::Path::new("/").join(&asset_path);
+        // Create the shader import path - always starting with "/"
+        let shader_path = std::path::Path::new("/").join(&path);
 
-                // Convert to a string with forward slashes and without extension
-                let import_path_str = shader_path
-                    .with_extension("")
-                    .to_string_lossy()
-                    .replace('\\', "/");
+        // Convert to a string with forward slashes and without extension
+        let import_path_str = shader_path
+            .with_extension("")
+            .to_string_lossy()
+            .replace('\\', "/");
 
-                let import_path = ShaderImport::AssetPath(import_path_str.to_string());
+        let import_path = ShaderImport::AssetPath(import_path_str.to_string());
 
-                Shader {
-                    path,
-                    imports,
-                    import_path,
-                    source: Source::Wesl(source),
-                    additional_imports: Default::default(),
-                    shader_defs: Default::default(),
-                    file_dependencies: Default::default(),
-                    validate_shader: ValidateShader::Disabled,
-                }
-            }
-            ShaderImport::Custom(_) => {
-                panic!("Wesl shaders must be imported from an asset path");
-            }
+        Shader {
+            path,
+            imports: Vec::new(),
+            import_path,
+            source: Source::Wesl(source),
+            additional_imports: Default::default(),
+            shader_defs: Default::default(),
+            file_dependencies: Default::default(),
+            validate_shader: ValidateShader::Disabled,
         }
+    }
+
+    /// Creates a new shader in a custom (user-defined) language.
+    pub fn from_custom(
+        source: impl Into<Cow<'static, str>>,
+        language: ShaderLanguage,
+        stage: Option<ShaderKind>,
+        path: impl Into<String>,
+    ) -> Shader {
+        let path = path.into();
+        Shader {
+            path: path.clone(),
+            imports: Vec::new(),
+            import_path: ShaderImport::AssetPath(path),
+            source: Source::Custom {
+                code: source.into(),
+                language,
+                stage,
+            },
+            additional_imports: Default::default(),
+            shader_defs: Default::default(),
+            file_dependencies: Default::default(),
+            validate_shader: ValidateShader::Disabled,
+        }
+    }
+
+    /// Returns the [`ShaderLanguage`] of this shader's source.
+    pub fn language(&self) -> ShaderLanguage {
+        self.source.language()
     }
 }
 
@@ -236,20 +259,60 @@ impl<'a> From<&'a Shader> for naga_oil::compose::NagaModuleDescriptor<'a> {
 #[derive(Debug, Clone)]
 pub enum Source {
     Wgsl(Cow<'static, str>),
+    #[cfg(feature = "shader_format_wesl")]
     Wesl(Cow<'static, str>),
     Glsl(Cow<'static, str>, naga::ShaderStage),
+    #[cfg(feature = "shader_format_spirv")]
     SpirV(Cow<'static, [u8]>),
-    // TODO: consider the following
-    // PrecompiledSpirVMacros(HashMap<HashSet<String>, Vec<u32>>)
-    // NagaModule(Module) ... Module impls Serialize/Deserialize
+    Custom {
+        code: Cow<'static, str>,
+        language: ShaderLanguage,
+        stage: Option<ShaderKind>,
+    },
 }
 
 impl Source {
-    /// The underlying source code string, unless it is SPIR-V.
+    /// The underlying source code string, unless it is binary.
     pub fn as_str(&self) -> &str {
         match self {
-            Source::Wgsl(s) | Source::Wesl(s) | Source::Glsl(s, _) => s,
+            Source::Wgsl(s) => s,
+            Source::Glsl(s, _) => s,
+            #[cfg(feature = "shader_format_wesl")]
+            Source::Wesl(s) => s,
+            #[cfg(feature = "shader_format_spirv")]
             Source::SpirV(_) => panic!("spirv not yet implemented"),
+            Source::Custom { code: s, .. } => s,
+        }
+    }
+
+    /// Returns the [`ShaderLanguage`] corresponding to this source type.
+    pub fn language(&self) -> ShaderLanguage {
+        match self {
+            Source::Wgsl(_) => ShaderLanguage::Wgsl,
+            #[cfg(feature = "shader_format_wesl")]
+            Source::Wesl(_) => ShaderLanguage::Wesl,
+            Source::Glsl(_, _) => ShaderLanguage::Glsl,
+            #[cfg(feature = "shader_format_spirv")]
+            Source::SpirV(_) => ShaderLanguage::SpirV,
+            Source::Custom { language, .. } => language.clone(),
+        }
+    }
+
+    /// Returns the pipeline stage this shader targets, if applicable.
+    pub fn stage(&self) -> Option<ShaderKind> {
+        match self {
+            Source::Glsl(_, stage) => Some((*stage).into()),
+            Source::Custom { stage, .. } => *stage,
+            _ => None,
+        }
+    }
+
+    /// Returns the binary data if this is a SPIR-V source, `None` otherwise.
+    pub fn as_binary(&self) -> Option<&[u8]> {
+        match self {
+            #[cfg(feature = "shader_format_spirv")]
+            Source::SpirV(data) => Some(data),
+            _ => None,
         }
     }
 }
@@ -264,8 +327,14 @@ impl From<&Source> for naga_oil::compose::ShaderLanguage {
             Source::Glsl(_, _) => panic!(
                 "GLSL is not supported in this configuration; use the feature `shader_format_glsl`"
             ),
+            #[cfg(feature = "shader_format_spirv")]
             Source::SpirV(_) => panic!("spirv not yet implemented"),
+            #[cfg(feature = "shader_format_wesl")]
             Source::Wesl(_) => panic!("wesl not yet implemented"),
+            Source::Custom { language, .. } => panic!(
+                "Custom shader language `{language}` cannot be used with the naga_oil composer; \
+                 register a ShaderCompiler for this language via PipelineCache::register_shader_compiler"
+            ),
         }
     }
 }
@@ -286,8 +355,14 @@ impl From<&Source> for naga_oil::compose::ShaderType {
             Source::Glsl(_, _) => panic!(
                 "GLSL is not supported in this configuration; use the feature `shader_format_glsl`"
             ),
+            #[cfg(feature = "shader_format_spirv")]
             Source::SpirV(_) => panic!("spirv not yet implemented"),
+            #[cfg(feature = "shader_format_wesl")]
             Source::Wesl(_) => panic!("wesl not yet implemented"),
+            Source::Custom { language, .. } => panic!(
+                "Custom shader language `{language}` cannot be used with the naga_oil composer; \
+                 register a ShaderCompiler for this language via PipelineCache::register_shader_compiler"
+            ),
         }
     }
 }
@@ -344,6 +419,7 @@ impl AssetLoader for ShaderLoader {
             );
         }
         let mut shader = match ext {
+            #[cfg(feature = "shader_format_spirv")]
             "spv" => Shader::from_spirv(bytes, load_context.path().path().to_string_lossy()),
             "wgsl" => Shader::from_wgsl_with_defs(
                 String::from_utf8(bytes)?,
