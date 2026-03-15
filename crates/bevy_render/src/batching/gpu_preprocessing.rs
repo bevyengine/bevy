@@ -1,5 +1,6 @@
 //! Batching functionality when GPU preprocessing is in use.
 
+use alloc::sync::Arc;
 use core::{
     any::TypeId,
     marker::PhantomData,
@@ -40,7 +41,9 @@ use crate::{
         ViewSortedRenderPhases,
     },
     render_resource::{
-        AtomicPod, AtomicRawBufferVec, Buffer, GpuArrayBufferable, RawBufferVec, UninitBufferVec,
+        AtomicPod, AtomicRawBufferVec, AtomicSparseBufferVec, Buffer, GpuArrayBufferable,
+        PipelineCache, RawBufferVec, SparseBufferUpdateBindGroups, SparseBufferUpdateJobs,
+        SparseBufferUpdatePipelines, UninitBufferVec,
     },
     renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
     sync_world::MainEntity,
@@ -176,7 +179,7 @@ where
     /// can spawn or despawn between frames. Instead, each current buffer
     /// data input uniform is expected to contain the index of the
     /// corresponding buffer data input uniform in this list.
-    pub previous_input_buffer: InstanceInputUniformBuffer<BDI>,
+    pub previous_input_buffer: PreviousInstanceInputUniformBuffer<BDI>,
 
     /// The data needed to render buffers for each phase.
     ///
@@ -193,7 +196,7 @@ where
     fn default() -> Self {
         BatchedInstanceBuffers {
             current_input_buffer: InstanceInputUniformBuffer::new(),
-            previous_input_buffer: InstanceInputUniformBuffer::new(),
+            previous_input_buffer: PreviousInstanceInputUniformBuffer::new(),
             phase_instance_buffers: HashMap::default(),
         }
     }
@@ -284,16 +287,13 @@ where
     BDI: AtomicPod,
 {
     /// The buffer containing the data that will be uploaded to the GPU.
-    buffer: AtomicRawBufferVec<BDI>,
+    buffer: AtomicSparseBufferVec<BDI>,
 
     /// Indices of slots that are free within the buffer.
     ///
     /// When adding data, we preferentially overwrite these slots first before
     /// growing the buffer itself.
     free_uniform_indices: Vec<u32>,
-
-    /// The number of elements pushed since the last [`Self::reserve`].
-    atomic_len: AtomicU32,
 }
 
 impl<BDI> InstanceInputUniformBuffer<BDI>
@@ -303,9 +303,12 @@ where
     /// Creates a new, empty buffer.
     pub fn new() -> InstanceInputUniformBuffer<BDI> {
         InstanceInputUniformBuffer {
-            buffer: AtomicRawBufferVec::new(BufferUsages::STORAGE),
+            buffer: AtomicSparseBufferVec::new(
+                BufferUsages::STORAGE,
+                8,
+                Arc::from("instance input uniform buffer"),
+            ),
             free_uniform_indices: vec![],
-            atomic_len: AtomicU32::new(0),
         }
     }
 
@@ -313,12 +316,12 @@ where
     pub fn clear(&mut self) {
         self.buffer.clear();
         self.free_uniform_indices.clear();
-        *self.atomic_len.get_mut() = 0;
     }
 
-    /// Returns the [`RawBufferVec`] corresponding to this input uniform buffer.
+    /// Returns the [`AtomicSparseBufferVec`] corresponding to this input
+    /// uniform buffer.
     #[inline]
-    pub fn buffer(&self) -> &AtomicRawBufferVec<BDI> {
+    pub fn buffer(&self) -> &AtomicSparseBufferVec<BDI> {
         &self.buffer
     }
 
@@ -370,31 +373,6 @@ where
         self.buffer.set(uniform_index, element);
     }
 
-    /// Pre-allocates capacity for concurrent [`Self::push`] calls.
-    pub fn reserve(&mut self, capacity: u32) {
-        self.buffer.grow(capacity);
-        *self.atomic_len.get_mut() = 0;
-    }
-
-    /// Appends a value and returns its index. Thread-safe.
-    ///
-    /// [`Self::reserve`] must have been called first with sufficient capacity.
-    pub fn push(&self, value: BDI) -> u32 {
-        let index = self.atomic_len.fetch_add(1, Ordering::Relaxed);
-        debug_assert!(
-            (index as usize) < self.buffer.len() as usize,
-            "push exceeded pre-allocated capacity"
-        );
-        self.buffer.set(index, value);
-        index
-    }
-
-    /// Trims the buffer to the number of elements pushed since the last
-    /// [`Self::reserve`].
-    pub fn truncate(&mut self) {
-        self.buffer.truncate(*self.atomic_len.get_mut());
-    }
-
     // Ensures that the buffers are nonempty, which the GPU requires before an
     // upload can take place.
     pub fn ensure_nonempty(&mut self) {
@@ -416,12 +394,108 @@ where
 
     /// Consumes this [`InstanceInputUniformBuffer`] and returns the raw buffer
     /// ready to be uploaded to the GPU.
-    pub fn into_buffer(self) -> AtomicRawBufferVec<BDI> {
+    pub fn into_buffer(self) -> AtomicSparseBufferVec<BDI> {
         self.buffer
     }
 }
 
 impl<BDI> Default for InstanceInputUniformBuffer<BDI>
+where
+    BDI: AtomicPod,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Stores the input uniforms for the previous frame.
+///
+/// This doesn't use a sparse buffer because it's cleared out every frame and
+/// only ever pushed onto. The length is stored in an atomic field, so multiple
+/// threads can push simultaneously.
+///
+/// The [`AtomicRawBufferVec`] serves as a backing store only. We reserve a
+/// large size, enough to hold all push operations that could possibly occur on
+/// the worker threads, and only synchronize the changed portion of the buffer
+/// to the GPU on each frame.
+pub struct PreviousInstanceInputUniformBuffer<BDI>
+where
+    BDI: AtomicPod,
+{
+    /// The buffer containing the data that will be uploaded to the GPU.
+    buffer: AtomicRawBufferVec<BDI>,
+
+    /// The number of elements pushed since the last [`Self::reserve`].
+    atomic_len: AtomicU32,
+}
+
+impl<BDI> PreviousInstanceInputUniformBuffer<BDI>
+where
+    BDI: AtomicPod,
+{
+    /// Creates a new, empty buffer.
+    pub fn new() -> PreviousInstanceInputUniformBuffer<BDI> {
+        PreviousInstanceInputUniformBuffer {
+            buffer: AtomicRawBufferVec::with_label(
+                BufferUsages::STORAGE,
+                "previous instance input uniform buffer",
+            ),
+            atomic_len: AtomicU32::new(0),
+        }
+    }
+
+    /// Writes the buffer to the GPU.
+    fn write_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+        // Only write the modified portion of this buffer. Typically, that
+        // portion will be much smaller than the full size of the buffer.
+        self.buffer.write_buffer_range(
+            0..(self.atomic_len.load(Ordering::Relaxed) as usize),
+            render_device,
+            render_queue,
+        );
+    }
+
+    /// Clears out the buffer in preparation for a new frame.
+    pub fn clear(&mut self) {
+        // Don't actually clear the underlying buffer out, as then we'd have to
+        // grow it again and that would be slow.
+        self.atomic_len.store(0, Ordering::Relaxed);
+    }
+
+    /// Pre-allocates capacity for concurrent [`Self::push`] calls.
+    pub fn reserve(&mut self, capacity: u32) {
+        self.buffer.grow(capacity);
+        *self.atomic_len.get_mut() = 0;
+    }
+
+    /// Appends a value and returns its index. Thread-safe.
+    ///
+    /// [`Self::reserve`] must have been called first with sufficient capacity.
+    pub fn push(&self, value: BDI) -> u32 {
+        let index = self.atomic_len.fetch_add(1, Ordering::Relaxed);
+        debug_assert!(
+            (index as usize) < self.buffer.len() as usize,
+            "push exceeded pre-allocated capacity"
+        );
+        self.buffer.set(index, value);
+        index
+    }
+
+    /// Pushes a dummy element onto the backing store of this buffer, if this
+    /// buffer is empty.
+    pub fn ensure_nonempty(&mut self) {
+        if self.buffer.is_empty() {
+            self.buffer.push(default());
+        }
+    }
+
+    /// Returns the GPU buffer, if allocated.
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.buffer.buffer()
+    }
+}
+
+impl<BDI> Default for PreviousInstanceInputUniformBuffer<BDI>
 where
     BDI: AtomicPod,
 {
@@ -2107,6 +2181,10 @@ pub fn write_batched_instance_buffers<GFBD>(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
+    pipeline_cache: Res<PipelineCache>,
+    mut sparse_buffer_update_jobs: ResMut<SparseBufferUpdateJobs>,
+    mut sparse_buffer_update_bind_groups: ResMut<SparseBufferUpdateBindGroups>,
+    sparse_buffer_update_pipelines: Res<SparseBufferUpdatePipelines>,
 ) where
     GFBD: GetFullBatchData,
 {
@@ -2124,13 +2202,11 @@ pub fn write_batched_instance_buffers<GFBD>(
             let _span = bevy_log::info_span!("write_current_input_buffers").entered();
             current_input_buffer
                 .buffer
-                .write_buffer(render_device, render_queue);
+                .write_buffers(render_device, render_queue);
         });
         scope.spawn(async {
             let _span = bevy_log::info_span!("write_previous_input_buffers").entered();
-            previous_input_buffer
-                .buffer
-                .write_buffer(render_device, render_queue);
+            previous_input_buffer.write_buffer(render_device, render_queue);
         });
 
         for phase_instance_buffers in phase_instance_buffers.values_mut() {
@@ -2184,6 +2260,16 @@ pub fn write_batched_instance_buffers<GFBD>(
             }
         }
     });
+
+    // Create the resources necessary to perform sparse uploads of the current
+    // input buffer if necessary.
+    current_input_buffer.buffer.prepare_to_populate_buffers(
+        render_device,
+        &pipeline_cache,
+        &mut sparse_buffer_update_jobs,
+        &mut sparse_buffer_update_bind_groups,
+        &sparse_buffer_update_pipelines,
+    );
 }
 
 pub fn clear_indirect_parameters_buffers(

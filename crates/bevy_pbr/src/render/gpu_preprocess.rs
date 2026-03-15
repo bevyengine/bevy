@@ -47,6 +47,7 @@ use bevy_render::{
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindingResource, Buffer,
         BufferBinding, CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
         DynamicBindGroupLayoutEntries, PipelineCache, RawBufferVec, ShaderStages, ShaderType,
+        SparseBufferUpdateBindGroups, SparseBufferUpdateJobs, SparseBufferUpdatePipelines,
         SpecializedComputePipeline, SpecializedComputePipelines, TextureSampleType,
         UninitBufferVec,
     },
@@ -1551,7 +1552,7 @@ pub fn prepare_preprocess_bind_groups(
 
     let (Some(current_input_buffer), Some(previous_input_buffer)) = (
         current_input_buffer_vec.buffer().buffer(),
-        previous_input_buffer_vec.buffer().buffer(),
+        previous_input_buffer_vec.buffer(),
     ) else {
         return;
     };
@@ -2508,6 +2509,17 @@ pub fn write_mesh_culling_data_buffer(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
+    pipeline_cache: Res<PipelineCache>,
+    mut sparse_buffer_update_jobs: ResMut<SparseBufferUpdateJobs>,
+    mut sparse_buffer_update_bind_groups: ResMut<SparseBufferUpdateBindGroups>,
+    sparse_buffer_update_pipelines: Res<SparseBufferUpdatePipelines>,
 ) {
-    mesh_culling_data_buffer.write_buffer(&render_device, &render_queue);
+    mesh_culling_data_buffer.write_buffers(&render_device, &render_queue);
+    mesh_culling_data_buffer.prepare_to_populate_buffers(
+        &render_device,
+        &pipeline_cache,
+        &mut sparse_buffer_update_jobs,
+        &mut sparse_buffer_update_bind_groups,
+        &sparse_buffer_update_pipelines,
+    );
 }
