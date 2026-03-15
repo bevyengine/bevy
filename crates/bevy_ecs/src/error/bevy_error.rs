@@ -7,6 +7,13 @@ use core::{
 /// The built in "universal" Bevy error type. This has a blanket [`From`] impl for any type that implements Rust's [`Error`],
 /// meaning it can be used as a "catch all" error.
 ///
+/// # Severity
+///
+/// Each [`BevyError`] carries a [`Severity`] value that indicates how serious the error is. Severity is advisory
+/// metadata used by error handlers to decide how to react (for example: ignore, log, or panic).
+///
+/// By default, errors have [`Severity::Critical`], which preserves Bevy’s known panic-on-error behavior unless explicitly overridden.
+///
 /// # Backtraces
 ///
 /// When used with the `backtrace` Cargo feature, it will capture a backtrace when the error is constructed (generally in the [`From`] impl]).
@@ -97,8 +104,66 @@ impl BevyError {
 /// of the current impl is nice.
 struct InnerBevyError {
     error: Box<dyn Error + Send + Sync + 'static>,
+    severity: Severity,
     #[cfg(feature = "backtrace")]
     backtrace: std::backtrace::Backtrace,
+}
+
+/// Indicates how severe a [`BevyError`] is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Severity {
+    /// The error can be safely ignored.
+    Ignore,
+    /// Something unexpected but recoverable happened.
+    Warning,
+    /// A real error occurred, but the program may continue.
+    Error,
+    /// A fatal error; the default handler may panic.
+    Critical,
+}
+
+impl BevyError {
+    /// Returns the severity of this error.
+    pub fn severity(&self) -> Severity {
+        self.inner.severity
+    }
+
+    /// Returns this error with its severity overridden.
+    ///
+    /// Note that this doesn't change the underlying error value;
+    /// only the [`Severity`] metadata used by the error handler.
+    pub fn with_severity(mut self, severity: Severity) -> Self {
+        self.inner.severity = severity;
+        self
+    }
+}
+
+/// Extension methods for annotating errors with a [`Severity`].
+pub trait ResultSeverityExt<T> {
+    /// Overrides the severity of the error if this result is `Err`.
+    /// This does not change control flow; it only annotates the error.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::error::{BevyError, ResultSeverityExt, Severity};
+    /// fn fallible() -> Result<(), BevyError> {
+    ///     // This failure is expected in some contexts, so we downgrade its severity.
+    ///     let _parsed: usize = "I am not a number"
+    ///         .parse()
+    ///         .with_severity(Severity::Warning)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    fn with_severity(self, severity: Severity) -> Result<T, BevyError>;
+}
+
+impl<T, E> ResultSeverityExt<T> for Result<T, E>
+where
+    E: Into<BevyError>,
+{
+    fn with_severity(self, severity: Severity) -> Result<T, BevyError> {
+        self.map_err(|e| e.into().with_severity(severity))
+    }
 }
 
 // NOTE: writing the impl this way gives us From<&str> ... nice!
@@ -111,6 +176,7 @@ where
         BevyError {
             inner: Box::new(InnerBevyError {
                 error: error.into(),
+                severity: Severity::Critical,
                 #[cfg(feature = "backtrace")]
                 backtrace: std::backtrace::Backtrace::capture(),
             }),
