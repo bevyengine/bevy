@@ -107,6 +107,11 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(35) var blue_noise_texture: texture_2d_array<f32>;
 #endif // BLUE_NOISE_TEXTURE
 
+@group(0) @binding(36) var ltc_lut1: texture_2d<f32>;
+@group(0) @binding(37) var ltc_lut1_sampler: sampler;
+@group(0) @binding(38) var ltc_lut2: texture_2d<f32>;
+@group(0) @binding(39) var ltc_lut2_sampler: sampler;
+
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 @group(1) @binding(0) var diffuse_environment_maps: binding_array<texture_cube<f32>, 8u>;
 @group(1) @binding(1) var specular_environment_maps: binding_array<texture_cube<f32>, 8u>;
