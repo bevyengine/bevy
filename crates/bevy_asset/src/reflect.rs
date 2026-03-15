@@ -364,7 +364,7 @@ impl ReflectSerializerProcessor for HandleSerializeProcessor {
                 && type_info.type_path().starts_with("bevy_asset::Handle")
             {
                 warn!(
-                    "HandleSerializerProcessor attempted to serialize a handle type \"{}\" without type data. This likely means the asset type was not registered.",
+                    "HandleSerializeProcessor attempted to serialize a handle type \"{}\" without type data. This likely means the asset type was not registered.",
                     type_info.type_path()
                 );
             }

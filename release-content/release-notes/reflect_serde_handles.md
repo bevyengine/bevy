@@ -11,7 +11,7 @@ restricted by the fact that handles could not be serialized or deserialized. A l
 want to put into a scene, like 3D models or even other scenes, need to reference asset handles for
 their data.
 
-To resolve this, we've introduced `HandleSerializerProcessor` and `HandleDeserializerProcessor` to
+To resolve this, we've introduced `HandleSerializeProcessor` and `HandleDeserializeProcessor` to
 be used with `TypedReflectSerializer::with_processor` and `TypedReflectDeserializer::with_processor`
 respectively. These allow the reflection (de)serialization to store and load handles! Serializing a
 handle will store its "identifying" information (e.g., asset path), and deserializing the handle
