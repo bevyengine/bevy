@@ -330,10 +330,6 @@ pub enum VertexAttributeValues {
 
 impl VertexAttributeValues {
     /// Creates a new [`VertexAttributeValues`] with the storage for given [`VertexFormat`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if the [`VertexFormat`] is not supported.
     pub(crate) fn new(format: VertexFormat) -> Self {
         match format {
             VertexFormat::Uint8x2 => VertexAttributeValues::Uint8x2(Vec::new()),
@@ -364,23 +360,23 @@ impl VertexAttributeValues {
             VertexFormat::Sint32x2 => VertexAttributeValues::Sint32x2(Vec::new()),
             VertexFormat::Sint32x3 => VertexAttributeValues::Sint32x3(Vec::new()),
             VertexFormat::Sint32x4 => VertexAttributeValues::Sint32x4(Vec::new()),
-            VertexFormat::Uint8 => panic!("Uint8 is not supported"),
-            VertexFormat::Sint8 => panic!("Sint8 is not supported"),
-            VertexFormat::Snorm8 => panic!("Snorm8 is not supported"),
-            VertexFormat::Unorm8 => panic!("Unorm8 is not supported"),
-            VertexFormat::Uint16 => panic!("Uint16 is not supported"),
-            VertexFormat::Sint16 => panic!("Sint16 is not supported"),
-            VertexFormat::Snorm16 => panic!("Snorm16 is not supported"),
-            VertexFormat::Unorm16 => panic!("Unorm16 is not supported"),
-            VertexFormat::Float16 => panic!("Float16 is not supported"),
-            VertexFormat::Float16x2 => panic!("Float16x2 is not supported"),
-            VertexFormat::Float16x4 => panic!("Float16x4 is not supported"),
-            VertexFormat::Float64 => panic!("Float64 is not supported"),
-            VertexFormat::Float64x2 => panic!("Float64x2 is not supported"),
-            VertexFormat::Float64x3 => panic!("Float64x3 is not supported"),
-            VertexFormat::Float64x4 => panic!("Float64x4 is not supported"),
-            VertexFormat::Unorm8x4Bgra => panic!("Unorm8x4Bgra is not supported"),
-            VertexFormat::Unorm10_10_10_2 => panic!("Unorm10_10_10_2 is not supported"),
+            VertexFormat::Uint8 => VertexAttributeValues::Uint8(Vec::new()),
+            VertexFormat::Sint8 => VertexAttributeValues::Sint8(Vec::new()),
+            VertexFormat::Snorm8 => VertexAttributeValues::Snorm8(Vec::new()),
+            VertexFormat::Unorm8 => VertexAttributeValues::Unorm8(Vec::new()),
+            VertexFormat::Uint16 => VertexAttributeValues::Uint16(Vec::new()),
+            VertexFormat::Sint16 => VertexAttributeValues::Sint16(Vec::new()),
+            VertexFormat::Snorm16 => VertexAttributeValues::Snorm16(Vec::new()),
+            VertexFormat::Unorm16 => VertexAttributeValues::Unorm16(Vec::new()),
+            VertexFormat::Float16 => VertexAttributeValues::Float16(Vec::new()),
+            VertexFormat::Float16x2 => VertexAttributeValues::Float16x2(Vec::new()),
+            VertexFormat::Float16x4 => VertexAttributeValues::Float16x4(Vec::new()),
+            VertexFormat::Float64 => VertexAttributeValues::Float64(Vec::new()),
+            VertexFormat::Float64x2 => VertexAttributeValues::Float64x2(Vec::new()),
+            VertexFormat::Float64x3 => VertexAttributeValues::Float64x3(Vec::new()),
+            VertexFormat::Float64x4 => VertexAttributeValues::Float64x4(Vec::new()),
+            VertexFormat::Unorm8x4Bgra => VertexAttributeValues::Unorm8x4Bgra(Vec::new()),
+            VertexFormat::Unorm10_10_10_2 => VertexAttributeValues::Unorm10_10_10_2(Vec::new()),
         }
     }
 
