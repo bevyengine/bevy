@@ -4,7 +4,7 @@ use crate::LineGizmoUniform;
 use bevy_camera::visibility::RenderLayers;
 use bevy_gizmos::retained::Gizmo;
 use bevy_math::{Affine3, Affine3Ext};
-use bevy_render::sync_world::{MainEntity, TemporarySubEntity};
+use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_utils::once;
 use tracing::warn;
 use {
@@ -75,7 +75,7 @@ pub(crate) fn extract_linegizmos(
                 handle: gizmo.handle.clone(),
             },
             MainEntity::from(entity),
-            TemporarySubEntity,
+            TemporaryRenderEntity::default(),
         ));
     }
     *previous_len = values.len();

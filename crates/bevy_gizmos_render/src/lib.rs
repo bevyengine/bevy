@@ -69,7 +69,7 @@ use {
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_resource::{BindGroupLayoutDescriptor, PipelineCache, VertexAttribute, VertexStepMode},
-    sync_world::TemporarySubEntity,
+    sync_world::TemporaryRenderEntity,
 };
 
 use bevy_gizmos::{
@@ -212,7 +212,7 @@ fn extract_gizmo_data(
             // The immediate mode API does not have a main world entity to refer to,
             // but we do need MainEntity on this render entity for the systems to find it.
             MainEntity::from(Entity::PLACEHOLDER),
-            TemporarySubEntity,
+            TemporaryRenderEntity::default(),
         ));
     }
 }

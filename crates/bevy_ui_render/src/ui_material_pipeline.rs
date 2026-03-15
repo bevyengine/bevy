@@ -359,7 +359,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         };
 
         extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
-            render_entity: commands.spawn(TemporarySubEntity).id(),
+            render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
             stack_index: computed_node.stack_index,
             transform: transform.into(),
             material: handle.id(),

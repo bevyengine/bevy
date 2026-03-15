@@ -9,9 +9,8 @@ use bevy_ecs::{
     query::Has,
     system::{Commands, Query, ResMut},
 };
-use bevy_extract::TemporarySubEntity;
 use bevy_math::{Vec2, Vec3};
-use bevy_render::Extract;
+use bevy_render::{Extract, sync_world::TemporaryRenderEntity};
 use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{
     ComputedTextBlock, PositionedGlyph, Strikethrough, StrikethroughColor, TextBackgroundColor,
@@ -82,7 +81,7 @@ pub fn extract_text2d_sprite(
             let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
                 continue;
             };
-            let render_entity = commands.spawn(TemporarySubEntity).id(); // using TemporaryRenderEntity fails with expected value, found type alias `TemporaryRenderEntity`
+            let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
             let offset = run.bounds.center();
             let transform = *global_transform
                 * GlobalTransform::from_translation(top_left.extend(0.))
@@ -131,7 +130,7 @@ pub fn extract_text2d_sprite(
                     .get(i + 1)
                     .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
                 {
-                    let render_entity = commands.spawn(TemporarySubEntity).id();
+                    let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                     extracted_sprites.sprites.push(ExtractedSprite {
                         main_entity,
                         render_entity,
@@ -159,7 +158,7 @@ pub fn extract_text2d_sprite(
                 };
 
                 if has_strikethrough {
-                    let render_entity = commands.spawn(TemporarySubEntity).id();
+                    let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                     let offset = run.strikethrough_position();
                     let transform =
                         shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
@@ -181,7 +180,7 @@ pub fn extract_text2d_sprite(
                 }
 
                 if has_underline {
-                    let render_entity = commands.spawn(TemporarySubEntity).id();
+                    let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                     let offset = run.underline_position();
                     let transform =
                         shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
@@ -241,7 +240,7 @@ pub fn extract_text2d_sprite(
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
             }) {
-                let render_entity = commands.spawn(TemporarySubEntity).id();
+                let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                 extracted_sprites.sprites.push(ExtractedSprite {
                     main_entity,
                     render_entity,
@@ -277,7 +276,7 @@ pub fn extract_text2d_sprite(
                     .map(|c| c.0)
                     .unwrap_or(text_color.0)
                     .to_linear();
-                let render_entity = commands.spawn(TemporarySubEntity).id();
+                let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                 let offset = run.strikethrough_position();
                 let transform = *global_transform
                     * GlobalTransform::from_translation(top_left.extend(0.))
@@ -305,7 +304,7 @@ pub fn extract_text2d_sprite(
                     .map(|c| c.0)
                     .unwrap_or(text_color.0)
                     .to_linear();
-                let render_entity = commands.spawn(TemporarySubEntity).id();
+                let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                 let offset = run.underline_position();
                 let transform = *global_transform
                     * GlobalTransform::from_translation(top_left.extend(0.))

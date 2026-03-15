@@ -205,7 +205,7 @@ pub type MainEntityHashSet = HashSet<MainEntity, EntityHash>;
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
-pub struct TemporarySubEntity;
+pub struct TemporarySubEntity<L: AppLabel + Clone + Eq + Copy + Default>(PhantomData<L>);
 
 /// A record enum to what entities with [`SyncToSubWorld`] have been added or removed.
 #[derive(Debug)]
@@ -269,9 +269,9 @@ pub(crate) fn entity_sync_system<L: AppLabel + Default + Clone + Eq + Copy>(
     });
 }
 
-pub(crate) fn despawn_temporary_sub_entities(
+pub(crate) fn despawn_temporary_sub_entities<L: AppLabel + Clone + Eq + Copy + Default>(
     world: &mut World,
-    state: &mut SystemState<Query<Entity, With<TemporarySubEntity>>>,
+    state: &mut SystemState<Query<Entity, With<TemporarySubEntity<L>>>>,
     mut local: Local<Vec<Entity>>,
 ) {
     let query = state.get(world);

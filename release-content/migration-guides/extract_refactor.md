@@ -62,4 +62,4 @@ After:
 impl SyncComponent<RenderApp> for TemporalAntiAliasing {
 ```
 
-- Use `TemporarySubEntity` instead of `TemporaryRenderEntity`
+- Use `TemporaryRenderEntity::default()` instead of `TemporaryRenderEntity`

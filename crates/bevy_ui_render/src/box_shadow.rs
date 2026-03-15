@@ -17,7 +17,7 @@ use bevy_ecs::{
 use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, Affine2, FloatOrd, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
-use bevy_render::sync_world::{MainEntity, TemporarySubEntity};
+use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -281,7 +281,7 @@ pub fn extract_shadows(
             };
 
             extracted_box_shadows.box_shadows.push(ExtractedBoxShadow {
-                render_entity: commands.spawn(TemporarySubEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 stack_index: uinode.stack_index,
                 transform: Affine2::from(transform) * Affine2::from_translation(offset),
                 color: drop_shadow.color.into(),

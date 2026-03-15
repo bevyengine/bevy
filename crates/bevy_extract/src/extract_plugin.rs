@@ -77,7 +77,7 @@ impl<L: AppLabel + Default + Clone + Eq + Copy> Plugin for ExtractPlugin<L> {
                 // This set applies the commands from the extract schedule while the sub schedule
                 // is running in parallel with the main app.
                 apply_extract_commands.in_set(self.extract_set),
-                despawn_temporary_sub_entities.in_set(self.despawn_set),
+                despawn_temporary_sub_entities::<L>.in_set(self.despawn_set),
             ),
         );
 
