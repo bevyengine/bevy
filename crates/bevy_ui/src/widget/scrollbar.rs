@@ -6,13 +6,16 @@ use bevy_ecs::{
     observer::On,
     query::{With, Without},
     reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
 use bevy_math::Vec2;
 use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui::{
-    ComputedNode, ComputedUiRenderTargetInfo, Node, ScrollPosition, UiGlobalTransform, UiScale, Val,
+
+use crate::{
+    ui_layout_system, ui_stack_system, widget::popover, ComputedNode, ComputedUiRenderTargetInfo,
+    Node, ScrollPosition, UiGlobalTransform, UiScale, UiSystems, Val,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
@@ -243,7 +246,7 @@ fn scrollbar_on_drag_cancel(
     }
 }
 
-fn update_scrollbar_thumb(
+pub fn update_scrollbar_thumb(
     q_scroll_area: Query<(&ScrollPosition, &ComputedNode)>,
     q_scrollbar: Query<(&Scrollbar, &ComputedNode, &Children)>,
     mut q_thumb: Query<&mut Node, With<CoreScrollbarThumb>>,
@@ -363,6 +366,13 @@ impl Plugin for ScrollbarPlugin {
             .add_observer(scrollbar_on_drag_end)
             .add_observer(scrollbar_on_drag_cancel)
             .add_observer(scrollbar_on_drag)
-            .add_systems(PostUpdate, update_scrollbar_thumb);
+            .add_systems(
+                PostUpdate,
+                update_scrollbar_thumb
+                    .ambiguous_with(popover::position_popover)
+                    .ambiguous_with(ui_stack_system)
+                    .ambiguous_with(ui_layout_system)
+                    .in_set(UiSystems::Prepare),
+            );
     }
 }

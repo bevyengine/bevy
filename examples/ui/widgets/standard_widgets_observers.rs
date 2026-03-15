@@ -19,10 +19,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            TabNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .insert_resource(DemoWidgetStates { slider_value: 50.0 })
         .add_systems(Startup, setup)
         .add_observer(button_on_interaction::<Add, Pressed>)
