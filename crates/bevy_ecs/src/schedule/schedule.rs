@@ -541,7 +541,6 @@ impl Schedule {
         });
 
         let error_handler = world.default_error_handler();
-
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
             .run(&mut self.executable, world, None, error_handler);
