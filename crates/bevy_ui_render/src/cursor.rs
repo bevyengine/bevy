@@ -45,7 +45,8 @@ pub fn extract_text_cursor(
     ) in text_node_query.iter()
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if !inherited_visibility.get() || uinode.is_empty() {
+        if !inherited_visibility.get() {
+            // || uinode.is_empty() {
             continue;
         }
 

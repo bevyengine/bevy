@@ -12,21 +12,18 @@ use bevy_ecs::{
     query::With,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},
-    world::{Mut, Ref},
+    world::Ref,
 };
 use bevy_image::prelude::*;
 use bevy_log::warn_once;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, EditableText, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak,
-    LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
-    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
-    TextWriter,
+    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak, LineHeight,
+    RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 extern crate alloc;
-use alloc::borrow::Cow;
-use parley::{FontStack, StyleProperty};
 use taffy::style::AvailableSpace;
 use tracing::error;
 
@@ -328,194 +325,6 @@ pub fn measure_text_system(
     }
 }
 
-/// [`measure_text_system`] iterates over [`TextSpan`](bevy_text::TextSpan).
-/// An [`EditableText`] is a single instance, so we use this helper struct.
-pub struct EditableTextAsSpan<'a> {
-    item: Option<(Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
-}
-
-impl<'a> Iterator for EditableTextAsSpan<'a> {
-    type Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.item.take()
-    }
-}
-
-impl<'a> EditableTextAsSpan<'a> {
-    pub fn new(
-        entity: Entity,
-        text: &'a str,
-        text_font: &'a TextFont,
-        text_color: TextColor,
-        line_height: LineHeight,
-    ) -> Self {
-        Self {
-            item: Some((entity, 1, text, text_font, text_color.0, line_height)),
-        }
-    }
-}
-
-/// Analogous to [`measure_text_system`] but for a single [`EditableText`]
-pub fn measure_editable_text_system(
-    fonts: Res<Assets<Font>>,
-    mut text_query: Query<
-        (
-            Entity,
-            &mut EditableText,
-            Ref<TextLayout>,
-            &mut ContentSize,
-            &mut TextNodeFlags,
-            &mut ComputedTextBlock,
-            Ref<ComputedUiRenderTargetInfo>,
-            &ComputedNode,
-            Ref<TextFont>,
-            Ref<TextColor>,
-            Ref<LineHeight>,
-        ),
-        With<Node>,
-    >,
-    mut text_pipeline: ResMut<TextPipeline>,
-    mut font_system: ResMut<FontCx>,
-    mut layout_cx: ResMut<LayoutCx>,
-    rem_size: Res<RemSize>,
-) {
-    for (
-        entity,
-        mut text,
-        block,
-        mut content_size,
-        mut text_flags,
-        mut computed,
-        computed_target,
-        computed_node,
-        text_font,
-        text_color,
-        line_height,
-    ) in &mut text_query
-    {
-        // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
-        // 1e-5 epsilon to ignore tiny scale factor float errors
-        if !(1e-5
-            < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
-            || computed.needs_rerender(computed_target.is_changed(), rem_size.is_changed())
-            || text.is_changed()
-            || text_flags.needs_measure_fn
-            || content_size.is_added())
-        {
-            continue;
-        }
-
-        let logical_viewport_size = computed_target.logical_size();
-
-        let (font_changes_required, font_size) =
-            check_style(&mut text, logical_viewport_size, &text_font, &rem_size);
-        if font_changes_required {
-            let editor = text.editor_mut();
-
-            editor.set_scale(computed_target.scale_factor);
-            text.cursor_width = font_size * CURSOR_SCALE;
-
-            text_flags.needs_measure_fn = true;
-
-            continue;
-        }
-
-        let t = text.value().to_string();
-        let text_spans = EditableTextAsSpan::new(entity, &t, &text_font, *text_color, *line_height);
-
-        match text_pipeline.create_text_measure(
-            entity,
-            fonts.as_ref(),
-            text_spans,
-            computed_target.scale_factor,
-            &block,
-            computed.as_mut(),
-            &mut font_system,
-            &mut layout_cx,
-            logical_viewport_size,
-            rem_size.0,
-        ) {
-            Ok(measure) => {
-                if block.linebreak == LineBreak::NoWrap {
-                    content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
-                } else {
-                    content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
-                }
-
-                // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
-                text_flags.needs_measure_fn = false;
-                text_flags.needs_recompute = true;
-            }
-            Err(
-                TextError::NoSuchFont
-                | TextError::NoSuchFontFamily(_)
-                | TextError::DegenerateScaleFactor,
-            ) => {
-                // Try again next frame
-                text_flags.needs_measure_fn = true;
-            }
-            Err(
-                e @ (TextError::FailedToAddGlyph(_)
-                | TextError::FailedToGetGlyphImage(_)
-                | TextError::MissingAtlasLayout
-                | TextError::MissingAtlasTexture
-                | TextError::InconsistentAtlasState),
-            ) => {
-                panic!("Fatal error when processing text: {e}.");
-            }
-        };
-    }
-}
-
-// TODO: this factor is a guess
-const CURSOR_SCALE: f32 = 0.28;
-
-fn check_style<'a>(
-    text: &mut Mut<'a, EditableText>,
-    logical_viewport_size: Vec2,
-    text_font: &Ref<TextFont>,
-    rem_size: &Res<RemSize>,
-) -> (bool, f32) {
-    let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);
-
-    // NOTE: this is messy as the editor doesn't expose much to read
-
-    let editor = text.editor_mut();
-    let styles = editor.edit_styles();
-
-    let target_font_size_style = StyleProperty::FontSize(font_size);
-
-    let dis = core::mem::discriminant(&target_font_size_style);
-
-    let maybe_current_font_size = styles.inner().get(&dis);
-
-    let mut font_changes_required = false;
-
-    if let Some(current_font_size) = maybe_current_font_size {
-        if let StyleProperty::FontSize(x) = current_font_size
-            && (x - font_size).abs() > 1e-5
-        {
-            font_changes_required = true;
-        }
-    } else {
-        font_changes_required = true;
-    }
-
-    if font_changes_required {
-        styles.insert(target_font_size_style);
-
-        // TODO: don't hardcode this
-        // let family = font_system.get_family(&text_font.font);
-        // Above returns None, as its a Handle<Font> ?
-        styles.insert(StyleProperty::FontStack(FontStack::Source(Cow::Borrowed(
-            "monospace",
-        ))));
-    }
-
-    (font_changes_required, font_size)
-}
-
 /// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
 /// or when the `needs_recompute` field of [`TextNodeFlags`] is set to true.
 /// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
@@ -534,20 +343,12 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
-        Option<&mut EditableText>,
         Ref<FontHinting>,
     )>,
     mut scale_cx: ResMut<ScaleCx>,
 ) {
-    for (
-        node,
-        block,
-        mut text_layout_info,
-        mut text_flags,
-        mut computed,
-        mut maybe_editable_text,
-        hinting,
-    ) in &mut text_query
+    for (node, block, mut text_layout_info, mut text_flags, mut computed, hinting) in
+        &mut text_query
     {
         if node.is_changed() || text_flags.needs_recompute || hinting.is_changed() {
             // Skip the text node if it is waiting for a new measure func
@@ -569,7 +370,6 @@ pub fn text_system(
                 &mut textures,
                 &mut computed,
                 &mut scale_cx,
-                &mut maybe_editable_text,
                 physical_node_size,
                 block.justify,
                 *hinting,

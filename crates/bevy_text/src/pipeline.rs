@@ -1,5 +1,4 @@
 use alloc::borrow::Cow;
-use bevy_ecs::world::Mut;
 
 use core::hash::BuildHasher;
 
@@ -16,12 +15,11 @@ use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use parley::style::{OverflowWrap, TextWrapMode};
 use parley::{
-    Alignment, AlignmentOptions, BoundingBox, FontFamily, FontStack, Layout, PositionedLayoutItem,
+    Alignment, AlignmentOptions, FontFamily, FontStack, Layout, PositionedLayoutItem,
     StyleProperty, WordBreakStrength,
 };
 use swash::FontRef;
 
-use crate::EditableText;
 use crate::{
     add_glyph_to_atlas,
     error::TextError,
@@ -266,7 +264,6 @@ impl TextPipeline {
         textures: &mut Assets<Image>,
         computed: &mut ComputedTextBlock,
         scale_cx: &mut ScaleCx,
-        maybe_editable_text: &mut Option<Mut<EditableText>>,
         bounds: TextBounds,
         justify: Justify,
         hinting: FontHinting,
@@ -370,35 +367,7 @@ impl TextPipeline {
 
         layout_info.size = Vec2::new(layout.full_width(), layout.height()).ceil();
 
-        if let Some(editable_text) = maybe_editable_text {
-            let geom = editable_text
-                .editor
-                .cursor_geometry(editable_text.cursor_width);
-
-            layout_info.cursor = geom.map(bounding_box_to_rect);
-
-            layout_info.selection_rects = editable_text
-                .editor
-                .selection_geometry()
-                .iter()
-                .map(|&b| bounding_box_to_rect(b.0))
-                .collect();
-        }
-
         Ok(())
-    }
-}
-
-fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
-    Rect {
-        min: Vec2 {
-            x: geom.x0 as f32,
-            y: geom.y0 as f32,
-        },
-        max: Vec2 {
-            x: geom.x1 as f32,
-            y: geom.y1 as f32,
-        },
     }
 }
 

@@ -22,9 +22,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, EditableText, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak,
-    LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
-    TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LineBreak, LineHeight,
+    RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use bevy_window::{PrimaryWindow, Window};
@@ -183,7 +183,6 @@ pub fn update_text2d_layout(
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
-        Option<&mut EditableText>,
         Ref<FontHinting>,
     )>,
     mut text_reader: Text2dReader,
@@ -226,7 +225,6 @@ pub fn update_text2d_layout(
         bounds,
         mut text_layout_info,
         mut computed,
-        mut maybe_editable_text,
         hinting,
     ) in &mut text_query
     {
@@ -314,7 +312,6 @@ pub fn update_text2d_layout(
             &mut textures,
             &mut computed,
             &mut scale_cx,
-            &mut maybe_editable_text,
             text_bounds,
             block.justify,
             *hinting,

@@ -1,33 +1,23 @@
 use std::hash::BuildHasher;
 
-use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node};
+use crate::{ComputedNode, ComputedUiRenderTargetInfo};
 use bevy_asset::Assets;
 
-use bevy_ecs::component::Component;
-use bevy_ecs::lifecycle::HookContext;
-use bevy_ecs::observer::{Observer, On};
-use bevy_ecs::resource::Resource;
-use bevy_ecs::world::DeferredWorld;
 use bevy_ecs::{
     change_detection::DetectChanges,
     system::{Query, Res, ResMut},
     world::Ref,
 };
 use bevy_image::prelude::*;
-use bevy_input::keyboard::{Key, KeyboardInput};
-use bevy_input::ButtonState;
-use bevy_input_focus::FocusedInput;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_text::*;
 use bevy_text::{
-    add_glyph_to_atlas, get_glyph_atlas_info, ComputedTextBlock, FontAtlasKey, FontAtlasSet,
-    FontCx, GlyphCacheKey, LayoutCx, LineHeight, RunGeometry, ScaleCx, TextColor, TextFont,
-    TextLayoutInfo,
+    add_glyph_to_atlas, get_glyph_atlas_info, FontAtlasKey, FontAtlasSet, FontCx, GlyphCacheKey,
+    LayoutCx, LineHeight, RunGeometry, ScaleCx, TextFont, TextLayoutInfo,
 };
-use parley::swash::FontRef;
-use parley::{FontFamily, FontStack, PlainEditor, PositionedLayoutItem};
-
+use parley::{swash::FontRef, BoundingBox};
+use parley::{FontFamily, FontStack, PositionedLayoutItem};
 
 pub fn update_editor_system(
     fonts: Res<Assets<Font>>,
@@ -41,22 +31,13 @@ pub fn update_editor_system(
         &LineHeight,
         &FontHinting,
         Ref<ComputedUiRenderTargetInfo>,
-        &mut TextEditor,
-        &mut TextInput,
+        &mut EditableText,
         &mut TextLayoutInfo,
         Ref<ComputedNode>,
     )>,
 ) {
-    for (
-        text_font,
-        line_height,
-        hinting,
-        target,
-        mut editor,
-        text_field,
-        mut info,
-        computed_node,
-    ) in input_field_query.iter_mut()
+    for (text_font, line_height, hinting, target, mut editable_text, mut info, computed_node) in
+        input_field_query.iter_mut()
     {
         let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
             continue;
@@ -66,22 +47,21 @@ pub fn update_editor_system(
             FontFamily::Named(name) => FontFamily::Named(name.into_owned().into()),
             FontFamily::Generic(generic) => FontFamily::Generic(generic),
         };
-        let style_set = editor.editor.edit_styles();
+        let style_set = editable_text.editor.edit_styles();
         style_set.insert(parley::StyleProperty::LineHeight(line_height.eval()));
         style_set.insert(parley::StyleProperty::FontStack(FontStack::Single(family)));
 
-        if text_field.is_changed() {
-            editor.editor.set_text(text_field.0.as_str());
-        }
         if target.is_changed() {
-            editor.editor.set_scale(target.scale_factor());
+            editable_text.editor.set_scale(target.scale_factor());
         }
 
         if computed_node.is_changed() {
-            editor.editor.set_width(Some(computed_node.size().x));
+            editable_text.editor.set_width(Some(computed_node.size().x));
         }
 
-        let mut driver = editor.editor.driver(&mut font_cx.0, &mut layout_cx.0);
+        let mut driver = editable_text
+            .editor
+            .driver(&mut font_cx.0, &mut layout_cx.0);
 
         driver.refresh_layout();
 
@@ -182,5 +162,31 @@ pub fn update_editor_system(
                 }
             }
         }
+
+        let geom = editable_text
+            .editor
+            .cursor_geometry(editable_text.cursor_width);
+
+        info.cursor = geom.map(bounding_box_to_rect);
+
+        info.selection_rects = editable_text
+            .editor
+            .selection_geometry()
+            .iter()
+            .map(|&b| bounding_box_to_rect(b.0))
+            .collect();
+    }
+}
+
+fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
+    Rect {
+        min: Vec2 {
+            x: geom.x0 as f32,
+            y: geom.y0 as f32,
+        },
+        max: Vec2 {
+            x: geom.x1 as f32,
+            y: geom.y1 as f32,
+        },
     }
 }

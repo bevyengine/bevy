@@ -73,8 +73,8 @@
 use alloc::collections::VecDeque;
 
 use crate::{
-    apply_edit, text_edit::TextEdit, ComputedTextBlock, FontCx, FontHinting, FontSmoothing,
-    LayoutCx, LineHeight, TextColor, TextFont, TextLayout,
+    apply_edit, text_edit::TextEdit, FontCx, FontHinting, FontSmoothing, LayoutCx, LineHeight,
+    TextColor, TextFont, TextLayout,
 };
 use bevy_ecs::prelude::*;
 use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
@@ -194,23 +194,5 @@ pub fn apply_text_edits(
 ) {
     for mut editable_text in query.iter_mut() {
         editable_text.apply_pending_edits(&mut font_context.0, &mut layout_context.0);
-    }
-}
-
-/// Copies the layout from the [`parley::PlainEditor`] to the [`ComputedTextBlock`]
-pub fn edit_to_computed(
-    mut query: Query<(&mut EditableText, &mut ComputedTextBlock)>,
-    mut font_context: ResMut<FontCx>,
-    mut layout_context: ResMut<LayoutCx>,
-) {
-    // TODO: optimize with change detection
-
-    for (mut editable_text, mut computed) in query.iter_mut() {
-        let editor = editable_text.editor_mut();
-
-        let layout = editor.layout(&mut font_context.0, &mut layout_context.0);
-
-        computed.layout = layout.clone();
-        computed.needs_rerender = true;
     }
 }

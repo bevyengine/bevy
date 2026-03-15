@@ -26,7 +26,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, TextInput, TextShadow, ViewportNode};
+use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
     Node, OuterColor, Outline, ResolvedBorderRadius, UiGlobalTransform,
@@ -245,7 +245,7 @@ impl Plugin for UiRenderPlugin {
                     extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
                     extract_text_cursor.in_set(RenderUiSystems::ExtractCursor),
-                    extract_text_fields.in_set(RenderUiSystems::ExtractText),
+                    extract_text_editable.in_set(RenderUiSystems::ExtractText),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
@@ -1298,7 +1298,7 @@ pub fn extract_text_decorations(
     }
 }
 
-pub fn extract_text_fields(
+pub fn extract_text_editable(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
@@ -1313,7 +1313,7 @@ pub fn extract_text_fields(
                 &TextColor,
                 &TextLayoutInfo,
             ),
-            With<TextInput>,
+            With<EditableText>,
         >,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -1334,7 +1334,8 @@ pub fn extract_text_fields(
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if !inherited_visibility.get() || uinode.is_empty() {
+        if !inherited_visibility.get() {
+            // || uinode.is_empty() {
             continue;
         }
 
