@@ -210,7 +210,7 @@ pub async fn initialize_renderer(
     let mut additional_vulkan_features = raw_vulkan_init::AdditionalVulkanFeatures::default();
     #[cfg(feature = "raw_vulkan_init")]
     let instance = raw_vulkan_init::create_raw_vulkan_instance(
-        &instance_descriptor,
+        instance_descriptor,
         &raw_vulkan_init_settings,
         &mut additional_vulkan_features,
     );
