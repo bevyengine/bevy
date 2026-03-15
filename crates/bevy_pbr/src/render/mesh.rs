@@ -492,6 +492,8 @@ pub struct MeshUniform {
     pub local_from_world_transpose_a: [Vec4; 2],
     pub local_from_world_transpose_b: f32,
     pub flags: u32,
+    /// Packed render layer mask used for per-mesh light filtering in shaders.
+    pub render_layers: u32,
     // Four 16-bit unsigned normalized UV values packed into a `UVec2`:
     //
     //                         <--- MSB                   LSB --->
@@ -547,6 +549,8 @@ pub struct MeshInputUniform {
     pub lightmap_uv_rect: UVec2,
     /// Various [`MeshFlags`].
     pub flags: u32,
+    /// Packed render layer mask used for per-mesh light filtering in shaders.
+    pub render_layers: u32,
     /// The index of this mesh's [`MeshInputUniform`] in the previous frame's
     /// buffer, if applicable.
     ///
@@ -591,6 +595,8 @@ pub struct MeshInputUniform {
     ///
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
+    /// Padding to preserve 16-byte alignment for POD casts.
+    pub pad: [u32; 3],
 }
 
 impl_atomic_pod!(MeshInputUniform, MeshInputUniformBlob);
@@ -629,6 +635,7 @@ impl MeshUniform {
         current_skin_index: Option<u32>,
         morph_descriptor_index: Option<MorphDescriptorIndex>,
         tag: Option<u32>,
+        render_layers: Option<&RenderLayers>,
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
@@ -644,6 +651,7 @@ impl MeshUniform {
             local_from_world_transpose_a,
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
+            render_layers: render_layers_to_shader_mask(render_layers),
             first_vertex_index,
             current_skin_index: current_skin_index.unwrap_or(u32::MAX),
             material_and_lightmap_bind_group_slot: u32::from(material_bind_group_slot)
@@ -654,6 +662,27 @@ impl MeshUniform {
                 None => u32::MAX,
             },
         }
+    }
+}
+
+/// Number of render layer bits available for per-mesh/per-light shader filtering.
+///
+/// Keep this in sync with the light-side packing in `light.rs` and the shader
+/// constants in `mesh_view_types.wgsl`.
+const SHADER_RENDER_LAYER_MASK_BITS: u32 = 26;
+const SHADER_RENDER_LAYER_MASK: u32 = (1 << SHADER_RENDER_LAYER_MASK_BITS) - 1;
+
+fn render_layers_to_shader_mask(render_layers: Option<&RenderLayers>) -> u32 {
+    let render_layers = render_layers.unwrap_or_default();
+    let bits = render_layers.bits();
+    let low_bits = bits.first().copied().unwrap_or_default();
+    let unsupported_bits = (low_bits >> SHADER_RENDER_LAYER_MASK_BITS) != 0
+        || bits.iter().skip(1).any(|&extra_bits| extra_bits != 0);
+
+    if unsupported_bits {
+        SHADER_RENDER_LAYER_MASK
+    } else {
+        (low_bits as u32) & SHADER_RENDER_LAYER_MASK
     }
 }
 
@@ -1394,6 +1423,7 @@ impl RenderMeshInstanceGpuBuilder {
             world_from_local: self.world_from_local.to_transpose(),
             lightmap_uv_rect: self.lightmap_uv_rect,
             flags: self.mesh_flags.bits(),
+            render_layers: render_layers_to_shader_mask(self.render_layers.as_ref()),
             previous_input_index: u32::MAX,
             timestamp: timestamp.0,
             first_vertex_index,
@@ -1409,6 +1439,7 @@ impl RenderMeshInstanceGpuBuilder {
             ) | ((lightmap_slot as u32) << 16),
             tag: self.shared.tag,
             morph_descriptor_index,
+            pad: [0; 3],
         };
 
         let world_from_local = &self.world_from_local;
@@ -2503,6 +2534,7 @@ impl GetBatchData for MeshPipeline {
                 current_skin_index,
                 morph_descriptor_index,
                 Some(mesh_instance.tag()),
+                mesh_instance.render_layers.as_ref(),
             ),
             mesh_instance.should_batch().then_some((
                 MeshBatchSetCompareData {
@@ -2584,6 +2616,7 @@ impl GetFullBatchData for MeshPipeline {
             current_skin_index,
             morph_descriptor_index,
             Some(mesh_instance.tag()),
+            mesh_instance.render_layers.as_ref(),
         ))
     }
 
