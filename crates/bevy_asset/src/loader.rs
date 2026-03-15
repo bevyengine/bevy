@@ -635,6 +635,17 @@ impl<'a> LoadContext<'a> {
         Some(&labeled.asset)
     }
 
+    /// Returns an exclusive reference to the underlying `Asset` for a given `Handle`,
+    /// if it exists.
+    pub fn get_mut_asset_by_handle<A: Asset>(&mut self, handle: &Handle<A>) -> Option<&mut A> {
+        let index = self
+            .asset_id_to_asset_index
+            .get(&UntypedAssetId::from(handle))?;
+        self.labeled_assets
+            .get_mut(*index)
+            .and_then(|asset| asset.asset.value.downcast_mut())
+    }
+
     pub(crate) async fn load_direct_internal(
         &mut self,
         path: AssetPath<'static>,

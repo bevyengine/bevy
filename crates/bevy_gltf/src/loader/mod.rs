@@ -594,7 +594,7 @@ impl GltfLoader {
 
                 // let extensions handle extension data placed on animations
                 for extension in extensions.iter_mut() {
-                    extension.on_animation(&animation, handle.clone());
+                    extension.on_animation(load_context, &animation, handle.clone());
                 }
 
                 animations.push(handle);
