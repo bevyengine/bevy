@@ -6,8 +6,8 @@ use crate::{
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemIn, SystemInput,
-        SystemParam, SystemParamItem,
+        check_system_change_tick, FromInput, InfallibleSystemParam, ReadOnlySystemParam, System,
+        SystemIn, SystemInput, SystemParam, SystemParamItem,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
@@ -181,9 +181,9 @@ impl SystemMeta {
 ///     Query<&MyComponent>,
 /// )> = SystemState::new(&mut world);
 ///
-/// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
+/// // Use system_state.try_get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
-/// let (message_writer, maybe_resource, query) = system_state.get_mut(&mut world).unwrap();
+/// let (message_writer, maybe_resource, query) = system_state.try_get_mut(&mut world).unwrap();
 ///
 /// // If you are using `Commands`, you can choose when you want to apply them to the world.
 /// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
@@ -213,7 +213,7 @@ impl SystemMeta {
 ///
 /// // Later, fetch the cached system state, saving on overhead
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
-///     let mut message_reader = cached_state.message_state.get_mut(world).unwrap();
+///     let mut message_reader = cached_state.message_state.try_get_mut(world).unwrap();
 ///
 ///     for message in message_reader.read() {
 ///         println!("Hello World!");
@@ -229,7 +229,7 @@ impl SystemMeta {
 /// # struct MyMessage;
 /// #
 /// fn exclusive_system(world: &mut World, system_state: &mut SystemState<MessageReader<MyMessage>>) {
-///     let mut message_reader = system_state.get_mut(world).unwrap();
+///     let mut message_reader = system_state.try_get_mut(world).unwrap();
 ///
 ///     for message in message_reader.read() {
 ///         println!("Hello World!");
@@ -366,11 +366,29 @@ impl<Param: SystemParam> SystemState<Param> {
         &mut self.meta
     }
 
+    /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only and infallible.
+    ///
+    /// To obtain the value of a fallible [`SystemParam`],
+    /// instead call [`Self::try_get`].
+    #[inline]
+    pub fn get<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
+    where
+        Param: ReadOnlySystemParam + InfallibleSystemParam,
+    {
+        self.validate_world(world.id());
+        // SAFETY: Param is read-only and doesn't allow mutable access to World.
+        // It also matches the World this SystemState was created with.
+        unsafe { self.get_unchecked(world.as_unsafe_world_cell_readonly()) }
+    }
+
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     ///
     /// Returns an error if system parameter validation fails.
+    ///
+    /// To obtain the value of an [`InfallibleSystemParam`]
+    /// without needing to unwrap a result, instead call [`Self::get`].
     #[inline]
-    pub fn get<'w, 's>(
+    pub fn try_get<'w, 's>(
         &'s mut self,
         world: &'w World,
     ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError>
@@ -380,21 +398,39 @@ impl<Param: SystemParam> SystemState<Param> {
         self.validate_world(world.id());
         // SAFETY: Param is read-only and doesn't allow mutable access to World.
         // It also matches the World this SystemState was created with.
-        unsafe { self.get_unchecked(world.as_unsafe_world_cell_readonly()) }
+        unsafe { self.try_get_unchecked(world.as_unsafe_world_cell_readonly()) }
+    }
+
+    /// Retrieve the mutable [`SystemParam`] values.  This can only be called when all parameters are infallible.
+    ///
+    /// To obtain the value of a fallible [`SystemParam`],
+    /// instead call [`Self::try_get_mut`].
+    #[inline]
+    #[track_caller]
+    pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param>
+    where
+        Param: InfallibleSystemParam,
+    {
+        self.validate_world(world.id());
+        // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
+        unsafe { self.get_unchecked(world.as_unsafe_world_cell()) }
     }
 
     /// Retrieve the mutable [`SystemParam`] values.
     ///
     /// Returns an error if system parameter validation fails.
+    ///
+    /// To obtain the value of an [`InfallibleSystemParam`]
+    /// without needing to unwrap a result, instead call [`Self::get_mut`].
     #[inline]
     #[track_caller]
-    pub fn get_mut<'w, 's>(
+    pub fn try_get_mut<'w, 's>(
         &'s mut self,
         world: &'w mut World,
     ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError> {
         self.validate_world(world.id());
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
-        unsafe { self.get_unchecked(world.as_unsafe_world_cell()) }
+        unsafe { self.try_get_unchecked(world.as_unsafe_world_cell()) }
     }
 
     /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
@@ -428,9 +464,10 @@ impl<Param: SystemParam> SystemState<Param> {
         }
     }
 
-    /// Retrieve the [`SystemParam`] values.
+    /// Retrieve the [`SystemParam`] values.  This can only be called when all parameters are infallible.
     ///
-    /// Returns an error if system parameter validation fails.
+    /// To obtain the value of a fallible [`SystemParam`],
+    /// instead call [`Self::try_get_unchecked`].
     ///
     /// # Safety
     /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
@@ -441,10 +478,35 @@ impl<Param: SystemParam> SystemState<Param> {
     pub unsafe fn get_unchecked<'w, 's>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError> {
+    ) -> SystemParamItem<'w, 's, Param>
+    where
+        Param: InfallibleSystemParam,
+    {
         let change_tick = world.increment_change_tick();
         // SAFETY: The invariants are upheld by the caller.
         unsafe { self.fetch(world, change_tick) }
+    }
+
+    /// Retrieve the [`SystemParam`] values.
+    ///
+    /// Returns an error if system parameter validation fails.
+    ///
+    /// To obtain the value of an [`InfallibleSystemParam`]
+    /// without needing to unwrap a result, instead call [`Self::get_unchecked`].
+    ///
+    /// # Safety
+    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
+    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
+    /// created with.
+    #[inline]
+    #[track_caller]
+    pub unsafe fn try_get_unchecked<'w, 's>(
+        &'s mut self,
+        world: UnsafeWorldCell<'w>,
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError> {
+        let change_tick = world.increment_change_tick();
+        // SAFETY: The invariants are upheld by the caller.
+        unsafe { self.try_fetch(world, change_tick) }
     }
 
     /// # Safety
@@ -457,10 +519,31 @@ impl<Param: SystemParam> SystemState<Param> {
         &'s mut self,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
+    ) -> SystemParamItem<'w, 's, Param>
+    where
+        Param: InfallibleSystemParam,
+    {
+        // SAFETY: The invariants are upheld by the caller.
+        let param =
+            unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) };
+        self.meta.last_run = change_tick;
+        param
+    }
+
+    /// # Safety
+    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
+    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
+    /// created with.
+    #[inline]
+    #[track_caller]
+    unsafe fn try_fetch<'w, 's>(
+        &'s mut self,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
     ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError> {
         // SAFETY: The invariants are upheld by the caller.
         let param =
-            unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) }?;
+            unsafe { Param::try_get_param(&mut self.param_state, &self.meta, world, change_tick) }?;
         self.meta.last_run = change_tick;
         Ok(param)
     }
@@ -678,7 +761,7 @@ where
         // - All world accesses used by `F::Param` have been registered, so the caller
         //   will ensure that there are no data access conflicts.
         let params = unsafe {
-            F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick)
+            F::Param::try_get_param(&mut state.param, &self.system_meta, world, change_tick)
         }?;
 
         #[cfg(feature = "hotpatching")]
@@ -800,13 +883,16 @@ where
 /// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::StaticSystemInput;
+/// use bevy_ecs::system::{RunSystemError, StaticSystemInput, SystemParamValidationError};
 ///
 /// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
 /// pub fn pipe<A, B, AMarker, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
-/// ) -> impl FnMut(StaticSystemInput<A::In>, ParamSet<(A::Param, B::Param)>) -> B::Out
+/// ) -> impl FnMut(
+///     StaticSystemInput<A::In>,
+///     ParamSet<(A::Param, B::Param)>,
+/// ) -> Result<B::Out, RunSystemError>
 /// where
 ///     // We need A and B to be systems, add those bounds
 ///     A: SystemParamFunction<AMarker>,
@@ -815,8 +901,8 @@ where
 /// {
 ///     // The type of `params` is inferred based on the return of this function above
 ///     move |StaticSystemInput(a_in), mut params| {
-///         let shared = a.run(a_in, params.p0());
-///         b.run(shared, params.p1())
+///         let shared = a.run(a_in, params.try_p0()?);
+///         Ok(b.run(shared, params.try_p1()?))
 ///     }
 /// }
 ///

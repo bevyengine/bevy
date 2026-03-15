@@ -5,7 +5,10 @@ use crate::{
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::{
+    prelude::*,
+    system::{InfallibleSystemParam, SystemParam},
+};
 use bevy_math::{BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
@@ -2947,7 +2950,7 @@ impl UiTargetCamera {
 #[derive(Component, Default)]
 pub struct IsDefaultUiCamera;
 
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct DefaultUiCamera<'w, 's> {
     cameras: Query<'w, 's, (Entity, &'static Camera, &'static RenderTarget)>,
     default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,

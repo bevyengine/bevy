@@ -157,14 +157,15 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
         MessageReader::<M>::init_access(state, system_meta, component_access_set, world);
     }
 
-    unsafe fn get_param<'world, 'state>(
+    unsafe fn try_get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &crate::system::SystemMeta,
         world: crate::world::unsafe_world_cell::UnsafeWorldCell<'world>,
         change_tick: crate::change_detection::Tick,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: requirements are upheld by MessageReader's implementation
-        let reader = unsafe { MessageReader::get_param(state, system_meta, world, change_tick)? };
+        let reader =
+            unsafe { MessageReader::try_get_param(state, system_meta, world, change_tick)? };
         if reader.is_empty() {
             Err(SystemParamValidationError::skipped::<Self>(
                 "message queue is empty",

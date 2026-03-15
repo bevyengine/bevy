@@ -60,7 +60,10 @@ use crate::{
     query::FilteredAccessSet,
     relationship::RelationshipHookMode,
     storage::SparseSet,
-    system::{Local, ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamValidationError},
+    system::{
+        InfallibleSystemParam, Local, ReadOnlySystemParam, SystemMeta, SystemParam,
+        SystemParamValidationError,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -506,7 +509,7 @@ impl RemovedComponentMessages {
 /// }
 /// # bevy_ecs::system::assert_is_system(react_on_removal);
 /// ```
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct RemovedComponents<'w, 's, T: Component> {
     component_id: ComponentIdFor<'s, T>,
     reader: Local<'s, RemovedComponentReader<T>>,
@@ -634,12 +637,25 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
     }
 
     #[inline]
+    unsafe fn try_get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+        Ok(unsafe { Self::get_param(state, system_meta, world, change_tick) })
+    }
+}
+
+impl InfallibleSystemParam for &RemovedComponentMessages {
+    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        Ok(world.removed_components())
+    ) -> Self::Item<'w, 's> {
+        world.removed_components()
     }
 }

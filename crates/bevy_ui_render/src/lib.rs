@@ -38,7 +38,7 @@ use bevy_core_pipeline::schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems}
 use bevy_core_pipeline::upscaling::upscaling;
 use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::IntoScheduleConfigs;
-use bevy_ecs::system::SystemParam;
+use bevy_ecs::system::{InfallibleSystemParam, SystemParam};
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
 use bevy_render::{
@@ -266,7 +266,7 @@ impl Plugin for UiRenderPlugin {
     }
 }
 
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct UiCameraMap<'w, 's> {
     mapping: Query<'w, 's, RenderEntity>,
 }

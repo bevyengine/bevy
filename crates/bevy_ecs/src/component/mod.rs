@@ -16,7 +16,7 @@ use crate::{
     entity::EntityMapper,
     lifecycle::ComponentHook,
     relationship::ComponentRelationshipAccessor,
-    system::{Local, SystemParam},
+    system::{InfallibleSystemParam, Local, SystemParam},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::Component;
@@ -748,7 +748,7 @@ pub enum StorageType {
 ///     // ...
 /// }
 /// ```
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct ComponentIdFor<'s, T: Component>(Local<'s, InitComponentId<T>>);
 
 impl<T: Component> ComponentIdFor<'_, T> {

@@ -32,7 +32,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{With, Without},
-    system::{Commands, Query, Res, ResMut, SystemParam},
+    system::{Commands, InfallibleSystemParam, Query, Res, ResMut, SystemParam},
 };
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
@@ -150,7 +150,7 @@ pub enum TabNavigationError {
 
 /// An injectable helper object that provides tab navigation functionality.
 #[doc(hidden)]
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct TabNavigation<'w, 's> {
     // Query for tab groups.
     tabgroup_query: Query<'w, 's, (Entity, &'static TabGroup, &'static Children)>,
@@ -478,7 +478,7 @@ mod tests {
         let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_entity))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
-        let tab_navigation = system_state.get(world).unwrap();
+        let tab_navigation = system_state.get(world);
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 1);
         assert!(tab_navigation.tabindex_query.iter().count() >= 2);
 
@@ -511,7 +511,7 @@ mod tests {
         let tab_entity_4 = world.spawn((TabIndex(1), ChildOf(tab_group_2))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
-        let tab_navigation = system_state.get(world).unwrap();
+        let tab_navigation = system_state.get(world);
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 2);
         assert!(tab_navigation.tabindex_query.iter().count() >= 4);
 

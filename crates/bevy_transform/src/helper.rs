@@ -5,7 +5,7 @@ use bevy_ecs::{
     hierarchy::ChildOf,
     prelude::Entity,
     query::QueryEntityError,
-    system::{Query, SystemParam},
+    system::{InfallibleSystemParam, Query, SystemParam},
 };
 use thiserror::Error;
 
@@ -17,7 +17,7 @@ use crate::components::{GlobalTransform, Transform};
 /// you use the [`GlobalTransform`] component stored on the entity, unless you need
 /// a [`GlobalTransform`] that reflects the changes made to any [`Transform`]s since
 /// the last time the transform propagation systems ran.
-#[derive(SystemParam)]
+#[derive(SystemParam, InfallibleSystemParam)]
 pub struct TransformHelper<'w, 's> {
     parent_query: Query<'w, 's, &'static ChildOf>,
     transform_query: Query<'w, 's, &'static Transform>,
@@ -138,7 +138,7 @@ mod tests {
         let transform = *app.world().get::<GlobalTransform>(leaf_entity).unwrap();
 
         let mut state = SystemState::<TransformHelper>::new(app.world_mut());
-        let helper = state.get(app.world()).unwrap();
+        let helper = state.get(app.world());
 
         let computed_transform = helper.compute_global_transform(leaf_entity).unwrap();
 

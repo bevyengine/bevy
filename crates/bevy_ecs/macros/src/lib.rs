@@ -452,7 +452,7 @@ fn derive_system_param_impl(
                 }
 
                 #[inline]
-                unsafe fn get_param<'w, 's>(
+                unsafe fn try_get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
@@ -461,7 +461,7 @@ fn derive_system_param_impl(
                     let (#(#tuple_patterns,)*) = &mut state.state;
                     #(
                         let #field_locals = unsafe {
-                            <#field_types as #path::system::SystemParam>::get_param(#field_locals, system_meta, world, change_tick)
+                            <#field_types as #path::system::SystemParam>::try_get_param(#field_locals, system_meta, world, change_tick)
                         }.map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
                     )*
                     Result::Ok(#struct_name {
@@ -477,6 +477,65 @@ fn derive_system_param_impl(
         };
 
         #builder_struct
+    }))
+}
+
+/// Implement `SystemParam` to use a struct as a parameter in a system
+#[proc_macro_derive(InfallibleSystemParam)]
+pub fn derive_infallible_system_param(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    match derive_infallible_system_param_impl(ast) {
+        Ok(t) => t,
+        Err(e) => e.into_compile_error().into(),
+    }
+}
+fn derive_infallible_system_param_impl(ast: DeriveInput) -> syn::Result<TokenStream> {
+    let fields = get_struct_fields(&ast.data, "derive(InfallibleSystemParam)")?;
+    let path = bevy_ecs_path();
+
+    let field_locals = fields
+        .members()
+        .map(|m| format_ident!("field{}", m))
+        .collect::<Vec<_>>();
+    let field_members = fields.members().collect::<Vec<_>>();
+    let field_types = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
+
+    let generics = ast.generics;
+
+    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
+
+    let mut tuple_patterns: Vec<_> = field_locals.iter().map(ToTokens::to_token_stream).collect();
+
+    // If the number of fields exceeds the 16-parameter limit,
+    // fold the fields into tuples of tuples until we are below the limit.
+    const LIMIT: usize = 16;
+    while tuple_patterns.len() > LIMIT {
+        let end = Vec::from_iter(tuple_patterns.drain(..LIMIT));
+        tuple_patterns.push(parse_quote!( (#(#end,)*) ));
+    }
+
+    let struct_name = &ast.ident;
+
+    Ok(TokenStream::from(quote! {
+        impl #impl_generics #path::system::InfallibleSystemParam for
+                #struct_name #type_generics #where_clause
+        {
+            #[inline]
+            unsafe fn get_param<'__w, '__s>(
+                state: &'__s mut Self::State,
+                system_meta: &#path::system::SystemMeta,
+                world: #path::world::unsafe_world_cell::UnsafeWorldCell<'__w>,
+                change_tick: #path::change_detection::Tick,
+            ) -> Self::Item<'__w, '__s> {
+                let (#(#tuple_patterns,)*) = &mut state.state;
+                #struct_name {
+                    #(#field_members: unsafe {
+                        <#field_types as #path::system::InfallibleSystemParam>::get_param(#field_locals, system_meta, world, change_tick)
+                    },)*
+                }
+            }
+        }
     }))
 }
 

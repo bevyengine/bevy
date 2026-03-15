@@ -178,26 +178,47 @@ const _: () = {
 
         #[inline]
         #[track_caller]
-        unsafe fn get_param<'w, 's>(
+        unsafe fn try_get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::change_detection::Tick,
         ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+            // SAFETY: `try_get_param` has the same safety requirements as `get_param`
+            Ok(unsafe {
+                <Self as bevy_ecs::system::InfallibleSystemParam>::get_param(
+                    state,
+                    system_meta,
+                    world,
+                    change_tick,
+                )
+            })
+        }
+    }
+
+    impl bevy_ecs::system::InfallibleSystemParam for Commands<'_, '_> {
+        #[inline]
+        #[track_caller]
+        unsafe fn get_param<'w, 's>(
+            state: &'s mut Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: UnsafeWorldCell<'w>,
+            change_tick: bevy_ecs::change_detection::Tick,
+        ) -> Self::Item<'w, 's> {
             // SAFETY: Upheld by caller
             let params = unsafe {
-                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
+                <__StructFieldsAlias as bevy_ecs::system::InfallibleSystemParam>::get_param(
                     &mut state.state,
                     system_meta,
                     world,
                     change_tick,
-                )?
+                )
             };
-            Ok(Commands {
+            Commands {
                 queue: InternalQueue::CommandQueue(params.0),
                 allocator: params.1,
                 entities: params.2,
-            })
+            }
         }
     }
     // SAFETY: Only reads Entities

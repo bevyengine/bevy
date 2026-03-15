@@ -229,8 +229,7 @@ fn extract_screenshots(
         *system_state = Some(SystemState::new(&mut main_world));
     }
     let system_state = system_state.as_mut().unwrap();
-    let (mut commands, primary_window, screenshots) =
-        system_state.get_mut(&mut main_world).unwrap();
+    let (mut commands, primary_window, screenshots) = system_state.get_mut(&mut main_world);
 
     targets.clear();
     seen_targets.clear();
