@@ -20,7 +20,7 @@ use wgpu::{BindingResource, Limits};
     not(target_arch = "wasm32"),
     feature = "webgpu"
 ))]
-const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u32 = 1 << 20;
+const MAX_REASONABLE_UNIFORM_BUFFER_BINDING_SIZE: u64 = 1 << 20;
 
 // WebGL2 quirk: using uniform buffers larger than 4KB will cause extremely
 // long shader compilation times, so the limit needs to be lower on WebGL2.
