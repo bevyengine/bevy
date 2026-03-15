@@ -41,8 +41,6 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    lifecycle::Remove,
-    observer::On,
     query::With,
     reflect::ReflectComponent,
     resource::Resource,
@@ -85,6 +83,13 @@ pub struct SmaaPlugin;
 /// for a [`bevy_camera::Camera`].
 #[derive(Clone, Copy, Default, Component, Reflect, ExtractComponent)]
 #[reflect(Component, Default, Clone)]
+#[extract_component_sync_target((
+	Self,
+	SmaaTextures,
+    SmaaPipelines,
+    SmaaBindGroups,
+    ViewSmaaPipelines,
+))]
 #[doc(alias = "SubpixelMorphologicalAntiAliasing")]
 pub struct Smaa {
     /// A predefined set of SMAA parameters: i.e. a quality level.
@@ -330,17 +335,6 @@ impl Plugin for SmaaPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
-        // TODO: remove this manual cleanup when ExtractComponent gets support
-        // for cleanup of derived components
-        render_app.add_observer(|event: On<Remove, Smaa>, mut commands: Commands| {
-            commands.entity(event.entity).remove::<(
-                SmaaTextures,
-                SmaaPipelines,
-                SmaaBindGroups,
-                ViewSmaaPipelines,
-            )>();
-        });
 
         render_app
             .insert_resource(smaa_luts)

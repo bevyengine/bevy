@@ -125,12 +125,13 @@ impl ExtractResource for ClearColor {
 }
 
 impl SyncComponent for CameraMainTextureUsages {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for CameraMainTextureUsages {
     type QueryData = &'static Self;
     type QueryFilter = ();
+    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(*item)
@@ -138,12 +139,13 @@ impl ExtractComponent for CameraMainTextureUsages {
 }
 
 impl SyncComponent for Camera2d {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for Camera2d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
+    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
@@ -151,12 +153,13 @@ impl ExtractComponent for Camera2d {
 }
 
 impl SyncComponent for Camera3d {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for Camera3d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
+    type Out = Self;
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())

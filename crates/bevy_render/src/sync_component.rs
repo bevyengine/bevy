@@ -34,25 +34,15 @@ impl<C: SyncComponent<F>, F> Default for SyncComponentPlugin<C, F> {
 /// Trait that links components from the main world with output components in
 /// the render world. It is used by [`SyncComponentPlugin`].
 ///
-/// This trait is a subtrait of [`ExtractComponent`], which uses it to determine
-/// which components to extract.
-///
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`SyncComponentPlugin`].
-///
-/// [`ExtractComponent`]: crate::extract_component::ExtractComponent
 pub trait SyncComponent<F = ()>: Component {
     /// Describes what components should be removed from the render world if the
     /// implementing component is removed.
-    ///
-    /// It is also used by the [`ExtractComponent`] trait to determine which
-    /// components are generated during extraction.
-    ///
-    /// [`ExtractComponent`]: crate::extract_component::ExtractComponent
-    type Out: Bundle<Effect: NoBundleEffect>;
+    type Target: Bundle<Effect: NoBundleEffect>;
     // TODO: https://github.com/rust-lang/rust/issues/29661
-    // type Out: Component = Self;
+    // type Target: Bundle<Effect: NoBundleEffect> = Self;
 }
 
 impl<C: SyncComponent<F>, F: Send + Sync + 'static> Plugin for SyncComponentPlugin<C, F> {
@@ -66,7 +56,7 @@ impl<C: SyncComponent<F>, F: Send + Sync + 'static> Plugin for SyncComponentPlug
                 pending.push(EntityRecord::ComponentRemoved(
                     context.entity,
                     |mut entity| {
-                        entity.remove::<C::Out>();
+                        entity.remove::<C::Target>();
                     },
                 ));
             });

@@ -373,12 +373,13 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
 }
 
 impl SyncComponent for GpuAtmosphereSettings {
-    type Out = Self;
+    type Target = Self;
 }
 
 impl ExtractComponent for GpuAtmosphereSettings {
     type QueryData = Read<AtmosphereSettings>;
     type QueryFilter = (With<Camera3d>, With<Atmosphere>);
+    type Out = Self;
 
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone().into())
