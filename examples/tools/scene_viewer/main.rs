@@ -49,12 +49,18 @@ struct Args {
     /// spawn a light even if the scene already has one
     #[argh(switch)]
     add_light: Option<bool>,
-    /// enable `GltfPlugin::convert_coordinates::scenes`
+    /// enable `GltfPlugin::convert_coordinates::rotate_scene`
     #[argh(switch)]
     convert_scene_coordinates: Option<bool>,
-    /// enable `GltfPlugin::convert_coordinates::meshes`
+    /// enable `GltfPlugin::convert_coordinates::rotate_nodes`
+    #[argh(switch)]
+    convert_node_coordinates: Option<bool>,
+    /// enable `GltfPlugin::convert_coordinates::rotate_meshes`
     #[argh(switch)]
     convert_mesh_coordinates: Option<bool>,
+    /// add an axis gizmo to show the scene orientation
+    #[argh(switch)]
+    axis: Option<bool>,
 }
 
 impl Args {
@@ -96,8 +102,10 @@ fn main() {
             })
             .set(GltfPlugin {
                 convert_coordinates: GltfConvertCoordinates {
-                    rotate_scene_entity: args.convert_scene_coordinates == Some(true),
+                    rotate_scenes: args.convert_scene_coordinates == Some(true),
+                    rotate_nodes: args.convert_node_coordinates == Some(true),
                     rotate_meshes: args.convert_mesh_coordinates == Some(true),
+                    ..Default::default()
                 },
                 ..default()
             }),
@@ -149,6 +157,7 @@ fn setup_scene_after_load(
     asset_server: Res<AssetServer>,
     args: Res<Args>,
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
+    mut gizmos: ResMut<Assets<GizmoAsset>>,
 ) {
     if scene_handle.is_loaded && !*setup {
         *setup = true;
@@ -246,6 +255,19 @@ fn setup_scene_after_load(
             }
 
             scene_handle.has_light = true;
+        }
+
+        if args.axis == Some(true) {
+            // Ensure the axis always extends past the AABB of the scene.
+            let length = aabb.min().abs().max(aabb.max().abs()).max_element() * 1.3;
+
+            let mut gizmo = GizmoAsset::new();
+            gizmo.axes(Transform::IDENTITY, length);
+
+            commands.spawn(Gizmo {
+                handle: gizmos.add(gizmo),
+                ..Default::default()
+            });
         }
     }
 }

@@ -26,7 +26,7 @@ use bevy_image::{
     ImageType, TextureError,
 };
 use bevy_light::{DirectionalLight, PointLight, SpotLight};
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{bounding::Aabb3d, Mat4, Quat, Vec3};
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_mesh::UvChannel;
 use bevy_mesh::{
@@ -55,9 +55,12 @@ use tracing::{error, info_span, warn};
 use wgpu_types::Face;
 
 use crate::{
-    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
-    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
-    GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
+    convert_coordinates::{HierarchyConverter, SemanticsError},
+    loader::gltf_ext::scene::{node_parents, node_transforms},
+    vertex_attributes::convert_attribute,
+    Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
+    GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin,
+    GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -71,11 +74,11 @@ use self::{
             warn_on_differing_texture_transforms,
         },
         mesh::{primitive_name, primitive_topology},
-        scene::{node_name, node_transform},
+        scene::node_name,
         texture::{texture_sampler, texture_transform_to_affine2},
     },
 };
-use crate::convert_coordinates::GltfConvertCoordinates;
+use crate::convert_coordinates::{GltfConvertCoordinates, ResolvedConvertCoordinates};
 
 /// Must match [`MAX_JOINTS`](https://docs.rs/bevy/latest/bevy/pbr/constant.MAX_JOINTS.html)
 pub const MAX_JOINTS: usize = 256;
@@ -152,6 +155,9 @@ pub enum GltfError {
     /// Failed to load a file.
     #[error("failed to load file: {0}")]
     Io(#[from] Error),
+    /// The `GltfConvertCoordinates::semantics` were invalid.
+    #[error(transparent)]
+    CoordinateConversionSemantics(#[from] SemanticsError),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -301,10 +307,14 @@ impl GltfLoader {
             Default::default()
         };
 
-        let convert_coordinates = match settings.convert_coordinates {
-            Some(convert_coordinates) => convert_coordinates,
-            None => loader.default_convert_coordinates,
-        };
+        let convert_coordinates =
+            ResolvedConvertCoordinates::try_from(match settings.convert_coordinates {
+                Some(convert_coordinates) => convert_coordinates,
+                None => loader.default_convert_coordinates,
+            })?;
+
+        let node_parents = node_parents(&gltf);
+        let node_transforms = node_transforms(&gltf, &node_parents, &convert_coordinates);
 
         let skinned_mesh_bounds_policy = settings
             .skinned_mesh_bounds_policy
@@ -347,13 +357,19 @@ impl GltfLoader {
                         continue;
                     }
 
+                    let node_convertor =
+                        convert_coordinates.node_hierarchy_converter(&node, &node_parents);
+
                     let maybe_curve: Option<VariableCurve> = if let Some(outputs) =
                         reader.read_outputs()
                     {
                         match outputs {
                             ReadOutputs::Translations(tr) => {
                                 let translation_property = animated_field!(Transform::translation);
-                                let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
+                                let translations: Vec<Vec3> = tr
+                                    .map(Vec3::from)
+                                    .map(|t| node_convertor.convert_translation(t))
+                                    .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         translation_property,
@@ -409,8 +425,11 @@ impl GltfLoader {
                             }
                             ReadOutputs::Rotations(rots) => {
                                 let rotation_property = animated_field!(Transform::rotation);
-                                let rotations: Vec<Quat> =
-                                    rots.into_f32().map(Quat::from_array).collect();
+                                let rotations: Vec<Quat> = rots
+                                    .into_f32()
+                                    .map(Quat::from_array)
+                                    .map(|r| node_convertor.convert_rotation(r))
+                                    .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         rotation_property,
@@ -466,7 +485,10 @@ impl GltfLoader {
                             }
                             ReadOutputs::Scales(scale) => {
                                 let scale_property = animated_field!(Transform::scale);
-                                let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
+                                let scales: Vec<Vec3> = scale
+                                    .map(Vec3::from)
+                                    .map(|s| node_convertor.convert_scale(s))
+                                    .collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         scale_property,
@@ -784,6 +806,9 @@ impl GltfLoader {
                     &buffer_data
                 };
 
+                let mesh_vertex_coordinate_converter =
+                    convert_coordinates.mesh_vertex_hierarchy_converter();
+
                 // Read vertex attributes
                 for (semantic, accessor) in primitive.attributes() {
                     if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
@@ -803,7 +828,7 @@ impl GltfLoader {
                         accessor,
                         buffer_data,
                         &loader.custom_vertex_attributes,
-                        convert_coordinates.rotate_meshes,
+                        mesh_vertex_coordinate_converter,
                     ) {
                         Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                         Err(err) => warn!("{}", err),
@@ -827,7 +852,7 @@ impl GltfLoader {
                         mesh.set_morph_targets(
                             morph_target_reader
                                 .flat_map(|i| PrimitiveMorphAttributesIter {
-                                    convert_coordinates: convert_coordinates.rotate_meshes,
+                                    convert_coordinates: mesh_vertex_coordinate_converter,
                                     positions: i.0,
                                     normals: i.1,
                                     tangents: i.2,
@@ -932,11 +957,22 @@ impl GltfLoader {
                 let local_to_bone_bind_matrices: Vec<Mat4> = reader
                     .read_inverse_bind_matrices()
                     .map(|mats| {
-                        mats.map(|mat| {
-                            Mat4::from_cols_array_2d(&mat)
-                                * convert_coordinates.mesh_conversion_mat4()
-                        })
-                        .collect()
+                        mats.zip(gltf_skin.joints())
+                            .map(|(mat, node)| {
+                                // The inverse bindpose is a mapping from mesh-space
+                                // to joint-space, so it's affected by the conversion
+                                // of both meshes and joint nodes.
+
+                                let mesh_converter =
+                                    convert_coordinates.mesh_entity_rotation_converter();
+                                let node_converter =
+                                    convert_coordinates.node_rotation_converter(&node);
+
+                                node_converter.matrix().transpose()
+                                    * Mat4::from_cols_array_2d(&mat)
+                                    * mesh_converter.matrix()
+                            })
+                            .collect()
                     })
                     .unwrap_or_else(|| {
                         core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
@@ -1019,7 +1055,7 @@ impl GltfLoader {
                 &node,
                 children,
                 mesh,
-                node_transform(&node),
+                node_transforms[node.index()],
                 skin,
                 node.extras().as_deref().map(GltfExtras::from),
             );
@@ -1052,11 +1088,9 @@ impl GltfLoader {
             let mut entity_to_skin_index_map = EntityHashMap::default();
             let mut scene_load_context = load_context.begin_labeled_asset();
 
-            let world_root_transform = convert_coordinates.scene_conversion_transform();
-
             let world_root_id = world
                 .spawn((
-                    world_root_transform,
+                    Transform::default(),
                     Visibility::default(),
                     Name::new(
                         scene
@@ -1076,6 +1110,7 @@ impl GltfLoader {
                             &mut node_index_to_entity_map,
                             &mut entity_to_skin_index_map,
                             &mut active_camera_found,
+                            &node_transforms,
                             &Transform::default(),
                             #[cfg(feature = "bevy_animation")]
                             &animation_roots,
@@ -1546,16 +1581,17 @@ fn load_node(
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut EntityHashMap<usize>,
     active_camera_found: &mut bool,
+    node_transforms: &[Transform],
     parent_transform: &Transform,
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     textures: &[Handle<Image>],
-    convert_coordinates: &GltfConvertCoordinates,
+    convert_coordinates: &ResolvedConvertCoordinates,
     extensions: &mut [Box<dyn extensions::GltfExtensionHandler>],
     skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = node_transform(gltf_node);
+    let transform = node_transforms[gltf_node.index()];
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
@@ -1689,10 +1725,11 @@ fn load_node(
                 let bounds = primitive.bounding_box();
                 let parent_entity = parent.target_entity();
 
-                // Apply the inverse of the conversion transform that's been
-                // applied to the mesh asset. This preserves the mesh's relation
-                // to the node transform.
-                let mesh_entity_transform = convert_coordinates.mesh_conversion_transform_inverse();
+                let mesh_entity_transform = Transform::from_rotation(
+                    convert_coordinates
+                        .mesh_entity_hierarchy_converter(gltf_node)
+                        .convert_rotation(Quat::IDENTITY),
+                );
 
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
@@ -1719,18 +1756,14 @@ fn load_node(
                     mesh_entity.insert(MeshMorphWeights::Reference(parent_entity));
                 }
 
-                let mut bounds_min = Vec3::from_slice(&bounds.min);
-                let mut bounds_max = Vec3::from_slice(&bounds.max);
+                let aabb = convert_coordinates
+                    .mesh_vertex_hierarchy_converter()
+                    .convert_aabb(Aabb3d::from_min_max(
+                        Vec3::from_slice(&bounds.min),
+                        Vec3::from_slice(&bounds.max),
+                    ));
 
-                if convert_coordinates.rotate_meshes {
-                    let converted_min = bounds_min.convert_coordinates();
-                    let converted_max = bounds_max.convert_coordinates();
-
-                    bounds_min = converted_min.min(converted_max);
-                    bounds_max = converted_min.max(converted_max);
-                }
-
-                mesh_entity.insert(Aabb::from_min_max(bounds_min, bounds_max));
+                mesh_entity.insert(Aabb::from(aabb));
 
                 if let Some(extras) = primitive.extras() {
                     mesh_entity.insert(GltfExtras {
@@ -1869,6 +1902,7 @@ fn load_node(
                 node_index_to_entity_map,
                 entity_to_skin_index_map,
                 active_camera_found,
+                node_transforms,
                 &world_transform,
                 #[cfg(feature = "bevy_animation")]
                 animation_roots,
@@ -2058,7 +2092,7 @@ impl ImageOrPath {
 }
 
 struct PrimitiveMorphAttributesIter<'s> {
-    convert_coordinates: bool,
+    convert_coordinates: HierarchyConverter,
     positions: Option<Iter<'s, [f32; 3]>>,
     normals: Option<Iter<'s, [f32; 3]>>,
     tangents: Option<Iter<'s, [f32; 3]>>,
@@ -2075,25 +2109,23 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
             return None;
         }
 
-        let mut attributes = MorphAttributes {
-            position: position.map(Into::into).unwrap_or(Vec3::ZERO),
-            normal: normal.map(Into::into).unwrap_or(Vec3::ZERO),
-            tangent: tangent.map(Into::into).unwrap_or(Vec3::ZERO),
+        let attributes = MorphAttributes {
+            position: position
+                .map(Vec3::from_array)
+                .map(|p| self.convert_coordinates.convert_translation(p))
+                .unwrap_or(Vec3::ZERO),
+            normal: normal
+                .map(Vec3::from_array)
+                .map(|n| self.convert_coordinates.convert_translation(n))
+                .unwrap_or(Vec3::ZERO),
+            tangent: tangent
+                .map(Vec3::from_array)
+                .map(|t| self.convert_coordinates.convert_translation(t))
+                .unwrap_or(Vec3::ZERO),
             pad_a: 0.0,
             pad_b: 0.0,
             pad_c: 0.0,
         };
-
-        if self.convert_coordinates {
-            attributes = MorphAttributes {
-                position: attributes.position.convert_coordinates(),
-                normal: attributes.normal.convert_coordinates(),
-                tangent: attributes.tangent.convert_coordinates(),
-                pad_a: 0.0,
-                pad_b: 0.0,
-                pad_c: 0.0,
-            }
-        }
 
         Some(attributes)
     }
