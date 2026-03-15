@@ -44,9 +44,9 @@ pub fn extract_text_cursor(
         cursor_style,
     ) in text_node_query.iter()
     {
-        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        // Skip if not visible
+        // Note that `uinode.is_empty()` may be empty when there is no text, but we still want to display the cursor
         if !inherited_visibility.get() {
-            // || uinode.is_empty() {
             continue;
         }
 

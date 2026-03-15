@@ -896,7 +896,6 @@ pub fn extract_text_sections(
     uinode_query: Extract<
         Query<(
             Entity,
-            Option<&EditableText>,
             &ComputedNode,
             &UiGlobalTransform,
             &InheritedVisibility,
@@ -916,7 +915,6 @@ pub fn extract_text_sections(
     let mut camera_mapper = camera_map.get_mapper();
     for (
         entity,
-        _maybe_et,
         uinode,
         transform,
         inherited_visibility,
@@ -1334,8 +1332,7 @@ pub fn extract_text_editable(
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if !inherited_visibility.get() {
-            // || uinode.is_empty() {
+        if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
 

@@ -1,6 +1,6 @@
 use std::hash::BuildHasher;
 
-use crate::{ComputedNode, ComputedUiRenderTargetInfo};
+use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, FixedMeasure, NodeMeasure};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
@@ -33,11 +33,21 @@ pub fn update_editor_system(
         Ref<ComputedUiRenderTargetInfo>,
         &mut EditableText,
         &mut TextLayoutInfo,
+        &mut ContentSize,
         Ref<ComputedNode>,
     )>,
+    rem_size: Res<RemSize>,
 ) {
-    for (text_font, line_height, hinting, target, mut editable_text, mut info, computed_node) in
-        input_field_query.iter_mut()
+    for (
+        text_font,
+        line_height,
+        hinting,
+        target,
+        mut editable_text,
+        mut info,
+        mut content_size,
+        computed_node,
+    ) in input_field_query.iter_mut()
     {
         let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
             continue;
@@ -50,6 +60,10 @@ pub fn update_editor_system(
         let style_set = editable_text.editor.edit_styles();
         style_set.insert(parley::StyleProperty::LineHeight(line_height.eval()));
         style_set.insert(parley::StyleProperty::FontStack(FontStack::Single(family)));
+
+        let logical_viewport_size = target.logical_size();
+        let font_size = text_font.font_size.eval(logical_viewport_size, rem_size.0);
+        style_set.insert(parley::StyleProperty::FontSize(font_size));
 
         if target.is_changed() {
             editable_text.editor.set_scale(target.scale_factor());
@@ -73,6 +87,10 @@ pub fn update_editor_system(
             layout.height() / layout.scale(),
         )
             .into();
+
+        content_size.set(NodeMeasure::Fixed(FixedMeasure {
+            size: info.size * target.scale_factor(),
+        }));
 
         info.glyphs.clear();
         info.run_geometry.clear();
