@@ -725,7 +725,8 @@ pub fn check_visibility(
                 }
 
                 // If outside of the visibility range, cull.
-                if has_visibility_range
+                if !no_cpu_culling_entity
+                    && has_visibility_range
                     && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
                         !visible_entity_ranges.entity_is_in_range_of_view(entity, view)
                     })
