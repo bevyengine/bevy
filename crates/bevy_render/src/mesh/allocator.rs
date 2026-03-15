@@ -635,7 +635,7 @@ impl MeshAllocator {
         self.copy_element_data(
             mesh_id,
             mesh.get_vertex_buffer_size(),
-            |slice| mesh.write_packed_vertex_buffer_data(slice),
+            |slice| mesh.write_packed_vertex_buffer_data_write_only(slice),
             slab_id,
             render_device,
             render_queue,
@@ -702,7 +702,7 @@ impl MeshAllocator {
         &mut self,
         mesh_id: &AssetId<Mesh>,
         len: usize,
-        fill_data: impl Fn(&mut [u8]),
+        fill_data: impl Fn(&mut wgpu::WriteOnly<[u8]>),
         slab_id: SlabId,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
@@ -730,7 +730,7 @@ impl MeshAllocator {
                         allocated_range.allocation.offset as u64 * slot_size,
                         size,
                     ) {
-                        let slice = &mut buffer.as_mut()[..len];
+                        let slice = &mut buffer.slice(0..len);
                         fill_data(slice);
                     }
                 }
@@ -757,8 +757,8 @@ impl MeshAllocator {
                     mapped_at_creation: true,
                 });
                 {
-                    let slice = &mut buffer.slice(..).get_mapped_range_mut()[..len];
-                    fill_data(slice);
+                    let mut buffer_view_mut = buffer.get_mapped_range_mut(..);
+                    fill_data(&mut buffer_view_mut.slice(0..len));
                 }
                 buffer.unmap();
                 large_object_slab.buffer = Some(buffer);

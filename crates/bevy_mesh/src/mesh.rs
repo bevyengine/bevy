@@ -982,6 +982,35 @@ impl Mesh {
             attribute_offset += attribute_size;
         }
     }
+    /// Does the same as [`write_packed_vertex_buffer_data`], but accepts wgpu's
+    /// `WriteOnly`
+    pub fn write_packed_vertex_buffer_data_write_only(
+        &self,
+        slice: &mut wgpu::WriteOnly<'_, [u8]>,
+    ) {
+        let mesh_attributes = self.attributes.as_ref().expect(MESH_EXTRACTED_ERROR);
+
+        let vertex_size = self.get_vertex_size() as usize;
+        let vertex_count = self.count_vertices();
+        // bundle into interleaved buffers
+        let mut attribute_offset = 0;
+        for attribute_data in mesh_attributes.values() {
+            let attribute_size = attribute_data.attribute.format.size() as usize;
+            let attributes_bytes = attribute_data.values.get_bytes();
+            for (vertex_index, attribute_bytes) in attributes_bytes
+                .chunks_exact(attribute_size)
+                .take(vertex_count)
+                .enumerate()
+            {
+                let offset = vertex_index * vertex_size + attribute_offset;
+                slice
+                    .slice(offset..offset + attribute_size)
+                    .copy_from_slice(attribute_bytes);
+            }
+
+            attribute_offset += attribute_size;
+        }
+    }
 
     /// Duplicates the vertex attributes so that no vertices are shared.
     ///
