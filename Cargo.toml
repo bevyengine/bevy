@@ -405,7 +405,7 @@ bevy_log = ["bevy_internal/bevy_log"]
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
 # Headless widget collection for Bevy UI.
-bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
+bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets", "bevy_input_focus"]
 
 # Load and save user preferences
 bevy_settings = ["bevy_internal/bevy_settings"]

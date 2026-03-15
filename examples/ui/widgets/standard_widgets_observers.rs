@@ -6,10 +6,7 @@
 
 use bevy::{
     color::palettes::basic::*,
-    input_focus::{
-        tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
     reflect::Is,
@@ -22,12 +19,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            UiWidgetsPlugins,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, UiWidgetsPlugins, TabNavigationPlugin))
         .insert_resource(DemoWidgetStates { slider_value: 50.0 })
         .add_systems(Startup, setup)
         .add_observer(button_on_interaction::<Add, Pressed>)
@@ -141,6 +133,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
         },
         DemoButton,
         Button,
+        // Hover detection
         Hovered::default(),
         TabIndex(0),
         BorderColor::all(Color::BLACK),
@@ -234,6 +227,7 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
             ..default()
         },
         Name::new("Slider"),
+        // Hover detection
         Hovered::default(),
         DemoSlider,
         Slider::default(),
@@ -344,6 +338,7 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
             ..default()
         },
         Name::new("Checkbox"),
+        // Hover detection
         Hovered::default(),
         DemoCheckbox,
         Checkbox,

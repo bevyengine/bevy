@@ -2,7 +2,12 @@
 use bevy::color::palettes::css::DARK_GRAY;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::YELLOW;
-use bevy::prelude::*;
+use bevy::{
+    picking::hover::Hovered,
+    prelude::*,
+    ui::Pressed,
+    ui_widgets::Button,
+};
 use core::f32::consts::FRAC_PI_8;
 
 fn main() {
@@ -26,26 +31,26 @@ pub struct RotateButton(pub Rot2);
 #[derive(Component)]
 pub struct ScaleButton(pub f32);
 
+/// A button that detects the hover
+#[derive(Component)]
+#[require(Button, Hovered)]
+struct HoverableButton;
+
 /// Marker component so the systems know which entities to translate, rotate and scale
 #[derive(Component)]
 pub struct TargetNode;
 
 /// Handles button interactions
 fn button_system(
-    mut interaction_query: Query<
-        (
-            &Interaction,
-            &mut BackgroundColor,
-            Option<&RotateButton>,
-            Option<&ScaleButton>,
-        ),
-        (Changed<Interaction>, With<Button>),
+    mut buttons: Query<
+        (Has<Pressed>, &Hovered, &mut BackgroundColor, Option<&RotateButton>, Option<&ScaleButton>),
+        (Or<(Changed<Pressed>, Changed<Hovered>)>, With<Button>),
     >,
     mut rotator_query: Query<&mut UiTransform, With<TargetNode>>,
 ) {
-    for (interaction, mut color, maybe_rotate, maybe_scale) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
+    for (pressed, hovered, mut color, maybe_rotate, maybe_scale) in &mut buttons {
+        match (hovered.get(), pressed) {
+            (_, true) => {
                 *color = PRESSED_BUTTON.into();
                 if let Some(step) = maybe_rotate {
                     for mut transform in rotator_query.iter_mut() {
@@ -60,10 +65,10 @@ fn button_system(
                     }
                 }
             }
-            Interaction::Hovered => {
+            (true, false) => {
                 *color = HOVERED_BUTTON.into();
             }
-            Interaction::None => {
+            _ => {
                 *color = NORMAL_BUTTON.into();
             }
         }
@@ -136,7 +141,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     GlobalZIndex(1),
                     children![
                         (
-                            Button,
+                            HoverableButton,
                             Node {
                                 height: px(50),
                                 width: px(50),
@@ -149,7 +154,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             children![(Text::new("<--"), TextColor(Color::BLACK),)]
                         ),
                         (
-                            Button,
+                            HoverableButton,
                             Node {
                                 height: px(50),
                                 width: px(50),
@@ -177,7 +182,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TargetNode,
                     children![
                         (
-                            Button,
+                            HoverableButton,
                             Node {
                                 width: px(80),
                                 height: px(80),
@@ -197,7 +202,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             },
                             children![
                                 (
-                                    Button,
+                                    HoverableButton,
                                     Node {
                                         width: px(80),
                                         height: px(80),
@@ -224,7 +229,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     }
                                 ),
                                 (
-                                    Button,
+                                    HoverableButton,
                                     Node {
                                         width: px(80),
                                         height: px(80),
@@ -241,7 +246,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ]
                         ),
                         (
-                            Button,
+                            HoverableButton,
                             Node {
                                 width: px(80),
                                 height: px(80),
@@ -269,7 +274,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     GlobalZIndex(1),
                     children![
                         (
-                            Button,
+                            HoverableButton,
                             Node {
                                 height: px(50),
                                 width: px(50),
@@ -282,7 +287,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             children![(Text::new("-->"), TextColor(Color::BLACK),)]
                         ),
                         (
-                            Button,
+                            HoverableButton,
                             Node {
                                 height: px(50),
                                 width: px(50),

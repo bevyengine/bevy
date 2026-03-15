@@ -7,7 +7,13 @@
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state, at which point we create
 //! a substate called `IsPaused` to track whether the game is paused or not.
 
-use bevy::{dev_tools::states::*, prelude::*};
+use bevy::{
+    dev_tools::states::*,
+    picking::hover::Hovered,
+    prelude::*,
+    ui::Pressed,
+    ui_widgets::Button,
+};
 
 use ui::*;
 
@@ -62,23 +68,19 @@ fn main() {
 
 fn menu(
     mut next_state: ResMut<NextState<AppState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
+    mut buttons: Query<
+        (Has<Pressed>, &Hovered, &mut BackgroundColor),
+        (Or<(Changed<Pressed>, Changed<Hovered>)>, With<Button>),
     >,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
+    for (pressed, hovered, mut color) in &mut buttons {
+        match (hovered.get(), pressed) {
+            (_, true) => *color = {
                 next_state.set(AppState::InGame);
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-            }
+                PRESSED_BUTTON.into()
+            },
+            (true, false) => *color = HOVERED_BUTTON.into(),
+            _ => *color = NORMAL_BUTTON.into(),
         }
     }
 }
@@ -167,6 +169,8 @@ mod ui {
                 },
                 children![(
                     Button,
+                    // hover detection
+                    Hovered::default(),
                     Node {
                         width: px(150),
                         height: px(65),

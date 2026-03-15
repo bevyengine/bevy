@@ -2,10 +2,7 @@
 
 use bevy::{
     ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
-    input_focus::{
-        tab_navigation::{TabGroup, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::{TabGroup, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
     ui_widgets::{
@@ -15,12 +12,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            ScrollbarPlugin,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, ScrollbarPlugin, TabNavigationPlugin))
         .insert_resource(UiScale(1.25))
         .add_systems(Startup, setup_view_root)
         .add_systems(Update, update_scrollbar_thumb)
@@ -123,6 +115,7 @@ fn scroll_area_demo() -> impl Bundle {
                         border_radius: BorderRadius::all(px(4)),
                         ..default()
                     },
+                    // Hover detection
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
                     CoreScrollbarThumb,
@@ -148,6 +141,7 @@ fn scroll_area_demo() -> impl Bundle {
                         border_radius: BorderRadius::all(px(4)),
                         ..default()
                     },
+                    // Hover detection
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
                     CoreScrollbarThumb,

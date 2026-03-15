@@ -138,10 +138,10 @@ fn main() {
         .add_systems(Update, make_sphere_nonpickable)
         .add_systems(Update, update_radio_buttons)
         .add_systems(Update, handle_lighting_mode_change)
-        .add_systems(Update, widgets::handle_ui_interactions::<LightingMode>)
         .add_systems(Update, reset_sphere_position)
         .add_systems(Update, move_sphere)
         .add_systems(Update, adjust_help_text)
+        .add_observer(widgets::handle_ui_button_interaction_on_click::<LightingMode>)
         .run();
 }
 

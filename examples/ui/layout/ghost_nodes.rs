@@ -15,7 +15,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, button_system)
+        .add_observer(handle_buttons)
         .run();
 }
 
@@ -100,19 +100,20 @@ fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
     )
 }
 
-fn button_system(
-    mut interaction_query: Query<(&Interaction, &ChildOf), (Changed<Interaction>, With<Button>)>,
+fn handle_buttons(
+    click: On<Pointer<Click>>,
+    mut button_query: Query<&ChildOf, With<Button>>,
     labels_query: Query<(&Children, &ChildOf), With<Button>>,
     mut text_query: Query<&mut Text>,
     mut counter_query: Query<&mut Counter>,
 ) {
+    let Ok(child_of) = button_query.get(click.event_target()) else {
+        return;
+    };
+
     // Update parent counter on click
-    for (interaction, child_of) in &mut interaction_query {
-        if matches!(interaction, Interaction::Pressed) {
-            let mut counter = counter_query.get_mut(child_of.parent()).unwrap();
-            counter.0 += 1;
-        }
-    }
+    let mut counter = counter_query.get_mut(child_of.parent()).unwrap();
+    counter.0 += 1;
 
     // Update button labels to match their parent counter
     for (children, child_of) in &labels_query {

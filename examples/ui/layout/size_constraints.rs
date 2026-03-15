@@ -1,6 +1,12 @@
 //! Demonstrates how the to use the size constraints to control the size of a UI node.
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{
+    color::palettes::css::*,
+    picking::hover::Hovered,
+    prelude::*,
+    ui::Pressed,
+    ui_widgets::Button,
+};
 
 fn main() {
     App::new()
@@ -214,6 +220,8 @@ fn spawn_button(
     parent
         .spawn((
             Button,
+            // detect the hover
+            Hovered::default(),
             Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -257,18 +265,18 @@ fn spawn_button(
 }
 
 fn update_buttons(
-    mut button_query: Query<
-        (Entity, &Interaction, &Constraint, &ButtonValue),
-        Changed<Interaction>,
+    mut buttons: Query<
+        (Entity, Has<Pressed>, &Hovered, &Constraint, &ButtonValue),
+        (Or<(Changed<Pressed>, Changed<Hovered>)>, With<Button>),
     >,
     mut bar_node: Single<&mut Node, With<Bar>>,
     mut text_query: Query<&mut TextColor>,
     children_query: Query<&Children>,
     mut button_activated_writer: MessageWriter<ButtonActivated>,
 ) {
-    for (button_id, interaction, constraint, value) in button_query.iter_mut() {
-        match interaction {
-            Interaction::Pressed => {
+    for (button_id, pressed, hovered, constraint, value) in &mut buttons {
+        match (hovered.get(), pressed) {
+            (_, true) => {
                 button_activated_writer.write(ButtonActivated(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
@@ -285,7 +293,7 @@ fn update_buttons(
                     }
                 }
             }
-            Interaction::Hovered => {
+            (true, false) => {
                 if let Ok(children) = children_query.get(button_id) {
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
@@ -300,7 +308,7 @@ fn update_buttons(
                     }
                 }
             }
-            Interaction::None => {
+            _ => {
                 if let Ok(children) = children_query.get(button_id) {
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
@@ -321,7 +329,7 @@ fn update_buttons(
 
 fn update_radio_buttons_colors(
     mut button_activated_reader: MessageReader<ButtonActivated>,
-    button_query: Query<(Entity, &Constraint, &Interaction)>,
+    button_query: Query<(Entity, &Constraint, &Hovered), With<Button>>,
     mut border_query: Query<&mut BorderColor>,
     mut color_query: Query<&mut BackgroundColor>,
     mut text_query: Query<&mut TextColor>,
@@ -329,7 +337,7 @@ fn update_radio_buttons_colors(
 ) {
     for &ButtonActivated(button_id) in button_activated_reader.read() {
         let (_, target_constraint, _) = button_query.get(button_id).unwrap();
-        for (id, constraint, interaction) in button_query.iter() {
+        for (id, constraint, hovered) in button_query.iter() {
             if target_constraint == constraint {
                 let (border_color, inner_color, label_color) = if id == button_id {
                     (ACTIVE_BORDER_COLOR, ACTIVE_INNER_COLOR, ACTIVE_TEXT_COLOR)
@@ -337,7 +345,7 @@ fn update_radio_buttons_colors(
                     (
                         INACTIVE_BORDER_COLOR,
                         INACTIVE_INNER_COLOR,
-                        if matches!(interaction, Interaction::Hovered) {
+                        if hovered.get() {
                             HOVERED_TEXT_COLOR
                         } else {
                             UNHOVERED_TEXT_COLOR

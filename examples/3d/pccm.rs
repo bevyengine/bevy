@@ -65,12 +65,15 @@ fn main() {
         .init_resource::<AppStatus>()
         .add_message::<WidgetClickEvent<PccmEnableStatus>>()
         .add_systems(Startup, setup)
-        .add_systems(Update, widgets::handle_ui_interactions::<PccmEnableStatus>)
         .add_systems(
             Update,
-            (handle_pccm_enable_change, update_radio_buttons)
-                .after(widgets::handle_ui_interactions::<PccmEnableStatus>),
+            (
+                handle_pccm_enable_change,
+                update_radio_buttons.run_if(resource_changed::<AppStatus>),
+            )
+                .chain(),
         )
+        .add_observer(widgets::handle_ui_button_interaction_on_click::<PccmEnableStatus>)
         .run();
 }
 

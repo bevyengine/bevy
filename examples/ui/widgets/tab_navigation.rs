@@ -4,16 +4,23 @@ use bevy::{
     color::palettes::basic::*,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin, InputFocus,
+        InputFocus,
     },
+    picking::hover::Hovered,
     prelude::*,
+    reflect::Is,
+    ui::Pressed,
+    ui_widgets::Button,
 };
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, InputDispatchPlugin, TabNavigationPlugin))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
-        .add_systems(Update, (button_system, focus_system))
+        .add_systems(Update, focus_system)
+        .add_observer(button_on_interaction::<Add, Pressed>)
+        .add_observer(button_on_interaction::<Remove, Pressed>)
+        .add_observer(button_on_interaction::<Insert, Hovered>)
         .run();
 }
 
@@ -21,23 +28,26 @@ const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
-fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &mut BorderColor),
-        (Changed<Interaction>, With<Button>),
+fn button_on_interaction<E: EntityEvent, C: Component>(
+    event: On<E, C>,
+    mut button_query: Query<
+        (&Hovered, Has<Pressed>, &mut BackgroundColor, &mut BorderColor),
+        With<Button>
     >,
 ) {
-    for (interaction, mut color, mut border_color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
+    if let Ok((hovered, pressed, mut color, mut border_color)) = button_query.get_mut(event.event_target()) {
+        let hovered = hovered.get();
+        let pressed = pressed && !(E::is::<Remove>() && C::is::<Pressed>());
+        match (hovered, pressed) {
+            (true, true) => {
                 *color = PRESSED_BUTTON.into();
                 *border_color = BorderColor::all(RED);
             }
-            Interaction::Hovered => {
+            (true, false) => {
                 *color = HOVERED_BUTTON.into();
                 *border_color = BorderColor::all(Color::WHITE);
             }
-            Interaction::None => {
+            (false, _) => {
                 *color = NORMAL_BUTTON.into();
                 *border_color = BorderColor::all(Color::BLACK);
             }
@@ -116,6 +126,8 @@ fn setup(mut commands: Commands) {
                             parent
                                 .spawn((
                                     Button,
+                                    // detect the hover
+                                    Hovered::default(),
                                     Node {
                                         width: px(200),
                                         height: px(65),

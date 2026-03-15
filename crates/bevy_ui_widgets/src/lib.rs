@@ -42,13 +42,14 @@ use crate::popover::PopoverPlugin;
 
 /// A plugin group that registers the observers for all of the widgets in this crate. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
+/// [`button::UiWidgetsButtonPlugin`] is part of [`DefaultPlugins`].
+#[derive(Default)]
 pub struct UiWidgetsPlugins;
 
 impl PluginGroup for UiWidgetsPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(PopoverPlugin)
-            .add(ButtonPlugin)
             .add(CheckboxPlugin)
             .add(MenuPlugin)
             .add(RadioGroupPlugin)

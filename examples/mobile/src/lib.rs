@@ -5,6 +5,9 @@ use bevy::{
     input::{gestures::RotationGesture, touch::TouchPhase},
     log::{Level, LogPlugin},
     prelude::*,
+    reflect::Is,
+    ui::Pressed,
+    ui_widgets::Button,
     window::{AppLifecycle, ScreenEdge, WindowMode},
     winit::WinitSettings,
 };
@@ -49,12 +52,13 @@ pub fn main() {
         Update,
         (
             touch_camera,
-            button_handler,
             // Only run the lifetime handler when an [`AudioSink`] component exists in the world.
             // This ensures we don't try to manage audio that hasn't been initialized yet.
             handle_lifetime.run_if(any_with_component::<AudioSink>),
         ),
     )
+    .add_observer(button_on_interaction::<Add, Pressed>)
+    .add_observer(button_on_interaction::<Remove, Pressed>)
     .run();
 }
 
@@ -162,23 +166,15 @@ fn setup_scene(
         ));
 }
 
-fn button_handler(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
-    >,
+fn button_on_interaction<E: EntityEvent, C: Component>(
+    event: On<E, C>,
+    mut button_query: Query<(Has<Pressed>, &mut BackgroundColor), With<Button>>,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = BLUE.into();
-            }
-            Interaction::Hovered => {
-                *color = GRAY.into();
-            }
-            Interaction::None => {
-                *color = WHITE.into();
-            }
+    if let Ok((pressed, mut color)) = button_query.get_mut(event.event_target()) {
+        let pressed = pressed && !(E::is::<Remove>() && C::is::<Pressed>());
+        *color = match pressed {
+            true => BLUE.into(),
+            false => WHITE.into(),
         }
     }
 }

@@ -13,7 +13,14 @@
 
 use std::marker::PhantomData;
 
-use bevy::{dev_tools::states::*, ecs::schedule::ScheduleLabel, prelude::*};
+use bevy::{
+    dev_tools::states::*,
+    ecs::schedule::ScheduleLabel,
+    picking::hover::Hovered,
+    prelude::*,
+    ui::Pressed,
+    ui_widgets::Button,
+};
 
 use custom_transitions::*;
 
@@ -141,23 +148,19 @@ mod custom_transitions {
 
 fn menu(
     mut next_state: ResMut<NextState<AppState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
+    mut buttons: Query<
+        (Has<Pressed>, &Hovered, &mut BackgroundColor),
+        (Or<(Changed<Pressed>, Changed<Hovered>)>, With<Button>),
     >,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
+    for (pressed, hovered, mut color) in &mut buttons {
+        match (hovered.get(), pressed) {
+            (_, true) => *color = {
                 next_state.set(AppState::InGame);
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-            }
+                PRESSED_BUTTON.into()
+            },
+            (true, false) => *color = HOVERED_BUTTON.into(),
+            _ => *color = NORMAL_BUTTON.into(),
         }
     }
 }
@@ -254,6 +257,8 @@ fn setup_menu(mut commands: Commands) {
             },
             children![(
                 Button,
+                // hover detection
+                Hovered::default(),
                 Node {
                     width: px(150),
                     height: px(65),

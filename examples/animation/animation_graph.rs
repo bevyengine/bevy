@@ -9,7 +9,8 @@ use bevy::{
         css::{ANTIQUE_WHITE, DARK_GREEN},
     },
     prelude::*,
-    ui::RelativeCursorPosition,
+    ui::{Pressed, RelativeCursorPosition},
+    ui_widgets::Button,
 };
 
 use argh::FromArgs;
@@ -307,7 +308,7 @@ fn setup_node_rects(commands: &mut Commands) {
 
             if let NodeType::Clip(clip) = node_type {
                 container.insert((
-                    Interaction::None,
+                    Button,
                     RelativeCursorPosition::default(),
                     (*clip).clone(),
                 ));
@@ -402,14 +403,10 @@ fn init_animations(
 /// Read cursor position relative to clip nodes, allowing the user to change weights
 /// when dragging the node UI widgets.
 fn handle_weight_drag(
-    mut interaction_query: Query<(&Interaction, &RelativeCursorPosition, &ClipNode)>,
+    mut pressed_query: Query<(&RelativeCursorPosition, &ClipNode), With<Pressed>>,
     mut animation_weights_query: Query<&mut ExampleAnimationWeights>,
 ) {
-    for (interaction, relative_cursor, clip_node) in &mut interaction_query {
-        if !matches!(*interaction, Interaction::Pressed) {
-            continue;
-        }
-
+    for (relative_cursor, clip_node) in &mut pressed_query {
         let Some(pos) = relative_cursor.normalized else {
             continue;
         };

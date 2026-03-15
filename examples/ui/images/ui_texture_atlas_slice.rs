@@ -3,40 +3,45 @@
 
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
+    picking::hover::Hovered,
     prelude::*,
-    ui::widget::NodeImageMode,
+    reflect::Is,
+    ui::{widget::NodeImageMode, Pressed},
+    ui_widgets::Button,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, button_system)
+        .add_observer(button_on_interaction::<Add, Pressed>)
+        .add_observer(button_on_interaction::<Remove, Pressed>)
+        .add_observer(button_on_interaction::<Insert, Hovered>)
         .run();
 }
 
-fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &Children, &mut ImageNode),
-        (Changed<Interaction>, With<Button>),
-    >,
+fn button_on_interaction<E: EntityEvent, C: Component>(
+    event: On<E, C>,
+    mut buttons: Query<(&Hovered, Has<Pressed>, &Children, &mut ImageNode), With<Button>>,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, children, mut image) in &mut interaction_query {
+    if let Ok((hovered, pressed, children, mut image)) = buttons.get_mut(event.event_target()) {
         let mut text = text_query.get_mut(children[0]).unwrap();
-        match *interaction {
-            Interaction::Pressed => {
+        let hovered = hovered.get();
+        let pressed = pressed && !(E::is::<Remove>() && C::is::<Pressed>());
+        match (hovered, pressed) {
+            (true, true) => {
                 **text = "Press".to_string();
                 if let Some(atlas) = &mut image.texture_atlas {
                     atlas.index = (atlas.index + 1) % 30;
                 }
                 image.color = GOLD.into();
             }
-            Interaction::Hovered => {
+            (true, false) => {
                 **text = "Hover".to_string();
                 image.color = ORANGE.into();
             }
-            Interaction::None => {
+            (false, _) => {
                 **text = "Button".to_string();
                 image.color = Color::WHITE;
             }
@@ -79,6 +84,8 @@ fn setup(
                 parent
                     .spawn((
                         Button,
+                        // detect the hover
+                        Hovered::default(),
                         ImageNode::from_atlas_image(
                             texture_handle.clone(),
                             TextureAtlas {

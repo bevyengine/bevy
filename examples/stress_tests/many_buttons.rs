@@ -4,6 +4,7 @@ use argh::FromArgs;
 use bevy::{
     color::palettes::css::ORANGE_RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    picking::hover::Hovered,
     prelude::*,
     text::TextColor,
     window::{PresentMode, WindowResolution},
@@ -136,16 +137,17 @@ fn set_text_colors_changed(mut colors: Query<&mut TextColor>) {
 struct IdleColor(Color);
 
 fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &IdleColor),
-        Changed<Interaction>,
+    mut button_query: Query<
+        (&Hovered, &mut BackgroundColor, &IdleColor),
+        (Changed<Hovered>, With<Button>),
     >,
 ) {
-    for (interaction, mut color, &IdleColor(idle_color)) in interaction_query.iter_mut() {
-        *color = match interaction {
-            Interaction::Hovered => ORANGE_RED.into(),
-            _ => idle_color.into(),
-        };
+    for (hovered, mut color, &IdleColor(idle_color)) in button_query.iter_mut() {
+        if hovered.get() {
+            *color = ORANGE_RED.into();
+        } else {
+            *color = idle_color.into();
+        }
     }
 }
 
@@ -276,6 +278,8 @@ fn spawn_button(
     let margin = UiRect::axes(width * 0.05, height * 0.05);
     let mut builder = commands.spawn((
         Button,
+        // This is to detect the hover
+        Hovered::default(),
         Node {
             width,
             height,
