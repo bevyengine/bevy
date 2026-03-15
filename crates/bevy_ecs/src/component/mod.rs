@@ -445,6 +445,28 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 ///
 /// ```
 ///
+/// # Run a system when this component is added
+///
+/// A very common case is to have a marker component defining some entity "prototype" and then
+/// attaching a world `On<Add, MyComponent>` observer to load assets, insert components, or attach
+/// other observers.
+///
+/// As an ergonomic shorthand for this pattern, you can declare a setup system that will be run
+/// any time this component gets added to an entity.
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Component)]
+/// #[setup(say_hello)]
+/// struct HelloComponent;
+///
+/// fn say_hello(In(entity): In<Entity>) {
+///     println!("Hello from {entity}!");
+/// }
+/// ```
+/// This is essentially an alternative to the `on_add` hook that gives you full access to
+/// regular system semantics, and in fact is implemented using the `on_add` hook!
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.

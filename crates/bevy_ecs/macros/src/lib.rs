@@ -691,6 +691,14 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 /// When `allow_self_referential` is enabled, be careful when using recursive traversal methods
 /// like `iter_ancestors` or `root_ancestor`, as they will loop infinitely if an entity points to itself.
 ///
+/// ## Setup
+/// ```ignore
+/// #[derive(Component)]
+/// #[setup(function)]
+/// struct MyComponent;
+/// ```
+/// where `function` is a path to a system that accepts `In<Entity>`.
+///
 /// ## Hooks
 /// ```ignore
 /// #[derive(Component)]
@@ -711,7 +719,7 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_derive(
     Component,
-    attributes(component, require, relationship, relationship_target, entities)
+    attributes(component, require, setup, relationship, relationship_target, entities)
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
