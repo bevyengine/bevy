@@ -62,6 +62,7 @@ pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
+pub mod uniform;
 pub mod view;
 
 /// The render prelude.
