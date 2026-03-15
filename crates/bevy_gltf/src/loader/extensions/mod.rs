@@ -373,16 +373,16 @@ pub trait ErasedGltfExtensionHandler: Send + Sync + 'static {
 
 impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
     fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
-        <H as GltfExtensionHandler>::dyn_clone(self)
+        Self::dyn_clone(self)
     }
 
     fn on_root(&mut self, load_context: &mut LoadContext<'_>, gltf: &gltf::Gltf) {
-        <H as GltfExtensionHandler>::on_root(self, load_context, gltf);
+        Self::on_root(self, load_context, gltf);
     }
 
     #[cfg(feature = "bevy_animation")]
     fn on_animation(&mut self, gltf_animation: &gltf::Animation, handle: Handle<AnimationClip>) {
-        <H as GltfExtensionHandler>::on_animation(self, gltf_animation, handle);
+        Self::on_animation(self, gltf_animation, handle);
     }
 
     #[cfg(feature = "bevy_animation")]
@@ -393,7 +393,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         named_animations: &HashMap<Box<str>, Handle<AnimationClip>>,
         animation_roots: &HashSet<usize>,
     ) {
-        <H as GltfExtensionHandler>::on_animations_collected(
+        Self::on_animations_collected(
             self,
             load_context,
             animations,
@@ -403,7 +403,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
     }
 
     fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<bevy_image::Image>) {
-        <H as GltfExtensionHandler>::on_texture(self, gltf_texture, texture);
+        Self::on_texture(self, gltf_texture, texture);
     }
 
     fn on_material(
@@ -414,7 +414,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         material_asset: &GltfMaterial,
         material_label: &str,
     ) {
-        <H as GltfExtensionHandler>::on_material(
+        Self::on_material(
             self,
             load_context,
             gltf_material,
@@ -434,7 +434,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         out_data: &'a mut Option<Vec<Vec<u8>>>,
     ) -> BoxedFuture<'a, ()> {
         Box::pin(async move {
-            <H as GltfExtensionHandler>::on_gltf_primitive(
+            Self::on_gltf_primitive(
                 self,
                 load_context,
                 gltf_document,
@@ -453,7 +453,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         gltf_mesh: &gltf::Mesh,
         mesh: Handle<GltfMesh>,
     ) {
-        <H as GltfExtensionHandler>::on_gltf_mesh(self, load_context, gltf_mesh, mesh);
+        Self::on_gltf_mesh(self, load_context, gltf_mesh, mesh);
     }
 
     fn on_spawn_mesh_and_material(
@@ -465,7 +465,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         entity: &mut EntityWorldMut,
         material_label: &str,
     ) {
-        <H as GltfExtensionHandler>::on_spawn_mesh_and_material(
+        Self::on_spawn_mesh_and_material(
             self,
             load_context,
             primitive,
@@ -483,13 +483,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         world_root_id: Entity,
         scene_world: &mut World,
     ) {
-        <H as GltfExtensionHandler>::on_scene_completed(
-            self,
-            load_context,
-            scene,
-            world_root_id,
-            scene_world,
-        );
+        Self::on_scene_completed(self, load_context, scene, world_root_id, scene_world);
     }
 
     fn on_gltf_node(
@@ -498,7 +492,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         gltf_node: &Node,
         entity: &mut EntityWorldMut,
     ) {
-        <H as GltfExtensionHandler>::on_gltf_node(self, load_context, gltf_node, entity);
+        Self::on_gltf_node(self, load_context, gltf_node, entity);
     }
 
     fn on_spawn_light_directional(
@@ -507,12 +501,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         gltf_node: &Node,
         entity: &mut EntityWorldMut,
     ) {
-        <H as GltfExtensionHandler>::on_spawn_light_directional(
-            self,
-            load_context,
-            gltf_node,
-            entity,
-        );
+        Self::on_spawn_light_directional(self, load_context, gltf_node, entity);
     }
 
     fn on_spawn_light_point(
@@ -521,7 +510,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         gltf_node: &Node,
         entity: &mut EntityWorldMut,
     ) {
-        <H as GltfExtensionHandler>::on_spawn_light_point(self, load_context, gltf_node, entity);
+        Self::on_spawn_light_point(self, load_context, gltf_node, entity);
     }
 
     fn on_spawn_light_spot(
@@ -530,7 +519,7 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         gltf_node: &Node,
         entity: &mut EntityWorldMut,
     ) {
-        <H as GltfExtensionHandler>::on_spawn_light_spot(self, load_context, gltf_node, entity);
+        Self::on_spawn_light_spot(self, load_context, gltf_node, entity);
     }
 }
 
