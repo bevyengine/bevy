@@ -112,7 +112,7 @@ pub struct EditableText {
     ///
     /// Analogous to [`ComputedTextBlock::needs_rerender`](crate::ComputedTextBlock::needs_rerender).
     pub(crate) needs_rerender: bool,
-    /// cursor width
+    /// cursor width, relative to font size
     pub cursor_width: f32,
 }
 
@@ -123,7 +123,7 @@ impl Default for EditableText {
             editor: PlainEditor::new(100.),
             pending_edits: VecDeque::new(),
             needs_rerender: true,
-            cursor_width: 20.0,
+            cursor_width: 0.2,
         }
     }
 }

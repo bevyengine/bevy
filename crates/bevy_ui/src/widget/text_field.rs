@@ -177,7 +177,7 @@ pub fn update_editor_system(
                         });
                     }
                     PositionedLayoutItem::InlineBox(_inline) => {
-                        // TODO: handle inline
+                        // TODO: handle inline boxes
                     }
                 }
             }
@@ -185,7 +185,7 @@ pub fn update_editor_system(
 
         let geom = editable_text
             .editor
-            .cursor_geometry(editable_text.cursor_width);
+            .cursor_geometry(editable_text.cursor_width * font_size);
 
         info.cursor = geom.map(bounding_box_to_rect);
 
