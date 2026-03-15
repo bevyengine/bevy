@@ -112,6 +112,7 @@ pub(crate) async fn create_raw_device(
         };
         let open_device = raw_adapter.open_with_callback(
             device_descriptor.required_features,
+            &adapter.limits(),
             &device_descriptor.memory_hints,
             Some(Box::new(|mut args| {
                 for callback in &settings.create_device_callbacks {
