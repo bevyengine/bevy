@@ -167,7 +167,7 @@ fn spawn_cars(
                     make_wheel(-1.0, -1.0)
                 ],
             ))
-            .insert_if(CameraTracked, || i == 0);
+            .insert_if(CameraTracked, i == 0);
     }
 }
 

@@ -256,7 +256,7 @@ fn setup_many_lights(
                 ..default()
             })),
         ))
-        .insert_if(Mesh3d(plane_mesh), || args.pathtracer != Some(true));
+        .insert_if(Mesh3d(plane_mesh), args.pathtracer != Some(true));
 
     for _ in 0..8000 {
         commands
@@ -279,7 +279,7 @@ fn setup_many_lights(
                         rng.random_range(-180.0..=180.0),
                     )),
             ))
-            .insert_if(Mesh3d(cube_mesh.clone()), || args.pathtracer != Some(true));
+            .insert_if(Mesh3d(cube_mesh.clone()), args.pathtracer != Some(true));
     }
 
     for x in -10..=10 {
@@ -304,7 +304,7 @@ fn setup_many_lights(
                         (y * 20) as f32,
                     )),
                 ))
-                .insert_if(Mesh3d(sphere_mesh.clone()), || {
+                .insert_if(Mesh3d(sphere_mesh.clone()), {
                     args.pathtracer != Some(true)
                 });
         }

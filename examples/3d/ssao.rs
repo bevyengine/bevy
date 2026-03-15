@@ -114,35 +114,35 @@ fn update(
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
                 ..current_ssao
             },
-            || keycode.just_pressed(KeyCode::Digit2),
+            keycode.just_pressed(KeyCode::Digit2),
         )
         .insert_if(
             ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium,
                 ..current_ssao
             },
-            || keycode.just_pressed(KeyCode::Digit3),
+            keycode.just_pressed(KeyCode::Digit3),
         )
         .insert_if(
             ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
                 ..current_ssao
             },
-            || keycode.just_pressed(KeyCode::Digit4),
+            keycode.just_pressed(KeyCode::Digit4),
         )
         .insert_if(
             ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
                 ..current_ssao
             },
-            || keycode.just_pressed(KeyCode::Digit5),
+            keycode.just_pressed(KeyCode::Digit5),
         )
         .insert_if(
             ScreenSpaceAmbientOcclusion {
                 constant_object_thickness: (current_ssao.constant_object_thickness * 2.0).min(4.0),
                 ..current_ssao
             },
-            || keycode.just_pressed(KeyCode::ArrowUp),
+            keycode.just_pressed(KeyCode::ArrowUp),
         )
         .insert_if(
             ScreenSpaceAmbientOcclusion {
@@ -150,7 +150,7 @@ fn update(
                     .max(0.0625),
                 ..current_ssao
             },
-            || keycode.just_pressed(KeyCode::ArrowDown),
+            keycode.just_pressed(KeyCode::ArrowDown),
         );
     if keycode.just_pressed(KeyCode::Digit1) {
         commands.remove::<ScreenSpaceAmbientOcclusion>();

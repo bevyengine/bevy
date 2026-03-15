@@ -1,4 +1,5 @@
 pub mod command;
+pub mod condition;
 pub mod entity_command;
 
 #[cfg(feature = "std")]
@@ -6,6 +7,7 @@ mod parallel_scope;
 
 use bevy_ptr::move_as_ptr;
 pub use command::Command;
+pub use condition::CommandCondition;
 pub use entity_command::EntityCommand;
 
 #[cfg(feature = "std")]
@@ -1431,17 +1433,18 @@ impl<'a> EntityCommands<'a> {
     /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) {
     ///     commands
     ///         .entity(player.entity)
-    ///         .insert_if(Health(10), || !player.is_spectator())
+    ///         .insert_if(Health(10), !player.is_spectator())
     ///         .remove::<StillLoadingStats>();
     /// }
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
     #[track_caller]
-    pub fn insert_if<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
-    where
-        F: FnOnce() -> bool,
-    {
-        if condition() {
+    pub fn insert_if(
+        &mut self,
+        bundle: impl Bundle,
+        condition: impl CommandCondition,
+    ) -> &mut Self {
+        if condition.evaluate() {
             self.insert(bundle)
         } else {
             self
@@ -1466,11 +1469,12 @@ impl<'a> EntityCommands<'a> {
     /// This is the same as [`EntityCommands::insert_if`], but in case of duplicate
     /// components will leave the old values instead of replacing them with new ones.
     #[track_caller]
-    pub fn insert_if_new_and<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
-    where
-        F: FnOnce() -> bool,
-    {
-        if condition() {
+    pub fn insert_if_new_and(
+        &mut self,
+        bundle: impl Bundle,
+        condition: impl CommandCondition,
+    ) -> &mut Self {
+        if condition.evaluate() {
             self.insert_if_new(bundle)
         } else {
             self
@@ -1590,11 +1594,12 @@ impl<'a> EntityCommands<'a> {
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn try_insert_if<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
-    where
-        F: FnOnce() -> bool,
-    {
-        if condition() {
+    pub fn try_insert_if(
+        &mut self,
+        bundle: impl Bundle,
+        condition: impl CommandCondition,
+    ) -> &mut Self {
+        if condition.evaluate() {
             self.try_insert(bundle)
         } else {
             self
@@ -1612,11 +1617,12 @@ impl<'a> EntityCommands<'a> {
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn try_insert_if_new_and<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
-    where
-        F: FnOnce() -> bool,
-    {
-        if condition() {
+    pub fn try_insert_if_new_and(
+        &mut self,
+        bundle: impl Bundle,
+        condition: impl CommandCondition,
+    ) -> &mut Self {
+        if condition.evaluate() {
             self.try_insert_if_new(bundle)
         } else {
             self
@@ -1708,13 +1714,13 @@ impl<'a> EntityCommands<'a> {
     /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
     ///     commands
     ///         .entity(player.entity)
-    ///         .remove_if::<(Defense, CombatBundle)>(|| !player.is_spectator());
+    ///         .remove_if::<(Defense, CombatBundle)>(!player.is_spectator());
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
     #[track_caller]
-    pub fn remove_if<B: Bundle>(&mut self, condition: impl FnOnce() -> bool) -> &mut Self {
-        if condition() {
+    pub fn remove_if<B: Bundle>(&mut self, condition: impl CommandCondition) -> &mut Self {
+        if condition.evaluate() {
             self.remove::<B>()
         } else {
             self
@@ -1730,8 +1736,8 @@ impl<'a> EntityCommands<'a> {
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn try_remove_if<B: Bundle>(&mut self, condition: impl FnOnce() -> bool) -> &mut Self {
-        if condition() {
+    pub fn try_remove_if<B: Bundle>(&mut self, condition: impl CommandCondition) -> &mut Self {
+        if condition.evaluate() {
             self.try_remove::<B>()
         } else {
             self
@@ -2629,13 +2635,13 @@ mod tests {
         // insert components
         let entity = Commands::new(&mut command_queue1, &world)
             .spawn(())
-            .insert_if(W(1u8), || true)
-            .insert_if(W(2u8), || false)
+            .insert_if(W(1u8), true)
+            .insert_if(W(2u8), false)
             .insert_if_new(W(1u16))
             .insert_if_new(W(2u16))
-            .insert_if_new_and(W(1u32), || false)
-            .insert_if_new_and(W(2u32), || true)
-            .insert_if_new_and(W(3u32), || true)
+            .insert_if_new_and(W(1u32), false)
+            .insert_if_new_and(W(2u32), true)
+            .insert_if_new_and(W(3u32), true)
             .id();
         command_queue1.apply(&mut world);
 
@@ -2650,7 +2656,7 @@ mod tests {
         // in another command queue
         Commands::new(&mut command_queue1, &world)
             .entity(entity)
-            .try_insert_if_new_and(W(1u64), || true);
+            .try_insert_if_new_and(W(1u64), true);
 
         let mut command_queue2 = CommandQueue::default();
         Commands::new(&mut command_queue2, &world)
