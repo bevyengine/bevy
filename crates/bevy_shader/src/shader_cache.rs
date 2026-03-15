@@ -492,7 +492,7 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
     );
     capabilities.set(
         Capabilities::PRIMITIVE_INDEX,
-        features.contains(Features::SHADER_PRIMITIVE_INDEX),
+        features.contains(Features::PRIMITIVE_INDEX),
     );
     capabilities.set(
         Capabilities::TEXTURE_AND_SAMPLER_BINDING_ARRAY,

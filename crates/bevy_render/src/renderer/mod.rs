@@ -23,7 +23,8 @@ use bevy_log::{debug, info, info_span, warn};
 use bevy_render::camera::ExtractedCamera;
 use bevy_window::RawHandleWrapperHolder;
 use wgpu::{
-    Adapter, AdapterInfo, Backends, DeviceType, Instance, Queue, RequestAdapterOptions, Trace,
+    Adapter, AdapterInfo, Backends, DeviceType, ForceShaderModelToken, Instance, Queue,
+    RequestAdapterOptions, Trace,
 };
 
 /// Schedule label for the root render graph schedule. This schedule runs once per frame
@@ -185,28 +186,31 @@ pub async fn initialize_renderer(
         backends,
         flags: options.instance_flags,
         memory_budget_thresholds: options.instance_memory_budget_thresholds,
+        display: None,
         backend_options: wgpu::BackendOptions {
             gl: wgpu::GlBackendOptions {
                 gles_minor_version: options.gles3_minor_version,
                 fence_behavior: wgpu::GlFenceBehavior::Normal,
+                debug_fns: wgpu::GlDebugFns::Auto,
             },
             dx12: wgpu::Dx12BackendOptions {
                 shader_compiler: options.dx12_shader_compiler.clone(),
                 presentation_system: wgpu::wgt::Dx12SwapchainKind::from_env().unwrap_or_default(),
                 latency_waitable_object: wgpu::wgt::Dx12UseFrameLatencyWaitableObject::from_env()
                     .unwrap_or_default(),
+                force_shader_model: ForceShaderModelToken::default(),
             },
             noop: wgpu::NoopBackendOptions { enable: false },
         },
     };
 
     #[cfg(not(feature = "raw_vulkan_init"))]
-    let instance = Instance::new(&instance_descriptor);
+    let instance = Instance::new(instance_descriptor);
     #[cfg(feature = "raw_vulkan_init")]
     let mut additional_vulkan_features = raw_vulkan_init::AdditionalVulkanFeatures::default();
     #[cfg(feature = "raw_vulkan_init")]
     let instance = raw_vulkan_init::create_raw_vulkan_instance(
-        &instance_descriptor,
+        instance_descriptor,
         &raw_vulkan_init_settings,
         &mut additional_vulkan_features,
     );
@@ -383,9 +387,9 @@ pub async fn initialize_renderer(
             min_storage_buffer_offset_alignment: limits
                 .min_storage_buffer_offset_alignment
                 .max(constrained_limits.min_storage_buffer_offset_alignment),
-            max_inter_stage_shader_components: limits
-                .max_inter_stage_shader_components
-                .min(constrained_limits.max_inter_stage_shader_components),
+            max_inter_stage_shader_variables: limits
+                .max_inter_stage_shader_variables
+                .min(constrained_limits.max_inter_stage_shader_variables),
             max_compute_workgroup_storage_size: limits
                 .max_compute_workgroup_storage_size
                 .min(constrained_limits.max_compute_workgroup_storage_size),
@@ -467,6 +471,12 @@ pub async fn initialize_renderer(
             max_multiview_view_count: limits
                 .max_multiview_view_count
                 .min(constrained_limits.max_multiview_view_count),
+            max_binding_array_acceleration_structure_elements_per_shader_stage: limits
+                .max_binding_array_acceleration_structure_elements_per_shader_stage
+                .min(
+                    constrained_limits
+                        .max_binding_array_acceleration_structure_elements_per_shader_stage,
+                ),
         };
     }
 

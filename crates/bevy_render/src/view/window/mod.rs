@@ -367,7 +367,7 @@ pub fn create_surfaces(
             .entry(window.entity)
             .or_insert_with(|| {
                 let surface_target = SurfaceTargetUnsafe::RawHandle {
-                    raw_display_handle: window.handle.get_display_handle(),
+                    raw_display_handle: Some(window.handle.get_display_handle()),
                     raw_window_handle: window.handle.get_window_handle(),
                 };
                 // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
