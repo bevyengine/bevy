@@ -848,9 +848,12 @@ pub fn extract_viewport_nodes(
         let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
+        let Some(camera_entity) = viewport_node.camera else {
+            continue;
+        };
 
         let Some(image) = camera_query
-            .get(viewport_node.camera)
+            .get(camera_entity)
             .ok()
             .and_then(|(_, render_target)| render_target.as_image())
         else {
