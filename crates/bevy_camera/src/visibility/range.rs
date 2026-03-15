@@ -10,7 +10,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
-    query::With,
+    query::{With, Without},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
@@ -22,7 +22,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::Parallel;
 
 use super::{check_visibility, VisibilitySystems};
-use crate::{camera::Camera, primitives::Aabb};
+use crate::{camera::Camera, primitives::Aabb, visibility::NoCpuCulling};
 
 /// A plugin that enables [`VisibilityRange`]s, which allow entities to be
 /// hidden or shown based on distance to the camera.
@@ -243,7 +243,10 @@ pub fn check_visibility_ranges(
     mut visible_entity_ranges: ResMut<VisibleEntityRanges>,
     view_query: Query<(Entity, &GlobalTransform), With<Camera>>,
     mut par_local: Local<Parallel<Vec<(Entity, u32)>>>,
-    entity_query: Query<(Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange)>,
+    entity_query: Query<
+        (Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange),
+        Without<NoCpuCulling>,
+    >,
 ) {
     visible_entity_ranges.clear();
 
