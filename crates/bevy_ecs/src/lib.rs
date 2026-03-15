@@ -31,6 +31,7 @@ pub mod batching;
 pub mod bundle;
 pub mod change_detection;
 pub mod component;
+pub mod debug_tag;
 pub mod entity;
 pub mod entity_disabling;
 pub mod error;
@@ -72,6 +73,7 @@ pub mod prelude {
         },
         children,
         component::Component,
+        debug_tag::DebugTag,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
         event::{EntityEvent, Event},
